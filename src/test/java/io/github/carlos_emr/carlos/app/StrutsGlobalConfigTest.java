@@ -15,7 +15,8 @@ package io.github.carlos_emr.carlos.app;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.IOException;
-import java.io.InputStream;
+import java.io.StringReader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
@@ -46,6 +47,7 @@ import org.xml.sax.SAXException;
 @Tag("fast")
 class StrutsGlobalConfigTest {
 
+    private static final String BASEDIR_PROPERTY = "basedir";
     private static final Path STRUTS_XML =
             Path.of("src", "main", "webapp", "WEB-INF", "classes", "struts.xml");
 
@@ -53,7 +55,7 @@ class StrutsGlobalConfigTest {
     @DisplayName("OGNL allowlist should be enabled for CARLOS packages")
     void shouldEnableOgnlAllowlist_forCarlosPackages()
             throws IOException, ParserConfigurationException, SAXException {
-        Map<String, String> constants = collectConstants(parse(STRUTS_XML));
+        Map<String, String> constants = collectConstants(parseProjectXml(STRUTS_XML));
 
         assertThat(constants)
                 .as("Struts 7 uses struts.allowlist.* constants for strict OGNL allowlisting")
@@ -72,12 +74,23 @@ class StrutsGlobalConfigTest {
         return out;
     }
 
-    private static Document parse(Path configPath)
+    private static Document parseProjectXml(Path relativeConfigPath)
             throws IOException, ParserConfigurationException, SAXException {
+        String xml = Files.readString(resolveProjectPath(relativeConfigPath), StandardCharsets.UTF_8);
+        String xmlWithoutDoctype = stripStrutsDoctype(xml);
         DocumentBuilder db = newHardenedDocumentBuilder();
-        try (InputStream in = Files.newInputStream(configPath)) {
-            return db.parse(in);
-        }
+        return db.parse(new InputSource(new StringReader(xmlWithoutDoctype)));
+    }
+
+    private static String stripStrutsDoctype(String xml) {
+        return xml.replaceFirst("(?m)^\\s*<!DOCTYPE\\s+struts\\b[^>]*>\\s*\\R?", "");
+    }
+
+    private static Path resolveProjectPath(Path relativePath) {
+        return Path.of(System.getProperty(BASEDIR_PROPERTY, System.getProperty("user.dir")))
+                .toAbsolutePath()
+                .resolve(relativePath)
+                .normalize();
     }
 
     private static DocumentBuilder newHardenedDocumentBuilder() throws ParserConfigurationException {
@@ -88,7 +101,7 @@ class StrutsGlobalConfigTest {
         dbf.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
         dbf.setFeature("http://xml.org/sax/features/external-general-entities", false);
         dbf.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-        dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", false);
+        dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
         dbf.setXIncludeAware(false);
         dbf.setExpandEntityReferences(false);
         DocumentBuilder db = dbf.newDocumentBuilder();
