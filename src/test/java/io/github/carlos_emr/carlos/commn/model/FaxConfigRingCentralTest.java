@@ -157,10 +157,51 @@ class FaxConfigRingCentralTest {
     }
 
     @Test
-    @DisplayName("should not enforce RingCentral fields when provider is MIDDLEWARE")
+    @DisplayName("should not enforce RingCentral fields when provider is MIDDLEWARE with valid middleware fields")
     void shouldNotEnforceRingCentralFields_whenProviderIsMiddleware() {
         FaxConfig config = new FaxConfig();
         config.setProviderType(FaxConfig.ProviderType.MIDDLEWARE);
+        config.setUrl("https://relay.example/");
+        config.setSiteUser("site-user");
+        config.setPasswd("site-pass");
+
+        assertThatCode(config::assertProviderInvariants).doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("should reject persist when MIDDLEWARE provider has blank url")
+    void shouldRejectPersist_whenMiddlewareProviderHasBlankUrl() {
+        FaxConfig config = new FaxConfig();
+        config.setProviderType(FaxConfig.ProviderType.MIDDLEWARE);
+        config.setSiteUser("site-user");
+        config.setPasswd("site-pass");
+
+        assertThatThrownBy(config::assertProviderInvariants)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("MIDDLEWARE")
+                .hasMessageContaining("url");
+    }
+
+    @Test
+    @DisplayName("should reject persist when SRFAX provider has blank fax user")
+    void shouldRejectPersist_whenSrFaxProviderHasBlankFaxUser() {
+        FaxConfig config = new FaxConfig();
+        config.setProviderType(FaxConfig.ProviderType.SRFAX);
+        config.setFaxPasswd("srfax-pass");
+
+        assertThatThrownBy(config::assertProviderInvariants)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("SRFAX")
+                .hasMessageContaining("faxUser");
+    }
+
+    @Test
+    @DisplayName("should accept SRFAX provider when fax user and password are populated")
+    void shouldAcceptSrFaxProvider_whenFaxUserAndPasswordPopulated() {
+        FaxConfig config = new FaxConfig();
+        config.setProviderType(FaxConfig.ProviderType.SRFAX);
+        config.setFaxUser("123456");
+        config.setFaxPasswd("srfax-pass");
 
         assertThatCode(config::assertProviderInvariants).doesNotThrowAnyException();
     }

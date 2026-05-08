@@ -80,10 +80,10 @@ public class RingCentralFaxService implements FaxProviderClient {
 
         try {
             byte[] document = resolveDocument(faxJob, filePath);
-            String accessToken = authService.getAccessToken(faxConfig, apiConnector);
-            RingCentralResponse.Message response = apiConnector.sendFax(accessToken,
-                    faxConfig.getRingCentralAccountId(), faxConfig.getRingCentralExtensionId(),
-                    faxJob.getDestination(), document, faxJob.getFile_name());
+            RingCentralResponse.Message response = withTokenRefresh(faxConfig, accessToken ->
+                    apiConnector.sendFax(accessToken,
+                            faxConfig.getRingCentralAccountId(), faxConfig.getRingCentralExtensionId(),
+                            faxJob.getDestination(), document, faxJob.getFile_name()));
 
             FaxJob result = new FaxJob();
             result.setJobId(parseMessageId(response.getId()));
@@ -100,9 +100,9 @@ public class RingCentralFaxService implements FaxProviderClient {
     @Override
     public List<FaxJob> listInboundFaxes(FaxConfig faxConfig) throws FaxProviderException {
         requireMatchingProviderType(faxConfig);
-        String accessToken = authService.getAccessToken(faxConfig, apiConnector);
-        RingCentralResponse.MessageList response = apiConnector.getInboundFaxes(accessToken,
-                faxConfig.getRingCentralAccountId(), faxConfig.getRingCentralExtensionId());
+        RingCentralResponse.MessageList response = withTokenRefresh(faxConfig, accessToken ->
+                apiConnector.getInboundFaxes(accessToken,
+                        faxConfig.getRingCentralAccountId(), faxConfig.getRingCentralExtensionId()));
 
         List<FaxJob> faxes = new ArrayList<>();
         for (RingCentralResponse.Message message : response.getRecords()) {
@@ -155,9 +155,9 @@ public class RingCentralFaxService implements FaxProviderClient {
     public FaxJob downloadFax(FaxConfig faxConfig, FaxJob fax) throws FaxProviderException {
         requireMatchingProviderType(faxConfig);
         DownloadReference reference = DownloadReference.parse(fax);
-        String accessToken = authService.getAccessToken(faxConfig, apiConnector);
-        byte[] content = apiConnector.downloadFax(accessToken, faxConfig.getRingCentralAccountId(),
-                faxConfig.getRingCentralExtensionId(), reference.messageId(), reference.attachmentId());
+        byte[] content = withTokenRefresh(faxConfig, accessToken ->
+                apiConnector.downloadFax(accessToken, faxConfig.getRingCentralAccountId(),
+                        faxConfig.getRingCentralExtensionId(), reference.messageId(), reference.attachmentId()));
 
         FaxJob downloaded = new FaxJob(fax);
         downloaded.setDocument(Base64.getEncoder().encodeToString(content));
@@ -170,9 +170,11 @@ public class RingCentralFaxService implements FaxProviderClient {
     public void markFaxAsRead(FaxConfig faxConfig, FaxJob fax) throws FaxProviderException {
         requireMatchingProviderType(faxConfig);
         DownloadReference reference = DownloadReference.parse(fax);
-        String accessToken = authService.getAccessToken(faxConfig, apiConnector);
-        apiConnector.markFaxAsRead(accessToken, faxConfig.getRingCentralAccountId(),
-                faxConfig.getRingCentralExtensionId(), reference.messageId());
+        withTokenRefresh(faxConfig, accessToken -> {
+            apiConnector.markFaxAsRead(accessToken, faxConfig.getRingCentralAccountId(),
+                    faxConfig.getRingCentralExtensionId(), reference.messageId());
+            return null;
+        });
         logger.info("RingCentral fax marked as read: providerMessageId={} localFaxId={}",
                 reference.messageId(), fax.getId());
     }
@@ -193,16 +195,48 @@ public class RingCentralFaxService implements FaxProviderClient {
             throw new RingCentralException("RingCentral status check requires a provider message id");
         }
 
-        String accessToken = authService.getAccessToken(faxConfig, apiConnector);
-        RingCentralResponse.Message response = apiConnector.getFaxStatus(accessToken,
-                faxConfig.getRingCentralAccountId(), faxConfig.getRingCentralExtensionId(),
-                String.valueOf(faxJob.getJobId()));
+        RingCentralResponse.Message response = withTokenRefresh(faxConfig, accessToken ->
+                apiConnector.getFaxStatus(accessToken,
+                        faxConfig.getRingCentralAccountId(), faxConfig.getRingCentralExtensionId(),
+                        String.valueOf(faxJob.getJobId())));
 
         FaxJob updated = new FaxJob(faxJob);
         String providerStatus = firstNonBlank(response.getFaxStatus(), response.getMessageStatus());
         updated.setStatus(mapStatus(providerStatus));
         updated.setStatusString(StringUtils.defaultIfBlank(providerStatus, "Unknown RingCentral status"));
         return updated;
+    }
+
+    /**
+     * Fetches an access token, runs the connector call, and on HTTP 401 evicts the cached token
+     * and retries the call exactly once with a freshly-authenticated token. A second 401 (or any
+     * non-401 failure) propagates unchanged. This is the recovery path documented on
+     * {@link RingCentralAuthService#invalidateToken}: without it a server-side credential rotation
+     * would leave every call failing for the cache lifetime.
+     */
+    private <T> T withTokenRefresh(FaxConfig faxConfig, TokenedCall<T> call) throws RingCentralException {
+        String accessToken = authService.getAccessToken(faxConfig, apiConnector);
+        try {
+            return call.execute(accessToken);
+        } catch (RingCentralException e) {
+            if (!isUnauthorized(e)) {
+                throw e;
+            }
+            logger.warn("RingCentral returned 401 for faxConfigId={} - invalidating cached token and retrying once",
+                    faxConfig.getId());
+            authService.invalidateToken(faxConfig);
+            String refreshed = authService.getAccessToken(faxConfig, apiConnector);
+            return call.execute(refreshed);
+        }
+    }
+
+    private static boolean isUnauthorized(RingCentralException e) {
+        return e.getHttpStatus() != null && e.getHttpStatus() == 401;
+    }
+
+    @FunctionalInterface
+    private interface TokenedCall<T> {
+        T execute(String accessToken) throws RingCentralException;
     }
 
     FaxJob.STATUS mapStatus(String providerStatus) {

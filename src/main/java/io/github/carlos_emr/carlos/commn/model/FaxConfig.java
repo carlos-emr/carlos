@@ -72,7 +72,13 @@ public class FaxConfig extends AbstractModel<Integer> {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer Id;
 
-    /** Middleware relay server base URL (MIDDLEWARE only; not used by SRFAX) */
+    /**
+     * Middleware relay server base URL. Only meaningful for the MIDDLEWARE provider; for SRFAX
+     * and RINGCENTRAL the column stores a fixed informational default written by
+     * {@code ConfigureFax2Action}, and the provider clients ignore the column entirely —
+     * the live API origin is resolved at runtime from {@code carlos.properties}
+     * ({@code srfax.api.url}, {@code ringcentral.api.url}, {@code ringcentral.api.sandbox.url}).
+     */
     private String url = "";
     /** Middleware site-level username for Basic Auth (MIDDLEWARE only) */
     private String siteUser = "";
@@ -395,25 +401,44 @@ public class FaxConfig extends AbstractModel<Integer> {
     /**
      * Validates that provider-specific required fields are populated before persisting.
      *
-     * <p>Lazy validation in {@code RingCentralAuthService} catches missing OAuth credentials only at
-     * fax-send time. This pre-persist hook surfaces the same problem at admin-save time, so an
-     * inconsistent row never reaches the database. Extending this method is the right place to add
-     * future provider-type invariants.</p>
+     * <p>Lazy validation in the various provider clients catches missing credentials at
+     * fax-send time. This pre-persist hook surfaces the same problem at admin-save time so an
+     * inconsistent row never reaches the database. Each provider variant declares the minimum
+     * required fields here; the runtime client may still re-check these (and additional
+     * provider-specific fields such as MIDDLEWARE's {@code faxUser}/{@code faxPasswd}) during
+     * actual send/receive operations.</p>
      */
     @PrePersist
     @PreUpdate
     void assertProviderInvariants() {
-        if (providerType == ProviderType.RINGCENTRAL) {
-            requireField(ringCentralClientId, "ringCentralClientId");
-            requireField(ringCentralClientSecret, "ringCentralClientSecret");
-            requireField(ringCentralJwtToken, "ringCentralJwtToken");
+        ProviderType current = getProviderType();
+        switch (current) {
+            case MIDDLEWARE -> {
+                requireField(url, "url", current);
+                requireField(siteUser, "siteUser", current);
+                requireField(passwd, "passwd", current);
+            }
+            case SRFAX -> {
+                requireField(faxUser, "faxUser", current);
+                requireField(faxPasswd, "faxPasswd", current);
+            }
+            case RINGCENTRAL -> {
+                requireField(ringCentralClientId, "ringCentralClientId", current);
+                requireField(ringCentralClientSecret, "ringCentralClientSecret", current);
+                requireField(ringCentralJwtToken, "ringCentralJwtToken", current);
+            }
+            // Defensive: a Java switch statement does not enforce enum exhaustiveness, so a
+            // future ProviderType addition would silently bypass validation without this
+            // branch. Falling through to throw makes the gap visible at runtime.
+            default -> throw new IllegalStateException(
+                    "Unknown FaxConfig.providerType: " + current);
         }
     }
 
-    private static void requireField(String value, String fieldName) {
+    private static void requireField(String value, String fieldName, ProviderType providerType) {
         if (value == null || value.isEmpty()) {
             throw new IllegalStateException(
-                    "FaxConfig with providerType=RINGCENTRAL requires " + fieldName);
+                    "FaxConfig with providerType=" + providerType + " requires " + fieldName);
         }
     }
 }

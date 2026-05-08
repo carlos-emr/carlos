@@ -204,6 +204,16 @@ public class FaxImporter {
     }
 
     /**
+     * Test-only seam for poll() orchestration tests that cannot invoke the real
+     * {@link #initialize()} hook (it requires a configured {@code DOCUMENT_DIR} resolved at
+     * class-load time and a writable filesystem directory). Production code paths must rely
+     * on {@code @PostConstruct}; tests in this package use this method instead of reflection.
+     */
+    void markInitializedForTest() {
+        this.initialized = true;
+    }
+
+    /**
      * Polls all active fax provider accounts for inbound faxes and imports them into CARLOS EMR.
      *
      * <p>Before polling providers, retries any pending imports from the incoming directory

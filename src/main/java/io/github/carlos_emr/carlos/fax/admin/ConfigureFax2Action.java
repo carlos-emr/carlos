@@ -264,18 +264,24 @@ public class ConfigureFax2Action extends ActionSupport {
             }
 
             /*
-             * Ensure that the fax server information remains intact
-             * whenever all the gateway accounts are wiped out.
+             * Ensure that the fax server information remains intact whenever all the gateway
+             * accounts are wiped out — but only when the admin actually supplied middleware
+             * fields. The MIDDLEWARE @PrePersist invariant requires url/siteUser/passwd; saving
+             * a placeholder with blanks would now (correctly) throw at the JPA boundary. A
+             * RINGCENTRAL-only or SRFAX-only deployment legitimately has no middleware fields
+             * to preserve, so we skip the synthetic save in that case.
              */
             int auditList = faxConfigDao.getCountAll();
-            if (auditList == 0) {
+            if (auditList == 0
+                    && StringUtils.isNotBlank(faxUrl)
+                    && StringUtils.isNotBlank(siteUser)
+                    && sitePasswd != null
+                    && !isPasswordUnchanged(sitePasswd)
+                    && StringUtils.isNotBlank(sitePasswd)) {
                 faxConfig = new FaxConfig();
                 faxConfig.setUrl(faxUrl);
                 faxConfig.setSiteUser(siteUser);
-
-                if (sitePasswd != null && !isPasswordUnchanged(sitePasswd)) {
-                    faxConfig.setPasswd(sitePasswd.trim());
-                }
+                faxConfig.setPasswd(sitePasswd.trim());
                 faxConfig.setProviderType(FaxConfig.ProviderType.MIDDLEWARE);
                 faxConfigDao.saveEntity(faxConfig);
             }

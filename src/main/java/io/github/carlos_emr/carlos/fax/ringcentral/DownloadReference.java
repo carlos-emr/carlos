@@ -40,8 +40,18 @@ record DownloadReference(String messageId, String attachmentId) {
     private static final String SEPARATOR = ":";
     private static final String DEFAULT_FILENAME = "ringcentral-fax.pdf";
 
+    DownloadReference {
+        if (StringUtils.isBlank(messageId) || StringUtils.isBlank(attachmentId)) {
+            throw new IllegalArgumentException(
+                    "DownloadReference requires non-blank messageId and attachmentId");
+        }
+    }
+
     static String format(String messageId, String attachmentId, String fileName) {
-        return messageId + SEPARATOR + attachmentId + SEPARATOR + StringUtils.defaultIfBlank(fileName, DEFAULT_FILENAME);
+        // Delegate the blank-id invariant to the canonical constructor — single point of truth.
+        DownloadReference reference = new DownloadReference(messageId, attachmentId);
+        return reference.messageId() + SEPARATOR + reference.attachmentId() + SEPARATOR
+                + StringUtils.defaultIfBlank(fileName, DEFAULT_FILENAME);
     }
 
     static DownloadReference parse(FaxJob fax) throws RingCentralException {

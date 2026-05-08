@@ -125,18 +125,38 @@ class RingCentralAuthServiceTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should refresh token when cached token expires")
-    void shouldRefreshToken_whenCachedTokenExpires() throws Exception {
+    @DisplayName("should keep cached token while inside the 60-second skew window")
+    void shouldKeepCachedToken_whileInsideSkewWindow() throws Exception {
         MutableClock clock = new MutableClock();
         RingCentralAuthService clockedAuthService = new RingCentralAuthService(clock);
         FaxConfig config = config(2, "client", "secret", "jwt");
         RingCentralApiConnector connector = mock(RingCentralApiConnector.class);
+        // expires_in=120 with TOKEN_EXPIRY_SKEW_SECONDS=60 means cache window = 60s
+        when(connector.authenticate("client", "secret", "jwt")).thenReturn(token("first-token", 120));
+
+        String firstToken = clockedAuthService.getAccessToken(config, connector);
+        clock.advanceSeconds(59);
+        String secondToken = clockedAuthService.getAccessToken(config, connector);
+
+        assertThat(firstToken).isEqualTo("first-token");
+        assertThat(secondToken).isEqualTo("first-token");
+        verify(connector, times(1)).authenticate("client", "secret", "jwt");
+    }
+
+    @Test
+    @DisplayName("should refresh cached token after the skew-adjusted expiry passes")
+    void shouldRefreshToken_afterSkewAdjustedExpiryPasses() throws Exception {
+        MutableClock clock = new MutableClock();
+        RingCentralAuthService clockedAuthService = new RingCentralAuthService(clock);
+        FaxConfig config = config(2, "client", "secret", "jwt");
+        RingCentralApiConnector connector = mock(RingCentralApiConnector.class);
+        // expires_in=120, skew=60s -> cache window of 60s. Advancing 61s puts us past it.
         when(connector.authenticate("client", "secret", "jwt"))
-                .thenReturn(token("first-token", 1))
+                .thenReturn(token("first-token", 120))
                 .thenReturn(token("second-token", 3600));
 
         String firstToken = clockedAuthService.getAccessToken(config, connector);
-        clock.advanceSeconds(2);
+        clock.advanceSeconds(61);
         String secondToken = clockedAuthService.getAccessToken(config, connector);
 
         assertThat(firstToken).isEqualTo("first-token");
@@ -189,19 +209,28 @@ class RingCentralAuthServiceTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should fall back to one hour expiry when expires_in is non-positive")
-    void shouldFallBackToOneHourExpiry_whenExpiresInIsNonPositive() throws Exception {
+    @DisplayName("should cache fallback-expiry token for the documented one-hour window minus skew")
+    void shouldCacheFallbackExpiry_forOneHourMinusSkew() throws Exception {
+        MutableClock clock = new MutableClock();
+        RingCentralAuthService clockedAuthService = new RingCentralAuthService(clock);
         FaxConfig config = config(50, "client", "secret", "jwt");
         RingCentralApiConnector connector = mock(RingCentralApiConnector.class);
+        // expires_in=0 -> fallback DEFAULT_TOKEN_LIFETIME_SECONDS=3600. Effective cache window
+        // is 3600 - 60 (skew) = 3540s. Verify both sides of that boundary.
         when(connector.authenticate("client", "secret", "jwt"))
-                .thenReturn(token("zero-expiry-token", 0));
+                .thenReturn(token("fallback-token", 0))
+                .thenReturn(token("refreshed", 3600));
 
-        String first = authService.getAccessToken(config, connector);
-        String second = authService.getAccessToken(config, connector);
+        String first = clockedAuthService.getAccessToken(config, connector);
+        clock.advanceSeconds(3539);
+        String second = clockedAuthService.getAccessToken(config, connector);
+        clock.advanceSeconds(2);
+        String third = clockedAuthService.getAccessToken(config, connector);
 
-        assertThat(first).isEqualTo("zero-expiry-token");
-        assertThat(second).isEqualTo("zero-expiry-token");
-        verify(connector, times(1)).authenticate("client", "secret", "jwt");
+        assertThat(first).isEqualTo("fallback-token");
+        assertThat(second).isEqualTo("fallback-token");
+        assertThat(third).isEqualTo("refreshed");
+        verify(connector, times(2)).authenticate("client", "secret", "jwt");
     }
 
     @Test

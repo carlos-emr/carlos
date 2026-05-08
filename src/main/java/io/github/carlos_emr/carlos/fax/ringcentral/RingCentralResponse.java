@@ -25,11 +25,15 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
  * Lightweight DTOs for RingCentral fax API responses used by the provider client.
+ *
+ * <p>Records bind via Jackson's canonical-constructor support (component-level
+ * {@link JsonProperty} annotations are sufficient — no {@code @JsonCreator} indirection). Mutable
+ * holders {@code Message} and {@code MessageList} guard their list state via copy-on-write in the
+ * setter; the getters return unmodifiable views of that already-copied state without re-copying.</p>
  *
  * @since 2026-05-05
  */
@@ -40,46 +44,30 @@ public final class RingCentralResponse {
 
     public record Token(@JsonProperty("access_token") String accessToken,
                         @JsonProperty("expires_in") long expiresIn) {
-
-        @JsonCreator
-        public Token {
-        }
     }
 
     public record Party(@JsonProperty("phoneNumber") String phoneNumber) {
-
-        @JsonCreator
-        public Party {
-        }
     }
 
     public record Attachment(@JsonProperty("id") String id,
                              @JsonProperty("fileName") String fileName,
                              @JsonProperty("contentType") String contentType) {
-
-        @JsonCreator
-        public Attachment {
-        }
     }
 
     public record NextPage(@JsonProperty("uri") String uri) {
-
-        @JsonCreator
-        public NextPage {
-        }
     }
 
     public record Navigation(@JsonProperty("nextPage") NextPage nextPage) {
-
-        @JsonCreator
-        public Navigation {
-        }
     }
 
     /**
-     * Message metadata returned by send/status/list endpoints. Stays a class (not a record) because
-     * Jackson populates fields incrementally and the inbox flow expects defensive-copy semantics
-     * for the attachment list.
+     * Message metadata returned by send/status/list endpoints. Mutable bean (Jackson populates
+     * via setters); the attachment list is copied on write and read access returns an
+     * unmodifiable view of the stored copy. Note that {@code Message} itself is mutable, so
+     * a caller holding a {@code Message} reference obtained from {@link MessageList#getRecords()}
+     * can still mutate that instance's scalar fields — the unmodifiability guarantee is on the
+     * collection shape, not on the individual records. Inbox-flow callers do not retain
+     * references across calls, so this is safe in practice.
      */
     public static class Message {
         private String id;
@@ -92,17 +80,6 @@ public final class RingCentralResponse {
         private List<Attachment> attachments;
 
         public Message() {
-        }
-
-        private Message(Message other) {
-            this.id = other.id;
-            this.messageStatus = other.messageStatus;
-            this.faxStatus = other.faxStatus;
-            this.direction = other.direction;
-            this.readStatus = other.readStatus;
-            this.creationTime = other.creationTime;
-            this.from = other.from;
-            this.attachments = copyAttachments(other.attachments);
         }
 
         public String getId() {
@@ -161,25 +138,15 @@ public final class RingCentralResponse {
             this.from = from;
         }
 
-        /**
-         * Returns an immutable defensive copy of attachment metadata.
-         */
         public List<Attachment> getAttachments() {
             if (attachments == null) {
                 return Collections.emptyList();
             }
-            return Collections.unmodifiableList(copyAttachments(attachments));
+            return Collections.unmodifiableList(attachments);
         }
 
         public void setAttachments(List<Attachment> attachments) {
-            this.attachments = copyAttachments(attachments);
-        }
-
-        private static List<Attachment> copyAttachments(List<Attachment> attachments) {
-            if (attachments == null) {
-                return null;
-            }
-            return new ArrayList<>(attachments);
+            this.attachments = attachments == null ? null : new ArrayList<>(attachments);
         }
     }
 
@@ -198,11 +165,11 @@ public final class RingCentralResponse {
             if (records == null) {
                 return Collections.emptyList();
             }
-            return Collections.unmodifiableList(copyMessages(records));
+            return Collections.unmodifiableList(records);
         }
 
         public void setRecords(List<Message> records) {
-            this.records = copyMessages(records);
+            this.records = records == null ? null : new ArrayList<>(records);
         }
 
         public Navigation getNavigation() {
@@ -211,17 +178,6 @@ public final class RingCentralResponse {
 
         public void setNavigation(Navigation navigation) {
             this.navigation = navigation;
-        }
-
-        private static List<Message> copyMessages(List<Message> records) {
-            if (records == null) {
-                return null;
-            }
-            List<Message> copy = new ArrayList<>(records.size());
-            for (Message message : records) {
-                copy.add(message == null ? null : new Message(message));
-            }
-            return copy;
         }
     }
 }

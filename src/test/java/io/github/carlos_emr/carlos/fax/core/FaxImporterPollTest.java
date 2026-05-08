@@ -82,6 +82,12 @@ class FaxImporterPollTest extends CarlosUnitTestBase {
 
         faxImporter = new FaxImporter(faxConfigDao, faxJobDao, queueDocumentLinkDao,
                 providerLabRoutingDao, faxProviderClientFactory);
+        // poll() returns early when initialized=false. The @PostConstruct initialize() requires
+        // a class-load-time DOCUMENT_DIR plus a writable incoming directory and can't be invoked
+        // under unit-test isolation, so use the package-private test seam to skip directly to
+        // the orchestration logic these tests target. faxIncomingDir stays null, which
+        // retryPendingImports tolerates (short-circuits on null) — the tests don't cover retry.
+        faxImporter.markInitializedForTest();
     }
 
     @Test

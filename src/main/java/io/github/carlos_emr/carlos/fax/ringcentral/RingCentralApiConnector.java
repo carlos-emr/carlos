@@ -341,13 +341,30 @@ public class RingCentralApiConnector {
                 consumeQuietly(entity);
             }
             if (statusCode < 200 || statusCode >= 300) {
-                throw new RingCentralException(errorMessage + " with HTTP " + statusCode);
+                // Surface the response body so operators can distinguish RingCentral's many 4xx
+                // subcases ("Phone number not authorized" vs "Invalid grant" vs ...). Mark 5xx
+                // and 429 transient so upstream retry/queue logic treats them like network
+                // failures rather than permanent client errors. RingCentral 4xx/5xx responses
+                // return small typed JSON envelopes (errorCode/message/errors[]); the body is
+                // capped at 1KB to bound log volume regardless of envelope shape.
+                boolean transientError = statusCode >= 500 || statusCode == 429;
+                throw new RingCentralException(
+                        errorMessage + " with HTTP " + statusCode + bodyExcerpt(payload),
+                        statusCode, transientError);
             }
             return payload;
         } catch (IOException e) {
             throw new RingCentralException(errorMessage + ": communication failure", e,
                     FaxProviderException.isTransientNetworkCause(e));
         }
+    }
+
+    private static String bodyExcerpt(byte[] payload) {
+        if (payload == null || payload.length == 0) {
+            return "";
+        }
+        int max = Math.min(payload.length, 1024);
+        return ": " + new String(payload, 0, max, StandardCharsets.UTF_8);
     }
 
     private void executeNoContent(HttpUriRequestBase request, String errorMessage)
@@ -359,10 +376,9 @@ public class RingCentralApiConnector {
         try {
             EntityUtils.consume(entity);
         } catch (IOException e) {
-            // Failure to drain the body leaves the connection unreturned to the pool; surface it
-            // at WARN so repeated occurrences are visible before they exhaust the pool.
-            logger.warn("Failed to drain RingCentral response entity (connection may not be returned to pool): {}",
-                    e.getMessage());
+            // Failure to drain the body leaves the connection unreturned to the pool; surface
+            // the chained cause at WARN so pool-exhaustion symptoms are diagnosable.
+            logger.warn("Failed to drain RingCentral response entity (connection may not be returned to pool)", e);
         }
     }
 

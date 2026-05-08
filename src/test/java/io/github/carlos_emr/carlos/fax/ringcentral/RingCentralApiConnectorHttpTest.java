@@ -202,6 +202,122 @@ class RingCentralApiConnectorHttpTest extends CarlosUnitTestBase {
         assertThat(list.getRecords()).hasSize(1);
     }
 
+    @Test
+    @DisplayName("should round-trip PDF bytes when downloadFax receives 200")
+    void shouldRoundTripPdfBytes_whenDownloadFaxReceives200() throws Exception {
+        // Use ASCII-only fixture so UTF-8 encoding in the handler is byte-identical to the
+        // expected payload. Real PDFs may contain high bytes but this test only pins the
+        // byte-exact round-trip behaviour of executeBytes.
+        String pdfFixture = "%PDF-1.4\nfake fixture content\n%%EOF";
+        enqueue(200, "application/pdf", pdfFixture);
+
+        byte[] downloaded = connector.downloadFax("token", "~", "~", "12345", "att-9");
+
+        assertThat(downloaded).isEqualTo(pdfFixture.getBytes(StandardCharsets.UTF_8));
+        assertThat(lastExchange.get().getRequestMethod()).isEqualTo("GET");
+        assertThat(lastExchange.get().getRequestURI().getPath())
+                .endsWith("/message-store/12345/content/att-9");
+    }
+
+    @Test
+    @DisplayName("should send Bearer Authorization header on inbox fetch")
+    void shouldSendBearerAuthorization_onInboxFetch() throws Exception {
+        enqueue(200, "application/json", "{\"records\":[]}");
+
+        connector.getInboundFaxes("my-access-token", "~", "~");
+
+        assertThat(lastExchange.get().getRequestHeaders().getFirst("Authorization"))
+                .isEqualTo("Bearer my-access-token");
+    }
+
+    @Test
+    @DisplayName("should send Basic Authorization header on authenticate")
+    void shouldSendBasicAuthorization_onAuthenticate() throws Exception {
+        enqueue(200, "application/json", "{\"access_token\":\"x\",\"expires_in\":1}");
+
+        connector.authenticate("client-id", "client-secret", "jwt");
+
+        String authorization = lastExchange.get().getRequestHeaders().getFirst("Authorization");
+        assertThat(authorization).startsWith("Basic ");
+        String decoded = new String(java.util.Base64.getDecoder()
+                .decode(authorization.substring("Basic ".length())), StandardCharsets.UTF_8);
+        assertThat(decoded).isEqualTo("client-id:client-secret");
+    }
+
+    @Test
+    @DisplayName("should classify 503 as transient and carry HTTP status on the exception")
+    void shouldClassify503AsTransient_andCarryHttpStatus() {
+        // Two enqueues so the HttpClient5 default retry doesn't run out the queue.
+        enqueue(503, "application/json", "{\"errorCode\":\"ServiceUnavailable\"}");
+        enqueue(503, "application/json", "{\"errorCode\":\"ServiceUnavailable\"}");
+
+        try {
+            connector.authenticate("client", "secret", "jwt");
+            org.assertj.core.api.Assertions.fail("Expected RingCentralException");
+        } catch (RingCentralException e) {
+            assertThat(e.getHttpStatus()).isEqualTo(503);
+            assertThat(e.isTransient()).isTrue();
+            assertThat(e.getMessage()).contains("ServiceUnavailable");
+        }
+    }
+
+    @Test
+    @DisplayName("should classify 400 as non-transient and include vendor body excerpt in message")
+    void shouldClassify400AsNonTransient_andIncludeBodyExcerpt() {
+        enqueue(400, "application/json",
+                "{\"errorCode\":\"PhoneNumberNotAuthorized\",\"message\":\"Phone number not authorized\"}");
+
+        try {
+            connector.authenticate("client", "secret", "jwt");
+            org.assertj.core.api.Assertions.fail("Expected RingCentralException");
+        } catch (RingCentralException e) {
+            assertThat(e.getHttpStatus()).isEqualTo(400);
+            assertThat(e.isTransient()).isFalse();
+            assertThat(e.getMessage()).contains("PhoneNumberNotAuthorized");
+            assertThat(e.getMessage()).contains("Phone number not authorized");
+        }
+    }
+
+    @Test
+    @DisplayName("should cap error response body excerpt at 1024 bytes")
+    void shouldCapBodyExcerpt_at1024Bytes() {
+        // Build a 4KB body so the cap actually fires. The connector should keep the message
+        // bounded so a misbehaving vendor or proxy can't blow up operator logs / error UIs.
+        StringBuilder oversized = new StringBuilder(4096);
+        for (int i = 0; i < 4096; i++) {
+            oversized.append('A');
+        }
+        enqueue(400, "application/json", oversized.toString());
+
+        try {
+            connector.authenticate("client", "secret", "jwt");
+            org.assertj.core.api.Assertions.fail("Expected RingCentralException");
+        } catch (RingCentralException e) {
+            // Header ("...with HTTP 400: ") plus 1024 body chars; full 4KB must NOT appear.
+            assertThat(e.getMessage()).contains("HTTP 400");
+            assertThat(e.getMessage().length()).isLessThan(2048);
+            // Spot-check: the truncated portion (4096-th char) is absent; the cap kept us short.
+            assertThat(e.getMessage()).doesNotContain(oversized.substring(1500));
+        }
+    }
+
+    @Test
+    @DisplayName("should classify 429 as transient")
+    void shouldClassify429AsTransient_carryingHttpStatus() {
+        // HttpClient5's default retry strategy retries 429 once. Enqueue twice so both attempts
+        // see the same status and the final classification reaches the caller.
+        enqueue(429, "application/json", "{\"errorCode\":\"TooManyRequests\"}");
+        enqueue(429, "application/json", "{\"errorCode\":\"TooManyRequests\"}");
+
+        try {
+            connector.authenticate("client", "secret", "jwt");
+            org.assertj.core.api.Assertions.fail("Expected RingCentralException");
+        } catch (RingCentralException e) {
+            assertThat(e.getHttpStatus()).isEqualTo(429);
+            assertThat(e.isTransient()).isTrue();
+        }
+    }
+
     private void enqueue(int statusCode, String contentType, String body) {
         queuedResponses.add(new QueuedResponse(statusCode, contentType, body));
     }

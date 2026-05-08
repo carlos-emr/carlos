@@ -26,21 +26,43 @@ import io.github.carlos_emr.carlos.fax.provider.FaxProviderException;
 /**
  * Provider-specific exception for RingCentral fax API failures.
  *
+ * <p>When the failure is produced from a non-2xx HTTP response, the status code is carried on the
+ * exception so the orchestration layer can drive 401-specific token eviction and so 5xx/429 are
+ * classified transient alongside the IOException paths.</p>
+ *
  * @since 2026-05-05
  */
 public class RingCentralException extends FaxProviderException {
 
     private static final long serialVersionUID = 1L;
 
+    private final Integer httpStatus;
+
     public RingCentralException(String message) {
         super(message);
+        this.httpStatus = null;
     }
 
     public RingCentralException(String message, Throwable cause) {
         super(message, cause);
+        this.httpStatus = null;
     }
 
     public RingCentralException(String message, Throwable cause, boolean transientError) {
         super(message, cause, transientError);
+        this.httpStatus = null;
+    }
+
+    public RingCentralException(String message, int httpStatus, boolean transientError) {
+        super(message, null, transientError);
+        this.httpStatus = httpStatus;
+    }
+
+    /**
+     * @return RingCentral HTTP status that triggered this failure, or {@code null} when the
+     *         failure originated outside a response (IOException, JSON parse error, validation).
+     */
+    public Integer getHttpStatus() {
+        return httpStatus;
     }
 }
