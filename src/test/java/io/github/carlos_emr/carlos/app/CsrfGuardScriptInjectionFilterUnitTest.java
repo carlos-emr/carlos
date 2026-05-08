@@ -173,9 +173,10 @@ class CsrfGuardScriptInjectionFilterUnitTest {
             csrfGuardMock.when(CsrfGuard::getInstance).thenReturn(csrfGuard);
             try {
                 executable.execute();
-            } catch (Exception e) {
-                throw e;
             } catch (Throwable t) {
+                if (t instanceof Exception e) {
+                    throw e;
+                }
                 throw new AssertionError(t);
             }
         }

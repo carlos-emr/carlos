@@ -501,7 +501,7 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
          * may be known even if it was not set when getWriter() was called.
          */
         private class LazyCaptureWriter extends Writer {
-            private Writer target;
+            private volatile Writer target;
 
             @Override
             public void write(int character) throws IOException {
@@ -532,18 +532,28 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
                 }
             }
 
-            private synchronized Writer getTarget() throws IOException {
-                if (target == null) {
-                    if (isKnownNonHtmlContentType()) {
-                        writerPassthrough = true;
-                        applyDeferredContentLength();
-                        target = CaptureResponseWrapper.super.getWriter();
-                    } else {
-                        captureWriter = new CharArrayWriter();
-                        target = captureWriter;
+            private Writer getTarget() throws IOException {
+                Writer currentTarget = target;
+                if (currentTarget == null) {
+                    synchronized (this) {
+                        currentTarget = target;
+                        if (currentTarget == null) {
+                            currentTarget = createTarget();
+                            target = currentTarget;
+                        }
                     }
                 }
-                return target;
+                return currentTarget;
+            }
+
+            private Writer createTarget() throws IOException {
+                if (isKnownNonHtmlContentType()) {
+                    writerPassthrough = true;
+                    applyDeferredContentLength();
+                    return CaptureResponseWrapper.super.getWriter();
+                }
+                captureWriter = new CharArrayWriter();
+                return captureWriter;
             }
         }
     }
