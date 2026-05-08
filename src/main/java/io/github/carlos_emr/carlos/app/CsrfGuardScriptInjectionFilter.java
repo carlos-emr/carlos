@@ -38,6 +38,7 @@ import jakarta.servlet.http.HttpServletResponseWrapper;
 import java.io.CharArrayWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.io.Writer;
 import java.util.Locale;
 import java.util.regex.Pattern;
 
@@ -179,7 +180,7 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         }
 
         String contentType = wrapper.getContentType();
-        if (contentType == null || !contentType.toLowerCase(Locale.ROOT).startsWith("text/html")) {
+        if (!isHtmlContentType(contentType)) {
             // Not HTML — write captured content through without modification
             writeToResponse(httpResponse, wrapper.getCapturedContent());
             return;
@@ -282,6 +283,10 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         }
     }
 
+    private static boolean isHtmlContentType(String contentType) {
+        return contentType != null && contentType.toLowerCase(Locale.ROOT).startsWith("text/html");
+    }
+
     @Override
     public void destroy() {
         // No cleanup required
@@ -337,8 +342,7 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
                     applyDeferredContentLength();
                     writer = super.getWriter();
                 } else {
-                    captureWriter = new CharArrayWriter();
-                    writer = new PrintWriter(captureWriter);
+                    writer = new PrintWriter(new LazyCaptureWriter());
                 }
             }
             return writer;
@@ -466,7 +470,7 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
 
         private boolean isKnownNonHtmlContentType() {
             String contentType = getContentType();
-            return contentType != null && !contentType.toLowerCase(Locale.ROOT).startsWith("text/html");
+            return contentType != null && !isHtmlContentType(contentType);
         }
 
         private void applyDeferredContentLength() {
@@ -477,6 +481,43 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             if (deferredContentLengthLong != null) {
                 super.setContentLengthLong(deferredContentLengthLong);
                 deferredContentLengthLong = null;
+            }
+        }
+
+        private class LazyCaptureWriter extends Writer {
+            private Writer target;
+
+            @Override
+            public void write(char[] chars, int offset, int length) throws IOException {
+                getTarget().write(chars, offset, length);
+            }
+
+            @Override
+            public void flush() throws IOException {
+                if (target != null) {
+                    target.flush();
+                }
+            }
+
+            @Override
+            public void close() throws IOException {
+                if (target != null) {
+                    target.close();
+                }
+            }
+
+            private Writer getTarget() throws IOException {
+                if (target == null) {
+                    if (isKnownNonHtmlContentType()) {
+                        writerPassthrough = true;
+                        applyDeferredContentLength();
+                        target = CaptureResponseWrapper.super.getWriter();
+                    } else {
+                        captureWriter = new CharArrayWriter();
+                        target = captureWriter;
+                    }
+                }
+                return target;
             }
         }
     }

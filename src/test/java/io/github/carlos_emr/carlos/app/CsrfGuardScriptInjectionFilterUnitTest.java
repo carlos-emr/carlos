@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.app;
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.FilterConfig;
+import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -131,9 +132,10 @@ class CsrfGuardScriptInjectionFilterUnitTest {
         String body = "{\"status\":\"ok\"}";
 
         FilterChain chain = (servletRequest, servletResponse) -> {
-            servletResponse.setContentType("application/json;charset=UTF-8");
             servletResponse.setContentLength(body.getBytes(StandardCharsets.UTF_8).length);
-            servletResponse.getWriter().write(body);
+            PrintWriter writer = servletResponse.getWriter();
+            servletResponse.setContentType("application/json;charset=UTF-8");
+            writer.write(body);
         };
 
         withEnabledCsrfGuard(() -> filter.doFilter(request, response, chain));
