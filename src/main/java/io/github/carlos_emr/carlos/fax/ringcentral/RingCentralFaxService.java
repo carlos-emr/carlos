@@ -115,7 +115,7 @@ public class RingCentralFaxService implements FaxProviderClient {
                 continue;
             }
             List<RingCentralResponse.Attachment> attachments = message.getAttachments();
-            if (attachments == null || attachments.isEmpty()) {
+            if (attachments.isEmpty()) {
                 logger.warn("Skipping RingCentral fax record providerMessageId={} with no attachments",
                         message.getId());
                 continue;
