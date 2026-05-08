@@ -283,6 +283,9 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         }
     }
 
+    /**
+     * Returns whether the supplied Content-Type represents an HTML response.
+     */
     private static boolean isHtmlContentType(String contentType) {
         return contentType != null && contentType.toLowerCase(Locale.ROOT).startsWith("text/html");
     }
@@ -457,6 +460,9 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             return usingWriter;
         }
 
+        /**
+         * Returns whether writer output has been delegated directly to the underlying response.
+         */
         public boolean isWriterPassthrough() {
             return writerPassthrough;
         }
@@ -468,11 +474,17 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             return captureWriter != null ? captureWriter.toString() : "";
         }
 
+        /**
+         * Returns true only when Content-Type is known and not HTML.
+         */
         private boolean isKnownNonHtmlContentType() {
             String contentType = getContentType();
             return contentType != null && !isHtmlContentType(contentType);
         }
 
+        /**
+         * Applies Content-Length values deferred while the response mode was still unknown.
+         */
         private void applyDeferredContentLength() {
             if (deferredContentLength != null) {
                 super.setContentLength(deferredContentLength);
@@ -484,6 +496,10 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             }
         }
 
+        /**
+         * Defers choosing capture vs. passthrough until the first write, when Content-Type
+         * may be known even if it was not set when getWriter() was called.
+         */
         private class LazyCaptureWriter extends Writer {
             private Writer target;
 
