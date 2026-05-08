@@ -28,6 +28,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
+import java.util.function.Supplier;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -71,6 +72,8 @@ public class RingCentralApiConnector {
     public static final String DEFAULT_RINGCENTRAL_SANDBOX_API_URL = "https://platform.devtest.ringcentral.com";
 
     private static final String GRANT_TYPE_JWT = "urn:ietf:params:oauth:grant-type:jwt-bearer";
+    private static final int INBOX_PAGE_SIZE = 100;
+    private static final int MAX_INBOX_PAGES = 50;
     private static final Logger logger = MiscUtils.getLogger();
     private static final RequestConfig REQUEST_CONFIG = RequestConfig.custom()
             .setConnectionRequestTimeout(Timeout.ofSeconds(30))
@@ -87,17 +90,28 @@ public class RingCentralApiConnector {
             .setDefaultRequestConfig(REQUEST_CONFIG)
             .setConnectionManager(connectionManager)
             .build();
+    private final Supplier<String> apiUrlResolver;
+
+    public RingCentralApiConnector() {
+        this(RingCentralApiConnector::resolveFromProperties);
+    }
 
     /**
-     * Authenticates with RingCentral using OAuth 2.0 JWT bearer flow.
+     * Test-friendly constructor that lets callers pin the API origin without going through
+     * {@link CarlosProperties}. Production code uses the no-arg constructor; HTTP fixture tests
+     * use this overload to point the connector at a local server.
      */
+    RingCentralApiConnector(Supplier<String> apiUrlResolver) {
+        this.apiUrlResolver = apiUrlResolver;
+    }
+
     public RingCentralResponse.Token authenticate(String clientId, String clientSecret, String jwtToken)
             throws RingCentralException {
         List<NameValuePair> params = new ArrayList<>();
         params.add(new BasicNameValuePair("grant_type", GRANT_TYPE_JWT));
         params.add(new BasicNameValuePair("assertion", jwtToken));
 
-        HttpPost post = new HttpPost(resolveRingCentralApiUrl() + "/restapi/oauth/token");
+        HttpPost post = new HttpPost(getApiUrl() + "/restapi/oauth/token");
         post.setHeader("Authorization", "Basic " + Base64.getEncoder().encodeToString(
                 (clientId + ":" + clientSecret).getBytes(StandardCharsets.UTF_8)));
         post.setEntity(new UrlEncodedFormEntity(params, StandardCharsets.UTF_8));
@@ -105,9 +119,6 @@ public class RingCentralApiConnector {
         return executeJson(post, RingCentralResponse.Token.class, "RingCentral authentication failed");
     }
 
-    /**
-     * Sends a fax through RingCentral.
-     */
     public RingCentralResponse.Message sendFax(String accessToken, String accountId, String extensionId,
             String destination, byte[] document, String fileName) throws RingCentralException {
         ObjectNode metadata = objectMapper.createObjectNode();
@@ -126,19 +137,40 @@ public class RingCentralApiConnector {
     }
 
     /**
-     * Lists unread inbound RingCentral fax messages.
+     * Lists unread inbound RingCentral fax messages, walking the {@code navigation.nextPage} cursor
+     * up to {@link #MAX_INBOX_PAGES} pages so that inboxes larger than one page are not silently
+     * truncated. The page-cap acts as a safety bound against runaway pagination if RingCentral
+     * returns a self-loop cursor.
      */
     public RingCentralResponse.MessageList getInboundFaxes(String accessToken, String accountId, String extensionId)
             throws RingCentralException {
-        HttpGet get = new HttpGet(buildMessageStoreUrl(accountId, extensionId)
-                + "?messageType=Fax&direction=Inbound&readStatus=Unread&perPage=100");
-        get.setHeader("Authorization", bearer(accessToken));
-        return executeJson(get, RingCentralResponse.MessageList.class, "RingCentral inbox fetch failed");
+        String firstPageUri = buildMessageStoreUrl(accountId, extensionId)
+                + "?messageType=Fax&direction=Inbound&readStatus=Unread&perPage=" + INBOX_PAGE_SIZE;
+
+        List<RingCentralResponse.Message> aggregated = new ArrayList<>();
+        String nextUri = firstPageUri;
+        int pages = 0;
+        while (nextUri != null) {
+            if (pages >= MAX_INBOX_PAGES) {
+                logger.warn("RingCentral inbox pagination capped at {} pages ({} records pulled) - "
+                        + "remaining unread faxes will be picked up on the next poll cycle",
+                        MAX_INBOX_PAGES, aggregated.size());
+                break;
+            }
+            HttpGet get = new HttpGet(nextUri);
+            get.setHeader("Authorization", bearer(accessToken));
+            RingCentralResponse.MessageList page = executeJson(get, RingCentralResponse.MessageList.class,
+                    "RingCentral inbox fetch failed");
+            aggregated.addAll(page.getRecords());
+            nextUri = nextPageUri(page);
+            pages++;
+        }
+
+        RingCentralResponse.MessageList combined = new RingCentralResponse.MessageList();
+        combined.setRecords(aggregated);
+        return combined;
     }
 
-    /**
-     * Downloads a RingCentral fax attachment.
-     */
     public byte[] downloadFax(String accessToken, String accountId, String extensionId, String messageId,
             String attachmentId) throws RingCentralException {
         HttpGet get = new HttpGet(buildMessageStoreUrl(accountId, extensionId) + "/"
@@ -147,9 +179,6 @@ public class RingCentralApiConnector {
         return executeBytes(get, "RingCentral fax download failed");
     }
 
-    /**
-     * Fetches message status for an outbound or inbound RingCentral fax.
-     */
     public RingCentralResponse.Message getFaxStatus(String accessToken, String accountId, String extensionId,
             String messageId) throws RingCentralException {
         HttpGet get = new HttpGet(buildMessageStoreUrl(accountId, extensionId) + "/" + normalizeMessageId(messageId));
@@ -157,9 +186,6 @@ public class RingCentralApiConnector {
         return executeJson(get, RingCentralResponse.Message.class, "RingCentral fax status fetch failed");
     }
 
-    /**
-     * Marks an inbound RingCentral fax as read after successful local persistence.
-     */
     public void markFaxAsRead(String accessToken, String accountId, String extensionId, String messageId)
             throws RingCentralException {
         HttpPut put = new HttpPut(buildMessageStoreUrl(accountId, extensionId) + "/" + normalizeMessageId(messageId));
@@ -169,11 +195,24 @@ public class RingCentralApiConnector {
     }
 
     /**
-     * Resolves the configured RingCentral API origin, falling back to official defaults.
+     * Returns the resolved RingCentral API origin for this connector instance.
+     */
+    public String getApiUrl() {
+        return apiUrlResolver.get();
+    }
+
+    /**
+     * Resolves the configured RingCentral API origin from {@link CarlosProperties}, falling back to
+     * official defaults. Public so tests can verify the property handling without instantiating the
+     * connector and its HTTP client.
      *
      * @return bare RingCentral HTTPS origin for the configured environment
      */
     public static String resolveRingCentralApiUrl() {
+        return resolveFromProperties();
+    }
+
+    private static String resolveFromProperties() {
         CarlosProperties properties = CarlosProperties.getInstance();
         boolean sandbox = "true".equalsIgnoreCase(StringUtils.trimToEmpty(properties.getProperty("ringcentral.use.sandbox")));
         String propertyName = sandbox ? "ringcentral.api.sandbox.url" : "ringcentral.api.url";
@@ -205,8 +244,39 @@ public class RingCentralApiConnector {
     }
 
     private String buildMessageStoreUrl(String accountId, String extensionId) {
-        return resolveRingCentralApiUrl() + "/restapi/v1.0/account/" + normalizeAccountOrExtensionId(accountId)
+        return getApiUrl() + "/restapi/v1.0/account/" + normalizeAccountOrExtensionId(accountId)
                 + "/extension/" + normalizeAccountOrExtensionId(extensionId) + "/message-store";
+    }
+
+    private String nextPageUri(RingCentralResponse.MessageList page) {
+        RingCentralResponse.Navigation navigation = page.getNavigation();
+        if (navigation == null || navigation.nextPage() == null) {
+            return null;
+        }
+        String uri = StringUtils.trimToNull(navigation.nextPage().uri());
+        if (uri == null) {
+            return null;
+        }
+        // RingCentral returns absolute URIs against its own API origin. Validate before issuing
+        // the next request so a hostile or misconfigured response can't redirect the pagination
+        // to an attacker-controlled host. Same-origin check pins host AND scheme to the configured
+        // API URL; tests using a localhost http fixture pass because their resolver returns http.
+        try {
+            URI parsed = new URI(uri);
+            URI apiUri = new URI(getApiUrl());
+            if (parsed.getHost() == null
+                    || !parsed.getHost().equalsIgnoreCase(apiUri.getHost())
+                    || apiUri.getScheme() == null
+                    || !apiUri.getScheme().equalsIgnoreCase(parsed.getScheme())) {
+                logger.warn("Refusing to follow RingCentral nextPage cursor with unexpected origin '{}'",
+                        parsed.getHost());
+                return null;
+            }
+        } catch (URISyntaxException e) {
+            logger.warn("Refusing to follow malformed RingCentral nextPage cursor: {}", e.getMessage());
+            return null;
+        }
+        return uri;
     }
 
     /**
@@ -296,9 +366,6 @@ public class RingCentralApiConnector {
         }
     }
 
-    /**
-     * Closes the shared HTTP client when the Spring context is shutting down.
-     */
     @PreDestroy
     public void close() throws IOException {
         httpClient.close();

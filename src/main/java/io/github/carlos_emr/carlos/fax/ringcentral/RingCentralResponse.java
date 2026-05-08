@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
@@ -35,37 +36,50 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 public final class RingCentralResponse {
 
     private RingCentralResponse() {
-        // DTO namespace holder.
     }
 
-    /**
-     * OAuth token response.
-     */
-    public static class Token {
-        @JsonProperty("access_token")
-        private String accessToken;
-        @JsonProperty("expires_in")
-        private long expiresIn;
+    public record Token(@JsonProperty("access_token") String accessToken,
+                        @JsonProperty("expires_in") long expiresIn) {
 
-        public String getAccessToken() {
-            return accessToken;
-        }
-
-        public void setAccessToken(String accessToken) {
-            this.accessToken = accessToken;
-        }
-
-        public long getExpiresIn() {
-            return expiresIn;
-        }
-
-        public void setExpiresIn(long expiresIn) {
-            this.expiresIn = expiresIn;
+        @JsonCreator
+        public Token {
         }
     }
 
+    public record Party(@JsonProperty("phoneNumber") String phoneNumber) {
+
+        @JsonCreator
+        public Party {
+        }
+    }
+
+    public record Attachment(@JsonProperty("id") String id,
+                             @JsonProperty("fileName") String fileName,
+                             @JsonProperty("contentType") String contentType) {
+
+        @JsonCreator
+        public Attachment {
+        }
+    }
+
+    public record NextPage(@JsonProperty("uri") String uri) {
+
+        @JsonCreator
+        public NextPage {
+        }
+    }
+
+    public record Navigation(@JsonProperty("nextPage") NextPage nextPage) {
+
+        @JsonCreator
+        public Navigation {
+        }
+    }
+
     /**
-     * Message metadata returned by send/status/list endpoints.
+     * Message metadata returned by send/status/list endpoints. Stays a class (not a record) because
+     * Jackson populates fields incrementally and the inbox flow expects defensive-copy semantics
+     * for the attachment list.
      */
     public static class Message {
         private String id;
@@ -78,7 +92,6 @@ public final class RingCentralResponse {
         private List<Attachment> attachments;
 
         public Message() {
-            // DTO constructor for Jackson.
         }
 
         private Message(Message other) {
@@ -88,7 +101,7 @@ public final class RingCentralResponse {
             this.direction = other.direction;
             this.readStatus = other.readStatus;
             this.creationTime = other.creationTime;
-            this.from = other.from == null ? null : new Party(other.from);
+            this.from = other.from;
             this.attachments = copyAttachments(other.attachments);
         }
 
@@ -141,11 +154,11 @@ public final class RingCentralResponse {
         }
 
         public Party getFrom() {
-            return from == null ? null : new Party(from);
+            return from;
         }
 
         public void setFrom(Party from) {
-            this.from = from == null ? null : new Party(from);
+            this.from = from;
         }
 
         /**
@@ -166,27 +179,21 @@ public final class RingCentralResponse {
             if (attachments == null) {
                 return null;
             }
-            List<Attachment> copy = new ArrayList<>(attachments.size());
-            for (Attachment attachment : attachments) {
-                copy.add(attachment == null ? null : new Attachment(attachment));
-            }
-            return copy;
+            return new ArrayList<>(attachments);
         }
     }
 
     /**
-     * Message list response.
+     * Inbox-list response. Tracks the optional {@code navigation.nextPage} cursor so the connector
+     * can walk multi-page inboxes without losing records past the per-page cap.
      */
     public static class MessageList {
         private List<Message> records;
+        private Navigation navigation;
 
         public MessageList() {
-            // DTO constructor for Jackson.
         }
 
-        /**
-         * Returns an immutable defensive copy of message records.
-         */
         public List<Message> getRecords() {
             if (records == null) {
                 return Collections.emptyList();
@@ -198,6 +205,14 @@ public final class RingCentralResponse {
             this.records = copyMessages(records);
         }
 
+        public Navigation getNavigation() {
+            return navigation;
+        }
+
+        public void setNavigation(Navigation navigation) {
+            this.navigation = navigation;
+        }
+
         private static List<Message> copyMessages(List<Message> records) {
             if (records == null) {
                 return null;
@@ -207,72 +222,6 @@ public final class RingCentralResponse {
                 copy.add(message == null ? null : new Message(message));
             }
             return copy;
-        }
-    }
-
-    /**
-     * RingCentral phone-number holder.
-     */
-    public static class Party {
-        private String phoneNumber;
-
-        public Party() {
-            // DTO constructor for Jackson.
-        }
-
-        private Party(Party other) {
-            this.phoneNumber = other.phoneNumber;
-        }
-
-        public String getPhoneNumber() {
-            return phoneNumber;
-        }
-
-        public void setPhoneNumber(String phoneNumber) {
-            this.phoneNumber = phoneNumber;
-        }
-    }
-
-    /**
-     * Fax attachment metadata.
-     */
-    public static class Attachment {
-        private String id;
-        private String fileName;
-        private String contentType;
-
-        public Attachment() {
-            // DTO constructor for Jackson.
-        }
-
-        private Attachment(Attachment other) {
-            this.id = other.id;
-            this.fileName = other.fileName;
-            this.contentType = other.contentType;
-        }
-
-        public String getId() {
-            return id;
-        }
-
-        public void setId(String id) {
-            this.id = id;
-        }
-
-        public String getFileName() {
-            return fileName;
-        }
-
-        public void setFileName(String fileName) {
-            this.fileName = fileName;
-        }
-
-        public String getContentType() {
-            return contentType;
-        }
-
-        public void setContentType(String contentType) {
-            this.contentType = contentType;
         }
     }
 }

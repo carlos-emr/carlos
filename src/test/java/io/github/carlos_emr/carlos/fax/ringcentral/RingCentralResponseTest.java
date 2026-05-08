@@ -46,8 +46,8 @@ class RingCentralResponseTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should not expose mutable attachments list")
     void shouldNotExposeMutableAttachmentsList_forMessageDto() {
-        RingCentralResponse.Attachment attachment = new RingCentralResponse.Attachment();
-        attachment.setId("1");
+        RingCentralResponse.Attachment attachment =
+                new RingCentralResponse.Attachment("1", "f.pdf", "application/pdf");
         List<RingCentralResponse.Attachment> attachments = new ArrayList<>();
         attachments.add(attachment);
 

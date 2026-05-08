@@ -29,7 +29,9 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Service;
 
 /**
@@ -41,8 +43,10 @@ import org.springframework.stereotype.Service;
 public class RingCentralAuthService {
 
     private static final long TOKEN_EXPIRY_SKEW_SECONDS = 60;
+    private static final long DEFAULT_TOKEN_LIFETIME_SECONDS = 3600;
     private static final int TOKEN_LOCK_STRIPES = 32;
     private static final char[] HEX = "0123456789abcdef".toCharArray();
+    private static final Logger logger = MiscUtils.getLogger();
     private static final ThreadLocal<MessageDigest> SHA_256 = ThreadLocal.withInitial(() -> {
         try {
             return MessageDigest.getInstance("SHA-256");
@@ -84,7 +88,7 @@ public class RingCentralAuthService {
         }
 
         if (cacheKey == null) {
-            return authenticate(faxConfig, apiConnector).getAccessToken();
+            return authenticate(faxConfig, apiConnector).accessToken();
         }
 
         Object lock = lockFor(cacheKey);
@@ -95,12 +99,46 @@ public class RingCentralAuthService {
                 return cachedToken.accessToken;
             }
             RingCentralResponse.Token token = authenticate(faxConfig, apiConnector);
-            long expiresIn = token.getExpiresIn() > 0 ? token.getExpiresIn() : 3600;
-            accessToken = token.getAccessToken();
-            tokenCache.put(cacheKey, new CachedToken(token.getAccessToken(), credentialFingerprint,
+            long providerExpiresIn = token.expiresIn();
+            long expiresIn;
+            if (providerExpiresIn > 0) {
+                expiresIn = providerExpiresIn;
+            } else {
+                // RingCentral's documented contract is a positive expires_in. A zero/negative value
+                // signals a stub or schema regression; cache for the standard hour but make the drift
+                // visible. Provider field values are vendor data, not PHI.
+                logger.warn("RingCentral OAuth response had non-positive expires_in={} - falling back to {}s",
+                        providerExpiresIn, DEFAULT_TOKEN_LIFETIME_SECONDS);
+                expiresIn = DEFAULT_TOKEN_LIFETIME_SECONDS;
+            }
+            accessToken = token.accessToken();
+            tokenCache.put(cacheKey, new CachedToken(accessToken, credentialFingerprint,
                     Instant.now(clock).plusSeconds(Math.max(1, expiresIn - TOKEN_EXPIRY_SKEW_SECONDS))));
         }
         return accessToken;
+    }
+
+    /**
+     * Evicts the cached token for the given fax account.
+     *
+     * <p>Call this when a downstream RingCentral request returns HTTP 401, so the next call
+     * re-authenticates rather than reusing a token that the provider has rejected. Without this
+     * hook a revoked or rotated JWT would leave every downstream call failing for up to an hour.</p>
+     *
+     * @param faxConfig fax account whose cached token should be invalidated; null and unsaved
+     *     configs are no-ops since they were never cached
+     */
+    public void invalidateToken(FaxConfig faxConfig) {
+        if (faxConfig == null) {
+            return;
+        }
+        Integer cacheKey = faxConfig.getId();
+        if (cacheKey == null) {
+            return;
+        }
+        if (tokenCache.remove(cacheKey) != null) {
+            logger.info("RingCentral access token cache invalidated for faxConfigId={}", cacheKey);
+        }
     }
 
     private Object lockFor(Integer cacheKey) {
@@ -116,7 +154,7 @@ public class RingCentralAuthService {
         if (token == null) {
             throw new RingCentralException("RingCentral OAuth response was empty");
         }
-        if (StringUtils.isBlank(token.getAccessToken())) {
+        if (StringUtils.isBlank(token.accessToken())) {
             throw new RingCentralException("RingCentral OAuth response did not include an access token");
         }
         return token;

@@ -160,9 +160,8 @@ class RingCentralFaxServiceTest extends CarlosUnitTestBase {
         when(config.getRingCentralExtensionId()).thenReturn("~");
         when(authService.getAccessToken(config, apiConnector)).thenReturn("token");
 
-        RingCentralResponse.Attachment attachment = new RingCentralResponse.Attachment();
-        attachment.setId("456");
-        attachment.setFileName("incoming.pdf");
+        RingCentralResponse.Attachment attachment =
+                new RingCentralResponse.Attachment("456", "incoming.pdf", "application/pdf");
         RingCentralResponse.Message message = new RingCentralResponse.Message();
         message.setId("123");
         message.setAttachments(Collections.singletonList(attachment));
@@ -176,6 +175,31 @@ class RingCentralFaxServiceTest extends CarlosUnitTestBase {
         assertThat(result.get(0).getJobId()).isEqualTo(123L);
         assertThat(result.get(0).getFile_name()).isEqualTo("123:456:incoming.pdf");
         assertThat(result.get(0).getStatus()).isEqualTo(FaxJob.STATUS.RECEIVED);
+    }
+
+    @Test
+    @DisplayName("should emit one FaxJob per attachment when message has multiple attachments")
+    void shouldEmitOneFaxJobPerAttachment_whenMessageHasMultipleAttachments() throws Exception {
+        FaxConfig config = mock(FaxConfig.class);
+        when(config.getProviderType()).thenReturn(FaxConfig.ProviderType.RINGCENTRAL);
+        when(config.getRingCentralAccountId()).thenReturn("~");
+        when(config.getRingCentralExtensionId()).thenReturn("~");
+        when(authService.getAccessToken(config, apiConnector)).thenReturn("token");
+
+        RingCentralResponse.Message message = new RingCentralResponse.Message();
+        message.setId("999");
+        message.setAttachments(Arrays.asList(
+                new RingCentralResponse.Attachment("a1", "page1.pdf", "application/pdf"),
+                new RingCentralResponse.Attachment("a2", "page2.pdf", "application/pdf")));
+        RingCentralResponse.MessageList messageList = new RingCentralResponse.MessageList();
+        messageList.setRecords(Collections.singletonList(message));
+        when(apiConnector.getInboundFaxes("token", "~", "~")).thenReturn(messageList);
+
+        List<FaxJob> result = service.listInboundFaxes(config);
+
+        assertThat(result).hasSize(2);
+        assertThat(result.get(0).getFile_name()).isEqualTo("999:a1:page1.pdf");
+        assertThat(result.get(1).getFile_name()).isEqualTo("999:a2:page2.pdf");
     }
 
     @Test
@@ -200,10 +224,30 @@ class RingCentralFaxServiceTest extends CarlosUnitTestBase {
         assertThat(result.get(1).getJobId()).isEqualTo(101L);
     }
 
+    @Test
+    @DisplayName("should reject malformed phone number in validateSendRequest")
+    void shouldRejectMalformedPhoneNumber_whenDestinationLooksWrong() {
+        FaxJob job = new FaxJob();
+        job.setDestination("not-a-number");
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.validateSendRequest(job))
+                .isInstanceOf(RingCentralException.class)
+                .hasMessageContaining("phone number");
+    }
+
+    @Test
+    @DisplayName("should accept digit-only phone number in validateSendRequest")
+    void shouldAcceptPhoneNumber_whenDestinationIsDigitsOnly() {
+        FaxJob job = new FaxJob();
+        job.setDestination("4165551234");
+
+        org.assertj.core.api.Assertions.assertThatCode(() -> service.validateSendRequest(job))
+                .doesNotThrowAnyException();
+    }
+
     private RingCentralResponse.Message inboundMessage(String messageId, String attachmentId, String fileName) {
-        RingCentralResponse.Attachment attachment = new RingCentralResponse.Attachment();
-        attachment.setId(attachmentId);
-        attachment.setFileName(fileName);
+        RingCentralResponse.Attachment attachment =
+                new RingCentralResponse.Attachment(attachmentId, fileName, "application/pdf");
         RingCentralResponse.Message message = new RingCentralResponse.Message();
         message.setId(messageId);
         message.setAttachments(Collections.singletonList(attachment));

@@ -331,7 +331,7 @@ public class ConfigureFax2Action extends ActionSupport {
      * @param password the submitted password string from the request
      * @return true if the value is the placeholder mask, false if it is a real credential update
      */
-    private boolean isPasswordUnchanged(String password) {
+    static boolean isPasswordUnchanged(String password) {
         return PASSWORD_MASK_SENTINEL.equals(password);
     }
 
@@ -410,7 +410,7 @@ public class ConfigureFax2Action extends ActionSupport {
      * @param savedFaxConfig existing persisted configuration for this row, or null for new rows
      * @throws IllegalArgumentException when required values are missing or malformed
      */
-    private void validateConfigRow(FaxConfig.ProviderType providerType, String faxUrl, String siteUser, String sitePasswd,
+    static void validateConfigRow(FaxConfig.ProviderType providerType, String faxUrl, String siteUser, String sitePasswd,
                                     String[] faxUsers, String[] faxPasswds, String[] faxNumbers, String[] senderEmails,
                                     String[] inboxQueues, String[] rcClientIds, String[] rcClientSecrets,
                                     String[] rcJwtTokens, int idx, FaxConfig savedFaxConfig) {
@@ -500,7 +500,7 @@ public class ConfigureFax2Action extends ActionSupport {
         return savedFaxConfigsById.get(id);
     }
 
-    private boolean isRingCentralClientIdChanged(String[] rcClientIds, int idx, FaxConfig savedFaxConfig) {
+    static boolean isRingCentralClientIdChanged(String[] rcClientIds, int idx, FaxConfig savedFaxConfig) {
         return savedFaxConfig != null
                 && !StringUtils.equals(StringUtils.trimToEmpty(valueAt(rcClientIds, idx)),
                         StringUtils.trimToEmpty(savedFaxConfig.getRingCentralClientId()));
@@ -513,14 +513,23 @@ public class ConfigureFax2Action extends ActionSupport {
      * reduction of plaintext credential lifetime in memory. Servlet request parameters are Strings,
      * so they cannot be zeroed like char arrays and remain subject to garbage collection.</p>
      */
-    private void applyRingCentralFields(FaxConfig faxConfig, FaxConfig.ProviderType providerType, String[] rcClientIds, String[] rcClientSecrets,
+    static void applyRingCentralFields(FaxConfig faxConfig, FaxConfig.ProviderType providerType, String[] rcClientIds, String[] rcClientSecrets,
             String[] rcJwtTokens, String[] rcAccountIds, String[] rcExtensionIds, int idx) {
         if (providerType != FaxConfig.ProviderType.RINGCENTRAL) {
+            boolean hadCredentials = StringUtils.isNotBlank(faxConfig.getRingCentralClientId());
             faxConfig.setRingCentralClientId("");
             faxConfig.setRingCentralClientSecret("");
             faxConfig.setRingCentralJwtToken("");
             faxConfig.setRingCentralAccountId("");
             faxConfig.setRingCentralExtensionId("");
+            if (hadCredentials) {
+                // Credential clears can be unintentional (admin toggling provider for a quick test);
+                // log so the audit trail shows when stored OAuth credentials were wiped. faxConfig
+                // id is an internal surrogate, not PHI.
+                MiscUtils.getLogger().info(
+                        "Cleared RingCentral credentials for FaxConfig id={} due to provider switch to {}",
+                        faxConfig.getId(), providerType);
+            }
             clearRingCentralSecretInputs(rcClientSecrets, rcJwtTokens, idx);
             return;
         }
@@ -538,7 +547,7 @@ public class ConfigureFax2Action extends ActionSupport {
         clearRingCentralSecretInputs(rcClientSecrets, rcJwtTokens, idx);
     }
 
-    private void clearRingCentralSecretInputs(String[] rcClientSecrets, String[] rcJwtTokens, int idx) {
+    private static void clearRingCentralSecretInputs(String[] rcClientSecrets, String[] rcJwtTokens, int idx) {
         if (rcClientSecrets != null && idx < rcClientSecrets.length) {
             rcClientSecrets[idx] = null;
         }
@@ -547,7 +556,7 @@ public class ConfigureFax2Action extends ActionSupport {
         }
     }
 
-    private String valueAt(String[] values, int idx) {
+    private static String valueAt(String[] values, int idx) {
         return values != null && idx < values.length ? values[idx] : "";
     }
 

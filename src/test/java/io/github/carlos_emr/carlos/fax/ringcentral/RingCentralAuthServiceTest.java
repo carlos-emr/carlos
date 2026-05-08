@@ -161,6 +161,50 @@ class RingCentralAuthServiceTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should re-authenticate after invalidateToken evicts cached entry")
+    void shouldReauthenticate_afterInvalidateTokenEvictsCachedEntry() throws Exception {
+        FaxConfig config = config(99, "client", "secret", "jwt");
+        RingCentralApiConnector connector = mock(RingCentralApiConnector.class);
+        when(connector.authenticate("client", "secret", "jwt"))
+                .thenReturn(token("first-token", 3600))
+                .thenReturn(token("second-token", 3600));
+
+        String first = authService.getAccessToken(config, connector);
+        authService.invalidateToken(config);
+        String second = authService.getAccessToken(config, connector);
+
+        assertThat(first).isEqualTo("first-token");
+        assertThat(second).isEqualTo("second-token");
+        verify(connector, times(2)).authenticate("client", "secret", "jwt");
+    }
+
+    @Test
+    @DisplayName("should ignore invalidateToken for null or unsaved fax config")
+    void shouldIgnoreInvalidateToken_forNullOrUnsavedFaxConfig() {
+        authService.invalidateToken(null);
+        FaxConfig unsaved = mock(FaxConfig.class);
+        when(unsaved.getId()).thenReturn(null);
+        authService.invalidateToken(unsaved);
+        // No interactions expected; test passes if no exception is thrown.
+    }
+
+    @Test
+    @DisplayName("should fall back to one hour expiry when expires_in is non-positive")
+    void shouldFallBackToOneHourExpiry_whenExpiresInIsNonPositive() throws Exception {
+        FaxConfig config = config(50, "client", "secret", "jwt");
+        RingCentralApiConnector connector = mock(RingCentralApiConnector.class);
+        when(connector.authenticate("client", "secret", "jwt"))
+                .thenReturn(token("zero-expiry-token", 0));
+
+        String first = authService.getAccessToken(config, connector);
+        String second = authService.getAccessToken(config, connector);
+
+        assertThat(first).isEqualTo("zero-expiry-token");
+        assertThat(second).isEqualTo("zero-expiry-token");
+        verify(connector, times(1)).authenticate("client", "secret", "jwt");
+    }
+
+    @Test
     @DisplayName("should share token request when concurrent calls miss cache")
     void shouldShareTokenRequest_whenConcurrentCallsMissCache() throws Exception {
         FaxConfig config = config(4, "client", "secret", "jwt");
@@ -215,10 +259,7 @@ class RingCentralAuthServiceTest extends CarlosUnitTestBase {
     }
 
     private RingCentralResponse.Token token(String accessToken, long expiresIn) {
-        RingCentralResponse.Token token = new RingCentralResponse.Token();
-        token.setAccessToken(accessToken);
-        token.setExpiresIn(expiresIn);
-        return token;
+        return new RingCentralResponse.Token(accessToken, expiresIn);
     }
 
     private static class MutableClock extends Clock {

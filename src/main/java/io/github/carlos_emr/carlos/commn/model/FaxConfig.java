@@ -391,4 +391,29 @@ public class FaxConfig extends AbstractModel<Integer> {
     public void setDownload(boolean download) {
         this.download = download;
     }
+
+    /**
+     * Validates that provider-specific required fields are populated before persisting.
+     *
+     * <p>Lazy validation in {@code RingCentralAuthService} catches missing OAuth credentials only at
+     * fax-send time. This pre-persist hook surfaces the same problem at admin-save time, so an
+     * inconsistent row never reaches the database. Extending this method is the right place to add
+     * future provider-type invariants.</p>
+     */
+    @PrePersist
+    @PreUpdate
+    void assertProviderInvariants() {
+        if (providerType == ProviderType.RINGCENTRAL) {
+            requireField(ringCentralClientId, "ringCentralClientId");
+            requireField(ringCentralClientSecret, "ringCentralClientSecret");
+            requireField(ringCentralJwtToken, "ringCentralJwtToken");
+        }
+    }
+
+    private static void requireField(String value, String fieldName) {
+        if (value == null || value.isEmpty()) {
+            throw new IllegalStateException(
+                    "FaxConfig with providerType=RINGCENTRAL requires " + fieldName);
+        }
+    }
 }

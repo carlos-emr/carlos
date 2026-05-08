@@ -15,7 +15,9 @@ introduced in CARLOS, with emphasis on SRFax behavior and admin configuration UX
 ## Admin UX Entry Points
 - Navigation: **Administration > Faxes > Configure Fax**
 - Page: `src/main/webapp/WEB-INF/jsp/admin/configureFax.jsp`
-- Action endpoint: `/admin/ManageFax.do?method=configure`
+- View action (gate): `admin/ViewConfigureFax` (extensionless Struts 7 route in `struts-admin.xml`)
+- Save / scheduler action: `admin/ManageFax?method=configure|getFaxSchedularStatus|restartFaxScheduler|getPendingIncomingFaxes`
+  (extensionless route in `struts-provider.xml`, backed by `ConfigureFax2Action`)
 
 ## Required Permissions
 - Fax configuration view/edit requires `_admin.fax` with write rights (`w`).
@@ -40,12 +42,27 @@ When provider type is `MIDDLEWARE`:
 When provider type is `RINGCENTRAL`:
 - `faxUrl` is ignored; the fixed production endpoint (`https://platform.ringcentral.com`) is used
   unless `ringcentral.use.sandbox=true` selects the sandbox endpoint.
+- The endpoint can be overridden via `ringcentral.api.url` (production) or
+  `ringcentral.api.sandbox.url` (sandbox) in `carlos.properties`. Override values are validated
+  against an explicit host whitelist (`platform.ringcentral.com`, `platform.devtest.ringcentral.com`)
+  and must be plain `https://<host>` with no path/port/query/userinfo; values that don't match
+  fall back to the documented default and a warning is logged.
 - Required fields are RingCentral client ID, client secret, and JWT token. The client secret and
   JWT token are encrypted at rest with the same CARLOS credential encryption used for fax passwords.
+  A `FaxConfig` `@PrePersist`/`@PreUpdate` invariant rejects rows that select `RINGCENTRAL` without
+  the three OAuth fields, so admin-save fails before the row hits the database.
 - Account ID and extension ID are optional; leave blank to use RingCentral's `~` default for the
   authenticated account and extension.
 - Inbound duplicate prevention uses unread-only polling plus mark-as-read after successful local
-  persistence. CARLOS does not delete RingCentral messages server-side.
+  persistence. CARLOS does not delete RingCentral messages server-side; the RingCentral
+  `deleteFax` implementation is a contractual no-op (matching SRFax) so the shared `FaxImporter`
+  cleanup loop calls it uniformly.
+- The inbox poll walks RingCentral's `navigation.nextPage` cursor up to a 50-page safety cap, so
+  inboxes larger than the per-page limit are not silently truncated. The 50-page cap protects
+  against pathological self-loop cursors; remaining unread faxes are picked up on the next poll.
+- A 401 from any RingCentral call invalidates the cached OAuth token via
+  `RingCentralAuthService.invalidateToken(...)` so the next call re-authenticates rather than
+  reusing a token the provider has rejected.
 
 ## Files to Know
 - Provider API contract: `src/main/java/io/github/carlos_emr/carlos/fax/provider/FaxProviderClient.java`
