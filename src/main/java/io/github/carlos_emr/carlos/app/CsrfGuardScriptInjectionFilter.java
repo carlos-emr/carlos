@@ -500,11 +500,9 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
          * Defers choosing capture vs. passthrough until the first write, when Content-Type
          * may be known even if it was not set when getWriter() was called.
          *
-         * <p>Servlet responses are request-scoped and written by one request thread in this
-         * filter path, so the lazy target selection intentionally avoids synchronization.</p>
          */
         private class LazyCaptureWriter extends Writer {
-            private volatile Writer target;
+            private Writer target;
 
             @Override
             public void write(int character) throws IOException {
@@ -535,7 +533,7 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
                 }
             }
 
-            private Writer getTarget() throws IOException {
+            private synchronized Writer getTarget() throws IOException {
                 if (target == null) {
                     if (isKnownNonHtmlContentType()) {
                         writerPassthrough = true;
