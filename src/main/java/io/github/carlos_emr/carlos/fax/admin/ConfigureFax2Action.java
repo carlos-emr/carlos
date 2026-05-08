@@ -474,10 +474,10 @@ public class ConfigureFax2Action extends ActionSupport {
             boolean clientIdChanged = isRingCentralClientIdChanged(rcClientIds, idx, savedFaxConfig);
             boolean missingSecret = rcClientSecrets == null || idx >= rcClientSecrets.length || StringUtils.isBlank(rcClientSecrets[idx]);
             boolean secretUnchanged = !missingSecret && isPasswordUnchanged(rcClientSecrets[idx]);
-            boolean requiresSecretReentry = (isNewConfigRow && missingSecret)
-                    || (clientIdChanged && (missingSecret || secretUnchanged));
+            boolean requiresSecretReentry = missingSecret
+                    || (clientIdChanged && secretUnchanged);
             if (requiresSecretReentry) {
-                throw new IllegalArgumentException("RingCentral client secret is required when creating an account or changing the client ID for row " + (idx + 1) + ".");
+                throw new IllegalArgumentException("RingCentral client secret is required for account row " + (idx + 1) + ". Leave the masked value unchanged or provide a new non-blank secret.");
             }
             boolean missingJwt = rcJwtTokens == null || idx >= rcJwtTokens.length || StringUtils.isBlank(rcJwtTokens[idx]);
             boolean jwtUnchanged = !missingJwt && isPasswordUnchanged(rcJwtTokens[idx]);
