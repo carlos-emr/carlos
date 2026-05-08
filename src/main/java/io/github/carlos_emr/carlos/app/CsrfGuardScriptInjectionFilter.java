@@ -172,6 +172,12 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             return;
         }
 
+        if (wrapper.isWriterPassthrough()) {
+            LOGGER.debug("CsrfGuard: writer passthrough for {} contentType={}",
+                    httpRequest.getRequestURI(), wrapper.getContentType());
+            return;
+        }
+
         String contentType = wrapper.getContentType();
         if (contentType == null || !contentType.toLowerCase(Locale.ROOT).startsWith("text/html")) {
             // Not HTML — write captured content through without modification
@@ -294,6 +300,7 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         private PrintWriter writer;
         private boolean usingOutputStream;
         private boolean usingWriter;
+        private boolean writerPassthrough;
         private boolean committed;
         private Integer deferredContentLength;
         private Long deferredContentLengthLong;
@@ -314,14 +321,7 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             usingOutputStream = true;
             // Apply any Content-Length that was set before we knew the response mode.
             // For output-stream passthrough, the header must reach the underlying response.
-            if (deferredContentLength != null) {
-                super.setContentLength(deferredContentLength);
-                deferredContentLength = null;
-            }
-            if (deferredContentLengthLong != null) {
-                super.setContentLengthLong(deferredContentLengthLong);
-                deferredContentLengthLong = null;
-            }
+            applyDeferredContentLength();
             return super.getOutputStream();
         }
 
@@ -332,8 +332,14 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             }
             usingWriter = true;
             if (writer == null) {
-                captureWriter = new CharArrayWriter();
-                writer = new PrintWriter(captureWriter);
+                if (isKnownNonHtmlContentType()) {
+                    writerPassthrough = true;
+                    applyDeferredContentLength();
+                    writer = super.getWriter();
+                } else {
+                    captureWriter = new CharArrayWriter();
+                    writer = new PrintWriter(captureWriter);
+                }
             }
             return writer;
         }
@@ -342,6 +348,10 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         public void setContentLength(int len) {
             if (usingOutputStream) {
                 // Output-stream passthrough: the real response owns the content, so pass through
+                super.setContentLength(len);
+                return;
+            }
+            if (writerPassthrough) {
                 super.setContentLength(len);
                 return;
             }
@@ -357,6 +367,10 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         public void setContentLengthLong(long len) {
             if (usingOutputStream) {
                 // Output-stream passthrough: the real response owns the content, so pass through
+                super.setContentLengthLong(len);
+                return;
+            }
+            if (writerPassthrough) {
                 super.setContentLengthLong(len);
                 return;
             }
@@ -398,6 +412,10 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
                 super.flushBuffer();
                 return;
             }
+            if (writerPassthrough) {
+                super.flushBuffer();
+                return;
+            }
             // Suppress flushing to prevent captured content from being committed to the client
             // before script injection.
             if (LOGGER.isDebugEnabled()) {
@@ -418,6 +436,9 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
          */
         @Override
         public boolean isCommitted() {
+            if (writerPassthrough) {
+                return committed || super.isCommitted();
+            }
             if (usingWriter && !committed) {
                 return false;
             }
@@ -432,11 +453,31 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             return usingWriter;
         }
 
+        public boolean isWriterPassthrough() {
+            return writerPassthrough;
+        }
+
         public String getCapturedContent() {
             if (writer != null) {
                 writer.flush();
             }
             return captureWriter != null ? captureWriter.toString() : "";
+        }
+
+        private boolean isKnownNonHtmlContentType() {
+            String contentType = getContentType();
+            return contentType != null && !contentType.toLowerCase(Locale.ROOT).startsWith("text/html");
+        }
+
+        private void applyDeferredContentLength() {
+            if (deferredContentLength != null) {
+                super.setContentLength(deferredContentLength);
+                deferredContentLength = null;
+            }
+            if (deferredContentLengthLong != null) {
+                super.setContentLengthLong(deferredContentLengthLong);
+                deferredContentLengthLong = null;
+            }
         }
     }
 }
