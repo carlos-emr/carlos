@@ -61,6 +61,7 @@ class CsrfGuardScriptInjectionFilterUnitTest {
     @Test
     @DisplayName("should inject CSRFGuard script for extensionless request to forwarded JSP")
     void shouldInjectCsrfguardScript_forExtensionlessRequestToForwardedJsp() throws Exception {
+        // DemographicAdd is a representative extensionless Struts route from struts-demographic.xml.
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/demographic/DemographicAdd");
         request.setContextPath("/carlos");
         request.setDispatcherType(DispatcherType.REQUEST);
@@ -124,8 +125,27 @@ class CsrfGuardScriptInjectionFilterUnitTest {
     }
 
     @Test
-    @DisplayName("should pass through non-HTML writer responses")
-    void shouldPassThrough_whenWriterResponseIsNonHtml() throws Exception {
+    @DisplayName("should pass through non-HTML writer responses when content type is set before writer")
+    void shouldPassThrough_whenNonHtmlContentTypePrecedesWriter() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/clinical/JsonEndpoint");
+        request.setContextPath("/carlos");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        String body = "{\"status\":\"ok\"}";
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.setContentType("application/json;charset=UTF-8");
+            servletResponse.getWriter().write(body);
+        };
+
+        withEnabledCsrfGuard(() -> filter.doFilter(request, response, chain));
+
+        assertThat(response.getContentAsString()).isEqualTo(body);
+        assertThat(response.getContentAsString()).doesNotContain("/csrfguard");
+    }
+
+    @Test
+    @DisplayName("should pass through non-HTML writer responses when content type follows writer")
+    void shouldPassThrough_whenNonHtmlContentTypeFollowsWriter() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/clinical/JsonEndpoint");
         request.setContextPath("/carlos");
         MockHttpServletResponse response = new MockHttpServletResponse();

@@ -499,13 +499,26 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         /**
          * Defers choosing capture vs. passthrough until the first write, when Content-Type
          * may be known even if it was not set when getWriter() was called.
+         *
+         * <p>Servlet responses are request-scoped and written by one request thread in this
+         * filter path, so the lazy target selection intentionally avoids synchronization.</p>
          */
         private class LazyCaptureWriter extends Writer {
             private Writer target;
 
             @Override
+            public void write(int character) throws IOException {
+                getTarget().write(character);
+            }
+
+            @Override
             public void write(char[] chars, int offset, int length) throws IOException {
                 getTarget().write(chars, offset, length);
+            }
+
+            @Override
+            public void write(String string, int offset, int length) throws IOException {
+                getTarget().write(string, offset, length);
             }
 
             @Override
