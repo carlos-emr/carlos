@@ -40,6 +40,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Writer;
 import java.util.Locale;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
 
 /**
@@ -501,7 +502,8 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
          * may be known even if it was not set when getWriter() was called.
          */
         private class LazyCaptureWriter extends Writer {
-            private volatile Writer target;
+            private final AtomicReference<Writer> target = new AtomicReference<>();
+            private final Object targetLock = new Object();
 
             @Override
             public void write(int character) throws IOException {
@@ -520,26 +522,28 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
 
             @Override
             public void flush() throws IOException {
-                if (target != null) {
-                    target.flush();
+                Writer currentTarget = target.get();
+                if (currentTarget != null) {
+                    currentTarget.flush();
                 }
             }
 
             @Override
             public void close() throws IOException {
-                if (target != null) {
-                    target.close();
+                Writer currentTarget = target.get();
+                if (currentTarget != null) {
+                    currentTarget.close();
                 }
             }
 
             private Writer getTarget() throws IOException {
-                Writer currentTarget = target;
+                Writer currentTarget = target.get();
                 if (currentTarget == null) {
-                    synchronized (this) {
-                        currentTarget = target;
+                    synchronized (targetLock) {
+                        currentTarget = target.get();
                         if (currentTarget == null) {
                             currentTarget = createTarget();
-                            target = currentTarget;
+                            target.set(currentTarget);
                         }
                     }
                 }
