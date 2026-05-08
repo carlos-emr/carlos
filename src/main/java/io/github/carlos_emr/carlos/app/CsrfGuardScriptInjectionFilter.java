@@ -125,18 +125,6 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             }
         }
 
-        // Skip outer Struts action requests — Tomcat 11's RequestDispatcher.forward()
-        // closes the output stream after the first buffer flush, truncating responses
-        // > 8KB. The filter-mapping includes FORWARD dispatcher so this filter also
-        // runs when Struts forwards to the JSP, wrapping it there to prevent
-        // truncation. AJAX sidebar calls use EctDisplayAction.include() which bypasses
-        // Struts results entirely.
-        String servletPath = httpRequest.getServletPath();
-        if (HttpMethodGuardFilter.isActionPath(servletPath)) {
-            chain.doFilter(request, response);
-            return;
-        }
-
         // Skip if CsrfGuard is disabled
         CsrfGuard csrfGuard;
         try {
