@@ -436,7 +436,7 @@ public class FaxConfig extends AbstractModel<Integer> {
     }
 
     private static void requireField(String value, String fieldName, ProviderType providerType) {
-        if (value == null || value.isEmpty()) {
+        if (value == null || value.isBlank()) {
             throw new IllegalStateException(
                     "FaxConfig with providerType=" + providerType + " requires " + fieldName);
         }
