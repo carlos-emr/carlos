@@ -552,8 +552,12 @@ var targetWindow = 'unbilled';
 var popupHeight = 700;
 var popupWidth = 720;
 var windowProps = "height="+popupHeight+",width="+popupWidth+",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=50,screenY=50,top=0,left=0";
-var popup = window.open('', targetWindow, windowProps);
 var existingFormCount = document.body ? document.body.getElementsByTagName('form').length : 0;
+if (openEncounterInTab && !isForceWindowUrl(url)) {
+targetWindow = '_blank';
+} else {
+window.open('', targetWindow, windowProps);
+}
 postViaForm(url, targetWindow);
 window.setTimeout(function() {
 if (!document.body) {
