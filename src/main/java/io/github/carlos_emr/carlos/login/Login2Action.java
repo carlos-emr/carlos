@@ -1023,8 +1023,10 @@ public final class Login2Action extends ActionSupport {
         }
 
         String token = LoginCredentialCache.getInstance().store(credentials);
-        session.setAttribute(LOGIN_CREDENTIALS_TOKEN_ATTR, token); // nosemgrep: tainted-session-from-http-request -- opaque random token, not user-controlled; no credential material in session
-        session.setAttribute("userName", userName); // nosemgrep: tainted-session-from-http-request -- login name only; gate checks on forcepasswordreset and MFA pages depend on this
+        // nosemgrep: tainted-session-from-http-request -- opaque random token, not user-controlled; no credential material in session
+        session.setAttribute(LOGIN_CREDENTIALS_TOKEN_ATTR, token); 
+        // nosemgrep: tainted-session-from-http-request -- login name only; gate checks on forcepasswordreset and MFA pages depend on this
+        session.setAttribute("userName", userName);
     }
 
     /**
