@@ -481,10 +481,11 @@ public class ConfigureFax2Action extends ActionSupport {
             }
             boolean missingJwt = rcJwtTokens == null || idx >= rcJwtTokens.length || StringUtils.isBlank(rcJwtTokens[idx]);
             boolean jwtUnchanged = !missingJwt && isPasswordUnchanged(rcJwtTokens[idx]);
-            boolean requiresJwtReentry = (isNewConfigRow && missingJwt)
-                    || (clientIdChanged && (missingJwt || jwtUnchanged));
+            boolean requiresJwtReentry = missingJwt
+                    || (isNewConfigRow && jwtUnchanged)
+                    || (clientIdChanged && jwtUnchanged);
             if (requiresJwtReentry) {
-                throw new IllegalArgumentException("RingCentral JWT token is required when creating an account or changing the client ID for row " + (idx + 1) + ".");
+                throw new IllegalArgumentException("RingCentral JWT token is required and cannot be blank for row " + (idx + 1) + ". When updating an existing account without changing the JWT, keep the masked value.");
             }
         }
     }
