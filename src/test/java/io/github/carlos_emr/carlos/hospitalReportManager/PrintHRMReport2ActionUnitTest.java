@@ -55,6 +55,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -67,6 +68,7 @@ import org.xml.sax.SAXException;
 @DisplayName("PrintHRMReport2Action")
 @Tag("unit")
 @Tag("hrm")
+@Isolated
 class PrintHRMReport2ActionUnitTest extends CarlosUnitTestBase {
 
     private static final byte[] PDF_BYTES = {
