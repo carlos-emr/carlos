@@ -504,7 +504,7 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
          * filter path, so the lazy target selection intentionally avoids synchronization.</p>
          */
         private class LazyCaptureWriter extends Writer {
-            private Writer target;
+            private volatile Writer target;
 
             @Override
             public void write(int character) throws IOException {

@@ -30,6 +30,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 import org.mockito.MockedStatic;
 import org.owasp.csrfguard.CsrfGuard;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -165,12 +166,18 @@ class CsrfGuardScriptInjectionFilterUnitTest {
         assertThat(response.getContentLength()).isEqualTo(body.getBytes(StandardCharsets.UTF_8).length);
     }
 
-    private void withEnabledCsrfGuard(ThrowingRunnable runnable) throws Exception {
+    private void withEnabledCsrfGuard(Executable executable) throws Exception {
         CsrfGuard csrfGuard = mock(CsrfGuard.class);
         when(csrfGuard.isEnabled()).thenReturn(true);
         try (MockedStatic<CsrfGuard> csrfGuardMock = mockStatic(CsrfGuard.class)) {
             csrfGuardMock.when(CsrfGuard::getInstance).thenReturn(csrfGuard);
-            runnable.run();
+            try {
+                executable.execute();
+            } catch (Exception e) {
+                throw e;
+            } catch (Throwable t) {
+                throw new AssertionError(t);
+            }
         }
     }
 
@@ -182,10 +189,5 @@ class CsrfGuardScriptInjectionFilterUnitTest {
             index += needle.length();
         }
         return count;
-    }
-
-    @FunctionalInterface
-    private interface ThrowingRunnable {
-        void run() throws Exception;
     }
 }
