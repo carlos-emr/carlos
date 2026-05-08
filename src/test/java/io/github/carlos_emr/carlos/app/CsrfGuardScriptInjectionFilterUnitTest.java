@@ -61,7 +61,7 @@ class CsrfGuardScriptInjectionFilterUnitTest {
 
     @Test
     @DisplayName("should inject CSRFGuard script for extensionless request to forwarded JSP")
-    void shouldInjectCsrfguardScript_forExtensionlessRequestToForwardedJsp() throws Exception {
+    void shouldInjectCsrfGuardScript_forExtensionlessRequestToForwardedJsp() throws Exception {
         // DemographicAdd is a representative extensionless Struts route from struts-demographic.xml.
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/demographic/DemographicAdd");
         request.setContextPath("/carlos");
@@ -89,7 +89,7 @@ class CsrfGuardScriptInjectionFilterUnitTest {
 
     @Test
     @DisplayName("should not inject duplicate CSRFGuard script")
-    void shouldNotInjectDuplicateCsrfguardScript_whenScriptAlreadyExists() throws Exception {
+    void shouldNotInjectDuplicateCsrfGuardScript_whenScriptAlreadyExists() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/encounter/IncomingEncounter");
         request.setContextPath("/carlos");
         MockHttpServletResponse response = new MockHttpServletResponse();

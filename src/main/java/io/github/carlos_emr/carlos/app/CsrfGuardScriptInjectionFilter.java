@@ -499,7 +499,6 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         /**
          * Defers choosing capture vs. passthrough until the first write, when Content-Type
          * may be known even if it was not set when getWriter() was called.
-         *
          */
         private class LazyCaptureWriter extends Writer {
             private Writer target;
