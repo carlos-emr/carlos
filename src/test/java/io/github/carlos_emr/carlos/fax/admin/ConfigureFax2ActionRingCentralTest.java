@@ -99,6 +99,90 @@ class ConfigureFax2ActionRingCentralTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should reject new RingCentral row when secret is the masked sentinel")
+    void shouldReject_whenNewRingCentralRowSubmitsSentinelSecret() {
+        // A new row has nothing to "preserve", so the mask sentinel is meaningless and would
+        // otherwise persist the literal "**********" as the encrypted secret only to be caught
+        // at @PrePersist with a generic save error.
+        String[] clientIds = { "client" };
+        String[] secrets = { ConfigureFax2Action.PASSWORD_MASK_SENTINEL };
+        String[] jwts = { "jwt" };
+
+        assertThatThrownBy(() -> ConfigureFax2Action.validateConfigRow(
+                FaxConfig.ProviderType.RINGCENTRAL,
+                null, null, null,
+                stringArray(""), stringArray(""), stringArray("4165551234"),
+                stringArray("ops@example.com"), stringArray("1"),
+                clientIds, secrets, jwts, 0, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("client secret");
+    }
+
+    @Test
+    @DisplayName("should reject new RingCentral row when JWT is the masked sentinel")
+    void shouldReject_whenNewRingCentralRowSubmitsSentinelJwt() {
+        String[] clientIds = { "client" };
+        String[] secrets = { "secret" };
+        String[] jwts = { ConfigureFax2Action.PASSWORD_MASK_SENTINEL };
+
+        assertThatThrownBy(() -> ConfigureFax2Action.validateConfigRow(
+                FaxConfig.ProviderType.RINGCENTRAL,
+                null, null, null,
+                stringArray(""), stringArray(""), stringArray("4165551234"),
+                stringArray("ops@example.com"), stringArray("1"),
+                clientIds, secrets, jwts, 0, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("JWT");
+    }
+
+    @Test
+    @DisplayName("should reject existing RingCentral row when secret is cleared (blank, not sentinel)")
+    void shouldReject_whenExistingRingCentralRowClearsSecret() {
+        FaxConfig saved = new FaxConfig();
+        saved.setRingCentralClientId("same-client");
+        String[] clientIds = { "same-client" };
+        String[] secrets = { "" };  // blank, not sentinel — would otherwise overwrite stored value
+        String[] jwts = { ConfigureFax2Action.PASSWORD_MASK_SENTINEL };
+
+        assertThatThrownBy(() -> ConfigureFax2Action.validateConfigRow(
+                FaxConfig.ProviderType.RINGCENTRAL,
+                null, null, null,
+                stringArray(""), stringArray(""), stringArray("4165551234"),
+                stringArray("ops@example.com"), stringArray("1"),
+                clientIds, secrets, jwts, 0, saved))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("cannot be cleared");
+    }
+
+    @Test
+    @DisplayName("should reject existing MIDDLEWARE row when site password is cleared")
+    void shouldReject_whenExistingMiddlewareRowClearsSitePassword() {
+        FaxConfig saved = new FaxConfig();
+        assertThatThrownBy(() -> ConfigureFax2Action.validateConfigRow(
+                FaxConfig.ProviderType.MIDDLEWARE,
+                "https://relay.example/", "user", "",
+                stringArray("fax-user"), stringArray(ConfigureFax2Action.PASSWORD_MASK_SENTINEL),
+                stringArray("4165551234"), stringArray("ops@example.com"), stringArray("1"),
+                null, null, null, 0, saved))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("cannot be cleared");
+    }
+
+    @Test
+    @DisplayName("should reject existing SRFAX row when password is cleared")
+    void shouldReject_whenExistingSrfaxRowClearsPassword() {
+        FaxConfig saved = new FaxConfig();
+        assertThatThrownBy(() -> ConfigureFax2Action.validateConfigRow(
+                FaxConfig.ProviderType.SRFAX,
+                null, null, null,
+                stringArray("fax-user"), stringArray(""),
+                stringArray("4165551234"), stringArray("ops@example.com"), stringArray("1"),
+                null, null, null, 0, saved))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("cannot be cleared");
+    }
+
+    @Test
     @DisplayName("should reject new RingCentral row without JWT token")
     void shouldReject_whenNewRingCentralRowMissingJwt() {
         String[] clientIds = { "client" };

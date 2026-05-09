@@ -73,6 +73,15 @@ public class RingCentralFaxService implements FaxProviderClient {
         return FaxConfig.ProviderType.RINGCENTRAL;
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p><strong>Side effect:</strong> on successful queue, the input {@code faxJob}'s
+     * {@code document} field is cleared (set to {@code null}) so the base64 payload can be
+     * garbage-collected promptly rather than retained on the FaxJob through the rest of the
+     * outbound pipeline. Callers that need the payload after send must snapshot it before this
+     * call.</p>
+     */
     @Override
     public FaxJob sendFax(FaxConfig faxConfig, FaxJob faxJob, Path filePath) throws FaxProviderException {
         requireMatchingProviderType(faxConfig);
@@ -80,13 +89,21 @@ public class RingCentralFaxService implements FaxProviderClient {
 
         try {
             byte[] document = resolveDocument(faxJob, filePath);
-            RingCentralResponse.Message response = withTokenRefresh(faxConfig, accessToken ->
-                    apiConnector.sendFax(accessToken,
-                            faxConfig.getRingCentralAccountId(), faxConfig.getRingCentralExtensionId(),
+            RingCentralResponse.Message response = withTokenRefresh(faxConfig, account ->
+                    apiConnector.sendFax(account,
                             faxJob.getDestination(), document, faxJob.getFile_name()));
 
+            Long jobId = parseMessageId(response.getId());
+            if (jobId == null) {
+                // Without a numeric job id we can't track status later (fetchFaxStatus throws on
+                // null). Surface this immediately on send rather than queueing a FaxJob whose
+                // status checks will fail forever. RingCentral's documented contract is numeric ids.
+                throw new RingCentralException(
+                        "RingCentral accepted send but returned non-numeric or missing message id '"
+                        + response.getId() + "' - status tracking unavailable");
+            }
             FaxJob result = new FaxJob();
-            result.setJobId(parseMessageId(response.getId()));
+            result.setJobId(jobId);
             result.setStatus(mapStatus(firstNonBlank(response.getFaxStatus(), response.getMessageStatus())));
             result.setStatusString(firstNonBlank(response.getFaxStatus(), response.getMessageStatus(), "Queued with RingCentral"));
             faxJob.setDocument(null);
@@ -100,24 +117,31 @@ public class RingCentralFaxService implements FaxProviderClient {
     @Override
     public List<FaxJob> listInboundFaxes(FaxConfig faxConfig) throws FaxProviderException {
         requireMatchingProviderType(faxConfig);
-        RingCentralResponse.MessageList response = withTokenRefresh(faxConfig, accessToken ->
-                apiConnector.getInboundFaxes(accessToken,
-                        faxConfig.getRingCentralAccountId(), faxConfig.getRingCentralExtensionId()));
+        RingCentralResponse.MessageList response = withTokenRefresh(faxConfig,
+                apiConnector::getInboundFaxes);
 
         List<FaxJob> faxes = new ArrayList<>();
-        for (RingCentralResponse.Message message : response.getRecords()) {
+        List<RingCentralResponse.Message> records = response.getRecords();
+        int totalRecords = records.size();
+        int skippedRecords = 0;
+        for (RingCentralResponse.Message message : records) {
             if (message == null) {
                 logger.warn("Skipping null record in RingCentral fax inbox response");
+                skippedRecords++;
                 continue;
             }
             if (StringUtils.isBlank(message.getId())) {
                 logger.warn("Skipping RingCentral fax record with missing message id");
+                skippedRecords++;
                 continue;
             }
+            // Cache once: the contract on getAttachments() is a non-null unmodifiable view
+            // backed by the stored list, so no null-branch is needed and re-calling adds noise.
             List<RingCentralResponse.Attachment> attachments = message.getAttachments();
             if (attachments.isEmpty()) {
                 logger.warn("Skipping RingCentral fax record providerMessageId={} with no attachments",
                         message.getId());
+                skippedRecords++;
                 continue;
             }
 
@@ -127,7 +151,18 @@ public class RingCentralFaxService implements FaxProviderClient {
             String inboundCaller = message.getFrom() == null
                     ? "Unknown"
                     : StringUtils.defaultIfBlank(message.getFrom().phoneNumber(), "Unknown");
-            Date stamp = parseCreationTime(message.getCreationTime(), message.getId());
+            Date stamp;
+            try {
+                stamp = parseCreationTime(message.getCreationTime(), message.getId());
+            } catch (RingCentralException e) {
+                // Skip the offending message; the rest of the inbox proceeds. The message stays
+                // unread on RingCentral so it'll come back next poll — operator can fix the
+                // upstream record by then.
+                logger.warn("Skipping RingCentral fax record providerMessageId={} due to unparseable creationTime: {}",
+                        message.getId(), e.getMessage());
+                skippedRecords++;
+                continue;
+            }
             for (RingCentralResponse.Attachment attachment : attachments) {
                 if (attachment == null || StringUtils.isBlank(attachment.id())) {
                     logger.warn("Skipping RingCentral attachment with missing id for providerMessageId={}",
@@ -147,7 +182,16 @@ public class RingCentralFaxService implements FaxProviderClient {
             }
         }
 
-        logger.info("RingCentral inbox listed unreadCount={}", faxes.size());
+        if (skippedRecords > 0) {
+            // Aggregate signal so chronic schema drift stands out — individual per-record warns
+            // get lost in operator logs once an inbox fills up. Counting at the message level (not
+            // attachment) since attachment-level skips are within otherwise-valid records.
+            logger.warn("RingCentral inbox produced {} unread fax(es) but skipped {} of {} records "
+                    + "due to schema/validation issues - check earlier WARN lines for details",
+                    faxes.size(), skippedRecords, totalRecords);
+        } else {
+            logger.info("RingCentral inbox listed unreadCount={}", faxes.size());
+        }
         return faxes;
     }
 
@@ -155,9 +199,8 @@ public class RingCentralFaxService implements FaxProviderClient {
     public FaxJob downloadFax(FaxConfig faxConfig, FaxJob fax) throws FaxProviderException {
         requireMatchingProviderType(faxConfig);
         DownloadReference reference = DownloadReference.parse(fax);
-        byte[] content = withTokenRefresh(faxConfig, accessToken ->
-                apiConnector.downloadFax(accessToken, faxConfig.getRingCentralAccountId(),
-                        faxConfig.getRingCentralExtensionId(), reference.messageId(), reference.attachmentId()));
+        byte[] content = withTokenRefresh(faxConfig, account ->
+                apiConnector.downloadFax(account, reference.messageId(), reference.attachmentId()));
 
         FaxJob downloaded = new FaxJob(fax);
         downloaded.setDocument(Base64.getEncoder().encodeToString(content));
@@ -170,9 +213,8 @@ public class RingCentralFaxService implements FaxProviderClient {
     public void markFaxAsRead(FaxConfig faxConfig, FaxJob fax) throws FaxProviderException {
         requireMatchingProviderType(faxConfig);
         DownloadReference reference = DownloadReference.parse(fax);
-        withTokenRefresh(faxConfig, accessToken -> {
-            apiConnector.markFaxAsRead(accessToken, faxConfig.getRingCentralAccountId(),
-                    faxConfig.getRingCentralExtensionId(), reference.messageId());
+        withTokenRefresh(faxConfig, account -> {
+            apiConnector.markFaxAsRead(account, reference.messageId());
             return null;
         });
         logger.info("RingCentral fax marked as read: providerMessageId={} localFaxId={}",
@@ -195,15 +237,23 @@ public class RingCentralFaxService implements FaxProviderClient {
             throw new RingCentralException("RingCentral status check requires a provider message id");
         }
 
-        RingCentralResponse.Message response = withTokenRefresh(faxConfig, accessToken ->
-                apiConnector.getFaxStatus(accessToken,
-                        faxConfig.getRingCentralAccountId(), faxConfig.getRingCentralExtensionId(),
-                        String.valueOf(faxJob.getJobId())));
+        RingCentralResponse.Message response = withTokenRefresh(faxConfig, account ->
+                apiConnector.getFaxStatus(account, String.valueOf(faxJob.getJobId())));
 
         FaxJob updated = new FaxJob(faxJob);
         String providerStatus = firstNonBlank(response.getFaxStatus(), response.getMessageStatus());
-        updated.setStatus(mapStatus(providerStatus));
-        updated.setStatusString(StringUtils.defaultIfBlank(providerStatus, "Unknown RingCentral status"));
+        FaxJob.STATUS mapped = mapStatus(providerStatus);
+        updated.setStatus(mapped);
+        if (StringUtils.isBlank(providerStatus)) {
+            updated.setStatusString("Unknown RingCentral status (no value returned)");
+        } else if (mapped == FaxJob.STATUS.UNKNOWN) {
+            // Distinguish "vendor returned an unmapped keyword" from "vendor said nothing" — both
+            // map to STATUS.UNKNOWN, but the operator-facing string should make the difference
+            // visible so a chronic schema gap stands out from a transient empty response.
+            updated.setStatusString("Unknown RingCentral status (vendor: " + providerStatus + ")");
+        } else {
+            updated.setStatusString(providerStatus);
+        }
         return updated;
     }
 
@@ -214,10 +264,10 @@ public class RingCentralFaxService implements FaxProviderClient {
      * {@link RingCentralAuthService#invalidateToken}: without it a server-side credential rotation
      * would leave every call failing for the cache lifetime.
      */
-    private <T> T withTokenRefresh(FaxConfig faxConfig, TokenedCall<T> call) throws RingCentralException {
+    private <T> T withTokenRefresh(FaxConfig faxConfig, AccountedCall<T> call) throws RingCentralException {
         String accessToken = authService.getAccessToken(faxConfig, apiConnector);
         try {
-            return call.execute(accessToken);
+            return call.execute(buildAccount(faxConfig, accessToken));
         } catch (RingCentralException e) {
             if (!isUnauthorized(e)) {
                 throw e;
@@ -226,8 +276,13 @@ public class RingCentralFaxService implements FaxProviderClient {
                     faxConfig.getId());
             authService.invalidateToken(faxConfig);
             String refreshed = authService.getAccessToken(faxConfig, apiConnector);
-            return call.execute(refreshed);
+            return call.execute(buildAccount(faxConfig, refreshed));
         }
+    }
+
+    private static RingCentralAccount buildAccount(FaxConfig faxConfig, String accessToken) {
+        return new RingCentralAccount(accessToken,
+                faxConfig.getRingCentralAccountId(), faxConfig.getRingCentralExtensionId());
     }
 
     private static boolean isUnauthorized(RingCentralException e) {
@@ -235,8 +290,8 @@ public class RingCentralFaxService implements FaxProviderClient {
     }
 
     @FunctionalInterface
-    private interface TokenedCall<T> {
-        T execute(String accessToken) throws RingCentralException;
+    private interface AccountedCall<T> {
+        T execute(RingCentralAccount account) throws RingCentralException;
     }
 
     FaxJob.STATUS mapStatus(String providerStatus) {
@@ -279,10 +334,15 @@ public class RingCentralFaxService implements FaxProviderClient {
         if (StringUtils.isBlank(faxJob.getDestination())) {
             throw new RingCentralException("Fax destination number is required but was not provided");
         }
-        if (!PHONE_NUMBER_PATTERN.matcher(faxJob.getDestination().trim()).matches()) {
+        // Trim once and reuse: the regex check is applied to the trimmed value, and the trimmed
+        // value is also what gets sent to RingCentral. Without this, leading/trailing whitespace
+        // would pass validation but reach the API verbatim and be rejected as malformed E.164.
+        String trimmedDestination = faxJob.getDestination().trim();
+        if (!PHONE_NUMBER_PATTERN.matcher(trimmedDestination).matches()) {
             throw new RingCentralException(
                     "Fax destination is not a valid phone number; expected digits with optional + and separators");
         }
+        faxJob.setDestination(trimmedDestination);
     }
 
     private byte[] resolveDocument(FaxJob faxJob, Path filePath) throws IOException, RingCentralException {
@@ -318,20 +378,22 @@ public class RingCentralFaxService implements FaxProviderClient {
         }
     }
 
-    private Date parseCreationTime(String creationTime, String providerMessageId) {
+    private Date parseCreationTime(String creationTime, String providerMessageId) throws RingCentralException {
         if (StringUtils.isBlank(creationTime)) {
+            // No upstream timestamp at all is benign (rare, missing-field shape); keep "now" so
+            // the inbox flow proceeds. The far more dangerous case — a non-blank value we can't
+            // parse — falls through to the catch and is rejected.
             return new Date();
         }
         try {
             return Date.from(OffsetDateTime.parse(creationTime).toInstant());
         } catch (DateTimeParseException e) {
-            // Falling back to current time keeps the import flow alive, but the fake stamp must be
-            // visible so operators can spot RingCentral schema drift. providerMessageId is a vendor
-            // surrogate, not PHI; we deliberately do NOT log the raw creationTime to keep the log
-            // line short (operators can fetch the message via providerMessageId if needed).
-            logger.warn("Could not parse RingCentral creationTime for providerMessageId={} - falling back to current time",
-                    providerMessageId);
-            return new Date();
+            // Falling back to "now" would silently fabricate a clinical-record timestamp that
+            // later flows into the EDoc. Throw instead so the caller skips the message and the
+            // operator can correct it manually. providerMessageId is a vendor surrogate, not PHI.
+            throw new RingCentralException(
+                    "Could not parse RingCentral creationTime for providerMessageId=" + providerMessageId
+                    + " - skipping import to avoid fabricated clinical timestamp", e);
         }
     }
 

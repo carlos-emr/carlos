@@ -145,7 +145,7 @@ class RingCentralApiConnectorHttpTest extends CarlosUnitTestBase {
     void shouldAcceptEmptyBody_whenMarkAsReadReceives204() throws Exception {
         enqueue(204, null, null);
 
-        connector.markFaxAsRead("token", "~", "~", "12345");
+        connector.markFaxAsRead(new RingCentralAccount("token", "~", "~"), "12345");
 
         assertThat(lastExchange.get().getRequestMethod()).isEqualTo("PUT");
         assertThat(lastExchange.get().getRequestURI().getPath())
@@ -157,7 +157,8 @@ class RingCentralApiConnectorHttpTest extends CarlosUnitTestBase {
     void shouldSendMultipartPayload_whenSendFaxIsCalled() throws Exception {
         enqueue(200, "application/json", "{\"id\":\"99\",\"messageStatus\":\"Queued\"}");
 
-        RingCentralResponse.Message response = connector.sendFax("token", "~", "~",
+        RingCentralResponse.Message response = connector.sendFax(
+                new RingCentralAccount("token", "~", "~"),
                 "4165551234", "fake-pdf-bytes".getBytes(StandardCharsets.UTF_8), "outgoing.pdf");
 
         assertThat(response.getId()).isEqualTo("99");
@@ -183,7 +184,7 @@ class RingCentralApiConnectorHttpTest extends CarlosUnitTestBase {
         enqueue(200, "application/json",
                 "{\"records\":[{\"id\":\"200\",\"attachments\":[{\"id\":\"a2\"}]}]}");
 
-        RingCentralResponse.MessageList list = connector.getInboundFaxes("token", "~", "~");
+        RingCentralResponse.MessageList list = connector.getInboundFaxes(new RingCentralAccount("token", "~", "~"));
 
         assertThat(list.getRecords()).hasSize(2);
         assertThat(list.getRecords().get(0).getId()).isEqualTo("100");
@@ -197,7 +198,7 @@ class RingCentralApiConnectorHttpTest extends CarlosUnitTestBase {
                 "{\"records\":[{\"id\":\"100\",\"attachments\":[{\"id\":\"a1\"}]}],"
                 + "\"navigation\":{\"nextPage\":{\"uri\":\"http://attacker.example.com/page2\"}}}");
 
-        RingCentralResponse.MessageList list = connector.getInboundFaxes("token", "~", "~");
+        RingCentralResponse.MessageList list = connector.getInboundFaxes(new RingCentralAccount("token", "~", "~"));
 
         assertThat(list.getRecords()).hasSize(1);
     }
@@ -211,7 +212,7 @@ class RingCentralApiConnectorHttpTest extends CarlosUnitTestBase {
         String pdfFixture = "%PDF-1.4\nfake fixture content\n%%EOF";
         enqueue(200, "application/pdf", pdfFixture);
 
-        byte[] downloaded = connector.downloadFax("token", "~", "~", "12345", "att-9");
+        byte[] downloaded = connector.downloadFax(new RingCentralAccount("token", "~", "~"), "12345", "att-9");
 
         assertThat(downloaded).isEqualTo(pdfFixture.getBytes(StandardCharsets.UTF_8));
         assertThat(lastExchange.get().getRequestMethod()).isEqualTo("GET");
@@ -224,7 +225,7 @@ class RingCentralApiConnectorHttpTest extends CarlosUnitTestBase {
     void shouldSendBearerAuthorization_onInboxFetch() throws Exception {
         enqueue(200, "application/json", "{\"records\":[]}");
 
-        connector.getInboundFaxes("my-access-token", "~", "~");
+        connector.getInboundFaxes(new RingCentralAccount("my-access-token", "~", "~"));
 
         assertThat(lastExchange.get().getRequestHeaders().getFirst("Authorization"))
                 .isEqualTo("Bearer my-access-token");
@@ -242,6 +243,28 @@ class RingCentralApiConnectorHttpTest extends CarlosUnitTestBase {
         String decoded = new String(java.util.Base64.getDecoder()
                 .decode(authorization.substring("Basic ".length())), StandardCharsets.UTF_8);
         assertThat(decoded).isEqualTo("client-id:client-secret");
+    }
+
+    @Test
+    @DisplayName("should send JWT bearer grant body when authenticate is called")
+    void shouldSendJwtBearerGrantBody_onAuthenticate() throws Exception {
+        // Pin the OAuth grant type and assertion field. A regression that swapped the grant
+        // type to "password" (or dropped the assertion entirely) would still pass header-only
+        // assertions, so decode the form body and check both parameters explicitly.
+        enqueue(200, "application/json", "{\"access_token\":\"x\",\"expires_in\":1}");
+
+        connector.authenticate("client-id", "client-secret", "the-jwt-token");
+
+        String body = new String(lastRequestBody.get(), StandardCharsets.UTF_8);
+        assertThat(body)
+                .as("authenticate must request the JWT bearer grant per RingCentral OAuth spec")
+                .contains("grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer");
+        assertThat(body)
+                .as("authenticate must carry the configured JWT as the assertion parameter")
+                .contains("assertion=the-jwt-token");
+        // Negative pin: ensure no foreign grant type slipped in (e.g., password / client_credentials).
+        assertThat(body).doesNotContain("grant_type=password");
+        assertThat(body).doesNotContain("grant_type=client_credentials");
     }
 
     @Test

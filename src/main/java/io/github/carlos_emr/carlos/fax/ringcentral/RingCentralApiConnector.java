@@ -119,14 +119,14 @@ public class RingCentralApiConnector {
         return executeJson(post, RingCentralResponse.Token.class, "RingCentral authentication failed");
     }
 
-    public RingCentralResponse.Message sendFax(String accessToken, String accountId, String extensionId,
+    public RingCentralResponse.Message sendFax(RingCentralAccount account,
             String destination, byte[] document, String fileName) throws RingCentralException {
         ObjectNode metadata = objectMapper.createObjectNode();
         metadata.putArray("to").addObject().put("phoneNumber", destination);
         metadata.put("faxResolution", "High");
 
-        HttpPost post = new HttpPost(buildMessageStoreUrl(accountId, extensionId) + "/fax");
-        post.setHeader("Authorization", bearer(accessToken));
+        HttpPost post = new HttpPost(buildMessageStoreUrl(account.accountId(), account.extensionId()) + "/fax");
+        post.setHeader("Authorization", bearer(account.accessToken()));
         post.setEntity(MultipartEntityBuilder.create()
                 .addTextBody("json", metadata.toString(), ContentType.APPLICATION_JSON)
                 .addBinaryBody("attachment", document, ContentType.create("application/pdf"),
@@ -142,9 +142,9 @@ public class RingCentralApiConnector {
      * truncated. The page-cap acts as a safety bound against runaway pagination if RingCentral
      * returns a self-loop cursor.
      */
-    public RingCentralResponse.MessageList getInboundFaxes(String accessToken, String accountId, String extensionId)
+    public RingCentralResponse.MessageList getInboundFaxes(RingCentralAccount account)
             throws RingCentralException {
-        String firstPageUri = buildMessageStoreUrl(accountId, extensionId)
+        String firstPageUri = buildMessageStoreUrl(account.accountId(), account.extensionId())
                 + "?messageType=Fax&direction=Inbound&readStatus=Unread&perPage=" + INBOX_PAGE_SIZE;
 
         List<RingCentralResponse.Message> aggregated = new ArrayList<>();
@@ -158,7 +158,7 @@ public class RingCentralApiConnector {
                 break;
             }
             HttpGet get = new HttpGet(nextUri);
-            get.setHeader("Authorization", bearer(accessToken));
+            get.setHeader("Authorization", bearer(account.accessToken()));
             RingCentralResponse.MessageList page = executeJson(get, RingCentralResponse.MessageList.class,
                     "RingCentral inbox fetch failed");
             aggregated.addAll(page.getRecords());
@@ -166,30 +166,30 @@ public class RingCentralApiConnector {
             pages++;
         }
 
-        RingCentralResponse.MessageList combined = new RingCentralResponse.MessageList();
-        combined.setRecords(aggregated);
-        return combined;
+        return new RingCentralResponse.MessageList(aggregated, null);
     }
 
-    public byte[] downloadFax(String accessToken, String accountId, String extensionId, String messageId,
-            String attachmentId) throws RingCentralException {
-        HttpGet get = new HttpGet(buildMessageStoreUrl(accountId, extensionId) + "/"
+    public byte[] downloadFax(RingCentralAccount account, String messageId, String attachmentId)
+            throws RingCentralException {
+        HttpGet get = new HttpGet(buildMessageStoreUrl(account.accountId(), account.extensionId()) + "/"
                 + normalizeMessageId(messageId) + "/content/" + normalizeMessageId(attachmentId));
-        get.setHeader("Authorization", bearer(accessToken));
+        get.setHeader("Authorization", bearer(account.accessToken()));
         return executeBytes(get, "RingCentral fax download failed");
     }
 
-    public RingCentralResponse.Message getFaxStatus(String accessToken, String accountId, String extensionId,
-            String messageId) throws RingCentralException {
-        HttpGet get = new HttpGet(buildMessageStoreUrl(accountId, extensionId) + "/" + normalizeMessageId(messageId));
-        get.setHeader("Authorization", bearer(accessToken));
+    public RingCentralResponse.Message getFaxStatus(RingCentralAccount account, String messageId)
+            throws RingCentralException {
+        HttpGet get = new HttpGet(buildMessageStoreUrl(account.accountId(), account.extensionId()) + "/"
+                + normalizeMessageId(messageId));
+        get.setHeader("Authorization", bearer(account.accessToken()));
         return executeJson(get, RingCentralResponse.Message.class, "RingCentral fax status fetch failed");
     }
 
-    public void markFaxAsRead(String accessToken, String accountId, String extensionId, String messageId)
+    public void markFaxAsRead(RingCentralAccount account, String messageId)
             throws RingCentralException {
-        HttpPut put = new HttpPut(buildMessageStoreUrl(accountId, extensionId) + "/" + normalizeMessageId(messageId));
-        put.setHeader("Authorization", bearer(accessToken));
+        HttpPut put = new HttpPut(buildMessageStoreUrl(account.accountId(), account.extensionId()) + "/"
+                + normalizeMessageId(messageId));
+        put.setHeader("Authorization", bearer(account.accessToken()));
         put.setEntity(new StringEntity("{\"readStatus\":\"Read\"}", ContentType.APPLICATION_JSON));
         executeNoContent(put, "RingCentral mark-as-read failed");
     }
@@ -217,6 +217,11 @@ public class RingCentralApiConnector {
         boolean sandbox = "true".equalsIgnoreCase(StringUtils.trimToEmpty(properties.getProperty("ringcentral.use.sandbox")));
         String propertyName = sandbox ? "ringcentral.api.sandbox.url" : "ringcentral.api.url";
         String fallback = sandbox ? DEFAULT_RINGCENTRAL_SANDBOX_API_URL : DEFAULT_RINGCENTRAL_API_URL;
+        // Pin host-per-property: the production property only accepts the prod host, the sandbox
+        // property only accepts the sandbox host. Cross-wiring (admin sets sandbox host on the
+        // prod property) would otherwise pass the whitelist silently and ship live traffic to
+        // sandbox infrastructure (or vice versa).
+        String expectedHost = sandbox ? "platform.devtest.ringcentral.com" : "platform.ringcentral.com";
         String configured = StringUtils.trimToNull(properties.getProperty(propertyName));
         if (configured == null) {
             return fallback;
@@ -226,8 +231,7 @@ public class RingCentralApiConnector {
             URI uri = new URI(configured);
             String host = uri.getHost();
             if ("https".equalsIgnoreCase(uri.getScheme())
-                    && ("platform.ringcentral.com".equalsIgnoreCase(host)
-                    || "platform.devtest.ringcentral.com".equalsIgnoreCase(host))
+                    && expectedHost.equalsIgnoreCase(host)
                     && (uri.getPort() == -1 || uri.getPort() == 443)
                     && StringUtils.isBlank(uri.getUserInfo())
                     && (StringUtils.isBlank(uri.getPath()) || "/".equals(uri.getPath()))
@@ -239,7 +243,8 @@ public class RingCentralApiConnector {
             logger.warn("Configured {} is not a valid URI: {} - using default", propertyName, e.getMessage());
             return fallback;
         }
-        logger.warn("Configured {} is not an official RingCentral HTTPS endpoint - using default", propertyName);
+        logger.warn("Configured {} is not the official RingCentral HTTPS endpoint for this environment "
+                + "(expected host: {}) - using default", propertyName, expectedHost);
         return fallback;
     }
 
@@ -259,15 +264,17 @@ public class RingCentralApiConnector {
         }
         // RingCentral returns absolute URIs against its own API origin. Validate before issuing
         // the next request so a hostile or misconfigured response can't redirect the pagination
-        // to an attacker-controlled host. Same-origin check pins host AND scheme to the configured
-        // API URL; tests using a localhost http fixture pass because their resolver returns http.
+        // to an attacker-controlled host. Same-origin check pins host, scheme, AND effective
+        // port to the configured API URL; tests using a localhost http fixture pass because
+        // their resolver returns http and an explicit ephemeral port.
         try {
             URI parsed = new URI(uri);
             URI apiUri = new URI(getApiUrl());
             if (parsed.getHost() == null
                     || !parsed.getHost().equalsIgnoreCase(apiUri.getHost())
                     || apiUri.getScheme() == null
-                    || !apiUri.getScheme().equalsIgnoreCase(parsed.getScheme())) {
+                    || !apiUri.getScheme().equalsIgnoreCase(parsed.getScheme())
+                    || effectivePort(parsed) != effectivePort(apiUri)) {
                 logger.warn("Refusing to follow RingCentral nextPage cursor with unexpected origin '{}'",
                         parsed.getHost());
                 return null;
@@ -277,6 +284,25 @@ public class RingCentralApiConnector {
             return null;
         }
         return uri;
+    }
+
+    /**
+     * Returns the explicit port if set, otherwise the scheme default (443 for https, 80 for
+     * http). Treating {@code -1} as the scheme default lets {@code https://host} and
+     * {@code https://host:443} compare equal so a cursor like
+     * {@code https://platform.ringcentral.com:444/...} fails the origin check.
+     */
+    private static int effectivePort(URI uri) {
+        if (uri.getPort() != -1) {
+            return uri.getPort();
+        }
+        if ("https".equalsIgnoreCase(uri.getScheme())) {
+            return 443;
+        }
+        if ("http".equalsIgnoreCase(uri.getScheme())) {
+            return 80;
+        }
+        return -1;
     }
 
     /**
@@ -384,6 +410,15 @@ public class RingCentralApiConnector {
 
     @PreDestroy
     public void close() throws IOException {
-        httpClient.close();
+        // CloseableHttpClient.close() does not propagate to an externally-supplied connection
+        // manager — it only releases per-client resources. Close both so pooled connections
+        // and reaper threads are released across redeploys / @PreDestroy cycles.
+        try {
+            httpClient.close();
+        } finally {
+            if (connectionManager instanceof java.io.Closeable closeableConnectionManager) {
+                closeableConnectionManager.close();
+            }
+        }
     }
 }

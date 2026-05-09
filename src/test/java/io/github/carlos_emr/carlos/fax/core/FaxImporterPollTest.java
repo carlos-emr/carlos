@@ -17,14 +17,22 @@
  */
 package io.github.carlos_emr.carlos.fax.core;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.lang.reflect.Field;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 
@@ -42,6 +50,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.openpdf.text.Document;
+import org.openpdf.text.Paragraph;
+import org.openpdf.text.pdf.PdfWriter;
+import org.mockito.ArgumentCaptor;
 
 /**
  * Unit tests for {@link FaxImporter#poll()} orchestration logic.
@@ -237,6 +250,65 @@ class FaxImporterPollTest extends CarlosUnitTestBase {
         verify(faxProviderClient).listInboundFaxes(goodConfig);
     }
 
+    @Test
+    @DisplayName("should abort import and delete quarantined file when markFaxAsRead fails")
+    @Tag("ringcentral")
+    void shouldAbortImportAndDeleteQuarantinedFile_whenMarkFaxAsReadFails(@TempDir Path tempIncomingDir) throws Exception {
+        // Pin the M1 contract: when Phase 2 mark-as-read throws, FaxImporter MUST delete the
+        // quarantined file (so the next poll can re-fetch the still-unread message cleanly
+        // without producing a duplicate EDoc) and MUST NOT proceed to Phase 3 (importFromIncoming
+        // / providerRouting / deleteFax). The persisted FaxJob carries STATUS.ERROR so the
+        // operator can see the failure on the dashboard.
+
+        // Given: One active config with download enabled, faxIncomingDir wired to a temp dir
+        FaxConfig config = createFaxConfig(42, true, true);
+        when(faxConfigDao.findAll(null, null)).thenReturn(Collections.singletonList(config));
+        installFaxIncomingDir(faxImporter, tempIncomingDir);
+
+        when(faxProviderClientFactory.getClient(config)).thenReturn(faxProviderClient);
+
+        // Inbound fax with a real Base64-encoded PDF so saveToIncoming actually writes a file
+        FaxJob inboundFax = new FaxJob();
+        inboundFax.setFile_name("incoming.pdf");
+        inboundFax.setStatus(FaxJob.STATUS.RECEIVED);
+        when(faxProviderClient.listInboundFaxes(config))
+                .thenReturn(Collections.singletonList(inboundFax));
+
+        FaxJob downloaded = new FaxJob();
+        downloaded.setDocument(Base64.getEncoder().encodeToString(buildMinimalPdf()));
+        when(faxProviderClient.downloadFax(eq(config), any(FaxJob.class))).thenReturn(downloaded);
+
+        // Mark-as-read fails — this is the trigger for the M1 abort path
+        org.mockito.Mockito.doThrow(new FaxProviderException("RingCentral PUT readStatus failed"))
+                .when(faxProviderClient).markFaxAsRead(eq(config), any(FaxJob.class));
+
+        // When: poll() runs
+        faxImporter.poll();
+
+        // Then: deleteFax (Phase 3 ack) MUST NOT be called — Phase 3 is fully skipped
+        verify(faxProviderClient, never()).deleteFax(any(FaxConfig.class), any(FaxJob.class));
+
+        // Then: the quarantined file under faxIncomingDir/{configId}/ is gone — the directory
+        // may exist (saveToIncoming created it) but it should contain no fax files
+        Path configSubdir = tempIncomingDir.resolve(String.valueOf(config.getId()));
+        if (Files.exists(configSubdir)) {
+            try (var stream = Files.list(configSubdir)) {
+                assertThat(stream.filter(p -> p.toString().endsWith(".pdf")).count())
+                        .as("Quarantined PDF must be deleted after mark-as-read failure to "
+                                + "avoid duplicate import on next poll")
+                        .isZero();
+            }
+        }
+
+        // Then: a FaxJob is persisted with STATUS.ERROR and a message that signals the
+        // mark-as-read failure to the operator
+        ArgumentCaptor<FaxJob> persisted = ArgumentCaptor.forClass(FaxJob.class);
+        verify(faxJobDao).persist(persisted.capture());
+        assertThat(persisted.getValue().getStatus()).isEqualTo(FaxJob.STATUS.ERROR);
+        assertThat(persisted.getValue().getStatusString())
+                .containsIgnoringCase("Mark-as-read failed");
+    }
+
     // -- helper methods --
 
     /**
@@ -256,5 +328,36 @@ class FaxImporterPollTest extends CarlosUnitTestBase {
         config.setProviderType(FaxConfig.ProviderType.SRFAX);
         config.setQueue(1);
         return config;
+    }
+
+    /**
+     * Wires {@code FaxImporter.faxIncomingDir} to a real directory via reflection — the only
+     * way to test Phase 1/Phase 2 orchestration without invoking the real {@code @PostConstruct}
+     * (which depends on class-load-time CarlosProperties resolution).
+     */
+    private static void installFaxIncomingDir(FaxImporter importer, Path dir) throws Exception {
+        Field f = FaxImporter.class.getDeclaredField("faxIncomingDir");
+        f.setAccessible(true);
+        f.set(importer, dir);
+    }
+
+    /**
+     * Builds a minimal valid single-page PDF using OpenPDF — needed because saveToIncoming
+     * calls {@code validateAndCountPages} which rejects non-PDF / zero-page payloads. Returns
+     * raw bytes so the caller can Base64-encode them onto a {@link FaxJob}.
+     */
+    private static byte[] buildMinimalPdf() throws IOException {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        Document document = new Document();
+        try {
+            PdfWriter.getInstance(document, baos);
+            document.open();
+            document.add(new Paragraph("M1 dedup test fixture"));
+        } catch (Exception e) {
+            throw new IOException("Failed to build PDF fixture: " + e.getMessage(), e);
+        } finally {
+            document.close();
+        }
+        return baos.toByteArray();
     }
 }

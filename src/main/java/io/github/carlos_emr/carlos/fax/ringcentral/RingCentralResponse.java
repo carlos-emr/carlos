@@ -25,15 +25,16 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
  * Lightweight DTOs for RingCentral fax API responses used by the provider client.
  *
- * <p>Records bind via Jackson's canonical-constructor support (component-level
- * {@link JsonProperty} annotations are sufficient — no {@code @JsonCreator} indirection). Mutable
- * holders {@code Message} and {@code MessageList} guard their list state via copy-on-write in the
- * setter; the getters return unmodifiable views of that already-copied state without re-copying.</p>
+ * <p>All variants are records with canonical-constructor defensive copies. Lists are normalized
+ * to {@link List#copyOf} so callers cannot mutate stored state through a returned reference.
+ * Jackson 2.12+ binds records via canonical constructor with component-level
+ * {@link JsonProperty} — no {@code @JsonCreator} indirection is needed.</p>
  *
  * @since 2026-05-05
  */
@@ -61,123 +62,61 @@ public final class RingCentralResponse {
     }
 
     /**
-     * Message metadata returned by send/status/list endpoints. Mutable bean (Jackson populates
-     * via setters); the attachment list is copied on write and read access returns an
-     * unmodifiable view of the stored copy. Note that {@code Message} itself is mutable, so
-     * a caller holding a {@code Message} reference obtained from {@link MessageList#getRecords()}
-     * can still mutate that instance's scalar fields — the unmodifiability guarantee is on the
-     * collection shape, not on the individual records. Inbox-flow callers do not retain
-     * references across calls, so this is safe in practice.
+     * Message metadata returned by send/status/list endpoints. Fully immutable: the canonical
+     * constructor copies the attachment list via {@link List#copyOf} so subsequent mutation of
+     * the source list cannot reach this record. Accessor methods preserve the legacy
+     * {@code getXxx} naming so existing call sites continue to compile.
      */
-    public static class Message {
-        private String id;
-        private String messageStatus;
-        private String faxStatus;
-        private String direction;
-        private String readStatus;
-        private String creationTime;
-        private Party from;
-        private List<Attachment> attachments;
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record Message(
+            @JsonProperty("id") String id,
+            @JsonProperty("messageStatus") String messageStatus,
+            @JsonProperty("faxStatus") String faxStatus,
+            @JsonProperty("direction") String direction,
+            @JsonProperty("readStatus") String readStatus,
+            @JsonProperty("creationTime") String creationTime,
+            @JsonProperty("from") Party from,
+            @JsonProperty("attachments") List<Attachment> attachments) {
 
-        public Message() {
+        public Message {
+            // Snapshot then wrap in an unmodifiable view rather than List.copyOf so a
+            // RingCentral response that sends null attachment elements (rare schema drift) does
+            // not throw at construction — the listInboundFaxes loop handles per-element null
+            // skipping with a clearer log line.
+            attachments = attachments == null
+                    ? List.of()
+                    : Collections.unmodifiableList(new ArrayList<>(attachments));
         }
 
-        public String getId() {
-            return id;
-        }
-
-        public void setId(String id) {
-            this.id = id;
-        }
-
-        public String getMessageStatus() {
-            return messageStatus;
-        }
-
-        public void setMessageStatus(String messageStatus) {
-            this.messageStatus = messageStatus;
-        }
-
-        public String getFaxStatus() {
-            return faxStatus;
-        }
-
-        public void setFaxStatus(String faxStatus) {
-            this.faxStatus = faxStatus;
-        }
-
-        public String getDirection() {
-            return direction;
-        }
-
-        public void setDirection(String direction) {
-            this.direction = direction;
-        }
-
-        public String getReadStatus() {
-            return readStatus;
-        }
-
-        public void setReadStatus(String readStatus) {
-            this.readStatus = readStatus;
-        }
-
-        public String getCreationTime() {
-            return creationTime;
-        }
-
-        public void setCreationTime(String creationTime) {
-            this.creationTime = creationTime;
-        }
-
-        public Party getFrom() {
-            return from;
-        }
-
-        public void setFrom(Party from) {
-            this.from = from;
-        }
-
-        public List<Attachment> getAttachments() {
-            if (attachments == null) {
-                return Collections.emptyList();
-            }
-            return Collections.unmodifiableList(attachments);
-        }
-
-        public void setAttachments(List<Attachment> attachments) {
-            this.attachments = attachments == null ? null : new ArrayList<>(attachments);
-        }
+        public String getId() { return id; }
+        public String getMessageStatus() { return messageStatus; }
+        public String getFaxStatus() { return faxStatus; }
+        public String getDirection() { return direction; }
+        public String getReadStatus() { return readStatus; }
+        public String getCreationTime() { return creationTime; }
+        public Party getFrom() { return from; }
+        public List<Attachment> getAttachments() { return attachments; }
     }
 
     /**
      * Inbox-list response. Tracks the optional {@code navigation.nextPage} cursor so the connector
-     * can walk multi-page inboxes without losing records past the per-page cap.
+     * can walk multi-page inboxes without losing records past the per-page limit. Records are
+     * defensively copied at construction time.
      */
-    public static class MessageList {
-        private List<Message> records;
-        private Navigation navigation;
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record MessageList(
+            @JsonProperty("records") List<Message> records,
+            @JsonProperty("navigation") Navigation navigation) {
 
-        public MessageList() {
+        public MessageList {
+            // See Message canonical constructor — null elements are tolerated here so the
+            // skip-null-records test path in listInboundFaxes remains exercisable.
+            records = records == null
+                    ? List.of()
+                    : Collections.unmodifiableList(new ArrayList<>(records));
         }
 
-        public List<Message> getRecords() {
-            if (records == null) {
-                return Collections.emptyList();
-            }
-            return Collections.unmodifiableList(records);
-        }
-
-        public void setRecords(List<Message> records) {
-            this.records = records == null ? null : new ArrayList<>(records);
-        }
-
-        public Navigation getNavigation() {
-            return navigation;
-        }
-
-        public void setNavigation(Navigation navigation) {
-            this.navigation = navigation;
-        }
+        public List<Message> getRecords() { return records; }
+        public Navigation getNavigation() { return navigation; }
     }
 }

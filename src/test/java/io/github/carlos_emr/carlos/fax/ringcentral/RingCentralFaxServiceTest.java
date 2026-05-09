@@ -25,6 +25,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -177,12 +178,12 @@ class RingCentralFaxServiceTest extends CarlosUnitTestBase {
 
         RingCentralResponse.Attachment attachment =
                 new RingCentralResponse.Attachment("456", "incoming.pdf", "application/pdf");
-        RingCentralResponse.Message message = new RingCentralResponse.Message();
-        message.setId("123");
-        message.setAttachments(Collections.singletonList(attachment));
-        RingCentralResponse.MessageList messageList = new RingCentralResponse.MessageList();
-        messageList.setRecords(Collections.singletonList(message));
-        when(apiConnector.getInboundFaxes("token", "~", "~")).thenReturn(messageList);
+        RingCentralResponse.Message message = new RingCentralResponse.Message(
+                "123", null, null, null, null, null, null,
+                Collections.singletonList(attachment));
+        RingCentralResponse.MessageList messageList = new RingCentralResponse.MessageList(
+                Collections.singletonList(message), null);
+        when(apiConnector.getInboundFaxes(any(RingCentralAccount.class))).thenReturn(messageList);
 
         List<FaxJob> result = service.listInboundFaxes(config);
 
@@ -201,14 +202,14 @@ class RingCentralFaxServiceTest extends CarlosUnitTestBase {
         when(config.getRingCentralExtensionId()).thenReturn("~");
         when(authService.getAccessToken(config, apiConnector)).thenReturn("token");
 
-        RingCentralResponse.Message message = new RingCentralResponse.Message();
-        message.setId("999");
-        message.setAttachments(Arrays.asList(
-                new RingCentralResponse.Attachment("a1", "page1.pdf", "application/pdf"),
-                new RingCentralResponse.Attachment("a2", "page2.pdf", "application/pdf")));
-        RingCentralResponse.MessageList messageList = new RingCentralResponse.MessageList();
-        messageList.setRecords(Collections.singletonList(message));
-        when(apiConnector.getInboundFaxes("token", "~", "~")).thenReturn(messageList);
+        RingCentralResponse.Message message = new RingCentralResponse.Message(
+                "999", null, null, null, null, null, null,
+                Arrays.asList(
+                        new RingCentralResponse.Attachment("a1", "page1.pdf", "application/pdf"),
+                        new RingCentralResponse.Attachment("a2", "page2.pdf", "application/pdf")));
+        RingCentralResponse.MessageList messageList = new RingCentralResponse.MessageList(
+                Collections.singletonList(message), null);
+        when(apiConnector.getInboundFaxes(any(RingCentralAccount.class))).thenReturn(messageList);
 
         List<FaxJob> result = service.listInboundFaxes(config);
 
@@ -228,9 +229,9 @@ class RingCentralFaxServiceTest extends CarlosUnitTestBase {
 
         RingCentralResponse.Message valid1 = inboundMessage("100", "200", "first.pdf");
         RingCentralResponse.Message valid2 = inboundMessage("101", "201", "second.pdf");
-        RingCentralResponse.MessageList messageList = new RingCentralResponse.MessageList();
-        messageList.setRecords(Arrays.asList(valid1, null, valid2));
-        when(apiConnector.getInboundFaxes("token", "~", "~")).thenReturn(messageList);
+        RingCentralResponse.MessageList messageList = new RingCentralResponse.MessageList(
+                Arrays.asList(valid1, null, valid2), null);
+        when(apiConnector.getInboundFaxes(any(RingCentralAccount.class))).thenReturn(messageList);
 
         List<FaxJob> result = service.listInboundFaxes(config);
 
@@ -286,10 +287,9 @@ class RingCentralFaxServiceTest extends CarlosUnitTestBase {
         job.setDestination("4165551234");
         job.setFile_name("fax.pdf");
 
-        RingCentralResponse.Message response = new RingCentralResponse.Message();
-        response.setId("789");
-        response.setMessageStatus("Queued");
-        when(apiConnector.sendFax(eq("token"), eq("~"), eq("~"),
+        RingCentralResponse.Message response = new RingCentralResponse.Message(
+                "789", "Queued", null, null, null, null, null, null);
+        when(apiConnector.sendFax(any(RingCentralAccount.class),
                 eq("4165551234"), any(byte[].class), eq("fax.pdf"))).thenReturn(response);
 
         FaxJob result = service.sendFax(config, job, doc);
@@ -297,7 +297,7 @@ class RingCentralFaxServiceTest extends CarlosUnitTestBase {
         assertThat(result.getJobId()).isEqualTo(789L);
         assertThat(result.getStatus()).isEqualTo(FaxJob.STATUS.SENT);
         assertThat(job.getDocument()).isNull();
-        verify(apiConnector, times(1)).sendFax(eq("token"), eq("~"), eq("~"),
+        verify(apiConnector, times(1)).sendFax(any(RingCentralAccount.class),
                 eq("4165551234"), any(byte[].class), eq("fax.pdf"));
     }
 
@@ -312,14 +312,14 @@ class RingCentralFaxServiceTest extends CarlosUnitTestBase {
         job.setDestination("4165551234");
         job.setDocument(Base64.getEncoder().encodeToString(expected));
 
-        RingCentralResponse.Message response = new RingCentralResponse.Message();
-        response.setId("42");
-        when(apiConnector.sendFax(eq("token"), eq("~"), eq("~"), eq("4165551234"),
+        RingCentralResponse.Message response = new RingCentralResponse.Message(
+                "42", null, null, null, null, null, null, null);
+        when(apiConnector.sendFax(any(RingCentralAccount.class), eq("4165551234"),
                 any(byte[].class), any())).thenReturn(response);
 
         service.sendFax(config, job, null);
 
-        verify(apiConnector).sendFax(eq("token"), eq("~"), eq("~"), eq("4165551234"),
+        verify(apiConnector).sendFax(any(RingCentralAccount.class), eq("4165551234"),
                 eq(expected), any());
     }
 
@@ -358,9 +358,9 @@ class RingCentralFaxServiceTest extends CarlosUnitTestBase {
         FaxJob job = new FaxJob();
         job.setJobId(555L);
 
-        RingCentralResponse.Message response = new RingCentralResponse.Message();
-        response.setFaxStatus("Sent");
-        when(apiConnector.getFaxStatus("token", "~", "~", "555")).thenReturn(response);
+        RingCentralResponse.Message response = new RingCentralResponse.Message(
+                null, null, "Sent", null, null, null, null, null);
+        when(apiConnector.getFaxStatus(any(RingCentralAccount.class), eq("555"))).thenReturn(response);
 
         FaxJob updated = service.fetchFaxStatus(config, job);
 
@@ -389,7 +389,7 @@ class RingCentralFaxServiceTest extends CarlosUnitTestBase {
 
         service.markFaxAsRead(config, fax);
 
-        verify(apiConnector).markFaxAsRead("token", "~", "~", "321");
+        verify(apiConnector).markFaxAsRead(any(RingCentralAccount.class), eq("321"));
     }
 
     @Test
@@ -401,7 +401,7 @@ class RingCentralFaxServiceTest extends CarlosUnitTestBase {
         fax.setFile_name("321:att-9:label.pdf");
 
         byte[] pdfBytes = "%PDF-content".getBytes(StandardCharsets.UTF_8);
-        when(apiConnector.downloadFax("token", "~", "~", "321", "att-9")).thenReturn(pdfBytes);
+        when(apiConnector.downloadFax(any(RingCentralAccount.class), eq("321"), eq("att-9"))).thenReturn(pdfBytes);
 
         FaxJob downloaded = service.downloadFax(config, fax);
 
@@ -426,11 +426,11 @@ class RingCentralFaxServiceTest extends CarlosUnitTestBase {
 
             RingCentralException unauthorized =
                     new RingCentralException("RingCentral fax send failed with HTTP 401", 401, false);
-            RingCentralResponse.Message success = new RingCentralResponse.Message();
-            success.setId("999");
-            when(apiConnector.sendFax(eq("stale-token"), anyString(), anyString(),
+            RingCentralResponse.Message success = new RingCentralResponse.Message(
+                    "999", null, null, null, null, null, null, null);
+            when(apiConnector.sendFax(argThat(acc -> acc != null && "stale-token".equals(acc.accessToken())),
                     anyString(), any(byte[].class), any())).thenThrow(unauthorized);
-            when(apiConnector.sendFax(eq("fresh-token"), anyString(), anyString(),
+            when(apiConnector.sendFax(argThat(acc -> acc != null && "fresh-token".equals(acc.accessToken())),
                     anyString(), any(byte[].class), any())).thenReturn(success);
 
             FaxJob result = service.sendFax(config, job, doc);
@@ -451,7 +451,7 @@ class RingCentralFaxServiceTest extends CarlosUnitTestBase {
 
         RingCentralException badRequest =
                 new RingCentralException("RingCentral fax send failed with HTTP 400", 400, false);
-        when(apiConnector.sendFax(anyString(), anyString(), anyString(), anyString(),
+        when(apiConnector.sendFax(any(RingCentralAccount.class), anyString(),
                 any(byte[].class), any())).thenThrow(badRequest);
 
         Path doc = Files.createTempFile("fax", ".pdf");
@@ -479,7 +479,7 @@ class RingCentralFaxServiceTest extends CarlosUnitTestBase {
 
         RingCentralException unauthorized =
                 new RingCentralException("RingCentral fax send failed with HTTP 401", 401, false);
-        when(apiConnector.sendFax(anyString(), anyString(), anyString(), anyString(),
+        when(apiConnector.sendFax(any(RingCentralAccount.class), anyString(),
                 any(byte[].class), any())).thenThrow(unauthorized);
 
         Path doc = Files.createTempFile("fax", ".pdf");
@@ -494,10 +494,12 @@ class RingCentralFaxServiceTest extends CarlosUnitTestBase {
             // Capture the access tokens used so we prove the retry actually used the refreshed
             // token, not just that two calls happened. Otherwise a regression where the cache
             // isn't evicted (or evict happens but stale token is still retried) would pass.
-            ArgumentCaptor<String> tokenCaptor = ArgumentCaptor.forClass(String.class);
-            verify(apiConnector, times(2)).sendFax(tokenCaptor.capture(), anyString(),
-                    anyString(), anyString(), any(byte[].class), any());
-            assertThat(tokenCaptor.getAllValues()).containsExactly("stale-token", "still-bad-token");
+            ArgumentCaptor<RingCentralAccount> accountCaptor = ArgumentCaptor.forClass(RingCentralAccount.class);
+            verify(apiConnector, times(2)).sendFax(accountCaptor.capture(), anyString(),
+                    any(byte[].class), any());
+            assertThat(accountCaptor.getAllValues())
+                    .extracting(RingCentralAccount::accessToken)
+                    .containsExactly("stale-token", "still-bad-token");
         } finally {
             Files.deleteIfExists(doc);
         }
@@ -515,7 +517,7 @@ class RingCentralFaxServiceTest extends CarlosUnitTestBase {
         when(authService.getAccessToken(config, apiConnector))
                 .thenReturn("stale-token")
                 .thenThrow(refreshFailed);
-        when(apiConnector.sendFax(anyString(), anyString(), anyString(), anyString(),
+        when(apiConnector.sendFax(any(RingCentralAccount.class), anyString(),
                 any(byte[].class), any())).thenThrow(unauthorized);
 
         Path doc = Files.createTempFile("fax", ".pdf");
@@ -530,8 +532,8 @@ class RingCentralFaxServiceTest extends CarlosUnitTestBase {
             // Eviction happened before the refresh attempt; the connector was only called once
             // (the original 401) — there's no second sendFax because re-auth itself failed.
             verify(authService, times(1)).invalidateToken(config);
-            verify(apiConnector, times(1)).sendFax(anyString(), anyString(), anyString(),
-                    anyString(), any(byte[].class), any());
+            verify(apiConnector, times(1)).sendFax(any(RingCentralAccount.class), anyString(),
+                    any(byte[].class), any());
         } finally {
             Files.deleteIfExists(doc);
         }
@@ -548,9 +550,8 @@ class RingCentralFaxServiceTest extends CarlosUnitTestBase {
     private RingCentralResponse.Message inboundMessage(String messageId, String attachmentId, String fileName) {
         RingCentralResponse.Attachment attachment =
                 new RingCentralResponse.Attachment(attachmentId, fileName, "application/pdf");
-        RingCentralResponse.Message message = new RingCentralResponse.Message();
-        message.setId(messageId);
-        message.setAttachments(Collections.singletonList(attachment));
-        return message;
+        return new RingCentralResponse.Message(
+                messageId, null, null, null, null, null, null,
+                Collections.singletonList(attachment));
     }
 }

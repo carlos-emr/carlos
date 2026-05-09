@@ -182,6 +182,9 @@ class MutatorActionGetRejectionContractTest {
         "io.github.carlos_emr.carlos.appointment.gate.ViewAppointmentSelfPost2Action",
         // Decision: rejects GET when submit param starts with "save".
         "io.github.carlos_emr.carlos.decision.gate.ViewDecision2Action",
+        // Fax admin: rejects GET on method=configure / method=restartFaxScheduler;
+        // method=getFaxSchedularStatus / method=getPendingIncomingFaxes are read-only and accept GET.
+        "io.github.carlos_emr.carlos.fax.admin.ConfigureFax2Action",
         // HRM: rejects GET when statement param is present.
         "io.github.carlos_emr.carlos.hospitalReportManager.HRMStatementModify2Action",
         // Messenger admin: rejects GET on form-save method invocations.
@@ -235,6 +238,7 @@ class MutatorActionGetRejectionContractTest {
         "io.github.carlos_emr.carlos.appointment.",
         "io.github.carlos_emr.carlos.decision.",
         "io.github.carlos_emr.carlos.documentManager.",
+        "io.github.carlos_emr.carlos.fax.",
         "io.github.carlos_emr.carlos.hospitalReportManager.",
         "io.github.carlos_emr.carlos.messenger.",
         "io.github.carlos_emr.carlos.report.",

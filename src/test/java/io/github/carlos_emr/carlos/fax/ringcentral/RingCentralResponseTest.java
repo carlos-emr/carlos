@@ -48,12 +48,14 @@ class RingCentralResponseTest extends CarlosUnitTestBase {
     void shouldNotExposeMutableAttachmentsList_forMessageDto() {
         RingCentralResponse.Attachment attachment =
                 new RingCentralResponse.Attachment("1", "f.pdf", "application/pdf");
-        List<RingCentralResponse.Attachment> attachments = new ArrayList<>();
-        attachments.add(attachment);
+        List<RingCentralResponse.Attachment> source = new ArrayList<>();
+        source.add(attachment);
 
-        RingCentralResponse.Message message = new RingCentralResponse.Message();
-        message.setAttachments(attachments);
-        attachments.clear();
+        RingCentralResponse.Message message = new RingCentralResponse.Message(
+                "msg-1", null, null, null, null, null, null, source);
+        // Mutate the source list AFTER construction — defensive copy in the canonical constructor
+        // must isolate the record from later changes to the caller's list.
+        source.clear();
 
         assertThat(message.getAttachments()).hasSize(1);
         assertThatThrownBy(() -> message.getAttachments().clear())
@@ -63,17 +65,31 @@ class RingCentralResponseTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should not expose mutable records list")
     void shouldNotExposeMutableRecordsList_forMessageListDto() {
-        RingCentralResponse.Message message = new RingCentralResponse.Message();
-        message.setId("123");
-        List<RingCentralResponse.Message> records = new ArrayList<>();
-        records.add(message);
+        RingCentralResponse.Message message = new RingCentralResponse.Message(
+                "123", null, null, null, null, null, null, List.of());
+        List<RingCentralResponse.Message> source = new ArrayList<>();
+        source.add(message);
 
-        RingCentralResponse.MessageList messageList = new RingCentralResponse.MessageList();
-        messageList.setRecords(records);
-        records.clear();
+        RingCentralResponse.MessageList messageList = new RingCentralResponse.MessageList(source, null);
+        source.clear();
 
         assertThat(messageList.getRecords()).hasSize(1);
         assertThatThrownBy(() -> messageList.getRecords().clear())
                 .isInstanceOf(UnsupportedOperationException.class);
+    }
+
+    @Test
+    @DisplayName("should normalize null attachments to empty list")
+    void shouldNormalizeNullAttachments_toEmptyList() {
+        RingCentralResponse.Message message = new RingCentralResponse.Message(
+                "msg-2", null, null, null, null, null, null, null);
+        assertThat(message.getAttachments()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should normalize null records to empty list")
+    void shouldNormalizeNullRecords_toEmptyList() {
+        RingCentralResponse.MessageList list = new RingCentralResponse.MessageList(null, null);
+        assertThat(list.getRecords()).isEmpty();
     }
 }

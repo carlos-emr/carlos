@@ -27,6 +27,7 @@ package io.github.carlos_emr.carlos.commn.model;
 
 import io.github.carlos_emr.carlos.utility.EncryptionUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 
 import io.github.carlos_emr.carlos.commn.model.converter.FaxConfigProviderTypeConverter;
@@ -39,10 +40,13 @@ import jakarta.persistence.*;
  * Each configuration defines connection parameters, authentication credentials, inbox routing,
  * and active/download flags for scheduler control.</p>
  *
- * <p><strong>Security:</strong> Password fields (passwd, faxPasswd) are automatically encrypted
- * on write and decrypted on read using {@link io.github.carlos_emr.carlos.utility.EncryptionUtils}.
- * Legacy unencrypted passwords are returned as-is on read; re-encryption occurs only
- * when the password is explicitly re-saved through the admin UI.</p>
+ * <p><strong>Security:</strong> Credential fields ({@code passwd}, {@code faxPasswd},
+ * {@code ringCentralClientSecret}, {@code ringCentralJwtToken}) are automatically encrypted on
+ * write and decrypted on read using {@link io.github.carlos_emr.carlos.utility.EncryptionUtils}.
+ * Legacy unencrypted values are returned as-is on read; re-encryption occurs only when the
+ * value is explicitly re-saved through the admin UI. Any new credential field added to this
+ * entity MUST route through {@link #encryptField}/{@link #decryptField} — the JavaBean accessor
+ * pattern in this class is the only at-rest protection for these secrets.</p>
  *
  * <p><strong>Provider Types:</strong></p>
  * <ul>
@@ -436,7 +440,9 @@ public class FaxConfig extends AbstractModel<Integer> {
     }
 
     private static void requireField(String value, String fieldName, ProviderType providerType) {
-        if (value == null || value.isBlank()) {
+        // isBlank rather than isEmpty so whitespace-only values (e.g. an admin pasting a stray
+        // space) cannot satisfy the invariant. Matches the UI-side StringUtils.isBlank checks.
+        if (StringUtils.isBlank(value)) {
             throw new IllegalStateException(
                     "FaxConfig with providerType=" + providerType + " requires " + fieldName);
         }

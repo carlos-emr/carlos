@@ -43,10 +43,12 @@ When provider type is `RINGCENTRAL`:
 - `faxUrl` is ignored; the fixed production endpoint (`https://platform.ringcentral.com`) is used
   unless `ringcentral.use.sandbox=true` selects the sandbox endpoint.
 - The endpoint can be overridden via `ringcentral.api.url` (production) or
-  `ringcentral.api.sandbox.url` (sandbox) in `carlos.properties`. Override values are validated
-  against an explicit host whitelist (`platform.ringcentral.com`, `platform.devtest.ringcentral.com`)
-  and must be plain `https://<host>` with no path/port/query/userinfo; values that don't match
-  fall back to the documented default and a warning is logged.
+  `ringcentral.api.sandbox.url` (sandbox) in `carlos.properties`. Each property is pinned to its
+  own host: `ringcentral.api.url` only accepts `platform.ringcentral.com`, and
+  `ringcentral.api.sandbox.url` only accepts `platform.devtest.ringcentral.com`. Override values
+  must be plain `https://<host>` with no path/port/query/userinfo; values that don't match the
+  expected host for the active environment fall back to the documented default and a warning is
+  logged.
 - Required fields are RingCentral client ID, client secret, and JWT token. The client secret and
   JWT token are encrypted at rest with the same CARLOS credential encryption used for fax passwords.
   A `FaxConfig` `@PrePersist`/`@PreUpdate` invariant rejects rows that select `RINGCENTRAL` without

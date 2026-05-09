@@ -53,8 +53,10 @@ class FaxConfigRingCentralTest {
 
     @BeforeAll
     static void primeEncryptionKey() {
-        // Provide a test AES-128 key for this test run so EncryptionUtils.encrypt/decrypt can run
-        // without depending on the deployment-time encryption.util.secret.key property.
+        // Provide a per-suite AES-128 key so EncryptionUtils.encrypt/decrypt can run without
+        // depending on the deployment-time encryption.util.secret.key property. The key is
+        // randomly generated per JVM (via SecureRandom) — tests do not need a fixed value
+        // because round-tripping through encrypt/decrypt is sufficient to verify behavior.
         byte[] key = new byte[16];
         new SecureRandom().nextBytes(key);
         CarlosProperties.getInstance().setProperty(

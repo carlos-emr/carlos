@@ -75,8 +75,10 @@ class ConfigureFax2ActionConfigureTest extends CarlosUnitTestBase {
 
     @BeforeAll
     static void primeEncryptionKey() {
-        // FaxConfig setters encrypt password fields via EncryptionUtils. Provide a deterministic
-        // AES-128 key so encrypt/decrypt run without depending on the deployment-time secret.
+        // FaxConfig setters encrypt password fields via EncryptionUtils. Provide a per-suite
+        // AES-128 key so encrypt/decrypt run without depending on the deployment-time secret;
+        // SecureRandom is fine here because round-trip behavior is what we exercise, not key
+        // determinism.
         byte[] key = new byte[16];
         new SecureRandom().nextBytes(key);
         CarlosProperties.getInstance().setProperty(

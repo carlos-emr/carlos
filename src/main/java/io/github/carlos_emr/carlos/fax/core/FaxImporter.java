@@ -131,8 +131,12 @@ public class FaxImporter {
      * Set to true only when {@link #initialize()} succeeds. Polling and all import
      * operations are skipped when false so a misconfigured fax service never prevents
      * the rest of CARLOS EMR from starting or functioning.
+     *
+     * <p>Volatile so the {@code @PostConstruct} write from the Spring init thread is visible
+     * to subsequent reads from the scheduler thread that calls {@link #poll()} — without
+     * this, the JIT could legally cache the field as {@code false} and skip every poll.</p>
      */
-    private boolean initialized = false;
+    private volatile boolean initialized = false;
 
     /**
      * Guards against repeated "not initialized" log warnings on every poll cycle.
@@ -301,12 +305,30 @@ public class FaxImporter {
                     }
 
                     // Phase 2: Content is safe locally - mark as read on provider.
-                    // If this fails, the fax may be re-downloaded on next poll.
-                    // The file already exists in incoming dir so dedup is handled by filename uniqueness.
+                    // The remote message stays unread on failure, so the next poll WILL re-download
+                    // it. The provider message id is embedded in the filename via DownloadReference,
+                    // but generateUniqueFilename prepends a fresh timestamp+counter on every poll —
+                    // so a re-download produces a NEW file in incoming/ and importFromIncoming would
+                    // create a duplicate EDoc. Abort Phase 3 here, delete the quarantined file, and
+                    // mark the FaxJob ERROR so the operator sees the failure. Next poll re-fetches
+                    // the still-unread message cleanly.
                     try {
                         providerClient.markFaxAsRead(faxConfig, receivedFax);
                     } catch (FaxProviderException e) {
-                        log.warn("Failed to mark fax as read on provider - may re-download on next poll", e);
+                        log.error("Failed to mark fax as read on provider - aborting EMR import to prevent "
+                                + "duplicate when next poll re-downloads the still-unread message", e);
+                        try {
+                            Files.deleteIfExists(incomingFile);
+                        } catch (IOException deleteFailure) {
+                            log.error("Failed to delete quarantined fax {} after mark-as-read failure - "
+                                    + "manual cleanup required to avoid duplicate import on retry",
+                                    incomingFile, deleteFailure);
+                        }
+                        receivedFax.setStatus(FaxJob.STATUS.ERROR);
+                        receivedFax.setStatusString("Mark-as-read failed on provider; quarantined file removed. "
+                                + "Next poll will re-attempt the full download/ack/import flow.");
+                        saveFaxJob(new FaxJob(receivedFax));
+                        continue;
                     }
 
                     // Phase 3: Import from incoming directory into EMR
