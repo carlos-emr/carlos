@@ -1749,6 +1749,7 @@ insert into `secObjPrivilege` values('admin','_admin.flowsheet','x',0,'999998');
 insert into `secObjPrivilege` values('admin','_admin.eformreporttool','x',0,'999998');
 insert into `secObjPrivilege` values('admin','_admin.billing','x',0,'999998');
 insert into `secObjPrivilege` values('admin','_admin.misc','x',0,'999998');
+insert into `secObjPrivilege` values('admin','_admin.schedule','x',0,'999998');
 insert into `secObjPrivilege` values('admin','_appointment','x',0,'999998');
 insert into `secObjPrivilege` values('admin','_appointment.doctorLink','x',0,'999998');
 insert into `secObjPrivilege` values('admin','_pmm.addProgram','x',0,'999998');
