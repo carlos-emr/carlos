@@ -31,7 +31,8 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <fmt:setBundle basename="oscarResources"/>
-
+<fmt:message var="invalidAssistantFeeMsg" key="oscar.billing.CA.ON.billingON.sobUpload.invalidAssistantFee"/>
+<fmt:message var="invalidAnaesthetistFeeMsg" key="oscar.billing.CA.ON.billingON.sobUpload.invalidAnaesthetistFee"/>
 
 <html>
 
@@ -45,13 +46,13 @@
                 var result = true;
                 if (document.getElementById("updateAssistantInput").style.display == "inline") {
                     if (!checkFee(document.getElementById("updateAssistantFeesValue").value)) {
-                        alert("An invalid assistant fee was provided. Please correct it or disable update of the assistant fees.");
+                        alert("${carlos:forJavaScript(invalidAssistantFeeMsg)}");
                         result = false;
                     }
                 }
                 if (document.getElementById("updateAnaesthetistInput").style.display == "inline") {
                     if (!checkFee(document.getElementById("updateAnaesthetistFeesValue").value)) {
-                        alert("An invalid anaesthetist fee was provided. Please correct it or disable update of the anaesthetist fees.");
+                        alert("${carlos:forJavaScript(invalidAnaesthetistFeeMsg)}");
                         result = false;
                     }
                 }
@@ -102,19 +103,19 @@
         <div class="card card-body bg-body-tertiary">
 
             <div>
-                1. Download the text file from <a
+                <fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.step1Before"/> <a
                     href="https://www.ontario.ca/page/ohip-schedule-benefits-and-fees"
-                    target="_blank">OHIP Fee Schedule</a> and save it to your computer.
+                    target="_blank"><fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.ohipFeeSchedule"/></a> <fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.step1After"/>
             </div><!--#1-->
 
             <div>
-                2. Browse & find file:
+                <fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.step2"/>
                 <c:choose>
                     <c:when test="${empty warnings}">
                         <form action="${pageContext.request.contextPath}/billing/CA/ON/benefitScheduleUpload"
                               method="POST" enctype="multipart/form-data" onsubmit="return checkForm();">
                             <input type="file" name="importFile" value="/root/apr05sob.001">
-                            <input class="btn btn-primary" type="submit" name="Submit" value="Import">
+                            <input class="btn btn-primary" type="submit" name="Submit" value="<fmt:message key='oscar.billing.CA.ON.billingON.sobUpload.importButton'/>">
                             <div>
                                 <input type="checkbox" name="showChangedCodes" value="on" checked tabindex="1"/><fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.showCodesChangedPrices"/><br>
                                 <input type="checkbox" name="showNewCodes" value="on" tabindex="2"/><fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.showNewCodes"/><br>
@@ -139,32 +140,32 @@
                         </form>
                     </c:when>
                     <c:otherwise>
-                        <a href="${pageContext.request.contextPath}/billing/CA/ON/ViewBenefitScheduleUpload">Try again</a>
+                        <a href="${pageContext.request.contextPath}/billing/CA/ON/ViewBenefitScheduleUpload"><fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.tryAgain"/></a>
                     </c:otherwise>
                 </c:choose>
             </div><!--#2-->
 
             <div>
-                3. Click "Import" when file found
+                <fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.step3"/>
             </div><!--#3-->
 
             <br>
             <c:choose>
                 <c:when test="${outcome == 'success'}">
-                    <div class="alert alert-success">SOB File Successfully Uploaded</div>
+                    <div class="alert alert-success"><fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.successMessage"/></div>
                 </c:when>
                 <c:when test="${outcome == 'exception'}">
-                    <div class="alert alert-danger">There was a problem uploading this SOB file</div>
+                    <div class="alert alert-danger"><fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.errorMessage"/></div>
                 </c:when>
                 <c:when test="${outcome == 'uploadedPreviously'}">
-                    <div class="alert ">This file has already been processed</div>
+                    <div class="alert "><fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.alreadyProcessed"/></div>
                 </c:when>
             </c:choose>
 
 
             <c:if test="${not empty warnings and outcome == 'success'}">
                 <div>
-                    4. Click "Update" checkbox to select All<br>
+                    <fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.step4"/><br>
 
                     <form action="${pageContext.request.contextPath}/billing/CA/ON/benefitScheduleChange" method="POST"
                             id="sbForm">
@@ -174,15 +175,15 @@
                                                                        value="yes">
                                     <input type="checkbox" name="checkAll2"
                                            onclick="checkAll('sbForm')" id="checkA"/>
-                                </oscar:oscarPropertiesCheck> Update
+                                </oscar:oscarPropertiesCheck> <fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.columnUpdate"/>
                                 </th>
-                                <th>Fee Code</th>
-                                <th>Current Price</th>
-                                <th>New Price</th>
-                                <th>Diff</th>
-                                <th>Description</th>
-                                <th>Effective Date</th>
-                                <th>Termination Date</th>
+                                <th><fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.columnFeeCode"/></th>
+                                <th><fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.columnCurrentPrice"/></th>
+                                <th><fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.columnNewPrice"/></th>
+                                <th><fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.columnDiff"/></th>
+                                <th><fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.columnDescription"/></th>
+                                <th><fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.columnEffectiveDate"/></th>
+                                <th><fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.columnTerminationDate"/></th>
                             </tr>
                             <c:forEach var="h" items="${warnings}">
                                 <tr>
@@ -199,10 +200,10 @@
                                 </tr>
                             </c:forEach>
                         </table>
-                        <input class="btn btn-primary" type="submit" value="Update Billing Code Prices">
+                        <input class="btn btn-primary" type="submit" value="<fmt:message key='oscar.billing.CA.ON.billingON.sobUpload.updatePricesButton'/>">
                     </form>
 
-                    5. Click "Update Billing Code Prices"
+                    <fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.step5"/>
                 </div><!--#4-->
             </c:if>
 
@@ -210,7 +211,7 @@
             <c:if test="${not empty changes}">
                 <ul>
                     <c:forEach var="h" items="${changes}">
-                        <li><carlos:encode value='${h.code}' context='html'/> value updated to : <carlos:encode value='${h.value}' context='html'/></li>
+                        <li><carlos:encode value='${h.code}' context='html'/> <fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.valueUpdatedTo"/> <carlos:encode value='${h.value}' context='html'/></li>
                     </c:forEach>
                 </ul>
             </c:if>
