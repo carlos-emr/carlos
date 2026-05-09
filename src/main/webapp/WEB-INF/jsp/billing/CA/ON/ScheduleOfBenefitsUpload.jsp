@@ -30,7 +30,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<fmt:setBundle basename="oscarResources" charEncoding="UTF-8"/>
+<fmt:setBundle basename="oscarResources"/>
 <fmt:message var="invalidAssistantFeeMsg" key="oscar.billing.CA.ON.billingON.sobUpload.invalidAssistantFee"/>
 <fmt:message var="invalidAnaesthetistFeeMsg" key="oscar.billing.CA.ON.billingON.sobUpload.invalidAnaesthetistFee"/>
 
