@@ -219,6 +219,61 @@ class RingCentralFaxServiceTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should skip record with malformed creationTime instead of fabricating timestamp")
+    void shouldSkipRecord_whenCreationTimeIsMalformed() throws Exception {
+        // Pin the clinical-correctness invariant on RingCentralFaxService.parseCreationTime:
+        // a non-blank but unparseable creationTime must NOT fall back to "now" — that would
+        // silently fabricate a clinical-record timestamp on the EDoc. Skip the record so the
+        // unread message stays on RingCentral for next-poll re-fetch with a corrected upstream.
+        FaxConfig config = mock(FaxConfig.class);
+        when(config.getProviderType()).thenReturn(FaxConfig.ProviderType.RINGCENTRAL);
+        when(config.getRingCentralAccountId()).thenReturn("~");
+        when(config.getRingCentralExtensionId()).thenReturn("~");
+        when(authService.getAccessToken(config, apiConnector)).thenReturn("token");
+
+        RingCentralResponse.Attachment attachment =
+                new RingCentralResponse.Attachment("att-1", "skip.pdf", "application/pdf");
+        RingCentralResponse.Message message = new RingCentralResponse.Message(
+                "777", null, null, null, null, "not-a-real-timestamp", null,
+                Collections.singletonList(attachment));
+        RingCentralResponse.MessageList messageList = new RingCentralResponse.MessageList(
+                Collections.singletonList(message), null);
+        when(apiConnector.getInboundFaxes(any(RingCentralAccount.class))).thenReturn(messageList);
+
+        List<FaxJob> result = service.listInboundFaxes(config);
+
+        assertThat(result)
+                .as("malformed creationTime must not produce a fabricated-timestamp FaxJob")
+                .isEmpty();
+    }
+
+    @Test
+    @DisplayName("should skip record with non-numeric message id instead of producing null jobId")
+    void shouldSkipRecord_whenMessageIdIsNonNumeric() throws Exception {
+        // RingCentral's documented contract is numeric message ids. parseMessageId returns null
+        // on non-numeric values; assigning that to FaxJob.jobId silently would create a half-
+        // imported job whose fetchFaxStatus path throws forever. Pin the skip-on-null path.
+        FaxConfig config = mock(FaxConfig.class);
+        when(config.getProviderType()).thenReturn(FaxConfig.ProviderType.RINGCENTRAL);
+        when(config.getRingCentralAccountId()).thenReturn("~");
+        when(config.getRingCentralExtensionId()).thenReturn("~");
+        when(authService.getAccessToken(config, apiConnector)).thenReturn("token");
+
+        RingCentralResponse.Message valid = inboundMessage("100", "att-1", "ok.pdf");
+        RingCentralResponse.Message bad = inboundMessage("not-a-long", "att-2", "bad.pdf");
+        RingCentralResponse.MessageList messageList = new RingCentralResponse.MessageList(
+                Arrays.asList(valid, bad), null);
+        when(apiConnector.getInboundFaxes(any(RingCentralAccount.class))).thenReturn(messageList);
+
+        List<FaxJob> result = service.listInboundFaxes(config);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getJobId())
+                .as("only the numeric-id record should produce a FaxJob")
+                .isEqualTo(100L);
+    }
+
+    @Test
     @DisplayName("should skip null records when MessageList contains null entries")
     void shouldSkipNullRecords_whenMessageListContainsNullEntry() throws Exception {
         FaxConfig config = mock(FaxConfig.class);

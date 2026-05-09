@@ -31,8 +31,11 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 /**
  * Lightweight DTOs for RingCentral fax API responses used by the provider client.
  *
- * <p>All variants are records with canonical-constructor defensive copies. Lists are normalized
- * to {@link List#copyOf} so callers cannot mutate stored state through a returned reference.
+ * <p>All variants are records with canonical-constructor defensive copies. Lists are
+ * snapshotted into an unmodifiable view (NOT {@link List#copyOf}) so null elements survive
+ * construction and are skipped per-record by the caller — see the inline comments on
+ * {@link Message} and {@link MessageList}. The result is the same external read-only contract
+ * with looser tolerance for vendor schema drift.
  * Jackson 2.12+ binds records via canonical constructor with component-level
  * {@link JsonProperty} — no {@code @JsonCreator} indirection is needed.</p>
  *

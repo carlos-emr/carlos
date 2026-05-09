@@ -600,22 +600,22 @@
                             </div>
                         </div>
 
-                        <!-- SRFax Account Credentials (always shown) -->
+                        <!-- Provider Account Credentials (shared between MIDDLEWARE and SRFAX; hidden for RINGCENTRAL) -->
                         <div id="providerCredentials" class="row">
                             <div class="col-md-12">
-                                <h6 style="color: #0d6efd; margin-top: 12px; margin-bottom: 8px;"><fmt:message key="admin.configureFax.srfaxAccountCredentials"/></h6>
+                                <h6 style="color: #0d6efd; margin-top: 12px; margin-bottom: 8px;"><fmt:message key="admin.configureFax.providerAccountCredentials"/></h6>
                                 <small class="fax-muted" style="display: block; margin-bottom: 12px;">
-                                    <i class="fas fa-info-circle"></i> <fmt:message key="admin.configureFax.srfaxAccountCredentialsHelp"/>
+                                    <i class="fas fa-info-circle"></i> <fmt:message key="admin.configureFax.providerAccountCredentialsHelp"/>
                                 </small>
                             </div>
                             <div class="col-md-6">
-                                <label for="faxUser"><fmt:message key="admin.configureFax.srfaxUsername"/></label>
+                                <label for="faxUser"><fmt:message key="admin.configureFax.providerUsername"/></label>
                                 <input class="form-control" type="text" id="faxUser" name="faxUser"
                                        value="<carlos:encode value='<%= faxUser %>' context="htmlAttribute"/>"/>
                                 <input type="hidden" id="id" name="id" value="<carlos:encode value='<%= configId %>' context="htmlAttribute"/>"/>
                             </div>
                             <div class="col-md-6">
-                                <label for="faxPasswd"><fmt:message key="admin.configureFax.srfaxPassword"/></label>
+                                <label for="faxPasswd"><fmt:message key="admin.configureFax.providerPassword"/></label>
                                 <input class="form-control" type="password" id="faxPasswd" name="faxPassword"
                                        value="<carlos:encode value='<%= faxPassword %>' context="htmlAttribute"/>"/>
                             </div>

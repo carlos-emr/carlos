@@ -416,6 +416,12 @@ public class FaxConfig extends AbstractModel<Integer> {
     @PreUpdate
     void assertProviderInvariants() {
         ProviderType current = getProviderType();
+        // Clear non-applicable provider fields BEFORE validating required ones. Without this,
+        // switching providers (e.g. MIDDLEWARE → RINGCENTRAL) leaves the row carrying stale
+        // encrypted credential blobs from the previous provider. The credentials remain
+        // encrypted at rest (see decryptField) so leakage risk is bounded, but data hygiene
+        // and audit clarity favor clearing them eagerly.
+        clearForeignProviderFields(current);
         switch (current) {
             case MIDDLEWARE -> {
                 requireField(url, "url", current);
@@ -436,6 +442,41 @@ public class FaxConfig extends AbstractModel<Integer> {
             // branch. Falling through to throw makes the gap visible at runtime.
             default -> throw new IllegalStateException(
                     "Unknown FaxConfig.providerType: " + current);
+        }
+    }
+
+    private void clearForeignProviderFields(ProviderType current) {
+        // faxUser / faxPasswd are shared between MIDDLEWARE and SRFAX (see field JavaDoc); only
+        // RINGCENTRAL has no use for them. url / siteUser / passwd are MIDDLEWARE-only. The
+        // RingCentral fields are RINGCENTRAL-only. Clear strictly the foreign blobs so the row
+        // never carries credentials from a previous provider after a switch.
+        switch (current) {
+            case MIDDLEWARE -> {
+                ringCentralClientId = "";
+                ringCentralClientSecret = "";
+                ringCentralJwtToken = "";
+                ringCentralAccountId = "";
+                ringCentralExtensionId = "";
+            }
+            case SRFAX -> {
+                url = "";
+                siteUser = "";
+                passwd = "";
+                ringCentralClientId = "";
+                ringCentralClientSecret = "";
+                ringCentralJwtToken = "";
+                ringCentralAccountId = "";
+                ringCentralExtensionId = "";
+            }
+            case RINGCENTRAL -> {
+                url = "";
+                siteUser = "";
+                passwd = "";
+                faxUser = "";
+                faxPasswd = "";
+            }
+            // Unknown providers fall through to the validator's default branch which throws.
+            default -> { /* no-op; caught and rejected by assertProviderInvariants's default */ }
         }
     }
 

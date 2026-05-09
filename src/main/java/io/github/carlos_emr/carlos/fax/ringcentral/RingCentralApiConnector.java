@@ -28,6 +28,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -91,6 +92,12 @@ public class RingCentralApiConnector {
             .setConnectionManager(connectionManager)
             .build();
     private final Supplier<String> apiUrlResolver;
+    /**
+     * Counts inbox-fetch calls that hit the {@link #MAX_INBOX_PAGES} cap. Operators can quote
+     * this counter to distinguish "we processed 5000 unread faxes this poll" from "we processed
+     * 5000 and the inbox is permanently truncated" — surface in {@code getFaxSchedularStatus}.
+     */
+    private final AtomicLong paginationCapHits = new AtomicLong();
 
     public RingCentralApiConnector() {
         this(RingCentralApiConnector::resolveFromProperties);
@@ -105,6 +112,15 @@ public class RingCentralApiConnector {
         this.apiUrlResolver = apiUrlResolver;
     }
 
+    /**
+     * Exchanges a JWT bearer assertion for an OAuth access token.
+     *
+     * @param clientId RingCentral OAuth client identifier
+     * @param clientSecret RingCentral OAuth client secret (Basic-auth pair with clientId)
+     * @param jwtToken JWT assertion provisioned per the RingCentral developer console
+     * @return parsed token (access token + expires_in seconds)
+     * @throws RingCentralException on transport failure or non-2xx response (carries status)
+     */
     public RingCentralResponse.Token authenticate(String clientId, String clientSecret, String jwtToken)
             throws RingCentralException {
         List<NameValuePair> params = new ArrayList<>();
@@ -119,6 +135,16 @@ public class RingCentralApiConnector {
         return executeJson(post, RingCentralResponse.Token.class, "RingCentral authentication failed");
     }
 
+    /**
+     * Submits a single outbound fax via the RingCentral message-store endpoint.
+     *
+     * @param account caller identity (account/extension/access token)
+     * @param destination E.164-style destination phone number
+     * @param document PDF bytes to fax
+     * @param fileName filename for the multipart attachment ({@code "fax.pdf"} when blank)
+     * @return RingCentral acknowledgment with the assigned message id and initial status
+     * @throws RingCentralException on transport failure or non-2xx response (carries status)
+     */
     public RingCentralResponse.Message sendFax(RingCentralAccount account,
             String destination, byte[] document, String fileName) throws RingCentralException {
         ObjectNode metadata = objectMapper.createObjectNode();
@@ -152,6 +178,7 @@ public class RingCentralApiConnector {
         int pages = 0;
         while (nextUri != null) {
             if (pages >= MAX_INBOX_PAGES) {
+                paginationCapHits.incrementAndGet();
                 logger.warn("RingCentral inbox pagination capped at {} pages ({} records pulled) - "
                         + "remaining unread faxes will be picked up on the next poll cycle",
                         MAX_INBOX_PAGES, aggregated.size());
@@ -169,6 +196,15 @@ public class RingCentralApiConnector {
         return new RingCentralResponse.MessageList(aggregated, null);
     }
 
+    /**
+     * Downloads the binary content of one attachment from a RingCentral message.
+     *
+     * @param account caller identity
+     * @param messageId vendor message id (validated by {@link #normalizeMessageId})
+     * @param attachmentId vendor attachment id within that message
+     * @return raw bytes (typically PDF) returned by RingCentral
+     * @throws RingCentralException on transport failure or non-2xx response (carries status)
+     */
     public byte[] downloadFax(RingCentralAccount account, String messageId, String attachmentId)
             throws RingCentralException {
         HttpGet get = new HttpGet(buildMessageStoreUrl(account.accountId(), account.extensionId()) + "/"
@@ -177,6 +213,15 @@ public class RingCentralApiConnector {
         return executeBytes(get, "RingCentral fax download failed");
     }
 
+    /**
+     * Fetches the current vendor-side metadata for one fax message (used to refresh status after
+     * an outbound send).
+     *
+     * @param account caller identity
+     * @param messageId vendor message id
+     * @return vendor's current view of the message (status / direction / read flag)
+     * @throws RingCentralException on transport failure or non-2xx response (carries status)
+     */
     public RingCentralResponse.Message getFaxStatus(RingCentralAccount account, String messageId)
             throws RingCentralException {
         HttpGet get = new HttpGet(buildMessageStoreUrl(account.accountId(), account.extensionId()) + "/"
@@ -185,6 +230,16 @@ public class RingCentralApiConnector {
         return executeJson(get, RingCentralResponse.Message.class, "RingCentral fax status fetch failed");
     }
 
+    /**
+     * Flips a RingCentral fax message from unread to read. This is the duplicate-prevention
+     * acknowledgment for inbound polling — a successfully marked-read message is excluded from
+     * the next {@link #getInboundFaxes} call. Idempotent per RingCentral contract: re-marking an
+     * already-read message returns 2xx without side effect.
+     *
+     * @param account caller identity
+     * @param messageId vendor message id
+     * @throws RingCentralException on transport failure or non-2xx response (carries status)
+     */
     public void markFaxAsRead(RingCentralAccount account, String messageId)
             throws RingCentralException {
         HttpPut put = new HttpPut(buildMessageStoreUrl(account.accountId(), account.extensionId()) + "/"
@@ -199,6 +254,16 @@ public class RingCentralApiConnector {
      */
     public String getApiUrl() {
         return apiUrlResolver.get();
+    }
+
+    /**
+     * @return total inbox-fetch calls that hit the {@link #MAX_INBOX_PAGES} pagination cap since
+     *         this connector was constructed; non-zero indicates an inbox is permanently
+     *         truncated and operator intervention is needed (likely too many unread messages
+     *         accumulated to drain in one poll)
+     */
+    public long getPaginationCapHits() {
+        return paginationCapHits.get();
     }
 
     /**
@@ -265,8 +330,7 @@ public class RingCentralApiConnector {
         // RingCentral returns absolute URIs against its own API origin. Validate before issuing
         // the next request so a hostile or misconfigured response can't redirect the pagination
         // to an attacker-controlled host. Same-origin check pins host, scheme, AND effective
-        // port to the configured API URL; tests using a localhost http fixture pass because
-        // their resolver returns http and an explicit ephemeral port.
+        // port to the configured API URL.
         try {
             URI parsed = new URI(uri);
             URI apiUri = new URI(getApiUrl());
@@ -346,7 +410,11 @@ public class RingCentralApiConnector {
         try {
             return objectMapper.readValue(payload, responseType);
         } catch (IOException e) {
-            throw new RingCentralException(errorMessage + ": invalid JSON response", e);
+            // Append the same bounded body excerpt used for non-2xx error paths so the operator
+            // can distinguish "RingCentral returned malformed JSON" from "we got HTML back from
+            // an interception proxy" without needing to enable wire-level trace logging.
+            throw new RingCentralException(errorMessage + ": invalid JSON response"
+                    + bodyExcerpt(payload), e);
         }
     }
 

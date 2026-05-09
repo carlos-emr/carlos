@@ -21,12 +21,32 @@
  */
 package io.github.carlos_emr.carlos.fax.ringcentral;
 
+import org.apache.commons.lang3.StringUtils;
+
 /**
  * RingCentral request identity tuple bundling the OAuth access token with the targeted account
- * and extension. Bundling these three strings prevents the silent argument-swap hazard at every
- * connector call site (all three were previously bare {@code String} positional parameters).
+ * and extension. Bundling these three strings into a record prevents the silent argument-swap
+ * hazard that bare positional {@code String} parameters created at every connector call site.
+ *
+ * <p>The compact constructor rejects blank components: an account that lacks any one of the three
+ * fields cannot drive a successful API call, so accepting blanks would forfeit the safety the
+ * type was created for. {@link #toString()} redacts the access token so an accidental log line
+ * cannot leak a bearer credential into operator output.</p>
  *
  * @since 2026-05-08
  */
 public record RingCentralAccount(String accessToken, String accountId, String extensionId) {
+
+    public RingCentralAccount {
+        if (StringUtils.isAnyBlank(accessToken, accountId, extensionId)) {
+            throw new IllegalArgumentException(
+                    "RingCentralAccount requires non-blank accessToken, accountId, and extensionId");
+        }
+    }
+
+    @Override
+    public String toString() {
+        return "RingCentralAccount[accessToken=***, accountId=" + accountId
+                + ", extensionId=" + extensionId + "]";
+    }
 }

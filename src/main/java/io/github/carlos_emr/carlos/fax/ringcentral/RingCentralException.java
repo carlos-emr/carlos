@@ -30,6 +30,10 @@ import io.github.carlos_emr.carlos.fax.provider.FaxProviderException;
  * exception so the orchestration layer can drive 401-specific token eviction and so 5xx/429 are
  * classified transient alongside the IOException paths.</p>
  *
+ * <p>Prefer the static factory {@link #fromHttpStatus(String, int)} when constructing an
+ * exception in response to a non-2xx HTTP status — it centralizes the transient classification
+ * (5xx and 429 are transient) so the rule lives in exactly one place.</p>
+ *
  * @since 2026-05-05
  */
 public class RingCentralException extends FaxProviderException {
@@ -56,6 +60,23 @@ public class RingCentralException extends FaxProviderException {
     public RingCentralException(String message, int httpStatus, boolean transientError) {
         super(message, null, transientError);
         this.httpStatus = httpStatus;
+    }
+
+    /**
+     * Creates a RingCentralException from a non-2xx HTTP response. Centralizes the
+     * status-to-transient classification: 5xx server errors and 429 rate-limited responses are
+     * marked transient (eligible for retry); all other 4xx responses are permanent client errors.
+     *
+     * @param message operator-facing message including any vendor body excerpt
+     * @param httpStatus HTTP status from the response (must be in 100..599)
+     * @return classified exception ready to throw
+     */
+    public static RingCentralException fromHttpStatus(String message, int httpStatus) {
+        if (httpStatus < 100 || httpStatus > 599) {
+            throw new IllegalArgumentException("HTTP status out of range: " + httpStatus);
+        }
+        boolean transientError = httpStatus >= 500 || httpStatus == 429;
+        return new RingCentralException(message, httpStatus, transientError);
     }
 
     /**

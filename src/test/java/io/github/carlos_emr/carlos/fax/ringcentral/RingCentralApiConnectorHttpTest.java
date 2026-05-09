@@ -192,6 +192,31 @@ class RingCentralApiConnectorHttpTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should terminate inbox pagination at MAX_INBOX_PAGES when cursor self-loops")
+    void shouldTerminateInboxPagination_whenCursorSelfLoops() throws Exception {
+        // Pin the safety bound documented on RingCentralApiConnector.MAX_INBOX_PAGES (50).
+        // A regression that removed the cap (or set it to Integer.MAX_VALUE) would let a
+        // self-loop nextPage cursor hang the scheduler thread until the connection pool
+        // exhausts. Queue 51 responses and assert the loop terminates before consuming the
+        // 51st — the unconsumed response stays in the queue for tearDown to clear.
+        String selfLoopBody = "{\"records\":[{\"id\":\"loop-id\",\"attachments\":[{\"id\":\"a\"}]}],"
+                + "\"navigation\":{\"nextPage\":{\"uri\":\"" + baseUrl
+                + "/restapi/v1.0/account/~/extension/~/message-store?page=loop\"}}}";
+        for (int i = 0; i < 51; i++) {
+            enqueue(200, "application/json", selfLoopBody);
+        }
+
+        RingCentralResponse.MessageList list = connector.getInboundFaxes(new RingCentralAccount("token", "~", "~"));
+
+        assertThat(list.getRecords())
+                .as("MAX_INBOX_PAGES caps aggregation at 50 pages * 1 record/page")
+                .hasSize(50);
+        assertThat(queuedResponses)
+                .as("loop must not consume the 51st queued response")
+                .hasSize(1);
+    }
+
+    @Test
     @DisplayName("should refuse to follow nextPage cursor pointing to a foreign host")
     void shouldRefuseNextPageCursor_pointingToForeignHost() throws Exception {
         enqueue(200, "application/json",

@@ -142,6 +142,11 @@ public class RingCentralAuthService {
     }
 
     private Object lockFor(Integer cacheKey) {
+        // Math.floorMod (rather than %) keeps the index non-negative even if hashCode() ever
+        // changes from "Integer value itself" to a value that can be negative. Do NOT replace
+        // with `cacheKey % tokenLocks.length` — that would re-introduce negative indices for
+        // any future hashing change and the resulting ArrayIndexOutOfBoundsException would
+        // surface only under cache contention (i.e., production load).
         return tokenLocks[Math.floorMod(cacheKey.hashCode(), tokenLocks.length)];
     }
 

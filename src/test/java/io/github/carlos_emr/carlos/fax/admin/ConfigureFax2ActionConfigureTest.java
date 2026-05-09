@@ -230,6 +230,65 @@ class ConfigureFax2ActionConfigureTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should return 405 and skip mutation when configure invoked via GET")
+    void shouldReturn405_whenConfigureInvokedViaGet() {
+        // Pin the rejectIfNotPost gate on the configure mutator branch (CLAUDE.md
+        // CONDITIONAL_MUTATORS contract for MutatorActionGetRejectionContractTest). A regression
+        // that re-orders the dispatcher to call configure() before the POST gate, or that drops
+        // the gate entirely, would let a CSRF-style GET drive a fax-config mutation.
+        request.setMethod("GET");
+        request.setParameter("method", "configure");
+        // Provide a privilege so the only thing that can stop the mutation is the POST gate.
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.fax"), eq("w"), isNull()))
+                .thenReturn(true);
+
+        ConfigureFax2Action action = new ConfigureFax2Action();
+
+        action.execute();
+
+        assertThat(response.getStatus()).isEqualTo(405);
+        verify(faxConfigDao, never()).saveEntity(any(FaxConfig.class));
+        verify(faxManager, never()).startFaxSchedulerIfNotRunning(any(LoggedInInfo.class));
+    }
+
+    @Test
+    @DisplayName("should return 405 and skip restart when restartFaxScheduler invoked via GET")
+    void shouldReturn405_whenRestartFaxSchedulerInvokedViaGet() {
+        // Mirrors the configure GET-rejection test for the second mutator branch.
+        request.setMethod("GET");
+        request.setParameter("method", "restartFaxScheduler");
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.fax.restart"), eq("w"), isNull()))
+                .thenReturn(true);
+
+        ConfigureFax2Action action = new ConfigureFax2Action();
+
+        action.execute();
+
+        assertThat(response.getStatus()).isEqualTo(405);
+        verify(faxManager, never()).restartFaxScheduler(any(LoggedInInfo.class));
+    }
+
+    @Test
+    @DisplayName("should NOT 405-reject getFaxSchedularStatus when invoked via GET")
+    void shouldNot405_whenGetFaxSchedularStatusInvokedViaGet() {
+        // Read-only methods on this dispatcher legitimately accept GET. Pinning the conditional
+        // split prevents a future "lock everything to POST" change from breaking the polling
+        // loops that the admin UI runs against this endpoint.
+        request.setMethod("GET");
+        request.setParameter("method", "getFaxSchedularStatus");
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.fax.restart"), eq("r"), isNull()))
+                .thenReturn(true);
+        when(faxManager.getFaxSchedularStatus(any(LoggedInInfo.class)))
+                .thenReturn(new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode());
+
+        ConfigureFax2Action action = new ConfigureFax2Action();
+
+        action.execute();
+
+        assertThat(response.getStatus()).as("read-only branch must not 405 on GET").isEqualTo(200);
+    }
+
+    @Test
     @DisplayName("should preserve stored MIDDLEWARE password when sentinel mask is submitted")
     void shouldPreserveStoredPassword_whenSentinelSubmitted() throws Exception {
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.fax"), eq("w"), isNull()))

@@ -162,6 +162,14 @@ public class ConfigureFax2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_admin.fax)");
         }
 
+        // Hoist secret arrays out of the try so the finally can zero them regardless of which
+        // catch fires. applyRingCentralFields zeroes individual entries after they are persisted,
+        // but a validation throw earlier in the loop would leave un-processed entries holding
+        // plaintext secret references. This belt-and-suspenders pass keeps the secret-input
+        // lifetime bounded to this method invocation.
+        String[] rcClientSecrets = null;
+        String[] rcJwtTokens = null;
+        String[] faxPasswds = null;
         try {
             FaxConfigDao faxConfigDao = SpringUtils.getBean(FaxConfigDao.class);
             List<FaxConfig> savedFaxConfigList = faxConfigDao.findAll(null, null);
@@ -174,7 +182,7 @@ public class ConfigureFax2Action extends ActionSupport {
 
             String[] faxConfigIds = request.getParameterValues("id");
             String[] faxUsers = request.getParameterValues("faxUser");
-            String[] faxPasswds = request.getParameterValues("faxPassword");
+            faxPasswds = request.getParameterValues("faxPassword");
             String[] inboxQueues = request.getParameterValues("inboxQueue");
             String[] activeState = request.getParameterValues("activeState");
             String[] faxNumbers = request.getParameterValues("faxNumber");
@@ -183,8 +191,8 @@ public class ConfigureFax2Action extends ActionSupport {
             String[] downloadState = request.getParameterValues("downloadState");
             String[] providerTypes = request.getParameterValues("providerType");
             String[] rcClientIds = request.getParameterValues("ringCentralClientId");
-            String[] rcClientSecrets = request.getParameterValues("ringCentralClientSecret");
-            String[] rcJwtTokens = request.getParameterValues("ringCentralJwtToken");
+            rcClientSecrets = request.getParameterValues("ringCentralClientSecret");
+            rcJwtTokens = request.getParameterValues("ringCentralJwtToken");
             String[] rcAccountIds = request.getParameterValues("ringCentralAccountId");
             String[] rcExtensionIds = request.getParameterValues("ringCentralExtensionId");
 
@@ -348,7 +356,10 @@ public class ConfigureFax2Action extends ActionSupport {
                 String correlationId = newCorrelationId();
                 MiscUtils.getLogger().error("Failed to auto-start fax scheduler after config save (correlationId={})",
                         correlationId, e);
-                jsonObject.put("message", "Configuration saved, but fax scheduler failed to start. "
+                // The config DID save — keep success=true so the UI shows the persistence as
+                // green. Surface the partial-failure via a separate "warning" field so the UI can
+                // render an amber annotation distinct from a red "save failed" toast.
+                jsonObject.put("warning", "Configuration saved, but fax scheduler failed to start. "
                         + "Use the Restart button to start it manually. (Reference: " + correlationId + ")");
             }
         } catch (IllegalArgumentException ex) {
@@ -378,11 +389,30 @@ public class ConfigureFax2Action extends ActionSupport {
             jsonObject.put("message", DEFAULT_ERROR_MESSAGE + " (Reference: " + correlationId + ")");
             MiscUtils.getLogger().error("COULD NOT SAVE FAX CONFIGURATION (correlationId={})",
                     correlationId, ex);
+        } finally {
+            zeroSecretArray(rcClientSecrets);
+            zeroSecretArray(rcJwtTokens);
+            zeroSecretArray(faxPasswds);
         }
 
         MiscUtils.getLogger().debug("Fax configuration response: success={}", jsonObject.get("success"));
         JSONUtil.jsonResponse(response, jsonObject);
         return null;
+    }
+
+    /**
+     * Best-effort clearing of plaintext secret references held in a request-parameter array. The
+     * Strings themselves remain on the JVM heap until GC reclaims them, but dropping the array
+     * references shortens the window during which a heap dump from this servlet thread would
+     * surface plaintext credentials.
+     */
+    private static void zeroSecretArray(String[] secrets) {
+        if (secrets == null) {
+            return;
+        }
+        for (int i = 0; i < secrets.length; i++) {
+            secrets[i] = null;
+        }
     }
 
     /**
@@ -424,27 +454,29 @@ public class ConfigureFax2Action extends ActionSupport {
     /**
      * Resolves provider type selection from request arrays.
      *
-     * <p>Legacy compatibility narrows to a single scenario: a pre-rollout JSP that doesn't render
-     * the providerType field at all submits no {@code providerType} parameter, so
-     * {@code providerTypes} is null entirely. In that case we treat every row as MIDDLEWARE.</p>
+     * <p>If the form submission omits the {@code providerType} parameter entirely (so
+     * {@code providerTypes} is null), every row defaults to MIDDLEWARE for backward
+     * compatibility with form templates that predate the provider-routing field.</p>
      *
-     * <p>If {@code providerTypes} is non-null (the new JSP rendered the field) but the value at
-     * {@code idx} is null/missing, that's a per-row form bug — silently defaulting to MIDDLEWARE
-     * would clear any RingCentral or SRFax credentials on the row via
-     * {@link #applyRingCentralFields}. Throw so the operator sees the misrouted submission.</p>
+     * <p>If {@code providerTypes} is non-null but the value at {@code idx} is null/missing,
+     * that's a per-row form bug — silently defaulting to MIDDLEWARE would clear any RingCentral
+     * or SRFax credentials on the row via {@link #applyRingCentralFields}. Throw so the
+     * operator sees the misrouted submission.</p>
      *
      * @throws IllegalArgumentException if the provider type value is present but not a valid
      *         enum constant, or if the per-row value is missing while other rows supplied one
      */
     private FaxConfig.ProviderType resolveProviderType(String[] providerTypes, int idx, Integer faxConfigId) {
         if (providerTypes == null) {
-            // Legacy JSP: the field isn't on the form at all. Every row falls back to MIDDLEWARE.
-            MiscUtils.getLogger().info("Provider type field absent from form (legacy JSP). "
+            // Form omitted the providerType parameter entirely — fall back to MIDDLEWARE for
+            // every row. Preserves backward compatibility with form templates that predate the
+            // provider-routing field.
+            MiscUtils.getLogger().info("Provider type field absent from form. "
                     + "Treating fax config id {} as MIDDLEWARE.", faxConfigId);
             return FaxConfig.ProviderType.MIDDLEWARE;
         }
         if (idx >= providerTypes.length || providerTypes[idx] == null) {
-            // New JSP submitted some providerType values but missed this row. Treat as a form
+            // The form submitted some providerType values but missed this row. Treat as a form
             // error rather than silently switching the row to MIDDLEWARE — that path would wipe
             // any stored RingCentral/SRFax credentials.
             MiscUtils.getLogger().error("Provider type missing for row idx={} (fax config id {}) "

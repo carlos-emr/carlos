@@ -76,11 +76,11 @@ public class RingCentralFaxService implements FaxProviderClient {
     /**
      * {@inheritDoc}
      *
-     * <p><strong>Side effect:</strong> on successful queue, the input {@code faxJob}'s
-     * {@code document} field is cleared (set to {@code null}) so the base64 payload can be
-     * garbage-collected promptly rather than retained on the FaxJob through the rest of the
-     * outbound pipeline. Callers that need the payload after send must snapshot it before this
-     * call.</p>
+     * <p><strong>Side effect:</strong> on every code path (success, validation throw, IO failure,
+     * RingCentral failure), the input {@code faxJob}'s {@code document} field is cleared (set to
+     * {@code null}) so the base64 payload can be garbage-collected promptly rather than retained
+     * on the FaxJob through the rest of the outbound pipeline. Callers that need the payload
+     * after send must snapshot it before this call.</p>
      */
     @Override
     public FaxJob sendFax(FaxConfig faxConfig, FaxJob faxJob, Path filePath) throws FaxProviderException {
@@ -106,11 +106,15 @@ public class RingCentralFaxService implements FaxProviderClient {
             result.setJobId(jobId);
             result.setStatus(mapStatus(firstNonBlank(response.getFaxStatus(), response.getMessageStatus())));
             result.setStatusString(firstNonBlank(response.getFaxStatus(), response.getMessageStatus(), "Queued with RingCentral"));
-            faxJob.setDocument(null);
             logger.info("RingCentral send queued providerJobId={}", result.getJobId());
             return result;
         } catch (IOException e) {
             throw new RingCentralException("Failed to read fax document file: " + e.getMessage(), e);
+        } finally {
+            // Clear the in-memory base64 payload regardless of outcome. On the failure paths the
+            // caller's retry/failure handling no longer carries the document field, bounding heap
+            // retention of PHI to the duration of this single send call.
+            faxJob.setDocument(null);
         }
     }
 
@@ -135,8 +139,15 @@ public class RingCentralFaxService implements FaxProviderClient {
                 skippedRecords++;
                 continue;
             }
-            // Cache once: the contract on getAttachments() is a non-null unmodifiable view
-            // backed by the stored list, so no null-branch is needed and re-calling adds noise.
+            Long parsedMessageId = parseMessageId(message.getId());
+            if (parsedMessageId == null) {
+                // The same parser feeds FaxJob.jobId below; assigning null silently would create
+                // a half-imported job whose status-check path throws forever. Treat non-numeric
+                // ids as a skip so the inbox progresses and the operator sees a single WARN per
+                // schema-drift record. parseMessageId already logs the offending value at WARN.
+                skippedRecords++;
+                continue;
+            }
             List<RingCentralResponse.Attachment> attachments = message.getAttachments();
             if (attachments.isEmpty()) {
                 logger.warn("Skipping RingCentral fax record providerMessageId={} with no attachments",
@@ -171,7 +182,7 @@ public class RingCentralFaxService implements FaxProviderClient {
                 }
 
                 FaxJob faxJob = new FaxJob();
-                faxJob.setJobId(parseMessageId(message.getId()));
+                faxJob.setJobId(parsedMessageId);
                 faxJob.setFile_name(DownloadReference.format(message.getId(), attachment.id(),
                         attachment.fileName()));
                 faxJob.setRecipient(inboundCaller);
@@ -276,13 +287,32 @@ public class RingCentralFaxService implements FaxProviderClient {
                     faxConfig.getId());
             authService.invalidateToken(faxConfig);
             String refreshed = authService.getAccessToken(faxConfig, apiConnector);
-            return call.execute(buildAccount(faxConfig, refreshed));
+            try {
+                return call.execute(buildAccount(faxConfig, refreshed));
+            } catch (RingCentralException retryFailure) {
+                if (isUnauthorized(retryFailure)) {
+                    // Re-wrap the second 401 with explicit context so operator logs distinguish
+                    // "stale cached token, refresh recovered" from "credentials genuinely revoked
+                    // at provider". The original exception is chained for stack-trace correlation.
+                    throw new RingCentralException(
+                            "RingCentral returned 401 even after fresh authentication for faxConfigId="
+                                    + faxConfig.getId()
+                                    + " - credentials likely revoked at provider; re-issue JWT and re-save in admin",
+                            retryFailure);
+                }
+                throw retryFailure;
+            }
         }
     }
 
     private static RingCentralAccount buildAccount(FaxConfig faxConfig, String accessToken) {
+        // RingCentral's documented "~" sentinel resolves to the access-token's current account /
+        // extension. FaxConfig stores empty strings for un-set values, so substitute "~" before
+        // constructing the record (which rejects blanks) — preserves the existing "leave blank
+        // for self" admin UX without weakening RingCentralAccount's invariants.
         return new RingCentralAccount(accessToken,
-                faxConfig.getRingCentralAccountId(), faxConfig.getRingCentralExtensionId());
+                StringUtils.defaultIfBlank(faxConfig.getRingCentralAccountId(), "~"),
+                StringUtils.defaultIfBlank(faxConfig.getRingCentralExtensionId(), "~"));
     }
 
     private static boolean isUnauthorized(RingCentralException e) {
