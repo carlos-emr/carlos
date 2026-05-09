@@ -30,7 +30,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<fmt:setBundle basename="oscarResources"/>
+<fmt:setBundle basename="oscarResources" charEncoding="UTF-8"/>
 <fmt:message var="invalidAssistantFeeMsg" key="oscar.billing.CA.ON.billingON.sobUpload.invalidAssistantFee"/>
 <fmt:message var="invalidAnaesthetistFeeMsg" key="oscar.billing.CA.ON.billingON.sobUpload.invalidAnaesthetistFee"/>
 
@@ -103,13 +103,13 @@
         <div class="card card-body bg-body-tertiary">
 
             <div>
-                <fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.step1Before"/> <a
+                1. <fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.step1Before"/> <a
                     href="https://www.ontario.ca/page/ohip-schedule-benefits-and-fees"
                     target="_blank"><fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.ohipFeeSchedule"/></a> <fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.step1After"/>
             </div><!--#1-->
 
             <div>
-                <fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.step2"/>
+                2. <fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.step2"/>
                 <c:choose>
                     <c:when test="${empty warnings}">
                         <form action="${pageContext.request.contextPath}/billing/CA/ON/benefitScheduleUpload"
@@ -146,7 +146,7 @@
             </div><!--#2-->
 
             <div>
-                <fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.step3"/>
+                3. <fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.step3"/>
             </div><!--#3-->
 
             <br>
@@ -165,7 +165,7 @@
 
             <c:if test="${not empty warnings and outcome == 'success'}">
                 <div>
-                    <fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.step4"/><br>
+                    4. <fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.step4"/><br>
 
                     <form action="${pageContext.request.contextPath}/billing/CA/ON/benefitScheduleChange" method="POST"
                             id="sbForm">
@@ -175,13 +175,13 @@
                                                                        value="yes">
                                     <input type="checkbox" name="checkAll2"
                                            onclick="checkAll('sbForm')" id="checkA"/>
-                                </oscar:oscarPropertiesCheck> <fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.columnUpdate"/>
+                                </oscar:oscarPropertiesCheck> <fmt:message key="global.update"/>
                                 </th>
                                 <th><fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.columnFeeCode"/></th>
                                 <th><fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.columnCurrentPrice"/></th>
                                 <th><fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.columnNewPrice"/></th>
                                 <th><fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.columnDiff"/></th>
-                                <th><fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.columnDescription"/></th>
+                                <th><fmt:message key="global.description"/></th>
                                 <th><fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.columnEffectiveDate"/></th>
                                 <th><fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.columnTerminationDate"/></th>
                             </tr>
@@ -203,7 +203,7 @@
                         <input class="btn btn-primary" type="submit" value="<fmt:message key='oscar.billing.CA.ON.billingON.sobUpload.updatePricesButton'/>">
                     </form>
 
-                    <fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.step5"/>
+                    5. <fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.step5"/>
                 </div><!--#4-->
             </c:if>
 
