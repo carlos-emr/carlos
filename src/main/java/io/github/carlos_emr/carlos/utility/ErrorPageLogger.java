@@ -118,8 +118,9 @@ public final class ErrorPageLogger {
                         ? request.getAttribute("jakarta.servlet.error.message")
                         : null;
                 if (status != null || uri != null || message != null) {
-                    boolean displayError = CarlosProperties.isPropertyActive(
-                            ResponseSanitizationFilter.DISPLAY_ERROR_PROPERTY);
+                    String sanitizationProp = CarlosProperties.getInstance().getProperty(ResponseSanitizationFilter.ENABLED_PROPERTY, "").trim();
+                    boolean sanitizationEnabled = sanitizationProp.isEmpty() || Boolean.parseBoolean(sanitizationProp);
+                    boolean displayError = !sanitizationEnabled && CarlosProperties.getInstance().isPropertyActive(ResponseSanitizationFilter.DISPLAY_ERROR_PROPERTY);
                     MiscUtils.getLogger().warn(
                             "errorpage.jsp triggered without exception "
                             + "(method={}, uri={}, status={}, message={}) "
