@@ -545,7 +545,7 @@ class ResponseSanitizationFilterUnitTest {
 
         @Test
         @DisplayName("should pass through error response with stack trace unchanged")
-        void shouldPassThrough_errorWithStackTrace_whenDisplayErrorActive() throws Exception {
+        void shouldPassThrough_errorWithStackTraceWhenDisplayErrorActive() throws Exception {
             MockHttpServletRequest request = new MockHttpServletRequest();
             MockHttpServletResponse response = new MockHttpServletResponse();
             String stackTraceBody = "java.lang.NullPointerException\n"
