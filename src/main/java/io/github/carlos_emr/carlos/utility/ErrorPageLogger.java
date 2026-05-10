@@ -126,7 +126,7 @@ public final class ErrorPageLogger {
                             + "(method={}, uri={}, status={}, message={}) "
                             + "— sendError() was called without propagating the exception",
                             method, uri, status,
-                            displayError ? message : (message != null ? "[present — set DISPLAY_ERROR=true to log]" : null));
+                            displayError ? message : (message != null ? "[present — set DISPLAY_ERROR=true, response.sanitization.enabled=false to log]" : null));
                 }
                 return;
             }
