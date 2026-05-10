@@ -237,7 +237,7 @@ public class BillingOnMriViewModelAssembler {
                 // Map.copyOf() in BillingOnMriViewModel.Builder rejects null values —
                 // coerce to empty string so a provider with an unset bill-center code
                 // does not cause a NullPointerException when the view model is built.
-                map.put(providerNo, nullToEmpty(pbc.getBillCenterCode()));
+                map.put(providerNo, pbc.getBillCenterCode() == null ? "" : pbc.getBillCenterCode());
             }
         }
         return map;
