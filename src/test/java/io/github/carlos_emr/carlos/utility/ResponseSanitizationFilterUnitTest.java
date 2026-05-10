@@ -523,4 +523,65 @@ class ResponseSanitizationFilterUnitTest {
             assertThat(body).contains("Reference ID:");
         }
     }
+
+    // -------------------------------------------------------------------------
+    // DISPLAY_ERROR — developer mode disables the filter via init()
+    // -------------------------------------------------------------------------
+
+    @Nested
+    @DisplayName("when DISPLAY_ERROR is active")
+    class DisplayErrorActive {
+
+        @BeforeEach
+        void enableDisplayError() throws Exception {
+            when(mockProperties.getProperty(ResponseSanitizationFilter.ENABLED_PROPERTY, ""))
+                    .thenReturn("true");
+            when(mockProperties.isPropertyActive(ResponseSanitizationFilter.DISPLAY_ERROR_PROPERTY))
+                    .thenReturn(true);
+            filter = new ResponseSanitizationFilter();
+            FilterConfig filterConfig = mock(FilterConfig.class);
+            filter.init(filterConfig);
+        }
+
+        @Test
+        @DisplayName("should pass through error response with stack trace unchanged")
+        void shouldPassThrough_errorWithStackTrace_whenDisplayErrorActive() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest();
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            String stackTraceBody = "java.lang.NullPointerException\n"
+                    + "\tat io.github.carlos_emr.carlos.SomeClass.method(SomeClass.java:42)";
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(500);
+                httpRes.getWriter().write(stackTraceBody);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            // Stack trace must NOT be sanitized when DISPLAY_ERROR is active.
+            assertThat(response.getContentAsString()).isEqualTo(stackTraceBody);
+        }
+
+        @Test
+        @DisplayName("should disable itself even when response.sanitization.enabled is true")
+        void shouldDisableItself_evenWhenSanitizationPropertyIsTrue() throws Exception {
+            // response.sanitization.enabled=true AND DISPLAY_ERROR=true → filter disables.
+            // This is verified by the pass-through behaviour: a stack trace in a 500
+            // response reaches the client instead of being replaced with a generic page.
+            MockHttpServletRequest request = new MockHttpServletRequest();
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(500);
+                httpRes.getWriter().write("java.lang.RuntimeException: raw detail");
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getContentAsString()).contains("RuntimeException");
+            assertThat(response.getContentAsString()).doesNotContain("Reference ID:");
+        }
+    }
 }

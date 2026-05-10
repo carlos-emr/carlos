@@ -101,11 +101,55 @@ class ErrorPageLoggerUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldNoOp_whenNoExceptionAvailable() {
+    void shouldNoOp_whenNoExceptionAndNoErrorAttributes() {
+        // Request with no error attributes at all (not a real error dispatch) — no-op.
         MockHttpServletRequest req = new MockHttpServletRequest();
         assertThatCode(() -> ErrorPageLogger.logIfPresent(null, req))
                 .doesNotThrowAnyException();
         assertThat(appender.events()).isEmpty();
+    }
+
+    /**
+     * When Struts (or any code) calls {@code sendError(status)} without propagating
+     * the exception object, Tomcat does not set {@code jakarta.servlet.error.exception}
+     * in the error dispatch but DOES set the status-code, message, and URI attributes.
+     * {@code logIfPresent} must emit a WARN so the error leaves a trace even without a
+     * stack trace.
+     */
+    @Test
+    void shouldWarnWithAttributes_whenNoExceptionButErrorAttributesPresent() {
+        MockHttpServletRequest req = new MockHttpServletRequest();
+        req.setAttribute("jakarta.servlet.error.status_code", 500);
+        req.setAttribute("jakarta.servlet.error.request_uri",
+                "/carlos/billing/CA/ON/ViewBillingONMRI");
+        req.setAttribute("jakarta.servlet.error.message", "Internal Server Error");
+        req.setMethod("GET");
+
+        ErrorPageLogger.logIfPresent(null, req);
+
+        assertThat(appender.events()).hasSize(1);
+        LogEvent evt = appender.events().get(0);
+        assertThat(evt.getLevel()).isEqualTo(Level.WARN);
+        assertThat(evt.getThrown()).isNull();
+        String msg = evt.getMessage().getFormattedMessage();
+        assertThat(msg).contains("uri=/carlos/billing/CA/ON/ViewBillingONMRI");
+        assertThat(msg).contains("status=500");
+        assertThat(msg).contains("method=GET");
+        assertThat(msg).contains("sendError()");
+    }
+
+    @Test
+    void shouldWarnWithPartialAttributes_whenOnlyStatusPresent() {
+        // Minimal case: only status_code is set (sendError(sc) variant, no message).
+        MockHttpServletRequest req = new MockHttpServletRequest();
+        req.setAttribute("jakarta.servlet.error.status_code", 403);
+
+        ErrorPageLogger.logIfPresent(null, req);
+
+        assertThat(appender.events()).hasSize(1);
+        assertThat(appender.events().get(0).getLevel()).isEqualTo(Level.WARN);
+        assertThat(appender.events().get(0).getMessage().getFormattedMessage())
+                .contains("status=403");
     }
 
     @Test

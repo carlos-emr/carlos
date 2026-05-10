@@ -101,6 +101,20 @@ public class ResponseSanitizationFilter implements Filter {
     static final String ENABLED_PROPERTY = "response.sanitization.enabled";
 
     /**
+     * Property name that activates developer error display mode. When this property is
+     * {@code true} / {@code yes} / {@code on} in {@code carlos.properties}, this filter
+     * disables itself so that raw exception details reach the browser.
+     *
+     * <p><strong>SECURITY RISK:</strong> Stack traces expose internal class names,
+     * library versions, code paths, and data structures that significantly aid attackers.
+     * Only enable in isolated devcontainer environments with synthetic test data.
+     * Never enable in any environment with real patient data or external network access.</p>
+     *
+     * @see <a href="https://owasp.org/www-project-top-ten/">OWASP A05 Security Misconfiguration</a>
+     */
+    static final String DISPLAY_ERROR_PROPERTY = "DISPLAY_ERROR";
+
+    /**
      * Maximum number of characters to buffer per response before switching to pass-through mode.
      * Responses larger than this cannot contain a stack trace header; skipping inspection
      * avoids unbounded heap growth for large encounter notes, lab reports, etc.
@@ -149,6 +163,17 @@ public class ResponseSanitizationFilter implements Filter {
     public void init(FilterConfig filterConfig) throws ServletException {
         String propValue = CarlosProperties.getInstance().getProperty(ENABLED_PROPERTY, "").trim();
         enabled = propValue.isEmpty() || Boolean.parseBoolean(propValue);
+        if (enabled && CarlosProperties.getInstance().isPropertyActive(DISPLAY_ERROR_PROPERTY)) {
+            // DISPLAY_ERROR overrides the sanitization flag — it is a developer-only mode
+            // that deliberately allows raw exception details to reach the browser. Disable
+            // sanitization so the full error context is visible. This must NEVER be active
+            // in production (see DISPLAY_ERROR_PROPERTY Javadoc).
+            enabled = false;
+            LOGGER.warn("DISPLAY_ERROR is active — ResponseSanitizationFilter disabled. "
+                    + "Stack traces WILL be sent to clients. "
+                    + "This is a SECURITY RISK — do not enable in production environments "
+                    + "or any system with real patient data.");
+        }
         LOGGER.info("ResponseSanitizationFilter initialized: enabled={}", enabled);
     }
 
