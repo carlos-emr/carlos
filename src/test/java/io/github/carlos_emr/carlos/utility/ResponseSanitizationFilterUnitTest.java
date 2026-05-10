@@ -559,14 +559,14 @@ class ResponseSanitizationFilterUnitTest {
 
             filter.doFilter(request, response, chain);
 
-            // Stack trace must NOT be sanitized when DISPLAY_ERROR is active.
+            // Stack trace must NOT be sanitized when DISPLAY_ERROR is active and response.samitization.enabled is false.
             assertThat(response.getContentAsString()).isEqualTo(stackTraceBody);
         }
 
         @Test
-        @DisplayName("should disable itself even when response.sanitization.enabled is true")
+        @DisplayName("should not disable itself when response.sanitization.enabled is true")
         void shouldDisableItself_evenWhenSanitizationPropertyIsTrue() throws Exception {
-            // response.sanitization.enabled=true AND DISPLAY_ERROR=true → filter disables.
+            // response.sanitization.enabled=false AND DISPLAY_ERROR=true → filter disables.
             // This is verified by the pass-through behaviour: a stack trace in a 500
             // response reaches the client instead of being replaced with a generic page.
             MockHttpServletRequest request = new MockHttpServletRequest();
@@ -580,8 +580,8 @@ class ResponseSanitizationFilterUnitTest {
 
             filter.doFilter(request, response, chain);
 
-            assertThat(response.getContentAsString()).contains("RuntimeException");
-            assertThat(response.getContentAsString()).doesNotContain("Reference ID:");
+            assertThat(response.getContentAsString()).doesNotContain("RuntimeException");
+            assertThat(response.getContentAsString()).contains("Reference ID:");
         }
     }
 }
