@@ -117,12 +117,15 @@ public final class ErrorPageLogger {
                 Object message = request != null
                         ? request.getAttribute("jakarta.servlet.error.message")
                         : null;
-                if (status != null || message != null || uri != null) {
+                if (status != null || uri != null || message != null) {
+                    boolean displayError = CarlosProperties.isPropertyActive(
+                            ResponseSanitizationFilter.DISPLAY_ERROR_PROPERTY);
                     MiscUtils.getLogger().warn(
                             "errorpage.jsp triggered without exception "
                             + "(method={}, uri={}, status={}, message={}) "
                             + "— sendError() was called without propagating the exception",
-                            method, uri, status, message);
+                            method, uri, status,
+                            displayError ? message : (message != null ? "[present — set DISPLAY_ERROR=true to log]" : null));
                 }
                 return;
             }
