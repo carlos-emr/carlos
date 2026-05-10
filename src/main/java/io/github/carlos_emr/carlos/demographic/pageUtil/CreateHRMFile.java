@@ -122,12 +122,13 @@ public class CreateHRMFile {
         try {
             omdCdsDoc.save(file, options);
         } catch (IOException ex) {
-            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger();
+            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("Error saving document");
         }
 
         MiscUtils.getLogger().debug("saved HRM file: " + filepath);
     }
 
+    // CHECKSTYLE:OFF
     static private void writeDemographics(DemographicsDocument.Demographics demo, Demographics HRMdemo) {
         //Names
         cdsDt.PersonNameStandard personName = demo.getNames();
@@ -157,7 +158,7 @@ public class CreateHRMFile {
                 }
             }
         } else {
-            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger();
+            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("Error saving document");
         }
 
         PersonNameStandard HRMpersonName = HRMdemo.addNewNames();
@@ -377,6 +378,7 @@ public class CreateHRMFile {
         }
     }
 
+    // CHECKSTYLE:ON
     static private void writeReportsReceived(List<Reports> reports, PatientRecord patientRecord) {
         for (Reports report : reports) {
             ReportsReceived HRMreport = patientRecord.addNewReportsReceived();

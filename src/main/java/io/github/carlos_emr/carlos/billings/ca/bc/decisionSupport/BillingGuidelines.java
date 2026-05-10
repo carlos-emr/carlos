@@ -174,12 +174,14 @@ public class BillingGuidelines {
                         try {
                             in.close();
                         } catch (IOException e) {
+                            MiscUtils.getLogger().error("Error", e);
                         }
                     }
                     if (is != null) {
                         try {
                             is.close();
                         } catch (IOException e) {
+                            MiscUtils.getLogger().error("Error", e);
                         }
                     }
                 }
