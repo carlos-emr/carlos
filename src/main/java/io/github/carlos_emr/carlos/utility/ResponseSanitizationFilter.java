@@ -155,9 +155,8 @@ public class ResponseSanitizationFilter implements Filter {
 
     /**
      * Reads the {@code response.sanitization.enabled} property from {@code carlos.properties}.
-     * and the {@code DISPLAY_ERROR_PROPERTY} property from {@code carlos.properties}.
-     * If {@code response.sanitization.enabled} is set to {@code false} AND 
-     * (@code DISPLAY_ERROR} is set to {@code true} then sanitization is bypassed
+     * If {`@code` response.sanitization.enabled} is set to {`@code` false} AND 
+     * {`@code` DISPLAY_ERROR} is set to {`@code` true} then sanitization is bypassed 
      * @param filterConfig FilterConfig the servlet container filter configuration
      */
     @Override
