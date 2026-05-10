@@ -155,8 +155,13 @@ public class ResponseSanitizationFilter implements Filter {
 
     /**
      * Reads the {@code response.sanitization.enabled} property from {@code carlos.properties}.
-     * If {`@code` response.sanitization.enabled} is set to {`@code` false} AND 
-     * {`@code` DISPLAY_ERROR} is set to {`@code` true} then sanitization is bypassed 
+     * Defaults to {@code true} (enabled) when the property is absent or blank.
+     *
+     * <p>When {@code response.sanitization.enabled=false} AND {@code DISPLAY_ERROR=true} are
+     * both set, this filter is disabled and a security WARN is emitted — that combination is
+     * the intended full developer error-display mode. {@code DISPLAY_ERROR=true} alone does
+     * not bypass sanitization; {@code response.sanitization.enabled} is the gating control.</p>
+     *
      * @param filterConfig FilterConfig the servlet container filter configuration
      */
     @Override
@@ -164,13 +169,12 @@ public class ResponseSanitizationFilter implements Filter {
         String propValue = CarlosProperties.getInstance().getProperty(ENABLED_PROPERTY, "").trim();
         enabled = propValue.isEmpty() || Boolean.parseBoolean(propValue);
         if (!enabled && CarlosProperties.getInstance().isPropertyActive(DISPLAY_ERROR_PROPERTY)) {
-            // DISPLAY_ERROR is a second check to disable sanitization — it is a developer-only mode
-            // that deliberately allows raw exception details to reach the browser. Disable
-            // sanitization so the full error context is visible. This must NEVER be active
-            // in production (see DISPLAY_ERROR_PROPERTY Javadoc).
-            enabled = false;
-            LOGGER.warn("DISPLAY_ERROR is active — ResponseSanitizationFilter disabled. "
-                    + "Stack traces WILL be sent to clients. "
+            // Sanitization is already disabled via response.sanitization.enabled=false.
+            // When DISPLAY_ERROR is also active the developer has opted into full error
+            // display — emit a prominent security warning so this state is never missed in logs.
+            // (enabled is already false; this block only adds the WARN.)
+            LOGGER.warn("DISPLAY_ERROR is active with sanitization disabled — "
+                    + "stack traces WILL be sent to clients. "
                     + "This is a SECURITY RISK — do not enable in production environments "
                     + "or any system with real patient data.");
         }
