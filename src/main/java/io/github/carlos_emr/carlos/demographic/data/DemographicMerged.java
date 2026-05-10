@@ -57,7 +57,11 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.log.LogAction;
 
 /**
- * @author wrighd
+ * Represents the DemographicMerged entity.
+ *
+ * <p>Provides functionality related to DemographicMerged.</p>
+ *
+ * @since 2026-05-07
  */
 public class DemographicMerged {
 

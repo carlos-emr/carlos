@@ -34,10 +34,11 @@ import java.util.Date;
 import io.github.carlos_emr.carlos.util.UtilMisc;
 
 /**
- * BillHistory  represents an archive of a modification event on a specific line(BillingMaster Record) of a Bill
+ * Represents the BillHistory entity.
  *
- * @author Joel Legris
- * @version 1.0
+ * <p>Provides functionality related to BillHistory.</p>
+ *
+ * @since 2026-05-07
  */
 public class BillHistory {
 

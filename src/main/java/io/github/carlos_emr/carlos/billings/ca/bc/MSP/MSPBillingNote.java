@@ -46,9 +46,11 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 /**
- * @author root
- * <p>
- * This class is used to deal with MSP N01 correspondence notes.
+ * Represents the MSPBillingNote entity.
+ *
+ * <p>Provides functionality related to MSPBillingNote.</p>
+ *
+ * @since 2026-05-07
  */
 public class MSPBillingNote {
 

@@ -46,7 +46,11 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
- * @author Jay Gallagher
+ * Represents the Prevention entity.
+ *
+ * <p>Provides functionality related to Prevention.</p>
+ *
+ * @since 2026-05-07
  */
 public class Prevention {
     private static Logger log = MiscUtils.getLogger();

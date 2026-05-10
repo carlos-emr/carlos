@@ -31,7 +31,11 @@
 package io.github.carlos_emr.carlos.prevention.reports;
 
 /**
- * @author jay
+ * Represents the PreventionReportFactory entity.
+ *
+ * <p>Provides functionality related to PreventionReportFactory.</p>
+ *
+ * @since 2026-05-07
  */
 public class PreventionReportFactory {
 

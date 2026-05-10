@@ -41,16 +41,11 @@ import io.github.carlos_emr.carlos.commn.model.DiagnosticCode;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
- * <p>Title: BillingAssociationPersistence</p>
+ * Represents the BillingAssociationPersistence entity.
  *
- * <p>Description:Responsible for performing database CRUD operations on service code/dxcode associations </p>
- * <p>Involved Database Tables: ctl_servicecodes_dxcodes
- * <p>Copyright: Copyright (c) 2005</p>
+ * <p>Provides functionality related to BillingAssociationPersistence.</p>
  *
- * <p>Company: </p>
- *
- * @author Joel Legris for Mcmaster University
- * @version 1.0
+ * @since 2026-05-07
  */
 public class BillingAssociationPersistence {
 

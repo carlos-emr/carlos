@@ -33,7 +33,11 @@ package io.github.carlos_emr.carlos.prevention.pageUtil;
 import java.util.Date;
 
 /**
- * @author Jay Gallagher
+ * Represents the PreventionReportDisplay entity.
+ *
+ * <p>Provides functionality related to PreventionReportDisplay.</p>
+ *
+ * @since 2026-05-07
  */
 public class PreventionReportDisplay implements Comparable {
 

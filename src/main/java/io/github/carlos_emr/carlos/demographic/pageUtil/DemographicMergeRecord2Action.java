@@ -53,12 +53,16 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.demographic.data.DemographicMerged;
 
-/**
- * @author wrighd
- */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Represents the DemographicMergeRecord2Action entity.
+ *
+ * <p>Provides functionality related to DemographicMergeRecord2Action.</p>
+ *
+ * @since 2026-05-07
+ */
 public class DemographicMergeRecord2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

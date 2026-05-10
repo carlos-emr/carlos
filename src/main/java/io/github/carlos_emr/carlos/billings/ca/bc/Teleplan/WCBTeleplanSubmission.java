@@ -46,7 +46,11 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 
 /**
- * @author jaygallagher
+ * Represents the WCBTeleplanSubmission entity.
+ *
+ * <p>Provides functionality related to WCBTeleplanSubmission.</p>
+ *
+ * @since 2026-05-07
  */
 public class WCBTeleplanSubmission {
     private static Logger log = MiscUtils.getLogger();

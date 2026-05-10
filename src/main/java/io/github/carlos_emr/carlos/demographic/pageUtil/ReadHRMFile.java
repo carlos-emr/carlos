@@ -62,7 +62,11 @@ import io.github.carlos_emr.carlos.utility.XmlUtils;
 
 
 /**
- * @author ronnie
+ * Represents the ReadHRMFile entity.
+ *
+ * <p>Provides functionality related to ReadHRMFile.</p>
+ *
+ * @since 2026-05-07
  */
 public class ReadHRMFile {
     private List<ReportsReceived> reportsReceived = null;

@@ -38,7 +38,11 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
- * @author jay
+ * Represents the TeleplanService entity.
+ *
+ * <p>Provides functionality related to TeleplanService.</p>
+ *
+ * @since 2026-05-07
  */
 public class TeleplanService {
     static Logger log = MiscUtils.getLogger();

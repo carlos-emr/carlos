@@ -45,11 +45,15 @@ import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 
 import io.github.carlos_emr.carlos.util.StringUtils;
 
-/**
- * @author jaygallagher
- */
 @Entity
 @Table(name = "wcb")
+/**
+ * Represents the WCB entity.
+ *
+ * <p>Provides functionality related to WCB.</p>
+ *
+ * @since 2026-05-07
+ */
 public class WCB {
 
     @Id

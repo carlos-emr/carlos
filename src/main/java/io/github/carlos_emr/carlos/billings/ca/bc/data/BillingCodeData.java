@@ -39,9 +39,6 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.SqlUtils;
 
-/**
- * @author root
- */
 public final class BillingCodeData implements Comparable {
     /**
      * DAO used for billing service persistence operations.

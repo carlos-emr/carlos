@@ -86,7 +86,11 @@ import cdshrm.TransactionInformationDocument.TransactionInformation;
 import io.github.carlos_emr.CarlosProperties;
 
 /**
- * @author ronnie
+ * Represents the CreateHRMFile entity.
+ *
+ * <p>Provides functionality related to CreateHRMFile.</p>
+ *
+ * @since 2026-05-07
  */
 public class CreateHRMFile {
 

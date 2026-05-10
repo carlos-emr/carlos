@@ -44,12 +44,16 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.demographic.data.DemographicRelationship;
 
-/**
- * @author jay
- */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Represents the DeleteDemographicRelationship2Action entity.
+ *
+ * <p>Provides functionality related to DeleteDemographicRelationship2Action.</p>
+ *
+ * @since 2026-05-07
+ */
 public class DeleteDemographicRelationship2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

@@ -45,12 +45,16 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.demographic.data.DemographicRelationship;
 // TODO STRUTS2 - not sure if we need the servlet, thinking it is still needed so left it with the merge. Review if issues.
 
-/**
- * @author Jay Gallagher
- */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Represents the AddDemographicRelationship2Action entity.
+ *
+ * <p>Provides functionality related to AddDemographicRelationship2Action.</p>
+ *
+ * @since 2026-05-07
+ */
 public class AddDemographicRelationship2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

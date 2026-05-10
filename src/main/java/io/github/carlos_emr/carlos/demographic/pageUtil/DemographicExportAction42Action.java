@@ -195,7 +195,11 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 /**
- * @author Ronnie Cheng
+ * Represents the DemographicExportAction42Action entity.
+ *
+ * <p>Provides functionality related to DemographicExportAction42Action.</p>
+ *
+ * @since 2026-05-07
  */
 public class DemographicExportAction42Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();

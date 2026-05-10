@@ -60,7 +60,6 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
 /*
- * @author Jef King
  * For The Oscar McMaster Project
  * Developed By Andromedia
  * www.andromedia.ca
@@ -73,6 +72,13 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Represents the TeleplanCorrectionActionWCB2Action entity.
+ *
+ * <p>Provides functionality related to TeleplanCorrectionActionWCB2Action.</p>
+ *
+ * @since 2026-05-07
+ */
 public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 

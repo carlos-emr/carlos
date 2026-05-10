@@ -46,7 +46,11 @@ import io.github.carlos_emr.carlos.prevention.PreventionData;
 
 
 /**
- * @author Jay Gallagher
+ * Represents the PreventionTag entity.
+ *
+ * <p>Provides functionality related to PreventionTag.</p>
+ *
+ * @since 2026-05-07
  */
 public class PreventionTag extends TagSupport {
 

@@ -52,7 +52,11 @@ import io.github.carlos_emr.carlos.prevention.pageUtil.PreventionReportDisplay;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 /**
- * @author jay
+ * Represents the FOBTReport entity.
+ *
+ * <p>Provides functionality related to FOBTReport.</p>
+ *
+ * @since 2026-05-07
  */
 public class FOBTReport implements PreventionReport {
     private static Logger log = MiscUtils.getLogger();

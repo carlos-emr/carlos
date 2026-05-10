@@ -33,16 +33,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * <p>Title: ServiceCodeAssociation</p>
+ * Represents the ServiceCodeAssociation entity.
  *
- * <p>Description: Represents an association between one service code and one to many diagnostic codes</p>
+ * <p>Provides functionality related to ServiceCodeAssociation.</p>
  *
- * <p>Copyright: Copyright (c) 2005</p>
- *
- * <p>Company: </p>
- *
- * @author Joel Legris for Mcmaster University
- * @version 1.0
+ * @since 2026-05-07
  */
 public class ServiceCodeAssociation {
     private List dxCodes = new ArrayList();

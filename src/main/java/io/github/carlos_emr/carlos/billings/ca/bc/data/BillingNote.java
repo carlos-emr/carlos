@@ -48,18 +48,11 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilMisc;
 
 /**
- * +------------------+------------+------+-----+---------+----------------+
- * | Field            | Type       | Null | Key | Default | Extra          |
- * +------------------+------------+------+-----+---------+----------------+
- * | billingnote_no   | int(10)    |      | PRI | NULL    | auto_increment |
- * | billingmaster_no | int(10)    |      | MUL | 0       |                |
- * | createdate       | datetime   | YES  | MUL | NULL    |                |
- * | provider_no      | varchar(6) |      | MUL |         |                |
- * | note             | text       | YES  |     | NULL    |                |
- * | note_type        | int(2)     | YES  |     | NULL    |                |
- * +------------------+------------+------+-----+---------+----------------+
+ * Represents the BillingNote entity.
  *
- * @author root
+ * <p>Provides functionality related to BillingNote.</p>
+ *
+ * @since 2026-05-07
  */
 public class BillingNote {
 

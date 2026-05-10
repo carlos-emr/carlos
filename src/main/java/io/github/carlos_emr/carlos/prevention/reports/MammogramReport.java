@@ -52,7 +52,11 @@ import io.github.carlos_emr.carlos.prevention.pageUtil.PreventionReportDisplay;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 /**
- * @author jay
+ * Represents the MammogramReport entity.
+ *
+ * <p>Provides functionality related to MammogramReport.</p>
+ *
+ * @since 2026-05-07
  */
 public class MammogramReport implements PreventionReport {
     private static Logger log = MiscUtils.getLogger();

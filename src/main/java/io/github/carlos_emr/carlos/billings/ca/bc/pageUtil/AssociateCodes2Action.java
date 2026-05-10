@@ -33,18 +33,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 
-/**
- * <p>Title: AssociateCodes2Action</p>
- *
- * <p>Description:This Action is responsible for associating a service code with up to three use specified Diagnostic codes</p>
- *
- * <p>Copyright: Copyright (c) 2005</p>
- *
- * <p>Company: </p>
- *
- * @author not attributable
- * @version 1.0
- */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
@@ -54,6 +42,13 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+/**
+ * Represents the AssociateCodes2Action entity.
+ *
+ * <p>Provides functionality related to AssociateCodes2Action.</p>
+ *
+ * @since 2026-05-07
+ */
 public class AssociateCodes2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 

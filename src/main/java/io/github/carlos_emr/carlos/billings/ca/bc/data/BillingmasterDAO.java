@@ -49,12 +49,16 @@ import io.github.carlos_emr.carlos.entities.Billingmaster;
 import io.github.carlos_emr.carlos.entities.WCB;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
-/**
- * @author jay
- */
 @Repository
 @SuppressWarnings("unchecked")
 @Transactional(propagation = Propagation.REQUIRES_NEW)
+/**
+ * Represents the BillingmasterDAO entity.
+ *
+ * <p>Provides functionality related to BillingmasterDAO.</p>
+ *
+ * @since 2026-05-07
+ */
 public class BillingmasterDAO {
     private static Logger log = MiscUtils.getLogger();
 

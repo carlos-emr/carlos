@@ -38,7 +38,11 @@ import java.util.Map;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 /**
- * @author Jay Gallagher
+ * Represents the DemographicNameAgeString entity.
+ *
+ * <p>Provides functionality related to DemographicNameAgeString.</p>
+ *
+ * @since 2026-05-07
  */
 public class DemographicNameAgeString {
 

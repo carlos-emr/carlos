@@ -44,9 +44,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.logging.log4j.Logger;
 
-/**
- * @author jay
- */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -56,6 +53,13 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
+/**
+ * Represents the ImportLogDownload2Action entity.
+ *
+ * <p>Provides functionality related to ImportLogDownload2Action.</p>
+ *
+ * @since 2026-05-07
+ */
 public class ImportLogDownload2Action extends ActionSupport {
     private static final Logger logger = MiscUtils.getLogger();
     

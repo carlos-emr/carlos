@@ -52,10 +52,11 @@ import java.io.IOException;
 import io.github.carlos_emr.CarlosProperties;
 
 /**
- * Class used to Manage BillingGuidelines.
- * Temporary and will be refactored to include the other billing systems. And probably more of a centralized rule repository.
+ * Represents the BillingGuidelines entity.
  *
- * @author jay
+ * <p>Provides functionality related to BillingGuidelines.</p>
+ *
+ * @since 2026-05-07
  */
 public class BillingGuidelines {
 

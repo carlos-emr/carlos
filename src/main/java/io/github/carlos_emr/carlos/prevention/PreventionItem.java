@@ -36,7 +36,11 @@ import io.github.carlos_emr.carlos.commn.model.Prevention;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 /**
- * @author Jay Gallagher
+ * Represents the PreventionItem entity.
+ *
+ * <p>Provides functionality related to PreventionItem.</p>
+ *
+ * @since 2026-05-07
  */
 public class PreventionItem {
 

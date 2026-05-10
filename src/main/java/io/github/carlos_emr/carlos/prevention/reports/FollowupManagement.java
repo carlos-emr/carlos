@@ -41,7 +41,11 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.WriteNewMeas
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 /**
- * @author jay
+ * Represents the FollowupManagement entity.
+ *
+ * <p>Provides functionality related to FollowupManagement.</p>
+ *
+ * @since 2026-05-07
  */
 public class FollowupManagement {
     private static Logger log = MiscUtils.getLogger();

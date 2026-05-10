@@ -41,7 +41,11 @@ import io.github.carlos_emr.carlos.utility.ReflectionConstants;
 import io.github.carlos_emr.CarlosProperties;
 
 /**
- * @author jackson
+ * Represents the Colour entity.
+ *
+ * <p>Provides functionality related to Colour.</p>
+ *
+ * @since 2026-05-07
  */
 public class Colour {
 

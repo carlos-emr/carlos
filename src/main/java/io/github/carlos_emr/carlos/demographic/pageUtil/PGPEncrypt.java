@@ -41,7 +41,11 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
 /**
- * @author Ronnie Cheng
+ * Represents the PGPEncrypt entity.
+ *
+ * <p>Provides functionality related to PGPEncrypt.</p>
+ *
+ * @since 2026-05-07
  */
 public class PGPEncrypt {
     String bin;

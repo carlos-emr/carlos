@@ -46,17 +46,6 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData.BillingVisit;
 
-/**
- * @author Dennis Warren
- * Company Colcamex Resources
- * Date Jun 4, 2012
- * Revised Jun 6, 2012
- * Comment
- * three actions here
- * 1. get display
- * 2. add entry to bean
- * 3. remove entry from bean
- */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
@@ -64,6 +53,13 @@ import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+/**
+ * Represents the QuickBillingBC2Action entity.
+ *
+ * <p>Provides functionality related to QuickBillingBC2Action.</p>
+ *
+ * @since 2026-05-07
+ */
 public class QuickBillingBC2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 

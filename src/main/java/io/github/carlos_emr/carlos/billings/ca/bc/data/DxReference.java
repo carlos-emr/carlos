@@ -51,7 +51,11 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 /**
- * @author jay
+ * Represents the DxReference entity.
+ *
+ * <p>Provides functionality related to DxReference.</p>
+ *
+ * @since 2026-05-07
  */
 public class DxReference {
     private static final Logger _log = MiscUtils.getLogger();

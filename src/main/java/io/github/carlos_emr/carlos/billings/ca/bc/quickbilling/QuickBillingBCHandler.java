@@ -21,11 +21,9 @@
  * Hamilton
  * Ontario, Canada
  *
- * @author Dennis Warren
  * Company Colcamex Resources
  * Date Jun 4, 2012
  * Filename QuickBillingBCHandler.java
- * @author Dennis Warren
  * Company Colcamex Resources
  * Date Jun 4, 2012
  * Filename QuickBillingBCHandler.java
@@ -36,12 +34,6 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-/**
- * @author Dennis Warren
- * Company Colcamex Resources
- * Date Jun 4, 2012
- * Filename QuickBillingBCHandler.java
- */
 package io.github.carlos_emr.carlos.billings.ca.bc.quickbilling;
 
 import java.text.ParseException;
@@ -74,10 +66,11 @@ import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
 
 
 /**
- * @author Dennis Warren
- * @Revised Jun 4, 2012
- * @Comment
+ * Represents the QuickBillingBCHandler entity.
  *
+ * <p>Provides functionality related to QuickBillingBCHandler.</p>
+ *
+ * @since 2026-05-07
  */
 public class QuickBillingBCHandler {
 

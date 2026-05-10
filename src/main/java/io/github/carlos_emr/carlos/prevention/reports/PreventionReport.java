@@ -37,7 +37,11 @@ import java.util.Hashtable;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 /**
- * @author jay
+ * Represents the PreventionReport entity.
+ *
+ * <p>Provides functionality related to PreventionReport.</p>
+ *
+ * @since 2026-05-07
  */
 public interface PreventionReport {
     public Hashtable runReport(LoggedInInfo loggedInInfo, ArrayList<ArrayList<String>> list, Date asofDate);

@@ -51,20 +51,18 @@ import io.github.carlos_emr.carlos.db.DBHandler;
 import io.github.carlos_emr.carlos.entities.WCB;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
-/**
- * <p>Title:ViewWCB2Action </p>
- *
- * <p>Description: Coordinates data retrieval and configuration parameters for rendering either</p>
- * <p>a new or existing WCB form
- *
- * @author Joel Legris
- * @version 1.0
- */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
+/**
+ * Represents the ViewWCB2Action entity.
+ *
+ * <p>Provides functionality related to ViewWCB2Action.</p>
+ *
+ * @since 2026-05-07
+ */
 public class ViewWCB2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

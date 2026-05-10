@@ -45,20 +45,6 @@ import io.github.carlos_emr.carlos.entities.WCB;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
-/**
- * These Actions Handle of all the interactions with WCB Billing
- * <p>
- * Save   -- this will always save a new form and not update an new one.
- * ================
- * Called from the WCB form.  Could be an update or a save.
- * Possible Forwarding mappings
- * - Billing form ( will need to pass
- * - Just Save
- * - Save and Close.
- * - Print ( this is just an hl7 print right now)
- *
- * @author jaygallagher
- */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
@@ -66,6 +52,13 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+/**
+ * Represents the WCBAction22Action entity.
+ *
+ * <p>Provides functionality related to WCBAction22Action.</p>
+ *
+ * @since 2026-05-07
+ */
 public class WCBAction22Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 

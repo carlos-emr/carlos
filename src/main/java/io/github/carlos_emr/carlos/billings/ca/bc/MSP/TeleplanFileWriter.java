@@ -54,7 +54,11 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.providers.data.ProviderData;
 
 /**
- * @author jay
+ * Represents the TeleplanFileWriter entity.
+ *
+ * <p>Provides functionality related to TeleplanFileWriter.</p>
+ *
+ * @since 2026-05-07
  */
 public class TeleplanFileWriter {
 

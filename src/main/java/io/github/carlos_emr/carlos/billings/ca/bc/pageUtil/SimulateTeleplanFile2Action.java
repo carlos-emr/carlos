@@ -45,14 +45,16 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
 
-/**
- * Action Simulates a MSP teleplan file but doesn't commit any of the data.
- *
- * @author jay
- */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Represents the SimulateTeleplanFile2Action entity.
+ *
+ * <p>Provides functionality related to SimulateTeleplanFile2Action.</p>
+ *
+ * @since 2026-05-07
+ */
 public class SimulateTeleplanFile2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 

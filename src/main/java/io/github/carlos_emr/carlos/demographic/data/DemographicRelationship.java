@@ -41,7 +41,11 @@ import java.util.*;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 /**
- * @author Jay Gallagher
+ * Represents the DemographicRelationship entity.
+ *
+ * <p>Provides functionality related to DemographicRelationship.</p>
+ *
+ * @since 2026-05-07
  */
 public class DemographicRelationship {
 

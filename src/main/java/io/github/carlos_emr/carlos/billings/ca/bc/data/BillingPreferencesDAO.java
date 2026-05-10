@@ -36,13 +36,14 @@ import jakarta.persistence.Query;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Repository;
 
-/**
- * Responsible for CRUD operation a user Billing Module Preferences
- *
- * @author not attributable
- * @version 1.0
- */
 @Repository
+/**
+ * Represents the BillingPreferencesDAO entity.
+ *
+ * <p>Provides functionality related to BillingPreferencesDAO.</p>
+ *
+ * @since 2026-05-07
+ */
 public class BillingPreferencesDAO extends AbstractDaoImpl<BillingPreference> {
 
     public BillingPreferencesDAO() {

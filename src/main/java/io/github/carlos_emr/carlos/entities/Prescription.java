@@ -30,16 +30,11 @@
 package io.github.carlos_emr.carlos.entities;
 
 /**
- * SELECT *
- * FROM `prescription`
- * where demographic_no = 1;
- * <p>Title: </p>
- * <p>Description: </p>
- * <p>Copyright: Copyright (c) 2004</p>
- * <p>Company: </p>
+ * Represents the Prescription entity.
  *
- * @author not attributable
- * @version 1.0
+ * <p>Provides functionality related to Prescription.</p>
+ *
+ * @since 2026-05-07
  */
 public class Prescription {
     private String scriptNo;

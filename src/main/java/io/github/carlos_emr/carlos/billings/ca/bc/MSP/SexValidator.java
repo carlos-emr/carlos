@@ -25,17 +25,11 @@
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
 
 /**
- * <p>Title: SexValidator</p>
+ * Represents the SexValidator entity.
  *
- * <p>Description: </p>
- * Thi validator represents the rules governing an MSP service code
- * with regards to a patients sex
- * <p>Copyright: Copyright (c) 2005</p>
+ * <p>Provides functionality related to SexValidator.</p>
  *
- * <p>Company: </p>
- *
- * @author not attributable
- * @version 1.0
+ * @since 2026-05-07
  */
 public class SexValidator
         extends ServiceCodeValidator {

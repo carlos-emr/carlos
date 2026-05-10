@@ -62,12 +62,16 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.prevention.PreventionData;
 import io.github.carlos_emr.carlos.prevention.PreventionDisplayConfig;
 
-/**
- * @author Jay Gallagher
- */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Represents the AddPrevention2Action entity.
+ *
+ * <p>Provides functionality related to AddPrevention2Action.</p>
+ *
+ * @since 2026-05-07
+ */
 public class AddPrevention2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

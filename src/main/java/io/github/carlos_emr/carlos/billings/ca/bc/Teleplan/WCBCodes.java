@@ -39,7 +39,11 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.CarlosProperties;
 
 /**
- * @author jaygallagher
+ * Represents the WCBCodes entity.
+ *
+ * <p>Provides functionality related to WCBCodes.</p>
+ *
+ * @since 2026-05-07
  */
 public class WCBCodes {
 

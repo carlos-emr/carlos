@@ -50,7 +50,11 @@ import org.jdom2.input.SAXBuilder;
 import io.github.carlos_emr.CarlosProperties;
 
 /**
- * @author jaygallagher
+ * Represents the OntarioMD entity.
+ *
+ * <p>Provides functionality related to OntarioMD.</p>
+ *
+ * @since 2026-05-07
  */
 public class OntarioMD {
 

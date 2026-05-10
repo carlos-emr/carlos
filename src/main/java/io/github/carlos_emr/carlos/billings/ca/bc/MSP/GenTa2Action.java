@@ -61,12 +61,16 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 import io.github.carlos_emr.CarlosProperties;
 
-/**
- * @author jay
- */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Represents the GenTa2Action entity.
+ *
+ * <p>Provides functionality related to GenTa2Action.</p>
+ *
+ * @since 2026-05-07
+ */
 public class GenTa2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 

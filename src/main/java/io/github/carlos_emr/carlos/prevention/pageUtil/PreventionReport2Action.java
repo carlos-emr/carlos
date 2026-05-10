@@ -58,13 +58,17 @@ import io.github.carlos_emr.carlos.report.data.RptDemographicQueryLoader;
 import io.github.carlos_emr.carlos.report.pageUtil.RptDemographicReport2Form;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
-/**
- * @author Jay Gallagher
- */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Represents the PreventionReport2Action entity.
+ *
+ * <p>Provides functionality related to PreventionReport2Action.</p>
+ *
+ * @since 2026-05-07
+ */
 public class PreventionReport2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

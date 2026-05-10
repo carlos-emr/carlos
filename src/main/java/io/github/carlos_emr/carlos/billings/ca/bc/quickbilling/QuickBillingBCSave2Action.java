@@ -38,15 +38,6 @@ import jakarta.servlet.http.HttpServletResponse;
 
 
 
-/**
- * @author Dennis Warren
- * Company Colcamex Resources
- * Date Jun 4, 2012
- * Revised Jun 6, 2012
- * Comment
- * One action here: save the collection of bills from the
- * session form bean.
- */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
@@ -57,6 +48,13 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+/**
+ * Represents the QuickBillingBCSave2Action entity.
+ *
+ * <p>Provides functionality related to QuickBillingBCSave2Action.</p>
+ *
+ * @since 2026-05-07
+ */
 public class QuickBillingBCSave2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 

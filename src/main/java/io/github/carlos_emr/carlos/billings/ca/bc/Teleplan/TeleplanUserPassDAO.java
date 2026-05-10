@@ -40,9 +40,11 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
- * Deals with storing the teleplan sequence #
+ * Represents the TeleplanUserPassDAO entity.
  *
- * @author jay
+ * <p>Provides functionality related to TeleplanUserPassDAO.</p>
+ *
+ * @since 2026-05-07
  */
 public class TeleplanUserPassDAO {
     static Logger log = MiscUtils.getLogger();

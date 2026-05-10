@@ -67,12 +67,16 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.BillActivityDAO;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingCodeData;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
-/**
- * @author jay
- */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Represents the ManageTeleplan2Action entity.
+ *
+ * <p>Provides functionality related to ManageTeleplan2Action.</p>
+ *
+ * @since 2026-05-07
+ */
 public class ManageTeleplan2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 

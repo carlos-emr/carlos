@@ -51,13 +51,11 @@ import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.UtilMisc;
 
 /**
- * <p>Title:ServiceCodeValidationLogic </p>
+ * Represents the ServiceCodeValidationLogic entity.
  *
- * @author Joel Legris
- * @version 1.0
- * @todo Should be renamed to something more appropriate eg ServiceCodeDAO
- * <p>Description: </p>
- * <p>Responsible for service code validation
+ * <p>Provides functionality related to ServiceCodeValidationLogic.</p>
+ *
+ * @since 2026-05-07
  */
 public class ServiceCodeValidationLogic {
 

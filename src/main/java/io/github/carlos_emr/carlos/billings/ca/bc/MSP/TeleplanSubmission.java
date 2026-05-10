@@ -50,9 +50,11 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
 /**
- * Holds Data about a teleplan submission
+ * Represents the TeleplanSubmission entity.
  *
- * @author jay
+ * <p>Provides functionality related to TeleplanSubmission.</p>
+ *
+ * @since 2026-05-07
  */
 public class TeleplanSubmission {
 

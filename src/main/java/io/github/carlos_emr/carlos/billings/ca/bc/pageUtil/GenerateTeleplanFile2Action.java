@@ -51,15 +51,16 @@ import io.github.carlos_emr.carlos.providers.data.ProviderData;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 
-/**
- * Goals
- * + Take file generation logic out of jsp page
- *
- * @author jay
- */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Represents the GenerateTeleplanFile2Action entity.
+ *
+ * <p>Provides functionality related to GenerateTeleplanFile2Action.</p>
+ *
+ * @since 2026-05-07
+ */
 public class GenerateTeleplanFile2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 

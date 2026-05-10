@@ -42,13 +42,14 @@ import org.springframework.stereotype.Repository;
 import io.github.carlos_emr.carlos.entities.PrivateBillTransaction;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
-/**
- * Provides CRUD operations for BillingPrivateTransactions and legacy
- * {@link PrivateBillTransaction} classes.
- *
- * @author Joel Legris
- */
 @Repository
+/**
+ * Represents the PrivateBillTransactionsDAO entity.
+ *
+ * <p>Provides functionality related to PrivateBillTransactionsDAO.</p>
+ *
+ * @since 2026-05-07
+ */
 public class PrivateBillTransactionsDAO extends AbstractDaoImpl<BillingPrivateTransactions> {
 
     public PrivateBillTransactionsDAO() {
