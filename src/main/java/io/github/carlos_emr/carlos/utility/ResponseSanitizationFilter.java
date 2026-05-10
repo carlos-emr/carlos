@@ -155,16 +155,17 @@ public class ResponseSanitizationFilter implements Filter {
 
     /**
      * Reads the {@code response.sanitization.enabled} property from {@code carlos.properties}.
-     * Defaults to {@code true} (enabled) when the property is absent or blank.
-     *
+     * and the {@code DISPLAY_ERROR_PROPERTY} property from {@code carlos.properties}.
+     * If {@code response.sanitization.enabled} is set to {@code false} AND 
+     * (@code DISPLAY_ERROR} is set to {@code true} then sanitization is bypassed
      * @param filterConfig FilterConfig the servlet container filter configuration
      */
     @Override
     public void init(FilterConfig filterConfig) throws ServletException {
         String propValue = CarlosProperties.getInstance().getProperty(ENABLED_PROPERTY, "").trim();
         enabled = propValue.isEmpty() || Boolean.parseBoolean(propValue);
-        if (enabled && CarlosProperties.getInstance().isPropertyActive(DISPLAY_ERROR_PROPERTY)) {
-            // DISPLAY_ERROR overrides the sanitization flag — it is a developer-only mode
+        if (!enabled && CarlosProperties.getInstance().isPropertyActive(DISPLAY_ERROR_PROPERTY)) {
+            // DISPLAY_ERROR is a second check to disable sanitization — it is a developer-only mode
             // that deliberately allows raw exception details to reach the browser. Disable
             // sanitization so the full error context is visible. This must NEVER be active
             // in production (see DISPLAY_ERROR_PROPERTY Javadoc).
