@@ -128,7 +128,7 @@ public class CreateHRMFile {
         MiscUtils.getLogger().debug("saved HRM file: " + filepath);
     }
 
-    // CHECKSTYLE:OFF
+    @SuppressWarnings("PMD")
     static private void writeDemographics(DemographicsDocument.Demographics demo, Demographics HRMdemo) {
         //Names
         cdsDt.PersonNameStandard personName = demo.getNames();
@@ -378,7 +378,6 @@ public class CreateHRMFile {
         }
     }
 
-    // CHECKSTYLE:ON
     static private void writeReportsReceived(List<Reports> reports, PatientRecord patientRecord) {
         for (Reports report : reports) {
             ReportsReceived HRMreport = patientRecord.addNewReportsReceived();
