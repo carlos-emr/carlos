@@ -109,6 +109,27 @@ class ErrorPageLoggerUnitTest extends CarlosUnitTestBase {
         assertThat(appender.events()).isEmpty();
     }
 
+    @Test
+    void shouldSanitizeRequestUri_onWarnPath() {
+        // WARN path: no exception, only error attributes. URI should be sanitized (no query or jsessionid).
+        MockHttpServletRequest req = new MockHttpServletRequest();
+        req.setAttribute("jakarta.servlet.error.status_code", 404);
+        req.setAttribute(
+                "jakarta.servlet.error.request_uri",
+                "/some/path/with;jsessionid=ABCDEF1234567890?secret=top&foo=bar"
+        );
+
+        ErrorPageLogger.logIfPresent(null, req);
+
+        assertThat(appender.events()).hasSize(1);
+        assertThat(appender.events().get(0).getLevel()).isEqualTo(Level.WARN);
+
+        String msg = appender.events().get(0).getMessage().getFormattedMessage();
+        // URI must be reduced to the path only; no query parameters or jsessionid.
+        assertThat(msg).contains("uri=/some/path/with");
+        assertThat(msg).doesNotContain("jsessionid", "secret=top", "foo=bar", "?");
+    }
+
     /**
      * When Struts (or any code) calls {@code sendError(status)} without propagating
      * the exception object, Tomcat does not set {@code jakarta.servlet.error.exception}
