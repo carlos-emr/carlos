@@ -113,7 +113,7 @@ class ViewBillingOnMri2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     private ViewBillingOnMri2Action newAction() {
-        return new ViewBillingOnMri2Action(mockSecurityInfoManager, mockAssembler);
+        return new ViewBillingOnMri2Action();
     }
 
     @Test
