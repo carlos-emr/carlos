@@ -91,6 +91,7 @@ class ViewBillingOnMri2ActionUnitTest extends CarlosUnitTestBase {
         mockRequest.setMethod("GET");
 
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
+        registerMock(BillingOnMriViewModelAssembler.class, mockAssembler);
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(mockRequest);
