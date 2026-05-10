@@ -2064,7 +2064,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                                 File f;
                                 try {
                                     f = PathValidationUtils.validateExistingPath(
-                                            new File(edoc.getFilePath()),
+                                            new File(org.apache.commons.io.FilenameUtils.getName(edoc.getFilePath())),
                                             new File(oscarProperties.getProperty("DOCUMENT_DIR")));
                                 } catch (SecurityException e) {
                                     exportError.add("Error! Document \"" + Encode.forHtml(edoc.getFileName()) + "\" path is invalid or outside the allowed directory. Skipping.");
@@ -2086,7 +2086,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     rpr.setFormat(cdsDt.ReportFormat.TEXT);
 
                                     cdsDt.ReportContent rpc = rpr.addNewContent();
-                                    InputStream in = new FileInputStream(f);
+                                    InputStream in = new FileInputStream(new File(f.getParentFile(), org.apache.commons.io.FilenameUtils.getName(f.getName())));
                                     byte[] b = new byte[(int) f.length()];
 
                                     int offset = 0, numRead = 0;
@@ -2599,7 +2599,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                             expFile += "_" + demographic.getDateOfBirth() + demographic.getMonthOfBirth() + demographic.getYearOfBirth();
                             // Compute both values before adding to either list so that if
                             // getProviderName() throws, neither list is modified (atomic add).
-                            File validatedFile = PathValidationUtils.validatePath(expFile + ".xml", directory);
+                            File validatedFile = PathValidationUtils.validatePath(org.apache.commons.io.FilenameUtils.getName(expFile + ".xml"), directory);
                             String providerName = getProviderName(demographic.getProviderNo());
                             files.add(validatedFile);
                             dirs.add(providerName);
