@@ -59,6 +59,13 @@ class SchedulePageUnbillPostRegressionTest {
                     + "targetWindow\\s*=\\s*['\"]_blank['\"]\\s*;\\s*}\\s*else\\s*\\{\\s*"
                     + "popup\\s*=\\s*window\\.open\\s*\\(\\s*['\"]['\"]\\s*,\\s*targetWindow\\s*,\\s*windowProps\\s*\\)",
             Pattern.DOTALL);
+    private static final Pattern ON_UNBILLED_FOCUSES_DECLARED_POPUP = Pattern.compile(
+            "var\\s+popup\\s*=\\s*null\\s*;.*?"
+                    + "if\\s*\\(\\s*popup\\s*!=\\s*null\\s*\\)\\s*\\{\\s*"
+                    + "if\\s*\\(\\s*popup\\.opener\\s*==\\s*null\\s*\\)\\s*\\{\\s*"
+                    + "popup\\.opener\\s*=\\s*self\\s*;\\s*}\\s*"
+                    + "popup\\.focus\\s*\\(\\s*\\)",
+            Pattern.DOTALL);
     private static final Pattern ON_UNBILLED_OPENS_GET_POPUP = Pattern.compile(
             "popupPage\\s*\\(",
             Pattern.DOTALL);
@@ -86,6 +93,9 @@ class SchedulePageUnbillPostRegressionTest {
                 .isTrue();
         // Appointment -B unbill must preserve tab preference and only open a named popup otherwise.
         assertThat(matches(onUnbilledBody, ON_UNBILLED_PRESERVES_TAB_BEHAVIOR))
+                .isTrue();
+        // Popup focus handling must be guarded by the locally declared popup variable.
+        assertThat(matches(onUnbilledBody, ON_UNBILLED_FOCUSES_DECLARED_POPUP))
                 .isTrue();
         // Appointment -B unbill must not directly open the mutator URL with GET.
         assertThat(matches(onUnbilledBody, ON_UNBILLED_OPENS_GET_POPUP))
