@@ -70,7 +70,7 @@ public class CdsClientFormDaoIntegrationTest extends CarlosTestBase {
          * Ensures that the latest client form is returned.
          */
         @Test
-        @DisplayName("should return first persisted form as latest for facility and client")
+        @DisplayName("should return newest persisted form as latest for facility and client")
         void shouldReturnLatestForm_forFacilityAndClient() throws Exception {
             int facilityId = 101;
             int clientId = 109;
@@ -90,7 +90,7 @@ public class CdsClientFormDaoIntegrationTest extends CarlosTestBase {
             hibernateTemplate.flush();
 
             CdsClientForm result = dao.findLatestByFacilityClient(facilityId, clientId);
-            assertThat(result).isEqualTo(clientForm1);
+            assertThat(result).isEqualTo(clientForm2);
         }
     }
 

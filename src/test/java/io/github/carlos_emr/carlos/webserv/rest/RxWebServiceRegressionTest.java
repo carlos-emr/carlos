@@ -51,7 +51,7 @@ import org.junit.jupiter.api.Test;
  * @since 2026-05-07
  */
 @DisplayName("RxWebService REST exception regression tests")
-@Tag("integration")
+@Tag("unit")
 @Tag("rest")
 @Tag("regression")
 class RxWebServiceRegressionTest {
@@ -116,6 +116,8 @@ class RxWebServiceRegressionTest {
         drug.setRoute("PO");
         drug.setForm("TAB");
         drug.setMethod("take");
+        drug.setStrength(500.0F);
+        drug.setStrengthUnit("mg");
         drug.setRepeats(0);
         drug.setInstructions("as directed");
         return drug;
@@ -168,7 +170,13 @@ class RxWebServiceRegressionTest {
             if (transferObject.getDrugId() > 2) {
                 throw new ConversionException("invalid drug");
             }
-            return super.getAsDomainObject(info, transferObject);
+            Drug drug = new Drug();
+            drug.setId(transferObject.getDrugId());
+            drug.setDemographicId(transferObject.getDemographicNo());
+            drug.setProviderNo(transferObject.getProviderNo());
+            drug.setGenericName(transferObject.getGenericName());
+            drug.setBrandName(transferObject.getBrandName());
+            return drug;
         }
     }
 

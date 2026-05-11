@@ -128,7 +128,7 @@ class LoginJspMigrationRegressionTest {
         assertThat(menuConfig).doesNotContain("/administration/index");
         assertThat(personaService).contains("../administration/");
         assertThat(personaService).doesNotContain("../administration/index");
-        assertThat(mainMenu).contains("/administration/");
+        assertThat(mainMenu).contains("<%=request.getContextPath()%>/administration");
         assertThat(mainMenu).doesNotContain("/administration/index");
     }
 

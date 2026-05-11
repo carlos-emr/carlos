@@ -45,7 +45,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("ProviderService REST exception regression tests")
-@Tag("integration")
+@Tag("unit")
 @Tag("rest")
 @Tag("regression")
 class ProviderServiceRegressionTest {

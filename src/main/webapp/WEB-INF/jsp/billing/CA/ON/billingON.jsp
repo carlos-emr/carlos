@@ -883,6 +883,9 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
                             </c:choose></td>
                         <td style="text-align: center;"
                             class="${not empty formModel.patient.billingRecommendations ? 'alert' : ''}">${formModel.patient.billingRecommendations}
+                            <c:if test="${not empty formModel.display.displayMessage}">
+                                <div class="alert alert-info"><carlos:encode value='${formModel.display.displayMessage}' context='html'/></div>
+                            </c:if>
                             <c:if test="${formModel.recommendationsUnavailable}">
                                 <div class="alert alert-warning"><fmt:message key="billing.recommendations.unavailable"/></div>
                             </c:if>

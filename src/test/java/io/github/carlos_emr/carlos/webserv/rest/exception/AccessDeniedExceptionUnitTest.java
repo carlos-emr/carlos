@@ -40,12 +40,53 @@ import org.junit.jupiter.api.Test;
 class AccessDeniedExceptionUnitTest {
 
     @Test
-    @DisplayName("should store permission action subject")
-    void shouldStorePermissionActionSubject_whenConstructed() {
+    @DisplayName("should leave denial context unset for default constructor")
+    void shouldLeaveDenialContextUnset_whenConstructedWithNoArguments() {
+        AccessDeniedException exception = new AccessDeniedException();
+
+        assertThat(exception.getPermission()).isNull();
+        assertThat(exception.getAction()).isNull();
+        assertThat(exception.getSubject()).isNull();
+    }
+
+    @Test
+    @DisplayName("should store permission and action")
+    void shouldStorePermissionAndAction_whenConstructedWithoutSubject() {
+        AccessDeniedException exception = new AccessDeniedException("_rx", "w");
+
+        assertThat(exception.getPermission()).isEqualTo("_rx");
+        assertThat(exception.getAction()).isEqualTo("w");
+        assertThat(exception.getSubject()).isNull();
+    }
+
+    @Test
+    @DisplayName("should store integer subject as string")
+    void shouldStoreIntegerSubjectAsString_whenConstructedWithIntSubject() {
         AccessDeniedException exception = new AccessDeniedException("_rx", "w", 123);
 
         assertThat(exception.getPermission()).isEqualTo("_rx");
         assertThat(exception.getAction()).isEqualTo("w");
         assertThat(exception.getSubject()).isEqualTo("123");
+    }
+
+    @Test
+    @DisplayName("should store string subject")
+    void shouldStoreStringSubject_whenConstructedWithStringSubject() {
+        AccessDeniedException exception = new AccessDeniedException("_rx", "w", "abc-123");
+
+        assertThat(exception.getPermission()).isEqualTo("_rx");
+        assertThat(exception.getAction()).isEqualTo("w");
+        assertThat(exception.getSubject()).isEqualTo("abc-123");
+    }
+
+    @Test
+    @DisplayName("should preserve message without denial context")
+    void shouldPreserveMessageWithoutDenialContext_whenConstructedWithMessage() {
+        AccessDeniedException exception = new AccessDeniedException("not allowed");
+
+        assertThat(exception).hasMessage("not allowed");
+        assertThat(exception.getPermission()).isNull();
+        assertThat(exception.getAction()).isNull();
+        assertThat(exception.getSubject()).isNull();
     }
 }
