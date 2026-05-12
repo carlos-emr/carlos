@@ -523,4 +523,124 @@ class ResponseSanitizationFilterUnitTest {
             assertThat(body).contains("Reference ID:");
         }
     }
+
+    // -------------------------------------------------------------------------
+    // DISPLAY_ERROR — requires BOTH properties for full developer error display
+    // response.sanitization.enabled=false is the gating control; DISPLAY_ERROR
+    // alone does NOT bypass RSF sanitization.
+    // -------------------------------------------------------------------------
+
+    @Nested
+    @DisplayName("when DISPLAY_ERROR is set but sanitization is still enabled")
+    class DisplayErrorWithSanitizationEnabled {
+
+        @BeforeEach
+        void initWithDisplayErrorOnlyAndSanitizationOn() throws Exception {
+            // response.sanitization.enabled=true (default) AND DISPLAY_ERROR=true:
+            // sanitization is NOT bypassed — DISPLAY_ERROR alone is not sufficient.
+            when(mockProperties.getProperty(ResponseSanitizationFilter.ENABLED_PROPERTY, ""))
+                    .thenReturn("true");
+            when(mockProperties.isPropertyActive(ResponseSanitizationFilter.DISPLAY_ERROR_PROPERTY))
+                    .thenReturn(true);
+            filter = new ResponseSanitizationFilter();
+            FilterConfig filterConfig = mock(FilterConfig.class);
+            filter.init(filterConfig);
+        }
+
+        @Test
+        @DisplayName("should still sanitize stack trace when only DISPLAY_ERROR is set")
+        void shouldStillSanitize_whenOnlyDisplayErrorIsSet_withoutDisablingSanitization()
+                throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest();
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            String stackTraceBody = "java.lang.NullPointerException\n"
+                    + "\tat io.github.carlos_emr.carlos.SomeClass.method(SomeClass.java:42)";
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(500);
+                httpRes.getWriter().write(stackTraceBody);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            // RSF remains active — DISPLAY_ERROR alone does not bypass sanitization.
+            assertThat(response.getContentAsString()).doesNotContain("NullPointerException");
+            assertThat(response.getContentAsString()).contains("Reference ID:");
+        }
+
+        @Test
+        @DisplayName("should replace stack trace body with Reference ID when only DISPLAY_ERROR is set")
+        void shouldReplaceWithReferenceId_whenOnlyDisplayErrorIsSet() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest();
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(500);
+                httpRes.getWriter().write("java.lang.RuntimeException: sensitive detail");
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getContentAsString()).doesNotContain("RuntimeException");
+            assertThat(response.getContentAsString()).contains("Reference ID:");
+        }
+    }
+
+    @Nested
+    @DisplayName("when both DISPLAY_ERROR and sanitization=false are set (developer mode)")
+    class DisplayErrorWithSanitizationDisabled {
+
+        @BeforeEach
+        void initWithBothPropertiesSet() throws Exception {
+            // response.sanitization.enabled=false AND DISPLAY_ERROR=true:
+            // both must be set — this is the correct two-property developer configuration.
+            when(mockProperties.getProperty(ResponseSanitizationFilter.ENABLED_PROPERTY, ""))
+                    .thenReturn("false");
+            when(mockProperties.isPropertyActive(ResponseSanitizationFilter.DISPLAY_ERROR_PROPERTY))
+                    .thenReturn(true);
+            filter = new ResponseSanitizationFilter();
+            FilterConfig filterConfig = mock(FilterConfig.class);
+            filter.init(filterConfig);
+        }
+
+        @Test
+        @DisplayName("should pass through stack trace unchanged when both properties are set")
+        void shouldPassThrough_stackTrace_whenBothPropertiesSet() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest();
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            String stackTraceBody = "java.lang.NullPointerException\n"
+                    + "\tat io.github.carlos_emr.carlos.SomeClass.method(SomeClass.java:42)";
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(500);
+                httpRes.getWriter().write(stackTraceBody);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            // RSF is disabled by response.sanitization.enabled=false — raw details pass through.
+            assertThat(response.getContentAsString()).isEqualTo(stackTraceBody);
+        }
+
+        @Test
+        @DisplayName("should not replace body with Reference ID when both properties are set")
+        void shouldNotReplaceWithReferenceId_whenBothPropertiesSet() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest();
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(500);
+                httpRes.getWriter().write("java.lang.RuntimeException: raw developer detail");
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getContentAsString()).contains("RuntimeException");
+            assertThat(response.getContentAsString()).doesNotContain("Reference ID:");
+        }
+    }
 }
