@@ -105,7 +105,7 @@ public class DemographicEdit2Action extends ActionSupport {
      * (providers, country codes, lookup lists) into the request context.
      * 
      * @return SUCCESS if data is loaded properly; ERROR if the demographic_no is missing or invalid;
-     *         "logout" if the session is missing.
+     *         "logout" if the HTTP session exists but the "user" attribute is missing.
      */
     @Override
     public String execute() {
