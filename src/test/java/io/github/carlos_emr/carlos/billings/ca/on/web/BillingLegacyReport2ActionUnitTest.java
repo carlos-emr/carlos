@@ -119,7 +119,7 @@ class BillingLegacyReport2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldRejectPathComponentFilename_whenRenderingLegacyLReport() throws Exception {
+    void shouldRejectPathComponentFilename_whenRenderingLegacyReport() throws Exception {
         Path inbox = Files.createDirectory(tempDir.resolve("inbox"));
         Files.writeString(inbox.resolve("outside.txt"), "inside-report");
         Files.writeString(tempDir.resolve("outside.txt"), "outside-report");
