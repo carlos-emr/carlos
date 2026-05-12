@@ -3,6 +3,11 @@
 /eclipse-target
 /ui-test-runs
 /test-output
+/test-results/
+/.tmp-*
+/tmp-playwright/
+/.remember/
+*.class
 /.playwright-mcp
 /override.properties
 /override_log4j.xml

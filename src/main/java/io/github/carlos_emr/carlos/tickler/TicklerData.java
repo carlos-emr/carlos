@@ -110,8 +110,9 @@ public class TicklerData {
         t.setDemographicNo(Integer.parseInt(demographic_no));
         t.setMessage(message);
         
-        // Take the first character of the status string (e.g., 'A' from "ACTIVE" or just "A")
-        t.setStatusAsChar(status.toCharArray()[0]);
+        String effectiveStatus = (status == null || status.isBlank()) ? ACTIVE : status;
+        // Take the single-letter tickler status code (A, C, or D).
+        t.setStatusAsChar(effectiveStatus.trim().charAt(0));
 
         try {
             // Attempt to parse the provided date

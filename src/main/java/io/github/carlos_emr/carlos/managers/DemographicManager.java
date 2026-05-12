@@ -242,7 +242,7 @@ public interface DemographicManager {
      * @throws RuntimeException if the logged-in user lacks read privilege on _demographic
      * @since 2026-04-11
      */
-    DemographicHeaderDTO getDemographicHeader(LoggedInInfo loggedInInfo, Integer demographicId);
+    public DemographicHeaderDTO getDemographicHeader(LoggedInInfo loggedInInfo, Integer demographicId);
 
     /**
      * Searches demographics by name and returns lightweight list item DTOs.
@@ -257,6 +257,6 @@ public interface DemographicManager {
      * @throws RuntimeException if the logged-in user lacks read privilege on _demographic
      * @since 2026-04-11
      */
-    List<DemographicListItemDTO> searchDemographicDTOs(LoggedInInfo loggedInInfo, String searchString,
-                                                              int startIndex, int itemsToReturn);
+    public List<DemographicListItemDTO> searchDemographicDTOs(LoggedInInfo loggedInInfo, String searchString,
+                                                               int startIndex, int itemsToReturn);
 }

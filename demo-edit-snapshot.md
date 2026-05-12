@@ -1,13 +1,15 @@
+# Demo Edit Snapshot
+
 - table [ref=e3]:
   - rowgroup [ref=e4]:
-    - 'row "Abbott, Nathanael Male · 44 years · DOB: 1981-06-09 HIN: 6363134923 AB Next Appointment:" [ref=e5]':
-      - 'cell "Abbott, Nathanael Male · 44 years · DOB: 1981-06-09 HIN: 6363134923 AB Next Appointment:" [ref=e6]':
+    - 'row "FAKE-PATIENT, Example Male · 44 years · DOB: FAKE-DOB HIN: FAKE-HIN AB Next Appointment:" [ref=e5]':
+      - 'cell "FAKE-PATIENT, Example Male · 44 years · DOB: FAKE-DOB HIN: FAKE-HIN AB Next Appointment:" [ref=e6]':
         - table [ref=e7]:
           - rowgroup [ref=e8]:
-            - 'row "Abbott, Nathanael Male · 44 years · DOB: 1981-06-09 HIN: 6363134923 AB Next Appointment:" [ref=e9]':
-              - 'cell "Abbott, Nathanael Male · 44 years · DOB: 1981-06-09 HIN: 6363134923 AB Next Appointment:" [ref=e10]':
-                - text: "Abbott, Nathanael Male · 44 years · DOB: 1981-06-09"
-                - generic [ref=e11]: "HIN: 6363134923 AB"
+            - 'row "FAKE-PATIENT, Example Male · 44 years · DOB: FAKE-DOB HIN: FAKE-HIN AB Next Appointment:" [ref=e9]':
+              - 'cell "FAKE-PATIENT, Example Male · 44 years · DOB: FAKE-DOB HIN: FAKE-HIN AB Next Appointment:" [ref=e10]':
+                - text: "FAKE-PATIENT, Example Male · 44 years · DOB: FAKE-DOB"
+                - generic [ref=e11]: "HIN: FAKE-HIN AB"
                 - text: "Next Appointment:"
     - row [ref=e149]:
       - cell "Appointment History Billing History Create Invoice Consultations Prescriptions E-Chart Preventions Tickler Documents Current eForms" [ref=e13]:

@@ -41,9 +41,6 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.tickler.TicklerData;
 
-/**
- * @author Jay Gallagher
- */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
@@ -51,8 +48,6 @@ import org.apache.struts2.ServletActionContext;
  * Struts2 Action for adding new ticklers.
  * Handles the HTTP request to create one or more ticklers based on user input.
  * Supports creating ticklers for multiple demographics simultaneously.
- * 
- * @author Jay Gallagher
  */
 public class AddTickler2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -77,8 +72,9 @@ public class AddTickler2Action extends ActionSupport {
      */
     public String execute() {
         // Verify the user has write access to the _tickler security object
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_tickler", "w", null)) {
-            throw new RuntimeException("missing required sec object (_tickler)");
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null || !securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "w", null)) {
+            throw new SecurityException("missing required sec object (_tickler)");
         }
 
         // Extract parameters from the HTTP request
