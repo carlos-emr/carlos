@@ -21,7 +21,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     list view. Each link opens a feature popup via reportWindow(...) defined
     in /share/javascript/oscarMDSIndex.js.
 
-    Inputs (request scope):
+    Inputs (session scope):
       sessionScope.user — provider number of the logged-in user; passed to
         the Forwarding Rules popup so the rules editor scopes to that
         provider.
@@ -51,7 +51,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 <%@ page contentType="text/html;charset=UTF-8" pageEncoding="UTF-8" language="java" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 
@@ -69,4 +68,4 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 </c:if>
 <a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/lab/CA/ALL/insideLabUpload',800,1000)" class="nav-link"><fmt:message key="admin.admin.hl7LabUpload"/></a>
 <a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/oscarMDS/ViewCreateLab',800,1000)" class="nav-link"><fmt:message key="global.createLab" /></a>
-<a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/oscarMDS/ForwardingRules?providerNo=${carlos:forJavaScript(providerNo)}',800,1000);" class="nav-link"><fmt:message key="inboxhub.topbar.forwardingRules"/></a>
+<a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/oscarMDS/ForwardingRules?providerNo=${carlos:forJavaScript(carlos:forUriComponent(providerNo))}',800,1000);" class="nav-link"><fmt:message key="inboxhub.topbar.forwardingRules"/></a>
