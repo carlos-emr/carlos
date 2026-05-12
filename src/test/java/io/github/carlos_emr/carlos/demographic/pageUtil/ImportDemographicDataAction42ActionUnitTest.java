@@ -30,6 +30,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.util.LabelValueBean;
 
 import org.apache.struts2.ActionSupport;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -61,6 +62,7 @@ import static org.mockito.Mockito.when;
 @Tag("demographic")
 class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
 
+    private static final String LOGGED_IN_INFO_SESSION_KEY = new LoggedInInfo().getLoggedInInfoKey();
     private static final String TEST_PROVIDER = "999998";
     private static final String NO_VALID_XML_WARNING = "No valid XML files found to import. Please check the uploaded file structure.";
 
@@ -76,11 +78,12 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
     @Mock
     private ProviderDao mockProviderDao;
 
+    private AutoCloseable mockitoCloseable;
     private ImportDemographicDataAction42Action action;
 
     @BeforeEach
     void setUp() throws Exception {
-        MockitoAnnotations.openMocks(this);
+        mockitoCloseable = MockitoAnnotations.openMocks(this);
 
         replaceSpringUtilsBean(EctProgramManager.class, mockEctProgramManager);
         replaceSpringUtilsBean(NioFileManager.class, mockNioFileManager);
@@ -93,8 +96,7 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
 
         when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn(TEST_PROVIDER);
         setSessionAttribute("user", TEST_PROVIDER);
-        String key = LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY";
-        setSessionAttribute(key, mockLoggedInInfo);
+        setSessionAttribute(LOGGED_IN_INFO_SESSION_KEY, mockLoggedInInfo);
 
         when(mockEctProgramManager.getProgramBeans(TEST_PROVIDER, null))
                 .thenReturn(List.of(new LabelValueBean("Default Program", "0")));
@@ -102,6 +104,13 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
         when(mockProviderDao.getActiveProviders()).thenReturn(List.of());
 
         action = new ImportDemographicDataAction42Action();
+    }
+
+    @AfterEach
+    void tearDown() throws Exception {
+        if (mockitoCloseable != null) {
+            mockitoCloseable.close();
+        }
     }
 
     @Test
@@ -151,8 +160,7 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
     @Test
     @DisplayName("should return logout when logged in info is missing")
     void shouldReturnLogout_whenLoggedInInfoIsMissing() throws Exception {
-        String key = LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY";
-        setSessionAttribute(key, null);
+        setSessionAttribute(LOGGED_IN_INFO_SESSION_KEY, null);
 
         String result = executeAction(action);
 
