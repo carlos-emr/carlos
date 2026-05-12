@@ -1421,7 +1421,7 @@ INSERT INTO scheduletemplatecode (code,description,duration,color,confirm,bookin
 -- Dumping data for table 'security'
 --
 
-INSERT INTO security(security_no,user_name,password,provider_no,pin,forcePasswordReset) VALUES (128,'carlosdoc','{bcrypt}$2b$10$hznRKLQEhHbNIUdr5jDjRuBvIQffgkSsXBI.Tn7n5r0Se/Zlc/GLS','999998','1117',1);
+INSERT INTO security(security_no,user_name,password,provider_no,pin,forcePasswordReset) VALUES (128,'carlosdoc','{bcrypt}$2a$10$RcoNeqhcLzkfBzAoTQ5C5.nnsOs15iOasQCp0/smjDAuTtkMQ.Uju','999998','2026',0);
 
 --
 -- Dumping data for table 'specialistsJavascript'
@@ -1749,6 +1749,7 @@ insert into `secObjPrivilege` values('admin','_admin.flowsheet','x',0,'999998');
 insert into `secObjPrivilege` values('admin','_admin.eformreporttool','x',0,'999998');
 insert into `secObjPrivilege` values('admin','_admin.billing','x',0,'999998');
 insert into `secObjPrivilege` values('admin','_admin.misc','x',0,'999998');
+insert into `secObjPrivilege` values('admin','_admin.schedule','x',0,'999998');
 insert into `secObjPrivilege` values('admin','_appointment','x',0,'999998');
 insert into `secObjPrivilege` values('admin','_appointment.doctorLink','x',0,'999998');
 insert into `secObjPrivilege` values('admin','_pmm.addProgram','x',0,'999998');
