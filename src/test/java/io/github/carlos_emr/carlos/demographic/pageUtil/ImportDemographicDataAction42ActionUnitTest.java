@@ -62,7 +62,7 @@ import static org.mockito.Mockito.when;
 @Tag("demographic")
 class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
 
-    private static final String LOGGED_IN_INFO_SESSION_KEY = new LoggedInInfo().getLoggedInInfoKey();
+    private static final String LOGGED_IN_INFO_SESSION_KEY = LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY";
     private static final String TEST_PROVIDER = "999998";
     private static final String NO_VALID_XML_WARNING = "No valid XML files found to import. Please check the uploaded file structure.";
 
@@ -151,6 +151,16 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
     @DisplayName("should return logout when user session attribute is missing")
     void shouldReturnLogout_whenUserSessionAttributeIsMissing() throws Exception {
         setSessionAttribute("user", null);
+
+        String result = executeAction(action);
+
+        assertThat(result).isEqualTo("logout");
+    }
+
+    @Test
+    @DisplayName("should return logout when user session attribute is whitespace only")
+    void shouldReturnLogout_whenUserSessionAttributeIsWhitespaceOnly() throws Exception {
+        setSessionAttribute("user", "   ");
 
         String result = executeAction(action);
 
