@@ -12,6 +12,8 @@
  */
 package io.github.carlos_emr.carlos.login.gate;
 
+import java.io.IOException;
+
 import io.github.carlos_emr.carlos.login.Login2Action;
 import io.github.carlos_emr.carlos.login.LoginCredentialCache;
 import jakarta.servlet.http.HttpServletRequest;
@@ -37,17 +39,24 @@ public final class ViewForcePasswordReset2Action extends BaseLoginPageView2Actio
 
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpSession session = request.getSession(false);
+        if (session == null) {
+            return redirectToExpiredSession(request);
+        }
         Object tokenAttr = session.getAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR);
         if (!(tokenAttr instanceof String token) || LoginCredentialCache.getInstance().peek(token) == null) {
             session.removeAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR);
-            HttpServletResponse response = ServletActionContext.getResponse();
-            String redirectUrl = request.getContextPath()
-                    + "/loginfailed?errormsg=Session expired. Please log in again.";
-            response.sendRedirect(redirectUrl);
-            return NONE;
+            return redirectToExpiredSession(request);
         }
 
         return SUCCESS;
+    }
+
+    private String redirectToExpiredSession(HttpServletRequest request) throws IOException {
+        HttpServletResponse response = ServletActionContext.getResponse();
+        String redirectUrl = request.getContextPath()
+                + "/loginfailed?errormsg=Session expired. Please log in again.";
+        response.sendRedirect(redirectUrl);
+        return NONE;
     }
 
     @Override

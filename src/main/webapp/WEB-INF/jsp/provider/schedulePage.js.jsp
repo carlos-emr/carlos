@@ -451,6 +451,11 @@ function showPasswordExpiryWarning(){
 window.location.href = "<%= request.getContextPath() %>/provider/ViewChangePassword";
 <%}%>
 }
+
+function popupPageOfChangePassword() {
+    showPasswordExpiryWarning();
+}
+
 function popupInboxManager(varpage, height = 700, width = 1215) {
 var page = "" + varpage;
 if (openEncounterInTab && !isForceWindowUrl(page)) { return popupTab(page); }

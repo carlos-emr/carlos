@@ -163,6 +163,8 @@ class LoginJspMigrationRegressionTest {
                 .contains("<body")
                 .contains("showPasswordExpiryWarning();");
         assertThat(providerSchedulePageJs).contains("function showPasswordExpiryWarning()");
+        assertThat(providerSchedulePageJs).contains("function popupPageOfChangePassword()");
+        assertThat(providerSchedulePageJs).contains("showPasswordExpiryWarning();");
         assertThat(providerSchedulePageJs)
                 .contains("window.location.href = \"<%= request.getContextPath() %>/provider/ViewChangePassword\"");
         assertThat(providerSchedulePageJs).doesNotContain("window.open(\"<%= request.getContextPath() %>/provider/ViewChangePassword\"");
@@ -189,6 +191,7 @@ class LoginJspMigrationRegressionTest {
 
         assertThat(forcePasswordResetGate).contains("return Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR;");
         assertThat(forcePasswordResetGate).doesNotContain("\"userName\"");
+        assertThat(forcePasswordResetGate).contains("if (session == null)");
         assertThat(forcePasswordResetGate).contains("LoginCredentialCache.getInstance().peek(token)");
         assertThat(forcePasswordResetGate).contains("Session expired. Please log in again.");
         assertThat(loginAction).contains("session.setAttribute(LOGIN_CREDENTIALS_TOKEN_ATTR, token)");
