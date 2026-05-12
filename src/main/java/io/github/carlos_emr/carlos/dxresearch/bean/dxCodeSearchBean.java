@@ -96,4 +96,11 @@ public class dxCodeSearchBean implements java.io.Serializable {
             return super.equals(o);
     }
 
+
+    @Override
+    public int hashCode() {
+        int result = dxSearchCode != null ? dxSearchCode.hashCode() : 0;
+        result = 31 * result + (type != null ? type.hashCode() : 0);
+        return result;
+    }
 }
