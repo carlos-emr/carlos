@@ -125,7 +125,7 @@ public class PrintHRMReport2Action extends ActionSupport {
             ConcatPDF.concat(pdfDocs, response.getOutputStream());
 
         } catch (IOException e) {
-            logger.error("Could not retrieve the Output Stream from the response", e);
+            logger.error("Could not generate or stream HRM PDF response", e);
             if (!response.isCommitted()) {
                 try {
                     response.reset();
