@@ -19,7 +19,9 @@ import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import javax.xml.XMLConstants;
@@ -45,7 +47,7 @@ import org.xml.sax.SAXException;
 @DisplayName("struts.xml global config Tests")
 @Tag("unit")
 @Tag("fast")
-class StrutsGlobalConfigTest {
+class StrutsGlobalConfigUnitTest {
 
     private static final String BASEDIR_PROPERTY = "basedir";
     private static final Path STRUTS_XML =
@@ -55,12 +57,50 @@ class StrutsGlobalConfigTest {
     @DisplayName("OGNL allowlist should be enabled for CARLOS packages")
     void shouldEnableOgnlAllowlist_forCarlosPackages()
             throws IOException, ParserConfigurationException, SAXException {
-        Map<String, String> constants = collectConstants(parseProjectXml(STRUTS_XML));
+        Path strutsXmlPath = resolveProjectPath(STRUTS_XML);
+        Map<String, String> constants = collectConstants(parseXml(strutsXmlPath));
 
         assertThat(constants)
                 .as("Struts 7 uses struts.allowlist.* constants for strict OGNL allowlisting")
                 .containsEntry("struts.allowlist.enable", "true")
                 .containsEntry("struts.allowlist.packageNames", "io.github.carlos_emr.carlos");
+    }
+
+    /**
+     * Guards against a future edit in any included struts-*.xml file accidentally disabling the
+     * OGNL allowlist. Struts processes &lt;include&gt; files after the parent, so a
+     * {@code struts.allowlist.enable=false} constant in any included config would silently
+     * override the parent setting and remove OGNL protection at runtime — while the sibling
+     * test above would still pass (it only reads struts.xml). This test closes that gap by
+     * iterating every &lt;include&gt; referenced from struts.xml and asserting none of them
+     * carry the dangerous override.
+     */
+    @Test
+    @DisplayName("no included struts config should override OGNL allowlist enable to false")
+    void shouldNotOverrideOgnlAllowlistEnable_inIncludedConfigs()
+            throws IOException, ParserConfigurationException, SAXException {
+        Path strutsXmlPath = resolveProjectPath(STRUTS_XML);
+        Document parent = parseXml(strutsXmlPath);
+        Path strutsDir = strutsXmlPath.getParent();
+
+        NodeList includes = parent.getElementsByTagName("include");
+        List<String> violations = new ArrayList<>();
+        for (int i = 0; i < includes.getLength(); i++) {
+            if (includes.item(i) instanceof Element include) {
+                String fileName = include.getAttribute("file");
+                Path includedPath = strutsDir.resolve(fileName);
+                if (Files.exists(includedPath)) {
+                    Map<String, String> constants = collectConstants(parseXml(includedPath));
+                    if ("false".equals(constants.get("struts.allowlist.enable"))) {
+                        violations.add(fileName);
+                    }
+                }
+            }
+        }
+
+        assertThat(violations)
+                .as("These included Struts configs set struts.allowlist.enable=false, disabling OGNL protection")
+                .isEmpty();
     }
 
     private static Map<String, String> collectConstants(Document doc) {
@@ -74,9 +114,12 @@ class StrutsGlobalConfigTest {
         return out;
     }
 
-    private static Document parseProjectXml(Path relativeConfigPath)
+    private static Document parseXml(Path absolutePath)
             throws IOException, ParserConfigurationException, SAXException {
-        String xml = Files.readString(resolveProjectPath(relativeConfigPath), StandardCharsets.UTF_8);
+        assertThat(absolutePath)
+                .as("Struts config file not found — run tests from project root or set -Dbasedir=<project-root>")
+                .exists();
+        String xml = Files.readString(absolutePath, StandardCharsets.UTF_8);
         String xmlWithoutDoctype = stripStrutsDoctype(xml);
         DocumentBuilder db = newHardenedDocumentBuilder();
         return db.parse(new InputSource(new StringReader(xmlWithoutDoctype)));
