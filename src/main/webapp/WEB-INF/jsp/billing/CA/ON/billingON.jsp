@@ -568,7 +568,9 @@
                 dataType: "html",
                 data: pars,
                 success: function (returnData) {
-                    jQuery("#code_desc").html(returnData);
+                    var text = (returnData || '').toString().trim();
+                    jQuery("#code_desc").html(text);
+                    jQuery("#code_desc").attr("title", text);
                 },
                 error: function (e) {
                     alert(e);
@@ -796,33 +798,7 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
             </td>
         </tr>
     </table>
-    <c:forEach var="dxEntry" items="${formModel.serviceGrid.dxCodesByServiceType}">
-    <%-- The assembler already runs sanitizeIdToken on service-type codes, so
-         dxEntry.key is alphanumeric+underscore. The fn:replace here is
-         defense-in-depth — if a future code path ever bypasses the sanitizer,
-         the rendered HTML id remains valid (no spaces, which would otherwise
-         split the id attribute and break the JS lookup-by-id). --%>
-    <div id="dxCodeSearchDiv_<carlos:encode value='${fn:replace(dxEntry.key, " ", "_")}' context='htmlAttribute'/>" style="display: none;">
-        <c:forEach var="dx" items="${dxEntry.value}">
-        <table style="width: 98%; margin:auto;" class="table-striped table-hover">
-            <tr>
-                <td style="width: 10%">
-                    <a href="javascript:void(0);"
-                       onclick="document.forms[0].dxCode.value='<carlos:encode value='${dx.diagnosticCode}' context='javaScriptAttribute'/>';showHideLayers('Layer2','','hide');changeCodeDesc();return false;">
-                        <carlos:encode value='${dx.diagnosticCode}' context='html'/>
-                    </a>
-                </td>
-                <td>
-                    <a href="javascript:void(0);"
-                       onclick="document.forms[0].dxCode.value='<carlos:encode value='${dx.diagnosticCode}' context='javaScriptAttribute'/>';showHideLayers('Layer2','','hide');changeCodeDesc();return false;">
-                        <carlos:encode value='${fn:length(dx.description) lt 56 ? dx.description : fn:substring(dx.description, 0, 55)}' context='html'/>
-                    </a>
-                </td>
-            </tr>
-        </table>
-        </c:forEach>
-    </div>
-    </c:forEach>
+
 
 </div>
 
@@ -884,16 +860,14 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
                         <td style="text-align: center;"
                             class="${not empty formModel.patient.billingRecommendations ? 'alert' : ''}">${formModel.patient.billingRecommendations}
                             <c:if test="${formModel.recommendationsUnavailable}">
-                                <div class="alert">Billing recommendations are temporarily unavailable.</div>
+                                <div class="alert alert-warning"><fmt:message key="billing.recommendations.unavailable"/></div>
                             </c:if>
                             <c:if test="${formModel.siteContextDegraded}">
-                                <div class="alert">Appointment site defaults are temporarily unavailable.</div>
+                                <div class="alert alert-warning"><fmt:message key="billing.siteDefaults.unavailable"/></div>
                             </c:if>
                             <c:if test="${formModel.admissionDateUnavailable}">
-                                <div class="alert">Inpatient admission date is temporarily unavailable.</div>
+                                <div class="alert alert-warning"><fmt:message key="billing.admissionDate.unavailable"/></div>
                             </c:if>
-                        </td>
-                        <td style="text-align: center;"><carlos:encode value="${formModel.display.displayMessage}" context="html"/>
                         </td>
                     </tr>
                 </table>
@@ -905,23 +879,18 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
                             >
                                 <tr>
                                     <td colspan="2"><fmt:message key="oscar.billing.ca.on.billingON.specialistBilling"/>
-                                        &nbsp;&nbsp;&nbsp;&nbsp; <a href="javascript:void(0);"
-                                                                    title="<fmt:message key="oscar.billing.ca.on.billingON.instructionTitle"/>"
-                                                                    onClick="showHideBox('Instrdiv',1);return false;"><fmt:message key="oscar.billing.ca.on.billingON.instruction"/>
-                                        </a>
+                                        &nbsp;&nbsp; <fmt:message key="oscar.billing.ca.on.billingON.defaultUnitAt"/>
                                     </td>
                                     <td style="vertical-align:top" rowspan="2">
                                         <table
                                                 style="width: 100%;">
                                             <tr>
-                                                <td style="width: 15%">&nbsp;</td>
-                                                <td style="white-space:nowrap">
-                                                    <div id="code_desc"></div>
+                                                <td colspan="2" style="white-space:nowrap;">
+                                                    <div id="code_desc" style="width:210px; overflow:hidden; text-overflow: ellipsis;"></div>
                                                 </td>
                                             </tr>
                                             <tr>
-                                                <td><a href="javascript:void(0);"
-                                                       onclick="showHideLayers('Layer2','','show','Layer1','','hide'); return false;"><fmt:message key="oscar.billing.ca.on.billingON.dx"/></a>
+                                                <td style="width: 15%"><fmt:message key="oscar.billing.ca.on.billingON.dx"/>
                                                 </td>
                                                 <td><input type="text" name="dxCode" class="form-control form-control-sm d-inline-block w-auto"
                                                            maxlength="5"
@@ -960,26 +929,26 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
                                 <tr>
                                     <td style="white-space:nowrap; width: 33%; text-align: center" class="xmyPink"><b><fmt:message key="oscar.billing.ca.on.billingON.codeTimePercent"/></b><br/>
                                         <c:forEach var="i" begin="0" end="5">
-                                            <input type="text" name="serviceCode${i}" class="form-control form-control-sm d-inline-block w-auto"
+                                            <input type="text" name="serviceCode${i}" class="form-control form-control-sm d-inline-block w-50"
                                                    value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"serviceCode\".concat(i)]}' context='htmlAttribute'/>"
                                                    onBlur="upCaseCtrl(this)"/>x
                                             <input type="text" name="serviceUnit${i}" size="2" maxlength="4"
-                                                   style="width: 20px;"
+                                                   style="width: 20px;" placeholder="1"
                                                    value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"serviceUnit\".concat(i)]}' context='htmlAttribute'/>"/>@
                                             <input type="text" name="serviceAt${i}" size="3" maxlength="4"
-                                                   style="width: 30px"
+                                                   style="width: 30px" placeholder="1"
                                                    value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"serviceAt\".concat(i)]}' context='htmlAttribute'/>"/><br/>
                                         </c:forEach></td>
                                     <td style="white-space:nowrap; width: 33%; text-align: center" class="xmyPink"><b><fmt:message key="oscar.billing.ca.on.billingON.codeTimePercent"/></b><br/>
                                         <c:forEach var="i" begin="6" end="11">
-                                            <input type="text" name="serviceCode${i}" class="form-control form-control-sm d-inline-block w-auto"
+                                            <input type="text" name="serviceCode${i}" class="form-control form-control-sm d-inline-block w-50"
                                                    value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"serviceCode\".concat(i)]}' context='htmlAttribute'/>"
                                                    onBlur="upCaseCtrl(this)"/>x
                                             <input type="text" name="serviceUnit${i}" size="2" maxlength="2"
-                                                   style="width: 20px;"
+                                                   style="width: 20px;" placeholder="1"
                                                    value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"serviceUnit\".concat(i)]}' context='htmlAttribute'/>"/>@
                                             <input type="text" name="serviceAt${i}" size="3" maxlength="4"
-                                                   style="width: 30px"
+                                                   style="width: 30px" placeholder="1"
                                                    value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"serviceAt\".concat(i)]}' context='htmlAttribute'/>"/><br/>
                                         </c:forEach></td>
                                 </tr>
@@ -1069,7 +1038,7 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
                                     <td style="white-space:nowrap; width: 30%"><b><fmt:message key="oscar.billing.ca.on.billingON.assignedPhysician"/></b></td>
                                     <td style="width: 20%"><carlos:encode value='${formModel.providerPanel.assgProviderDisplay}' context='html'/>
                                         <c:if test="${formModel.assignedProviderUnavailable}">
-                                            <div class="alert">Assigned physician name is temporarily unavailable. Verify the assigned provider before saving.</div>
+                                            <div class="alert alert-warning"><fmt:message key="billing.assignedProvider.unavailable"/></div>
                                         </c:if>
                                     </td>
                                 </tr>
@@ -1477,7 +1446,7 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
 	        </tr>
 	        <c:if test="${formModel.historyUnavailable}">
 	            <tr>
-	                <td colspan="2"><div class="alert">Billing history is temporarily unavailable. Recent claims may be incomplete.</div></td>
+	                <td colspan="2"><div class="alert alert-warning"><fmt:message key="billing.history.unavailable"/></div></td>
 	            </tr>
 	        </c:if>
 	    </table>
