@@ -21,8 +21,10 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.assembler;
 
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Enumeration;
 import java.util.GregorianCalendar;
 import java.util.HashMap;
@@ -31,7 +33,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
-import java.util.ArrayList;
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -233,7 +234,10 @@ public class BillingOnMriViewModelAssembler {
             String providerNo = p.getProviderNo();
             ProviderBillCenter pbc = providerBillCenterDao.find(providerNo);
             if (pbc != null) {
-                map.put(providerNo, pbc.getBillCenterCode());
+                // Map.copyOf() in BillingOnMriViewModel.Builder rejects null values —
+                // coerce to empty string so a provider with an unset bill-center code
+                // does not cause a NullPointerException when the view model is built.
+                map.put(providerNo, pbc.getBillCenterCode() == null ? "" : pbc.getBillCenterCode());
             }
         }
         return map;
@@ -316,13 +320,14 @@ public class BillingOnMriViewModelAssembler {
             }
         }
 
-        java.util.Date startDate = ConversionUtils.fromDateString(selectedYear + "-01-01 00:00:00");
-        java.util.Date endDate = ConversionUtils.fromDateString(selectedYear + "-12-31 23:59:59");
+        java.util.Date startDate = ConversionUtils.fromTimestampString(selectedYear + "-01-01 00:00:00");
+        java.util.Date endDate = ConversionUtils.fromTimestampString(selectedYear + "-12-31 23:59:59");
         List<BillActivity> bas = billActivityDao.findCurrentByDateRange(startDate, endDate);
         if (bas == null) {
             return Collections.emptyList();
         }
-        Collections.sort(bas, BillActivity.UpdateDateTimeComparator);
+        // Use a null-safe comparator — updateDateTime can be null for in-progress claims.
+        bas.sort(Comparator.comparing(BillActivity::getUpdateDateTime, Comparator.nullsLast(Comparator.reverseOrder())));
 
         List<BillingOnMriViewModel.BillActivityRow> rows = new ArrayList<>();
         int count = 0;
