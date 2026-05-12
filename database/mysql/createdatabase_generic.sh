@@ -1,6 +1,9 @@
 #!/bin/sh
 
 ##CREATE DATABASE
+## Dependency on MariaDb or MySQL
+## Dependency on Apache htpasswd (as bash does not bcrypt)
+## apt install apache2-utils
 
 USER=$1
 PASSWORD=$2
@@ -62,14 +65,21 @@ echo "loading icd${ICD}_issue_groups.sql..."
 $mysql_cmd < icd${ICD}_issue_groups.sql
 echo 'loading measurementMapData.sql...'
 $mysql_cmd < measurementMapData.sql
-echo 'expiring carlosdoc credentials (set to expire in 1 month for security)'
-echo "update security set date_ExpireDate=DATE_ADD(CURDATE(), INTERVAL 1 MONTH), b_ExpireSet=1 where user_name='carlosdoc'" | $mysql_cmd
 
 echo "loading oscarinit_2025.sql"
 $mysql_cmd < oscarinit_2025.sql
 
+newpassword=tr -cd '[:alnum:]' < /dev/urandom | fold -w10 | head -n 1
+bhash=htpasswd -bnB myuser mysecretpassword
+bhash="{bcrypt}"+${bhash}
+echo "update security set password=${bhash} where user_name='carlosdoc'" | $mysql_cmd
+
 echo 'all done!'
 echo 'the default user is carlosdoc'
-echo 'password carlos2026'
+echo 'password '${newpassword}
+echo '***IMPORTANT WRITE THIS PASSWORD DOWN IT IS NOT SHOWN AGAIN***'
 echo 'pin 1117'
-echo 'For sec reasons these credentials are set to expire in a month!'
+
+# Optional: expire the password
+#echo 'expiring credentials (password set to expire in 1 month for security)'
+#echo "update security set date_ExpireDate=DATE_ADD(CURDATE(), INTERVAL 1 MONTH), b_ExpireSet=1 where user_name='carlosdoc'" | $mysql_cmd
