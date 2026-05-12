@@ -48,7 +48,7 @@ class EctMeasurements2ActionTest extends CarlosWebTestBase {
     }
 
     @Test
-    @DisplayName("should deny when _measurement w is missing")
+    @DisplayName("should deny when _measurement write privilege is missing")
     void shouldThrowException_whenMeasurementWriteMissing() {
         assertThatThrownBy(() -> executeAction(new EctMeasurements2Action()))
                 .isInstanceOf(SecurityException.class)
