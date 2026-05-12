@@ -26,6 +26,7 @@ import java.io.File;
 import java.nio.charset.StandardCharsets;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billing.CA.ON.util.EDTFolder;
@@ -82,6 +83,12 @@ public class BillingLegacyReport2Action extends ActionSupport {
         if (filename == null) {
             filename = "";
         }
+        String safeFilename = FilenameUtils.getName(filename);
+        if (!safeFilename.equals(filename)) {
+            ServletActionContext.getResponse().sendError(HttpServletResponse.SC_BAD_REQUEST,
+                    "Invalid report filename.");
+            return NONE;
+        }
 
         // Match the legacy heuristic for choosing the XSL stylesheet:
         // chars [2..4) of the filename are "OU" → outpatient stylesheet,
@@ -97,10 +104,6 @@ public class BillingLegacyReport2Action extends ActionSupport {
                 String folderPath = selectedFolderPath(request);
                 if (folderPath != null && !folderPath.isEmpty()) {
                     File folderDir = new File(folderPath);
-                    String safeFilename = FilenameUtils.getName(filename);
-                    if (!safeFilename.equals(filename)) {
-                        throw new IllegalArgumentException("Invalid filename parameter");
-                    }
                     File target = PathValidationUtils.validatePath(safeFilename, folderDir);
                     if (target.exists() && target.isFile()) {
                         fileContents = FileUtils.readFileToString(target, StandardCharsets.UTF_8);
