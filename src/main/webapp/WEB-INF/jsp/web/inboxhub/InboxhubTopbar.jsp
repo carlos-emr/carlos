@@ -37,8 +37,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
       reportWindow's signature is (page, height, width). The popup args
       are intentionally height=800, width=1000 for the sub-pages that
       share a Bootstrap `.container` wrapper (Pending Docs, HL7 Lab
-      Upload, Create Lab, Forwarding Rules, Doc Upload). Incoming Docs
-      keeps width=1200 because it uses a full-width `container-fluid`
+      Upload, Create Lab, Forwarding Rules, modern Doc Upload). Legacy
+      Doc Upload keeps its compact 600x500 popup because it uses a fixed
+      legacy layout rather than Bootstrap's container gutter. Incoming
+      Docs keeps width=1200 because it uses a full-width `container-fluid`
       layout for queue triage. At
       width=1000 the container hits Bootstrap's lg breakpoint (>=992px)
       and resolves to a 960px max-width — producing the same ~20px page
@@ -65,7 +67,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 <a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/documentManager/inboxManage?method=getDocumentsInQueues',800,1000)" class="nav-link"><fmt:message key="inboxmanager.document.pendingDocs"/></a>
 <c:choose>
     <c:when test="${CarlosProperties.getInstance().getBooleanProperty('legacy_document_upload_enabled', 'true')}">
-        <a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/documentManager/ViewHtml5AddDocuments',800,1000)" class="nav-link"><fmt:message key="inboxmanager.document.uploadDoc"/></a>
+        <a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/documentManager/ViewHtml5AddDocuments',600,500)" class="nav-link"><fmt:message key="inboxmanager.document.uploadDoc"/></a>
     </c:when>
     <c:otherwise>
         <a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/documentManager/ViewDocumentUploader',800,1000)" class="nav-link"><fmt:message key="inboxmanager.document.uploadDoc"/></a>
