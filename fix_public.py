@@ -1,5 +1,4 @@
 import re
-import sys
 
 files = [
     "src/main/java/io/github/carlos_emr/carlos/managers/DemographicManager.java",
