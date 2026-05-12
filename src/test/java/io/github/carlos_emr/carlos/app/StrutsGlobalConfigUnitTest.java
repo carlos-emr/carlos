@@ -14,6 +14,8 @@ package io.github.carlos_emr.carlos.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+
 import java.io.IOException;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
@@ -48,7 +50,7 @@ import org.xml.sax.SAXException;
 @DisplayName("struts.xml global config Tests")
 @Tag("unit")
 @Tag("fast")
-class StrutsGlobalConfigUnitTest {
+class StrutsGlobalConfigUnitTest extends CarlosUnitTestBase {
 
     private static final String BASEDIR_PROPERTY = "basedir";
     private static final String EXPECTED_STRUTS_DOCTYPE =
