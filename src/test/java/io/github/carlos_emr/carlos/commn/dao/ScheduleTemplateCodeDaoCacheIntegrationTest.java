@@ -89,8 +89,8 @@ class ScheduleTemplateCodeDaoCacheIntegrationTest extends CarlosTestBase {
     }
 
     @Test
-    @DisplayName("should cache code lookup results")
-    void shouldCacheCodeLookupResults() {
+    @DisplayName("should cache code lookup results when called")
+    void shouldCacheCodeLookupResults_whenCalled() {
         char code = nextUnusedCode();
         Integer insertedId = transactionTemplate.execute(status -> {
             ScheduleTemplateCode entity = buildScheduleTemplateCode(code);
@@ -100,6 +100,7 @@ class ScheduleTemplateCodeDaoCacheIntegrationTest extends CarlosTestBase {
         });
 
         ScheduleTemplateCode cached = transactionTemplate.execute(status -> scheduleTemplateCodeDao.getByCode(code));
+        ScheduleTemplateCode secondLookup = transactionTemplate.execute(status -> scheduleTemplateCodeDao.getByCode(code));
 
         assertThat(cached)
                 .as("getByCode should return the schedule template code inserted by this test")
@@ -108,17 +109,34 @@ class ScheduleTemplateCodeDaoCacheIntegrationTest extends CarlosTestBase {
         assertThat(cacheEntryCount())
                 .as("getByCode should populate scheduleTemplateCodes cache")
                 .isPositive();
+        assertThat(secondLookup)
+                .as("second getByCode call should be served from the scheduleTemplateCodes cache")
+                .isSameAs(cached);
     }
 
     @Test
     @DisplayName("should evict scheduleTemplateCodes cache when persist commits")
     void shouldEvictScheduleTemplateCodesCache_whenPersistCommits() {
-        transactionTemplate.executeWithoutResult(status -> scheduleTemplateCodeDao.findAll());
-        assertThat(cacheEntryCount()).isPositive();
-
-        char code = nextUnusedCode();
+        char cachedCode = nextUnusedCode();
         transactionTemplate.executeWithoutResult(status -> {
-            ScheduleTemplateCode entity = buildScheduleTemplateCode(code);
+            ScheduleTemplateCode entity = buildScheduleTemplateCode(cachedCode);
+            scheduleTemplateCodeDao.persist(entity);
+            idsToCleanUp.add(entity.getId());
+        });
+        char mutationCode = nextUnusedCodeExcept(cachedCode);
+
+        clearCache();
+        transactionTemplate.executeWithoutResult(status -> {
+            scheduleTemplateCodeDao.findAll();
+            scheduleTemplateCodeDao.getByCode(cachedCode);
+            scheduleTemplateCodeDao.findTemplateCodes();
+        });
+        assertThat(cacheEntryCount())
+                .as("test should seed multiple scheduleTemplateCodes cache keys before mutation")
+                .isGreaterThanOrEqualTo(3);
+
+        transactionTemplate.executeWithoutResult(status -> {
+            ScheduleTemplateCode entity = buildScheduleTemplateCode(mutationCode);
             scheduleTemplateCodeDao.persist(entity);
             idsToCleanUp.add(entity.getId());
         });
@@ -143,6 +161,15 @@ class ScheduleTemplateCodeDaoCacheIntegrationTest extends CarlosTestBase {
             }
         }
         throw new AssertionError("No unused one-character schedule template code is available for this test");
+    }
+
+    private char nextUnusedCodeExcept(char excludedCode) {
+        for (char candidate : TEST_CODES) {
+            if (candidate != excludedCode && scheduleTemplateCodeDao.getByCode(candidate) == null) {
+                return candidate;
+            }
+        }
+        throw new AssertionError("No second unused one-character schedule template code is available for this test");
     }
 
     private void clearCache() {

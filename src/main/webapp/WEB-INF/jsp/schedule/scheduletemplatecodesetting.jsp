@@ -141,7 +141,7 @@
             <fmt:message key="schedule.scheduletemplatecodesetting.formTemplateCode"/>:
             <select name="code">
                 <%
-                    List<ScheduleTemplateCode> stcs = scheduleTemplateCodeDao.findAll();
+                    List<ScheduleTemplateCode> stcs = new ArrayList<>(scheduleTemplateCodeDao.findAll());
                     Collections.sort(stcs, ScheduleTemplateCode.CodeComparator);
 
                     for (ScheduleTemplateCode stc : stcs) {

@@ -86,19 +86,23 @@ class AppointmentTypeDaoCacheIntegrationTest extends CarlosTestBase {
     }
 
     @Test
-    @DisplayName("should cache listAll results")
-    void shouldCacheListAllResults() {
+    @DisplayName("should cache listAll results when called")
+    void shouldCacheListAllResults_whenCalled() {
         transactionTemplate.executeWithoutResult(status -> {
             AppointmentType first = buildAppointmentType("cacheType_" + randomSuffix());
             appointmentTypeDao.persist(first);
             idsToCleanUp.add(first.getId());
         });
 
-        transactionTemplate.executeWithoutResult(status -> appointmentTypeDao.listAll());
+        List<AppointmentType> firstResult = transactionTemplate.execute(status -> appointmentTypeDao.listAll());
+        List<AppointmentType> secondResult = transactionTemplate.execute(status -> appointmentTypeDao.listAll());
 
         assertThat(cacheEntryCount())
                 .as("listAll should populate appointmentTypes cache")
                 .isPositive();
+        assertThat(secondResult)
+                .as("second listAll call should be served from the appointmentTypes cache")
+                .isSameAs(firstResult);
     }
 
     @Test

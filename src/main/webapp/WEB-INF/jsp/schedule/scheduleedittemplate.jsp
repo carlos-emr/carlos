@@ -221,7 +221,7 @@
                 <td nowrap><a href=#
                               title="	<%
 					
-					List<ScheduleTemplateCode> stcs = scheduleTemplateCodeDao.findAll();
+					List<ScheduleTemplateCode> stcs = new ArrayList<>(scheduleTemplateCodeDao.findAll());
 					Collections.sort(stcs,ScheduleTemplateCode.CodeComparator);
 					
    for (ScheduleTemplateCode stc:stcs) {   %>

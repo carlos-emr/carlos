@@ -86,19 +86,23 @@ class FacilityDaoCacheIntegrationTest extends CarlosTestBase {
     }
 
     @Test
-    @DisplayName("should cache active facility list")
-    void shouldCacheActiveFacilityList() {
+    @DisplayName("should cache active facility list when called")
+    void shouldCacheActiveFacilityList_whenCalled() {
         transactionTemplate.executeWithoutResult(status -> {
             Facility active = buildFacility("cacheFacility_" + randomSuffix(), false);
             facilityDao.persist(active);
             idsToCleanUp.add(active.getId());
         });
 
-        transactionTemplate.executeWithoutResult(status -> facilityDao.findAll(true));
+        List<Facility> firstResult = transactionTemplate.execute(status -> facilityDao.findAll(true));
+        List<Facility> secondResult = transactionTemplate.execute(status -> facilityDao.findAll(true));
 
         assertThat(cacheEntryCount())
                 .as("findAll(true) should populate facilities cache")
                 .isPositive();
+        assertThat(secondResult)
+                .as("second findAll(true) call should be served from the facilities cache")
+                .isSameAs(firstResult);
     }
 
     @Test
