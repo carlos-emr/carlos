@@ -831,16 +831,16 @@
          * Local override of the global `reportWindow` (defined in
          * /share/javascript/oscarMDSIndex.js).
          *
-         * Uses caller-provided dimensions when present, matching the global
-         * helper while retaining the legacy 660x960 fallback for callers that
-         * omit dimensions.
+         * Uses caller-provided dimensions when both height and width are
+         * provided; falls back to the legacy 660x960 defaults when either
+         * dimension is absent or zero.
          *
          * @param {string} page absolute or context-relative URL to open
          * @param {number} height popup height in px
          * @param {number} width popup width in px
          */
         function reportWindow(page, height, width) {
-            //console.log(page);
+            var windowprops;
             if (height && width) {
                 windowprops = "height=" + height + ", width=" + width + ", location=no, scrollbars=yes, menubars=no, toolbars=no, resizable=yes, top=0, left=0";
             } else {

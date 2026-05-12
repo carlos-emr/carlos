@@ -35,9 +35,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 
     Popup sizing:
       reportWindow's signature is (page, height, width). The popup args
-      are intentionally height=800, width=1000 for the four sub-pages
+      are intentionally height=800, width=1000 for the sub-pages
       that share a Bootstrap `.container` wrapper (Pending Docs, HL7 Lab
-      Upload, Create Lab, Forwarding Rules, plus modern Doc Upload). At
+      Upload, Create Lab, Forwarding Rules, Doc Upload). At
       width=1000 the container hits Bootstrap's lg breakpoint (>=992px)
       and resolves to a 960px max-width — producing the same ~20px page
       gutter on every popup. Diverging widths land on different
@@ -61,7 +61,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 <a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/documentManager/ViewIncomingDocs',800,1200)" class="nav-link"><fmt:message key="inboxmanager.document.incomingDocs"/></a>
 <a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/documentManager/inboxManage?method=getDocumentsInQueues',800,1000)" class="nav-link"><fmt:message key="inboxmanager.document.pendingDocs"/></a>
 <c:if test="${CarlosProperties.getInstance().getBooleanProperty('legacy_document_upload_enabled', 'true')}">
-    <a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/documentManager/ViewHtml5AddDocuments',600,500)" class="nav-link"><fmt:message key="inboxmanager.document.uploadDoc"/></a>
+    <a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/documentManager/ViewHtml5AddDocuments',800,1000)" class="nav-link"><fmt:message key="inboxmanager.document.uploadDoc"/></a>
 </c:if>
 <c:if test="${!CarlosProperties.getInstance().getBooleanProperty('legacy_document_upload_enabled', 'true')}">
     <a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/documentManager/ViewDocumentUploader',800,1000)" class="nav-link"><fmt:message key="inboxmanager.document.uploadDoc"/></a>
