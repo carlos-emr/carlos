@@ -31,6 +31,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOnMriViewModelAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingDataLoadException;
 
 /**
  * View gate for {@code billing/CA/ON/billingONMRI.jsp}, the "Generate OHIP
@@ -68,7 +69,14 @@ public class ViewBillingOnMri2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
-        BillingOnMriViewModel model = billingONMRIAssembler.assemble(request, loggedInInfo);
+        BillingOnMriViewModel model;
+        try {
+            model = billingONMRIAssembler.assemble(request, loggedInInfo);
+        } catch (BillingDataLoadException e) {
+            throw e;
+        } catch (RuntimeException e) {
+            throw new BillingDataLoadException("Failed to load OHIP report view model", e);
+        }
         request.setAttribute("mriModel", model);
 
         // Replicates the legacy session-attribute the JSP scriptlet set so the

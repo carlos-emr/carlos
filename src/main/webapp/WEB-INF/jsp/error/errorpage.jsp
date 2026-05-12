@@ -46,6 +46,38 @@
      container; this scriptlet is a 1-line dispatcher. --%>
 <% io.github.carlos_emr.carlos.utility.ErrorPageLogger.logIfPresent(exception, request); %>
 <!-- only true can access exception object -->
+<%--
+  DISPLAY_ERROR — developer mode block.
+  When carlos.properties sets DISPLAY_ERROR=true, render full exception details in
+  the browser to aid local debugging. ResponseSanitizationFilter also disables itself
+  when this flag is active so raw details are not stripped before reaching the client.
+  SECURITY: this block MUST remain inactive in all production and PHI environments.
+--%>
+<%
+    boolean _displayError = io.github.carlos_emr.CarlosProperties.getInstance()
+            .isPropertyActive("DISPLAY_ERROR");
+    request.setAttribute("_displayError", _displayError);
+    if (_displayError) {
+        Throwable _t = exception;
+        if (_t == null) {
+            Object _errAttr = request.getAttribute("jakarta.servlet.error.exception");
+            if (_errAttr instanceof Throwable) {
+                _t = (Throwable) _errAttr;
+            }
+        }
+        if (_t != null) {
+            java.io.StringWriter _sw = new java.io.StringWriter();
+            _t.printStackTrace(new java.io.PrintWriter(_sw));
+            request.setAttribute("_exceptionType", _t.getClass().getName());
+            request.setAttribute("_exceptionMessage", _t.getMessage());
+            request.setAttribute("_exceptionTrace", _sw.toString());
+        }
+        Object _errMsg = request.getAttribute("jakarta.servlet.error.message");
+        if (_errMsg != null) {
+            request.setAttribute("_errorMessage", _errMsg.toString());
+        }
+    }
+%>
 <%@ taglib uri='jakarta.tags.core' prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -161,6 +193,46 @@
                href="${carlos:forUri(pageContext.request.contextPath)}/provider/providercontrol" role="button"><fmt:message key="global.btnExit"/></a>
         </div>
     </div>
+
+    <%-- Developer error detail — visible only when DISPLAY_ERROR=true in carlos.properties.
+         SECURITY RISK: never enable this in production or any PHI environment. --%>
+    <c:if test="${_displayError}">
+        <div id="dev-error-detail" style="margin: 30px 0; text-align: left;
+             background: #fff8f0; border: 2px solid #cc4400; border-radius: 4px; padding: 16px;">
+            <h3 style="color: #cc4400; margin-top: 0; font-family: monospace;">
+                Developer Detail (DISPLAY_ERROR=true — not for production)
+            </h3>
+            <c:choose>
+                <c:when test="${not empty _exceptionType}">
+                    <p style="font-family: monospace;">
+                        <strong>Exception:</strong> <carlos:encode value="${_exceptionType}"/>
+                    </p>
+                    <c:if test="${not empty _exceptionMessage}">
+                        <p style="font-family: monospace;">
+                            <strong>Message:</strong> <carlos:encode value="${_exceptionMessage}"/>
+                        </p>
+                    </c:if>
+                    <pre style="background: #f8f8f8; padding: 10px; overflow: auto;
+                         max-height: 500px; white-space: pre-wrap; word-break: break-all;
+                         font-size: 0.85em;"><carlos:encode value="${_exceptionTrace}"/></pre>
+                </c:when>
+                <c:otherwise>
+                    <p style="font-family: monospace;">
+                        No exception details available — the error was reported via
+                        <code>sendError()</code> without propagating the exception object.
+                        <c:if test="${not empty _errorMessage}">
+                            <br/><strong>Error message:</strong>
+                            <carlos:encode value="${_errorMessage}"/>
+                        </c:if>
+                    </p>
+                    <p style="font-family: monospace; color: #666;">
+                        To locate the root cause, check the application log for WARN entries
+                        from ErrorPageLogger matching this URI and status code.
+                    </p>
+                </c:otherwise>
+            </c:choose>
+        </div>
+    </c:if>
 
     <c:if test="${ not empty LoginResourceBean.supportLink
 							or not empty LoginResourceBean.supportName
