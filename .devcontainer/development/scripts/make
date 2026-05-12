@@ -151,25 +151,46 @@ build_and_deploy() {
 
   if [ "$run_tests" = true ]; then
     # Build and run all tests
-    mvn $clean_phase -DskipTests=true -T 1C package war:exploded $jsp_profile $dev_mode_flag $checks_flag
+    if ! mvn $clean_phase -DskipTests=true -T 1C package war:exploded $jsp_profile $dev_mode_flag $checks_flag; then
+      echo "\nBuild failed during package phase."
+      return 1
+    fi
     echo ""
     echo "Running tests..."
-    mvn test
+    if ! mvn test; then
+      echo "\nTests failed."
+      return 1
+    fi
   elif [ "$run_tests" = "unit" ]; then
     # Build and run only unit tests
-    mvn $clean_phase -DskipTests=true -T 1C package war:exploded $jsp_profile $dev_mode_flag $checks_flag
+    if ! mvn $clean_phase -DskipTests=true -T 1C package war:exploded $jsp_profile $dev_mode_flag $checks_flag; then
+      echo "\nBuild failed during package phase."
+      return 1
+    fi
     echo ""
     echo "Running unit tests..."
-    mvn test -Dgroups="unit"
+    if ! mvn test -Dgroups="unit"; then
+      echo "\nUnit tests failed."
+      return 1
+    fi
   elif [ "$run_tests" = "integration" ]; then
     # Build and run only integration tests
-    mvn $clean_phase -DskipTests=true -T 1C package war:exploded $jsp_profile $dev_mode_flag $checks_flag
+    if ! mvn $clean_phase -DskipTests=true -T 1C package war:exploded $jsp_profile $dev_mode_flag $checks_flag; then
+      echo "\nBuild failed during package phase."
+      return 1
+    fi
     echo ""
     echo "Running integration tests..."
-    mvn test -Dgroups="integration"
+    if ! mvn test -Dgroups="integration"; then
+      echo "\nIntegration tests failed."
+      return 1
+    fi
   else
     # Regular build without tests
-    mvn $clean_phase -DskipTests=true -T 1C package war:exploded $jsp_profile $dev_mode_flag $checks_flag
+    if ! mvn $clean_phase -DskipTests=true -T 1C package war:exploded $jsp_profile $dev_mode_flag $checks_flag; then
+      echo "\nBuild failed during package phase."
+      return 1
+    fi
   fi
 
   # Extract the version from the pom.xml file.

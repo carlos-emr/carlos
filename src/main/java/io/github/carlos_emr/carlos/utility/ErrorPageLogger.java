@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.utility;
 
+import io.github.carlos_emr.CarlosProperties;
 import jakarta.servlet.ServletRequest;
 import jakarta.servlet.http.HttpServletRequest;
 
