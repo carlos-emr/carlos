@@ -35,6 +35,13 @@ package io.github.carlos_emr.carlos.billings.MSP;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+/**
+ * Represents the CheckBillingData component in the CARLOS EMR system.
+ *
+ * @since 2026-05-11
+ */
+
+
 public class CheckBillingData {
 
     // check batchHeader VS1

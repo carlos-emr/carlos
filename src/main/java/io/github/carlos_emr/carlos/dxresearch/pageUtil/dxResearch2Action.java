@@ -51,6 +51,13 @@ import java.io.IOException;
 import java.util.Date;
 import java.util.List;
 
+/**
+ * Struts action class for handling dxResearch2 requests.
+ *
+ * @since 2026-05-11
+ */
+
+
 public class dxResearch2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

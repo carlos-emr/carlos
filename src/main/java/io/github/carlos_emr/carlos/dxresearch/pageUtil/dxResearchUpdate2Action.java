@@ -52,6 +52,13 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
+/**
+ * Struts action class for handling dxResearchUpdate2 requests.
+ *
+ * @since 2026-05-11
+ */
+
+
 public class dxResearchUpdate2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

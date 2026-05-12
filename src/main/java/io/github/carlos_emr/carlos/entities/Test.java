@@ -29,6 +29,13 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+/**
+ * Represents the Test component in the CARLOS EMR system.
+ *
+ * @since 2026-05-11
+ */
+
+
 public class Test {
     private String id;
     private String description;

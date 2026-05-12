@@ -32,6 +32,13 @@ package io.github.carlos_emr.carlos.entities;
 import java.math.BigDecimal;
 import java.util.Date;
 
+/**
+ * Represents the PrivateBillTransaction component in the CARLOS EMR system.
+ *
+ * @since 2026-05-11
+ */
+
+
 public class PrivateBillTransaction {
     private int id;
     private int billingmaster_no;

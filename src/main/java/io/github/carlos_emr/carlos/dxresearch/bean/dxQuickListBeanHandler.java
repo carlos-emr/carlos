@@ -38,6 +38,13 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 
+/**
+ * Data transfer object / form bean for dxQuickListBeanHandler.
+ *
+ * @since 2026-05-11
+ */
+
+
 public class dxQuickListBeanHandler {
 
     Vector dxQuickListBeanVector = new Vector();

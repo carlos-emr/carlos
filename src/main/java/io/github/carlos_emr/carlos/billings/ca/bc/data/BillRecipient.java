@@ -36,6 +36,13 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Represents the BillRecipient component in the CARLOS EMR system.
+ *
+ * @since 2026-05-11
+ */
+
+
 public class BillRecipient {
 
     private Integer id;

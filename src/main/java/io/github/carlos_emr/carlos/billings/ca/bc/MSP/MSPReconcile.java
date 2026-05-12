@@ -59,6 +59,13 @@ import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
+/**
+ * Represents the MSPReconcile component in the CARLOS EMR system.
+ *
+ * @since 2026-05-11
+ */
+
+
 public class MSPReconcile {
     private static Logger log = MiscUtils.getLogger();
     private BillRecipientsDao billRecipientDao = SpringUtils.getBean(BillRecipientsDao.class);

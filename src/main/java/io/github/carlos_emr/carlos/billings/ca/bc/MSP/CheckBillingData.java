@@ -40,6 +40,13 @@ import java.sql.SQLException;
 import java.util.Iterator;
 import java.util.List;
 
+/**
+ * Represents the CheckBillingData component in the CARLOS EMR system.
+ *
+ * @since 2026-05-11
+ */
+
+
 public class CheckBillingData {
 
     // check batchHeader VS1

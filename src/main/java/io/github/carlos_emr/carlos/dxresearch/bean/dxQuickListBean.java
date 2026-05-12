@@ -30,6 +30,13 @@
 
 package io.github.carlos_emr.carlos.dxresearch.bean;
 
+/**
+ * Data transfer object / form bean for dxQuickListBean.
+ *
+ * @since 2026-05-11
+ */
+
+
 
 public class dxQuickListBean {
 

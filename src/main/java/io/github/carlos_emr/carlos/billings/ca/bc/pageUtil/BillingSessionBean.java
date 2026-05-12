@@ -34,6 +34,13 @@ import java.util.ArrayList;
 
 import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingBillingManager.BillingItem;
 
+/**
+ * Data transfer object / form bean for BillingSessionBean.
+ *
+ * @since 2026-05-11
+ */
+
+
 public class BillingSessionBean implements java.io.Serializable {
     private String apptProviderNo = null;
     private String patientName = null;

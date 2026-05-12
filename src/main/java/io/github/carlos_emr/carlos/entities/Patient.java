@@ -29,6 +29,13 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+/**
+ * Represents the Patient component in the CARLOS EMR system.
+ *
+ * @since 2026-05-11
+ */
+
+
 public class Patient {
     private String firstName;
     private String lastName;

@@ -65,6 +65,13 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
+/**
+ * Struts action class for handling ViewWCB2 requests.
+ *
+ * @since 2026-05-11
+ */
+
+
 public class ViewWCB2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

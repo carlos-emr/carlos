@@ -50,6 +50,13 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.DocumentBean;
 
+/**
+ * Represents the DocumentTeleplanReportUploadServlet component in the CARLOS EMR system.
+ *
+ * @since 2026-05-11
+ */
+
+
 public class DocumentTeleplanReportUploadServlet extends HttpServlet {
     final static int BUFFER = 2048;
 

@@ -27,6 +27,13 @@
 
 package io.github.carlos_emr.carlos.utility;
 
+/**
+ * Represents the ShutdownException component in the CARLOS EMR system.
+ *
+ * @since 2026-05-11
+ */
+
+
 public class ShutdownException extends Exception {
     public ShutdownException() {
         super("Shutdown received.");

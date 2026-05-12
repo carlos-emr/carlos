@@ -29,6 +29,13 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+/**
+ * Represents the PaymentType component in the CARLOS EMR system.
+ *
+ * @since 2026-05-11
+ */
+
+
 public class PaymentType {
     private String id;
     private String paymentType;

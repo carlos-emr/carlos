@@ -51,6 +51,13 @@ import io.github.carlos_emr.carlos.entities.Billingmaster;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Represents the MSPReconcile component in the CARLOS EMR system.
+ *
+ * @since 2026-05-11
+ */
+
+
 public class MSPReconcile {
 
     public static String REJECTED = "R";

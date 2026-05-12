@@ -47,6 +47,13 @@ import io.github.carlos_emr.carlos.dxresearch.bean.dxQuickListBeanHandler;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts action class for handling dxResearchLoadQuickList2 requests.
+ *
+ * @since 2026-05-11
+ */
+
+
 public class dxResearchLoadQuickList2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

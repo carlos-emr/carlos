@@ -37,6 +37,13 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.tickler.TicklerCreator;
 import io.github.carlos_emr.carlos.util.SqlUtils;
 
+/**
+ * Represents the CDMReminderHlp component in the CARLOS EMR system.
+ *
+ * @since 2026-05-11
+ */
+
+
 public class CDMReminderHlp {
     public CDMReminderHlp() {
     }

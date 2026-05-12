@@ -36,6 +36,13 @@ import io.github.carlos_emr.carlos.commn.model.Appointment;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Represents the AppointmentUtil component in the CARLOS EMR system.
+ *
+ * @since 2026-05-11
+ */
+
+
 public class AppointmentUtil {
 
     private static final String NONE = "(none)";

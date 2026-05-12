@@ -32,6 +32,13 @@ package io.github.carlos_emr.carlos.utility;
 import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
 
+/**
+ * Represents the OscarAuditLogger component in the CARLOS EMR system.
+ *
+ * @since 2026-05-11
+ */
+
+
 public class OscarAuditLogger {
 
     private static OscarAuditLogger instance = new OscarAuditLogger();

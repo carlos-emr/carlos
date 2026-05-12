@@ -42,6 +42,13 @@ import org.apache.logging.log4j.Logger;
 
 import io.github.carlos_emr.carlos.util.SqlUtils;
 
+/**
+ * Represents the DbConnectionFilter component in the CARLOS EMR system.
+ *
+ * @since 2026-05-11
+ */
+
+
 public class DbConnectionFilter implements jakarta.servlet.Filter {
     private static final Logger logger = MiscUtils.getLogger();
 

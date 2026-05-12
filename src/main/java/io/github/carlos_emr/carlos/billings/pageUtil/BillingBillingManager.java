@@ -41,6 +41,13 @@ import io.github.carlos_emr.carlos.entities.Billingmaster;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Represents the BillingBillingManager component in the CARLOS EMR system.
+ *
+ * @since 2026-05-11
+ */
+
+
 public class BillingBillingManager {
 
     public BillingItem[] getBillingItem(String[] service, String service1, String service2, String service3, String service1unit, String service2unit, String service3unit) {

@@ -32,6 +32,13 @@ package io.github.carlos_emr.carlos.dxresearch.util;
 
 import io.github.carlos_emr.CarlosProperties;
 
+/**
+ * Represents the dxResearchCodingSystem component in the CARLOS EMR system.
+ *
+ * @since 2026-05-11
+ */
+
+
 public class dxResearchCodingSystem {
 
     private String codingSystem;

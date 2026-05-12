@@ -40,6 +40,13 @@ import java.sql.Statement;
 import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
+/**
+ * Represents the dbExtract component in the CARLOS EMR system.
+ *
+ * @since 2026-05-11
+ */
+
+
 public class dbExtract implements Serializable {
 
     private Connection con = null;

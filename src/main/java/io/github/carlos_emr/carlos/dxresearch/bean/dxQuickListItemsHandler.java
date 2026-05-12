@@ -44,6 +44,13 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.dxresearch.util.dxResearchCodingSystem;
 
+/**
+ * Represents the dxQuickListItemsHandler component in the CARLOS EMR system.
+ *
+ * @since 2026-05-11
+ */
+
+
 public class dxQuickListItemsHandler {
 
     private QuickListUserDao dao = SpringUtils.getBean(QuickListUserDao.class);

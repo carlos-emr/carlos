@@ -37,6 +37,13 @@ import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Data transfer object / form bean for QuickBillingBCFormBean.
+ *
+ * @since 2026-05-11
+ */
+
+
 
 public class QuickBillingBCFormBean {
 

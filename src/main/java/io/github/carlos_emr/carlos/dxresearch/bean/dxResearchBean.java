@@ -34,6 +34,13 @@ import io.github.carlos_emr.carlos.commn.dao.PartialDateDao;
 import io.github.carlos_emr.carlos.commn.model.PartialDate;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Data transfer object / form bean for dxResearchBean.
+ *
+ * @since 2026-05-11
+ */
+
+
 
 public class dxResearchBean {
     private static final PartialDateDao partialDateDao = (PartialDateDao) SpringUtils.getBean(PartialDateDao.class);

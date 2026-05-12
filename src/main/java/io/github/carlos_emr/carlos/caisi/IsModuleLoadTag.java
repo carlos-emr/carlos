@@ -32,6 +32,13 @@ import jakarta.servlet.jsp.tagext.TagSupport;
 
 import io.github.carlos_emr.CarlosProperties;
 
+/**
+ * Represents the IsModuleLoadTag component in the CARLOS EMR system.
+ *
+ * @since 2026-05-11
+ */
+
+
 public class IsModuleLoadTag extends TagSupport {
 
     private String moduleName;

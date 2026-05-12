@@ -35,6 +35,13 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.dao.DxDao;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Data transfer object / form bean for dxCodeSearchBeanHandler.
+ *
+ * @since 2026-05-11
+ */
+
+
 public class dxCodeSearchBeanHandler {
 
     List<dxCodeSearchBean> dxCodeSearchBeanVector = new ArrayList<dxCodeSearchBean>();

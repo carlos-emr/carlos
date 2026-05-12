@@ -50,6 +50,13 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingBillingManager.BillingItem;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Data transfer object / form bean for BillingViewBean.
+ *
+ * @since 2026-05-11
+ */
+
+
 public class BillingViewBean {
 
     private String apptProviderNo = null;

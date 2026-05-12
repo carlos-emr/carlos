@@ -37,6 +37,13 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.dxresearch.util.dxResearchCodingSystem;
 
+/**
+ * Data transfer object / form bean for dxResearchBeanHandler.
+ *
+ * @since 2026-05-11
+ */
+
+
 public class dxResearchBeanHandler {
 
     Vector<dxResearchBean> dxResearchBeanVector = new Vector<dxResearchBean>();

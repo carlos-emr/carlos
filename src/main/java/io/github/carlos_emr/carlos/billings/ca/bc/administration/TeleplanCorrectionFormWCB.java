@@ -43,6 +43,13 @@ import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.carlos.demographic.data.DemographicData;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Data transfer object / form bean for TeleplanCorrectionFormWCB.
+ *
+ * @since 2026-05-11
+ */
+
+
 public class TeleplanCorrectionFormWCB {
 
     private static Logger logger = MiscUtils.getLogger();

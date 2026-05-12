@@ -51,6 +51,13 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
+/**
+ * Data transfer object / form bean for ExtractBean.
+ *
+ * @since 2026-05-11
+ */
+
+
 public class ExtractBean extends Object implements Serializable {
 
     private static final long serialVersionUID = 1L;

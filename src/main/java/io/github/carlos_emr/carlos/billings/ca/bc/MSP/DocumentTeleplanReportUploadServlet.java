@@ -49,6 +49,13 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.DocumentBean;
 import io.github.carlos_emr.CarlosProperties;
 
+/**
+ * Represents the DocumentTeleplanReportUploadServlet component in the CARLOS EMR system.
+ *
+ * @since 2026-05-11
+ */
+
+
 public class DocumentTeleplanReportUploadServlet extends HttpServlet {
 
     public void service(HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {

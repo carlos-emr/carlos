@@ -43,6 +43,13 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 import java.util.*;
 
+/**
+ * Data transfer object / form bean for BillingFormData.
+ *
+ * @since 2026-05-11
+ */
+
+
 public class BillingFormData {
 
     private DiagnosticCodeDao diagnosticCodeDao = SpringUtils.getBean(DiagnosticCodeDao.class);

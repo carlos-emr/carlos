@@ -65,6 +65,13 @@ public final class BillingOnConstants {
     public static final String BILLINGMATCHSTRING_3RDPARTY = "PAT|OCF|ODS|CPP|STD|IFH";
 
     // UH: update billing_on_cheader1, refer to issue#233 https://github.com/oscaremr/oscar/issues/233
+
+/**
+ * Represents the ACTION_TYPE component in the CARLOS EMR system.
+ *
+ * @since 2026-05-11
+ */
+
     public enum ACTION_TYPE {C, R, U, D, UH}
 
 

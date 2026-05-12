@@ -73,6 +73,13 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts action class for handling ManageTeleplan2 requests.
+ *
+ * @since 2026-05-11
+ */
+
+
 public class ManageTeleplan2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 

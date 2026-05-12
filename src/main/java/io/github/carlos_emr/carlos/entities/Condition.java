@@ -31,6 +31,13 @@ package io.github.carlos_emr.carlos.entities;
 
 // Class Condition
 //
+
+/**
+ * Represents the Condition component in the CARLOS EMR system.
+ *
+ * @since 2026-05-11
+ */
+
 public class Condition
         extends ClinicalFactor {
     // Fields

@@ -29,6 +29,13 @@
 
 package io.github.carlos_emr.carlos.billings.ca.bc.data;
 
+/**
+ * Represents the InjuryLocation component in the CARLOS EMR system.
+ *
+ * @since 2026-05-11
+ */
+
+
 public class InjuryLocation {
     private String sidetype;
     private String sidedesc;

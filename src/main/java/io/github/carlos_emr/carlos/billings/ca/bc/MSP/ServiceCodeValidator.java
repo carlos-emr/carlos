@@ -24,6 +24,13 @@
 
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
 
+/**
+ * Represents the ServiceCodeValidator component in the CARLOS EMR system.
+ *
+ * @since 2026-05-11
+ */
+
+
 public class ServiceCodeValidator {
     protected boolean valid = true;
     protected String serviceCode = "";

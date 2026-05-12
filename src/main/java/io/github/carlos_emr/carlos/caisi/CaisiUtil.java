@@ -27,6 +27,13 @@
 
 package io.github.carlos_emr.carlos.caisi;
 
+/**
+ * Represents the CaisiUtil component in the CARLOS EMR system.
+ *
+ * @since 2026-05-11
+ */
+
+
 public class CaisiUtil {
     public static String removeAttr(String str, String attr) {
         if (str == null) return (null);

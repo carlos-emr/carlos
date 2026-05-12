@@ -56,6 +56,13 @@ import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 
+/**
+ * Data transfer object / form bean for ExtractBean.
+ *
+ * @since 2026-05-11
+ */
+
+
 
 public class ExtractBean extends Object implements Serializable {
     private static Logger logger = MiscUtils.getLogger();

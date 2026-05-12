@@ -64,6 +64,13 @@ import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+/**
+ * Struts action class for handling BillingCreateBilling2 requests.
+ *
+ * @since 2026-05-11
+ */
+
+
 public class BillingCreateBilling2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 

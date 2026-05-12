@@ -61,6 +61,13 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts action class for handling BillingSaveBilling2 requests.
+ *
+ * @since 2026-05-11
+ */
+
+
 public class BillingSaveBilling2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 

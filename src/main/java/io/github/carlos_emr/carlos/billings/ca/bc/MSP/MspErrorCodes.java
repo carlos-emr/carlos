@@ -45,6 +45,13 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 
+/**
+ * Represents the MspErrorCodes component in the CARLOS EMR system.
+ *
+ * @since 2026-05-11
+ */
+
+
 public class MspErrorCodes extends Properties {
 
     /**

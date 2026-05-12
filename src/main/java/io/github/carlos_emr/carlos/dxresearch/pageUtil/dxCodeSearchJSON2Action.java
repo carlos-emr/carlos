@@ -55,6 +55,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts action class for handling dxCodeSearchJSON2 requests.
+ *
+ * @since 2026-05-11
+ */
+
+
 public class dxCodeSearchJSON2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
