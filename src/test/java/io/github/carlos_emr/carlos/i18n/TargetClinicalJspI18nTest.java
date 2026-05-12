@@ -178,7 +178,9 @@ class TargetClinicalJspI18nTest {
                     .as("resource %s must exist on the classpath", resource)
                     .isNotNull();
             Properties properties = new Properties();
-            properties.load(new InputStreamReader(is, StandardCharsets.UTF_8));
+            try (InputStreamReader reader = new InputStreamReader(is, StandardCharsets.UTF_8)) {
+                properties.load(reader);
+            }
             return properties;
         }
     }
