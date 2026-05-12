@@ -437,7 +437,7 @@ popup.focus();
 }
 }
 
-function popupPageOfChangePassword(){
+function showPasswordExpiryWarning(){
 <%
     Integer ed;
     String expired_days = "";
@@ -448,8 +448,7 @@ function popupPageOfChangePassword(){
         //javascript
 %>
 
-window.open("<%= request.getContextPath() %>/provider/ViewChangePassword","changePassword","resizable=yes,scrollbars=yes,width=400,height=300");
-changePassword.moveTo(0,0);
+window.location.href = "<%= request.getContextPath() %>/provider/ViewChangePassword";
 <%}%>
 }
 function popupInboxManager(varpage, height = 700, width = 1215) {
@@ -568,7 +567,7 @@ pu.focus();
 }
 }
 
-popupPageOfChangePassword();
+showPasswordExpiryWarning();
 refreshAllTabAlerts();
 }
 

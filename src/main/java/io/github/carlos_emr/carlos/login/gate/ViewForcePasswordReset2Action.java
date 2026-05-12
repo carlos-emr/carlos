@@ -13,6 +13,12 @@
 package io.github.carlos_emr.carlos.login.gate;
 
 import io.github.carlos_emr.carlos.login.Login2Action;
+import io.github.carlos_emr.carlos.login.LoginCredentialCache;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
+
+import org.apache.struts2.ServletActionContext;
 
 /**
  * Gate for the forced-password-reset page, which depends on the staged login
@@ -21,6 +27,28 @@ import io.github.carlos_emr.carlos.login.Login2Action;
  * @since 2026-04-15
  */
 public final class ViewForcePasswordReset2Action extends BaseLoginPageView2Action {
+
+    @Override
+    public String execute() throws Exception {
+        String result = super.execute();
+        if (!SUCCESS.equals(result)) {
+            return result;
+        }
+
+        HttpServletRequest request = ServletActionContext.getRequest();
+        HttpSession session = request.getSession(false);
+        Object tokenAttr = session.getAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR);
+        if (!(tokenAttr instanceof String token) || LoginCredentialCache.getInstance().peek(token) == null) {
+            session.removeAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR);
+            HttpServletResponse response = ServletActionContext.getResponse();
+            String redirectUrl = request.getContextPath()
+                    + "/loginfailed?errormsg=Session expired. Please log in again.";
+            response.sendRedirect(redirectUrl);
+            return NONE;
+        }
+
+        return SUCCESS;
+    }
 
     @Override
     protected String requiredSessionAttribute() {

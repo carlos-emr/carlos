@@ -59,6 +59,8 @@ class LoginJspMigrationRegressionTest {
             Path.of("src/main/webapp/WEB-INF/jsp/provider/mainMenu.jsp");
     private static final Path APPOINTMENT_PROVIDER_ADMIN_DAY =
             Path.of("src/main/webapp/WEB-INF/jsp/provider/appointmentprovideradminday.jsp");
+    private static final Path PROVIDER_SCHEDULE_PAGE_JS =
+            Path.of("src/main/webapp/WEB-INF/jsp/provider/schedulePage.js.jsp");
     private static final Path ADMINISTRATION_LEFT_NAV =
             Path.of("src/main/webapp/WEB-INF/jsp/administration/leftNav.jspf");
     private static final Path LOGIN_ACTION =
@@ -151,6 +153,21 @@ class LoginJspMigrationRegressionTest {
     }
 
     @Test
+    @DisplayName("appointment day should run password expiry warning on non CAISI schedule load")
+    void appointmentDayShouldRunPasswordExpiryWarningOnNonCaisiScheduleLoad() throws IOException {
+        String appointmentProviderAdminDay =
+                Files.readString(APPOINTMENT_PROVIDER_ADMIN_DAY, StandardCharsets.UTF_8);
+        String providerSchedulePageJs = Files.readString(PROVIDER_SCHEDULE_PAGE_JS, StandardCharsets.UTF_8);
+
+        assertThat(appointmentProviderAdminDay)
+                .contains("<body onLoad=\"showPasswordExpiryWarning();refreshAllTabAlerts();scrollOnLoad();\">");
+        assertThat(providerSchedulePageJs).contains("function showPasswordExpiryWarning()");
+        assertThat(providerSchedulePageJs)
+                .contains("window.location.href = \"<%= request.getContextPath() %>/provider/ViewChangePassword\";");
+        assertThat(providerSchedulePageJs).doesNotContain("window.open(\"<%= request.getContextPath() %>/provider/ViewChangePassword\"");
+    }
+
+    @Test
     @DisplayName("representative public callers should use migrated login routes")
     void representativePublicCallersShouldUseMigratedLoginRoutes() throws IOException {
         String csrfGuard = Files.readString(CSRF_GUARD, StandardCharsets.UTF_8);
@@ -171,6 +188,8 @@ class LoginJspMigrationRegressionTest {
 
         assertThat(forcePasswordResetGate).contains("return Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR;");
         assertThat(forcePasswordResetGate).doesNotContain("\"userName\"");
+        assertThat(forcePasswordResetGate).contains("LoginCredentialCache.getInstance().peek(token)");
+        assertThat(forcePasswordResetGate).contains("Session expired. Please log in again.");
         assertThat(loginAction).contains("session.setAttribute(LOGIN_CREDENTIALS_TOKEN_ATTR, token)");
         assertThat(loginAction).contains("return \"forcepasswordreset\";");
         assertThat(loginAction).contains("request.setAttribute(\"errormsg\", errorStr)");
