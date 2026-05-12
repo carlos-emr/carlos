@@ -216,5 +216,11 @@
         <action name="provider/ViewAppointmentAdminMonth" class="io.github.carlos_emr.carlos.providers.gate.ViewAppointmentAdminMonth2Action">
             <result name="success">/WEB-INF/jsp/provider/appointmentprovideradminmonth.jsp</result>
         </action>
+        <action name="provider/ViewProviderColourErr" class="io.github.carlos_emr.carlos.providers.gate.ViewProviderColourErr2Action">
+            <result name="success">/WEB-INF/jsp/provider/providerColourErr.jsp</result>
+        </action>
+        <action name="provider/ViewProviderFaxErr" class="io.github.carlos_emr.carlos.providers.gate.ViewProviderFaxErr2Action">
+            <result name="success">/WEB-INF/jsp/provider/providerFaxErr.jsp</result>
+        </action>
     </package>
 </struts>

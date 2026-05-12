@@ -73,6 +73,8 @@ gh pr create                 # GitHub pull request creation
 - OWASP Encoder for ALL user inputs (see [OWASP Encoding](#owasp-encoding--xss-prevention) below)
 - Parameterized queries ONLY - never string concatenation
 - ALL actions MUST include `SecurityInfoManager.hasPrivilege()` checks
+- SecurityException messages for failed security-object privilege checks MUST use
+  paren form: `missing required sec object (_objectname)` (not colon form).
 - PHI (Patient Health Information) must NEVER be logged or exposed
 - **Use `PathValidationUtils` for ALL file path operations** (see below)
 
