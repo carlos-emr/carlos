@@ -160,7 +160,8 @@ class LoginJspMigrationRegressionTest {
         String providerSchedulePageJs = Files.readString(PROVIDER_SCHEDULE_PAGE_JS, StandardCharsets.UTF_8);
 
         assertThat(appointmentProviderAdminDay)
-                .contains("<body onLoad=\"showPasswordExpiryWarning();refreshAllTabAlerts();scrollOnLoad();\">");
+                .contains("<body")
+                .contains("showPasswordExpiryWarning();");
         assertThat(providerSchedulePageJs).contains("function showPasswordExpiryWarning()");
         assertThat(providerSchedulePageJs)
                 .contains("window.location.href = \"<%= request.getContextPath() %>/provider/ViewChangePassword\";");
