@@ -35,10 +35,10 @@
  *
  * <p><strong>Features:</strong></p>
  * <ul>
- *   <li>Multi-provider support (Middleware relay, SRFax direct API)</li>
+ *   <li>Multi-provider support (Middleware relay, SRFax direct API, HylaFax on-premise)</li>
  *   <li>Real-time scheduler health status polling</li>
  *   <li>Encrypted credential storage with auto-migration from legacy plain text</li>
- *   <li>Provider-specific field visibility (middleware vs SRFax)</li>
+ *   <li>Provider-specific field visibility (middleware vs SRFax vs HylaFax)</li>
  *   <li>Unsaved changes warning on page navigation</li>
  * </ul>
  *
@@ -260,15 +260,34 @@
             if (providerType === "MIDDLEWARE") {
                 $("#middlewareFields").show();
                 $("#srfaxUrlInfo").hide();
+                $("#hylafaxFields").hide();
+                $("#providerAccountFields").show();
                 $("#faxServiceUser").prop("required", true);
                 $("#faxServicePasswd").prop("required", true);
                 $("#faxUrl").prop("required", true);
-            } else {
+                $("#hylafaxHost").prop("required", false);
+                $("#hylafaxUsername").prop("required", false);
+            } else if (providerType === "SRFAX") {
                 $("#middlewareFields").hide();
                 $("#srfaxUrlInfo").show();
+                $("#hylafaxFields").hide();
+                $("#providerAccountFields").show();
                 $("#faxServiceUser").prop("required", false);
                 $("#faxServicePasswd").prop("required", false);
                 $("#faxUrl").prop("required", false);
+                $("#hylafaxHost").prop("required", false);
+                $("#hylafaxUsername").prop("required", false);
+                $("#faxUrl").val("");
+            } else {
+                $("#middlewareFields").hide();
+                $("#srfaxUrlInfo").hide();
+                $("#hylafaxFields").show();
+                $("#providerAccountFields").hide();
+                $("#faxServiceUser").prop("required", false);
+                $("#faxServicePasswd").prop("required", false);
+                $("#faxUrl").prop("required", false);
+                $("#hylafaxHost").prop("required", true);
+                $("#hylafaxUsername").prop("required", true);
                 $("#faxUrl").val("");
             }
         }
@@ -462,6 +481,12 @@
                             String faxUrl = faxCfg != null ? faxCfg.getUrl() : "";
                             String siteUser = faxCfg != null ? faxCfg.getSiteUser() : "";
                             String sitePasswd = faxCfg != null ? ConfigureFax2Action.maskPasswordForDisplay(faxCfg.getPasswd()) : "";
+                            String hylafaxHost = faxCfg != null ? faxCfg.getHylafaxHost() : "";
+                            Integer hylafaxPort = faxCfg != null ? faxCfg.getHylafaxPort() : 4559;
+                            String hylafaxUsername = faxCfg != null ? faxCfg.getHylafaxUsername() : "";
+                            String hylafaxModem = faxCfg != null ? faxCfg.getHylafaxModem() : "";
+                            boolean hylafaxUseSsh = faxCfg != null && faxCfg.isHylafaxUseSsh();
+                            String hylafaxRecvqPath = faxCfg != null ? faxCfg.getHylafaxRecvqPath() : "";
                         %>
 
                         <!-- Provider Type Selection -->
@@ -471,6 +496,7 @@
                                 <select class="form-select" id="providerType" name="providerType">
                                     <option value="MIDDLEWARE" <%=providerType == FaxConfig.ProviderType.MIDDLEWARE ? "selected" : ""%>><fmt:message key="admin.configureFax.provider.middlewareRelay"/></option>
                                     <option value="SRFAX" <%=providerType == FaxConfig.ProviderType.SRFAX ? "selected" : ""%>><fmt:message key="admin.configureFax.provider.srfaxDirectApi"/></option>
+                                    <option value="HYLAFAX" <%=providerType == FaxConfig.ProviderType.HYLAFAX ? "selected" : ""%>><fmt:message key="admin.configureFax.provider.hylafax"/></option>
                                 </select>
                                 <small class="fax-muted"><i class="fas fa-info-circle"></i> <fmt:message key="admin.configureFax.chooseConnection"/></small>
                             </div>
@@ -522,8 +548,61 @@
                             </div>
                         </div>
 
+                        <!-- HylaFax Server Fields (shown only for HylaFax provider) -->
+                        <div id="hylafaxFields" style="display:none;">
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <h6 style="color: #0d6efd; margin-top: 12px; margin-bottom: 8px;"><fmt:message key="admin.configureFax.hylafaxServer"/></h6>
+                                    <small class="fax-muted" style="display: block; margin-bottom: 12px;">
+                                        <i class="fas fa-info-circle"></i> <fmt:message key="admin.configureFax.hylafaxHelp"/>
+                                    </small>
+                                </div>
+                                <div class="col-md-8">
+                                    <label for="hylafaxHost"><fmt:message key="admin.configureFax.hylafaxHost"/></label>
+                                    <input class="form-control" id="hylafaxHost" type="text" name="hylafaxHost"
+                                           value="<carlos:encode value='<%= hylafaxHost %>' context="htmlAttribute"/>"/>
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="hylafaxPort"><fmt:message key="admin.configureFax.hylafaxPort"/></label>
+                                    <input class="form-control" id="hylafaxPort" type="number" min="1" max="65535" name="hylafaxPort"
+                                           value="<carlos:encode value='<%= String.valueOf(hylafaxPort) %>' context="htmlAttribute"/>"/>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label for="hylafaxUsername"><fmt:message key="admin.configureFax.hylafaxUsername"/></label>
+                                    <input class="form-control" id="hylafaxUsername" type="text" name="hylafaxUsername"
+                                           value="<carlos:encode value='<%= hylafaxUsername %>' context="htmlAttribute"/>"/>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label for="hylafaxModem"><fmt:message key="admin.configureFax.hylafaxModem"/></label>
+                                    <input class="form-control" id="hylafaxModem" type="text" name="hylafaxModem"
+                                           value="<carlos:encode value='<%= hylafaxModem %>' context="htmlAttribute"/>"/>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="hylafaxRecvqPath"><fmt:message key="admin.configureFax.hylafaxRecvqPath"/></label>
+                                    <input class="form-control" id="hylafaxRecvqPath" type="text" name="hylafaxRecvqPath"
+                                           placeholder="/var/spool/hylafax/recvq"
+                                           value="<carlos:encode value='<%= hylafaxRecvqPath %>' context="htmlAttribute"/>"/>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <label>
+                                        <input type="checkbox" id="hylafaxUseSshCheckbox" <%=hylafaxUseSsh ? "checked" : ""%>
+                                               onchange="$('#hylafaxUseSsh').val(this.checked); $('#submit').prop('disabled', false);" />
+                                        <fmt:message key="admin.configureFax.hylafaxUseSsh"/>
+                                    </label>
+                                    <input type="hidden" id="hylafaxUseSsh" name="hylafaxUseSsh" value="<%=hylafaxUseSsh%>"/>
+                                    <small class="fax-muted"><fmt:message key="admin.configureFax.hylafaxSshKeyHelp"/></small>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- SRFax Account Credentials (always shown) -->
-                        <div class="row">
+                        <div class="row" id="providerAccountFields">
                             <div class="col-md-12">
                                 <h6 style="color: #0d6efd; margin-top: 12px; margin-bottom: 8px;"><fmt:message key="admin.configureFax.srfaxAccountCredentials"/></h6>
                                 <small class="fax-muted" style="display: block; margin-bottom: 12px;">

@@ -65,6 +65,10 @@ public class ConfigureFax2Action extends ActionSupport {
     /** Sentinel value sent by the UI to indicate a stored password should not be overwritten. */
     public static final String PASSWORD_MASK_SENTINEL = "**********";
     private static final String DEFAULT_ERROR_MESSAGE = "There was a problem saving your configuration. Check the logs for details.";
+    private static final java.util.regex.Pattern SAFE_HYLAFAX_HOST =
+            java.util.regex.Pattern.compile("[A-Za-z0-9][A-Za-z0-9.-]{0,252}");
+    private static final java.util.regex.Pattern SAFE_HYLAFAX_USERNAME =
+            java.util.regex.Pattern.compile("[A-Za-z0-9._-]{1,64}");
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -131,6 +135,12 @@ public class ConfigureFax2Action extends ActionSupport {
             String[] accountNames = request.getParameterValues("accountName");
             String[] downloadState = request.getParameterValues("downloadState");
             String[] providerTypes = request.getParameterValues("providerType");
+            String[] hylafaxHosts = request.getParameterValues("hylafaxHost");
+            String[] hylafaxPorts = request.getParameterValues("hylafaxPort");
+            String[] hylafaxUsernames = request.getParameterValues("hylafaxUsername");
+            String[] hylafaxModems = request.getParameterValues("hylafaxModem");
+            String[] hylafaxUseSsh = request.getParameterValues("hylafaxUseSsh");
+            String[] hylafaxRecvqPaths = request.getParameterValues("hylafaxRecvqPath");
 
             Integer id;
             int savedidx;
@@ -166,12 +176,17 @@ public class ConfigureFax2Action extends ActionSupport {
                         throw new IllegalArgumentException("Invalid configuration ID for account row " + (idx + 1) + ".");
                     }
                     FaxConfig.ProviderType providerType = resolveProviderType(providerTypes, idx, id);
-                    validateConfigRow(providerType, faxUrl, siteUser, sitePasswd, faxUsers, faxPasswds, faxNumbers, senderEmails, inboxQueues, idx, id);
+                    validateConfigRow(providerType, faxUrl, siteUser, sitePasswd, faxUsers, faxPasswds, faxNumbers,
+                            senderEmails, inboxQueues, hylafaxHosts, hylafaxPorts, hylafaxUsernames,
+                            hylafaxRecvqPaths, idx, id);
 
-                    // SRFax always uses the fixed API URL; middleware uses the user-provided URL
-                    String resolvedFaxUrl = providerType == FaxConfig.ProviderType.SRFAX
-                            ? SRFaxProviderClient.DEFAULT_SRFAX_API_URL
-                            : faxUrl;
+                    // SRFax always uses the fixed API URL; middleware uses the user-provided URL.
+                    String resolvedFaxUrl = "";
+                    if (providerType == FaxConfig.ProviderType.SRFAX) {
+                        resolvedFaxUrl = SRFaxProviderClient.DEFAULT_SRFAX_API_URL;
+                    } else if (providerType == FaxConfig.ProviderType.MIDDLEWARE) {
+                        resolvedFaxUrl = faxUrl;
+                    }
 
                     faxConfig = new FaxConfig();
                     faxConfig.setId(id);
@@ -186,9 +201,10 @@ public class ConfigureFax2Action extends ActionSupport {
                             savedFaxConfig.setPasswd(sitePasswd.trim());
                         }
 
-                        savedFaxConfig.setFaxUser(faxUsers[idx]);
+                        savedFaxConfig.setFaxUser(resolveFaxUser(providerType, faxUsers, hylafaxUsernames, idx));
 
-                        if (faxPasswds != null && idx < faxPasswds.length && faxPasswds[idx] != null && !isPasswordUnchanged(faxPasswds[idx])) {
+                        if (faxPasswds != null && idx < faxPasswds.length
+                                && faxPasswds[idx] != null && !isPasswordUnchanged(faxPasswds[idx])) {
                             savedFaxConfig.setFaxPasswd(faxPasswds[idx].trim());
                         }
                         // Clear per-row fax password after use (covers both updated and sentinel cases)
@@ -207,6 +223,8 @@ public class ConfigureFax2Action extends ActionSupport {
                         savedFaxConfig.setActive(Boolean.parseBoolean(activeState[idx]));
                         savedFaxConfig.setDownload(Boolean.parseBoolean(downloadState[idx]));
                         savedFaxConfig.setProviderType(providerType);
+                        applyHylaFaxConfig(savedFaxConfig, hylafaxHosts, hylafaxPorts, hylafaxUsernames,
+                                hylafaxModems, hylafaxUseSsh, hylafaxRecvqPaths, idx, providerType);
                         faxConfigList.add(savedFaxConfig);
                     } else {
                         faxConfig.setId(null);
@@ -217,9 +235,10 @@ public class ConfigureFax2Action extends ActionSupport {
                         }
 
                         faxConfig.setUrl(resolvedFaxUrl);
-                        faxConfig.setFaxUser(faxUsers[idx]);
+                        faxConfig.setFaxUser(resolveFaxUser(providerType, faxUsers, hylafaxUsernames, idx));
 
-                        if (faxPasswds != null && idx < faxPasswds.length && faxPasswds[idx] != null && !isPasswordUnchanged(faxPasswds[idx])) {
+                        if (faxPasswds != null && idx < faxPasswds.length
+                                && faxPasswds[idx] != null && !isPasswordUnchanged(faxPasswds[idx])) {
                             faxConfig.setFaxPasswd(faxPasswds[idx].trim());
                         }
                         // Clear per-row fax password after use (covers both updated and sentinel cases)
@@ -238,6 +257,8 @@ public class ConfigureFax2Action extends ActionSupport {
                         faxConfig.setActive(Boolean.parseBoolean(activeState[idx]));
                         faxConfig.setDownload(Boolean.parseBoolean(downloadState[idx]));
                         faxConfig.setProviderType(providerType);
+                        applyHylaFaxConfig(faxConfig, hylafaxHosts, hylafaxPorts, hylafaxUsernames,
+                                hylafaxModems, hylafaxUseSsh, hylafaxRecvqPaths, idx, providerType);
                         faxConfigList.add(faxConfig);
                     }
                 }
@@ -374,7 +395,7 @@ public class ConfigureFax2Action extends ActionSupport {
         } catch (IllegalArgumentException ex) {
             // Sanitize user input before including in error message to prevent XSS
             String sanitizedInput = providerTypes[idx].replaceAll("[^a-zA-Z0-9_]", "");
-            String errorMsg = String.format("Invalid provider type '%s' for fax config id %d. Valid values are: MIDDLEWARE, SRFAX",
+            String errorMsg = String.format("Invalid provider type '%s' for fax config id %d. Valid values are: MIDDLEWARE, SRFAX, HYLAFAX",
                     sanitizedInput, faxConfigId);
             MiscUtils.getLogger().error("Invalid provider type for fax config id {}: {}", faxConfigId, providerTypes[idx], ex);
             throw new IllegalArgumentException(errorMsg);
@@ -398,8 +419,10 @@ public class ConfigureFax2Action extends ActionSupport {
      * @throws IllegalArgumentException when required values are missing or malformed
      */
     private void validateConfigRow(FaxConfig.ProviderType providerType, String faxUrl, String siteUser, String sitePasswd,
-                                   String[] faxUsers, String[] faxPasswds, String[] faxNumbers, String[] senderEmails,
-                                   String[] inboxQueues, int idx, Integer faxConfigId) {
+                                    String[] faxUsers, String[] faxPasswds, String[] faxNumbers, String[] senderEmails,
+                                    String[] inboxQueues, String[] hylafaxHosts, String[] hylafaxPorts,
+                                    String[] hylafaxUsernames, String[] hylafaxRecvqPaths,
+                                    int idx, Integer faxConfigId) {
         // Middleware mode requires URL and credentials; SRFax mode can use default URL
         if (providerType == FaxConfig.ProviderType.MIDDLEWARE) {
             if (StringUtils.isBlank(faxUrl)) {
@@ -414,7 +437,8 @@ public class ConfigureFax2Action extends ActionSupport {
                 throw new IllegalArgumentException("Middleware site password is required for new Middleware accounts.");
             }
         }
-        if (faxUsers == null || idx >= faxUsers.length || StringUtils.isBlank(faxUsers[idx])) {
+        if (providerType != FaxConfig.ProviderType.HYLAFAX
+                && (faxUsers == null || idx >= faxUsers.length || StringUtils.isBlank(faxUsers[idx]))) {
             throw new IllegalArgumentException("Fax user is required for account row " + (idx + 1) + ".");
         }
         if (faxNumbers == null || idx >= faxNumbers.length || StringUtils.isBlank(faxNumbers[idx])) {
@@ -445,6 +469,93 @@ public class ConfigureFax2Action extends ActionSupport {
                 throw new IllegalArgumentException("SRFax password is required for new SRFax account row " + (idx + 1) + ".");
             }
         }
+        if (providerType == FaxConfig.ProviderType.HYLAFAX) {
+            if (hylafaxHosts == null || idx >= hylafaxHosts.length || StringUtils.isBlank(hylafaxHosts[idx])) {
+                throw new IllegalArgumentException("HylaFax host is required for account row " + (idx + 1) + ".");
+            }
+            if (!SAFE_HYLAFAX_HOST.matcher(hylafaxHosts[idx].trim()).matches()) {
+                throw new IllegalArgumentException("HylaFax host contains invalid characters for account row "
+                        + (idx + 1) + ".");
+            }
+            if (hylafaxUsernames == null || idx >= hylafaxUsernames.length || StringUtils.isBlank(hylafaxUsernames[idx])) {
+                throw new IllegalArgumentException("HylaFax username is required for account row " + (idx + 1) + ".");
+            }
+            if (!SAFE_HYLAFAX_USERNAME.matcher(hylafaxUsernames[idx].trim()).matches()) {
+                throw new IllegalArgumentException("HylaFax username contains invalid characters for account row "
+                        + (idx + 1) + ".");
+            }
+            if (hylafaxPorts != null && idx < hylafaxPorts.length && StringUtils.isNotBlank(hylafaxPorts[idx])) {
+                try {
+                    int port = Integer.parseInt(hylafaxPorts[idx]);
+                    if (port < 1 || port > 65535) {
+                        throw new IllegalArgumentException("HylaFax port must be between 1 and 65535.");
+                    }
+                } catch (NumberFormatException ex) {
+                    throw new IllegalArgumentException("HylaFax port must be numeric for account row " + (idx + 1) + ".");
+                }
+            }
+            if (hylafaxRecvqPaths != null && idx < hylafaxRecvqPaths.length
+                    && StringUtils.isNotBlank(hylafaxRecvqPaths[idx])
+                    && (!hylafaxRecvqPaths[idx].trim().startsWith("/")
+                    || hylafaxRecvqPaths[idx].contains("..")
+                    || hylafaxRecvqPaths[idx].contains("//")
+                    || !hylafaxRecvqPaths[idx].trim().endsWith("/recvq"))) {
+                throw new IllegalArgumentException("HylaFax recvq path must be an absolute recvq path for account row "
+                        + (idx + 1) + ".");
+            }
+        }
+    }
+
+    private void applyHylaFaxConfig(FaxConfig faxConfig, String[] hylafaxHosts, String[] hylafaxPorts,
+                                    String[] hylafaxUsernames, String[] hylafaxModems,
+                                    String[] hylafaxUseSsh, String[] hylafaxRecvqPaths,
+                                    int idx, FaxConfig.ProviderType providerType) {
+        if (providerType != FaxConfig.ProviderType.HYLAFAX) {
+            clearHylaFaxConfig(faxConfig);
+            return;
+        }
+        faxConfig.setHylafaxHost(valueAt(hylafaxHosts, idx));
+        String port = valueAt(hylafaxPorts, idx);
+        if (StringUtils.isBlank(port)) {
+            faxConfig.setHylafaxPort(4559);
+        } else {
+            try {
+                faxConfig.setHylafaxPort(Integer.parseInt(port.trim()));
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException("HylaFax port must be numeric for account row " + (idx + 1) + ".", e);
+            }
+        }
+        faxConfig.setHylafaxUsername(valueAt(hylafaxUsernames, idx));
+        faxConfig.setHylafaxPassword("");
+        faxConfig.setHylafaxModem(valueAt(hylafaxModems, idx));
+        faxConfig.setHylafaxUseSsh(Boolean.parseBoolean(valueAt(hylafaxUseSsh, idx)));
+        faxConfig.setHylafaxSshKey("");
+        faxConfig.setHylafaxRecvqPath(valueAt(hylafaxRecvqPaths, idx));
+    }
+
+    private void clearHylaFaxConfig(FaxConfig faxConfig) {
+        faxConfig.setHylafaxHost("");
+        faxConfig.setHylafaxPort(4559);
+        faxConfig.setHylafaxUsername("");
+        faxConfig.setHylafaxPassword("");
+        faxConfig.setHylafaxModem("");
+        faxConfig.setHylafaxUseSsh(false);
+        faxConfig.setHylafaxSshKey("");
+        faxConfig.setHylafaxRecvqPath("");
+    }
+
+    private String valueAt(String[] values, int idx) {
+        if (values == null || idx >= values.length || values[idx] == null) {
+            return "";
+        }
+        return values[idx].trim();
+    }
+
+    private String resolveFaxUser(FaxConfig.ProviderType providerType, String[] faxUsers, String[] hylafaxUsernames, int idx) {
+        if (providerType == FaxConfig.ProviderType.HYLAFAX) {
+            return valueAt(hylafaxUsernames, idx);
+        }
+        return valueAt(faxUsers, idx);
     }
 
     /**

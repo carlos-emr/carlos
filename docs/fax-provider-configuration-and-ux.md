@@ -9,6 +9,7 @@ introduced in CARLOS, with emphasis on SRFax behavior and admin configuration UX
 - Supported values:
   - `MIDDLEWARE` (legacy relay behavior)
   - `SRFAX` (direct SRFax API behavior)
+  - `HYLAFAX` (on-premise HylaFax server behavior)
 - Routing is resolved by `FaxProviderClientFactory`.
 
 ## Admin UX Entry Points
@@ -36,10 +37,17 @@ When provider type is `SRFAX`:
 When provider type is `MIDDLEWARE`:
 - existing relay behavior and URL conventions remain unchanged.
 
+When provider type is `HYLAFAX`:
+- `hf_host`, `hf_port`, `hf_username`, and `hf_password` identify the on-premise HylaFax server.
+- `hf_use_ssh` switches from local HylaFax client tools to SSH command execution.
+- `hf_recvq_path` points to the HylaFax receive queue for inbound fax polling.
+- See `docs/hylafax-setup.md` for setup and operational notes.
+
 ## Files to Know
 - Provider API contract: `src/main/java/io/github/carlos_emr/carlos/fax/provider/FaxProviderClient.java`
 - Provider resolver: `src/main/java/io/github/carlos_emr/carlos/fax/provider/FaxProviderClientFactory.java`
 - SRFax implementation: `src/main/java/io/github/carlos_emr/carlos/fax/provider/SRFaxProviderClient.java`
 - Middleware implementation: `src/main/java/io/github/carlos_emr/carlos/fax/provider/MiddlewareFaxProviderClient.java`
+- HylaFax implementation: `src/main/java/io/github/carlos_emr/carlos/fax/hylafax/HylaFaxConnector.java`
 - Admin action: `src/main/java/io/github/carlos_emr/carlos/fax/admin/ConfigureFax2Action.java`
 - Admin UI: `src/main/webapp/admin/configureFax.jsp`

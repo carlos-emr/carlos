@@ -69,7 +69,8 @@ class FaxProviderClientFactoryTest extends CarlosUnitTestBase {
         // Given
         FaxProviderClient middlewareClient = new TestClient(FaxConfig.ProviderType.MIDDLEWARE);
         FaxProviderClient srfaxClient = new TestClient(FaxConfig.ProviderType.SRFAX);
-        FaxProviderClientFactory factory = new FaxProviderClientFactory(Arrays.asList(middlewareClient, srfaxClient));
+        FaxProviderClient hylafaxClient = new TestClient(FaxConfig.ProviderType.HYLAFAX);
+        FaxProviderClientFactory factory = new FaxProviderClientFactory(Arrays.asList(middlewareClient, srfaxClient, hylafaxClient));
 
         FaxConfig faxConfig = new FaxConfig();
         faxConfig.setProviderType(FaxConfig.ProviderType.SRFAX);
@@ -79,6 +80,24 @@ class FaxProviderClientFactoryTest extends CarlosUnitTestBase {
 
         // Then
         assertThat(result).isSameAs(srfaxClient);
+    }
+
+    @Test
+    @DisplayName("should return HylaFax client when provider type is HYLAFAX")
+    void shouldReturnHylaFaxClient_whenProviderTypeIsHylafax() throws FaxProviderException {
+        // Given
+        FaxProviderClient middlewareClient = new TestClient(FaxConfig.ProviderType.MIDDLEWARE);
+        FaxProviderClient hylafaxClient = new TestClient(FaxConfig.ProviderType.HYLAFAX);
+        FaxProviderClientFactory factory = new FaxProviderClientFactory(Arrays.asList(middlewareClient, hylafaxClient));
+
+        FaxConfig faxConfig = new FaxConfig();
+        faxConfig.setProviderType(FaxConfig.ProviderType.HYLAFAX);
+
+        // When
+        FaxProviderClient result = factory.getClient(faxConfig);
+
+        // Then
+        assertThat(result).isSameAs(hylafaxClient);
     }
 
     @Test
