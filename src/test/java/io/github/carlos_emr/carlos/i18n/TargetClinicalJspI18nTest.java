@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -177,7 +178,7 @@ class TargetClinicalJspI18nTest {
                     .as("resource %s must exist on the classpath", resource)
                     .isNotNull();
             Properties properties = new Properties();
-            properties.load(is);
+            properties.load(new InputStreamReader(is, StandardCharsets.UTF_8));
             return properties;
         }
     }
