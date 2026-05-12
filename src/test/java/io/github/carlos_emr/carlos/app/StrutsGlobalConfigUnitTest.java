@@ -93,19 +93,20 @@ class StrutsGlobalConfigUnitTest {
             if (includes.item(i) instanceof Element include) {
                 String fileName = include.getAttribute("file");
                 Path includedPath = strutsDir.resolve(fileName);
-                if (Files.exists(includedPath)) {
-                    Map<String, String> constants = collectConstants(parseXml(includedPath));
-                    if ("false".equals(constants.get("struts.allowlist.enable"))) {
-                        violations.add(fileName + " sets struts.allowlist.enable=false");
-                    }
-                    String packageNames = constants.get("struts.allowlist.packageNames");
-                    if (packageNames != null && !EXPECTED_ALLOWLIST_PACKAGE.equals(packageNames)) {
-                        violations.add(fileName + " sets struts.allowlist.packageNames=" + packageNames);
-                    }
-                    String classes = constants.get("struts.allowlist.classes");
-                    if (classes != null) {
-                        violations.add(fileName + " sets struts.allowlist.classes=" + classes);
-                    }
+                assertThat(includedPath)
+                        .as("Included Struts config %s referenced from %s should exist", fileName, STRUTS_XML)
+                        .exists();
+                Map<String, String> constants = collectConstants(parseXml(includedPath));
+                if ("false".equals(constants.get("struts.allowlist.enable"))) {
+                    violations.add(fileName + " sets struts.allowlist.enable=false");
+                }
+                String packageNames = constants.get("struts.allowlist.packageNames");
+                if (packageNames != null && !EXPECTED_ALLOWLIST_PACKAGE.equals(packageNames)) {
+                    violations.add(fileName + " sets struts.allowlist.packageNames=" + packageNames);
+                }
+                String classes = constants.get("struts.allowlist.classes");
+                if (classes != null) {
+                    violations.add(fileName + " sets struts.allowlist.classes=" + classes);
                 }
             }
         }
