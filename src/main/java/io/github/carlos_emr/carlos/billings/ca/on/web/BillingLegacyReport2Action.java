@@ -98,6 +98,9 @@ public class BillingLegacyReport2Action extends ActionSupport {
                 if (folderPath != null && !folderPath.isEmpty()) {
                     File folderDir = new File(folderPath);
                     String safeFilename = FilenameUtils.getName(filename);
+                    if (!safeFilename.equals(filename)) {
+                        throw new SecurityException("Invalid filename");
+                    }
                     File target = PathValidationUtils.validatePath(safeFilename, folderDir);
                     if (target.exists() && target.isFile()) {
                         fileContents = FileUtils.readFileToString(target, StandardCharsets.UTF_8);
@@ -112,7 +115,7 @@ public class BillingLegacyReport2Action extends ActionSupport {
                         LogSanitizer.sanitize(filename), e);
                 fileContents = "";
                 request.setAttribute("readError",
-                        "Could not read MOH response file: " + filename);
+                        "Could not read selected MOH response file.");
             }
         }
 

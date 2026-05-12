@@ -117,4 +117,30 @@ class BillingLegacyReport2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(model.getFileContents()).isEqualTo("archive-report");
         }
     }
+
+    @Test
+    void shouldRejectPathComponentFilename_whenRenderingLegacyLReport() throws Exception {
+        Path inbox = Files.createDirectory(tempDir.resolve("inbox"));
+        Files.writeString(inbox.resolve("outside.txt"), "inside-report");
+        Files.writeString(tempDir.resolve("outside.txt"), "outside-report");
+
+        CarlosProperties props = mock(CarlosProperties.class);
+        when(props.getProperty("ONEDT_INBOX")).thenReturn(inbox.toString());
+
+        request.setParameter("filename", "../outside.txt");
+        request.setParameter("folder", "inbox");
+
+        try (MockedStatic<CarlosProperties> propsMock = mockStatic(CarlosProperties.class)) {
+            propsMock.when(CarlosProperties::getInstance).thenReturn(props);
+
+            String result = new BillingLegacyReport2Action(securityInfoManager).execute();
+
+            assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+            BillingLegacyReportViewModel model =
+                    (BillingLegacyReportViewModel) request.getAttribute("lreportModel");
+            assertThat(model.getFileContents()).isEmpty();
+            assertThat(request.getAttribute("readError"))
+                    .isEqualTo("Could not read selected MOH response file.");
+        }
+    }
 }
