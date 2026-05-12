@@ -41,10 +41,10 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * review and antenatal planners, checklists, risk editors).
  *
  * Every JSP in {@code /WEB-INF/jsp/decision/} is routed through this action.
- * All execution paths require {@code _forms r}. When the request carries a
+ * All execution paths require {@code _form r}. When the request carries a
  * {@code submit} parameter whose trimmed value (case-insensitive, {@link
  * Locale#ROOT}) starts with "save", the action additionally requires the
- * request be POST and {@code _forms w} -- this closes the GET-triggered
+ * request be POST and {@code _form w} -- this closes the GET-triggered
  * mutation vector the original JSPs presented, where scriptlet code would
  * persist {@code DesAnnualReviewPlan}/{@code Desaprisk} rows or overwrite
  * XML config files based solely on query-string parameters.
@@ -75,8 +75,8 @@ public final class ViewDecision2Action extends ActionSupport {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null
-                || !securityInfoManager.hasPrivilege(loggedInInfo, "_forms", "r", null)) {
-            throw new SecurityException("missing required sec object (_forms r)");
+                || !securityInfoManager.hasPrivilege(loggedInInfo, "_form", "r", null)) {
+            throw new SecurityException("missing required sec object (_form r)");
         }
 
         String submit = request.getParameter("submit");
@@ -92,8 +92,8 @@ public final class ViewDecision2Action extends ActionSupport {
                 }
                 return NONE;
             }
-            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_forms", "w", null)) {
-                throw new SecurityException("missing required sec object (_forms w)");
+            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_form", "w", null)) {
+                throw new SecurityException("missing required sec object (_form w)");
             }
         }
 

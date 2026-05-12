@@ -5,8 +5,8 @@
 <%@ page import="java.util.*" %>
 <%@ page import="java.text.SimpleDateFormat" %>
 <%@ page import="java.util.Date" %>
+<%@ page import="java.util.ResourceBundle" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.AppointmentMainBean" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.Misc" %>
@@ -24,8 +24,8 @@
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.service.ProgramManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.waitinglist.WaitingList" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -63,32 +63,73 @@
     ProgramManager pm = (ProgramManager) request.getAttribute("programManager");
     ProgramManager2 programManager2 = (ProgramManager2) request.getAttribute("programManager2");
     ProfessionalSpecialistDao professionalSpecialistDao = (ProfessionalSpecialistDao) request.getAttribute("professionalSpecialistDao");
-    
+
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     int nStrShowLen = 20;
     CarlosProperties props = oscarProps;
     java.util.Properties oscarVariables = oscarProps;
     java.util.Locale vLocale = request.getLocale();
-    // searchMode and keyWord are declared by zdemographicfulltitlesearch.jsp (static include)
+    // searchMode and keyWord are declared by add-form-personal.jsp (included below)
+
+    ResourceBundle oscarResources = ResourceBundle.getBundle("oscarResources", request.getLocale());
 %>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 <jsp:useBean id="apptMainBean" class="io.github.carlos_emr.AppointmentMainBean" scope="session"/>
 
-<%-- === HTML head and scripts from original lines 159-766 === --%>
 <!DOCTYPE html>
-<html>
+<html lang="${pageContext.request.locale.language}">
     <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title><fmt:message key="demographic.demographicaddrecordhtm.title"/></title>
+
+        <link href="<%= request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
+
+        <!-- calendar stylesheet -->
+        <link rel="stylesheet" type="text/css" media="all"
+              href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
+
+        <!-- Stylesheet for zdemographicfulltitlesearch.jsp -->
+        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/css/searchBox.css"/>
+        <link rel="stylesheet" type="text/css" href="<%=request.getContextPath() %>/css/Demographic.css"/>
+
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
-        <script>
-            jQuery.noConflict();
-        </script>
+        <script>jQuery.noConflict();</script>
+
+        <!-- main calendar program -->
+        <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
+
+        <!-- language for the calendar -->
+        <script type="text/javascript"
+                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
+
+        <!-- calendar setup helper function -->
+        <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
+
+        <script type="text/javascript" src="<%=request.getContextPath() %>/js/check_hin.js"></script>
+
+        <%@ include file="/WEB-INF/jspf/demographic-field-length-limits.jspf" %>
 
         <script type="text/javascript">
-            function aSubmit() {
+            // Pre-computed i18n strings, safely encoded for JavaScript
+            var i18n = {
+                msgEnrolledToRequired:   '<%= SafeEncode.forJavaScript(oscarResources.getString("demographic.add.msgEnrolledToRequired")) %>',
+                msgRosterDateRequired:   '<%= SafeEncode.forJavaScript(oscarResources.getString("demographic.add.msgRosterDateRequired")) %>',
+                promptNewStatus:         '<%= SafeEncode.forJavaScript(oscarResources.getString("demographic.add.promptNewStatus")) %>',
+                msgInvalidEntry:         '<%= SafeEncode.forJavaScript(oscarResources.getString("demographic.add.msgInvalidEntry")) %>',
+                msgInvalidDOB:           '<%= SafeEncode.forJavaScript(oscarResources.getString("demographic.add.msgInvalidDOB")) %>',
+                msgInvalidDOBDate:       '<%= SafeEncode.forJavaScript(oscarResources.getString("demographic.add.msgInvalidDOBDate")) %>',
+                msgInvalidHIN:           '<%= SafeEncode.forJavaScript(oscarResources.getString("demographic.add.msgInvalidHIN")) %>',
+                msgSexRequired:          '<%= SafeEncode.forJavaScript(oscarResources.getString("demographic.add.msgSexRequired")) %>',
+                msgInvalidPostalCode:    '<%= SafeEncode.forJavaScript(oscarResources.getString("demographic.add.msgInvalidPostalCode")) %>',
+                confirmDuplicatePatient: '<%= SafeEncode.forJavaScript(oscarResources.getString("demographic.add.confirmDuplicatePatient")) %>',
+                confirmClearConsent:     '<%= SafeEncode.forJavaScript(oscarResources.getString("demographic.add.confirmClearConsent")) %>'
+            };
 
+            function aSubmit() {
                 if (document.getElementById("eform_iframe") != null) {
                     document.getElementById("eform_iframe").contentWindow.document.forms[0].submit();
                 }
@@ -115,48 +156,19 @@
                     var rosterDateDate = document.adddemographic.roster_date_date.value;
 
                     if (rosterEnrolledTo == '') {
-                        alert('You must choose a valid Enrolled To physician');
+                        alert(i18n.msgEnrolledToRequired);
                         return false;
                     }
 
                     if (rosterDateYear == '' || rosterDateMonth == '' || rosterDateDate == '') {
-                        alert('You must choose a valid Date Rostered');
+                        alert(i18n.msgRosterDateRequired);
                         return false;
                     }
-
                 }
 
                 return true;
             }
 
-        </script>
-        <%@ include file="/WEB-INF/jspf/demographic-field-length-limits.jspf" %>
-
-        <title><fmt:message key="demographic.demographicaddrecordhtm.title"/></title>
-
-        <!-- calendar stylesheet -->
-        <link rel="stylesheet" type="text/css" media="all"
-              href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
-
-        <!-- main calendar program -->
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
-
-        <!-- language for the calendar -->
-        <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
-
-        <!-- the following script defines the Calendar.setup helper function, which makes
-       adding a calendar a matter of 1 or 2 lines of code. -->
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
-
-        <script type="text/javascript" src="<%=request.getContextPath() %>/js/check_hin.js"></script>
-
-        <!-- Stylesheet for zdemographicfulltitlesearch.jsp -->
-        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/css/searchBox.css"/>
-        <link rel="stylesheet" type="text/css" href="<%=request.getContextPath() %>/css/Demographic.css"/>
-
-        <!--link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"  /-->
-        <script language="JavaScript">
             function upCaseCtrl(ctrl) {
                 ctrl.value = ctrl.value.toUpperCase();
             }
@@ -173,14 +185,12 @@
                 if (document.titlesearch.search_mode[2].checked) {
                     if (dob.value.length == 8) {
                         dob.value = dob.value.substring(0, 4) + "-" + dob.value.substring(4, 6) + "-" + dob.value.substring(6, 8);
-                        //alert(dob.value.length);
                         typeInOK = true;
                     }
                     if (dob.value.length != 10) {
                         alert("<fmt:message key="demographic.search.msgWrongDOB"/>");
                         typeInOK = false;
                     }
-
                     return typeInOK;
                 } else {
                     return true;
@@ -199,22 +209,22 @@
             }
 
             function newStatus() {
-                newOpt = prompt("Please enter the new status:", "");
-                if (newOpt != "") {
+                let newOpt = prompt(i18n.promptNewStatus, "");
+                if (newOpt !== null && newOpt.trim() !== "") {
                     document.adddemographic.patient_status.options[document.adddemographic.patient_status.length] = new Option(newOpt, newOpt);
                     document.adddemographic.patient_status.options[document.adddemographic.patient_status.length - 1].selected = true;
                 } else {
-                    alert("Invalid entry");
+                    alert(i18n.msgInvalidEntry);
                 }
             }
 
             function newStatus1() {
-                newOpt = prompt("Please enter the new status:", "");
-                if (newOpt != "") {
+                let newOpt = prompt(i18n.promptNewStatus, "");
+                if (newOpt !== null && newOpt.trim() !== "") {
                     document.adddemographic.roster_status.options[document.adddemographic.roster_status.length] = new Option(newOpt, newOpt);
                     document.adddemographic.roster_status.options[document.adddemographic.roster_status.length - 1].selected = true;
                 } else {
-                    alert("Invalid entry");
+                    alert(i18n.msgInvalidEntry);
                 }
             }
 
@@ -250,9 +260,7 @@
                 var typeInOK = false;
                 if (document.adddemographic.last_name.value != "" && document.adddemographic.first_name.value != "" && document.adddemographic.last_name.value != " " && document.adddemographic.first_name.value != " ") {
                     typeInOK = true;
-                } else {
-                    alert("<fmt:message key='demographic.demographiceditdemographic.msgNameRequired'/>");
-                }
+                } 
                 return typeInOK;
             }
 
@@ -260,26 +268,21 @@
                 var typeInOK = false;
                 var yyyy = document.adddemographic.year_of_birth.value;
                 var selectBox = document.adddemographic.month_of_birth;
-                var mm = selectBox.options[selectBox.selectedIndex].value
+                var mm = selectBox.options[selectBox.selectedIndex].value;
                 selectBox = document.adddemographic.date_of_birth;
-                var dd = selectBox.options[selectBox.selectedIndex].value
+                var dd = selectBox.options[selectBox.selectedIndex].value;
 
                 if (checkTypeNum(yyyy) && checkTypeNum(mm) && checkTypeNum(dd)) {
-                    //alert(yyyy); alert(mm); alert(dd);
                     var check_date = new Date(yyyy, (mm - 1), dd);
-                    //alert(check_date);
                     var now = new Date();
                     var year = now.getFullYear();
                     var month = now.getMonth() + 1;
                     var date = now.getDate();
-                    //alert(yyyy + " | " + mm + " | " + dd + " " + year + " " + month + " " +date);
 
                     var young = new Date(year, month, date);
                     var old = new Date(1800, 1, 1);
-                    //alert(check_date.getTime() + " | " + young.getTime() + " | " + old.getTime());
                     if (check_date.getTime() <= young.getTime() && check_date.getTime() >= old.getTime() && yyyy.length == 4) {
                         typeInOK = true;
-                        //alert("failed in here 1");
                     }
                     if (yyyy == "0000") {
                         typeInOK = false;
@@ -287,22 +290,20 @@
                 }
 
                 if (!typeInOK) {
-                    alert("You must type in the right DOB.");
+                    alert(i18n.msgInvalidDOB);
                 }
 
                 if (!isValidDate(dd, mm, yyyy)) {
-                    alert("DOB Date is an incorrect date");
+                    alert(i18n.msgInvalidDOBDate);
                     typeInOK = false;
                 }
 
                 return typeInOK;
             }
 
-
             function isValidDate(day, month, year) {
                 month = (month - 1);
                 dteDate = new Date(year, month, day);
-//alert(dteDate);
                 return ((day == dteDate.getDate()) && (month == dteDate.getMonth()) && (year == dteDate.getFullYear()));
             }
 
@@ -311,31 +312,29 @@
                 var province = document.adddemographic.hc_type.value;
 
                 if (!isValidHin(hin, province)) {
-                    alert("You must type in the right HIN.");
+                    alert(i18n.msgInvalidHIN);
                     return (false);
                 }
 
                 return (true);
             }
-
 
             function checkSex() {
                 var sex = document.adddemographic.sex.value;
 
                 if (sex.length == 0) {
-                    alert("You must select a Sex.");
+                    //alert(i18n.msgSexRequired);  //handelled by Boostrap validation
                     return (false);
                 }
 
                 return (true);
             }
 
-
             function checkResidentStatus() {
                 // If OSCAR program exists (ID 10034), make sure it or another program is selected
                 var rs = document.adddemographic.rsid.value;
                 var oscarOption = document.querySelector('#rsid option[value="10034"]');
-                
+
                 if (oscarOption && rs == "") {
                     // If OSCAR program exists but nothing selected, select OSCAR
                     document.adddemographic.rsid.value = "10034";
@@ -411,21 +410,20 @@
             }
 
             function checkTitleSex(ttl) {
-                // if (ttl=="MS" || ttl=="MISS" || ttl=="MRS" || ttl=="SR") document.adddemographic.sex.selectedIndex=1;
-                //else if (ttl=="MR" || ttl=="MSSR") document.adddemographic.sex.selectedIndex=0;
+                // reserved for future use
             }
 
             function removeAccents(s) {
                 var r = s.toLowerCase();
                 r = r.replace(new RegExp("\\s", 'g'), "");
-                r = r.replace(new RegExp("[������]", 'g'), "a");
-                r = r.replace(new RegExp("�", 'g'), "c");
-                r = r.replace(new RegExp("[����]", 'g'), "e");
-                r = r.replace(new RegExp("[����]", 'g'), "i");
-                r = r.replace(new RegExp("�", 'g'), "n");
-                r = r.replace(new RegExp("[�����]", 'g'), "o");
-                r = r.replace(new RegExp("[����]", 'g'), "u");
-                r = r.replace(new RegExp("[��]", 'g'), "y");
+                r = r.replace(new RegExp("[àáâãäå]", 'g'), "a");
+                r = r.replace(new RegExp("ç", 'g'), "c");
+                r = r.replace(new RegExp("[èéêë]", 'g'), "e");
+                r = r.replace(new RegExp("[ìíîï]", 'g'), "i");
+                r = r.replace(new RegExp("ñ", 'g'), "n");
+                r = r.replace(new RegExp("[òóôõö]", 'g'), "o");
+                r = r.replace(new RegExp("[ùúûü]", 'g'), "u");
+                r = r.replace(new RegExp("[ýÿ]", 'g'), "y");
                 r = r.replace(new RegExp("\\W", 'g'), "");
                 return r;
             }
@@ -455,7 +453,6 @@
                 }
             }
 
-
             function ignoreDuplicates() {
                 let ignore = true;
                 const lastName = jQuery("#last_name").val().trim();
@@ -469,7 +466,7 @@
                 findDuplicate.success(function (data) {
                     if (data.hasDuplicates) {
                         console.log(data);
-                        ignore = confirm('There are other patients in this system with the same first and last name. Are you sure you want to create this new patient record?');
+                        ignore = confirm(i18n.confirmDuplicatePatient);
                     }
                 })
                 jQuery.ajaxSetup({async: true});
@@ -485,10 +482,10 @@
 
                     if (!rePC.test(postalcode)) {
                         e.focus();
-                        alert("The entered Postal Code is not valid");
+                        alert(i18n.msgInvalidPostalCode);
                         return false;
                     }
-                }//end cdn check
+                }
 
                 return true;
             }
@@ -497,35 +494,66 @@
                 e = document.adddemographic.province;
                 var province = e.options[e.selectedIndex].value;
 
-                if (province.indexOf("US") > -1 || province == "OT") { //if not canadian
+                if (province.indexOf("US") > -1 || province == "OT") {
                     return false;
                 }
                 return true;
             }
 
             function consentClearBtn(radioBtnName) {
-
-                if (confirm("Proceed to clear all record of this consent?")) {
-
-                    //clear out opt-in/opt-out radio buttons
+                if (confirm(i18n.confirmClearConsent)) {
                     var ele = document.getElementsByName(radioBtnName);
                     for (var i = 0; i < ele.length; i++) {
                         ele[i].checked = false;
                     }
 
-                    //hide consent date field from displaying
                     var consentDate = document.getElementById("consentDate_" + radioBtnName);
-
                     if (consentDate) {
                         consentDate.style.display = "none";
                     }
-
                 }
             }
 
+            function parsedob_date(){
+                const input=document.getElementById('inputDOB').value;
+                let year="";
+                let month="";
+                let day="";
+                if (input) {
+                    const [y, m, d] = input.split("-");
+                    year = y || "";
+                    month = m || "";
+                    day = d || "";
+                }
+                document.getElementById('year_of_birth').value = year
+                document.getElementById('month_of_birth').value = month
+                document.getElementById('date_of_birth').value = day
+            }
+
+            function parseDateField(fieldId) {
+                const input = document.getElementById(fieldId).value;
+            
+                let year = "";
+                let month = "";
+                let day = "";
+            
+                if (input) {
+                    const [y, m, d] = input.split("-");
+                    year = y || "";
+                    month = m || "";
+                    day = d || "";
+                }
+                const yearField = document.querySelector(`input[name="${fieldId}_year"]`);
+                const monthField = document.querySelector(`input[name="${fieldId}_month"]`);
+                const dateField = document.querySelector(`input[name="${fieldId}_date"]`);
+                if (yearField) yearField.value = year;
+                if (monthField) monthField.value = month;
+                if (dateField) dateField.value = day;
+            }
+
             <%
-if("true".equals(CarlosProperties.getInstance().getProperty("iso3166.2.enabled","false"))) {
-%>
+            if("true".equals(CarlosProperties.getInstance().getProperty("iso3166.2.enabled","false"))) {
+            %>
             jQuery(document).ready(function () {
 
                 jQuery("#country").on('change', function () {
@@ -556,9 +584,7 @@ if("true".equals(CarlosProperties.getInstance().getProperty("iso3166.2.enabled",
                         defaultCountry = defaultProvince.substring(0, defaultProvince.indexOf('-'));
 
                         jQuery("#country").val(defaultCountry);
-
                         updateProvinces(defaultProvince);
-
                     }
                 });
 
@@ -582,21 +608,13 @@ if("true".equals(CarlosProperties.getInstance().getProperty("iso3166.2.enabled",
                         defaultCountry = defaultProvince.substring(0, defaultProvince.indexOf('-'));
 
                         jQuery("#residentialCountry").val(defaultCountry);
-
                         updateResidentialProvinces(defaultProvince);
-
                     }
                 });
-
-
             });
-
 
             function updateProvinces(province) {
                 var country = jQuery("#country").val();
-
-                console.log('country=' + country);
-
                 jQuery.ajax({
                     type: "POST",
                     url: '<%=request.getContextPath()%>/demographicSupport',
@@ -604,26 +622,19 @@ if("true".equals(CarlosProperties.getInstance().getProperty("iso3166.2.enabled",
                     dataType: 'json',
                     success: function (data) {
                         jQuery('#province').empty();
-
                         jQuery.each(data, function (i, value) {
                             jQuery('#province').append(jQuery('<option>').text(value.label).attr('value', value.value));
                         });
 
-
                         if (province != null) {
                             jQuery("#province").val(province);
                         }
-
-
                     }
                 });
             }
 
-
             function updateResidentialProvinces(province) {
                 var country = jQuery("#residentialCountry").val();
-
-
                 jQuery.ajax({
                     type: "POST",
                     url: '<%=request.getContextPath()%>/demographicSupport',
@@ -631,72 +642,66 @@ if("true".equals(CarlosProperties.getInstance().getProperty("iso3166.2.enabled",
                     dataType: 'json',
                     success: function (data) {
                         jQuery('#residentialProvince').empty();
-
                         jQuery.each(data, function (i, value) {
                             jQuery('#residentialProvince').append(jQuery('<option>').text(value.label).attr('value', value.value));
                         });
 
-
                         if (province != null) {
                             jQuery("#residentialProvince").val(province);
                         }
-
-
                     }
                 });
             }
-
-            <% }  %>
-
-
+            <% } %>
         </script>
-        <style>
-            /* for the search buttons at the top of the page
-			this should be removed if the page is updated to bootstrap
-		*/
-            .searchBox .select-group, .searchBox div.input-group {
-                display: flex;
-                flex-direction: row;
-                align-items: stretch;
-            }
-
-            .searchBox {
-                margin: 0 !important;
-            }
-
-        </style>
     </head>
-    <!-- Databases have alias for today. It is not necessary give the current date -->
 
     <body>
-    <table>
-        <tr bgcolor="#CCCCFF">
-            <th class="subject"><fmt:message key="demographic.demographicaddrecordhtm.msgMainLabel"/></th>
-        </tr>
-    </table>
+    <div class="container-fluid py-2">
+        <div class="card">
+            <div class="card-header bg-primary text-white py-2">
+                <h5 class="mb-0"><fmt:message key="demographic.demographicaddrecordhtm.msgMainLabel"/></h5>
+            </div>
+            <div class="card-body p-2">
 
-    <jsp:include page="/demographic/ViewZdemographicFullTitleSearch" />
-    <table width="100%" bgcolor="#CCCCFF">
-        <tr>
-            <td class="RowTop" colspan="4">
+                <jsp:include page="/demographic/ViewZdemographicFullTitleSearch" />
 
-            </td>
-        </tr>
-        <tr>
-            <td>
-                <form method="post" id="adddemographic" name="adddemographic" action="DemographicAddRecord"
+                <form method="post" id="adddemographic" name="adddemographic" action="DemographicAddRecord" novalidate class="needs-validation" onsubmit="return aSubmit()" autocomplete="off">
 
                     <jsp:include page="add-form-personal.jsp"/>
                     <jsp:include page="add-form-clinical.jsp"/>
 
-<%-- === Closing from original lines 2491-2542 === --%>
-
-
-            </td>
-        </tr>
-    </table>
+            </div><%-- /.card-body — form closes inside add-form-clinical.jsp --%>
+        </div><%-- /.card --%>
+    </div><%-- /.container-fluid --%>
 
     <script type="text/javascript">
+      document.addEventListener('DOMContentLoaded', () => {
+        'use strict'
+        // Fetch all the forms we want to apply custom Bootstrap validation styles to
+        const forms = document.querySelectorAll('.needs-validation')
+        // Loop over them and prevent submission
+        Array.from(forms).forEach(form => {
+          form.addEventListener('submit', event => {
+            if (!form.checkValidity()) {
+              event.preventDefault()
+              event.stopPropagation()
+            }
+            form.classList.add('was-validated')
+          }, false)
+        })
+      })
+
+
+        Calendar.setup({
+            inputField: "inputDOB",
+            ifFormat: "%Y-%m-%d",
+            showsTime: false,
+            button: "inputDOB_cal",
+            singleClick: true,
+            step: 1,
+            onUpdate: function() { parsedob_date(); }
+        });
         Calendar.setup({
             inputField: "waiting_list_referral_date",
             ifFormat: "%Y-%m-%d",
@@ -713,10 +718,54 @@ if("true".equals(CarlosProperties.getInstance().getProperty("iso3166.2.enabled",
             singleClick: true,
             step: 1
         });
-
+        Calendar.setup({
+            inputField: "roster_date",
+            ifFormat: "%Y-%m-%d",
+            showsTime: false,
+            button: "roster_date_cal",
+            singleClick: true,
+            step: 1,
+            onUpdate: function() { parseDateField('roster_date'); }
+        });
+        Calendar.setup({
+            inputField: "end_date",
+            ifFormat: "%Y-%m-%d",
+            showsTime: false,
+            button: "end_date_cal",
+            singleClick: true,
+            step: 1,
+            onUpdate: function() { parseDateField('end_date'); }
+        });
+        Calendar.setup({
+            inputField: "date_joined",
+            ifFormat: "%Y-%m-%d",
+            showsTime: false,
+            button: "date_joined_cal",
+            singleClick: true,
+            step: 1,
+            onUpdate: function() { parseDateField('date_joined'); }
+        });
+        Calendar.setup({
+            inputField: "hc_renew_date",
+            ifFormat: "%Y-%m-%d",
+            showsTime: false,
+            button: "hc_renew_date_cal",
+            singleClick: true,
+            step: 1,
+            onUpdate: function() { parseDateField('hc_renew_date'); }
+        });
+        Calendar.setup({
+            inputField: "eff_date",
+            ifFormat: "%Y-%m-%d",
+            showsTime: false,
+            button: "eff_date_cal",
+            singleClick: true,
+            step: 1,
+            onUpdate: function() { parseDateField('eff_date'); }
+        });
         <%
-if (privateConsentEnabled) {
-%>
+        if (privateConsentEnabled) {
+        %>
         jQuery(document).ready(function () {
             var countryOfOrigin = jQuery("#countryOfOrigin").val();
             if ("US" != countryOfOrigin) {
@@ -735,9 +784,9 @@ if (privateConsentEnabled) {
             });
         });
         <%
-}
-%>
+        }
+        %>
     </script>
-    <%-- Registration intake iframe removed (dead commented-out code referencing fid from clinical fragment) --%>
+    <script src="<%= request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
     </body>
 </html>

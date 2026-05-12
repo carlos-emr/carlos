@@ -140,7 +140,7 @@ public class PrintDemoLabel2Action extends ActionSupport {
      * Content-Type: application/pdf and Content-Disposition: inline, causing
      * the browser to display the PDF inline rather than prompting for download.</p>
      *
-     * @return String always returns SUCCESS after streaming the PDF
+     * @return String always returns NONE after streaming the PDF
      * @throws SecurityException if the current user lacks "_demographic" read privilege
      */
     public String execute() {
@@ -235,7 +235,12 @@ public class PrintDemoLabel2Action extends ActionSupport {
             MiscUtils.getLogger().error("Error", e);
         }
 
-        return SUCCESS;
+        // Action writes PDF bytes directly to response.getOutputStream() above, so return
+        // NONE to suppress Struts2 result resolution. The mapping in struts-demographic.xml
+        // has no <result name="success">; returning SUCCESS would raise ConfigurationException
+        // and the global exception result would render errorpage.jsp on top of the PDF bytes
+        // already written to the response (visible as a stray "0" from errorData.statusCode).
+        return NONE;
     }
 
     /**

@@ -34,11 +34,14 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.Reader;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
+import java.util.Set;
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -57,7 +60,9 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.w3c.dom.bootstrap.DOMImplementationRegistry;
 import org.w3c.dom.ls.DOMImplementationLS;
+import org.w3c.dom.ls.LSInput;
 import org.w3c.dom.ls.LSOutput;
+import org.w3c.dom.ls.LSResourceResolver;
 import org.w3c.dom.ls.LSSerializer;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
@@ -247,26 +252,123 @@ public final class XmlUtils {
      * so that no external DTD or schema resources can be loaded during schema compilation.
      * Use this factory method instead of {@code SchemaFactory.newInstance()} throughout the codebase.
      *
-     * <p>The critical {@code ACCESS_EXTERNAL_DTD} property is required — a
-     * {@link SAXException} is thrown if it cannot be applied so that callers
-     * never receive an unprotected factory. The {@code ACCESS_EXTERNAL_SCHEMA} property
-     * is applied on a best-effort basis; a warning is logged if it cannot be set.
+     * <p>The external-access properties are required — a {@link SAXException}
+     * is thrown if they cannot be applied so that callers never receive an
+     * unprotected factory.
      *
      * @param schemaLanguage the schema language URI (e.g. {@link XMLConstants#W3C_XML_SCHEMA_NS_URI})
      * @return SchemaFactory configured with external-access restrictions
-     * @throws SAXException if the critical ACCESS_EXTERNAL_DTD property cannot be set
+     * @throws SAXException if the required security features or external-access properties cannot be set
      */
     public static javax.xml.validation.SchemaFactory createSecureSchemaFactory(String schemaLanguage) throws SAXException {
-        javax.xml.validation.SchemaFactory sf = javax.xml.validation.SchemaFactory.newInstance(schemaLanguage);
-        // Critical protection — fail closed if it cannot be applied
-        sf.setProperty(XMLConstants.ACCESS_EXTERNAL_DTD, "");
-        // Defense-in-depth — warn if unavailable
+        javax.xml.validation.SchemaFactory sf = createSchemaFactoryInstance(schemaLanguage);
+        try {
+            sf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+        } catch (SAXException ex) {
+            throw new SAXException("Failed to enable secure XML schema processing", ex);
+        }
+        try {
+            sf.setProperty(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+        } catch (SAXException ex) {
+            throw new SAXException("Failed to restrict external DTD access on SchemaFactory", ex);
+        }
         try {
             sf.setProperty(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
         } catch (SAXException ex) {
-            logger.warn("Could not restrict ACCESS_EXTERNAL_SCHEMA on SchemaFactory", ex);
+            throw new SAXException("Failed to restrict external schema access on SchemaFactory", ex);
         }
         return sf;
+    }
+
+    /**
+     * Selects the JDK W3C XML Schema factory so required JAXP external-access
+     * security properties are recognized even when an older classpath Xerces
+     * provider is present. Non-W3C schema languages still use the standard JAXP
+     * provider lookup because the JDK default factory only supports W3C XML Schema.
+     *
+     * @param schemaLanguage the schema language URI
+     * @return SchemaFactory instance for the requested schema language
+     */
+    private static javax.xml.validation.SchemaFactory createSchemaFactoryInstance(String schemaLanguage) {
+        if (XMLConstants.W3C_XML_SCHEMA_NS_URI.equals(schemaLanguage)) {
+            return javax.xml.validation.SchemaFactory.newDefaultInstance();
+        }
+        return javax.xml.validation.SchemaFactory.newInstance(schemaLanguage);
+    }
+
+    /**
+     * Creates an {@link LSResourceResolver} that resolves only explicitly
+     * allowlisted schema files from a classpath resource directory.
+     *
+     * <p>Use this with {@link #createSecureSchemaFactory(String)} when a bundled
+     * schema imports another bundled schema by relative file name. External
+     * schema access remains disabled; any non-allowlisted import is delegated
+     * back to the secured factory and will be rejected by the JAXP access
+     * restrictions.</p>
+     *
+     * @param resourceClass Class used to load absolute classpath resources
+     * @param resourceDirectory String absolute or relative classpath directory containing schemas
+     * @param allowedSystemIds Set of simple schema file names allowed to be resolved
+     * @return LSResourceResolver resolver for allowlisted classpath schema imports
+     * @throws IllegalArgumentException if any allowed system identifier is not a simple file name
+     */
+    public static LSResourceResolver createClasspathSchemaResolver(
+            Class<?> resourceClass,
+            String resourceDirectory,
+            Set<String> allowedSystemIds) {
+
+        Objects.requireNonNull(resourceClass, "resourceClass");
+        Objects.requireNonNull(resourceDirectory, "resourceDirectory");
+        Objects.requireNonNull(allowedSystemIds, "allowedSystemIds");
+
+        for (String allowedName : allowedSystemIds) {
+            if (allowedName == null
+                    || allowedName.isBlank()
+                    || allowedName.contains("/")
+                    || allowedName.contains("\\")
+                    || allowedName.contains("..")
+                    || allowedName.contains(":")) {
+                throw new IllegalArgumentException("Allowed schema import must be a simple file name");
+            }
+        }
+        Set<String> allowedNames = Set.copyOf(allowedSystemIds);
+
+        String resourcePrefix = normalizeClasspathResourceDirectory(resourceDirectory);
+        return (_type, _namespaceURI, publicId, systemId, baseURI) -> {
+            if (systemId == null || !allowedNames.contains(systemId)) {
+                // Delegate to the secured factory so non-allowlisted imports are rejected.
+                return null;
+            }
+
+            String resourcePath = resourcePrefix + systemId;
+            InputStream byteStream = resourceClass.getResourceAsStream(resourcePath);
+            if (byteStream == null) {
+                throw new IllegalStateException(
+                        "Missing allowlisted classpath schema import resource '"
+                                + resourcePath
+                                + "' for systemId '"
+                                + systemId
+                                + "' (baseURI='"
+                                + baseURI
+                                + "') using "
+                                + resourceClass.getName()
+                                + ". This usually indicates a packaging or configuration problem.");
+            }
+
+            return new ClasspathSchemaInput(publicId, systemId, baseURI, byteStream);
+        };
+    }
+
+    /**
+     * Normalizes a classpath resource directory so class-relative resource
+     * lookups use an absolute directory path with a trailing separator.
+     *
+     * @param resourceDirectory String classpath resource directory
+     * @return String normalized classpath resource directory
+     */
+    private static String normalizeClasspathResourceDirectory(String resourceDirectory) {
+        String leadingSlashDirectory = resourceDirectory.startsWith("/") ? resourceDirectory : "/" + resourceDirectory;
+        return leadingSlashDirectory.endsWith("/") ? leadingSlashDirectory : leadingSlashDirectory + "/";
     }
 
     /**
@@ -296,6 +398,110 @@ public final class XmlUtils {
             logger.warn("Could not restrict ACCESS_EXTERNAL_SCHEMA on Validator", ex);
         }
         return validator;
+    }
+
+    /**
+     * Minimal {@link LSInput} implementation for schema imports resolved from
+     * allowlisted classpath resources by {@link #createClasspathSchemaResolver(Class, String, Set)}.
+     * The byte stream is populated from the classpath resource; all other
+     * fields are maintained only to satisfy the DOM Load/Save interface.
+     */
+    private static final class ClasspathSchemaInput implements LSInput {
+        private Reader characterStream;
+        private InputStream byteStream;
+        private String stringData;
+        private String systemId;
+        private String publicId;
+        private String baseURI;
+        private String encoding;
+        private boolean certifiedText;
+
+        private ClasspathSchemaInput(String publicId, String systemId, String baseURI, InputStream byteStream) {
+            this.publicId = publicId;
+            this.systemId = systemId;
+            this.baseURI = baseURI;
+            this.byteStream = byteStream;
+        }
+
+        @Override
+        public Reader getCharacterStream() {
+            return characterStream;
+        }
+
+        @Override
+        public void setCharacterStream(Reader characterStream) {
+            this.characterStream = characterStream;
+        }
+
+        @Override
+        public InputStream getByteStream() {
+            return byteStream;
+        }
+
+        @Override
+        public void setByteStream(InputStream byteStream) {
+            this.byteStream = byteStream;
+        }
+
+        @Override
+        public String getStringData() {
+            return stringData;
+        }
+
+        @Override
+        public void setStringData(String stringData) {
+            this.stringData = stringData;
+        }
+
+        @Override
+        public String getSystemId() {
+            return systemId;
+        }
+
+        @Override
+        public void setSystemId(String systemId) {
+            this.systemId = systemId;
+        }
+
+        @Override
+        public String getPublicId() {
+            return publicId;
+        }
+
+        @Override
+        public void setPublicId(String publicId) {
+            this.publicId = publicId;
+        }
+
+        @Override
+        public String getBaseURI() {
+            return baseURI;
+        }
+
+        @Override
+        public void setBaseURI(String baseURI) {
+            this.baseURI = baseURI;
+        }
+
+        @Override
+        public String getEncoding() {
+            return encoding;
+        }
+
+        @Override
+        public void setEncoding(String encoding) {
+            this.encoding = encoding;
+        }
+
+        @Override
+        public boolean getCertifiedText() {
+            return certifiedText;
+        }
+
+        @Override
+        public void setCertifiedText(boolean certifiedText) {
+            this.certifiedText = certifiedText;
+        }
     }
 
     /**

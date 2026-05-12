@@ -30,6 +30,7 @@
 <%@page import="java.math.BigDecimal" %>
 <%@page import="java.util.List" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.BillingDao" %>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.on.dto.BillObRow" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.model.BillingDetail" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.dao.BillingDetailDao" %>
 
@@ -48,7 +49,7 @@
  ResultSet rs2=null ; 
   String[] param2 =new String[10];
   
-  List<Object[]> bs = billingDao.search_billob(request.getParameter("providerview"),ConversionUtils.fromDateString(dateBegin),ConversionUtils.fromDateString(dateEnd));
+  List<BillObRow> bs = billingDao.search_billob(request.getParameter("providerview"),ConversionUtils.fromDateString(dateBegin),ConversionUtils.fromDateString(dateEnd));
   
 int rCount = 0;
   boolean bodd=false;
@@ -74,12 +75,12 @@ int rCount = 0;
 
 	</tr>
 	<%
-    for (Object[] b:bs) {
-      Integer bId = (Integer)b[0];
-      String bTotal = (String)b[1];
-      String bStatus = (String)b[2];
-      java.util.Date bBillingDate = (java.util.Date)b[3];
-      String bDemographicName = (String)b[4];
+    for (BillObRow b:bs) {
+      Integer bId = b.id();
+      String bTotal = b.total();
+      String bStatus = b.status();
+      java.util.Date bBillingDate = b.billingDate();
+      String bDemographicName = b.demographicName();
       
       bodd=bodd?false:true; //for the color of rows
       nItems++; //to calculate if it is the end of records

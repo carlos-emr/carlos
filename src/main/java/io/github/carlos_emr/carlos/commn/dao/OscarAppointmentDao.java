@@ -127,7 +127,7 @@ public interface OscarAppointmentDao extends AbstractDao<Appointment> {
 
     public Appointment findByDate(Date appointmentDate);
 
-    public List<Object[]> findAppointmentAndProviderByAppointmentNo(Integer apptNo);
+    public List<io.github.carlos_emr.carlos.commn.dao.projection.AppointmentProviderRow> findAppointmentAndProviderByAppointmentNo(Integer apptNo);
 
     public List<Appointment> searchappointmentday(String providerNo, Date appointmentDate, Integer programId);
 
@@ -148,6 +148,9 @@ public interface OscarAppointmentDao extends AbstractDao<Appointment> {
     public int findProvideAppointmentTodayNum(String provide, String appdate);
 
     public int updateApptStatus(String ids, String status);
+
+    public List<io.github.carlos_emr.carlos.commn.dao.projection.BillingOnNewReportUnbilledRow>
+    findBillingOnNewReportUnbilledRows(String providerNo, String startDate, String endDate);
 
     public List<Object[]> listAppointmentsByPeriodProvider(Date sDate, Date eDate, List<Integer> providerNos);
 

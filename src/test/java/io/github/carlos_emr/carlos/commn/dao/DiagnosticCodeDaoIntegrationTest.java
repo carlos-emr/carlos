@@ -147,7 +147,8 @@ public class DiagnosticCodeDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should return empty list for findDiagnosticsAndCtlDiagCodes with no matching data")
         void shouldReturnEmptyList_whenNoCtlDiagCodesExist() throws Exception {
             // This query joins with CtlDiagCode table; with no data in that table, expect empty
-            List<Object[]> results = dao.findDiagnosictsAndCtlDiagCodesByServiceType("TYPE");
+            List<io.github.carlos_emr.carlos.commn.dao.projection.DiagnosticCodeRow> results =
+                    dao.findDiagnosictsAndCtlDiagCodesByServiceType("TYPE");
             assertThat(results).isEmpty();
         }
 

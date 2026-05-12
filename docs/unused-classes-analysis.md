@@ -650,7 +650,7 @@ The following packages were verified as fully active and should NOT be removed:
    configured in the database `schedule_template_code` table rather than in XML.
 
 4. **Test References**: This analysis only checked `src/main/`. Some classes may be
-   referenced in test code (`src/test/`, `src/test-modern/`). Removing unused production
+   referenced in test code (`src/test/`). Removing unused production
    classes is still valid even if tests reference them - the tests should be removed too.
 
 Generated with Claude Code

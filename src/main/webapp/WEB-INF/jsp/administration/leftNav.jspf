@@ -164,7 +164,7 @@ String curProvider_no = (String)session.getAttribute("user");
 			
 					<oscar:oscarPropertiesCheck property="billregion" value="ON">
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/ON/benefitScheduleUpload"><fmt:message key="admin.admin.scheduleOfBenefits"/></a></li>
+						class="xlink" rel="${ctx}/billing/CA/ON/ViewBenefitScheduleUpload"><fmt:message key="admin.admin.scheduleOfBenefits"/></a></li>
 					<li><a href='javascript:void(0);'
 						class="xlink" rel="${ctx}/billing/CA/ON/AddEditServiceCode"><fmt:message key="admin.admin.manageBillingServiceCode"/></a></li>
 					<li><a href='javascript:void(0);'
@@ -348,7 +348,8 @@ String curProvider_no = (String)session.getAttribute("user");
 					</li>
 
 					<li>
-					<a href="javascript:void(0);" class="xlink" rel="${ctx}/oscarReport/dbReportAgeSex.jsp"><fmt:message key="admin.admin.btnAgeSexReport"/></a>
+					<a href="javascript:void(0);" class="xlink" rel="${carlos:forHtmlAttribute(ctx)}/oscarReport/DbReportAgeSex" data-submit-form="ageSexForm" data-frame-title="Age-Sex Report"><fmt:message key="admin.admin.btnAgeSexReport"/></a>
+					<form id="ageSexForm" method="post" action="${carlos:forHtmlAttribute(ctx)}/oscarReport/DbReportAgeSex" target="myFrame" class="visually-hidden"></form>
 					</li>
 					
 					<li><a href="${ctx}/oscarReport/ViewOscarReportVisitControl" class="contentLink defaultvisitreport">
@@ -376,9 +377,6 @@ String curProvider_no = (String)session.getAttribute("user");
 						<li><a page="${pageContext.request.contextPath}/PopulationReport" class="contentLink"> <fmt:message key="admin.admin.popRpt"/></a></li>
 						<li><a href="${ctx}/oscarReport/ViewCds4ReportForm"	class="contentLink"><fmt:message key="admin.admin.cdsRpt"/></a></li>
 						<li><a href="${ctx}/oscarReport/ViewMisReportForm" class="contentLink"><fmt:message key="admin.admin.misRpt"/></a></li>
-						<li><a href="${ctx}/oscarReport/ocan_report_form.jsp" class="contentLink"><fmt:message key="admin.admin.ocanRpt"/></a></li>
-						<li><a href="${ctx}/oscarReport/ocan_iar.jsp" class="contentLink"><fmt:message key="admin.admin.ocanIarRpt"/></a></li>
-						<li><a href="javascript:void(0);" class="xlink" rel="${ctx}/oscarReport/ocan_reporting.jsp"><fmt:message key="admin.admin.ocanReporting"/></a></li>
 					</caisi:isModuleLoad>
 					
 					<li><a href="${ctx}/admin/ViewUsageReport" class="contentLink"><fmt:message key="admin.admin.usageRpt"/></a></li>
@@ -903,8 +901,25 @@ $(document).ready(function(){
 
 	$(".xlink").click(function(e) {
 		var source = $(this).attr('rel');
+		var submitForm = $(this).data('submit-form');
+		var iframeTitle = $(this).data('frame-title') || $.trim($(this).text()) || "Administration page";
 		$("#dynamic-content").addClass("dynamic-iframe-content");
-		$("#dynamic-content").html('<iframe id="myFrame" name="myFrame" frameborder="0" src="'+source+'">');
+		$("#dynamic-content").empty().append($("<iframe>", {
+			id: "myFrame",
+			name: "myFrame",
+			title: iframeTitle,
+			loading: "lazy",
+			role: "region",
+			"aria-live": "polite"
+		}).css("border", "0"));
+		if (submitForm) {
+			var form = document.getElementById(submitForm);
+			if (form) {
+				form.submit();
+			}
+		} else {
+			$("#myFrame").attr("src", source);
+		}
 		$("html, body").animate({ scrollTop: 0 }, "slow");
 	});
 

@@ -5,7 +5,6 @@
 	<import value="java.util.*" />
 	<import value="net.sf.jasperreports.engine.*" />
 	<import value="net.sf.jasperreports.engine.data.*" />
-	<reportFont name="sansserif" isDefault="false" fontName="sansserif" size="10" isBold="false" isItalic="false" isUnderline="false" isStrikeThrough="false" pdfFontName="Helvetica" pdfEncoding="Cp1252" isPdfEmbedded="false" />
 	<parameter name="demo" isForPrompting="true" class="java.lang.String" />
 	<parameter name="appt" isForPrompting="true" class="java.lang.String" />
 	<queryString><![CDATA[select d.last_name, d.chart_no, d.first_name, d.address, d.city , d.province, d.postal, d.phone, d.phone2, d.year_of_birth, d.month_of_birth, d.date_of_birth, d.hin, d.ver, d.sex, CONCAT(p.last_name, ', ' ,p.first_name) as doc_name from demographic d, appointment a, provider p where d.demographic_no=a.demographic_no and a.demographic_no=$P{demo} and a.provider_no=p.provider_no and a.appointment_no=$P{appt}]]></queryString>
