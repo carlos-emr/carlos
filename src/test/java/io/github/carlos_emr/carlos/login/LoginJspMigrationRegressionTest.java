@@ -55,6 +55,18 @@ class LoginJspMigrationRegressionTest {
             Path.of("src/main/webapp/WEB-INF/Owasp.CsrfGuard.properties");
     private static final Path MENU_CONFIG =
             Path.of("src/main/webapp/WEB-INF/menu-config.xml");
+    private static final Path PROVIDER_MAIN_MENU =
+            Path.of("src/main/webapp/WEB-INF/jsp/provider/mainMenu.jsp");
+    private static final Path APPOINTMENT_PROVIDER_ADMIN_DAY =
+            Path.of("src/main/webapp/WEB-INF/jsp/provider/appointmentprovideradminday.jsp");
+    private static final Path ADMINISTRATION_LEFT_NAV =
+            Path.of("src/main/webapp/WEB-INF/jsp/administration/leftNav.jspf");
+    private static final Path LOGIN_ACTION =
+            Path.of("src/main/java/io/github/carlos_emr/carlos/login/Login2Action.java");
+    private static final Path FORCE_PASSWORD_RESET_GATE =
+            Path.of("src/main/java/io/github/carlos_emr/carlos/login/gate/ViewForcePasswordReset2Action.java");
+    private static final Path FORCE_PASSWORD_RESET_JSP =
+            Path.of("src/main/webapp/WEB-INF/jsp/login/forcepasswordreset.jsp");
 
     @Test
     @DisplayName("struts login config should expose the migrated page actions and internal view targets")
@@ -119,17 +131,23 @@ class LoginJspMigrationRegressionTest {
         String personaService = Files.readString(
                 Path.of("src/main/java/io/github/carlos_emr/carlos/webserv/rest/PersonaService.java"),
                 StandardCharsets.UTF_8);
-        String mainMenu = Files.readString(
-                Path.of("src/main/webapp/WEB-INF/jsp/provider/mainMenu.jsp"),
-                StandardCharsets.UTF_8);
+        String mainMenu = Files.readString(PROVIDER_MAIN_MENU, StandardCharsets.UTF_8);
+        String appointmentProviderAdminDay =
+                Files.readString(APPOINTMENT_PROVIDER_ADMIN_DAY, StandardCharsets.UTF_8);
+        String administrationLeftNav = Files.readString(ADMINISTRATION_LEFT_NAV, StandardCharsets.UTF_8);
 
         assertThat(integrationStruts).contains("<action name=\"administration/index\"");
         assertThat(integrationStruts).contains("/WEB-INF/jsp/administration/index.jsp");
         assertThat(menuConfig).doesNotContain("/administration/index");
         assertThat(personaService).contains("../administration/");
         assertThat(personaService).doesNotContain("../administration/index");
-        assertThat(mainMenu).contains("/administration/");
+        assertThat(mainMenu).contains("/administration/','admin'");
         assertThat(mainMenu).doesNotContain("/administration/index");
+        assertThat(appointmentProviderAdminDay).contains("/administration/','admin'");
+        assertThat(appointmentProviderAdminDay).contains("/administration/\", \"admin\"");
+        assertThat(appointmentProviderAdminDay).doesNotContain("/administration/index");
+        assertThat(administrationLeftNav).contains("${ctx}/administration/");
+        assertThat(administrationLeftNav).doesNotContain("/administration/index");
     }
 
     @Test
@@ -142,6 +160,24 @@ class LoginJspMigrationRegressionTest {
         assertThat(csrfGuard).contains("%servletContext%/logoutPage");
         assertThat(csrfGuard).contains("%servletContext%/errorpage");
         assertThat(menuConfig).doesNotContain("location=\"index.jsp\"");
+    }
+
+    @Test
+    @DisplayName("forced password reset should use the credential cache token and no userName session dependency")
+    void forcedPasswordResetShouldUseCredentialCacheToken() throws IOException {
+        String loginAction = Files.readString(LOGIN_ACTION, StandardCharsets.UTF_8);
+        String forcePasswordResetGate = Files.readString(FORCE_PASSWORD_RESET_GATE, StandardCharsets.UTF_8);
+        String forcePasswordResetJsp = Files.readString(FORCE_PASSWORD_RESET_JSP, StandardCharsets.UTF_8);
+
+        assertThat(forcePasswordResetGate).contains("return Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR;");
+        assertThat(forcePasswordResetGate).doesNotContain("\"userName\"");
+        assertThat(loginAction).contains("session.setAttribute(LOGIN_CREDENTIALS_TOKEN_ATTR, token)");
+        assertThat(loginAction).contains("return \"forcepasswordreset\";");
+        assertThat(loginAction).contains("request.setAttribute(\"errormsg\", errorStr)");
+        assertThat(loginAction).contains("securityManager.encodePassword(newPassword)");
+        assertThat(loginAction).doesNotContain("FORCE_PASSWORD_RESET_PENDING_ATTR");
+        assertThat(forcePasswordResetJsp).contains("request.getAttribute(\"errormsg\")");
+        assertThat(forcePasswordResetJsp).doesNotContain("session.getAttribute(\"userName\")");
     }
 
     @Test

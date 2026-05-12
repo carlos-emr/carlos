@@ -63,10 +63,10 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
-import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
+import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Objects;
@@ -154,7 +154,7 @@ public final class Login2Action extends ActionSupport {
      * material stashed in {@link LoginCredentialCache}. The token itself contains no
      * credential information; credential hashes and PINs are never placed in the session.
      */
-    private static final String LOGIN_CREDENTIALS_TOKEN_ATTR = "loginCredentialsToken";
+    public static final String LOGIN_CREDENTIALS_TOKEN_ATTR = "loginCredentialsToken";
 
     /** Spring-managed service for provider data access and management */
     private final ProviderManager providerManager = SpringUtils.getBean(ProviderManager.class);
@@ -421,10 +421,8 @@ public final class Login2Action extends ActionSupport {
 
                 // Error Handling
                 if (errorStr != null && !errorStr.isEmpty()) {
-                    String newURL = request.getContextPath() + "/forcepasswordreset";
-                    newURL = newURL + errorStr;
-                    response.sendRedirect(newURL);
-                    return NONE;
+                    request.setAttribute("errormsg", errorStr);
+                    return "forcepasswordreset";
                 }
 
                 persistNewPassword(userName, newPassword);
@@ -580,17 +578,16 @@ public final class Login2Action extends ActionSupport {
                     security.isForcePasswordReset() != null && security.isForcePasswordReset()
                     && forcedpasswordchange) {
 
-                String newURL = request.getContextPath() + "/forcepasswordreset";
-
                 try {
                     setUserInfoToSession(request, userName, password, pin, nextPage);
                 } catch (Exception e) {
                     logger.error("Error", e);
-                    newURL = request.getContextPath() + "/loginfailed?errormsg=Setting values to the session.";
+                    String newURL = request.getContextPath() + "/loginfailed?errormsg=Setting values to the session.";
+                    response.sendRedirect(newURL);
+                    return NONE;
                 }
 
-                response.sendRedirect(newURL);
-                return NONE;
+                return "forcepasswordreset";
             }
 
             // invalidate the existing session
@@ -939,7 +936,7 @@ public final class Login2Action extends ActionSupport {
      * <p>The session attribute removed is the opaque credential-cache token (see
      * {@link LoginCredentialCache}); if it is present the corresponding cache entry is
      * also invalidated so that credential material cannot outlive the login attempt.
-     * The {@code nextPage} attribute is also cleared.
+     * Legacy {@code userName} and {@code nextPage} attributes are also cleared if present.
      *
      * @param request HttpServletRequest containing the session to clean
      */
@@ -950,6 +947,7 @@ public final class Login2Action extends ActionSupport {
             LoginCredentialCache.getInstance().invalidate((String) tokenAttr);
         }
         session.removeAttribute(LOGIN_CREDENTIALS_TOKEN_ATTR);
+        session.removeAttribute("userName");
         session.removeAttribute("nextPage");
     }
 
@@ -990,7 +988,7 @@ public final class Login2Action extends ActionSupport {
      * @param pin String the 4-digit PIN (must match [0-9]{4} pattern)
      * @param nextPage String the relative URL to redirect to after password reset (validated before caching)
      * @throws Exception if password encoding fails
-     * @see #encodePassword for password encoding algorithm
+     * @see SecurityManager#encodePassword for password encoding algorithm
      * @see #removeAttributesFromSession for cleanup after password reset
      * @see RedirectValidationUtils#isValidRelativeRedirect for redirect URL validation logic
      * @see LoginCredentialCache for the server-side credential store
@@ -1011,7 +1009,7 @@ public final class Login2Action extends ActionSupport {
         // server-side cache keyed by a cryptographically random one-time token, and store
         // only the opaque token in the session. See LoginCredentialCache for details.
         LoginCredentialCache.LoginCredentials credentials = new LoginCredentialCache.LoginCredentials(
-                userName, encodePassword(password), pin, nextPage);
+                userName, securityManager.encodePassword(password), pin, nextPage);
 
         // Invalidate any previously issued token on this session before minting a new one,
         // so that stale cache entries do not outlive the current login attempt.
@@ -1030,77 +1028,40 @@ public final class Login2Action extends ActionSupport {
      *
      * <p>This method performs three validation checks:
      * <ol>
-     *   <li>Old password matches the current password in the database</li>
+     *   <li>Old password matches the password from the staged successful login</li>
      *   <li>New password and confirmation password match each other</li>
      *   <li>New password is different from old password (unless IGNORE_PASSWORD_REQUIREMENTS is true)</li>
      * </ol>
      *
-     * <p>The method returns a URL query string fragment containing an error message if
-     * validation fails, or an empty string if all validations pass.
+     * <p>The method returns a display-safe error message if validation fails, or an empty
+     * string if all validations pass.
      *
-     * @param oldEncodedPassword String the current password hash from the database
+     * @param oldEncodedPassword String password hash staged from the successful login
      * @param newPassword String the new password entered by the user
      * @param confirmPassword String the confirmation of the new password
      * @param oldPassword String the old password entered by the user for verification
-     * @return String empty string if validation passes, or URL query parameter with error message if validation fails
+     * @return String empty string if validation passes, or an error message if validation fails
      * @see SecurityManager#matchesPassword for password comparison logic
      */
     private String errorHandling(String oldEncodedPassword, String newPassword, String confirmPassword,
                                  String oldPassword) {
 
-        String newURL = "";
-
-        // Verify old password matches current password in database
-        if (!this.securityManager.matchesPassword(oldPassword, oldEncodedPassword)) {
-            newURL = newURL
-                    + "?errormsg=Your old password, does NOT match the password in the system. Please enter your old password.";
+        // Verify old password matches the password from the staged successful login.
+        if (oldPassword == null || oldEncodedPassword == null
+                || !this.securityManager.matchesPassword(oldPassword, oldEncodedPassword)) {
+            return "Your old password, does NOT match the password in the system. Please enter your old password.";
         }
         // Verify new password and confirmation match
-        else if (!newPassword.equals(confirmPassword)) {
-            newURL = newURL + "?errormsg=Your new password, does NOT match the confirmed password. Please try again.";
+        else if (newPassword == null || confirmPassword == null || !Objects.equals(newPassword, confirmPassword)) {
+            return "Your new password, does NOT match the confirmed password. Please try again.";
         }
         // Verify new password is different from old password (unless requirement is disabled)
         else if (!Boolean.parseBoolean(CarlosProperties.getInstance().getProperty("IGNORE_PASSWORD_REQUIREMENTS"))
-                && newPassword.equals(oldPassword)) {
-            newURL = newURL
-                    + "?errormsg=Your new password, is the same as your old password. Please choose a new password.";
+                && Objects.equals(newPassword, oldPassword)) {
+            return "Your new password, is the same as your old password. Please choose a new password.";
         }
 
-        return newURL;
-    }
-
-    /**
-     * Encodes a plain-text password using SHA-1 hashing algorithm.
-     *
-     * <p>This method creates a SHA-1 digest of the password and converts each byte
-     * to a string representation. The resulting hash is stored in the session during
-     * the forced password reset flow.
-     *
-     * <p>SECURITY NOTE: SHA-1 is deprecated for cryptographic use. This legacy encoding
-     * is maintained for backward compatibility but should be migrated to BCrypt or
-     * PBKDF2 in the future.
-     *
-     * <p>TODO: Consider using {@link SecurityManager#encodePassword} if it provides
-     * the same encoding format, or migrate to modern password hashing algorithms.
-     *
-     * @param password String the plain-text password to encode
-     * @return String the SHA-1 encoded password as concatenated byte string
-     * @throws Exception if SHA MessageDigest algorithm is not available
-     * @deprecated SHA-1 is cryptographically weak; migrate to BCrypt or PBKDF2
-     */
-    @Deprecated
-    private String encodePassword(String password) throws Exception {
-
-        MessageDigest md = MessageDigest.getInstance("SHA");
-
-        StringBuilder sbTemp = new StringBuilder();
-        byte[] btNewPasswd = md.digest(password.getBytes());
-        // Convert each byte to string representation
-        for (int i = 0; i < btNewPasswd.length; i++)
-            sbTemp = sbTemp.append(btNewPasswd[i]);
-
-        return sbTemp.toString();
-
+        return "";
     }
 
     /**
@@ -1129,7 +1090,7 @@ public final class Login2Action extends ActionSupport {
      * <p>Steps performed:
      * <ol>
      *   <li>Retrieve the user's Security record via {@link #getSecurity}</li>
-     *   <li>Encode the new password using {@link #encodePassword}</li>
+     *   <li>Encode the new password using {@link SecurityManager#encodePassword}</li>
      *   <li>Update the password field in the Security record</li>
      *   <li>Clear the forcePasswordReset flag</li>
      *   <li>Persist changes to the database</li>
@@ -1139,14 +1100,15 @@ public final class Login2Action extends ActionSupport {
      * @param newPassword String the new plain-text password (will be encoded before storage)
      * @throws Exception if password encoding fails or database update fails
      * @see #getSecurity for retrieving the Security record
-     * @see #encodePassword for password hashing
+     * @see SecurityManager#encodePassword for password hashing
      * @see SecurityDao#saveEntity for database persistence
      */
     private void persistNewPassword(String userName, String newPassword) throws Exception {
 
         Security security = getSecurity(userName);
-        security.setPassword(encodePassword(newPassword));
+        security.setPassword(securityManager.encodePassword(newPassword));
         security.setForcePasswordReset(Boolean.FALSE);
+        security.setPasswordUpdateDate(new Date());
         securityDao.saveEntity(security);
 
     }

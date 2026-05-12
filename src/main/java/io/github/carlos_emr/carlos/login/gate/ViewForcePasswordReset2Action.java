@@ -12,9 +12,11 @@
  */
 package io.github.carlos_emr.carlos.login.gate;
 
+import io.github.carlos_emr.carlos.login.Login2Action;
+
 /**
  * Gate for the forced-password-reset page, which depends on the staged login
- * credentials stored in session before the password change is completed.
+ * credential cache token before the password change is completed.
  *
  * @since 2026-04-15
  */
@@ -22,6 +24,6 @@ public final class ViewForcePasswordReset2Action extends BaseLoginPageView2Actio
 
     @Override
     protected String requiredSessionAttribute() {
-        return "userName";
+        return Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR;
     }
 }

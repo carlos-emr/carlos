@@ -30,13 +30,10 @@
 --%>
 
 <%
-    //Make sure user has logged in first and username is in the session
-
-    if (session.getAttribute("userName") == null) {
-        response.sendRedirect(request.getContextPath() + "/logoutPage");
-    }
     String errormsg = "";
-    if (request.getParameter("errormsg") != null) {
+    if (request.getAttribute("errormsg") != null) {
+        errormsg = String.valueOf(request.getAttribute("errormsg"));
+    } else if (request.getParameter("errormsg") != null) {
         errormsg = request.getParameter("errormsg");
     }
 %>
