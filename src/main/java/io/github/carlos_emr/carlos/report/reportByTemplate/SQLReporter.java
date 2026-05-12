@@ -133,10 +133,13 @@ public class SQLReporter implements Reporter {
         String[] result = executeQuery(sql, sqlParams, false);
 
         String csv = result[1];
-        if (csv.length() > MAX_CSV_EXPORT_LENGTH) {
-            MiscUtils.getLogger().warn("generateReport: CSV result for template '{}' exceeds export size limit ({} chars); not exposing CSV download", LogSanitizer.sanitize(templateId), csv.length()); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
-            request.setAttribute("errormsg", "Warning: Report result is too large to download as CSV. Please narrow your search criteria.");
-            csv = "";
+        if (csv != null) {
+            int csvBytes = csv.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
+            if (csvBytes > MAX_CSV_EXPORT_LENGTH) {
+                MiscUtils.getLogger().warn("generateReport: CSV result for template '{}' exceeds export size limit ({} bytes); not exposing CSV download", LogSanitizer.sanitize(templateId), csvBytes); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                request.setAttribute("errormsg", "Warning: Report result is too large to download as CSV. Please narrow your search criteria.");
+                csv = "";
+            }
         }
 
         request.setAttribute("csv", csv);

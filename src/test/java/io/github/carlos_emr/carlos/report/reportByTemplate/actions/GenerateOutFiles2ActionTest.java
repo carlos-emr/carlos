@@ -122,4 +122,20 @@ class GenerateOutFiles2ActionTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE);
         assertThat(response.getContentAsString()).isEmpty();
     }
+
+    @Test
+    @DisplayName("should reject oversized CSV when posted CSV contains multi-byte characters that exceed byte limit")
+    void shouldRejectOversizedCsv_whenPostedCsvContainsMultiByteChars() throws Exception {
+        request.setParameter("getCSV", "Export to CSV");
+        // create a string shorter than char limit but larger in bytes (UTF-8 3 bytes per '€')
+        int repeat = SQLReporter.MAX_CSV_EXPORT_LENGTH / 3 + 1;
+        String multi = "\u20ac".repeat(repeat);
+        request.setParameter("csv", multi);
+
+        String result = new GenerateOutFiles2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE);
+        assertThat(response.getContentAsString()).isEmpty();
+    }
 }

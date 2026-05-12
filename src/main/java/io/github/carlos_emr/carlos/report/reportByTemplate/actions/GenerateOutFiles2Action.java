@@ -139,8 +139,9 @@ public class GenerateOutFiles2Action extends ActionSupport {
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             return false;
         }
-        if (csv.length() > SQLReporter.MAX_CSV_EXPORT_LENGTH) {
-            MiscUtils.getLogger().warn("GenerateOutFiles2Action: CSV export payload exceeds size limit ({} chars)", csv.length());
+        int byteLen = csv.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
+        if (byteLen > SQLReporter.MAX_CSV_EXPORT_LENGTH) {
+            MiscUtils.getLogger().warn("GenerateOutFiles2Action: CSV export payload exceeds size limit ({} bytes)", byteLen);
             response.setStatus(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE);
             return false;
         }
