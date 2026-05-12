@@ -2,8 +2,12 @@
 
 ##CREATE DATABASE
 ## Dependency on MariaDb or MySQL
-## Dependency on Apache htpasswd (as bash does not bcrypt)
-## apt install apache2-utils
+
+# Check Apache htpasswd dependency (bash does not bcrypt)
+if ! command -v htpasswd >/dev/null 2>&1; then
+  echo "Error: htpasswd not found; please install apache2-utils" >&2
+  exit 1
+fi
 
 USER=$1
 PASSWORD=$2
@@ -70,16 +74,24 @@ echo "loading oscarinit_2025.sql"
 $mysql_cmd < oscarinit_2025.sql
 
 newpassword=$(tr -cd '[:alnum:]' < /dev/urandom | fold -w10 | head -n 1)
-bhash=$(htpasswd -bnB carlosdoc "${newpassword}" | cut -d: -f2)
+bhash=$(htpasswd -bnBC 12 carlosdoc "${newpassword}" | cut -d: -f2)
+if [ -z "${bhash}" ]; then
+  echo 'ERROR: failed to generate bcrypt hash with htpasswd'
+  exit 1
+fi
 bhash="{bcrypt}${bhash}"
-echo "UPDATE security SET password='${bhash}' WHERE user_name='carlosdoc';" | $mysql_cmd
+$mysql_cmd <<SQL
+UPDATE security SET password='${bhash}' WHERE user_name='carlosdoc';
+SQL
 newpin=$(tr -cd '0-9' < /dev/urandom | fold -w4 | head -n 1)
-echo "UPDATE security SET pin='${newpin}' WHERE user_name='carlosdoc';" | $mysql_cmd
+$mysql_cmd <<SQL
+UPDATE security SET pin='${newpin}' WHERE user_name='carlosdoc';
+SQL
 
 echo 'all done!'
 echo 'the default user is carlosdoc'
-echo 'password '${newpassword}
-echo 'pin ' ${newpin}
+echo "password ${newpassword}"
+echo "pin ${newpin}"
 echo '***IMPORTANT: WRITE THESE CREDENTIALS DOWN***'
 
 # Expire the password
