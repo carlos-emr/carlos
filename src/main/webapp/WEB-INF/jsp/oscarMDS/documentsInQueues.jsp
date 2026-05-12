@@ -831,20 +831,18 @@
          * Local override of the global `reportWindow` (defined in
          * /share/javascript/oscarMDSIndex.js).
          *
-         * Quirk: the `height` argument is ignored — the popup is always opened
-         * at height 660, with only `width` honoured. Pre-existing legacy
-         * behaviour; preserved to avoid regressing callers within this page
-         * that were authored against it. Do not "fix" the height handling
-         * without auditing every callsite below.
+         * Uses caller-provided dimensions when present, matching the global
+         * helper while retaining the legacy 660x960 fallback for callers that
+         * omit dimensions.
          *
          * @param {string} page absolute or context-relative URL to open
-         * @param {number} height accepted for signature compatibility but ignored
+         * @param {number} height popup height in px
          * @param {number} width popup width in px
          */
         function reportWindow(page, height, width) {
             //console.log(page);
             if (height && width) {
-                windowprops = "height=" + 660 + ", width=" + width + ", location=no, scrollbars=yes, menubars=no, toolbars=no, resizable=yes, top=0, left=0";
+                windowprops = "height=" + height + ", width=" + width + ", location=no, scrollbars=yes, menubars=no, toolbars=no, resizable=yes, top=0, left=0";
             } else {
                 windowprops = "height=660, width=960, location=no, scrollbars=yes, menubars=no, toolbars=no, resizable=yes, top=0, left=0";
             }

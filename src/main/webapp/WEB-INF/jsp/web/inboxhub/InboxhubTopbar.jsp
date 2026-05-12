@@ -21,10 +21,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     list view. Each link opens a feature popup via reportWindow(...) defined
     in /share/javascript/oscarMDSIndex.js.
 
-    Inputs (session scope):
-      sessionScope.user — provider number of the logged-in user; passed to
-        the Forwarding Rules popup so the rules editor scopes to that
-        provider.
+    Inputs:
+      providerNo — provider number of the logged-in user, read from
+        sessionScope.user; passed to the Forwarding Rules popup so the
+        rules editor scopes to that provider.
 
     Conditional rendering:
       The "Doc Upload" link toggles between two endpoints based on the
