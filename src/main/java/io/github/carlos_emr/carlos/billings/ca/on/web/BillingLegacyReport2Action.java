@@ -99,7 +99,7 @@ public class BillingLegacyReport2Action extends ActionSupport {
                     File folderDir = new File(folderPath);
                     String safeFilename = FilenameUtils.getName(filename);
                     if (!safeFilename.equals(filename)) {
-                        throw new SecurityException("Invalid filename parameter");
+                        throw new IllegalArgumentException("Invalid filename parameter");
                     }
                     File target = PathValidationUtils.validatePath(safeFilename, folderDir);
                     if (target.exists() && target.isFile()) {
