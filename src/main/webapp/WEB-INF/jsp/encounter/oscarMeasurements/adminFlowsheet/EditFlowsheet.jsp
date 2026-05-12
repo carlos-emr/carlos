@@ -254,7 +254,7 @@
 	}
 %>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="${pageContext.request.locale.language}">
 
 <head>
     <title>Edit Flowsheet</title><!--I18n-->
