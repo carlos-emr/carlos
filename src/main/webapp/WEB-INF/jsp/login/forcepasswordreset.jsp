@@ -33,8 +33,6 @@
     String errormsg = "";
     if (request.getAttribute("errormsg") != null) {
         errormsg = String.valueOf(request.getAttribute("errormsg"));
-    } else if (request.getParameter("errormsg") != null) {
-        errormsg = request.getParameter("errormsg");
     }
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>

@@ -63,6 +63,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
@@ -260,7 +262,7 @@ public final class Login2Action extends ActionSupport {
         // SECURITY: Reject GET requests to prevent credential exposure in URLs/logs
         if (!"POST".equals(request.getMethod())) {
             MiscUtils.getLogger().error("Someone is trying to login with a GET request.", new Exception());
-            String newURL = request.getContextPath() + "/loginfailed?errormsg=Application Error. See Log.";
+            String newURL = loginFailedRedirectUrl("Application Error. See Log.");
             response.sendRedirect(newURL);
             return NONE;
         }
@@ -384,7 +386,7 @@ public final class Login2Action extends ActionSupport {
                 // proceeding with empty credentials.
                 logger.info("Forced password reset submitted without valid credential-cache token; redirecting to login");
                 removeAttributesFromSession(request);
-                response.sendRedirect(request.getContextPath() + "/loginfailed?errormsg=Session expired. Please log in again.");
+                response.sendRedirect(loginFailedRedirectUrl("Session expired. Please log in again."));
                 return NONE;
             }
 
@@ -433,7 +435,7 @@ public final class Login2Action extends ActionSupport {
                 removeAttributesFromSession(request);
             } catch (Exception e) {
                 logger.error("Error", e);
-                String newURL = request.getContextPath() + "/loginfailed?errormsg=Setting values to the session.";
+                String newURL = loginFailedRedirectUrl("Setting values to the session.");
 
                 // Remove the attributes from session
                 removeAttributesFromSession(request);
@@ -509,7 +511,7 @@ public final class Login2Action extends ActionSupport {
                 logger.info("{} Blocked: {}", LOG_PRE, LogSanitizer.sanitize(userName));
                 // return mapping.findForward(where); //go to block page
                 // change to block page
-                String newURL = request.getContextPath() + "/loginfailed?errormsg=Oops! Your account is now locked due to incorrect password attempts!";
+                String newURL = loginFailedRedirectUrl("Oops! Your account is now locked due to incorrect password attempts!");
 
                 if (ajaxResponse) {
                     ObjectNode json = objectMapper.createObjectNode();
@@ -536,8 +538,7 @@ public final class Login2Action extends ActionSupport {
             strAuth = cl.auth(userName, password, pin, ip);
         } catch (Exception e) {
             logger.error("Error", e);
-            String newURL = request.getContextPath() + "/loginfailed"
-                    + "?errormsg=Unable to process login at this time. Please try again.";
+            String newURL = loginFailedRedirectUrl("Unable to process login at this time. Please try again.");
 
             if (ajaxResponse) {
                 ObjectNode json = objectMapper.createObjectNode();
@@ -564,7 +565,7 @@ public final class Login2Action extends ActionSupport {
                 logger.info("{} Inactive: {}", LOG_PRE, LogSanitizer.sanitize(userName));
                 LogAction.addLog(strAuth[0], "login", "failed", "inactive");
 
-                String newURL = request.getContextPath() + "/loginfailed?errormsg=Your account is inactive. Please contact your administrator to activate.";
+                String newURL = loginFailedRedirectUrl("Your account is inactive. Please contact your administrator to activate.");
 
                 response.sendRedirect(newURL);
                 return NONE;
@@ -582,7 +583,7 @@ public final class Login2Action extends ActionSupport {
                     setUserInfoToSession(request, userName, password, pin, nextPage);
                 } catch (Exception e) {
                     logger.error("Error", e);
-                    String newURL = request.getContextPath() + "/loginfailed?errormsg=Setting values to the session.";
+                    String newURL = loginFailedRedirectUrl("Setting values to the session.");
                     response.sendRedirect(newURL);
                     return NONE;
                 }
@@ -778,7 +779,7 @@ public final class Login2Action extends ActionSupport {
         else if (strAuth != null && strAuth.length == 1 && strAuth[0].equals("expired")) {
             logger.warn("Expired password");
             cl.updateLoginList(ip, userName);
-            String newURL = request.getContextPath() + "/loginfailed?errormsg=Your account is expired. Please contact your administrator.";
+            String newURL = loginFailedRedirectUrl("Your account is expired. Please contact your administrator.");
 
             if (ajaxResponse) {
                 ObjectNode json = objectMapper.createObjectNode();
@@ -924,6 +925,11 @@ public final class Login2Action extends ActionSupport {
                 + "&month=" + (now.get(Calendar.MONTH) + 1)
                 + "&day=" + now.get(Calendar.DAY_OF_MONTH)
                 + "&view=0&displaymode=day&dboperation=searchappointmentday&viewall=" + viewAll;
+    }
+
+    private String loginFailedRedirectUrl(String errorMessage) {
+        return request.getContextPath() + "/loginfailed?errormsg="
+                + URLEncoder.encode(errorMessage, StandardCharsets.UTF_8);
     }
 
     /**
@@ -1106,6 +1112,9 @@ public final class Login2Action extends ActionSupport {
     private void persistNewPassword(String userName, String newPassword) throws Exception {
 
         Security security = getSecurity(userName);
+        if (security == null) {
+            throw new IllegalStateException("Security record not found for forced password reset user.");
+        }
         security.setPassword(securityManager.encodePassword(newPassword));
         security.setForcePasswordReset(Boolean.FALSE);
         security.setPasswordUpdateDate(new Date());

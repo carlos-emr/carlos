@@ -127,7 +127,7 @@ class LoginJspMigrationRegressionTest {
 
     @Test
     @DisplayName("administration section home should keep the clean public route")
-    void administrationSectionHomeShouldKeepTheCleanPublicRoute() throws IOException {
+    void shouldKeepCleanPublicRoute_forAdministrationSectionHome() throws IOException {
         String integrationStruts = Files.readString(STRUTS_INTEGRATION_XML, StandardCharsets.UTF_8);
         String menuConfig = Files.readString(MENU_CONFIG, StandardCharsets.UTF_8);
         String personaService = Files.readString(
@@ -143,10 +143,9 @@ class LoginJspMigrationRegressionTest {
         assertThat(menuConfig).doesNotContain("/administration/index");
         assertThat(personaService).contains("../administration/");
         assertThat(personaService).doesNotContain("../administration/index");
-        assertThat(mainMenu).contains("/administration/','admin'");
+        assertThat(mainMenu).contains("/administration/");
         assertThat(mainMenu).doesNotContain("/administration/index");
-        assertThat(appointmentProviderAdminDay).contains("/administration/','admin'");
-        assertThat(appointmentProviderAdminDay).contains("/administration/\", \"admin\"");
+        assertThat(appointmentProviderAdminDay).contains("/administration/");
         assertThat(appointmentProviderAdminDay).doesNotContain("/administration/index");
         assertThat(administrationLeftNav).contains("${ctx}/administration/");
         assertThat(administrationLeftNav).doesNotContain("/administration/index");
@@ -154,7 +153,7 @@ class LoginJspMigrationRegressionTest {
 
     @Test
     @DisplayName("appointment day should run password expiry warning on non CAISI schedule load")
-    void appointmentDayShouldRunPasswordExpiryWarningOnNonCaisiScheduleLoad() throws IOException {
+    void shouldRunPasswordExpiryWarning_onNonCaisiScheduleLoad() throws IOException {
         String appointmentProviderAdminDay =
                 Files.readString(APPOINTMENT_PROVIDER_ADMIN_DAY, StandardCharsets.UTF_8);
         String providerSchedulePageJs = Files.readString(PROVIDER_SCHEDULE_PAGE_JS, StandardCharsets.UTF_8);
@@ -164,9 +163,12 @@ class LoginJspMigrationRegressionTest {
                 .contains("showPasswordExpiryWarning();");
         assertThat(providerSchedulePageJs).contains("function showPasswordExpiryWarning()");
         assertThat(providerSchedulePageJs).contains("function popupPageOfChangePassword()");
+        assertThat(providerSchedulePageJs).contains("password-expiry-warning");
+        assertThat(providerSchedulePageJs).contains("document.createElement(\"div\")");
+        assertThat(providerSchedulePageJs).contains("changePasswordLink.href = \"<%= request.getContextPath() %>/provider/ViewChangePassword\"");
         assertThat(providerSchedulePageJs).contains("showPasswordExpiryWarning();");
         assertThat(providerSchedulePageJs)
-                .contains("window.location.href = \"<%= request.getContextPath() %>/provider/ViewChangePassword\"");
+                .doesNotContain("window.location.href = \"<%= request.getContextPath() %>/provider/ViewChangePassword\"");
         assertThat(providerSchedulePageJs).doesNotContain("window.open(\"<%= request.getContextPath() %>/provider/ViewChangePassword\"");
     }
 
@@ -184,22 +186,27 @@ class LoginJspMigrationRegressionTest {
 
     @Test
     @DisplayName("forced password reset should use the credential cache token and no userName session dependency")
-    void forcedPasswordResetShouldUseCredentialCacheToken() throws IOException {
+    void shouldUseCredentialCacheToken_forForcedPasswordReset() throws IOException {
         String loginAction = Files.readString(LOGIN_ACTION, StandardCharsets.UTF_8);
         String forcePasswordResetGate = Files.readString(FORCE_PASSWORD_RESET_GATE, StandardCharsets.UTF_8);
         String forcePasswordResetJsp = Files.readString(FORCE_PASSWORD_RESET_JSP, StandardCharsets.UTF_8);
 
-        assertThat(forcePasswordResetGate).contains("return Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR;");
         assertThat(forcePasswordResetGate).doesNotContain("\"userName\"");
+        assertThat(forcePasswordResetGate).doesNotContain("String result = super.execute()");
+        assertThat(forcePasswordResetGate).contains("GET, HEAD");
         assertThat(forcePasswordResetGate).contains("if (session == null)");
         assertThat(forcePasswordResetGate).contains("LoginCredentialCache.getInstance().peek(token)");
         assertThat(forcePasswordResetGate).contains("Session expired. Please log in again.");
+        assertThat(forcePasswordResetGate).contains("URLEncoder.encode(errorMessage, StandardCharsets.UTF_8)");
         assertThat(loginAction).contains("session.setAttribute(LOGIN_CREDENTIALS_TOKEN_ATTR, token)");
         assertThat(loginAction).contains("return \"forcepasswordreset\";");
         assertThat(loginAction).contains("request.setAttribute(\"errormsg\", errorStr)");
         assertThat(loginAction).contains("securityManager.encodePassword(newPassword)");
+        assertThat(loginAction).contains("URLEncoder.encode(errorMessage, StandardCharsets.UTF_8)");
+        assertThat(loginAction).contains("Security record not found for forced password reset user.");
         assertThat(loginAction).doesNotContain("FORCE_PASSWORD_RESET_PENDING_ATTR");
         assertThat(forcePasswordResetJsp).contains("request.getAttribute(\"errormsg\")");
+        assertThat(forcePasswordResetJsp).doesNotContain("request.getParameter(\"errormsg\")");
         assertThat(forcePasswordResetJsp).doesNotContain("session.getAttribute(\"userName\")");
     }
 

@@ -13,6 +13,8 @@
 package io.github.carlos_emr.carlos.login.gate;
 
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 
 import io.github.carlos_emr.carlos.login.Login2Action;
 import io.github.carlos_emr.carlos.login.LoginCredentialCache;
@@ -32,12 +34,16 @@ public final class ViewForcePasswordReset2Action extends BaseLoginPageView2Actio
 
     @Override
     public String execute() throws Exception {
-        String result = super.execute();
-        if (!SUCCESS.equals(result)) {
-            return result;
+        HttpServletRequest request = ServletActionContext.getRequest();
+        HttpServletResponse response = ServletActionContext.getResponse();
+
+        String method = request.getMethod();
+        if (!"GET".equalsIgnoreCase(method) && !"HEAD".equalsIgnoreCase(method)) {
+            response.setHeader("Allow", "GET, HEAD");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
         }
 
-        HttpServletRequest request = ServletActionContext.getRequest();
         HttpSession session = request.getSession(false);
         if (session == null) {
             return redirectToExpiredSession(request);
@@ -53,14 +59,13 @@ public final class ViewForcePasswordReset2Action extends BaseLoginPageView2Actio
 
     private String redirectToExpiredSession(HttpServletRequest request) throws IOException {
         HttpServletResponse response = ServletActionContext.getResponse();
-        String redirectUrl = request.getContextPath()
-                + "/loginfailed?errormsg=Session expired. Please log in again.";
+        String redirectUrl = loginFailedRedirectUrl(request, "Session expired. Please log in again.");
         response.sendRedirect(redirectUrl);
         return NONE;
     }
 
-    @Override
-    protected String requiredSessionAttribute() {
-        return Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR;
+    private String loginFailedRedirectUrl(HttpServletRequest request, String errorMessage) {
+        return request.getContextPath() + "/loginfailed?errormsg="
+                + URLEncoder.encode(errorMessage, StandardCharsets.UTF_8);
     }
 }
