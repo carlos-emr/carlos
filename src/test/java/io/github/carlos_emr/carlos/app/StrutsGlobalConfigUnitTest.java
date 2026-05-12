@@ -53,6 +53,7 @@ class StrutsGlobalConfigUnitTest {
     private static final String EXPECTED_STRUTS_DOCTYPE =
             "<!DOCTYPE struts PUBLIC \"-//Apache Software Foundation//DTD Struts Configuration 6.5//EN\" "
                     + "\"https://struts.apache.org/dtds/struts-6.5.dtd\">";
+    private static final String EXPECTED_ALLOWLIST_PACKAGE = "io.github.carlos_emr.carlos";
     private static final Path STRUTS_XML =
             Path.of("src", "main", "webapp", "WEB-INF", "classes", "struts.xml");
 
@@ -66,21 +67,21 @@ class StrutsGlobalConfigUnitTest {
         assertThat(constants)
                 .as("Struts 7 uses struts.allowlist.* constants for strict OGNL allowlisting")
                 .containsEntry("struts.allowlist.enable", "true")
-                .containsEntry("struts.allowlist.packageNames", "io.github.carlos_emr.carlos");
+                .containsEntry("struts.allowlist.packageNames", EXPECTED_ALLOWLIST_PACKAGE);
     }
 
     /**
-     * Guards against a future edit in any included struts-*.xml file accidentally disabling the
-     * OGNL allowlist. Struts processes &lt;include&gt; files after the parent, so a
-     * {@code struts.allowlist.enable=false} constant in any included config would silently
-     * override the parent setting and remove OGNL protection at runtime — while the sibling
-     * test above would still pass (it only reads struts.xml). This test closes that gap by
+     * Guards against a future edit in any included struts-*.xml file accidentally weakening
+     * the OGNL allowlist. Struts processes &lt;include&gt; files after the parent, so a
+     * {@code struts.allowlist.*} constant in any included config could silently override the
+     * parent setting and remove or narrow OGNL protection at runtime — while the sibling test
+     * above would still pass (it only reads struts.xml). This test closes that gap by
      * iterating every &lt;include&gt; referenced from struts.xml and asserting none of them
-     * carry the dangerous override.
+     * carry dangerous allowlist overrides.
      */
     @Test
-    @DisplayName("no included struts config should override OGNL allowlist enable to false")
-    void shouldNotOverrideOgnlAllowlistEnable_inIncludedConfigs()
+    @DisplayName("no included struts config should weaken OGNL allowlist settings")
+    void shouldNotWeakenOgnlAllowlistSettings_inIncludedConfigs()
             throws IOException, ParserConfigurationException, SAXException {
         Path strutsXmlPath = resolveProjectPath(STRUTS_XML);
         Document parent = parseXml(strutsXmlPath);
@@ -95,14 +96,18 @@ class StrutsGlobalConfigUnitTest {
                 if (Files.exists(includedPath)) {
                     Map<String, String> constants = collectConstants(parseXml(includedPath));
                     if ("false".equals(constants.get("struts.allowlist.enable"))) {
-                        violations.add(fileName);
+                        violations.add(fileName + " sets struts.allowlist.enable=false");
+                    }
+                    String packageNames = constants.get("struts.allowlist.packageNames");
+                    if (packageNames != null && !EXPECTED_ALLOWLIST_PACKAGE.equals(packageNames)) {
+                        violations.add(fileName + " sets struts.allowlist.packageNames=" + packageNames);
                     }
                 }
             }
         }
 
         assertThat(violations)
-                .as("These included Struts configs set struts.allowlist.enable=false, disabling OGNL protection")
+                .as("These included Struts configs weaken global OGNL allowlist settings")
                 .isEmpty();
     }
 
