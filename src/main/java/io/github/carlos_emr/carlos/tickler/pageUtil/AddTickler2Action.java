@@ -78,6 +78,7 @@ public class AddTickler2Action extends ActionSupport {
      * @throws IOException if sending the HTTP 405 response fails
      * @since 2026-05-05
      */
+    @Override
     public String execute() throws IOException {
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
