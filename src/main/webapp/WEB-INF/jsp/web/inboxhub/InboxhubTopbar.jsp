@@ -22,8 +22,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     in /share/javascript/oscarMDSIndex.js.
 
     Inputs:
-      providerNo — provider number of the logged-in user, read from
-        sessionScope.user; passed to the Forwarding Rules popup so the
+      providerNo — provider number of the logged-in user; set below from
+        sessionScope.user and passed to the Forwarding Rules popup so the
         rules editor scopes to that provider.
 
     Conditional rendering:
@@ -35,9 +35,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 
     Popup sizing:
       reportWindow's signature is (page, height, width). The popup args
-      are intentionally height=800, width=1000 for the sub-pages
-      that share a Bootstrap `.container` wrapper (Pending Docs, HL7 Lab
-      Upload, Create Lab, Forwarding Rules, Doc Upload). At
+      are intentionally height=800, width=1000 for the sub-pages that
+      share a Bootstrap `.container` wrapper (Pending Docs, HL7 Lab
+      Upload, Create Lab, Forwarding Rules, Doc Upload). Incoming Docs
+      keeps width=1200 because it uses a full-width `container-fluid`
+      layout for queue triage. At
       width=1000 the container hits Bootstrap's lg breakpoint (>=992px)
       and resolves to a 960px max-width — producing the same ~20px page
       gutter on every popup. Diverging widths land on different
@@ -58,14 +60,17 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 <c:set var="contextPath" value="${pageContext.request.contextPath}" />
 
 <%-- Ordered by workflow: incoming → pending → uploads → create → config --%>
+<%-- Incoming Docs uses container-fluid, so it intentionally keeps a wider popup. --%>
 <a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/documentManager/ViewIncomingDocs',800,1200)" class="nav-link"><fmt:message key="inboxmanager.document.incomingDocs"/></a>
 <a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/documentManager/inboxManage?method=getDocumentsInQueues',800,1000)" class="nav-link"><fmt:message key="inboxmanager.document.pendingDocs"/></a>
-<c:if test="${CarlosProperties.getInstance().getBooleanProperty('legacy_document_upload_enabled', 'true')}">
-    <a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/documentManager/ViewHtml5AddDocuments',800,1000)" class="nav-link"><fmt:message key="inboxmanager.document.uploadDoc"/></a>
-</c:if>
-<c:if test="${!CarlosProperties.getInstance().getBooleanProperty('legacy_document_upload_enabled', 'true')}">
-    <a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/documentManager/ViewDocumentUploader',800,1000)" class="nav-link"><fmt:message key="inboxmanager.document.uploadDoc"/></a>
-</c:if>
+<c:choose>
+    <c:when test="${CarlosProperties.getInstance().getBooleanProperty('legacy_document_upload_enabled', 'true')}">
+        <a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/documentManager/ViewHtml5AddDocuments',800,1000)" class="nav-link"><fmt:message key="inboxmanager.document.uploadDoc"/></a>
+    </c:when>
+    <c:otherwise>
+        <a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/documentManager/ViewDocumentUploader',800,1000)" class="nav-link"><fmt:message key="inboxmanager.document.uploadDoc"/></a>
+    </c:otherwise>
+</c:choose>
 <a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/lab/CA/ALL/insideLabUpload',800,1000)" class="nav-link"><fmt:message key="admin.admin.hl7LabUpload"/></a>
 <a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/oscarMDS/ViewCreateLab',800,1000)" class="nav-link"><fmt:message key="global.createLab" /></a>
 <a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/oscarMDS/ForwardingRules?providerNo=${carlos:forJavaScript(carlos:forUriComponent(providerNo))}',800,1000);" class="nav-link"><fmt:message key="inboxhub.topbar.forwardingRules"/></a>

@@ -465,7 +465,7 @@
          * @param {string} s packed string, e.g. ";1=Doe,Jane;2=Roe,John"
          * @returns {Object<string,string>} id → "lastName,firstName"
          */
-        function initPatientIdNames(s) {//;1=abc,def;2=dksi,skal;3=dks,eiw
+        function initPatientIdNames(s) {
             var ar = s.split(';');
             var r = new Object();
             for (var i = 0; i < ar.length; i++) {
@@ -491,7 +491,7 @@
          * @param {string} s Java Map.toString() output
          * @returns {Object<string,string[]>} key → array of stringified values
          */
-        function initHashtblWithList(s) {//for typeDocLab,patientDocs
+        function initHashtblWithList(s) {
             s = s.replace('{', '');
             s = s.replace('}', '');
             if (s.length > 0) {
@@ -527,7 +527,7 @@
          * @param {string} s Java Map.toString() output
          * @returns {Object<string,string>} key → scalar value
          */
-        function initHashtblWithString(s) {//for docStatus,docType
+        function initHashtblWithString(s) {
             s = s.replace('{', '');
             s = s.replace('}', '');
             s = s.replace(/\s/g, '');
@@ -847,7 +847,12 @@
                 windowprops = "height=660, width=960, location=no, scrollbars=yes, menubars=no, toolbars=no, resizable=yes, top=0, left=0";
             }
             var popup = window.open(page, "labreport", windowprops);
-            popup.focus();
+            if (popup != null) {
+                if (popup.opener == null) {
+                    popup.opener = self;
+                }
+                popup.focus();
+            }
         }
 
 
