@@ -69,17 +69,19 @@ $mysql_cmd < measurementMapData.sql
 echo "loading oscarinit_2025.sql"
 $mysql_cmd < oscarinit_2025.sql
 
-newpassword=tr -cd '[:alnum:]' < /dev/urandom | fold -w10 | head -n 1
-bhash=htpasswd -bnB myuser mysecretpassword
-bhash="{bcrypt}"+${bhash}
-echo "update security set password=${bhash} where user_name='carlosdoc'" | $mysql_cmd
+newpassword=$(tr -cd '[:alnum:]' < /dev/urandom | fold -w10 | head -n 1)
+bhash=$(htpasswd -bnB carlosdoc "${newpassword}" | cut -d: -f2)
+bhash="{bcrypt}${bhash}"
+echo "UPDATE security SET password='${bhash}' WHERE user_name='carlosdoc';" | $mysql_cmd
+newpin=$(tr -cd '0-9' < /dev/urandom | fold -w4 | head -n 1)
+echo "UPDATE security SET pin='${newpin}' WHERE user_name='carlosdoc';" | $mysql_cmd
 
 echo 'all done!'
 echo 'the default user is carlosdoc'
 echo 'password '${newpassword}
-echo '***IMPORTANT WRITE THIS PASSWORD DOWN IT IS NOT SHOWN AGAIN***'
-echo 'pin 1117'
+echo 'pin ' ${newpin}
+echo '***IMPORTANT: WRITE THESE CREDENTIALS DOWN***'
 
-# Optional: expire the password
-#echo 'expiring credentials (password set to expire in 1 month for security)'
-#echo "update security set date_ExpireDate=DATE_ADD(CURDATE(), INTERVAL 1 MONTH), b_ExpireSet=1 where user_name='carlosdoc'" | $mysql_cmd
+# Expire the password
+echo 'expiring credentials (password set to expire in 1 month for security)'
+echo "update security set date_ExpireDate=DATE_ADD(CURDATE(), INTERVAL 1 MONTH), b_ExpireSet=1 where user_name='carlosdoc'" | $mysql_cmd
