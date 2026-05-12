@@ -735,6 +735,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
      * Opens a stream for a validated upload file.
      * The upload is re-validated immediately before opening and must resolve to one
      * of the allowed upload temp locations enforced by {@link PathValidationUtils}.
+     * Callers must close the returned stream; all current callers use try-with-resources.
      *
      * @param validatedUpload File returned by or suitable for {@link PathValidationUtils#validateUpload(File)}
      * @return InputStream for the upload content

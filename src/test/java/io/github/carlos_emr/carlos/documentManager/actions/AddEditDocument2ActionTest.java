@@ -222,7 +222,9 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should reject Struts 7 uploads outside allowed temp directories")
     void shouldRejectUpload_whenSourceIsOutsideAllowedTempDirectory() throws Exception {
-        Path outsideUpload = Path.of(System.getProperty("user.dir"), "outside-upload-" + System.nanoTime() + ".pdf");
+        Path targetDir = Files.createDirectories(Path.of(System.getProperty("user.dir"), "target"));
+        Path outsideUploadDir = Files.createTempDirectory(targetDir, "outside-upload-");
+        Path outsideUpload = outsideUploadDir.resolve("document.pdf");
         Files.writeString(outsideUpload, "test");
         try {
             UploadedFile uploadedFile = mock(UploadedFile.class);
@@ -234,6 +236,7 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
                     .hasMessageContaining("Invalid upload source");
         } finally {
             Files.deleteIfExists(outsideUpload);
+            Files.deleteIfExists(outsideUploadDir);
         }
     }
 
