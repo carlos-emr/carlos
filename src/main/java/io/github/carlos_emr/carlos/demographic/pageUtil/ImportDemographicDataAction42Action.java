@@ -222,10 +222,12 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         // initialize
         // Read the provider number from session and reject blank values before calling EctProgram.
         admProviderNo = (String) request.getSession().getAttribute("user");
-        if (admProviderNo == null || admProviderNo.isBlank() || "null".equalsIgnoreCase(admProviderNo.trim())) {
+        String normalizedAdmProviderNo = admProviderNo == null ? null : admProviderNo.trim();
+        if (normalizedAdmProviderNo == null || normalizedAdmProviderNo.isEmpty() || "null".equalsIgnoreCase(normalizedAdmProviderNo)) {
             logger.warn("Demographic import request is missing the session user attribute");
             return "logout";
         }
+        admProviderNo = normalizedAdmProviderNo;
         programId = new EctProgram(request.getSession()).getProgram(admProviderNo);
         matchProviderNames = this.isMatchProviderNames();
 
