@@ -92,11 +92,11 @@ if [ -z "$6" ]; then
   bhash="{bcrypt}${bhash}"
   $mysql_cmd <<SQL
   UPDATE security SET password='${bhash}' WHERE user_name='carlosdoc';
-  SQL
+SQL
   newpin=$(tr -cd '0-9' < /dev/urandom | fold -w4 | head -n 1)
   $mysql_cmd <<SQL
   UPDATE security SET pin='${newpin}' WHERE user_name='carlosdoc';
-  SQL
+SQL
   
   echo "password ${newpassword}"
   echo "pin ${newpin}"
