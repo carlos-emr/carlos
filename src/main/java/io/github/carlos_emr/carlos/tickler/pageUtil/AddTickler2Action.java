@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.tickler.pageUtil;
 
+import java.io.IOException;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -48,6 +50,8 @@ import org.apache.struts2.ServletActionContext;
  * Struts2 Action for adding new ticklers.
  * Handles the HTTP request to create one or more ticklers based on user input.
  * Supports creating ticklers for multiple demographics simultaneously.
+ *
+ * @since 2026-05-05
  */
 public class AddTickler2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -59,6 +63,8 @@ public class AddTickler2Action extends ActionSupport {
 
     /**
      * Default constructor.
+     *
+     * @since 2026-05-05
      */
     public AddTickler2Action() {
     }
@@ -68,9 +74,16 @@ public class AddTickler2Action extends ActionSupport {
      * Validates user permissions, extracts tickler details from the request,
      * applies defaults if necessary, and delegates creation to the TicklerManager.
      *
-     * @return "close" upon successful execution to indicate the popup/window should be closed
+     * @return {@code "close"} on success, or {@link ActionSupport#NONE} when the request method is rejected
+     * @throws IOException if sending the HTTP 405 response fails
+     * @since 2026-05-05
      */
-    public String execute() {
+    public String execute() throws IOException {
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
+
         // Verify the user has write access to the _tickler security object
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null || !securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "w", null)) {

@@ -61,10 +61,31 @@ public interface EctProgramManager {
      */
     List<LabelValueBean> getProgramBeans(String providerNo, Integer facilityId);
 
+    /**
+     * Retrieves program label/value beans available for the specified facility.
+     *
+     * @param facilityId the facility identifier; callers should pass a non-null positive value
+     * @return a list of program name/id beans, or an empty list when no programs match
+     */
     List<LabelValueBean> getProgramBeansByFacilityId(Integer facilityId);
 
+    /**
+     * Retrieves appointment-view program beans for the specified provider and optional facility filter.
+     *
+     * @param providerNo the provider identifier; blank values yield no programs
+     * @param facilityId the facility identifier, or {@code null} to include all facilities
+     * @return appointment-view program label/value beans, or an empty list when none are available
+     */
     List<LabelValueBean> getProgramForApptViewBeans(String providerNo, Integer facilityId);
 
+    /**
+     * Retrieves demographic label/value beans for patients assigned to beds in a program as of a date.
+     *
+     * @param programId the program identifier to query
+     * @param dt the effective lookup date; must not be {@code null}
+     * @param archiveView {@code "true"} to query archived demographics, otherwise active demographics
+     * @return demographic beans whose label is {@code "LastName, FirstName"} and value is the demographic number
+     */
     List<LabelValueBean> getDemographicByBedProgramIdBeans(int programId, Date dt, String archiveView);
 
     /**
@@ -81,13 +102,44 @@ public interface EctProgramManager {
      */
     int getDefaultProgramId(String providerNo);
 
+    /**
+     * Persists the default encounter program for the specified provider, replacing any existing value.
+     *
+     * @param providerNo the provider identifier whose default program should be updated
+     * @param programId the program identifier to persist as the default
+     * @implNote Implementations persist the change immediately and overwrite any prior default for the provider.
+     */
     void setDefaultProgramId(String providerNo, int programId);
 
+    /**
+     * Retrieves whether the specified provider has signature mode enabled.
+     *
+     * @param providerNo the provider identifier to query
+     * @return {@code Boolean.TRUE} when enabled, otherwise {@code Boolean.FALSE}; implementations may create a default row when absent
+     */
     Boolean getProviderSig(String providerNo);
 
+    /**
+     * Toggles the persisted signature mode flag for the specified provider.
+     *
+     * @param providerNo the provider identifier whose signature setting should be toggled
+     */
     void toggleSig(String providerNo);
 
+    /**
+     * Returns the underlying program-provider DAO exposed by this legacy interface.
+     *
+     * @return the backing {@link ProgramProviderDAO} instance
+     * @implNote The trailing {@code T} is a legacy compatibility artifact in the method name.
+     */
     ProgramProviderDAO getProgramProviderDAOT();
 
+    /**
+     * Retrieves the basic program metadata array for the specified program.
+     *
+     * @param programId the program identifier to look up
+     * @return a new two-element array containing {@code [0] = program name} and {@code [1] = program ID string},
+     *         or an empty array when the program is not found
+     */
     String[] getProgramInformation(int programId);
 }

@@ -137,6 +137,7 @@ class AddTickler2ActionTest extends CarlosWebTestBase {
         // Use the correct key for LoggedInInfo as expected by LoggedInInfo.getLoggedInInfoFromSession()
         String loggedInInfoKey = LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY";
         setSessionAttribute(loggedInInfoKey, mockLoggedInInfo);
+        getMockRequest().setMethod("POST");
 
         // Create fresh action instance for each test
         action = new AddTickler2Action();

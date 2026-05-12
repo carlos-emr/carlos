@@ -48,18 +48,24 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
  * Provides helper methods for listing, adding, and checking the existence of ticklers,
  * while handling necessary data conversions (e.g., String to Date, status character mapping).
  * 
- * @author Jay Gallagher
+ * @since 2026-05-05
  */
 public class TicklerData {
 
     // Tickler Status Constants
+    /** Active tickler status code. */
     public static final String ACTIVE = "A";
+    /** Completed tickler status code. */
     public static final String COMPLETED = "C";
+    /** Deleted tickler status code. */
     public static final String DELETED = "D";
 
     // Tickler Priority Constants
+    /** High tickler priority label. */
     public static final String HIGH = "High";
+    /** Normal tickler priority label. */
     public static final String NORMAL = "Normal";
+    /** Low tickler priority label. */
     public static final String LOW = "Low";
 
     private TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
@@ -79,6 +85,7 @@ public class TicklerData {
      * @param beginDate      the start date string for the filter
      * @param endDate        the end date string for the filter
      * @return a list of matching Tickler objects
+     * @since 2026-05-05
      */
     public List<Tickler> listTickler(LoggedInInfo loggedInInfo, String demographic_no, String beginDate, String endDate) {
         return ticklerManager.listTicklers(loggedInInfo, Integer.parseInt(demographic_no), ConversionUtils.fromDateString(beginDate), ConversionUtils.fromDateString(endDate));
@@ -97,6 +104,7 @@ public class TicklerData {
      * @param creator          the provider ID of the task creator
      * @param priority         the priority level (High, Normal, Low)
      * @param task_assigned_to the provider ID assigned to the task
+     * @since 2026-05-05
      */
     public void addTickler(LoggedInInfo loggedInInfo, String demographic_no, String message, String status, String service_date, String creator, String priority, String task_assigned_to) {
 
@@ -141,6 +149,7 @@ public class TicklerData {
      * @param task_assigned_to the provider ID the task is assigned to
      * @param message          the exact message to search for
      * @return true if a matching tickler exists, false otherwise
+     * @since 2026-05-05
      */
     public boolean hasTickler(String demographic, String task_assigned_to, String message) {
         return ticklerManager.hasTickler(demographic, task_assigned_to, message);

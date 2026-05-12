@@ -82,7 +82,11 @@ public class DrugLookUpManager implements DrugLookUp {
 
                 temp = new DrugSearchTo1();
                 temp.setName((String) h.get("name"));
-                temp.setActive(!((Boolean) h.get("isInactive")));
+                if (h.containsKey("isInactive")) {
+                    temp.setActive(!((Boolean) h.get("isInactive")));
+                } else {
+                    temp.setActive(true);
+                }
                 temp.setId((Integer) h.get("id"));
                 temp.setCategory((Integer) h.get("category"));
 
@@ -91,7 +95,7 @@ public class DrugLookUpManager implements DrugLookUp {
             }
 
         } catch (Exception e) {
-            logger.error(e.getStackTrace());
+            logger.error("search Error", e);
             return null;
         }
 
@@ -140,7 +144,7 @@ public class DrugLookUpManager implements DrugLookUp {
             }
 
         } catch (Exception e) {
-            logger.error("fullSearch Error", e);
+            logger.error("searchByElement Error", e);
             return null;
         }
 

@@ -44,6 +44,8 @@ import org.springframework.stereotype.Repository;
  * The S00 record in Teleplan represents an active billing claim transaction.
  * This DAO provides methods to query these records by control numbers, 
  * office numbers, and specific error or status indicators (e.g., 'BG' flags).
+ *
+ * @since 2026-05-05
  */
 @Repository
 public class TeleplanS00Dao extends AbstractDaoImpl<TeleplanS00> {
@@ -61,6 +63,8 @@ public class TeleplanS00Dao extends AbstractDaoImpl<TeleplanS00> {
     /**
      * Finds S00 records by their MSP control number, which uniquely identifies
      * a specific billing submission to the province.
+     *
+     * @since 2026-05-05
      */
     @SuppressWarnings("unchecked")
     public List<TeleplanS00> findByBillingNo(String mspCtlNo) {
@@ -91,6 +95,8 @@ public class TeleplanS00Dao extends AbstractDaoImpl<TeleplanS00> {
      * <p>
      * A {@code BG} explanatory code indicates the claim was settled at an amount
      * different from what was originally billed.
+     *
+     * @since 2026-05-05
      */
     @SuppressWarnings("unchecked")
     public List<TeleplanS00> findBgs() {
@@ -102,6 +108,8 @@ public class TeleplanS00Dao extends AbstractDaoImpl<TeleplanS00> {
 
     /**
      * Queries for practitioners linked to a specific Teleplan S21 remittance batch header ID.
+     *
+     * @since 2026-05-05
      */
     @SuppressWarnings("unchecked")
     public List<Object[]> search_taprovider(Integer s21Id) {
