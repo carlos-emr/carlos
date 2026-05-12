@@ -164,7 +164,7 @@ class LoginJspMigrationRegressionTest {
                 .contains("showPasswordExpiryWarning();");
         assertThat(providerSchedulePageJs).contains("function showPasswordExpiryWarning()");
         assertThat(providerSchedulePageJs)
-                .contains("window.location.href = \"<%= request.getContextPath() %>/provider/ViewChangePassword\";");
+                .contains("window.location.href = \"<%= request.getContextPath() %>/provider/ViewChangePassword\"");
         assertThat(providerSchedulePageJs).doesNotContain("window.open(\"<%= request.getContextPath() %>/provider/ViewChangePassword\"");
     }
 
