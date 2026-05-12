@@ -101,6 +101,20 @@ public class ResponseSanitizationFilter implements Filter {
     static final String ENABLED_PROPERTY = "response.sanitization.enabled";
 
     /**
+     * Property name that activates developer error display mode. When this property is
+     * {@code true} / {@code yes} / {@code on} in {@code carlos.properties}, this filter
+     * disables itself so that raw exception details reach the browser.
+     *
+     * <p><strong>SECURITY RISK:</strong> Stack traces expose internal class names,
+     * library versions, code paths, and data structures that significantly aid attackers.
+     * Only enable in isolated devcontainer environments with synthetic test data.
+     * Never enable in any environment with real patient data or external network access.</p>
+     *
+     * @see <a href="https://owasp.org/www-project-top-ten/">OWASP A05 Security Misconfiguration</a>
+     */
+    static final String DISPLAY_ERROR_PROPERTY = "DISPLAY_ERROR";
+
+    /**
      * Maximum number of characters to buffer per response before switching to pass-through mode.
      * Responses larger than this cannot contain a stack trace header; skipping inspection
      * avoids unbounded heap growth for large encounter notes, lab reports, etc.
@@ -143,12 +157,27 @@ public class ResponseSanitizationFilter implements Filter {
      * Reads the {@code response.sanitization.enabled} property from {@code carlos.properties}.
      * Defaults to {@code true} (enabled) when the property is absent or blank.
      *
+     * <p>When {@code response.sanitization.enabled=false} AND {@code DISPLAY_ERROR=true} are
+     * both set, this filter is disabled and a security WARN is emitted — that combination is
+     * the intended full developer error-display mode. {@code DISPLAY_ERROR=true} alone does
+     * not bypass sanitization; {@code response.sanitization.enabled} is the gating control.</p>
+     *
      * @param filterConfig FilterConfig the servlet container filter configuration
      */
     @Override
     public void init(FilterConfig filterConfig) throws ServletException {
         String propValue = CarlosProperties.getInstance().getProperty(ENABLED_PROPERTY, "").trim();
         enabled = propValue.isEmpty() || Boolean.parseBoolean(propValue);
+        if (!enabled && CarlosProperties.getInstance().isPropertyActive(DISPLAY_ERROR_PROPERTY)) {
+            // Sanitization is already disabled via response.sanitization.enabled=false.
+            // When DISPLAY_ERROR is also active the developer has opted into full error
+            // display — emit a prominent security warning so this state is never missed in logs.
+            // (enabled is already false; this block only adds the WARN.)
+            LOGGER.warn("DISPLAY_ERROR is active with sanitization disabled — "
+                    + "stack traces WILL be sent to clients. "
+                    + "This is a SECURITY RISK — do not enable in production environments "
+                    + "or any system with real patient data.");
+        }
         LOGGER.info("ResponseSanitizationFilter initialized: enabled={}", enabled);
     }
 
