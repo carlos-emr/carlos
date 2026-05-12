@@ -47,7 +47,7 @@ class FlowSheetCustom2ActionTest extends CarlosWebTestBase {
     }
 
     @Test
-    @DisplayName("should deny when _flowsheet w is missing")
+    @DisplayName("should deny when _flowsheet write privilege is missing")
     void shouldThrowException_whenFlowsheetWriteMissing() {
         assertThatThrownBy(() -> executeAction(new FlowSheetCustom2Action()))
                 .isInstanceOf(SecurityException.class)
