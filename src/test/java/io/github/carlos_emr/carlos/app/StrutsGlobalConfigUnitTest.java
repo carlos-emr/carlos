@@ -102,6 +102,10 @@ class StrutsGlobalConfigUnitTest {
                     if (packageNames != null && !EXPECTED_ALLOWLIST_PACKAGE.equals(packageNames)) {
                         violations.add(fileName + " sets struts.allowlist.packageNames=" + packageNames);
                     }
+                    String classes = constants.get("struts.allowlist.classes");
+                    if (classes != null) {
+                        violations.add(fileName + " sets struts.allowlist.classes=" + classes);
+                    }
                 }
             }
         }
@@ -158,7 +162,7 @@ class StrutsGlobalConfigUnitTest {
         dbf.setXIncludeAware(false);
         dbf.setExpandEntityReferences(false);
         DocumentBuilder db = dbf.newDocumentBuilder();
-        db.setEntityResolver((_publicId, _systemId) ->
+        db.setEntityResolver((publicId, systemId) ->
                 new InputSource(new java.io.StringReader("")));
         return db;
     }
