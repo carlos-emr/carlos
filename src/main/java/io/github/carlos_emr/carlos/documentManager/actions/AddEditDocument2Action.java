@@ -48,7 +48,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.CarlosProperties;
-import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.IOUtils;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
@@ -171,6 +170,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             File file = writeLocalFile(inputStream, fileName); // write file to local dir
 
             if (!isWrittenUploadComplete(file, expectedFileSize)) {
+                deleteIncompleteWrittenUpload(file);
                 response.setHeader("oscar_error", props.getString("dms.addDocument.errorNoWrite"));
                 response.sendError(500, props.getString("dms.addDocument.errorNoWrite"));
                 return null;
@@ -231,7 +231,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             reader.close();
 
         } catch (IOException e) {
-            MiscUtils.getLogger().error("Error", e);
+            MiscUtils.getLogger().error("Failed to count document pages");
         }
         return numOfPage;
     }
@@ -354,6 +354,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
                 writtenFile = writeLocalFile(inputStream, fileName2);
             }
             if (!isWrittenUploadComplete(writtenFile, expectedFileSize)) {
+                deleteIncompleteWrittenUpload(writtenFile);
                 errors.put("uploaderror", "dms.error.uploadError");
                 addActionError(getText("dms.error.uploadError"));
                 throw new IOException("Failed to write uploaded document");
@@ -449,7 +450,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             }
 
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
+            MiscUtils.getLogger().error("Failed to add uploaded document");
             // ActionRedirect redirect = new ActionRedirect(mapping.findForward("failAdd"));
             request.setAttribute("docerrors", errors);
             return false;
@@ -534,6 +535,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
                     writtenFile = writeLocalFile(inputStream, fileName);
                 }
                 if (!isWrittenUploadComplete(writtenFile, expectedFileSize)) {
+                    deleteIncompleteWrittenUpload(writtenFile);
                     errors.put("uploaderror", "dms.error.uploadError");
                     addActionError(getText("dms.error.uploadError"));
                     throw new IOException("Failed to write uploaded document");
@@ -574,7 +576,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         } catch (Exception e) {
             request.setAttribute("docerrors", errors);
             request.setAttribute("editDocumentNo", this.getMode());
-            MiscUtils.getLogger().error("Failed to edit document", e);
+            MiscUtils.getLogger().error("Failed to edit document");
             return "failEdit";
         }
         return "successEdit";
@@ -615,7 +617,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
                 fos.write(buf, 0, i);
             }
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
+            MiscUtils.getLogger().error("Failed to write uploaded document file");
         } finally {
             if (fos != null) fos.close();
         }
@@ -645,7 +647,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             documentStorageDao.persist(docStor);
             ret = docStor.getId();
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error putting file in database", e);
+            MiscUtils.getLogger().error("Failed to store document file in database");
         } finally {
             IOUtils.closeQuietly(fin);
         }
@@ -730,11 +732,11 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
     }
 
     /**
-     * Opens a stream for a previously validated upload file.
-     * This private helper is only called with {@link PathValidationUtils#validateUpload(File)}
-     * results, which enforce canonical containment in allowed upload-source directories.
+     * Opens a stream for a validated upload file.
+     * The upload is re-validated immediately before opening and must resolve to one
+     * of the allowed upload temp locations enforced by {@link PathValidationUtils}.
      *
-     * @param validatedUpload File returned by {@link PathValidationUtils#validateUpload(File)}
+     * @param validatedUpload File returned by or suitable for {@link PathValidationUtils#validateUpload(File)}
      * @return InputStream for the upload content
      * @throws IOException if the stream cannot be opened
      */
@@ -743,21 +745,18 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             throw new IOException("Upload file is missing");
         }
 
-        File safeUpload = PathValidationUtils.validateUpload(validatedUpload);
-        if (safeUpload == null || !safeUpload.isFile()) {
+        File safeUpload;
+        try {
+            safeUpload = PathValidationUtils.validateUpload(validatedUpload);
+        } catch (SecurityException e) {
             throw new IOException("Invalid upload file");
         }
 
-        File uploadBaseDir = new File(EDocUtil.getDocumentTempDir());
-        String basePath = uploadBaseDir.getCanonicalPath();
-        String uploadPath = safeUpload.getCanonicalPath();
-        String baseWithSeparator = basePath.endsWith(File.separator) ? basePath : basePath + File.separator;
-
-        if (!uploadPath.startsWith(baseWithSeparator)) {
+        if (!PathValidationUtils.isInAllowedTempDirectory(safeUpload)) {
             throw new IOException("Invalid upload file path");
         }
 
-        return FileUtils.openInputStream(safeUpload);
+        return new FileInputStream(safeUpload); // codeql[java/path-injection] -- safeUpload is canonicalized and constrained by PathValidationUtils.validateUpload plus allowed temp-directory validation immediately above
     }
 
     /**
@@ -772,6 +771,25 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
                 && writtenFile.exists()
                 && writtenFile.isFile()
                 && writtenFile.length() == expectedFileSize;
+    }
+
+    /**
+     * Deletes an incomplete destination file produced by a failed upload write.
+     *
+     * @param writtenFile File the destination returned by {@link #writeLocalFile(InputStream, String)}
+     */
+    private void deleteIncompleteWrittenUpload(File writtenFile) {
+        if (writtenFile == null) {
+            return;
+        }
+
+        try {
+            File documentDir = new File(CarlosProperties.getInstance().getDocumentDirectory());
+            File validatedWrittenFile = PathValidationUtils.validateExistingPath(writtenFile, documentDir);
+            Files.deleteIfExists(validatedWrittenFile.toPath()); // codeql[java/path-injection] -- validatedWrittenFile is constrained to DOCUMENT_DIR by PathValidationUtils.validateExistingPath
+        } catch (Exception e) {
+            MiscUtils.getLogger().warn("Failed to delete incomplete uploaded document file");
+        }
     }
 
     private boolean filled(String s) {
@@ -904,7 +922,6 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return docFile;
     }
 
-    @StrutsParameter
     public void setDocFile(File docFile) {
         this.docFile = docFile;
     }
@@ -985,7 +1002,6 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return filedata;
     }
 
-    @StrutsParameter
     public void setFiledata(File Filedata) {
         this.filedata = Filedata;
     }
@@ -1051,7 +1067,6 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return docFileFileName;
     }
 
-    @StrutsParameter
     public void setDocFileFileName(String docFileFileName) {
         this.docFileFileName = docFileFileName;
     }
@@ -1060,7 +1075,6 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return docFileContentType;
     }
 
-    @StrutsParameter
     public void setDocFileContentType(String docFileContentType) {
         this.docFileContentType = docFileContentType;
     }

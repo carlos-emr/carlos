@@ -12,6 +12,7 @@
  */
 package io.github.carlos_emr.carlos.documentManager.actions;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -19,6 +20,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletRequest;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -34,11 +36,13 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import java.io.File;
 import java.io.InputStream;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.ResourceBundle;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -187,6 +191,53 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should normalize Struts 7 original names containing path traversal")
+    void shouldNormalizeFilename_whenOriginalNameContainsPathTraversal() throws Exception {
+        tempUploadFile = File.createTempFile("add-edit-document", ".pdf");
+
+        UploadedFile uploadedFile = mock(UploadedFile.class);
+        when(uploadedFile.getInputName()).thenReturn("docFile");
+        when(uploadedFile.getContent()).thenReturn(tempUploadFile);
+        when(uploadedFile.getOriginalName()).thenReturn("../patient.pdf");
+        when(uploadedFile.getContentType()).thenReturn("application/pdf");
+
+        action.withUploadedFiles(List.of(uploadedFile));
+
+        assertThat(action.getDocFile()).isNotNull();
+        assertThat(action.getDocFileFileName()).isEqualTo("patient.pdf");
+    }
+
+    @Test
+    @DisplayName("should reject Struts 7 uploads when content is not file backed")
+    void shouldRejectUpload_whenContentIsNotFileBacked() {
+        UploadedFile uploadedFile = mock(UploadedFile.class);
+        when(uploadedFile.getInputName()).thenReturn("docFile");
+        when(uploadedFile.getContent()).thenReturn("not-a-file");
+
+        assertThatThrownBy(() -> action.withUploadedFiles(List.of(uploadedFile)))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("file-backed");
+    }
+
+    @Test
+    @DisplayName("should reject Struts 7 uploads outside allowed temp directories")
+    void shouldRejectUpload_whenSourceIsOutsideAllowedTempDirectory() throws Exception {
+        Path outsideUpload = Path.of(System.getProperty("user.dir"), "outside-upload-" + System.nanoTime() + ".pdf");
+        Files.writeString(outsideUpload, "test");
+        try {
+            UploadedFile uploadedFile = mock(UploadedFile.class);
+            when(uploadedFile.getInputName()).thenReturn("docFile");
+            when(uploadedFile.getContent()).thenReturn(outsideUpload.toFile());
+
+            assertThatThrownBy(() -> action.withUploadedFiles(List.of(uploadedFile)))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("Invalid upload source");
+        } finally {
+            Files.deleteIfExists(outsideUpload);
+        }
+    }
+
+    @Test
     @DisplayName("should prefer docFile over filedata regardless of list ordering")
     void shouldPreferDocFileOverFiledata_regardlessOfListOrdering() throws Exception {
         tempUploadFile = File.createTempFile("add-edit-document", ".pdf");
@@ -236,6 +287,54 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
             assertThat(response.getHeader("oscar_error")).isEqualTo(ResourceBundle.getBundle("oscarResources")
                     .getString("dms.addDocument.errorNoWrite"));
         }
+    }
+
+    @Test
+    @DisplayName("should delete partial file when html5 upload write is incomplete")
+    void shouldDeletePartialFile_whenHtml5UploadWriteIsIncomplete() throws Exception {
+        tempUploadFile = File.createTempFile("add-edit-document", ".pdf");
+        Files.writeString(tempUploadFile.toPath(), "complete-content");
+        Path documentDir = Files.createTempDirectory("add-edit-document-output");
+        File partialFile = documentDir.resolve("echart-upload.pdf").toFile();
+        Files.writeString(partialFile.toPath(), "partial");
+        String originalDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", documentDir.toString());
+
+        action.setDocFile(tempUploadFile);
+        action.setDocFileFileName("echart-upload.pdf");
+        action.setAppointmentNo("123");
+
+        try (MockedStatic<AddEditDocument2Action> addEditDocumentActionMock = mockStatic(AddEditDocument2Action.class, CALLS_REAL_METHODS)) {
+            addEditDocumentActionMock.when(() -> AddEditDocument2Action.writeLocalFile(any(InputStream.class), eq("echart-upload.pdf")))
+                    .thenReturn(partialFile);
+
+            String result = action.html5MultiUpload();
+
+            assertThat(result).isNull();
+            assertThat(response.getStatus()).isEqualTo(500);
+            assertThat(partialFile).doesNotExist();
+        } finally {
+            if (originalDocumentDir == null) {
+                CarlosProperties.getInstance().remove("DOCUMENT_DIR");
+            } else {
+                CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", originalDocumentDir);
+            }
+            Files.deleteIfExists(partialFile.toPath());
+            Files.deleteIfExists(documentDir);
+        }
+    }
+
+    @Test
+    @DisplayName("should not expose upload metadata setters as Struts parameters")
+    void shouldNotExposeUploadMetadataSetters_asStrutsParameters() throws Exception {
+        assertThat(AddEditDocument2Action.class.getMethod("setDocFile", File.class)
+                .isAnnotationPresent(StrutsParameter.class)).isFalse();
+        assertThat(AddEditDocument2Action.class.getMethod("setFiledata", File.class)
+                .isAnnotationPresent(StrutsParameter.class)).isFalse();
+        assertThat(AddEditDocument2Action.class.getMethod("setDocFileFileName", String.class)
+                .isAnnotationPresent(StrutsParameter.class)).isFalse();
+        assertThat(AddEditDocument2Action.class.getMethod("setDocFileContentType", String.class)
+                .isAnnotationPresent(StrutsParameter.class)).isFalse();
     }
 
     @Test
