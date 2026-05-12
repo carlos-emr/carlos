@@ -44,6 +44,7 @@ class FlowSheetCustom2ActionTest extends CarlosWebTestBase {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), anyString(), anyString(), any()))
                 .thenReturn(false);
         mockRequest.setMethod("POST");
+        mockSession.setAttribute("user", "999998");
     }
 
     @Test

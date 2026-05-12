@@ -32,6 +32,7 @@
     if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -52,18 +53,15 @@
     </script>
 
     <body onload="closeWin();">
-    <% 
-    java.util.List<String> actionErrors = (java.util.List<String>) request.getAttribute("actionErrors");
-    if (actionErrors != null && !actionErrors.isEmpty()) {
-%>
+    <c:if test="${not empty actionErrors}">
     <div class="action-errors">
         <ul>
-        <% for (String error : actionErrors) { %>
-                <li><carlos:encode value='<%= error %>'/></li>
-            <% } %>
+            <c:forEach items="${actionErrors}" var="error">
+                <li><carlos:encode value="${error}"/></li>
+            </c:forEach>
         </ul>
     </div>
-<% } %>
+    </c:if>
     Processing...
 
     </body>
