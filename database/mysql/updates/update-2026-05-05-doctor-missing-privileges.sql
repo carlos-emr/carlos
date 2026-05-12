@@ -1,8 +1,8 @@
 -- --------------------------------------------------------------------------------
 -- CARLOS EMR Database Update
 -- Date: 2026-05-05
--- Description: Grant missing security privileges to the default 'doctor' role
--- and the explicit '999998' provider (carlosdoc) to prevent SecurityExceptions.
+-- Description: Grant missing security privileges to the default 'doctor' role.
+-- The provider_no value follows existing seed-data convention for doctor-role privileges.
 -- --------------------------------------------------------------------------------
 
 -- Privileges for the modern Dashboard

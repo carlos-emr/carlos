@@ -87,8 +87,10 @@ public class TeleplanS00Dao extends AbstractDaoImpl<TeleplanS00> {
     }
 
     /**
-     * Finds records that have triggered a 'BG' (Background) error or exception flag 
-     * across any of the 7 Teleplan explanatory code fields.
+     * Finds records where any of the 7 Teleplan explanatory code fields equals {@code "BG"}.
+     * <p>
+     * A {@code BG} explanatory code indicates the claim was settled at an amount
+     * different from what was originally billed.
      */
     @SuppressWarnings("unchecked")
     public List<TeleplanS00> findBgs() {
@@ -99,7 +101,7 @@ public class TeleplanS00Dao extends AbstractDaoImpl<TeleplanS00> {
     }
 
     /**
-     * Queries for practitioners linked to a specific Teleplan S21 (Provider Context) ID.
+     * Queries for practitioners linked to a specific Teleplan S21 remittance batch header ID.
      */
     @SuppressWarnings("unchecked")
     public List<Object[]> search_taprovider(Integer s21Id) {

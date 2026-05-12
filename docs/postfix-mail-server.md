@@ -44,7 +44,8 @@ mail stop
 4. Email is **discarded** (never actually sent)
 
 ## Example Log Output
-```
+
+```text
 postfix/pickup[1234]: ABC123: uid=0 from=<noreply@carlos-dev.local>
 postfix/cleanup[1235]: ABC123: message-id=<20251119120000.ABC123@carlos-dev.local>
 postfix/qmgr[1236]: ABC123: from=<noreply@carlos-dev.local>, size=1234, nrcpt=1

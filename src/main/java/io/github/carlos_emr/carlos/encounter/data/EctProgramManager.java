@@ -42,6 +42,8 @@ import java.util.List;
  * the Encounter (e-chart) interface. It is responsible for formatting program lists
  * into LabelValueBeans for Struts/JSP rendering and managing provider-specific 
  * encounter program defaults.
+ *
+ * @since 2026-05-05
  */
 public interface EctProgramManager {
 
@@ -65,6 +67,11 @@ public interface EctProgramManager {
 
     List<LabelValueBean> getDemographicByBedProgramIdBeans(int programId, Date dt, String archiveView);
 
+    /**
+     * @return the legacy global default program ID.
+     * @deprecated Use {@link #getDefaultProgramId(String)} for provider-specific defaults.
+     */
+    @Deprecated
     int getDefaultProgramId();
 
     /**

@@ -44,6 +44,8 @@ import java.util.Vector;
  * Service implementation for looking up drugs against the internal or external drug reference database (RxDrugRef).
  * This manager provides methods to search for drugs by name, retrieve detailed drug information
  * including components and generic names, and handle legacy XML-RPC conversions from DrugRef.
+ *
+ * @since 2026-05-05
  */
 @Service
 public class DrugLookUpManager implements DrugLookUp {
@@ -56,6 +58,7 @@ public class DrugLookUpManager implements DrugLookUp {
      * 
      * @param s The search string (e.g., partial brand or generic name).
      * @return List of matching drug DTOs.
+     * @since 2026-05-05
      */
     public List<DrugSearchTo1> search(String s) {
 
@@ -102,6 +105,7 @@ public class DrugLookUpManager implements DrugLookUp {
      * 
      * @param s The search string.
      * @return List of matching drug DTOs.
+     * @since 2026-05-05
      */
     public List<DrugSearchTo1> fullSearch(String s) {
 
@@ -149,6 +153,7 @@ public class DrugLookUpManager implements DrugLookUp {
      * 
      * @param s The active ingredient or element name to search for.
      * @return List of brand drugs containing that element.
+     * @since 2026-05-05
      */
     @Override
     public List<DrugSearchTo1> searchByElement(String s) {
@@ -198,6 +203,7 @@ public class DrugLookUpManager implements DrugLookUp {
      * @param id The drug identifier from DrugRef.
      * @return A populated {@link DrugSearchTo1} containing the details.
      * @throws Exception if the lookup fails.
+     * @since 2026-05-05
      */
     public DrugSearchTo1 details(String id) throws Exception {
 

@@ -46,6 +46,8 @@ import java.util.List;
  * <p>
  * It can be linked to a {@link ProfessionalSpecialist} (external provider) 
  * or a {@link DemographicContact} (patient's circle of care).
+ *
+ * @since 2026-05-05
  */
 @Entity
 @Table(name = "consultationRequests")

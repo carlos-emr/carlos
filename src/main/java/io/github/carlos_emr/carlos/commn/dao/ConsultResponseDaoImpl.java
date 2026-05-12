@@ -50,6 +50,8 @@ import org.springframework.stereotype.Repository;
  * Uses manual string concatenation for HQL queries (legacy pattern) to support
  * diverse search filters including response dates, statuses, sorting by linked entities
  * (like referring doctors and demographics), and urgency.
+ *
+ * @since 2026-05-05
  */
 @Repository
 public class ConsultResponseDaoImpl extends AbstractDaoImpl<ConsultationResponse> implements ConsultResponseDao {
@@ -64,6 +66,7 @@ public class ConsultResponseDaoImpl extends AbstractDaoImpl<ConsultationResponse
      * 
      * @param filter The structured filter containing date ranges, status, and linked entity filters.
      * @return The total number of consultation responses.
+     * @since 2026-05-05
      */
     public int getConsultationCount(ConsultationResponseSearchFilter filter) {
         String sql = getSearchQuery(filter, true);
@@ -84,6 +87,7 @@ public class ConsultResponseDaoImpl extends AbstractDaoImpl<ConsultationResponse
      * 
      * @param filter The structured filter containing search criteria, sort directions, and pagination limits.
      * @return A list of Object arrays containing ConsultationResponse, ProfessionalSpecialist, Demographic, and Provider entities.
+     * @since 2026-05-05
      */
     @SuppressWarnings("unchecked")
     public List<Object[]> search(ConsultationResponseSearchFilter filter) {

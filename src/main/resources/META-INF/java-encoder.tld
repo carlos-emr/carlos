@@ -196,9 +196,9 @@
     </tag>
     <tag>
         <description>
-            Encodes for HTML text content.  It does not escape
+            Encodes for XML text content.  It does not escape
             quotation characters and is thus unsafe for use with
-            HTML attributes.  Use either forHtml or forHtmlAttribute for those
+            XML attributes.  Use either forXml or forXmlAttribute for those
             methods.
         </description>
         <display-name>forXmlContent</display-name>
@@ -355,9 +355,9 @@
     </function>
     <function>
         <description>
-            Encodes for HTML text content.  It does not escape
+            Encodes for XML text content.  It does not escape
             quotation characters and is thus unsafe for use with
-            HTML attributes.  Use either forHtml or forHtmlAttribute for those
+            XML attributes.  Use either forXml or forXmlAttribute for those
             methods.
         </description>
         <display-name>forXmlContent</display-name>

@@ -42,6 +42,8 @@ import org.springframework.stereotype.Repository;
  * together on a specific "disk" (batch submission) for a given provider.
  * <p>
  * Central to the OHIP claim submission and reconciliation lifecycle.
+ *
+ * @since 2026-05-05
  */
 @Repository
 public class BillingONHeaderDao extends AbstractDaoImpl<BillingONHeader> {
@@ -56,6 +58,7 @@ public class BillingONHeaderDao extends AbstractDaoImpl<BillingONHeader> {
      * @param diskId The unique identifier of the submission disk/batch.
      * @param providerRegNum The provider's provincial registration number.
      * @return List of matching BillingONHeader records (typically one, but returns a list based on legacy schema).
+     * @since 2026-05-05
      */
     public List<BillingONHeader> findByDiskIdAndProviderRegNum(Integer diskId, String providerRegNum) {
         Query query = entityManager.createQuery("SELECT b FROM BillingONHeader b where b.diskId = ?1 AND b.providerRegNum=?2");

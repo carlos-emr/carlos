@@ -64,6 +64,7 @@ MyDrugref uses **XML-RPC** (XML Remote Procedure Call) for communication:
   - Maps guidelines to providers
 
 #### 3. Drug Reference Action Handler
+
 - **Class**: `io.github.carlos_emr.carlos.oscarRx.pageUtil.RxMyDrugrefInfoAction`
 - **Methods**:
   - `callOAuthService()` - Main interface for MyDrugref calls (uses XML-RPC)

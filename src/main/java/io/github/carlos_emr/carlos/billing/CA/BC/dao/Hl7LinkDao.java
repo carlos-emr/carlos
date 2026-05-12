@@ -48,6 +48,8 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
  * OBR, OBX segments) to specific patient {@link Demographic} records and responsible providers.
  * It provides querying capabilities to find linked/unlinked lab reports and filter them
  * by provider, date range, or status (e.g., pending 'P', acknowledged 'A').
+ *
+ * @since 2026-05-05
  */
 @Repository
 @SuppressWarnings("unchecked")
@@ -61,6 +63,7 @@ public class Hl7LinkDao extends AbstractDaoImpl<Hl7Link> {
      * Retrieves a list of lab results linked to demographic records, focusing on pending 
      * or unacknowledged links.
      * @return List of Object arrays containing PID, Link, OBR, and Demographic data.
+     * @since 2026-05-05
      */
     public List<Object[]> findLabs() {
         String sql = "SELECT pid, link, obr, demo FROM Hl7Pid pid, Hl7Link link, Hl7Obr obr, Demographic demo WHERE link.demographicNo = demo.id AND pid.id = obr.pidId AND ( link.status = 'P' OR link.status IS NULL ) AND link.id = pid.id";
@@ -72,9 +75,13 @@ public class Hl7LinkDao extends AbstractDaoImpl<Hl7Link> {
     /**
      * Finds HL7 links that are 'magic' or implicitly matched based on the patient's Health Insurance Number (HIN).
      * @return List of Object arrays containing Demographic, PID, and Link data.
+     * @since 2026-05-05
      */
     public List<Object[]> findMagicLinks() {
-        String sql = "SELECT demo, pid, link FROM Demographic demo, Hl7Pid pid, Hl7Link link WHERE pid.id = link.id AND demo.Hin = pid.externalId AND link.id IS NULL";
+        String sql = "SELECT demo, pid, link " +
+                "FROM Demographic demo, Hl7Pid pid " +
+                "LEFT JOIN Hl7Link link ON pid.id = link.id " +
+                "WHERE demo.Hin = pid.externalId AND link.id IS NULL";
         Query q = entityManager.createQuery(sql);
         return q.getResultList();
     }
@@ -83,6 +90,7 @@ public class Hl7LinkDao extends AbstractDaoImpl<Hl7Link> {
      * Finds all HL7 links and their associated request dates for a specific demographic.
      * @param demoId The demographic ID of the patient.
      * @return List of Object arrays containing Link ID, Requested Date, and Diagnostic Service Sector.
+     * @since 2026-05-05
      */
     public List<Object[]> findLinksAndRequestDates(Integer demoId) {
         String sql = "SELECT DISTINCT link.id, obr.requestedDateTime, obr.diagnosticServiceSectId " +
@@ -104,6 +112,7 @@ public class Hl7LinkDao extends AbstractDaoImpl<Hl7Link> {
     /**
      * Identifies all providers who have HL7 reports linked to their patients.
      * @return List of Object arrays containing Provider Number, Last Name, and First Name.
+     * @since 2026-05-05
      */
     public List<Object[]> findProvidersWithReports() {
         String sql = "SELECT DISTINCT provider.ProviderNo, provider.LastName, provider.FirstName FROM Hl7Link hl7_link, Demographic demographic, Provider provider " +
@@ -118,6 +127,7 @@ public class Hl7LinkDao extends AbstractDaoImpl<Hl7Link> {
      * Finds all HL7 reports linked to a specific provider.
      * @param providerNo The provider number.
      * @return List of Object arrays containing Link, Demographic, PID, OBR, Message, and Provider data.
+     * @since 2026-05-05
      */
     public List<Object[]> findReportsByProvider(String providerNo) {
         String sql = "SELECT hl7_link, demographic, hl7_pid, hl7_obr, hl7_message, provider FROM Hl7Link hl7_link, Demographic demographic, Hl7Pid hl7_pid, Hl7Obr hl7_obr, Hl7Message hl7_message, Provider provider WHERE demographic.ProviderNo = provider.ProviderNo AND hl7_link.id = hl7_obr.pidId AND hl7_link.id = hl7_pid.id AND demographic.ProviderNo = :providerNo AND hl7_message.id = hl7_pid.messageId AND demographic.DemographicNo = hl7_link.demographicNo AND hl7_link.status != 'P'";
@@ -134,6 +144,7 @@ public class Hl7LinkDao extends AbstractDaoImpl<Hl7Link> {
      * @param orderby The sorting criteria.
      * @param command Command flag to indicate query execution.
      * @return List of Object arrays representing the raw report data.
+     * @since 2026-05-05
      */
     @NativeSql({"hl7_pid", "hl7_link", "hl7_obr", "hl7_message"})
     public List<Object[]> findReports(Date start, Date end, String provider_no, String orderby, String command) {

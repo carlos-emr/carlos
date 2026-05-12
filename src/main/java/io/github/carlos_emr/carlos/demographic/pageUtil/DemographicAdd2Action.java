@@ -77,8 +77,8 @@ public class DemographicAdd2Action extends ActionSupport {
      * (country codes, province names, providers) and system defaults (current date, 
      * billing region settings) into the request context for the JSP to render.
      *
-     * @return SUCCESS if the data is successfully loaded and user has permission; 
-     *         "logout" if session is invalid.
+     * @return SUCCESS if the data is successfully loaded and user has permission.
+     * @throws SecurityException if the session is invalid or the user lacks demographic write privileges.
      */
     @Override
     public String execute() {

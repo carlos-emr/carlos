@@ -259,7 +259,7 @@ See [smoke-test-results.md](./smoke-test-results.md) for detailed test results f
 ## Test Environment
 
 ### Development Environment
-- **Application Server**: Apache Tomcat 11.0
+- **Application Server**: Apache Tomcat 11.0.20
 - **Java Version**: 21
 - **Database**: MariaDB (Docker container)
 - **Application URL**: http://localhost:8080/oscar

@@ -128,7 +128,7 @@
 			HTML script blocks.  It is NOT safe for use in script
 			attributes (such as onclick).  The caller must
 			provide the surrounding quotation characters.  This method
-			performs the same encode as Encode.forJavaScript(String)} with
+			performs the same encode as Encode.forJavaScript(String) with
 			the exception that " and ' are encoded as \" and \' respectively.
         </description>
         <display-name>forJavaScriptBlock</display-name>
@@ -278,9 +278,9 @@
     </tag>
     <tag>
         <description>
-			Encodes for HTML text content.  It does not escape
+			Encodes for XML text content.  It does not escape
 			quotation characters and is thus unsafe for use with
-			HTML attributes.  Use either forHtml or forHtmlAttribute for those
+			XML attributes.  Use either forXml or forXmlAttribute for those
 			methods.
         </description>
         <display-name>forXmlContent</display-name>
@@ -437,9 +437,9 @@
     </function>
     <function>
         <description>
-			Encodes for HTML text content.  It does not escape
+			Encodes for XML text content.  It does not escape
 			quotation characters and is thus unsafe for use with
-			HTML attributes.  Use either forHtml or forHtmlAttribute for those
+			XML attributes.  Use either forXml or forXmlAttribute for those
 			methods.
         </description>
         <display-name>forXmlContent</display-name>
@@ -529,7 +529,7 @@
 			HTML script blocks.  It is NOT safe for use in script
 			attributes (such as onclick).  The caller must
 			provide the surrounding quotation characters.  This method
-			performs the same encode as Encode.forJavaScript(String)} with
+			performs the same encode as Encode.forJavaScript(String) with
 			the exception that " and ' are encoded as \" and \' respectively.
         </description>
         <display-name>forJavaScriptBlock</display-name>
