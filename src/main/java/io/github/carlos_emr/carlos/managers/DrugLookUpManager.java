@@ -95,7 +95,7 @@ public class DrugLookUpManager implements DrugLookUp {
             }
 
         } catch (Exception e) {
-            logger.error("search Error", e);
+            logger.error("Drug search by name Error", e);
             return null;
         }
 
