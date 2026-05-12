@@ -28,6 +28,7 @@ ICD=$5
 mysqladmin -u$USER -p$PASSWORD create $DATABASE_NAME
 
 mysql_cmd="mysql -u$USER -p$PASSWORD $DATABASE_NAME"
+mysql_cmd_quiet="mysql -N -s -u$USER -p$PASSWORD $DATABASE_NAME"
 
 echo "grant all on $DATABASE_NAME.* to $USER@localhost identified by \"$PASSWORD\"" | $mysql_cmd
 
@@ -90,21 +91,52 @@ if [ -z "$6" ]; then
     exit 1
   fi
   bhash="{bcrypt}${bhash}"
-  $mysql_cmd <<SQL
+  password_update_rows=$($mysql_cmd_quiet <<SQL
   UPDATE security SET password='${bhash}' WHERE user_name='carlosdoc';
+  SELECT ROW_COUNT();
 SQL
+  ) || {
+    echo 'ERROR: failed to update generated password for carlosdoc' >&2
+    exit 1
+  }
+  if [ "${password_update_rows}" -ne 1 ]; then
+    echo 'ERROR: expected to update exactly one carlosdoc password row' >&2
+    exit 1
+  fi
   newpin=$(tr -cd '0-9' < /dev/urandom | fold -w4 | head -n 1)
-  $mysql_cmd <<SQL
+  pin_update_rows=$($mysql_cmd_quiet <<SQL
   UPDATE security SET pin='${newpin}' WHERE user_name='carlosdoc';
+  SELECT ROW_COUNT();
 SQL
-  
+  ) || {
+    echo 'ERROR: failed to update generated PIN for carlosdoc' >&2
+    exit 1
+  }
+  if [ "${pin_update_rows}" -ne 1 ]; then
+    echo 'ERROR: expected to update exactly one carlosdoc PIN row' >&2
+    exit 1
+  fi
+
+  # Expire the password
+  echo 'expiring credentials (password set to expire in 1 month for security)'
+  expire_update_rows=$($mysql_cmd_quiet <<SQL
+  UPDATE security
+  SET date_ExpireDate=DATE_ADD(CURDATE(), INTERVAL 1 MONTH), b_ExpireSet=1
+  WHERE user_name='carlosdoc';
+  SELECT ROW_COUNT();
+SQL
+  ) || {
+    echo 'ERROR: failed to set credential expiry for carlosdoc' >&2
+    exit 1
+  }
+  if [ "${expire_update_rows}" -ne 1 ]; then
+    echo 'ERROR: expected to update exactly one carlosdoc expiry row' >&2
+    exit 1
+  fi
+
   echo "password ${newpassword}"
   echo "pin ${newpin}"
   echo '***IMPORTANT: WRITE THESE CREDENTIALS DOWN***'
-  
-  # Expire the password
-  echo 'expiring credentials (password set to expire in 1 month for security)'
-  echo "update security set date_ExpireDate=DATE_ADD(CURDATE(), INTERVAL 1 MONTH), b_ExpireSet=1 where user_name='carlosdoc'" | $mysql_cmd
 else
   echo "password carlos2026"
   echo "pin 2026"
