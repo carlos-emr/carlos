@@ -50,6 +50,9 @@ import org.xml.sax.SAXException;
 class StrutsGlobalConfigUnitTest {
 
     private static final String BASEDIR_PROPERTY = "basedir";
+    private static final String EXPECTED_STRUTS_DOCTYPE =
+            "<!DOCTYPE struts PUBLIC \"-//Apache Software Foundation//DTD Struts Configuration 6.5//EN\" "
+                    + "\"https://struts.apache.org/dtds/struts-6.5.dtd\">";
     private static final Path STRUTS_XML =
             Path.of("src", "main", "webapp", "WEB-INF", "classes", "struts.xml");
 
@@ -120,13 +123,11 @@ class StrutsGlobalConfigUnitTest {
                 .as("Struts config file not found — run tests from project root or set -Dbasedir=<project-root>")
                 .exists();
         String xml = Files.readString(absolutePath, StandardCharsets.UTF_8);
-        String xmlWithoutDoctype = stripStrutsDoctype(xml);
+        assertThat(xml)
+                .as("%s should declare the expected Struts 6.5 DTD", absolutePath.getFileName())
+                .contains(EXPECTED_STRUTS_DOCTYPE);
         DocumentBuilder db = newHardenedDocumentBuilder();
-        return db.parse(new InputSource(new StringReader(xmlWithoutDoctype)));
-    }
-
-    private static String stripStrutsDoctype(String xml) {
-        return xml.replaceFirst("(?m)^\\s*<!DOCTYPE\\s+struts\\b[^>]*>\\s*\\R?", "");
+        return db.parse(new InputSource(new StringReader(xml)));
     }
 
     private static Path resolveProjectPath(Path relativePath) {
@@ -141,15 +142,27 @@ class StrutsGlobalConfigUnitTest {
         dbf.setValidating(false);
         dbf.setNamespaceAware(false);
         dbf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+        setAttributeIfSupported(dbf, XMLConstants.ACCESS_EXTERNAL_DTD, "");
+        setAttributeIfSupported(dbf, XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
         dbf.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
         dbf.setFeature("http://xml.org/sax/features/external-general-entities", false);
         dbf.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-        dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+        // Struts config files intentionally declare the project-standard Struts 6.5 DTD.
+        // External DTD loading and entity expansion remain disabled above.
+        dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", false);
         dbf.setXIncludeAware(false);
         dbf.setExpandEntityReferences(false);
         DocumentBuilder db = dbf.newDocumentBuilder();
         db.setEntityResolver((_publicId, _systemId) ->
                 new InputSource(new java.io.StringReader("")));
         return db;
+    }
+
+    private static void setAttributeIfSupported(DocumentBuilderFactory dbf, String name, String value) {
+        try {
+            dbf.setAttribute(name, value);
+        } catch (IllegalArgumentException ignored) {
+            // Some bundled Xerces implementations do not expose JAXP accessExternal* attributes.
+        }
     }
 }
