@@ -100,7 +100,7 @@ SQL
     exit 1
   }
   if [ "${password_update_rows}" -ne 1 ]; then
-    echo 'ERROR: expected to update exactly one carlosdoc password row' >&2
+    echo "ERROR: expected to update exactly one carlosdoc password row, but updated ${password_update_rows} rows" >&2
     exit 1
   fi
   newpin=$(tr -cd '0-9' < /dev/urandom | fold -w4 | head -n 1)
@@ -113,7 +113,7 @@ SQL
     exit 1
   }
   if [ "${pin_update_rows}" -ne 1 ]; then
-    echo 'ERROR: expected to update exactly one carlosdoc PIN row' >&2
+    echo "ERROR: expected to update exactly one carlosdoc PIN row, but updated ${pin_update_rows} rows" >&2
     exit 1
   fi
 
@@ -130,7 +130,7 @@ SQL
     exit 1
   }
   if [ "${expire_update_rows}" -ne 1 ]; then
-    echo 'ERROR: expected to update exactly one carlosdoc expiry row' >&2
+    echo "ERROR: expected to update exactly one carlosdoc expiry row, but updated ${expire_update_rows} rows" >&2
     exit 1
   fi
 
