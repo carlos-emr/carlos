@@ -22,6 +22,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import javax.xml.XMLConstants;
@@ -97,15 +98,16 @@ class StrutsGlobalConfigUnitTest {
                         .as("Included Struts config %s referenced from %s should exist", fileName, STRUTS_XML)
                         .exists();
                 Map<String, String> constants = collectConstants(parseXml(includedPath));
-                if ("false".equals(constants.get("struts.allowlist.enable"))) {
-                    violations.add(fileName + " sets struts.allowlist.enable=false");
+                String enableValue = constants.get("struts.allowlist.enable");
+                if (isStrutsFalseValue(enableValue)) {
+                    violations.add(fileName + " sets struts.allowlist.enable=" + enableValue);
                 }
                 String packageNames = constants.get("struts.allowlist.packageNames");
-                if (packageNames != null && !EXPECTED_ALLOWLIST_PACKAGE.equals(packageNames)) {
+                if (packageNames != null && !EXPECTED_ALLOWLIST_PACKAGE.equals(packageNames.trim())) {
                     violations.add(fileName + " sets struts.allowlist.packageNames=" + packageNames);
                 }
                 String classes = constants.get("struts.allowlist.classes");
-                if (classes != null) {
+                if (classes != null && !classes.trim().isEmpty()) {
                     violations.add(fileName + " sets struts.allowlist.classes=" + classes);
                 }
             }
@@ -125,6 +127,16 @@ class StrutsGlobalConfigUnitTest {
             }
         }
         return out;
+    }
+
+    private static boolean isStrutsFalseValue(String value) {
+        if (value == null) {
+            return false;
+        }
+        return switch (value.trim().toLowerCase(Locale.ROOT)) {
+            case "false", "no", "off", "f", "n", "0" -> true;
+            default -> false;
+        };
     }
 
     private static Document parseXml(Path absolutePath)
