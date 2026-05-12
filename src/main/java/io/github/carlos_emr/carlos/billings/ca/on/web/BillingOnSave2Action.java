@@ -119,10 +119,10 @@ public class BillingOnSave2Action extends ActionSupport {
 
         if (!VALID_SAVE_ACTIONS.contains(billingAction)) {
             LogManager.getLogger(BillingOnSave2Action.class).error(
-                    "Invalid or missing billingAction parameter: {}",
-                    LogSanitizer.sanitize(billingAction));
-            addActionError("Invalid billing action. Please try again.");
-            return ERROR;
+                    billingAction == null ? "Missing billingAction parameter" : "Invalid billingAction parameter");
+            request.setAttribute("billingFailed", Boolean.TRUE);
+            request.setAttribute("billingFailureReason", "Invalid billing action. Please try again.");
+            return "failure";
         }
 
         String payeeValue = request.getParameter("payeename");
