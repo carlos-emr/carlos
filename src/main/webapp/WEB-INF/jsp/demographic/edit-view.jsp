@@ -265,7 +265,7 @@
                                                                         <span class="info"><carlos:encode value='<%= demographic.getFirstName() %>' context="html"/></span>
                                                                     </li>
                                                                     <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.formMiddleNames"/>:</span>
-                                                                        <span class="info"> <carlos:encode value='<%= demographic.getMiddleNames() %>' context="html"/></span>
+                                                                        <span class="info"> <carlos:encode value='<%=(demographic.getMiddleNames()==null||demographic.getMiddleNames().equals("null"))?"":demographic.getMiddleNames()%>' context="html"/></span>
                                                                     </li>
                                                                     <li>
 														<span class="label" style="color:red;"><fmt:message key="demographic.demographicaddrecordhtm.formNameUsed"/>:
