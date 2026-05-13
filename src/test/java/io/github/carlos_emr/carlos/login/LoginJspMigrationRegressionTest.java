@@ -138,17 +138,22 @@ class LoginJspMigrationRegressionTest {
                 Files.readString(APPOINTMENT_PROVIDER_ADMIN_DAY, StandardCharsets.UTF_8);
         String administrationLeftNav = Files.readString(ADMINISTRATION_LEFT_NAV, StandardCharsets.UTF_8);
 
-        assertThat(integrationStruts).contains("<action name=\"administration/index\"");
-        assertThat(integrationStruts).contains("/WEB-INF/jsp/administration/index.jsp");
+        assertThat(integrationStruts)
+                .contains("<action name=\"administration/index\"")
+                .contains("/WEB-INF/jsp/administration/index.jsp");
         assertThat(menuConfig).doesNotContain("/administration/index");
-        assertThat(personaService).contains("../administration/");
-        assertThat(personaService).doesNotContain("../administration/index");
-        assertThat(mainMenu).contains("/administration/");
-        assertThat(mainMenu).doesNotContain("/administration/index");
-        assertThat(appointmentProviderAdminDay).contains("/administration/");
-        assertThat(appointmentProviderAdminDay).doesNotContain("/administration/index");
-        assertThat(administrationLeftNav).contains("${ctx}/administration/");
-        assertThat(administrationLeftNav).doesNotContain("/administration/index");
+        assertThat(personaService)
+                .contains("../administration/")
+                .doesNotContain("../administration/index");
+        assertThat(mainMenu)
+                .contains("/administration/")
+                .doesNotContain("/administration/index");
+        assertThat(appointmentProviderAdminDay)
+                .contains("/administration/")
+                .doesNotContain("/administration/index");
+        assertThat(administrationLeftNav)
+                .contains("${ctx}/administration/")
+                .doesNotContain("/administration/index");
     }
 
     @Test
@@ -161,20 +166,22 @@ class LoginJspMigrationRegressionTest {
         assertThat(appointmentProviderAdminDay)
                 .contains("<body")
                 .contains("showPasswordExpiryWarning();");
-        assertThat(providerSchedulePageJs).contains("function showPasswordExpiryWarning()");
-        assertThat(providerSchedulePageJs).contains("function popupPageOfChangePassword()");
-        assertThat(providerSchedulePageJs).contains("password-expiry-warning");
-        assertThat(providerSchedulePageJs).contains("document.createElement(\"div\")");
-        assertThat(providerSchedulePageJs).contains("changePasswordLink.href = \"<%= request.getContextPath() %>/provider/ViewChangePassword\"");
-        assertThat(providerSchedulePageJs).contains("showPasswordExpiryWarning();");
         assertThat(providerSchedulePageJs)
-                .doesNotContain("window.location.href = \"<%= request.getContextPath() %>/provider/ViewChangePassword\"");
-        assertThat(providerSchedulePageJs).doesNotContain("window.open(\"<%= request.getContextPath() %>/provider/ViewChangePassword\"");
+                .contains("function showPasswordExpiryWarning()")
+                .contains("function popupPageOfChangePassword()")
+                .contains("password-expiry-warning")
+                .contains("document.createElement(\"div\")")
+                .contains("provider.changePassword.msgAccountExpiringWithDays")
+                .contains("changePasswordLink.href = \"<%= request.getContextPath() %>/provider/ViewChangePassword\"")
+                .contains("showPasswordExpiryWarning();")
+                .doesNotContain("window.location.href = \"<%= request.getContextPath() %>/provider/ViewChangePassword\"")
+                .doesNotContain("window.open(\"<%= request.getContextPath() %>/provider/ViewChangePassword\"")
+                .doesNotContain("\" day\"");
     }
 
     @Test
     @DisplayName("representative public callers should use migrated login routes")
-    void representativePublicCallersShouldUseMigratedLoginRoutes() throws IOException {
+    void shouldUseMigratedLoginRoutes_forRepresentativePublicCallers() throws IOException {
         String csrfGuard = Files.readString(CSRF_GUARD, StandardCharsets.UTF_8);
         String menuConfig = Files.readString(MENU_CONFIG, StandardCharsets.UTF_8);
 
@@ -191,23 +198,33 @@ class LoginJspMigrationRegressionTest {
         String forcePasswordResetGate = Files.readString(FORCE_PASSWORD_RESET_GATE, StandardCharsets.UTF_8);
         String forcePasswordResetJsp = Files.readString(FORCE_PASSWORD_RESET_JSP, StandardCharsets.UTF_8);
 
-        assertThat(forcePasswordResetGate).doesNotContain("\"userName\"");
-        assertThat(forcePasswordResetGate).doesNotContain("String result = super.execute()");
-        assertThat(forcePasswordResetGate).contains("GET, HEAD");
-        assertThat(forcePasswordResetGate).contains("if (session == null)");
-        assertThat(forcePasswordResetGate).contains("LoginCredentialCache.getInstance().peek(token)");
-        assertThat(forcePasswordResetGate).contains("Session expired. Please log in again.");
-        assertThat(forcePasswordResetGate).contains("URLEncoder.encode(errorMessage, StandardCharsets.UTF_8)");
-        assertThat(loginAction).contains("session.setAttribute(LOGIN_CREDENTIALS_TOKEN_ATTR, token)");
-        assertThat(loginAction).contains("return \"forcepasswordreset\";");
-        assertThat(loginAction).contains("request.setAttribute(\"errormsg\", errorStr)");
-        assertThat(loginAction).contains("securityManager.encodePassword(newPassword)");
-        assertThat(loginAction).contains("URLEncoder.encode(errorMessage, StandardCharsets.UTF_8)");
-        assertThat(loginAction).contains("Security record not found for forced password reset user.");
-        assertThat(loginAction).doesNotContain("FORCE_PASSWORD_RESET_PENDING_ATTR");
-        assertThat(forcePasswordResetJsp).contains("request.getAttribute(\"errormsg\")");
-        assertThat(forcePasswordResetJsp).doesNotContain("request.getParameter(\"errormsg\")");
-        assertThat(forcePasswordResetJsp).doesNotContain("session.getAttribute(\"userName\")");
+        assertThat(forcePasswordResetGate)
+                .contains("GET, HEAD")
+                .contains("if (session == null)")
+                .contains("LoginCredentialCache.getInstance().peek(token)")
+                .contains("Session expired. Please log in again.")
+                .contains("URLEncoder.encode(errorMessage, StandardCharsets.UTF_8)")
+                .doesNotContain("\"userName\"")
+                .doesNotContain("String result = super.execute()");
+        assertThat(loginAction)
+                .contains("request.getSession(false)")
+                .contains("credsTokenAttr instanceof String")
+                .contains("session.setAttribute(LOGIN_CREDENTIALS_TOKEN_ATTR, token)")
+                .contains("response.sendRedirect(request.getContextPath() + \"/forcepasswordreset\")")
+                .contains("return \"forcepasswordreset\";")
+                .contains("request.setAttribute(\"errormsg\", errorStr)")
+                .contains("ResourceBundle.getBundle(\"oscarResources\", request.getLocale()).getString(key)")
+                .contains("securityManager.encodePassword(newPassword)")
+                .contains("URLEncoder.encode(errorMessage, StandardCharsets.UTF_8)")
+                .contains("Security record not found for forced password reset user.")
+                .doesNotContain("FORCE_PASSWORD_RESET_PENDING_ATTR")
+                .doesNotContain("Your old password, does NOT match")
+                .doesNotContain("Your new password, does NOT match")
+                .doesNotContain("Your new password, is the same");
+        assertThat(forcePasswordResetJsp)
+                .contains("request.getAttribute(\"errormsg\")")
+                .doesNotContain("request.getParameter(\"errormsg\")")
+                .doesNotContain("session.getAttribute(\"userName\")");
     }
 
     @Test

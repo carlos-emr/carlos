@@ -447,7 +447,9 @@ function showPasswordExpiryWarning(){
     if (!expired_days.isEmpty()) {
         //javascript
 %>
-<fmt:message var="accountExpiringMsg" key="provider.changePassword.msgAccountExpiring"/>
+<fmt:message var="accountExpiringWithDaysMsg" key="provider.changePassword.msgAccountExpiringWithDays">
+    <fmt:param value="<%= expired_days %>"/>
+</fmt:message>
 <fmt:message var="changePasswordLabel" key="provider.providerchangepassword.title"/>
 var warningId = "password-expiry-warning";
 if (document.getElementById(warningId)) {
@@ -458,8 +460,7 @@ warning.id = warningId;
 warning.className = "alert alert-warning d-flex align-items-center justify-content-between gap-2 m-2";
 warning.setAttribute("role", "alert");
 var warningText = document.createElement("span");
-var expiredDays = "<%= Encode.forJavaScript(expired_days) %>";
-warningText.textContent = '${carlos:forJavaScript(accountExpiringMsg)}' + expiredDays + " day" + (expiredDays === "1" ? "" : "s") + " remaining.";
+warningText.textContent = '${carlos:forJavaScript(accountExpiringWithDaysMsg)}';
 var changePasswordLink = document.createElement("a");
 changePasswordLink.className = "btn btn-sm btn-warning";
 changePasswordLink.href = "<%= request.getContextPath() %>/provider/ViewChangePassword";

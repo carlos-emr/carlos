@@ -73,6 +73,7 @@ import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.ResourceBundle;
 import java.util.regex.Pattern;
 
 /**
@@ -378,7 +379,11 @@ public final class Login2Action extends ActionSupport {
             // Coming back from force password change. Credentials are held in the
             // server-side LoginCredentialCache, referenced by an opaque one-time token
             // in the session (the credentials themselves are NEVER placed in the session).
-            String credsToken = (String) request.getSession().getAttribute(LOGIN_CREDENTIALS_TOKEN_ATTR);
+            HttpSession pendingResetSession = request.getSession(false);
+            Object credsTokenAttr = pendingResetSession == null
+                    ? null
+                    : pendingResetSession.getAttribute(LOGIN_CREDENTIALS_TOKEN_ATTR);
+            String credsToken = credsTokenAttr instanceof String ? (String) credsTokenAttr : null;
             LoginCredentialCache.LoginCredentials cached = LoginCredentialCache.getInstance().peek(credsToken);
             if (cached == null) {
                 // Token missing or expired (>5 min, or already consumed). Treat as a
@@ -386,7 +391,7 @@ public final class Login2Action extends ActionSupport {
                 // proceeding with empty credentials.
                 logger.info("Forced password reset submitted without valid credential-cache token; redirecting to login");
                 removeAttributesFromSession(request);
-                response.sendRedirect(loginFailedRedirectUrl("Session expired. Please log in again."));
+                response.sendRedirect(loginFailedRedirectUrl(message("provider.providerchangepassword.errorSessionExpired")));
                 return NONE;
             }
 
@@ -435,7 +440,7 @@ public final class Login2Action extends ActionSupport {
                 removeAttributesFromSession(request);
             } catch (Exception e) {
                 logger.error("Error", e);
-                String newURL = loginFailedRedirectUrl("Setting values to the session.");
+                String newURL = loginFailedRedirectUrl(message("provider.providerchangepassword.errorSessionSetup"));
 
                 // Remove the attributes from session
                 removeAttributesFromSession(request);
@@ -583,12 +588,13 @@ public final class Login2Action extends ActionSupport {
                     setUserInfoToSession(request, userName, password, pin, nextPage);
                 } catch (Exception e) {
                     logger.error("Error", e);
-                    String newURL = loginFailedRedirectUrl("Setting values to the session.");
+                    String newURL = loginFailedRedirectUrl(message("provider.providerchangepassword.errorSessionSetup"));
                     response.sendRedirect(newURL);
                     return NONE;
                 }
 
-                return "forcepasswordreset";
+                response.sendRedirect(request.getContextPath() + "/forcepasswordreset");
+                return NONE;
             }
 
             // invalidate the existing session
@@ -932,6 +938,10 @@ public final class Login2Action extends ActionSupport {
                 + URLEncoder.encode(errorMessage, StandardCharsets.UTF_8);
     }
 
+    private String message(String key) {
+        return ResourceBundle.getBundle("oscarResources", request.getLocale()).getString(key);
+    }
+
     /**
      * Removes authentication-related attributes from the session and invalidates
      * any cached credential material.
@@ -947,7 +957,10 @@ public final class Login2Action extends ActionSupport {
      * @param request HttpServletRequest containing the session to clean
      */
     private void removeAttributesFromSession(HttpServletRequest request) {
-        HttpSession session = request.getSession();
+        HttpSession session = request.getSession(false);
+        if (session == null) {
+            return;
+        }
         Object tokenAttr = session.getAttribute(LOGIN_CREDENTIALS_TOKEN_ATTR);
         if (tokenAttr instanceof String) {
             LoginCredentialCache.getInstance().invalidate((String) tokenAttr);
@@ -993,14 +1006,14 @@ public final class Login2Action extends ActionSupport {
      * @param password String the plain-text password (will be encoded before caching)
      * @param pin String the 4-digit PIN (must match [0-9]{4} pattern)
      * @param nextPage String the relative URL to redirect to after password reset (validated before caching)
-     * @throws Exception if password encoding fails
+     * @throws IllegalArgumentException if password encoding fails
      * @see SecurityManager#encodePassword for password encoding algorithm
      * @see #removeAttributesFromSession for cleanup after password reset
      * @see RedirectValidationUtils#isValidRelativeRedirect for redirect URL validation logic
      * @see LoginCredentialCache for the server-side credential store
      */
     private void setUserInfoToSession(HttpServletRequest request, String userName, String password, String pin,
-                                      String nextPage) throws Exception {
+                                      String nextPage) {
         // Validate nextPage before caching to prevent open redirect (CWE-601 defense in depth)
         if (!RedirectValidationUtils.isValidRelativeRedirect(nextPage)) {
             if (nextPage != null) {
@@ -1055,16 +1068,16 @@ public final class Login2Action extends ActionSupport {
         // Verify old password matches the password from the staged successful login.
         if (oldPassword == null || oldEncodedPassword == null
                 || !this.securityManager.matchesPassword(oldPassword, oldEncodedPassword)) {
-            return "Your old password, does NOT match the password in the system. Please enter your old password.";
+            return message("provider.providerchangepassword.errorOldPasswordMismatch");
         }
         // Verify new password and confirmation match
         else if (newPassword == null || confirmPassword == null || !Objects.equals(newPassword, confirmPassword)) {
-            return "Your new password, does NOT match the confirmed password. Please try again.";
+            return message("provider.providerchangepassword.errorConfirmPasswordMismatch");
         }
         // Verify new password is different from old password (unless requirement is disabled)
         else if (!Boolean.parseBoolean(CarlosProperties.getInstance().getProperty("IGNORE_PASSWORD_REQUIREMENTS"))
                 && Objects.equals(newPassword, oldPassword)) {
-            return "Your new password, is the same as your old password. Please choose a new password.";
+            return message("provider.providerchangepassword.errorNewPasswordSameAsOld");
         }
 
         return "";
@@ -1104,12 +1117,13 @@ public final class Login2Action extends ActionSupport {
      *
      * @param userName String the username of the account to update
      * @param newPassword String the new plain-text password (will be encoded before storage)
-     * @throws Exception if password encoding fails or database update fails
+     * @throws IllegalStateException if the user's security record cannot be found
+     * @throws IllegalArgumentException if password encoding fails
      * @see #getSecurity for retrieving the Security record
      * @see SecurityManager#encodePassword for password hashing
      * @see SecurityDao#saveEntity for database persistence
      */
-    private void persistNewPassword(String userName, String newPassword) throws Exception {
+    private void persistNewPassword(String userName, String newPassword) {
 
         Security security = getSecurity(userName);
         if (security == null) {
