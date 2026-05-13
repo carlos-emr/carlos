@@ -77,15 +77,15 @@ public class EctMeasurements2Action extends ActionSupport {
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public String execute() throws ServletException, IOException {
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_measurement", "w",
                 null)) {
             throw new SecurityException("missing required sec object (_measurement)");
-        }
-
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
-            response.setHeader("Allow", "POST");
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-            return NONE;
         }
 
         boolean ajax = (request.getParameter("ajax") != null) ? Boolean.valueOf(request.getParameter("ajax")) : false;

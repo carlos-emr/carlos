@@ -27,6 +27,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -56,9 +58,8 @@ class EctMeasurements2ActionTest extends CarlosWebTestBase {
     }
 
     @Test
-    @DisplayName("should return 405 on GET before reading measurement params")
-    void shouldReturn405_onGet() throws Exception {
-        allowPrivilege("_measurement", "w");
+    @DisplayName("should return 405 on GET before checking measurement write privilege")
+    void shouldReturn405_onGetBeforePrivilegeCheck() throws Exception {
         mockRequest.setMethod("GET");
 
         String result = executeAction(new EctMeasurements2Action());
@@ -66,12 +67,12 @@ class EctMeasurements2ActionTest extends CarlosWebTestBase {
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
+        verify(mockSecurityInfoManager, never()).hasPrivilege(any(LoggedInInfo.class), anyString(), anyString(), any());
     }
 
     @Test
     @DisplayName("should return 405 on HEAD before reading measurement params")
     void shouldReturn405_onHead() throws Exception {
-        allowPrivilege("_measurement", "w");
         mockRequest.setMethod("HEAD");
 
         String result = executeAction(new EctMeasurements2Action());
@@ -79,6 +80,7 @@ class EctMeasurements2ActionTest extends CarlosWebTestBase {
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
+        verify(mockSecurityInfoManager, never()).hasPrivilege(any(LoggedInInfo.class), anyString(), anyString(), any());
     }
 
     @Test
