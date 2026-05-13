@@ -767,12 +767,14 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
     }
 
     private boolean isWithinAllowedUploadTempDirectories(Path candidate) {
+        // Defensive guard for future callers; current flow supplies a validated real path.
         if (candidate == null) {
             return false;
         }
 
         List<Path> allowedRoots = allowedUploadTempRoots();
         if (allowedRoots.isEmpty()) {
+            MiscUtils.getLogger().warn("No valid upload temp roots configured");
             return false;
         }
 
