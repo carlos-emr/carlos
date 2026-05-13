@@ -13,8 +13,6 @@
 package io.github.carlos_emr.carlos.login.gate;
 
 import java.io.IOException;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 
 import io.github.carlos_emr.carlos.login.Login2Action;
 import io.github.carlos_emr.carlos.login.LoginCredentialCache;
@@ -59,13 +57,9 @@ public final class ViewForcePasswordReset2Action extends BaseLoginPageView2Actio
 
     private String redirectToExpiredSession(HttpServletRequest request) throws IOException {
         HttpServletResponse response = ServletActionContext.getResponse();
-        String redirectUrl = loginFailedRedirectUrl(request, "Session expired. Please log in again.");
+        String redirectUrl = Login2Action.loginFailedRedirectUrl(request,
+                Login2Action.message(request, "provider.providerchangepassword.errorSessionExpired"));
         response.sendRedirect(redirectUrl);
         return NONE;
-    }
-
-    private String loginFailedRedirectUrl(HttpServletRequest request, String errorMessage) {
-        return request.getContextPath() + "/loginfailed?errormsg="
-                + URLEncoder.encode(errorMessage, StandardCharsets.UTF_8);
     }
 }

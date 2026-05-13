@@ -933,13 +933,37 @@ public final class Login2Action extends ActionSupport {
                 + "&view=0&displaymode=day&dboperation=searchappointmentday&viewall=" + viewAll;
     }
 
-    private String loginFailedRedirectUrl(String errorMessage) {
+    /**
+     * Builds the extensionless login failure redirect URL with an encoded error
+     * message parameter.
+     *
+     * @param request servlet request used to resolve the application context path
+     * @param errorMessage localized error message to include in the redirect
+     * @return context-relative login failure URL including an encoded errormsg parameter
+     */
+    public static String loginFailedRedirectUrl(HttpServletRequest request, String errorMessage) {
         return request.getContextPath() + "/loginfailed?errormsg="
                 + URLEncoder.encode(errorMessage, StandardCharsets.UTF_8);
     }
 
-    private String message(String key) {
+    /**
+     * Looks up a localized message from the CARLOS EMR oscarResources bundle
+     * using the current request locale.
+     *
+     * @param request servlet request carrying the active locale
+     * @param key resource bundle key to resolve
+     * @return localized resource bundle message
+     */
+    public static String message(HttpServletRequest request, String key) {
         return ResourceBundle.getBundle("oscarResources", request.getLocale()).getString(key);
+    }
+
+    private String loginFailedRedirectUrl(String errorMessage) {
+        return loginFailedRedirectUrl(request, errorMessage);
+    }
+
+    private String message(String key) {
+        return message(request, key);
     }
 
     /**
