@@ -27,6 +27,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -57,30 +60,36 @@ class FlowSheetCustom2ActionTest extends CarlosWebTestBase {
 
     @Test
     @DisplayName("should return 405 on GET before dispatching mutator methods")
-    void shouldReturn405_onGet() throws Exception {
-        allowPrivilege("_flowsheet", "w");
+    void shouldReturn405_onGetBeforePrivilegeCheck() throws Exception {
         mockRequest.setMethod("GET");
         addRequestParameter("method", "save");
+        TestableFlowSheetCustom2Action action = new TestableFlowSheetCustom2Action();
+        clearInvocations(mockSecurityInfoManager);
 
-        String result = executeAction(new FlowSheetCustom2Action());
+        String result = executeAction(action);
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
+        assertThat(action.saveCalled).isFalse();
+        verify(mockSecurityInfoManager, never()).hasPrivilege(any(LoggedInInfo.class), anyString(), anyString(), any());
     }
 
     @Test
     @DisplayName("should return 405 on HEAD before dispatching mutator methods")
     void shouldReturn405_onHead() throws Exception {
-        allowPrivilege("_flowsheet", "w");
         mockRequest.setMethod("HEAD");
         addRequestParameter("method", "save");
+        TestableFlowSheetCustom2Action action = new TestableFlowSheetCustom2Action();
+        clearInvocations(mockSecurityInfoManager);
 
-        String result = executeAction(new FlowSheetCustom2Action());
+        String result = executeAction(action);
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
+        assertThat(action.saveCalled).isFalse();
+        verify(mockSecurityInfoManager, never()).hasPrivilege(any(LoggedInInfo.class), anyString(), anyString(), any());
     }
 
     @Test

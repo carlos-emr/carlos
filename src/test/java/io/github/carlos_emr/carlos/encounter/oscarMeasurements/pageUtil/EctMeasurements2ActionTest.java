@@ -27,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -61,6 +62,7 @@ class EctMeasurements2ActionTest extends CarlosWebTestBase {
     @DisplayName("should return 405 on GET before checking measurement write privilege")
     void shouldReturn405_onGetBeforePrivilegeCheck() throws Exception {
         mockRequest.setMethod("GET");
+        clearInvocations(mockSecurityInfoManager);
 
         String result = executeAction(new EctMeasurements2Action());
 
@@ -74,6 +76,7 @@ class EctMeasurements2ActionTest extends CarlosWebTestBase {
     @DisplayName("should return 405 on HEAD before reading measurement params")
     void shouldReturn405_onHead() throws Exception {
         mockRequest.setMethod("HEAD");
+        clearInvocations(mockSecurityInfoManager);
 
         String result = executeAction(new EctMeasurements2Action());
 
