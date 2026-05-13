@@ -34,6 +34,7 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import java.util.Properties;
 
 import jakarta.servlet.ServletException;
@@ -104,6 +105,12 @@ public class RptByExample2Action extends ActionSupport {
         request.setAttribute("favorites", favorites);
 
         if (sql != null) {
+            if (!isSafeAdminSelectQuery(sql)) {
+                addActionError("Only a single safe SELECT query is allowed.");
+                request.setAttribute("results", "");
+                request.setAttribute("resultText", "");
+                return SUCCESS;
+            }
             write2Database(sql, providerNo);
         } else
             sql = "";
@@ -118,6 +125,38 @@ public class RptByExample2Action extends ActionSupport {
         request.setAttribute("resultText", resultText);
 
         return SUCCESS;
+    }
+
+    private boolean isSafeAdminSelectQuery(String sql) {
+        if (sql == null) {
+            return false;
+        }
+        String normalized = sql.trim();
+        if (normalized.isEmpty()) {
+            return false;
+        }
+
+        String upper = normalized.toUpperCase(Locale.ROOT);
+        if (!upper.startsWith("SELECT")) {
+            return false;
+        }
+
+        if (upper.contains(";") || upper.contains("--") || upper.contains("/*") || upper.contains("*/")) {
+            return false;
+        }
+
+        String[] blocked = new String[] {
+                " INSERT ", " UPDATE ", " DELETE ", " DROP ", " ALTER ", " CREATE ", " TRUNCATE ",
+                " MERGE ", " EXEC ", " EXECUTE ", " CALL ", " GRANT ", " REVOKE ", " COMMIT ", " ROLLBACK "
+        };
+        String padded = " " + upper + " ";
+        for (String token : blocked) {
+            if (padded.contains(token)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public void write2Database(String query, String providerNo) {
