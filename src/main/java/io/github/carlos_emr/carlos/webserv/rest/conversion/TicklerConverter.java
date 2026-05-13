@@ -178,10 +178,7 @@ public class TicklerConverter extends AbstractConverter<Tickler, TicklerTo1> {
     }
 
     private String providerNameOrNotApplicable(Map<String, String> providerNames, String providerNo) {
-        if (providerNo == null || !providerNames.containsKey(providerNo)) {
-            return "N/A";
-        }
-        String providerName = providerNames.get(providerNo);
+        String providerName = providerNo != null ? providerNames.get(providerNo) : null;
         return providerName != null ? providerName : "N/A";
     }
 

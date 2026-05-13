@@ -56,12 +56,14 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerDao {
     private static final int IN_CLAUSE_BATCH_SIZE = 500;
+    private static final String TICKLER_ALIAS = "t";
+
     /**
      * Matches the canonical root Tickler alias emitted by getTicklerQueryString().
-     * If that method stops using alias {@code t}, fetch-join insertion must change with it.
+     * Keep this pattern and the query builder aligned through {@link #TICKLER_ALIAS}.
      */
     private static final Pattern TICKLER_FROM_PATTERN =
-            Pattern.compile("\\bFROM\\s+Tickler\\s+t\\b", Pattern.CASE_INSENSITIVE);
+            Pattern.compile("\\bFROM\\s+Tickler\\s+" + TICKLER_ALIAS + "\\b", Pattern.CASE_INSENSITIVE);
 
     /**
      * Pre-built ORDER BY clauses keyed by "column:dir". Values are static strings —
@@ -350,13 +352,13 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
         }
         StringBuilder joins = new StringBuilder();
         if (includeProvider) {
-            joins.append(" left join fetch t.provider");
+            joins.append(" left join fetch ").append(TICKLER_ALIAS).append(".provider");
         }
         if (includeAssignee) {
-            joins.append(" left join fetch t.assignee");
+            joins.append(" left join fetch ").append(TICKLER_ALIAS).append(".assignee");
         }
         // Rewrites to the canonical uppercase FROM form used by getTicklerQueryString().
-        return TICKLER_FROM_PATTERN.matcher(sql).replaceFirst("FROM Tickler t" + joins);
+        return TICKLER_FROM_PATTERN.matcher(sql).replaceFirst("FROM Tickler " + TICKLER_ALIAS + joins);
     }
 
     private void initializeTicklerUpdates(List<Tickler> ticklers) {
@@ -412,7 +414,7 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
     private String getTicklerQueryString(String selectQuery, List<Object> paramList, CustomFilter filter) {
 //		String tickler_date_order = filter.getSort_order();
 
-        String query = selectQuery + " FROM Tickler t WHERE 1=1 ";
+        String query = selectQuery + " FROM Tickler " + TICKLER_ALIAS + " WHERE 1=1 ";
         int paramIndex = 1;
         boolean includeMRPClause = true;
         boolean includeProviderClause = true;
