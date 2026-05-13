@@ -148,13 +148,17 @@ class LoginJspMigrationRegressionTest {
                 .contains("../administration/")
                 .doesNotContain("../administration/index");
         assertThat(mainMenu)
-                .contains("/administration/")
+                .contains("/administration','admin")
+                .doesNotContain("/administration/")
                 .doesNotContain("/administration/index");
         assertThat(appointmentProviderAdminDay)
-                .contains("/administration/")
+                .contains("/administration','admin")
+                .contains("/administration\", \"admin")
+                .doesNotContain("/administration/")
                 .doesNotContain("/administration/index");
         assertThat(administrationLeftNav)
-                .contains("${ctx}/administration/")
+                .contains("${ctx}/administration")
+                .doesNotContain("${ctx}/administration/")
                 .doesNotContain("/administration/index");
     }
 

@@ -259,7 +259,7 @@
 
                                 <li id="admin2">
                                     <a href="javascript:void(0)" id="admin-panel" TITLE='<fmt:message key="admin.admin.page.title"/>'
-                                       onclick="newWindow('<%=request.getContextPath()%>/administration/','admin')"><fmt:message key="provider.mainMenu.administration"/></a>
+                                       onclick="newWindow('<%=request.getContextPath()%>/administration','admin')"><fmt:message key="provider.mainMenu.administration"/></a>
                                 </li>
 
                             </security:oscarSec>
