@@ -101,6 +101,9 @@ public interface TicklerDao extends AbstractDao<Tickler> {
 
     public List<Tickler> getTicklers(CustomFilter filter, int offset, int limit);
 
+    public List<Tickler> getTicklers(CustomFilter filter, int offset, int limit, boolean includeComments,
+                                     boolean includeUpdates, boolean includeProvider, boolean includeAssignee);
+
     /**
      * Retrieves a list of tickler DTOs based on the specified filter criteria.
      */

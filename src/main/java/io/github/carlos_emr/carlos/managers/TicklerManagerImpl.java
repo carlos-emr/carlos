@@ -233,6 +233,16 @@ public class TicklerManagerImpl implements TicklerManager {
     }
 
     @Override
+    public List<Tickler> getTicklers(LoggedInInfo loggedInInfo, CustomFilter filter, int offset, int limit,
+                                     boolean includeComments, boolean includeUpdates, boolean includeProvider,
+                                     boolean includeAssignee) {
+        checkPrivilege(loggedInInfo, PRIVILEGE_READ);
+
+        return ticklerDao.getTicklers(filter, offset, limit, includeComments, includeUpdates, includeProvider,
+                includeAssignee);
+    }
+
+    @Override
     public List<Tickler> getTicklerByLabId(LoggedInInfo loggedInInfo, int labId, Integer demoNo) {
         checkPrivilege(loggedInInfo, PRIVILEGE_READ);
         String providerNo = loggedInInfo.getLoggedInProviderNo();

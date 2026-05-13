@@ -49,6 +49,7 @@ import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.tickler.dto.TicklerCommentDTO;
 import io.github.carlos_emr.carlos.tickler.dto.TicklerLinkDTO;
 import io.github.carlos_emr.carlos.tickler.dto.TicklerListDTO;
+import org.hibernate.Hibernate;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -100,7 +101,7 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
         Tickler tickler = getSingleResultOrNull(query);
         if (tickler != null) {
             // Load updates separately to avoid fetching two Tickler collections in the same detail query.
-            tickler.getUpdates().size();
+            Hibernate.initialize(tickler.getUpdates());
         }
         return tickler;
     }
@@ -298,9 +299,17 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
     @SuppressWarnings("unchecked")
     @Override
     public List<Tickler> getTicklers(CustomFilter filter, int offset, int limit) {
+        return getTicklers(filter, offset, limit, false, false, false, false);
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public List<Tickler> getTicklers(CustomFilter filter, int offset, int limit, boolean includeComments,
+                                     boolean includeUpdates, boolean includeProvider, boolean includeAssignee) {
         String sql = "select t";
         ArrayList<Object> paramList = new ArrayList<Object>();
         sql = getTicklerQueryString(sql, paramList, filter);
+        sql = addTicklerFetchJoins(sql, includeProvider, includeAssignee);
 
         Query query = entityManager.createQuery(sql);
         for (int x = 0; x < paramList.size(); x++) {
@@ -310,7 +319,50 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
         if (limit > 0) {
             setLimit(query, limit);
         }
-        return query.getResultList();
+        List<Tickler> results = query.getResultList();
+        if (includeUpdates) {
+            initializeTicklerUpdates(results);
+        }
+        if (includeComments) {
+            initializeTicklerComments(results);
+        }
+        return results;
+    }
+
+    private String addTicklerFetchJoins(String sql, boolean includeProvider, boolean includeAssignee) {
+        if (!includeProvider && !includeAssignee) {
+            return sql;
+        }
+        StringBuilder joins = new StringBuilder();
+        if (includeProvider) {
+            joins.append(" left join fetch t.provider");
+        }
+        if (includeAssignee) {
+            joins.append(" left join fetch t.assignee");
+        }
+        return sql.replaceFirst("select t FROM Tickler t", "select distinct t FROM Tickler t" + joins);
+    }
+
+    private void initializeTicklerUpdates(List<Tickler> ticklers) {
+        for (Tickler tickler : ticklers) {
+            Hibernate.initialize(tickler.getUpdates());
+            tickler.getUpdates().forEach(update -> {
+                if (update.getProvider() != null) {
+                    Hibernate.initialize(update.getProvider());
+                }
+            });
+        }
+    }
+
+    private void initializeTicklerComments(List<Tickler> ticklers) {
+        for (Tickler tickler : ticklers) {
+            Hibernate.initialize(tickler.getComments());
+            tickler.getComments().forEach(comment -> {
+                if (comment.getProvider() != null) {
+                    Hibernate.initialize(comment.getProvider());
+                }
+            });
+        }
     }
 
 

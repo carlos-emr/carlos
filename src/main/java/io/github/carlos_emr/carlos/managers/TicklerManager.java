@@ -88,6 +88,10 @@ public interface TicklerManager {
      */
     public List<Tickler> getTicklers(LoggedInInfo loggedInInfo, CustomFilter filter, int offset, int limit);
 
+    public List<Tickler> getTicklers(LoggedInInfo loggedInInfo, CustomFilter filter, int offset, int limit,
+                                     boolean includeComments, boolean includeUpdates, boolean includeProvider,
+                                     boolean includeAssignee);
+
     public List<Tickler> getTicklerByLabId(LoggedInInfo loggedInInfo, int labId, Integer demoNo);
 
     /**

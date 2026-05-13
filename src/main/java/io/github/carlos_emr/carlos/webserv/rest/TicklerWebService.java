@@ -244,7 +244,8 @@ public class TicklerWebService extends AbstractServiceImpl {
         result.setTotal(total);
 
 
-        List<Tickler> ticklers = ticklerManager.getTicklers(getLoggedInInfo(), cf, ((page - 1) * count), count);
+        List<Tickler> ticklers = ticklerManager.getTicklers(getLoggedInInfo(), cf, ((page - 1) * count), count,
+                includeComments, includeUpdates, false, false);
 
         if (includeLinks) {
             ticklerConverter.setIncludeLinks(true);

@@ -168,6 +168,29 @@ class TicklerLazyFetchMigrationUnitTest extends CarlosUnitTestBase {
                 .contains("left join fetch t.program");
     }
 
+    @Test
+    @DisplayName("should fetch provider columns only for list provider expansion")
+    void shouldFetchProviderColumnsOnly_forListProviderExpansion() {
+        EntityManager entityManager = mock(EntityManager.class);
+        Query query = mock(Query.class);
+        TicklerDaoImpl ticklerDao = new TicklerDaoImpl();
+        CustomFilter filter = new CustomFilter();
+        filter.setStatus("A");
+        ReflectionTestUtils.setField(ticklerDao, "entityManager", entityManager);
+        when(entityManager.createQuery(contains("left join fetch t.provider"))).thenReturn(query);
+        when(query.getResultList()).thenReturn(List.of());
+
+        ticklerDao.getTicklers(filter, 0, 25, true, true, true, true);
+
+        ArgumentCaptor<String> queryCaptor = ArgumentCaptor.forClass(String.class);
+        verify(entityManager).createQuery(queryCaptor.capture());
+        assertThat(queryCaptor.getValue())
+                .contains("left join fetch t.provider")
+                .contains("left join fetch t.assignee")
+                .doesNotContain("left join fetch t.comments")
+                .doesNotContain("left join fetch t.updates");
+    }
+
     private FetchType relationshipFetchType(Field field) {
         ManyToOne manyToOne = field.getAnnotation(ManyToOne.class);
         if (manyToOne != null) {
