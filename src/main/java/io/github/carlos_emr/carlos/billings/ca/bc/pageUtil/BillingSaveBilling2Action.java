@@ -203,25 +203,23 @@ public class BillingSaveBilling2Action extends ActionSupport {
         if ("Another Bill".equals(submit)) {
             return "anotherBill";
         } else if ("Save & Print Receipt".equals(submit)) {
-            // Construct the dynamic URL
-            StringBuilder stb = new StringBuilder();
-            for (String s : billingIds) {
-                log.debug("String " + s);
-                stb.append("billing_no=").append(s).append("&");
-            }
-            log.debug("FULL STRING " + stb);
-
-            // Redirect to the desired URL
-            String redirectUrl = "/billing/CA/BC/billingView?" + stb.toString() + "receipt=yes";
+            String redirectUrl = receiptRedirectUrl(request.getContextPath(), billingIds);
             response.sendRedirect(redirectUrl);
-
-            // Return null since redirection is handled manually
             return NONE;
         }
 
         return SUCCESS;
     }
 
+    static String receiptRedirectUrl(String contextPath, Iterable<String> billingIds) {
+        StringBuilder redirectUrl = new StringBuilder(contextPath == null ? "" : contextPath);
+        redirectUrl.append("/billing/CA/BC/billingView?");
+        for (String billingId : billingIds) {
+            redirectUrl.append("billing_no=").append(billingId).append("&");
+        }
+        redirectUrl.append("receipt=yes");
+        return redirectUrl.toString();
+    }
 
     private Billing getBillingObj(final BillingSessionBean bean, final Date curDate, final char billingAccountStatus) {
 
