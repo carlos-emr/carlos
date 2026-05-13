@@ -31,10 +31,13 @@ import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.springframework.beans.factory.config.ConfigurableBeanFactory;
+import org.springframework.context.annotation.Scope;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.stereotype.Component;
 
 /**
  * Admin action for permanently deleting a security (user account) record.
@@ -44,20 +47,42 @@ import org.apache.struts2.ServletActionContext;
  *
  * @since 2026-04-05
  */
+@Component(SecurityDelete2Action.SPRING_BEAN_NAME)
+@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class SecurityDelete2Action extends ActionSupport {
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private SecurityDao securityDao = SpringUtils.getBean(SecurityDao.class);
+    public static final String SPRING_BEAN_NAME =
+        "io.github.carlos_emr.carlos.admin.web.SecurityDelete2Action";
+
+    private final SecurityInfoManager securityInfoManager;
+    private final SecurityDao securityDao;
+
+    /**
+     * Creates the Spring-managed action.
+     *
+     * <p>This action now participates in Spring method-security proxying, so it
+     * uses constructor injection instead of the older {@code SpringUtils}
+     * service-locator style. That keeps the proxied bean wiring explicit and
+     * easier to verify in tests.</p>
+     */
+    public SecurityDelete2Action(SecurityInfoManager securityInfoManager, SecurityDao securityDao) {
+        this.securityInfoManager = securityInfoManager;
+        this.securityDao = securityDao;
+    }
 
     @Override
+    @PreAuthorize("@carlosMethodSecurity.hasPrivilege('_admin', 'w') "
+        + "or @carlosMethodSecurity.hasPrivilege('_admin.userAdmin', 'w')")
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
+        // Defense-in-depth: @PreAuthorize above is the primary gate. Remove this check once
+        // method-security coverage is broad enough to drop the per-action fallback.
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)
                 && !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.userAdmin", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin or _admin.userAdmin)");
+            throw new SecurityException("missing required sec object (_admin)");
         }
 
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
