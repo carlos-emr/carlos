@@ -157,6 +157,13 @@ public class TicklerConverter extends AbstractConverter<Tickler, TicklerTo1> {
         return d;
     }
 
+    /**
+     * Batch-loads provider display names needed by optional comment/update expansion.
+     *
+     * <p>This supports REST callers that set {@code includeComments} or {@code includeUpdates}
+     * without forcing conversion code to dereference lazy provider associations on each expanded
+     * row.</p>
+     */
     private Map<String, String> getExpandedProviderNames(ProviderDao providerDao, Tickler tickler) {
         Set<String> providerNos = new HashSet<>();
         if (includeComments) {
@@ -172,12 +179,18 @@ public class TicklerConverter extends AbstractConverter<Tickler, TicklerTo1> {
         return providerDao.getProviderNamesByIdsAsMap(new ArrayList<>(providerNos));
     }
 
+    /**
+     * Adds a provider number to the batch lookup set when present.
+     */
     private void addProviderNo(Set<String> providerNos, String providerNo) {
         if (providerNo != null) {
             providerNos.add(providerNo);
         }
     }
 
+    /**
+     * Returns the batch-loaded provider display name, or {@code N/A} for null or missing entries.
+     */
     private String providerNameOrNotApplicable(Map<String, String> providerNames, String providerNo) {
         String providerName = providerNo != null ? providerNames.get(providerNo) : null;
         return providerName != null ? providerName : "N/A";

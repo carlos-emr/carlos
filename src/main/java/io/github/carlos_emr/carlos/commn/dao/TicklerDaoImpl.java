@@ -358,7 +358,8 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
             joins.append(" left join fetch ").append(TICKLER_ALIAS).append(".assignee");
         }
         // Rewrites to the canonical uppercase FROM form used by getTicklerQueryString().
-        return TICKLER_FROM_PATTERN.matcher(sql).replaceFirst("FROM Tickler " + TICKLER_ALIAS + joins);
+        return TICKLER_FROM_PATTERN.matcher(sql)
+                .replaceFirst(String.format("FROM Tickler %s%s", TICKLER_ALIAS, joins));
     }
 
     private void initializeTicklerUpdates(List<Tickler> ticklers) {
