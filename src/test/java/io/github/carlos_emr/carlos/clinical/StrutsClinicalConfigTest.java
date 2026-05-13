@@ -231,8 +231,8 @@ class StrutsClinicalConfigTest {
         }
 
         assertThat(sharedGateOffenders)
-                .as("ProcessMeasurementsSubmission.jsp clears encounter submission state and must only be "
-                        + "rendered after POST-only measurement actions, never through the shared read gate")
+                .as("ProcessMeasurementsSubmission.jsp must only be reachable through POST-only measurement "
+                        + "actions, never through the shared read gate")
                 .isEmpty();
 
         assertActionClass(ENCOUNTER_CONFIG, "encounter/Measurements", ECT_MEASUREMENTS_CLASS);
