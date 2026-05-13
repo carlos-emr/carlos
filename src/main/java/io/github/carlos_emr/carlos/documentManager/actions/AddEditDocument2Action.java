@@ -757,7 +757,31 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             throw new IOException("Invalid upload file path");
         }
 
-        return new FileInputStream(safeUpload); // codeql[java/path-injection] -- safeUpload is canonicalized and constrained by PathValidationUtils.validateUpload plus allowed temp-directory validation immediately above
+        Path safeUploadPath = safeUpload.toPath().toRealPath();
+        if (!isWithinAllowedUploadTempDirectories(safeUploadPath)) {
+            throw new IOException("Invalid upload file path");
+        }
+
+        return Files.newInputStream(safeUploadPath);
+    }
+
+    private boolean isWithinAllowedUploadTempDirectories(Path candidate) {
+        try {
+            Path[] allowedRoots = new Path[] {
+                    new File(CarlosProperties.getInstance().getProperty("TMP_DIR")).toPath().toRealPath(),
+                    new File(System.getProperty("java.io.tmpdir")).toPath().toRealPath()
+            };
+
+            for (Path root : allowedRoots) {
+                if (candidate.startsWith(root)) {
+                    return true;
+                }
+            }
+        } catch (Exception e) {
+            return false;
+        }
+
+        return false;
     }
 
     /**
