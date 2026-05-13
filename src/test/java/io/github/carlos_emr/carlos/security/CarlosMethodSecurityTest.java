@@ -80,6 +80,18 @@ class CarlosMethodSecurityTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should return false when privilege request has blank input")
+    void shouldReturnFalse_whenPrivilegeRequestHasBlankInput() {
+        assertThat(methodSecurity.hasPrivilege(null, "w")).isFalse();
+        assertThat(methodSecurity.hasPrivilege("", "w")).isFalse();
+        assertThat(methodSecurity.hasPrivilege("_admin", null)).isFalse();
+        assertThat(methodSecurity.hasPrivilege("_admin", " ")).isFalse();
+        verifyNoInteractions(securityInfoManager);
+        servletActionContextMock.verifyNoInteractions();
+        loggedInInfoMock.verifyNoInteractions();
+    }
+
+    @Test
     @DisplayName("should return false when no Struts request exists")
     void shouldReturnFalse_whenNoStrutsRequestExists() {
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(null);

@@ -222,7 +222,7 @@ class SecurityDelete2ActionTest extends CarlosUnitTestBase {
 
         @Test
         @DisplayName("should configure Struts to use Spring object factory")
-        void shouldConfigureStrutsToUseSpringObjectFactory() throws Exception {
+        void shouldConfigureStruts_toUseSpringObjectFactory() throws Exception {
             assertThat(hasStrutsConstant("struts.objectFactory", "spring"))
                 .as("Method security depends on Struts obtaining actions from Spring")
                 .isTrue();
@@ -230,7 +230,7 @@ class SecurityDelete2ActionTest extends CarlosUnitTestBase {
 
         @Test
         @DisplayName("should build Struts action class through Spring method-security proxy")
-        void shouldBuildStrutsActionClassThroughSpringMethodSecurityProxy() throws Exception {
+        void shouldBuildStrutsActionClass_throughSpringMethodSecurityProxy() throws Exception {
             mockRequest.setMethod("POST");
             when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin"), eq("w"), isNull()))
                 .thenReturn(false);
@@ -316,7 +316,7 @@ class SecurityDelete2ActionTest extends CarlosUnitTestBase {
 
         @Test
         @DisplayName("should expose method-security beans and proxied prototype action")
-        void shouldExposeMethodSecurityBeansAndProxiedPrototypeAction() {
+        void shouldExposeMethodSecurityBeans_andProxiedPrototypeAction() {
             try (AnnotationConfigApplicationContext context = methodSecurityComponentScanContext()) {
                 assertThat(context.getBeansOfType(MethodSecurityConfig.class)).isNotEmpty();
                 assertThat(context.containsBean("carlosMethodSecurity")).isTrue();

@@ -59,6 +59,11 @@ public class CarlosMethodSecurity {
      * @return {@code true} when the current session has the requested privilege
      */
     public boolean hasPrivilege(String secObject, String privilege) {
+        if (secObject == null || secObject.trim().isEmpty()
+                || privilege == null || privilege.trim().isEmpty()) {
+            return false;
+        }
+
         HttpServletRequest request = ServletActionContext.getRequest();
         if (request == null) {
             return false;
