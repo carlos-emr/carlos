@@ -38,6 +38,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.Hashtable;
 import java.util.List;
@@ -785,7 +786,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
     }
 
     private List<Path> allowedUploadTempRoots() {
-        List<Path> allowedRoots = new java.util.ArrayList<>();
+        List<Path> allowedRoots = new ArrayList<>();
         addAllowedUploadTempRoot(allowedRoots, System.getProperty("java.io.tmpdir"));
         addAllowedUploadTempRoot(allowedRoots, System.getProperty("catalina.base"), "work");
         addAllowedUploadTempRoot(allowedRoots, System.getProperty("catalina.home"), "work");
@@ -797,7 +798,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
     }
 
     private void addAllowedUploadTempRoot(List<Path> allowedRoots, String basePath, String subDirectory) {
-        if (!filled(basePath)) {
+        if (basePath == null || basePath.trim().isEmpty()) {
             return;
         }
 
