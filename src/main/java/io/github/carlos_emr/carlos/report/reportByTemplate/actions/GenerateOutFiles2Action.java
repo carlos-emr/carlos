@@ -69,9 +69,13 @@ public class GenerateOutFiles2Action extends ActionSupport {
             throw new SecurityException("Insufficient Privileges");
         }
 
+        // CSV is read from the POST body (a hidden form field in resultReport.jsp), not from the
+        // HTTP session. The old approach stored the CSV string in the session, which accumulated
+        // across report runs and eventually caused out-of-memory crashes on large result sets.
         String csv = request.getParameter("csv");
         String action = request.getParameter("getCSV");
         if (action != null) {
+            // Reject null or oversized payloads before touching the response stream.
             if (!validateCsv(csv)) {
                 return NONE;
             }
@@ -82,6 +86,7 @@ public class GenerateOutFiles2Action extends ActionSupport {
             } catch (Exception ioe) {
                 MiscUtils.getLogger().error("Error", ioe);
             }
+            // NONE tells Struts not to resolve a JSP result — required for all direct-response actions.
             return NONE;
         }
         action = request.getParameter("getXLS");
@@ -93,7 +98,7 @@ public class GenerateOutFiles2Action extends ActionSupport {
             response.setContentType("application/octet-stream");
             response.setHeader("Content-Disposition", "attachment; filename=\"oscarReport.xls\"");
 
-            // Parse CSV using Apache Commons CSV
+            // Parse the POST'd CSV string into a 2-D array for POI cell population.
             String[][] data;
             try (CSVParser parser = CSVParser.parse(new StringReader(csv), CSVFormat.DEFAULT)) {
                 List<CSVRecord> records = parser.getRecords();
@@ -107,38 +112,51 @@ public class GenerateOutFiles2Action extends ActionSupport {
                 }
             } catch (IOException e) {
                 MiscUtils.getLogger().error("Error parsing CSV", e);
-                return null;
+                return NONE;
             }
 
-            HSSFWorkbook wb = new HSSFWorkbook();
-            HSSFSheet sheet = wb.createSheet("OSCAR_Report");
-            for (int x = 0; x < data.length; x++) {
-                HSSFRow row = sheet.createRow((short) x);
-                for (int y = 0; y < data[x].length; y++) {
-                    try {
-                        double d = Double.parseDouble(data[x][y]);
-                        row.createCell((short) y).setCellValue(d);
-                    } catch (Exception e) {
-                        row.createCell((short) y).setCellValue(data[x][y]);
+            // HSSFWorkbook is Closeable; try-with-resources ensures the in-memory workbook
+            // is released even if wb.write() throws.
+            try (HSSFWorkbook wb = new HSSFWorkbook()) {
+                HSSFSheet sheet = wb.createSheet("OSCAR_Report");
+                for (int x = 0; x < data.length; x++) {
+                    HSSFRow row = sheet.createRow((short) x);
+                    for (int y = 0; y < data[x].length; y++) {
+                        try {
+                            double d = Double.parseDouble(data[x][y]);
+                            row.createCell((short) y).setCellValue(d);
+                        } catch (Exception e) {
+                            row.createCell((short) y).setCellValue(data[x][y]);
+                        }
                     }
                 }
-            }
-            try {
                 wb.write(response.getOutputStream());
             } catch (Exception e) {
-                MiscUtils.getLogger().error("Error", e);
+                MiscUtils.getLogger().error("Error writing XLS", e);
             }
             return NONE;
         }
         return SUCCESS;
     }
 
+    /**
+     * Guards both the CSV and XLS export paths against null or oversized payloads.
+     *
+     * <p>Size is measured in UTF-8 bytes rather than Java char count because the
+     * server-side limit ({@link SQLReporter#MAX_CSV_EXPORT_LENGTH}) was set in bytes
+     * and multi-byte characters (e.g. accented letters, special symbols) would otherwise
+     * slip through a char-count check.
+     *
+     * @param csv the raw CSV string from the POST parameter; may be {@code null}
+     * @return {@code true} when the payload is safe to process
+     */
     private boolean validateCsv(String csv) {
         if (csv == null) {
             MiscUtils.getLogger().warn("GenerateOutFiles2Action: missing CSV export payload");
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             return false;
         }
+        // Byte length, not char length: one char can be up to 4 UTF-8 bytes.
         int byteLen = csv.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
         if (byteLen > SQLReporter.MAX_CSV_EXPORT_LENGTH) {
             MiscUtils.getLogger().warn("GenerateOutFiles2Action: CSV export payload exceeds size limit ({} bytes)", byteLen);
