@@ -440,7 +440,8 @@ public final class Login2Action extends ActionSupport {
                 removeAttributesFromSession(request);
             } catch (Exception e) {
                 logger.error("Error", e);
-                String newURL = loginFailedRedirectUrl(message("provider.providerchangepassword.errorSessionSetup"));
+                    String newURL = loginFailedRedirectUrl(message("provider.providerchangepassword.errorSessionSetup"));
+                    removeAttributesFromSession(request);
 
                 // Remove the attributes from session
                 removeAttributesFromSession(request);
