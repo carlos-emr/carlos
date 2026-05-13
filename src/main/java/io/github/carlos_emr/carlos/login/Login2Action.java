@@ -440,7 +440,8 @@ public final class Login2Action extends ActionSupport {
                 removeAttributesFromSession(request);
             } catch (Exception e) {
                 logger.error("Error", e);
-                String newURL = loginFailedRedirectUrl(message("provider.providerchangepassword.errorSessionSetup"));
+                    String newURL = loginFailedRedirectUrl(message("provider.providerchangepassword.errorSessionSetup"));
+                    removeAttributesFromSession(request);
 
                 // Remove the attributes from session
                 removeAttributesFromSession(request);
@@ -955,7 +956,12 @@ public final class Login2Action extends ActionSupport {
      * @return localized resource bundle message
      */
     public static String message(HttpServletRequest request, String key) {
-        return ResourceBundle.getBundle("oscarResources", request.getLocale()).getString(key);
+        try {
+            return ResourceBundle.getBundle("oscarResources", request.getLocale()).getString(key);
+        } catch (java.util.MissingResourceException e) {
+            logger.warn("Missing localized message for key: {}", key);
+            return key;
+        }
     }
 
     private String loginFailedRedirectUrl(String errorMessage) {
