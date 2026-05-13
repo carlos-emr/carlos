@@ -288,7 +288,7 @@
     <filter-name>LoginFilter</filter-name>
     <url-pattern>/*</url-pattern>
   </filter-mapping>
-  <!-- Restores allowlisted clean section-home URLs, such as /administration/,
+  <!-- Restores allowlisted clean section-home URLs, such as /administration,
        after LoginFilter has enforced the normal authenticated-session behavior. -->
   <filter-mapping>
     <filter-name>SectionRootCompatibilityFilter</filter-name>

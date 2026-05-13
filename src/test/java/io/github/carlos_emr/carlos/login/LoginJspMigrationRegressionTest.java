@@ -145,7 +145,8 @@ class LoginJspMigrationRegressionTest {
                 .contains("<result name=\"success\">/WEB-INF/jsp/administration/index.jsp</result>");
         assertThat(menuConfig).doesNotContain("/administration/index");
         assertThat(personaService)
-                .contains("../administration/")
+                .contains("../administration")
+                .doesNotContain("../administration/")
                 .doesNotContain("../administration/index");
         assertThat(mainMenu)
                 .contains("/administration','admin")
