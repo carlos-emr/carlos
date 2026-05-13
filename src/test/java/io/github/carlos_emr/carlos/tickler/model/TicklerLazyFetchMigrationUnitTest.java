@@ -179,8 +179,12 @@ class TicklerLazyFetchMigrationUnitTest extends CarlosUnitTestBase {
         ReflectionTestUtils.setField(ticklerDao, "entityManager", entityManager);
         when(entityManager.createQuery(contains("left join fetch t.provider"))).thenReturn(query);
         when(query.getResultList()).thenReturn(List.of());
+        boolean includeComments = true;
+        boolean includeUpdates = true;
+        boolean includeProvider = true;
+        boolean includeAssignee = true;
 
-        ticklerDao.getTicklers(filter, 0, 25, true, true, true, true);
+        ticklerDao.getTicklers(filter, 0, 25, includeComments, includeUpdates, includeProvider, includeAssignee);
 
         ArgumentCaptor<String> queryCaptor = ArgumentCaptor.forClass(String.class);
         verify(entityManager).createQuery(queryCaptor.capture());

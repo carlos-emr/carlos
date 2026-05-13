@@ -363,12 +363,14 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
 
     private void initializeTicklerUpdates(List<Tickler> ticklers) {
         for (Tickler tickler : ticklers) {
+            // Low-level DAO code intentionally uses Hibernate.initialize; no CARLOS wrapper exists.
             Hibernate.initialize(tickler.getUpdates());
         }
     }
 
     private void initializeTicklerComments(List<Tickler> ticklers) {
         for (Tickler tickler : ticklers) {
+            // Low-level DAO code intentionally uses Hibernate.initialize; no CARLOS wrapper exists.
             Hibernate.initialize(tickler.getComments());
         }
     }

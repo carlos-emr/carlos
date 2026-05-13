@@ -168,6 +168,7 @@ public class TicklerConverter extends AbstractConverter<Tickler, TicklerTo1> {
         if (providerNos.isEmpty()) {
             return Map.of();
         }
+        // ProviderDao accepts a List, so convert the de-duplicated set once for the batch lookup.
         return providerDao.getProviderNamesByIdsAsMap(new ArrayList<>(providerNos));
     }
 
