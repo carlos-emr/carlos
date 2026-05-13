@@ -71,6 +71,8 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.List;
+import java.util.Locale;
+import java.util.MissingResourceException;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.ResourceBundle;
@@ -946,7 +948,8 @@ public final class Login2Action extends ActionSupport {
 
     /**
      * Looks up a localized message from the CARLOS EMR oscarResources bundle
-     * using the current request locale.
+     * using the current request locale, falling back to English when a locale
+     * bundle is missing the requested key.
      *
      * @param request servlet request carrying the active locale
      * @param key resource bundle key to resolve
@@ -955,9 +958,14 @@ public final class Login2Action extends ActionSupport {
     public static String message(HttpServletRequest request, String key) {
         try {
             return ResourceBundle.getBundle("oscarResources", request.getLocale()).getString(key);
-        } catch (java.util.MissingResourceException e) {
+        } catch (MissingResourceException e) {
             logger.warn("Missing localized message for key: {}", key);
-            return key;
+            try {
+                return ResourceBundle.getBundle("oscarResources", Locale.ENGLISH).getString(key);
+            } catch (MissingResourceException fallbackException) {
+                logger.warn("Missing default message for key: {}", key);
+                return "Unable to process your request. Please try again.";
+            }
         }
     }
 
