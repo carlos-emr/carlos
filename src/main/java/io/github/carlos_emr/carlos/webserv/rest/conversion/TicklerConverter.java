@@ -125,7 +125,7 @@ public class TicklerConverter extends AbstractConverter<Tickler, TicklerTo1> {
                 tct.setMessage(tc.getMessage());
                 tct.setProviderNo(tc.getProviderNo());
                 tct.setUpdateDate(tc.getUpdateDate());
-                tct.setProviderName(tc.getProvider() != null ? tc.getProvider().getFormattedName() : "N/A");
+                tct.setProviderName(providerNameOrNotApplicable(providerDao, tc.getProviderNo()));
                 d.getTicklerComments().add(tct);
             }
         }
@@ -134,7 +134,7 @@ public class TicklerConverter extends AbstractConverter<Tickler, TicklerTo1> {
             for (TicklerUpdate tu : t.getUpdates()) {
                 TicklerUpdateTo1 tut = new TicklerUpdateTo1();
                 BeanUtils.copyProperties(tu, tut, new String[]{"id", "provider"});
-                tut.setProviderName(tu.getProvider() != null ? tu.getProvider().getFormattedName() : "N/A");
+                tut.setProviderName(providerNameOrNotApplicable(providerDao, tu.getProviderNo()));
 
                 d.getTicklerUpdates().add(tut);
             }
@@ -149,6 +149,14 @@ public class TicklerConverter extends AbstractConverter<Tickler, TicklerTo1> {
         }
 
         return d;
+    }
+
+    private String providerNameOrNotApplicable(ProviderDao providerDao, String providerNo) {
+        if (providerNo == null) {
+            return "N/A";
+        }
+        String providerName = providerDao.getProviderName(providerNo);
+        return providerName != null ? providerName : "N/A";
     }
 
     public boolean isIncludeLinks() {

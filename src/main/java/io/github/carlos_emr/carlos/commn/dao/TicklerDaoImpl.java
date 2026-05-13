@@ -39,6 +39,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import jakarta.persistence.Query;
@@ -55,6 +56,8 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerDao {
     private static final int IN_CLAUSE_BATCH_SIZE = 500;
+    private static final Pattern TICKLER_FROM_PATTERN =
+            Pattern.compile("\\bFROM\\s+Tickler\\s+t\\b", Pattern.CASE_INSENSITIVE);
 
     /**
      * Pre-built ORDER BY clauses keyed by "column:dir". Values are static strings —
@@ -333,8 +336,9 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
      * Adds only single-valued provider fetch joins to legacy Tickler list queries.
      *
      * <p>Tickler comments and updates are initialized after the paged query instead of being
-     * fetch-joined here. That avoids collection fetch joins on paginated list queries and avoids
-     * fetching both Tickler collections in one query.</p>
+     * fetch-joined here. Those collections use Hibernate batch loading, which avoids collection
+     * fetch joins on paginated list queries and avoids fetching both Tickler collections in one
+     * query.</p>
      */
     private String addTicklerFetchJoins(String sql, boolean includeProvider, boolean includeAssignee) {
         if (!includeProvider && !includeAssignee) {
@@ -347,28 +351,18 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
         if (includeAssignee) {
             joins.append(" left join fetch t.assignee");
         }
-        return sql.replaceFirst("select t FROM Tickler t", "select distinct t FROM Tickler t" + joins);
+        return TICKLER_FROM_PATTERN.matcher(sql).replaceFirst("FROM Tickler t" + joins);
     }
 
     private void initializeTicklerUpdates(List<Tickler> ticklers) {
         for (Tickler tickler : ticklers) {
             Hibernate.initialize(tickler.getUpdates());
-            tickler.getUpdates().forEach(update -> {
-                if (update.getProvider() != null) {
-                    Hibernate.initialize(update.getProvider());
-                }
-            });
         }
     }
 
     private void initializeTicklerComments(List<Tickler> ticklers) {
         for (Tickler tickler : ticklers) {
             Hibernate.initialize(tickler.getComments());
-            tickler.getComments().forEach(comment -> {
-                if (comment.getProvider() != null) {
-                    Hibernate.initialize(comment.getProvider());
-                }
-            });
         }
     }
 
