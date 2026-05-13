@@ -332,34 +332,7 @@ updateProvinces(sdCode);
 }
 
 
-function updateProvinces(province) {
-var country = jQuery("#country").val();
-console.log('country is ' + country );
-if(country == '') {
-console.log('t1');
-return;
-}
 
-jQuery.ajax({
-type: "POST",
-url: ctx + '/demographicSupport',
-data: 'method=getCountryAndProvinceCodes&country=' + country,
-dataType: 'json',
-success: function (data) {
-jQuery('#province').empty();
-jQuery.each(data, function(i, value) {
-jQuery('#province').append(jQuery('<option>').text(value.label).attr('value', value.value));
-});
-
-
-if(province != null) {
-jQuery("#province").val(province);
-}
-
-
-}
-});
-}
 
 
 function setResidentialProvince(sdCode) {
@@ -389,30 +362,3 @@ updateResidentialProvinces(sdCode);
 });
 }
 
-
-function updateResidentialProvinces(province) {
-var country = jQuery("#residentialCountry").val();
-if(country == '') {
-return;
-}
-jQuery.ajax({
-type: "POST",
-url: ctx + '/demographicSupport',
-data: 'method=getCountryAndProvinceCodes&country=' + country,
-dataType: 'json',
-success: function (data) {
-jQuery('#residentialProvince').empty();
-
-jQuery.each(data, function(i, value) {
-jQuery('#residentialProvince').append(jQuery('<option>').text(value.label).attr('value', value.value));
-});
-
-
-if(province != null) {
-jQuery("#residentialProvince").val(province);
-}
-
-
-}
-});
-}
