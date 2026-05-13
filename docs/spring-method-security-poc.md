@@ -1,16 +1,16 @@
 # Spring Method Security Proof of Concept
 
 CARLOS EMR can run Spring Security 7 method-security interceptors in front of
-Spring-managed Struts 2Action beans. The initial proof of concept applies
+Spring-managed Struts 2 action beans. The initial proof of concept applies
 `@PreAuthorize` to `SecurityDelete2Action#execute()` while keeping the existing
 manual privilege check as defense in depth during rollout.
 
 ## Feasibility findings
 
-- Spring method security works with Struts 2Actions when the action is obtained
+- Spring method security works with Struts 2 actions when the action is obtained
   from the Struts Spring object factory as a Spring bean, not constructed as a
   plain Java object.
-- Class-based proxies are required because 2Actions generally extend
+- Class-based proxies are required because Struts 2 actions generally extend
   `ActionSupport` directly rather than implementing action-specific interfaces.
 - CARLOS session authorization can remain the source of truth. The
   `carlosMethodSecurity` expression helper resolves the current Struts request,

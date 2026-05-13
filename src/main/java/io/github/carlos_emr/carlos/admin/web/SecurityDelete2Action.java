@@ -82,7 +82,7 @@ public class SecurityDelete2Action extends ActionSupport {
         // method-security coverage is broad enough to drop the per-action fallback.
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)
                 && !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.userAdmin", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin)");
+            throw new SecurityException("missing required sec object (_admin or _admin.userAdmin)");
         }
 
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
