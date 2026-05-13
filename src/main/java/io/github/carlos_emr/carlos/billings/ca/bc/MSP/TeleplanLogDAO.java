@@ -38,7 +38,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
- * @author jay
+ * @since 2026-05-12
  */
 
 public class TeleplanLogDAO {

@@ -51,7 +51,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 /**
- * @author jay
+ * @since 2026-05-12
  */
 public class DxReference {
     private static final Logger _log = MiscUtils.getLogger();

@@ -38,10 +38,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 
+/**
+ * @since 2026-05-12
+ */
 public class QuickBillingBCFormBean {
 
     /**
-     * @author Dennis Warren
      * Company Colcamex Resources
      * Date Jun 4, 2012
      */
