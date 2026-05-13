@@ -57,7 +57,7 @@ import static org.assertj.core.api.Assertions.*;
  * <p>Critical for Hibernate 6 migration due to:
  * <ul>
  *   <li>Object[] return types from JPQL cross-entity queries</li>
- *   <li>EAGER {@code @OneToMany} relationship with DocumentReview</li>
+ *   <li>LAZY {@code @OneToMany} relationship with DocumentReview</li>
  *   <li>Composite embedded ID traversal (CtlDocumentPK: c.id.module, c.id.moduleId, c.id.documentNo)</li>
  *   <li>Native SQL with BigInteger return from COUNT(*)</li>
  *   <li>DISTINCT queries with cross-entity joins</li>
