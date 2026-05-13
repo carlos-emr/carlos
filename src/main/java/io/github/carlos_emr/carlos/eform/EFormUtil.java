@@ -1307,12 +1307,31 @@ public class EFormUtil {
     }
 
 
+    private static void validateLegacySqlSafety(String sql) {
+        if (sql == null) {
+            throw new SecurityException("Null SQL is not allowed");
+        }
+
+        String normalized = sql.trim();
+        String lower = normalized.toLowerCase(Locale.ROOT);
+
+        // Block unresolved template markers and obvious stacked/multi-statement patterns.
+        if (normalized.contains("${") || normalized.contains("}")) {
+            throw new SecurityException("Unsafe dynamic SQL template detected");
+        }
+        if (lower.contains(";") || lower.contains("--") || lower.contains("/*") || lower.contains("*/")) {
+            throw new SecurityException("Unsafe SQL control characters detected");
+        }
+    }
+
     @Deprecated
     private static ResultSet getSQL(String sql) {
         ResultSet rs = null;
         try {
-
+            validateLegacySqlSafety(sql);
             rs = LegacyJdbcQuery.getPreparedResultSet(sql);
+        } catch (SecurityException secEx) {
+            logger.error("Blocked unsafe SQL execution in legacy eForm path", secEx);
         } catch (SQLException sqe) {
             logger.error("Error", sqe);
         }
