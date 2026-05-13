@@ -56,6 +56,10 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerDao {
     private static final int IN_CLAUSE_BATCH_SIZE = 500;
+    /**
+     * Matches the canonical root Tickler alias emitted by getTicklerQueryString().
+     * If that method stops using alias {@code t}, fetch-join insertion must change with it.
+     */
     private static final Pattern TICKLER_FROM_PATTERN =
             Pattern.compile("\\bFROM\\s+Tickler\\s+t\\b", Pattern.CASE_INSENSITIVE);
 
@@ -351,6 +355,7 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
         if (includeAssignee) {
             joins.append(" left join fetch t.assignee");
         }
+        // Rewrites to the canonical uppercase FROM form used by getTicklerQueryString().
         return TICKLER_FROM_PATTERN.matcher(sql).replaceFirst("FROM Tickler t" + joins);
     }
 

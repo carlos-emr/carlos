@@ -22,7 +22,11 @@
  */
 package io.github.carlos_emr.carlos.webserv.rest.conversion;
 
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
@@ -113,6 +117,8 @@ public class TicklerConverter extends AbstractConverter<Tickler, TicklerTo1> {
             d.setStatusName("Deleted");
         }
 
+        Map<String, String> expandedProviderNames = getExpandedProviderNames(providerDao, t);
+
         if (includeLinks) {
             List<TicklerLink> links = ticklerLinkDao.getLinkByTickler(d.getId());
             TicklerLinkConverter tlc = new TicklerLinkConverter();
@@ -125,7 +131,7 @@ public class TicklerConverter extends AbstractConverter<Tickler, TicklerTo1> {
                 tct.setMessage(tc.getMessage());
                 tct.setProviderNo(tc.getProviderNo());
                 tct.setUpdateDate(tc.getUpdateDate());
-                tct.setProviderName(providerNameOrNotApplicable(providerDao, tc.getProviderNo()));
+                tct.setProviderName(providerNameOrNotApplicable(expandedProviderNames, tc.getProviderNo()));
                 d.getTicklerComments().add(tct);
             }
         }
@@ -134,7 +140,7 @@ public class TicklerConverter extends AbstractConverter<Tickler, TicklerTo1> {
             for (TicklerUpdate tu : t.getUpdates()) {
                 TicklerUpdateTo1 tut = new TicklerUpdateTo1();
                 BeanUtils.copyProperties(tu, tut, new String[]{"id", "provider"});
-                tut.setProviderName(providerNameOrNotApplicable(providerDao, tu.getProviderNo()));
+                tut.setProviderName(providerNameOrNotApplicable(expandedProviderNames, tu.getProviderNo()));
 
                 d.getTicklerUpdates().add(tut);
             }
@@ -151,11 +157,31 @@ public class TicklerConverter extends AbstractConverter<Tickler, TicklerTo1> {
         return d;
     }
 
-    private String providerNameOrNotApplicable(ProviderDao providerDao, String providerNo) {
-        if (providerNo == null) {
+    private Map<String, String> getExpandedProviderNames(ProviderDao providerDao, Tickler tickler) {
+        Set<String> providerNos = new HashSet<>();
+        if (includeComments) {
+            tickler.getComments().forEach(comment -> addProviderNo(providerNos, comment.getProviderNo()));
+        }
+        if (includeUpdates) {
+            tickler.getUpdates().forEach(update -> addProviderNo(providerNos, update.getProviderNo()));
+        }
+        if (providerNos.isEmpty()) {
+            return Map.of();
+        }
+        return providerDao.getProviderNamesByIdsAsMap(new ArrayList<>(providerNos));
+    }
+
+    private void addProviderNo(Set<String> providerNos, String providerNo) {
+        if (providerNo != null) {
+            providerNos.add(providerNo);
+        }
+    }
+
+    private String providerNameOrNotApplicable(Map<String, String> providerNames, String providerNo) {
+        if (providerNo == null || !providerNames.containsKey(providerNo)) {
             return "N/A";
         }
-        String providerName = providerDao.getProviderName(providerNo);
+        String providerName = providerNames.get(providerNo);
         return providerName != null ? providerName : "N/A";
     }
 
