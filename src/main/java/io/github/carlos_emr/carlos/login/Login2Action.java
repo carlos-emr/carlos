@@ -580,6 +580,11 @@ public final class Login2Action extends ActionSupport {
              * This section is added for forcing the initial password change.
              */
             Security security = getSecurity(userName);
+            if (security == null) {
+                logger.warn("Authenticated user has no security record: {}", LogSanitizer.sanitize(userName));
+                response.sendRedirect(loginFailedRedirectUrl(message("provider.providerchangepassword.errorSessionSetup")));
+                return NONE;
+            }
             if (!CarlosProperties.getInstance().getBooleanProperty("mandatory_password_reset", "false") &&
                     security.isForcePasswordReset() != null && security.isForcePasswordReset()
                     && forcedpasswordchange) {
@@ -969,6 +974,23 @@ public final class Login2Action extends ActionSupport {
         }
     }
 
+    /**
+     * Checks whether the request session holds a live credential-cache token for
+     * a pending multi-step login flow.
+     *
+     * @param request HttpServletRequest carrying the candidate session
+     * @return true when the session contains a token that still maps to cached credentials
+     */
+    public static boolean hasValidLoginCredentialsToken(HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        if (session == null) {
+            return false;
+        }
+        Object tokenAttr = session.getAttribute(LOGIN_CREDENTIALS_TOKEN_ATTR);
+        return tokenAttr instanceof String token
+                && LoginCredentialCache.getInstance().peek(token) != null;
+    }
+
     private String loginFailedRedirectUrl(String errorMessage) {
         return loginFailedRedirectUrl(request, errorMessage);
     }
@@ -1076,8 +1098,6 @@ public final class Login2Action extends ActionSupport {
         String token = LoginCredentialCache.getInstance().store(credentials);
         // Use an opaque random token, not user-controlled; no credential material in session
         session.setAttribute(LOGIN_CREDENTIALS_TOKEN_ATTR, token); // nosemgrep: tainted-session-from-http-request
-        // Only login name in sesssion; gate checks on forcepasswordreset and MFA pages depend on this
-        session.setAttribute("userName", userName); // nosemgrep: tainted-session-from-http-request
     }
 
     /**

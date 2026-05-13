@@ -15,7 +15,6 @@ package io.github.carlos_emr.carlos.login.gate;
 import java.io.IOException;
 
 import io.github.carlos_emr.carlos.login.Login2Action;
-import io.github.carlos_emr.carlos.login.LoginCredentialCache;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
@@ -47,7 +46,7 @@ public final class ViewForcePasswordReset2Action extends BaseLoginPageView2Actio
             return redirectToExpiredSession(request);
         }
         Object tokenAttr = session.getAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR);
-        if (!(tokenAttr instanceof String token) || LoginCredentialCache.getInstance().peek(token) == null) {
+        if (!(tokenAttr instanceof String) || !Login2Action.hasValidLoginCredentialsToken(request)) {
             session.removeAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR);
             return redirectToExpiredSession(request);
         }

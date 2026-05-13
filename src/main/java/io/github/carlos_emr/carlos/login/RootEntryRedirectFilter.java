@@ -28,7 +28,6 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.http.HttpSession;
 
 /**
  * Forwards login entrypoint requests to their JSP views.
@@ -60,9 +59,9 @@ public class RootEntryRedirectFilter extends HttpFilter {
                 response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
                 return;
             }
-            if (!hasValidLoginCredentialsToken(request)) {
+            if (!Login2Action.hasValidLoginCredentialsToken(request)) {
                 response.sendRedirect(Login2Action.loginFailedRedirectUrl(request,
-                        "Your password reset session has expired. Please log in again."));
+                        Login2Action.message(request, "provider.providerchangepassword.errorSessionExpired")));
                 return;
             }
             request.getRequestDispatcher(FORCE_PASSWORD_RESET_JSP).forward(request, response);
@@ -90,13 +89,4 @@ public class RootEntryRedirectFilter extends HttpFilter {
         return "GET".equalsIgnoreCase(method) || "HEAD".equalsIgnoreCase(method);
     }
 
-    private static boolean hasValidLoginCredentialsToken(HttpServletRequest request) {
-        HttpSession session = request.getSession(false);
-        if (session == null) {
-            return false;
-        }
-        Object tokenAttr = session.getAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR);
-        return tokenAttr instanceof String token
-                && LoginCredentialCache.getInstance().peek(token) != null;
-    }
 }

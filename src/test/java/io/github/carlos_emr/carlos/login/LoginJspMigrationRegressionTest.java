@@ -169,6 +169,8 @@ class LoginJspMigrationRegressionTest {
         String appointmentProviderAdminDay =
                 Files.readString(APPOINTMENT_PROVIDER_ADMIN_DAY, StandardCharsets.UTF_8);
         String providerSchedulePageJs = Files.readString(PROVIDER_SCHEDULE_PAGE_JS, StandardCharsets.UTF_8);
+        String passwordExpiryWarningFunction =
+                functionBlock(providerSchedulePageJs, "showPasswordExpiryWarning");
 
         assertThat(appointmentProviderAdminDay)
                 .contains("<body")
@@ -179,11 +181,15 @@ class LoginJspMigrationRegressionTest {
                 .contains("password-expiry-warning")
                 .contains("document.createElement(\"div\")")
                 .contains("provider.changePassword.msgAccountExpiringWithDays")
-                .contains("changePasswordLink.href = \"<%= request.getContextPath() %>/provider/ViewChangePassword\"")
+                .contains("changePasswordLink.href")
+                .contains("/provider/ViewChangePassword")
                 .contains("showPasswordExpiryWarning();")
-                .doesNotContain("window.location.href = \"<%= request.getContextPath() %>/provider/ViewChangePassword\"")
-                .doesNotContain("window.open(\"<%= request.getContextPath() %>/provider/ViewChangePassword\"")
                 .doesNotContain("\" day\"");
+        assertThat(passwordExpiryWarningFunction)
+                .contains("changePasswordLink.href")
+                .contains("/provider/ViewChangePassword")
+                .doesNotContain("window.location.href")
+                .doesNotContain("window.open(");
     }
 
     @Test
@@ -208,10 +214,11 @@ class LoginJspMigrationRegressionTest {
         assertThat(forcePasswordResetGate)
                 .contains("GET, HEAD")
                 .contains("if (session == null)")
-                .contains("LoginCredentialCache.getInstance().peek(token)")
+                .contains("Login2Action.hasValidLoginCredentialsToken(request)")
                 .contains("Login2Action.loginFailedRedirectUrl(request,")
                 .contains("Login2Action.message(request, \"provider.providerchangepassword.errorSessionExpired\")")
-                .doesNotContain("\"userName\"")
+                .doesNotContain("getAttribute(\"userName\")")
+                .doesNotContain("setAttribute(\"userName\"")
                 .doesNotContain("Session expired. Please log in again.")
                 .doesNotContain("String result = super.execute()");
         assertThat(actionBlock(Files.readString(STRUTS_LOGIN_XML, StandardCharsets.UTF_8), "forcepasswordreset"))
@@ -223,6 +230,7 @@ class LoginJspMigrationRegressionTest {
                 .contains("session.setAttribute(LOGIN_CREDENTIALS_TOKEN_ATTR, token)")
                 .contains("response.sendRedirect(request.getContextPath() + \"/forcepasswordreset\")")
                 .contains("return \"forcepasswordreset\";")
+                .contains("public static boolean hasValidLoginCredentialsToken(HttpServletRequest request)")
                 .contains("request.setAttribute(\"errormsg\", errorStr)")
                 .contains("public static String loginFailedRedirectUrl(HttpServletRequest request, String errorMessage)")
                 .contains("public static String message(HttpServletRequest request, String key)")
@@ -234,6 +242,7 @@ class LoginJspMigrationRegressionTest {
                 .contains("URLEncoder.encode(errorMessage, StandardCharsets.UTF_8)")
                 .contains("Security record not found for forced password reset user.")
                 .doesNotContain("FORCE_PASSWORD_RESET_PENDING_ATTR")
+                .doesNotContain("session.setAttribute(\"userName\"")
                 .doesNotContain("Your old password, does NOT match")
                 .doesNotContain("Your new password, does NOT match")
                 .doesNotContain("Your new password, is the same");
@@ -296,6 +305,19 @@ class LoginJspMigrationRegressionTest {
             return "";
         }
         return strutsXml.substring(start, end + actionEnd.length());
+    }
+
+    private static String functionBlock(String source, String functionName) {
+        String functionStart = "function " + functionName + "()";
+        int start = source.indexOf(functionStart);
+        if (start < 0) {
+            return "";
+        }
+        int nextFunction = source.indexOf("\nfunction ", start + functionStart.length());
+        if (nextFunction < 0) {
+            return source.substring(start);
+        }
+        return source.substring(start, nextFunction);
     }
 
     private static int countOccurrences(String text, String needle) {

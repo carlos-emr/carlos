@@ -26,6 +26,7 @@ import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
+import java.util.Locale;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -114,6 +115,7 @@ class RootEntryRedirectFilterUnitTest {
         when(request.getRequestURI()).thenReturn("/carlos/forcepasswordreset");
         when(request.getMethod()).thenReturn("GET");
         when(request.getSession(false)).thenReturn(null);
+        when(request.getLocale()).thenReturn(Locale.ENGLISH);
 
         filter.doFilter(request, response, chain);
 
