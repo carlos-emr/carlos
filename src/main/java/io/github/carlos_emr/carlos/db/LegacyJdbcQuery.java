@@ -308,15 +308,10 @@ public final class LegacyJdbcQuery {
             @Override
             public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
                 if ("close".equals(method.getName())) {
-                    try {
-                        return method.invoke(delegate, args);
-                    } catch (InvocationTargetException e) {
-                        throw e.getCause();
-                    } finally {
-                        if (released.compareAndSet(false, true)) {
-                            DataSourceUtils.releaseConnection(delegate, dataSource);
-                        }
+                    if (released.compareAndSet(false, true)) {
+                        DataSourceUtils.releaseConnection(delegate, dataSource);
                     }
+                    return null;
                 }
                 try {
                     return method.invoke(delegate, args);
