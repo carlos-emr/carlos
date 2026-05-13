@@ -766,22 +766,49 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
     }
 
     private boolean isWithinAllowedUploadTempDirectories(Path candidate) {
-        try {
-            Path[] allowedRoots = new Path[] {
-                    new File(CarlosProperties.getInstance().getProperty("TMP_DIR")).toPath().toRealPath(),
-                    new File(System.getProperty("java.io.tmpdir")).toPath().toRealPath()
-            };
-
-            for (Path root : allowedRoots) {
-                if (candidate.startsWith(root)) {
-                    return true;
-                }
-            }
-        } catch (Exception e) {
+        if (candidate == null) {
             return false;
         }
 
+        List<Path> allowedRoots = allowedUploadTempRoots();
+        if (allowedRoots.isEmpty()) {
+            return false;
+        }
+
+        for (Path root : allowedRoots) {
+            if (candidate.startsWith(root)) {
+                return true;
+            }
+        }
+
         return false;
+    }
+
+    private List<Path> allowedUploadTempRoots() {
+        List<Path> allowedRoots = new java.util.ArrayList<>();
+        addAllowedUploadTempRoot(allowedRoots, System.getProperty("java.io.tmpdir"));
+        addAllowedUploadTempRoot(allowedRoots, System.getProperty("catalina.base"), "work");
+        addAllowedUploadTempRoot(allowedRoots, System.getProperty("catalina.home"), "work");
+        return allowedRoots;
+    }
+
+    private void addAllowedUploadTempRoot(List<Path> allowedRoots, String basePath) {
+        addAllowedUploadTempRoot(allowedRoots, basePath, null);
+    }
+
+    private void addAllowedUploadTempRoot(List<Path> allowedRoots, String basePath, String subDirectory) {
+        if (!filled(basePath)) {
+            return;
+        }
+
+        try {
+            Path root = subDirectory == null ? Path.of(basePath) : Path.of(basePath, subDirectory);
+            if (Files.exists(root)) {
+                allowedRoots.add(root.toRealPath());
+            }
+        } catch (Exception e) {
+            // Ignore invalid temp root candidates; validation fails if no valid root matches.
+        }
     }
 
     /**
