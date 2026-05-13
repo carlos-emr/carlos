@@ -79,9 +79,10 @@ public class Hl7LinkDao extends AbstractDaoImpl<Hl7Link> {
      */
     public List<Object[]> findMagicLinks() {
         String sql = "SELECT demo, pid, link " +
-                "FROM Demographic demo, Hl7Pid pid " +
+                "FROM Demographic demo " +
+                "JOIN Hl7Pid pid ON demo.Hin = pid.externalId " +
                 "LEFT JOIN Hl7Link link ON pid.id = link.id " +
-                "WHERE demo.Hin = pid.externalId AND link.id IS NULL";
+                "WHERE link IS NULL";
         Query q = entityManager.createQuery(sql);
         return q.getResultList();
     }
