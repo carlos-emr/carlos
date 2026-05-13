@@ -940,7 +940,12 @@ public final class Login2Action extends ActionSupport {
     }
 
     private String message(String key) {
-        return ResourceBundle.getBundle("oscarResources", request.getLocale()).getString(key);
+        try {
+            return ResourceBundle.getBundle("oscarResources", request.getLocale()).getString(key);
+        } catch (java.util.MissingResourceException e) {
+            logger.warn("Missing localized message for key: {}", key);
+            return key;
+        }
     }
 
     /**
