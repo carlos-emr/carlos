@@ -97,12 +97,11 @@ class LoginJspMigrationRegressionTest {
     void webXmlShouldUseMigratedLoginAndErrorTargets() throws IOException {
         String webXml = Files.readString(WEB_XML, StandardCharsets.UTF_8);
         String strutsXml = Files.readString(STRUTS_XML, StandardCharsets.UTF_8);
-        int loginFilterIndex = webXml.indexOf("<filter-name>LoginFilter</filter-name>");
-        int sectionRootCompatibilityIndex =
-                webXml.indexOf("<filter-name>SectionRootCompatibilityFilter</filter-name>", loginFilterIndex);
-        int prepareIndex = webXml.indexOf("<filter-name>struts2-prepare</filter-name>");
-        int loggedInUserIndex = webXml.indexOf("<filter-name>LoggedInUserFilter</filter-name>", prepareIndex);
-        int executeIndex = webXml.indexOf("<filter-name>struts2-execute</filter-name>");
+        int loginFilterIndex = filterMappingIndex(webXml, "LoginFilter");
+        int sectionRootCompatibilityIndex = filterMappingIndex(webXml, "SectionRootCompatibilityFilter");
+        int prepareIndex = filterMappingIndex(webXml, "struts2-prepare");
+        int loggedInUserIndex = filterMappingIndex(webXml, "LoggedInUserFilter");
+        int executeIndex = filterMappingIndex(webXml, "struts2-execute");
 
         assertThat(webXml).contains("<welcome-file>index</welcome-file>");
         assertThat(webXml).contains("<location>/WEB-INF/jsp/error/errorpage.jsp</location>");
@@ -138,9 +137,12 @@ class LoginJspMigrationRegressionTest {
                 Files.readString(APPOINTMENT_PROVIDER_ADMIN_DAY, StandardCharsets.UTF_8);
         String administrationLeftNav = Files.readString(ADMINISTRATION_LEFT_NAV, StandardCharsets.UTF_8);
 
-        assertThat(integrationStruts)
-                .contains("<action name=\"administration/index\"")
-                .contains("/WEB-INF/jsp/administration/index.jsp");
+        assertThat(actionBlock(integrationStruts, "administration/index"))
+                .contains("class=\"io.github.carlos_emr.carlos.administration.gate.ViewAdministrationIndex2Action\"")
+                .contains("<result name=\"success\">/WEB-INF/jsp/administration/index.jsp</result>");
+        assertThat(actionBlock(integrationStruts, "administration"))
+                .contains("class=\"io.github.carlos_emr.carlos.administration.gate.ViewAdministrationIndex2Action\"")
+                .contains("<result name=\"success\">/WEB-INF/jsp/administration/index.jsp</result>");
         assertThat(menuConfig).doesNotContain("/administration/index");
         assertThat(personaService)
                 .contains("../administration/")
@@ -207,6 +209,9 @@ class LoginJspMigrationRegressionTest {
                 .doesNotContain("\"userName\"")
                 .doesNotContain("Session expired. Please log in again.")
                 .doesNotContain("String result = super.execute()");
+        assertThat(actionBlock(Files.readString(STRUTS_LOGIN_XML, StandardCharsets.UTF_8), "forcepasswordreset"))
+                .contains("class=\"io.github.carlos_emr.carlos.login.gate.ViewForcePasswordReset2Action\"")
+                .contains("<result name=\"success\">/WEB-INF/jsp/login/forcepasswordreset.jsp</result>");
         assertThat(loginAction)
                 .contains("request.getSession(false)")
                 .contains("credsTokenAttr instanceof String")
@@ -227,6 +232,7 @@ class LoginJspMigrationRegressionTest {
                 .doesNotContain("Your old password, does NOT match")
                 .doesNotContain("Your new password, does NOT match")
                 .doesNotContain("Your new password, is the same");
+        assertThat(countOccurrences(loginAction, "session.removeAttribute(\"userName\")")).isOne();
         assertThat(forcePasswordResetJsp)
                 .contains("request.getAttribute(\"errormsg\")")
                 .doesNotContain("request.getParameter(\"errormsg\")")
@@ -249,5 +255,54 @@ class LoginJspMigrationRegressionTest {
         assertThat(Path.of("src/main/webapp/failure.jsp")).doesNotExist();
         assertThat(Path.of("src/main/webapp/500.jsp")).doesNotExist();
         assertThat(Path.of("src/main/webapp/closenreload.jsp")).doesNotExist();
+    }
+
+    private static int filterMappingIndex(String webXml, String filterName) {
+        String mappingStart = "<filter-mapping>";
+        String mappingEnd = "</filter-mapping>";
+        String filterNameElement = "<filter-name>" + filterName + "</filter-name>";
+        int searchFrom = 0;
+        while (true) {
+            int start = webXml.indexOf(mappingStart, searchFrom);
+            if (start < 0) {
+                return -1;
+            }
+            int end = webXml.indexOf(mappingEnd, start);
+            if (end < 0) {
+                return -1;
+            }
+            String mapping = webXml.substring(start, end + mappingEnd.length());
+            if (mapping.contains(filterNameElement)) {
+                return start;
+            }
+            searchFrom = end + mappingEnd.length();
+        }
+    }
+
+    private static String actionBlock(String strutsXml, String actionName) {
+        String actionStart = "<action name=\"" + actionName + "\"";
+        String actionEnd = "</action>";
+        int start = strutsXml.indexOf(actionStart);
+        if (start < 0) {
+            return "";
+        }
+        int end = strutsXml.indexOf(actionEnd, start);
+        if (end < 0) {
+            return "";
+        }
+        return strutsXml.substring(start, end + actionEnd.length());
+    }
+
+    private static int countOccurrences(String text, String needle) {
+        int count = 0;
+        int searchFrom = 0;
+        while (true) {
+            int found = text.indexOf(needle, searchFrom);
+            if (found < 0) {
+                return count;
+            }
+            count++;
+            searchFrom = found + needle.length();
+        }
     }
 }

@@ -1003,7 +1003,6 @@ public final class Login2Action extends ActionSupport {
         session.removeAttribute(LOGIN_CREDENTIALS_TOKEN_ATTR);
         session.removeAttribute("userName");
         session.removeAttribute("nextPage");
-        session.removeAttribute("userName");
     }
 
     /**
