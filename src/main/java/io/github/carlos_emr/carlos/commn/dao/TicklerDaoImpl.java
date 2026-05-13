@@ -329,6 +329,13 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
         return results;
     }
 
+    /**
+     * Adds only single-valued provider fetch joins to legacy Tickler list queries.
+     *
+     * <p>Tickler comments and updates are initialized after the paged query instead of being
+     * fetch-joined here. That avoids collection fetch joins on paginated list queries and avoids
+     * fetching both Tickler collections in one query.</p>
+     */
     private String addTicklerFetchJoins(String sql, boolean includeProvider, boolean includeAssignee) {
         if (!includeProvider && !includeAssignee) {
             return sql;

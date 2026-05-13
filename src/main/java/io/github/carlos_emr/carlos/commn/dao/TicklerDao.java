@@ -101,6 +101,13 @@ public interface TicklerDao extends AbstractDao<Tickler> {
 
     public List<Tickler> getTicklers(CustomFilter filter, int offset, int limit);
 
+    /**
+     * Returns ticklers with optional relationship expansion for legacy detached callers.
+     *
+     * <p>{@code includeProvider} and {@code includeAssignee} add fetch joins to the list query.
+     * {@code includeComments} and {@code includeUpdates} initialize those collections after the
+     * paged query so list pagination does not fetch join Tickler collections.</p>
+     */
     public List<Tickler> getTicklers(CustomFilter filter, int offset, int limit, boolean includeComments,
                                      boolean includeUpdates, boolean includeProvider, boolean includeAssignee);
 

@@ -88,6 +88,14 @@ public interface TicklerManager {
      */
     public List<Tickler> getTicklers(LoggedInInfo loggedInInfo, CustomFilter filter, int offset, int limit);
 
+    /**
+     * Retrieves ticklers with optional relationship expansion for detached rendering/conversion paths.
+     *
+     * <p>{@code includeProvider} and {@code includeAssignee} fetch the creator and assignee
+     * relationships for JSP rendering. {@code includeComments} and {@code includeUpdates}
+     * initialize those collections, and update/comment provider references, before the entities
+     * leave the DAO transaction.</p>
+     */
     public List<Tickler> getTicklers(LoggedInInfo loggedInInfo, CustomFilter filter, int offset, int limit,
                                      boolean includeComments, boolean includeUpdates, boolean includeProvider,
                                      boolean includeAssignee);
