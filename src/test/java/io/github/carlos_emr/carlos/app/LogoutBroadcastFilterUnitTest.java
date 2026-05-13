@@ -32,6 +32,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -115,8 +116,10 @@ class LogoutBroadcastFilterUnitTest {
         request.getSession(true);
 
         MockHttpServletResponse response = new MockHttpServletResponse();
+        AtomicBoolean sawOriginalResponse = new AtomicBoolean(false);
 
         FilterChain chain = (servletRequest, servletResponse) -> {
+            sawOriginalResponse.set(servletResponse == response);
             servletResponse.setContentType("text/html;charset=UTF-8");
             servletResponse.getWriter().write("<html><body>login</body></html>");
         };
@@ -124,6 +127,7 @@ class LogoutBroadcastFilterUnitTest {
         filter.doFilter(request, response, chain);
 
         String content = response.getContentAsString();
+        assertThat(sawOriginalResponse.get()).isTrue();
         assertThat(content).contains("<html><body>login</body></html>");
         assertThat(content).doesNotContain("window.__carlosLogoutActive=true;");
     }

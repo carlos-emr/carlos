@@ -25,6 +25,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -57,15 +58,66 @@ class RootEntryRedirectFilterUnitTest {
     }
 
     @Test
-    @DisplayName("should forward context root with trailing slash to index")
-    void shouldForwardContextRootWithTrailingSlashToIndex() throws Exception {
+    @DisplayName("should forward context root with trailing slash to login JSP")
+    void shouldForwardContextRootWithTrailingSlashToLoginJsp() throws Exception {
         when(request.getContextPath()).thenReturn("/carlos");
         when(request.getRequestURI()).thenReturn("/carlos/");
-        when(request.getRequestDispatcher("/index")).thenReturn(dispatcher);
+        when(request.getRequestDispatcher("/WEB-INF/jsp/login/index.jsp")).thenReturn(dispatcher);
 
         filter.doFilter(request, response, chain);
 
         verify(dispatcher).forward(request, response);
+        verify(chain, never()).doFilter(request, response);
+    }
+
+    @Test
+    @DisplayName("should forward canonical index path to login JSP")
+    void shouldForwardCanonicalIndexPathToLoginJsp() throws Exception {
+        when(request.getContextPath()).thenReturn("/carlos");
+        when(request.getRequestURI()).thenReturn("/carlos/index");
+        when(request.getRequestDispatcher("/WEB-INF/jsp/login/index.jsp")).thenReturn(dispatcher);
+
+        filter.doFilter(request, response, chain);
+
+        verify(dispatcher).forward(request, response);
+        verify(chain, never()).doFilter(request, response);
+    }
+
+    @Test
+    @DisplayName("should forward force password reset path to JSP when credential token is valid")
+    void shouldForwardForcePasswordResetPathToJspWhenCredentialTokenIsValid() throws Exception {
+        HttpSession session = mock(HttpSession.class);
+        String token = LoginCredentialCache.getInstance().store(
+                new LoginCredentialCache.LoginCredentials("carlosdoc", "encoded", "2026", null));
+
+        when(request.getContextPath()).thenReturn("/carlos");
+        when(request.getRequestURI()).thenReturn("/carlos/forcepasswordreset");
+        when(request.getMethod()).thenReturn("GET");
+        when(request.getSession(false)).thenReturn(session);
+        when(session.getAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR)).thenReturn(token);
+        when(request.getRequestDispatcher("/WEB-INF/jsp/login/forcepasswordreset.jsp")).thenReturn(dispatcher);
+
+        try {
+            filter.doFilter(request, response, chain);
+
+            verify(dispatcher).forward(request, response);
+            verify(chain, never()).doFilter(request, response);
+        } finally {
+            LoginCredentialCache.getInstance().invalidate(token);
+        }
+    }
+
+    @Test
+    @DisplayName("should redirect force password reset path when credential token is missing")
+    void shouldRedirectForcePasswordResetPathWhenCredentialTokenIsMissing() throws Exception {
+        when(request.getContextPath()).thenReturn("/carlos");
+        when(request.getRequestURI()).thenReturn("/carlos/forcepasswordreset");
+        when(request.getMethod()).thenReturn("GET");
+        when(request.getSession(false)).thenReturn(null);
+
+        filter.doFilter(request, response, chain);
+
+        verify(response).sendRedirect(anyString());
         verify(chain, never()).doFilter(request, response);
     }
 
@@ -86,7 +138,7 @@ class RootEntryRedirectFilterUnitTest {
     @DisplayName("should pass through non root request")
     void shouldPassThroughNonRootRequest() throws Exception {
         when(request.getContextPath()).thenReturn("/carlos");
-        when(request.getRequestURI()).thenReturn("/carlos/index");
+        when(request.getRequestURI()).thenReturn("/carlos/provider/providercontrol");
 
         filter.doFilter(request, response, chain);
 

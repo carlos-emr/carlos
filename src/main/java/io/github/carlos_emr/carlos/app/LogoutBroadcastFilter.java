@@ -170,14 +170,14 @@ public class LogoutBroadcastFilter implements Filter {
             return;
         }
 
-        DelegatingServletResponse delegatingResponse = new DelegatingServletResponse((HttpServletResponse) response);
-        chain.doFilter(request, delegatingResponse);
-
-        // Only inject for authenticated sessions
         HttpSession session = httpRequest.getSession(false);
         if (session == null || session.getAttribute("user") == null) {
+            chain.doFilter(request, response);
             return;
         }
+
+        DelegatingServletResponse delegatingResponse = new DelegatingServletResponse((HttpServletResponse) response);
+        chain.doFilter(request, delegatingResponse);
 
         // Only inject for HTML responses
         String contentType = delegatingResponse.getContentType();

@@ -28,13 +28,18 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 
 /**
- * Forwards bare context-root requests to the canonical Struts login action.
+ * Forwards login entrypoint requests to their JSP views.
  *
  * @since 2026-04-15
  */
 public class RootEntryRedirectFilter extends HttpFilter {
+
+    private static final String LOGIN_JSP = "/WEB-INF/jsp/login/index.jsp";
+    private static final String FORCE_PASSWORD_RESET_PATH = "/forcepasswordreset";
+    private static final String FORCE_PASSWORD_RESET_JSP = "/WEB-INF/jsp/login/forcepasswordreset.jsp";
 
     @Override
     protected void doFilter(
@@ -44,17 +49,54 @@ public class RootEntryRedirectFilter extends HttpFilter {
         String contextPath = request.getContextPath();
         String requestUri = request.getRequestURI();
 
-        if (isContextRootRequest(requestUri, contextPath)) {
-            request.getRequestDispatcher("/index").forward(request, response);
+        if (isLoginEntryRequest(requestUri, contextPath)) {
+            request.getRequestDispatcher(LOGIN_JSP).forward(request, response);
+            return;
+        }
+
+        if (isForcePasswordResetRequest(requestUri, contextPath)) {
+            if (!isViewMethod(request.getMethod())) {
+                response.setHeader("Allow", "GET, HEAD");
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+                return;
+            }
+            if (!hasValidLoginCredentialsToken(request)) {
+                response.sendRedirect(Login2Action.loginFailedRedirectUrl(request,
+                        "Your password reset session has expired. Please log in again."));
+                return;
+            }
+            request.getRequestDispatcher(FORCE_PASSWORD_RESET_JSP).forward(request, response);
             return;
         }
 
         chain.doFilter(request, response);
     }
 
-    static boolean isContextRootRequest(String requestUri, String contextPath) {
+    static boolean isLoginEntryRequest(String requestUri, String contextPath) {
         return contextPath != null
                 && !contextPath.isEmpty()
-                && (requestUri.equals(contextPath) || requestUri.equals(contextPath + "/"));
+                && (requestUri.equals(contextPath)
+                    || requestUri.equals(contextPath + "/")
+                    || requestUri.equals(contextPath + "/index"));
+    }
+
+    static boolean isForcePasswordResetRequest(String requestUri, String contextPath) {
+        return contextPath != null
+                && !contextPath.isEmpty()
+                && requestUri.equals(contextPath + FORCE_PASSWORD_RESET_PATH);
+    }
+
+    private static boolean isViewMethod(String method) {
+        return "GET".equalsIgnoreCase(method) || "HEAD".equalsIgnoreCase(method);
+    }
+
+    private static boolean hasValidLoginCredentialsToken(HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        if (session == null) {
+            return false;
+        }
+        Object tokenAttr = session.getAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR);
+        return tokenAttr instanceof String token
+                && LoginCredentialCache.getInstance().peek(token) != null;
     }
 }
