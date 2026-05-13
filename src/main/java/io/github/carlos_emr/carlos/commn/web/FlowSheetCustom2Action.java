@@ -185,15 +185,15 @@ public class FlowSheetCustom2Action extends ActionSupport {
     }
 
     public String execute() throws Exception {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_flowsheet", "w", null)) {
-            throw new SecurityException("missing required sec object (_flowsheet)");
-        }
-
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
             response.setHeader("Allow", "POST");
             response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
+        }
+
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_flowsheet", "w", null)) {
+            throw new SecurityException("missing required sec object (_flowsheet)");
         }
 
         String method = request.getParameter("method");
