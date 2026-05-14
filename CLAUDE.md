@@ -92,7 +92,9 @@ For login/password-reset work, keep documentation aligned with these invariants:
   short-lived cache token.
 - Retryable reset validation errors may keep the token live; terminal password changes consume it.
 - `scripts/login-playwright-checks.js` is the reference browser/direct-POST regression check for
-  login, failed login, forced reset, CSRF rejection, and provider schedule rendering.
+  login, failed login, forced reset, CSRF rejection, and provider schedule rendering. It requires
+  `TEST_PASSWORD_HASH` so the script can seed a known-good dev password before mutating the test
+  user's security row.
 
 **What counts as PHI vs. internal identifiers:**
 - **PHI** (treat as sensitive): HIN/health card number, patient name, DOB, address, phone, diagnosis text, clinical notes, lab values, medication details — anything that identifies a real person or their care.
@@ -269,8 +271,11 @@ the top of that file:
   on truly unsupported methods like DELETE/PUT.
 
 **When a new slice is migrated**, extend `IN_SCOPE_PACKAGE_PREFIXES` with
-the slice's package prefix in the same PR that gates the first mutator
-JSP behind a 2Action.
+the slice's package prefix only after the existing guarded actions in that
+slice have been audited and classified in the contract manifest. For a
+legacy-heavy slice where one mutator is migrated first, add that specific
+class to `IN_SCOPE_EXPLICIT_CLASSES` and file/track the broader slice-audit
+work instead of sweeping unreviewed legacy actions into the manifest.
 
 ### Struts 7.1.1 Notes
 

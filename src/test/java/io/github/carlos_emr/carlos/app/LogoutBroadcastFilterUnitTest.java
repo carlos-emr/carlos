@@ -32,7 +32,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
-import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -116,10 +115,8 @@ class LogoutBroadcastFilterUnitTest {
         request.getSession(true);
 
         MockHttpServletResponse response = new MockHttpServletResponse();
-        AtomicBoolean sawOriginalResponse = new AtomicBoolean(false);
 
         FilterChain chain = (servletRequest, servletResponse) -> {
-            sawOriginalResponse.set(servletResponse == response);
             servletResponse.setContentType("text/html;charset=UTF-8");
             servletResponse.getWriter().write("<html><body>login</body></html>");
         };
@@ -127,9 +124,49 @@ class LogoutBroadcastFilterUnitTest {
         filter.doFilter(request, response, chain);
 
         String content = response.getContentAsString();
-        assertThat(sawOriginalResponse.get()).isTrue();
         assertThat(content).contains("<html><body>login</body></html>");
         assertThat(content).doesNotContain("window.__carlosLogoutActive=true;");
+    }
+
+    @Test
+    @DisplayName("should append logout script when session is created during rendering")
+    void shouldAppendLogoutScript_whenSessionIsCreatedDuringRendering() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/provider/providercontrol");
+        request.setContextPath("/carlos");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            ((MockHttpServletRequest) servletRequest).getSession(true).setAttribute("user", "123");
+            servletResponse.setContentType("text/html;charset=UTF-8");
+            servletResponse.getWriter().write("<html><body>schedule</body></html>");
+        };
+
+        filter.doFilter(request, response, chain);
+
+        String content = response.getContentAsString();
+        assertThat(content).contains("<html><body>schedule</body></html>");
+        assertThat(content).contains("window.__carlosLogoutActive=true;");
+    }
+
+    @Test
+    @DisplayName("should suppress stale content length when logout script is appended")
+    void shouldSuppressStaleContentLength_whenLogoutScriptIsAppended() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/provider/providercontrol");
+        request.setContextPath("/carlos");
+        request.getSession(true).setAttribute("user", "123");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        String body = "<html><body>schedule</body></html>";
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.setContentType("text/html;charset=UTF-8");
+            servletResponse.setContentLength(body.getBytes(StandardCharsets.UTF_8).length);
+            servletResponse.getWriter().write(body);
+        };
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(response.getContentAsString()).contains("window.__carlosLogoutActive=true;");
+        assertThat(response.getHeader("Content-Length")).isNull();
     }
 
     @Test

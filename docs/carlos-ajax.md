@@ -152,7 +152,9 @@ For POST requests, it also sets:
 
 **Why**: Three server-side Java filters check `X-Requested-With`:
 - `PrivacyStatementAppendingFilter` — skips privacy statement injection for AJAX
-- `CsrfGuardScriptInjectionFilter` — skips CSRF `<script>` injection for AJAX
+- `CsrfGuardScriptInjectionFilter` — skips CSRF `<script>` injection for AJAX only if
+  REQUEST dispatch mapping is re-enabled; the deployed FORWARD-only mapping injects at JSP render
+  time
 - `LogoutBroadcastFilter` — skips logout broadcast for AJAX
 
 Without this header, AJAX responses will be corrupted with appended HTML.

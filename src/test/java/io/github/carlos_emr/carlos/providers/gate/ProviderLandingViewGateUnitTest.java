@@ -150,10 +150,38 @@ class ProviderLandingViewGateUnitTest {
         }
     }
 
+    @Test
+    @DisplayName("should not throw when unauthenticated rejection fails after commit")
+    void shouldNotThrow_whenUnauthenticatedRejectionFailsAfterCommit() throws Exception {
+        request.getSession(false).invalidate();
+        CommittedRedirectFailingResponse failingResponse = new CommittedRedirectFailingResponse();
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(failingResponse);
+
+        try (LogCapture capture = LogCapture.forLogger(BaseProviderViewGate2Action.class)) {
+            String result = new ViewProviderControl2Action(securityInfoManager).execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(failingResponse.getStatus()).isEqualTo(200);
+            assertThat(capture.events()).anySatisfy(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.ERROR);
+                assertThat(event.getMessage().getFormattedMessage())
+                        .contains("after response commit");
+            });
+        }
+    }
+
     private static final class RedirectFailingResponse extends MockHttpServletResponse {
         @Override
         public void sendRedirect(String url) throws IOException {
             throw new IOException("redirect failed");
+        }
+    }
+
+    private static final class CommittedRedirectFailingResponse extends MockHttpServletResponse {
+        @Override
+        public void sendRedirect(String url) throws IOException {
+            setCommitted(true);
+            throw new IOException("redirect failed after commit");
         }
     }
 }

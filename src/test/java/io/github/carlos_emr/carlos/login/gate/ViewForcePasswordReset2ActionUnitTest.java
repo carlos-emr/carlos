@@ -88,24 +88,28 @@ class ViewForcePasswordReset2ActionUnitTest {
     @DisplayName("should redirect and clear token when credential token is not a string")
     void shouldRedirectAndClearToken_whenCredentialTokenIsNotString() throws Exception {
         request.getSession(true).setAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR, 12345);
+        request.getSession(false).setAttribute(Login2Action.FORCE_PASSWORD_RESET_ERROR_ATTR, "retry error");
 
         String result = new ViewForcePasswordReset2Action().execute();
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getRedirectedUrl()).contains("/loginfailed");
         assertThat(request.getSession(false).getAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR)).isNull();
+        assertThat(request.getSession(false).getAttribute(Login2Action.FORCE_PASSWORD_RESET_ERROR_ATTR)).isNull();
     }
 
     @Test
     @DisplayName("should redirect and clear token when credential token is stale")
     void shouldRedirectAndClearToken_whenCredentialTokenStale() throws Exception {
         request.getSession(true).setAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR, "stale-token");
+        request.getSession(false).setAttribute(Login2Action.FORCE_PASSWORD_RESET_ERROR_ATTR, "retry error");
 
         String result = new ViewForcePasswordReset2Action().execute();
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getRedirectedUrl()).contains("/loginfailed");
         assertThat(request.getSession(false).getAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR)).isNull();
+        assertThat(request.getSession(false).getAttribute(Login2Action.FORCE_PASSWORD_RESET_ERROR_ATTR)).isNull();
     }
 
     @Test

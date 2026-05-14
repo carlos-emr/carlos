@@ -180,6 +180,17 @@ public final class Login2Action extends ActionSupport {
      */
     public static final String FORCE_PASSWORD_RESET_ERROR_ATTR = "forcePasswordResetError";
 
+    /**
+     * Session marker for the short-lived MFA challenge state.
+     *
+     * <p>The normal {@code user} session attribute is intentionally not set until the
+     * MFA code has been validated. LoginFilter treats {@code user} as an authenticated
+     * session, so MFA state must use distinct attributes that grant no application access.</p>
+     */
+    public static final String PENDING_MFA_AUTH_ATTR = "pendingMfaAuthentication";
+    private static final String PENDING_MFA_LOGIN_CHECK_ATTR = "pendingMfaLoginCheck";
+    private static final String PENDING_MFA_AUTH_RESULT_ATTR = "pendingMfaAuthResult";
+
     /** Spring-managed service for provider data access and management */
     private final ProviderManager providerManager = SpringUtils.getBean(ProviderManager.class);
 
@@ -277,7 +288,7 @@ public final class Login2Action extends ActionSupport {
      * @throws IOException if I/O error occurs during redirect or response writing
      * @see LoginCheckLogin#auth for authentication logic
      * @see MfaManager#getQRCodeImageData for MFA QR code generation
-     * @see #resumePostAuthenticationFlow for MFA continuation logic
+     * @see #completeAuthenticatedLogin for MFA continuation logic
      */
     public String execute() throws ServletException, IOException {
 
@@ -316,75 +327,7 @@ public final class Login2Action extends ActionSupport {
         boolean isMfaVerifyFlow = (this.code != null && !this.code.isEmpty());
         
         if (isMfaVerifyFlow) {
-            cl = request.getSession().getAttribute("cl") == null ? new LoginCheckLogin()
-                    : (LoginCheckLogin) request.getSession().getAttribute("cl");
-            
-            // Handle MFA validation
-            String mfaSecret;
-            if (this.mfaRegistrationFlow) {
-                Object mfaSecretAttr = request.getSession().getAttribute("mfaSecret");
-                if (mfaSecretAttr == null) {
-                    // Session expired or attribute missing during MFA registration flow
-                    request.setAttribute("errMsg", "Session expired. Please log in again.");
-                    return "failure";
-                }
-                mfaSecret = mfaSecretAttr.toString();
-            } else {
-                Security security = cl.getSecurity();
-                try {
-                    mfaSecret = this.mfaManager.getMfaSecret(security);
-                } catch (Exception e) {
-                    request.setAttribute("errMsg", "Something went wrong while processing, please try again or contact support.");
-                    throw new RuntimeException(e);
-                }
-            }
-            
-            // Verify TOTP code with ±1 time step tolerance for clock skew (RFC 6238)
-            boolean validCode;
-            try {
-                TimeBasedOneTimePasswordGenerator totpGenerator = new TimeBasedOneTimePasswordGenerator();
-                byte[] decodedKey = new Base32().decode(mfaSecret);
-                SecretKeySpec key = new SecretKeySpec(decodedKey, totpGenerator.getAlgorithm());
-                java.time.Instant now = java.time.Instant.now();
-                java.time.Duration timeStep = totpGenerator.getTimeStep();
-
-                validCode = totpGenerator.generateOneTimePasswordString(key, now).equals(this.code)
-                        || totpGenerator.generateOneTimePasswordString(key, now.minus(timeStep)).equals(this.code)
-                        || totpGenerator.generateOneTimePasswordString(key, now.plus(timeStep)).equals(this.code);
-            } catch (java.security.InvalidKeyException e) {
-                request.setAttribute("errMsg", "Something went wrong while processing, please try again or contact support.");
-                throw new RuntimeException(e);
-            }
-
-            if (validCode) {
-                LogAction.addLog(cl.getSecurity().getProviderNo(), "login", "mfa_success", "mfa", ip);
-                if (this.mfaRegistrationFlow) {
-                    Security security = cl.getSecurity();
-                    LoggedInInfo loggedInInfo = LoggedInUserFilter.generateLoggedInInfoFromSession(request);
-                    try {
-                        this.mfaManager.saveMfaSecret(loggedInInfo, security, mfaSecret);
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
-                    }
-                }
-                // MFA verification succeeded: the original login credentials are no longer
-                // needed on subsequent requests, so invalidate the credential-cache entry
-                // and clear the session token. This ensures credential material cannot
-                // outlive the successful login (it would otherwise sit in the cache until
-                // its 5-minute TTL expired).
-                removeAttributesFromSession(request);
-                // Continue with post-authentication flow after successful MFA
-                return resumePostAuthenticationFlow(cl, ip, isMobileOptimized, submitType, ajaxResponse);
-            } else {
-                LogAction.addLog(cl.getSecurity().getProviderNo(), "login", "mfa_failed", "mfa", ip);
-                if (this.mfaRegistrationFlow) {
-                    request.setAttribute("mfaRegistrationRequired", true);
-                    request.setAttribute("qrData", this.mfaManager.getQRCodeImageData(cl.getSecurity().getId(), mfaSecret));
-                }
-                request.setAttribute("mfaValidateCodeErr", "Invalid MFA Code");
-                request.setAttribute("securityId", String.valueOf(cl.getSecurity().getSecurityNo()));
-                return "mfaHandler";
-            }
+            return validateMfaAndCompleteLogin(ip, isMobileOptimized, submitType, ajaxResponse);
         }
         
         cl = new LoginCheckLogin();
@@ -393,7 +336,6 @@ public final class Login2Action extends ActionSupport {
         String pin = "";
         String nextPage = "";
         boolean forcedpasswordchange = true;
-        String where = "failure";
 
         // >> 2. Forced Password Change Handling
         if (request.getParameter("forcedpasswordchange") != null
@@ -449,7 +391,7 @@ public final class Login2Action extends ActionSupport {
             String oldPassword = this.getOldPassword();
 
             try {
-                String errorStr = errorHandling(password, newPassword, confirmPassword, oldPassword);
+                String errorStr = errorHandling(userName, password, newPassword, confirmPassword, oldPassword);
 
                 // Keep the token alive only for retryable validation failures. This preserves
                 // normal form correction while still allowing the success path to consume the
@@ -475,7 +417,7 @@ public final class Login2Action extends ActionSupport {
                 // Remove the attributes from session
                 removeAttributesFromSession(request);
             } catch (Exception e) {
-                logger.error("Error", e);
+                logger.error("Forced password reset failed during terminal persistence or session cleanup", e);
                 String newURL = loginFailedRedirectUrl(message("provider.providerchangepassword.errorSessionSetup"));
                 removeAttributesFromSession(request);
 
@@ -577,7 +519,8 @@ public final class Login2Action extends ActionSupport {
         try {
             strAuth = cl.auth(userName, password, pin, ip);
         } catch (Exception e) {
-            logger.error("Error", e);
+            logger.error("Authentication provider failed during login: user={}, remote={}, ajax={}",
+                    LogSanitizer.sanitize(userName), LogSanitizer.sanitize(ip), ajaxResponse, e);
             String unableToProcessMessage = message("login.errorUnableToProcess");
             String newURL = loginFailedRedirectUrl(unableToProcessMessage);
 
@@ -585,7 +528,6 @@ public final class Login2Action extends ActionSupport {
                 ObjectNode json = objectMapper.createObjectNode();
                 json.put("success", false);
                 json.put("error", unableToProcessMessage);
-                logger.error("Database connection error during login", e);
                 response.setContentType("application/json");
                 response.getWriter().write(json.toString());
                 return null;
@@ -617,18 +559,18 @@ public final class Login2Action extends ActionSupport {
              */
             Security security = getSecurity(userName);
             if (security == null) {
-                logger.warn("Authenticated user has no security record: {}", LogSanitizer.sanitize(userName));
-                response.sendRedirect(loginFailedRedirectUrl(message("provider.providerchangepassword.errorSessionSetup")));
+                logger.error("Authenticated user has no security record: {}", LogSanitizer.sanitize(userName));
+                response.sendRedirect(loginFailedRedirectUrl(message("login.errorSecurityRecordMissing")));
                 return NONE;
             }
-            if (!CarlosProperties.getInstance().getBooleanProperty("mandatory_password_reset", "false") &&
+            if (CarlosProperties.getInstance().getBooleanProperty("mandatory_password_reset", "true") &&
                     security.isForcePasswordReset() != null && security.isForcePasswordReset()
                     && forcedpasswordchange) {
 
                 try {
                     setUserInfoToSession(request, userName, password, pin, nextPage);
                 } catch (Exception e) {
-                    logger.error("Error", e);
+                    logger.error("Unable to stage forced password reset credentials", e);
                     String newURL = loginFailedRedirectUrl(message("provider.providerchangepassword.errorSessionSetup"));
                     removeAttributesFromSession(request);
                     response.sendRedirect(newURL);
@@ -639,193 +581,11 @@ public final class Login2Action extends ActionSupport {
                 return NONE;
             }
 
-            // invalidate the existing session
-            HttpSession session = request.getSession(false);
-            if (session != null) {
-                if (request.getParameter("invalidate_session") != null
-                        && request.getParameter("invalidate_session").equals("false")) {
-                    // don't invalidate in this case it messes up authenticity of OAUTH
-                } else {
-                    session.invalidate();
-                }
-            }
-            session = request.getSession(); // Create a new session for this user
-            session.setMaxInactiveInterval(7200); // 2 hours
-
-            if (cl.getSecurity() != null) {
-                this.userSessionManager.registerUserSession(cl.getSecurity().getSecurityNo(), session);
+            if (MfaManager.isOscarMfaEnabled() && security.isUsingMfa()) {
+                return beginPendingMfaChallenge(cl, strAuth, security, ip);
             }
 
-            logger.debug("Assigned new session for: {} : {} : {}", LogSanitizer.sanitize(strAuth[0]), LogSanitizer.sanitize(strAuth[3]), LogSanitizer.sanitize(strAuth[4]));
-            LogAction.addLog(strAuth[0], LogConst.LOGIN, LogConst.CON_LOGIN, "", ip);
-
-            // initial db setting
-            Properties pvar = CarlosProperties.getInstance();
-
-            String providerNo = strAuth[0] != null ? strAuth[0].trim() : "";
-            session.setAttribute("user", providerNo); // nosemgrep: tainted-session-from-http-request
-            session.setAttribute("userfirstname", strAuth[1] != null ? strAuth[1].trim() : ""); // nosemgrep: tainted-session-from-http-request
-            session.setAttribute("userlastname", strAuth[2] != null ? strAuth[2].trim() : ""); // nosemgrep: tainted-session-from-http-request
-            session.setAttribute("userrole", strAuth[4] != null ? strAuth[4].trim() : ""); // nosemgrep: tainted-session-from-http-request
-            session.setAttribute("oscar_context_path", request.getContextPath()); // nosemgrep: tainted-session-from-http-request
-            session.setAttribute("expired_days", strAuth[5] != null ? strAuth[5].trim() : ""); // nosemgrep: tainted-session-from-http-request
-            // If a new session has been created, we must set the mobile attribute again
-            if (isMobileOptimized) {
-                if ("Full".equalsIgnoreCase(submitType)) {
-                    session.setAttribute("fullSite", "true"); // nosemgrep: tainted-session-from-http-request
-                } else {
-                    session.setAttribute("mobileOptimized", "true"); // nosemgrep: tainted-session-from-http-request
-                }
-            }
-
-            // Check for MFA if enabled
-            if (MfaManager.isOscarMfaEnabled()) {
-                Security sec = this.getSecurity(userName);
-                if (Objects.nonNull(sec) && sec.isUsingMfa()) {
-                    // MFA Enabled
-                    try {
-                        setUserInfoToSession(request, userName, password, pin, nextPage);
-                        request.getSession().setAttribute("cl", cl); // nosemgrep: tainted-session-from-http-request
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
-                    }
-
-                    try {
-                        if (this.mfaManager.isMfaRegistrationRequired(sec.getId())) {
-                            Object mfaSecret = request.getSession().getAttribute("mfaSecret");
-                            if (mfaSecret == null) {
-                                mfaSecret = MfaManager.generateMfaSecret();
-                                request.getSession().setAttribute("mfaSecret", mfaSecret); // nosemgrep: tainted-session-from-http-request
-                            }
-                            request.setAttribute("mfaRegistrationRequired", true);
-                            request.setAttribute("qrData", this.mfaManager.getQRCodeImageData(sec.getId(), mfaSecret.toString()));
-                        }
-                    } catch (IllegalStateException e) {
-                        logger.warn("Unable to prepare MFA registration: providerNo={}, securityId={}",
-                                LogSanitizer.sanitize(providerNo),
-                                LogSanitizer.sanitize(String.valueOf(sec.getSecurityNo())),
-                                e);
-                        request.getSession().invalidate();
-                        request.setAttribute("errMsg", "Something went wrong while processing, please try again or contact support.");
-                        return "failure";
-                    }
-                    request.setAttribute("securityId", String.valueOf(sec.getSecurityNo()));
-                    return "mfaHandler";
-                }
-            }
-
-            // Continue with the rest of authentication flow
-            // initiate sec manager
-            String default_pmm = null;
-
-            // get preferences from preference table
-            ProviderPreference providerPreference = providerPreferenceDao.find(providerNo);
-
-            if (providerPreference == null)
-                providerPreference = new ProviderPreference();
-
-            session.setAttribute(SessionConstants.LOGGED_IN_PROVIDER_PREFERENCE, providerPreference); // nosemgrep: tainted-session-from-http-request
-
-            if (IsPropertiesOn.isCaisiEnable()) {
-                String tklerProviderNo = null;
-                UserProperty prop = propDao.getProp(providerNo, UserProperty.PROVIDER_FOR_TICKLER_WARNING);
-                if (prop == null) {
-                    tklerProviderNo = providerNo;
-                } else {
-                    tklerProviderNo = prop.getValue();
-                }
-                session.setAttribute("tklerProviderNo", tklerProviderNo); // nosemgrep: tainted-session-from-http-request
-
-                session.setAttribute("newticklerwarningwindow", providerPreference.getNewTicklerWarningWindow()); // nosemgrep: tainted-session-from-http-request
-                session.setAttribute("default_pmm", providerPreference.getDefaultCaisiPmm()); // nosemgrep: tainted-session-from-http-request
-                session.setAttribute("caisiBillingPreferenceNotDelete", // nosemgrep: tainted-session-from-http-request
-                        String.valueOf(providerPreference.getDefaultDoNotDeleteBilling()));
-
-                default_pmm = providerPreference.getDefaultCaisiPmm();
-                @SuppressWarnings("unchecked")
-                ArrayList<String> newDocArr = (ArrayList<String>) request.getSession().getServletContext()
-                        .getAttribute("CaseMgmtUsers");
-                if ("enabled".equals(providerPreference.getDefaultNewOscarCme())) {
-                    newDocArr.add(providerNo);
-                    session.setAttribute("CaseMgmtUsers", newDocArr); // nosemgrep: tainted-session-from-http-request
-                }
-            }
-            session.setAttribute("starthour", providerPreference.getStartHour().toString()); // nosemgrep: tainted-session-from-http-request
-            session.setAttribute("endhour", providerPreference.getEndHour().toString()); // nosemgrep: tainted-session-from-http-request
-            session.setAttribute("everymin", providerPreference.getEveryMin().toString()); // nosemgrep: tainted-session-from-http-request
-            session.setAttribute("groupno", providerPreference.getMyGroupNo()); // nosemgrep: tainted-session-from-http-request
-
-            where = "provider";
-
-            if (where.equals("provider") && default_pmm != null && "enabled".equals(default_pmm)) {
-                where = "caisiPMM";
-            }
-
-            if (where.equals("provider")
-                    && CarlosProperties.getInstance().getProperty("useProgramLocation", "false").equals("true")) {
-                where = "programLocation";
-            }
-
-
-            /*
-             * if (CarlosProperties.getInstance().isTorontoRFQ()) { where = "caisiPMM"; }
-             */
-            // Lazy Loads AlertTimer instance only once, will run as daemon for duration of
-            // server runtime
-            if (pvar.getProperty("billregion").equals("BC")) {
-                String alertFreq = pvar.getProperty("ALERT_POLL_FREQUENCY");
-                if (alertFreq != null) {
-                    Long longFreq = Long.valueOf(alertFreq);
-                    String[] alertCodes = CarlosProperties.getInstance().getProperty("CDM_ALERTS").split(",");
-                    AlertTimer.getInstance(alertCodes, longFreq.longValue());
-                }
-            }
-
-            String username = (String) session.getAttribute("user");
-            Provider provider = providerManager.getProvider(username);
-            session.setAttribute("provider", provider); // nosemgrep: tainted-session-from-http-request
-            session.setAttribute(SessionConstants.LOGGED_IN_PROVIDER, provider); // nosemgrep: tainted-session-from-http-request
-            session.setAttribute(SessionConstants.LOGGED_IN_SECURITY, cl.getSecurity()); // nosemgrep: tainted-session-from-http-request
-
-            if (where.equals("provider")) {
-            }
-
-            List<Integer> facilityIds = providerDao.getFacilityIds(provider.getProviderNo());
-            if (facilityIds.size() > 1) {
-                String facilityPath = "/select_facility?nextPage=";
-                String newURL = request.getContextPath() + facilityPath + SafeEncode.forUriComponent(where);
-
-                response.sendRedirect(newURL);
-                return NONE;
-            } else if (facilityIds.size() == 1) {
-                // set current facility
-                Facility facility = facilityDao.find(facilityIds.get(0));
-                request.getSession().setAttribute("currentFacility", facility); // nosemgrep: tainted-session-from-http-request
-                LogAction.addLog(strAuth[0], LogConst.LOGIN, LogConst.CON_LOGIN, "facilityId=" + facilityIds.get(0),
-                        ip);
-            } else {
-                List<Facility> facilities = facilityDao.findAll(true);
-                if (facilities != null && facilities.size() >= 1) {
-                    Facility fac = facilities.get(0);
-                    int first_id = fac.getId();
-                    providerDao.addProviderToFacility(providerNo, first_id);
-                    Facility facility = facilityDao.find(first_id);
-                    request.getSession().setAttribute("currentFacility", facility); // nosemgrep: tainted-session-from-http-request
-                    LogAction.addLog(strAuth[0], LogConst.LOGIN, LogConst.CON_LOGIN, "facilityId=" + first_id, ip);
-                }
-            }
-
-            LoggedInInfo loggedInInfo = LoggedInUserFilter.generateLoggedInInfoFromSession(request);
-            LoggedInInfo.setLoggedInInfoIntoSession(session, loggedInInfo);
-
-            if (UserRoleUtils.hasRole(request, "Patient Intake")) {
-                return "patientIntake";
-            }
-
-            if ("provider".equals(where)) {
-                response.sendRedirect(buildDefaultProviderSchedulePath());
-                return NONE;
-            }
+            return completeAuthenticatedLogin(cl, strAuth, ip, isMobileOptimized, submitType, ajaxResponse);
 
         }
         // >> 6. Authentication Failure Handling
@@ -870,6 +630,324 @@ public final class Login2Action extends ActionSupport {
             return NONE;
         }
 
+    }
+
+    /**
+     * Starts an MFA challenge without granting an authenticated application session.
+     *
+     * <p>Only pending-MFA attributes are stored here. The canonical {@code user} session
+     * attribute is set by {@link #completeAuthenticatedLogin} after the OTP validates.</p>
+     */
+    private String beginPendingMfaChallenge(LoginCheckLogin cl, String[] strAuth, Security security, String ip) {
+        HttpSession session = request.getSession(false);
+        if (session != null) {
+            session.invalidate();
+        }
+        session = request.getSession();
+        session.setMaxInactiveInterval(300);
+        session.setAttribute(PENDING_MFA_AUTH_ATTR, Boolean.TRUE); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute(PENDING_MFA_LOGIN_CHECK_ATTR, cl); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute(PENDING_MFA_AUTH_RESULT_ATTR, strAuth); // nosemgrep: tainted-session-from-http-request
+
+        try {
+            if (this.mfaManager.isMfaRegistrationRequired(security.getId())) {
+                Object mfaSecret = session.getAttribute("mfaSecret");
+                if (mfaSecret == null) {
+                    mfaSecret = MfaManager.generateMfaSecret();
+                    session.setAttribute("mfaSecret", mfaSecret); // nosemgrep: tainted-session-from-http-request
+                }
+                request.setAttribute("mfaRegistrationRequired", true);
+                request.setAttribute("qrData", this.mfaManager.getQRCodeImageData(security.getId(), mfaSecret.toString()));
+            }
+        } catch (IllegalStateException e) {
+            logger.warn("Unable to prepare MFA registration: providerNo={}, securityId={}, remote={}",
+                    LogSanitizer.sanitize(security.getProviderNo()),
+                    LogSanitizer.sanitize(String.valueOf(security.getSecurityNo())),
+                    LogSanitizer.sanitize(ip),
+                    e);
+            session.invalidate();
+            request.setAttribute("errMsg", message("login.errorUnableToProcess"));
+            return "failure";
+        }
+
+        request.setAttribute("securityId", String.valueOf(security.getSecurityNo()));
+        return "mfaHandler";
+    }
+
+    /**
+     * Validates a submitted MFA code, then completes the normal authenticated login flow.
+     */
+    private String validateMfaAndCompleteLogin(String ip, boolean isMobileOptimized, String submitType,
+                                               boolean ajaxResponse) throws IOException {
+        HttpSession session = request.getSession(false);
+        if (!hasPendingMfaSession(session)) {
+            logger.info("Rejected MFA verification without valid pending challenge: remote={}",
+                    LogSanitizer.sanitize(ip));
+            response.sendRedirect(loginFailedRedirectUrl(message("provider.providerchangepassword.errorSessionExpired")));
+            return NONE;
+        }
+
+        LoginCheckLogin cl = (LoginCheckLogin) session.getAttribute(PENDING_MFA_LOGIN_CHECK_ATTR);
+        String[] strAuth = (String[]) session.getAttribute(PENDING_MFA_AUTH_RESULT_ATTR);
+        Security security = cl.getSecurity();
+        if (security == null) {
+            logger.error("Rejected MFA verification because pending challenge has no security record: remote={}",
+                    LogSanitizer.sanitize(ip));
+            clearPendingMfaSession(session);
+            response.sendRedirect(loginFailedRedirectUrl(message("login.errorSecurityRecordMissing")));
+            return NONE;
+        }
+
+        String mfaSecret;
+        if (this.mfaRegistrationFlow) {
+            Object mfaSecretAttr = session.getAttribute("mfaSecret");
+            if (!(mfaSecretAttr instanceof String)) {
+                logger.warn("Rejected MFA registration submit without a staged secret: providerNo={}, securityId={}, remote={}",
+                        LogSanitizer.sanitize(security.getProviderNo()),
+                        LogSanitizer.sanitize(String.valueOf(security.getSecurityNo())),
+                        LogSanitizer.sanitize(ip));
+                clearPendingMfaSession(session);
+                response.sendRedirect(loginFailedRedirectUrl(message("provider.providerchangepassword.errorSessionExpired")));
+                return NONE;
+            }
+            mfaSecret = (String) mfaSecretAttr;
+        } else {
+            try {
+                mfaSecret = this.mfaManager.getMfaSecret(security);
+            } catch (Exception e) {
+                logger.error("Unable to retrieve MFA secret: providerNo={}, securityId={}, remote={}",
+                        LogSanitizer.sanitize(security.getProviderNo()),
+                        LogSanitizer.sanitize(String.valueOf(security.getSecurityNo())),
+                        LogSanitizer.sanitize(ip),
+                        e);
+                request.setAttribute("errMsg", message("login.errorUnableToProcess"));
+                return "failure";
+            }
+        }
+
+        boolean validCode;
+        try {
+            validCode = isValidTotpCode(mfaSecret, this.code);
+        } catch (java.security.InvalidKeyException e) {
+            logger.error("Unable to validate MFA code: providerNo={}, securityId={}, remote={}",
+                    LogSanitizer.sanitize(security.getProviderNo()),
+                    LogSanitizer.sanitize(String.valueOf(security.getSecurityNo())),
+                    LogSanitizer.sanitize(ip),
+                    e);
+            request.setAttribute("errMsg", message("login.errorUnableToProcess"));
+            return "failure";
+        }
+
+        if (!validCode) {
+            LogAction.addLog(security.getProviderNo(), "login", "mfa_failed", "mfa", ip);
+            if (this.mfaRegistrationFlow) {
+                request.setAttribute("mfaRegistrationRequired", true);
+                request.setAttribute("qrData", this.mfaManager.getQRCodeImageData(security.getId(), mfaSecret));
+            }
+            request.setAttribute("mfaValidateCodeErr", "Invalid MFA Code");
+            request.setAttribute("securityId", String.valueOf(security.getSecurityNo()));
+            return "mfaHandler";
+        }
+
+        LogAction.addLog(security.getProviderNo(), "login", "mfa_success", "mfa", ip);
+        if (this.mfaRegistrationFlow) {
+            try {
+                this.mfaManager.saveMfaSecret(buildLoggedInInfoForPendingMfa(session, strAuth, security), security, mfaSecret);
+            } catch (Exception e) {
+                logger.error("Unable to persist MFA registration secret: providerNo={}, securityId={}, remote={}",
+                        LogSanitizer.sanitize(security.getProviderNo()),
+                        LogSanitizer.sanitize(String.valueOf(security.getSecurityNo())),
+                        LogSanitizer.sanitize(ip),
+                        e);
+                clearPendingMfaSession(session);
+                request.setAttribute("errMsg", message("login.errorUnableToProcess"));
+                return "failure";
+            }
+        }
+
+        clearPendingMfaSession(session);
+        return completeAuthenticatedLogin(cl, strAuth, ip, isMobileOptimized, submitType, ajaxResponse);
+    }
+
+    private boolean hasPendingMfaSession(HttpSession session) {
+        return session != null
+                && Boolean.TRUE.equals(session.getAttribute(PENDING_MFA_AUTH_ATTR))
+                && session.getAttribute(PENDING_MFA_LOGIN_CHECK_ATTR) instanceof LoginCheckLogin
+                && session.getAttribute(PENDING_MFA_AUTH_RESULT_ATTR) instanceof String[];
+    }
+
+    private boolean isValidTotpCode(String mfaSecret, String submittedCode) throws java.security.InvalidKeyException {
+        TimeBasedOneTimePasswordGenerator totpGenerator = new TimeBasedOneTimePasswordGenerator();
+        byte[] decodedKey = new Base32().decode(mfaSecret);
+        SecretKeySpec key = new SecretKeySpec(decodedKey, totpGenerator.getAlgorithm());
+        java.time.Instant now = java.time.Instant.now();
+        java.time.Duration timeStep = totpGenerator.getTimeStep();
+
+        return totpGenerator.generateOneTimePasswordString(key, now).equals(submittedCode)
+                || totpGenerator.generateOneTimePasswordString(key, now.minus(timeStep)).equals(submittedCode)
+                || totpGenerator.generateOneTimePasswordString(key, now.plus(timeStep)).equals(submittedCode);
+    }
+
+    private void clearPendingMfaSession(HttpSession session) {
+        session.removeAttribute(PENDING_MFA_AUTH_ATTR);
+        session.removeAttribute(PENDING_MFA_LOGIN_CHECK_ATTR);
+        session.removeAttribute(PENDING_MFA_AUTH_RESULT_ATTR);
+        session.removeAttribute("mfaSecret");
+    }
+
+    private LoggedInInfo buildLoggedInInfoForPendingMfa(HttpSession session, String[] strAuth, Security security) {
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        loggedInInfo.setSession(session);
+        loggedInInfo.setLoggedInProvider(providerDao.getProvider(strAuth[0]));
+        loggedInInfo.setLoggedInSecurity(security);
+        loggedInInfo.setLocale(request.getLocale());
+        loggedInInfo.setIp(request.getRemoteAddr());
+        loggedInInfo.setInitiatingCode(request.getRequestURI());
+        return loggedInInfo;
+    }
+
+    /**
+     * Completes session setup after password/PIN authentication and any required MFA have succeeded.
+     */
+    private String completeAuthenticatedLogin(LoginCheckLogin cl, String[] strAuth, String ip,
+                                              boolean isMobileOptimized, String submitType,
+                                              boolean ajaxResponse) throws IOException {
+        HttpSession session = request.getSession(false);
+        if (session != null) {
+            if (request.getParameter("invalidate_session") != null
+                    && request.getParameter("invalidate_session").equals("false")) {
+                // don't invalidate in this case it messes up authenticity of OAUTH
+            } else {
+                session.invalidate();
+            }
+        }
+        session = request.getSession();
+        session.setMaxInactiveInterval(7200);
+
+        if (cl.getSecurity() != null) {
+            this.userSessionManager.registerUserSession(cl.getSecurity().getSecurityNo(), session);
+        }
+
+        logger.debug("Assigned new session for: {} : {} : {}", LogSanitizer.sanitize(strAuth[0]), LogSanitizer.sanitize(strAuth[3]), LogSanitizer.sanitize(strAuth[4]));
+        LogAction.addLog(strAuth[0], LogConst.LOGIN, LogConst.CON_LOGIN, "", ip);
+
+        Properties pvar = CarlosProperties.getInstance();
+
+        String providerNo = strAuth[0] != null ? strAuth[0].trim() : "";
+        session.setAttribute("user", providerNo); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("userfirstname", strAuth[1] != null ? strAuth[1].trim() : ""); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("userlastname", strAuth[2] != null ? strAuth[2].trim() : ""); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("userrole", strAuth[4] != null ? strAuth[4].trim() : ""); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("oscar_context_path", request.getContextPath()); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("expired_days", strAuth[5] != null ? strAuth[5].trim() : ""); // nosemgrep: tainted-session-from-http-request
+        if (isMobileOptimized) {
+            if ("Full".equalsIgnoreCase(submitType)) {
+                session.setAttribute("fullSite", "true"); // nosemgrep: tainted-session-from-http-request
+            } else {
+                session.setAttribute("mobileOptimized", "true"); // nosemgrep: tainted-session-from-http-request
+            }
+        }
+
+        String default_pmm = null;
+        ProviderPreference providerPreference = providerPreferenceDao.find(providerNo);
+
+        if (providerPreference == null) {
+            providerPreference = new ProviderPreference();
+        }
+
+        session.setAttribute(SessionConstants.LOGGED_IN_PROVIDER_PREFERENCE, providerPreference); // nosemgrep: tainted-session-from-http-request
+
+        if (IsPropertiesOn.isCaisiEnable()) {
+            String tklerProviderNo;
+            UserProperty prop = propDao.getProp(providerNo, UserProperty.PROVIDER_FOR_TICKLER_WARNING);
+            if (prop == null) {
+                tklerProviderNo = providerNo;
+            } else {
+                tklerProviderNo = prop.getValue();
+            }
+            session.setAttribute("tklerProviderNo", tklerProviderNo); // nosemgrep: tainted-session-from-http-request
+
+            session.setAttribute("newticklerwarningwindow", providerPreference.getNewTicklerWarningWindow()); // nosemgrep: tainted-session-from-http-request
+            session.setAttribute("default_pmm", providerPreference.getDefaultCaisiPmm()); // nosemgrep: tainted-session-from-http-request
+            session.setAttribute("caisiBillingPreferenceNotDelete", // nosemgrep: tainted-session-from-http-request
+                    String.valueOf(providerPreference.getDefaultDoNotDeleteBilling()));
+
+            default_pmm = providerPreference.getDefaultCaisiPmm();
+            @SuppressWarnings("unchecked")
+            ArrayList<String> newDocArr = (ArrayList<String>) request.getSession().getServletContext()
+                    .getAttribute("CaseMgmtUsers");
+            if ("enabled".equals(providerPreference.getDefaultNewOscarCme())) {
+                newDocArr.add(providerNo);
+                session.setAttribute("CaseMgmtUsers", newDocArr); // nosemgrep: tainted-session-from-http-request
+            }
+        }
+        session.setAttribute("starthour", providerPreference.getStartHour().toString()); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("endhour", providerPreference.getEndHour().toString()); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("everymin", providerPreference.getEveryMin().toString()); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("groupno", providerPreference.getMyGroupNo()); // nosemgrep: tainted-session-from-http-request
+
+        String where = "provider";
+
+        if (where.equals("provider") && default_pmm != null && "enabled".equals(default_pmm)) {
+            where = "caisiPMM";
+        }
+
+        if (where.equals("provider")
+                && CarlosProperties.getInstance().getProperty("useProgramLocation", "false").equals("true")) {
+            where = "programLocation";
+        }
+
+        if (pvar.getProperty("billregion").equals("BC")) {
+            String alertFreq = pvar.getProperty("ALERT_POLL_FREQUENCY");
+            if (alertFreq != null) {
+                Long longFreq = Long.valueOf(alertFreq);
+                String[] alertCodes = CarlosProperties.getInstance().getProperty("CDM_ALERTS").split(",");
+                AlertTimer.getInstance(alertCodes, longFreq.longValue());
+            }
+        }
+
+        String username = (String) session.getAttribute("user");
+        Provider provider = providerManager.getProvider(username);
+        session.setAttribute("provider", provider); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute(SessionConstants.LOGGED_IN_PROVIDER, provider); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute(SessionConstants.LOGGED_IN_SECURITY, cl.getSecurity()); // nosemgrep: tainted-session-from-http-request
+
+        List<Integer> facilityIds = providerDao.getFacilityIds(provider.getProviderNo());
+        if (facilityIds.size() > 1) {
+            String facilityPath = "/select_facility?nextPage=";
+            String newURL = request.getContextPath() + facilityPath + SafeEncode.forUriComponent(where);
+
+            response.sendRedirect(newURL);
+            return NONE;
+        } else if (facilityIds.size() == 1) {
+            Facility facility = facilityDao.find(facilityIds.get(0));
+            request.getSession().setAttribute("currentFacility", facility); // nosemgrep: tainted-session-from-http-request
+            LogAction.addLog(strAuth[0], LogConst.LOGIN, LogConst.CON_LOGIN, "facilityId=" + facilityIds.get(0),
+                    ip);
+        } else {
+            List<Facility> facilities = facilityDao.findAll(true);
+            if (facilities != null && facilities.size() >= 1) {
+                Facility fac = facilities.get(0);
+                int first_id = fac.getId();
+                providerDao.addProviderToFacility(providerNo, first_id);
+                Facility facility = facilityDao.find(first_id);
+                request.getSession().setAttribute("currentFacility", facility); // nosemgrep: tainted-session-from-http-request
+                LogAction.addLog(strAuth[0], LogConst.LOGIN, LogConst.CON_LOGIN, "facilityId=" + first_id, ip);
+            }
+        }
+
+        LoggedInInfo loggedInInfo = LoggedInUserFilter.generateLoggedInInfoFromSession(request);
+        LoggedInInfo.setLoggedInInfoIntoSession(session, loggedInInfo);
+
+        if (UserRoleUtils.hasRole(request, "Patient Intake")) {
+            return "patientIntake";
+        }
+
+        if ("provider".equals(where)) {
+            response.sendRedirect(buildDefaultProviderSchedulePath());
+            return NONE;
+        }
+
         if (request.getParameter("oauth_token") != null) {
             logger.debug("checking oauth_token");
             String proNo = (String) request.getSession().getAttribute("user");
@@ -893,69 +971,6 @@ public final class Login2Action extends ActionSupport {
         }
 
         logger.debug("rendering standard response : {}", where);
-        if ("provider".equals(where)) {
-            response.sendRedirect(buildDefaultProviderSchedulePath());
-            return NONE;
-        }
-
-        return where;
-    }
-
-    /**
-     * Resumes the post-authentication flow after successful MFA validation.
-     *
-     * <p>This method is called after a user has successfully validated their MFA code
-     * (either during MFA registration or during standard MFA login). It completes the
-     * login process by setting up the user's session and determining the appropriate
-     * landing page.
-     *
-     * <p>NOTE: This is currently a simplified stub implementation. A complete implementation
-     * would need to include all the session setup from the main execute() flow:
-     * <ul>
-     *   <li>Provider preference loading and session attribute setting</li>
-     *   <li>Facility assignment and selection logic</li>
-     *   <li>CAISI program management settings (if enabled)</li>
-     *   <li>Start hour, end hour, appointment interval settings</li>
-     *   <li>Alert timer initialization for BC MSP alerts</li>
-     *   <li>LoggedInInfo object creation and session registration</li>
-     *   <li>User role checking for specialized interfaces</li>
-     * </ul>
-     *
-     * @param cl LoginCheckLogin object containing authenticated user security information
-     * @param ip String the client IP address for audit logging
-     * @param isMobileOptimized boolean whether mobile-optimized interface was detected
-     * @param submitType String the submit button type ("full" or null) for desktop/mobile preference
-     * @param ajaxResponse boolean whether to return JSON response instead of Struts forward
-     * @return String Struts2 result name ("provider", "caisiPMM", etc.) or null for AJAX response
-     * @throws IOException if error occurs writing AJAX response to output stream
-     * @see #execute() for complete session setup logic that should be extracted to shared helper
-     */
-    private String resumePostAuthenticationFlow(LoginCheckLogin cl, String ip, boolean isMobileOptimized,
-                                               String submitType, boolean ajaxResponse) throws IOException {
-        HttpSession session = request.getSession();
-
-        // Retrieve provider number from session (set during initial authentication)
-        String providerNo = (String) session.getAttribute("user");
-        String where = "provider";
-
-        // TODO: Extract full session setup logic from execute() into shared helper method
-        // Currently missing: provider preferences, facility assignment, CAISI settings,
-        // scheduling preferences, alert timers, LoggedInInfo creation, role-based routing
-
-        // Handle AJAX response for mobile/API clients
-        if (ajaxResponse) {
-            logger.debug("rendering ajax response");
-            Provider prov = providerDao.getProvider(providerNo);
-            ObjectNode json = objectMapper.createObjectNode();
-            json.put("success", true);
-            // SECURITY: OWASP encode provider name for JavaScript context
-            json.put("providerName", SafeEncode.forJavaScript(prov.getFormattedName()));
-            json.put("providerNo", prov.getProviderNo());
-            response.setContentType("application/json");
-            response.getWriter().write(json.toString());
-            return null;
-        }
-
         return where;
     }
 
@@ -963,9 +978,8 @@ public final class Login2Action extends ActionSupport {
      * Builds the canonical post-login schedule landing path.
      *
      * <p>This sends authenticated users to the provider-control router with
-     * today's day-view parameters. The router is the established browser
-     * endpoint for schedule views and includes the underlying Struts view
-     * action after the provider gate has checked privileges.</p>
+     * today's day-view parameters. Provider-control performs the active
+     * in-page schedule checks before including the day-view JSP.</p>
      *
      * @return internal application path for the default provider schedule view
      */
@@ -1034,7 +1048,8 @@ public final class Login2Action extends ActionSupport {
                 return ResourceBundle.getBundle("oscarResources", Locale.ENGLISH).getString(key);
             } catch (MissingResourceException fallbackException) {
                 logger.warn("Missing default message for key: {}", key);
-                return "Unable to process your request. Please try again.";
+                return "Unable to process your request. Please try again. (key="
+                        + LogSanitizer.sanitize(key) + ")";
             }
         }
     }
@@ -1089,6 +1104,7 @@ public final class Login2Action extends ActionSupport {
             LoginCredentialCache.getInstance().invalidate((String) tokenAttr);
         }
         session.removeAttribute(LOGIN_CREDENTIALS_TOKEN_ATTR);
+        session.removeAttribute(FORCE_PASSWORD_RESET_ERROR_ATTR);
         session.removeAttribute("userName");
         session.removeAttribute("nextPage");
     }
@@ -1179,6 +1195,7 @@ public final class Login2Action extends ActionSupport {
      * <p>The method returns a display-safe error message if validation fails, or an empty
      * string if all validations pass.
      *
+     * @param userName provider login name used only for PHI-safe audit context
      * @param oldEncodedPassword String password hash staged from the successful login
      * @param newPassword String the new password entered by the user
      * @param confirmPassword String the confirmation of the new password
@@ -1186,12 +1203,15 @@ public final class Login2Action extends ActionSupport {
      * @return String empty string if validation passes, or an error message if validation fails
      * @see SecurityManager#matchesPassword for password comparison logic
      */
-    private String errorHandling(String oldEncodedPassword, String newPassword, String confirmPassword,
+    private String errorHandling(String userName, String oldEncodedPassword, String newPassword, String confirmPassword,
                                  String oldPassword) {
 
         // Verify old password matches the password from the staged successful login.
         if (oldPassword == null || oldEncodedPassword == null
                 || !this.securityManager.matchesPassword(oldPassword, oldEncodedPassword)) {
+            logger.info("Forced password reset rejected because old password did not match: user={}",
+                    LogSanitizer.sanitize(userName));
+            LogAction.addLog(userName, "login", "forced_password_reset_failed", "old_password_mismatch");
             return message("provider.providerchangepassword.errorOldPasswordMismatch");
         }
         // Verify new password and confirmation match

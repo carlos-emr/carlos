@@ -79,17 +79,18 @@ public class RootEntryRedirectFilter extends HttpFilter {
     }
 
     static boolean isLoginEntryRequest(String requestUri, String contextPath) {
-        return contextPath != null
-                && !contextPath.isEmpty()
-                && (requestUri.equals(contextPath)
-                    || requestUri.equals(contextPath + "/")
-                    || requestUri.equals(contextPath + "/index"));
+        String normalizedContextPath = contextPath == null ? "" : contextPath;
+        if (normalizedContextPath.isEmpty()) {
+            return "/".equals(requestUri) || "/index".equals(requestUri);
+        }
+        return requestUri.equals(normalizedContextPath)
+                || requestUri.equals(normalizedContextPath + "/")
+                || requestUri.equals(normalizedContextPath + "/index");
     }
 
     static boolean isForcePasswordResetRequest(String requestUri, String contextPath) {
-        return contextPath != null
-                && !contextPath.isEmpty()
-                && requestUri.equals(contextPath + FORCE_PASSWORD_RESET_PATH);
+        String normalizedContextPath = contextPath == null ? "" : contextPath;
+        return requestUri.equals(normalizedContextPath + FORCE_PASSWORD_RESET_PATH);
     }
 
     private static boolean isViewMethod(String method) {
@@ -105,7 +106,7 @@ public class RootEntryRedirectFilter extends HttpFilter {
                 routeName,
                 LogSanitizer.sanitize(request.getMethod()),
                 LogSanitizer.sanitize(requestUri),
-                request.getRemoteAddr());
+                LogSanitizer.sanitize(request.getRemoteAddr()));
         response.setHeader("Allow", "GET, HEAD");
         response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
     }

@@ -93,6 +93,41 @@ class CsrfGuardScriptInjectionFilterUnitTest {
     }
 
     @Test
+    @DisplayName("should pass through unchanged when CSRFGuard is disabled")
+    void shouldPassThroughUnchanged_whenCsrfGuardDisabled() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/provider/providercontrol");
+        request.setContextPath("/carlos");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        String body = "<html><head><title>Provider</title></head><body></body></html>";
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.setContentType("text/html;charset=UTF-8");
+            servletResponse.getWriter().write(body);
+        };
+
+        withDisabledCsrfGuard(() -> filter.doFilter(request, response, chain));
+
+        assertThat(response.getContentAsString()).isEqualTo(body);
+        assertThat(response.getContentAsString()).doesNotContain("/csrfguard");
+    }
+
+    @Test
+    @DisplayName("should skip AJAX request dispatch when request mapping is enabled")
+    void shouldSkipAjaxRequestDispatch_whenRequestMappingEnabled() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/clinical/AjaxEndpoint");
+        request.setContextPath("/carlos");
+        request.setDispatcherType(DispatcherType.REQUEST);
+        request.addHeader("X-Requested-With", "XMLHttpRequest");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FilterChain chain = mock(FilterChain.class);
+
+        filter.doFilter(request, response, chain);
+
+        verify(chain).doFilter(request, response);
+        assertThat(response.getContentAsString()).doesNotContain("/csrfguard");
+    }
+
+    @Test
     @DisplayName("should fail closed when CsrfGuard cannot initialize")
     void shouldFailClosed_whenCsrfGuardCannotInitialize() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/provider/providercontrol");
@@ -288,6 +323,22 @@ class CsrfGuardScriptInjectionFilterUnitTest {
     private void withEnabledCsrfGuard(Executable executable) throws Exception {
         CsrfGuard csrfGuard = mock(CsrfGuard.class);
         when(csrfGuard.isEnabled()).thenReturn(true);
+        try (MockedStatic<CsrfGuard> csrfGuardMock = mockStatic(CsrfGuard.class)) {
+            csrfGuardMock.when(CsrfGuard::getInstance).thenReturn(csrfGuard);
+            try {
+                executable.execute();
+            } catch (Throwable t) {
+                if (t instanceof Exception e) {
+                    throw e;
+                }
+                throw new AssertionError(t);
+            }
+        }
+    }
+
+    private void withDisabledCsrfGuard(Executable executable) throws Exception {
+        CsrfGuard csrfGuard = mock(CsrfGuard.class);
+        when(csrfGuard.isEnabled()).thenReturn(false);
         try (MockedStatic<CsrfGuard> csrfGuardMock = mockStatic(CsrfGuard.class)) {
             csrfGuardMock.when(CsrfGuard::getInstance).thenReturn(csrfGuard);
             try {

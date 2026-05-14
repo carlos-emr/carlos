@@ -38,7 +38,9 @@ completed successfully.
 
 **Injection is skipped when:**
 - Content-Type is not `text/html`
-- The request is AJAX (`X-Requested-With: XMLHttpRequest`)
+- The request is AJAX (`X-Requested-With: XMLHttpRequest`) on `REQUEST` dispatch if that
+  dispatcher mapping is re-enabled; the deployed `FORWARD`-only mapping does not see the
+  top-level AJAX request.
 - CSRFGuard is disabled
 - The response already contains a `/csrfguard` script reference (idempotency)
 - The response used `getOutputStream()` instead of `getWriter()`
@@ -47,6 +49,10 @@ completed successfully.
 **Operational invariant:** CSRF validation still runs on protected Struts POST requests through
 `CarlosCsrfGuardFilter`. The `FORWARD`-only script-injection mapping changes where the client
 script is added, not whether incoming mutating requests are validated.
+
+If `CsrfGuard.getInstance()` fails inside `CsrfGuardScriptInjectionFilter`, the filter fails
+closed with HTTP 503. Serving HTML without the script tag creates pages whose POSTs fail later
+with harder-to-debug CSRF errors, so pass-through is not an acceptable degraded mode.
 
 ### 2. `CarlosCsrfGuardFilter` (mapped to `/*`)
 

@@ -41,6 +41,7 @@ import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.sec.AuthenticationRejectionHandler;
 import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.entities.Billingmaster;
@@ -53,6 +54,7 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
@@ -70,6 +72,7 @@ public class BillingSaveBilling2Action extends ActionSupport {
 
     private BillingmasterDAO billingmasterDAO = SpringUtils.getBean(BillingmasterDAO.class);
 
+    @Override
     public String execute() throws IOException, ServletException {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
@@ -80,18 +83,32 @@ public class BillingSaveBilling2Action extends ActionSupport {
             return NONE;
         }
 
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-
-        if (request.getSession().getAttribute("user") == null) {
-            return "Logout";
+        HttpSession session = request.getSession(false);
+        if (session == null || session.getAttribute("user") == null) {
+            rejectUnauthenticatedBillingSave(request, response);
+            return NONE;
         }
 
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            rejectUnauthenticatedBillingSave(request, response);
+            return NONE;
+        }
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
-        BillingSessionBean bean = (BillingSessionBean) request.getSession().getAttribute("billingSessionBean");
+        Object billingSessionAttr = session.getAttribute("billingSessionBean");
+        if (!(billingSessionAttr instanceof BillingSessionBean)) {
+            log.warn("Rejected BC billing save because billingSessionBean is missing: method={}, uri={}, remote={}",
+                    LogSanitizer.sanitize(request.getMethod()),
+                    LogSanitizer.sanitize(request.getRequestURI()),
+                    LogSanitizer.sanitize(request.getRemoteAddr()));
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Billing session expired");
+            return NONE;
+        }
+        BillingSessionBean bean = (BillingSessionBean) billingSessionAttr;
 
         bean.setCreator(loggedInInfo.getLoggedInProviderNo());
 
@@ -111,20 +128,20 @@ public class BillingSaveBilling2Action extends ActionSupport {
         ////////////
         if (bean.getApptNo() != null && !bean.getApptNo().trim().equals("0") && !bean.getApptNo().trim().equals("")) {
             String apptStatus = "";
-            Appointment result = appointmentDao.find(Integer.parseInt(bean.getApptNo()));
-            if (result == null) {
-                log.error("LLLOOK: APPT ERROR - APPT (" + bean.getApptNo() + ") NOT FOUND - FOR demo:" + bean.getPatientName() + " date " + curDate);
+            Appointment appt = appointmentDao.find(Integer.parseInt(bean.getApptNo()));
+            if (appt == null) {
+                log.warn("BC billing save could not update appointment because apptNo={} was not found",
+                        LogSanitizer.sanitize(bean.getApptNo()));
             } else {
-                apptStatus = result.getStatus();
+                apptStatus = appt.getStatus();
             }
             String billStatus = as.billStatus(apptStatus);
             ///Update Appointment information
             log.debug("appointment_no: " + bean.getApptNo());
             log.debug("BillStatus:" + billStatus);
-            Appointment appt = appointmentDao.find(Integer.parseInt(bean.getApptNo()));
-            appointmentArchiveDao.archiveAppointment(appt);
 
             if (appt != null) {
+                appointmentArchiveDao.archiveAppointment(appt);
                 appt.setStatus(billStatus);
                 appt.setLastUpdateUser(bean.getCreator());
                 appointmentDao.merge(appt);
@@ -215,6 +232,24 @@ public class BillingSaveBilling2Action extends ActionSupport {
         }
 
         return SUCCESS;
+    }
+
+    private void rejectUnauthenticatedBillingSave(HttpServletRequest request, HttpServletResponse response)
+            throws IOException {
+        try {
+            AuthenticationRejectionHandler.rejectUnauthenticatedRequest(request, response);
+        } catch (IOException e) {
+            log.warn("Unable to reject unauthenticated BC billing save request: method={}, uri={}, remote={}",
+                    LogSanitizer.sanitize(request.getMethod()),
+                    LogSanitizer.sanitize(request.getRequestURI()),
+                    LogSanitizer.sanitize(request.getRemoteAddr()),
+                    e);
+            if (!response.isCommitted()) {
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            } else {
+                log.error("BC billing save rejection failed after response commit", e);
+            }
+        }
     }
 
     static String receiptRedirectUrl(String contextPath, Iterable<String> billingIds) {

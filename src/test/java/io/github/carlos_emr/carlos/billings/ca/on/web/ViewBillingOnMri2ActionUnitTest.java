@@ -168,6 +168,26 @@ class ViewBillingOnMri2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldReturnNone_whenUnauthenticatedRejectionFailsAfterCommit() throws Exception {
+        loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                .thenReturn(null);
+        CommittedRedirectFailingResponse failingResponse = new CommittedRedirectFailingResponse();
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(failingResponse);
+
+        try (LogCapture capture = LogCapture.forLogger(ViewBillingOnMri2Action.class)) {
+            assertThat(newAction().execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(failingResponse.getStatus()).isEqualTo(200);
+
+            assertThat(capture.events()).anySatisfy(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.ERROR);
+                assertThat(event.getMessage().getFormattedMessage())
+                        .contains("after response commit");
+            });
+        }
+        verify(mockSecurityInfoManager, never()).hasPrivilege(any(), any(), any(), any());
+    }
+
+    @Test
     void shouldThrowSecurityException_whenLacksBillingReadPrivilege() {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("r"), isNull()))
                 .thenReturn(false);
@@ -201,6 +221,14 @@ class ViewBillingOnMri2ActionUnitTest extends CarlosUnitTestBase {
         @Override
         public void sendRedirect(String url) throws IOException {
             throw new IOException("redirect failed");
+        }
+    }
+
+    private static final class CommittedRedirectFailingResponse extends MockHttpServletResponse {
+        @Override
+        public void sendRedirect(String url) throws IOException {
+            setCommitted(true);
+            throw new IOException("redirect failed after commit");
         }
     }
 }

@@ -17,16 +17,17 @@
  *
  * Optional environment:
  *   BASE_URL=http://127.0.0.1:8080/carlos
- *   CHROME_PATH=/root/.cache/ms-playwright/chromium-1224/chrome-linux64/chrome
+ *   CHROME_PATH=/path/to/chrome-or-chromium
  *   TEST_USER=carlosdoc TEST_PASSWORD=carlos2026 TEST_PIN=2026
+ *   TEST_PASSWORD_HASH='<known hash for TEST_PASSWORD>'
  */
 
-const { chromium, request } = require('../node_modules/playwright');
+const { chromium, request } = require('playwright');
 const { execFileSync } = require('child_process');
 
 const baseUrl = process.env.BASE_URL || 'http://127.0.0.1:8080/carlos';
 const appPath = new URL(baseUrl).pathname.replace(/\/$/, '') || '';
-const chromePath = process.env.CHROME_PATH || '/root/.cache/ms-playwright/chromium-1224/chrome-linux64/chrome';
+const chromePath = process.env.CHROME_PATH || '';
 const testUser = process.env.TEST_USER || 'carlosdoc';
 const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
 const testPin = process.env.TEST_PIN || '2026';
@@ -35,9 +36,7 @@ const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || 'password';
 const mysqlDatabase = process.env.MYSQL_DATABASE || 'oscar';
 
-// Bcrypt hash for TEST_PASSWORD=carlos2026 in the dev fixture.
-const baselineHash = process.env.TEST_PASSWORD_HASH
-  || '{bcrypt}$2a$10$RcoNeqhcLzkfBzAoTQ5C5.nnsOs15iOasQCp0/smjDAuTtkMQ.Uju';
+let baselineHash = process.env.TEST_PASSWORD_HASH || null;
 
 const original = {};
 const results = [];
@@ -175,16 +174,20 @@ async function expectSchedulePage(page, label) {
 
 (async () => {
   Object.assign(original, securityRow());
-  console.log(
-    `Original ${testUser} row: forcePasswordReset=${original.forcePasswordReset},`
-      + ` passwordUpdateDate=${original.passwordUpdateDate}`
-  );
+  if (!baselineHash) {
+    throw new Error('TEST_PASSWORD_HASH is required so the script can seed a known-good password before mutating the database.');
+  }
+  console.log(`Captured original ${testUser} security row for restoration`);
 
-  const browser = await chromium.launch({
-    executablePath: chromePath,
+  const launchOptions = {
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
-  });
+  };
+  if (chromePath) {
+    launchOptions.executablePath = chromePath;
+  }
+
+  const browser = await chromium.launch(launchOptions);
 
   try {
     await record('app root renders a nonblank login page', async () => {
@@ -416,11 +419,7 @@ async function expectSchedulePage(page, label) {
   } finally {
     await browser.close().catch(() => {});
     restoreOriginal();
-    const after = securityRow();
-    console.log(
-      `Restored ${testUser} row: forcePasswordReset=${after.forcePasswordReset},`
-        + ` passwordUpdateDate=${after.passwordUpdateDate}`
-    );
+    console.log(`Restored ${testUser} security row`);
     console.log(`Completed ${results.length} Playwright checks, ${failures.length} failures`);
     if (failures.length) {
       for (const failure of failures) {

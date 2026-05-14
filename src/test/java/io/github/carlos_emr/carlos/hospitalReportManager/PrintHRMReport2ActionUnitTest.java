@@ -167,6 +167,10 @@ class PrintHRMReport2ActionUnitTest extends CarlosUnitTestBase {
 
             assertThat(result).isEqualTo(ActionSupport.NONE);
             assertThat(response.getContentType()).isEqualTo("application/pdf");
+            assertThat(response.getHeader("Content-Disposition"))
+                    .startsWith("attachment; filename=\"HRMReport_")
+                    .doesNotContain("Stone")
+                    .doesNotContain("Pat");
             assertThat(response.getContentAsByteArray()).startsWith(PDF_BYTES);
         }
     }
@@ -181,8 +185,20 @@ class PrintHRMReport2ActionUnitTest extends CarlosUnitTestBase {
         String result = new PrintHRMReport2Action().execute();
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
-        verify(failingResponse).reset();
+        verify(failingResponse).resetBuffer();
+        verify(failingResponse).setContentType("text/html;charset=UTF-8");
         verify(failingResponse).sendError(500, "Unable to generate HRM PDF");
+    }
+
+    @Test
+    void shouldRejectRequest_whenHrmReportIdIsInvalid() throws Exception {
+        request.setParameter("hrmReportId", "101", "../patient-name");
+
+        String result = new PrintHRMReport2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(response.getErrorMessage()).isEqualTo("Invalid HRM report id");
     }
 
     @Test

@@ -170,24 +170,26 @@ public class LogoutBroadcastFilter implements Filter {
             return;
         }
 
-        HttpSession session = httpRequest.getSession(false);
-        if (session == null || session.getAttribute("user") == null) {
-            chain.doFilter(request, response);
-            return;
-        }
-
         DelegatingServletResponse delegatingResponse = new DelegatingServletResponse((HttpServletResponse) response);
         chain.doFilter(request, delegatingResponse);
+
+        HttpSession session = httpRequest.getSession(false);
+        if (session == null || session.getAttribute("user") == null) {
+            delegatingResponse.applyDeferredContentLength();
+            return;
+        }
 
         // Only inject for HTML responses
         String contentType = delegatingResponse.getContentType();
         if (contentType == null || !contentType.toLowerCase().startsWith("text/html")) {
+            delegatingResponse.applyDeferredContentLength();
             return;
         }
 
         // Don't inject for AJAX requests
         String requestedWith = httpRequest.getHeader(HTTP_HEADER_NAME_AJAX_REQUESTED_WITH);
         if (requestedWith != null && HTTP_HEADER_VALUE_AJAX_REQUESTED_WITH.equalsIgnoreCase(requestedWith)) {
+            delegatingResponse.applyDeferredContentLength();
             return;
         }
 
@@ -195,9 +197,11 @@ public class LogoutBroadcastFilter implements Filter {
             appendScript(delegatingResponse, httpRequest.getContextPath(), httpRequest.getLocale());
         } catch (IOException e) {
             logger.warn("Skipping logout broadcast script injection because the script could not be written.", e);
+            delegatingResponse.applyDeferredContentLength();
             return;
         } catch (IllegalStateException e) {
             logger.warn("Skipping logout broadcast script injection because the response writer was unavailable and the output stream write failed.", e);
+            delegatingResponse.applyDeferredContentLength();
             return;
         }
     }
@@ -300,7 +304,7 @@ public class LogoutBroadcastFilter implements Filter {
         try {
             writeScriptToWriter(delegatingResponse, script);
         } catch (IllegalStateException e) {
-            logger.debug("Response writer unavailable during logout script injection; retrying with output stream.", e);
+            logger.info("Response writer unavailable during logout script injection; retrying with output stream.", e);
             writeScriptToOutputStream(delegatingResponse, script);
         }
     }
@@ -316,6 +320,8 @@ public class LogoutBroadcastFilter implements Filter {
         try {
             return ResourceBundle.getBundle("oscarResources", locale).getString("logoutBroadcast.loggedOut");
         } catch (MissingResourceException e) {
+            logger.warn("Missing localized logout broadcast message for locale={}; using built-in fallback",
+                    locale, e);
             return "Logged out";
         }
     }
@@ -480,6 +486,10 @@ public class LogoutBroadcastFilter implements Filter {
 
         private boolean responseWriterObtained;
         private boolean responseOutputStreamObtained;
+        private boolean contentLengthDeferred;
+        private int deferredContentLength;
+        private long deferredContentLengthLong;
+        private boolean deferredContentLengthIsLong;
         private DelegatingWriter writer;
 
         /**
@@ -574,6 +584,80 @@ public class LogoutBroadcastFilter implements Filter {
             // to work correctly. The 1MB buffer size ensures the response body is still
             // available for script appending in the common case.
             super.flushBuffer();
+        }
+
+        @Override
+        public void setContentLength(int len) {
+            contentLengthDeferred = true;
+            deferredContentLength = len;
+            deferredContentLengthIsLong = false;
+        }
+
+        @Override
+        public void setContentLengthLong(long len) {
+            contentLengthDeferred = true;
+            deferredContentLengthLong = len;
+            deferredContentLengthIsLong = true;
+        }
+
+        @Override
+        public void setHeader(String name, String value) {
+            if (isContentLengthHeader(name)) {
+                deferContentLengthHeader(value);
+                return;
+            }
+            super.setHeader(name, value);
+        }
+
+        @Override
+        public void addHeader(String name, String value) {
+            if (isContentLengthHeader(name)) {
+                deferContentLengthHeader(value);
+                return;
+            }
+            super.addHeader(name, value);
+        }
+
+        @Override
+        public void setIntHeader(String name, int value) {
+            if (isContentLengthHeader(name)) {
+                setContentLength(value);
+                return;
+            }
+            super.setIntHeader(name, value);
+        }
+
+        @Override
+        public void addIntHeader(String name, int value) {
+            if (isContentLengthHeader(name)) {
+                setContentLength(value);
+                return;
+            }
+            super.addIntHeader(name, value);
+        }
+
+        void applyDeferredContentLength() {
+            if (!contentLengthDeferred || isCommitted()) {
+                return;
+            }
+            if (deferredContentLengthIsLong) {
+                super.setContentLengthLong(deferredContentLengthLong);
+            } else {
+                super.setContentLength(deferredContentLength);
+            }
+        }
+
+        private void deferContentLengthHeader(String value) {
+            try {
+                setContentLengthLong(Long.parseLong(value));
+            } catch (NumberFormatException e) {
+                logger.debug("Ignoring malformed Content-Length header value from downstream response: {}",
+                        value, e);
+            }
+        }
+
+        private boolean isContentLengthHeader(String name) {
+            return "Content-Length".equalsIgnoreCase(name);
         }
     }
 }

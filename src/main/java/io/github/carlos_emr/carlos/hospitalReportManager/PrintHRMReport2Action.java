@@ -35,9 +35,9 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
@@ -47,8 +47,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 
 import org.apache.struts2.ActionSupport;
@@ -68,8 +68,6 @@ public class PrintHRMReport2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_hrm)");
         }
 
-        int demographicNo = 0;
-        Demographic demographic = null;
         DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
         HRMDocumentToDemographicDao hrmDocumentToDemographicDao = SpringUtils.getBean(HRMDocumentToDemographicDao.class);
 
@@ -79,44 +77,41 @@ public class PrintHRMReport2Action extends ActionSupport {
         List<Integer> hrmIds = new ArrayList<>();
 
         try {
-            if (request.getParameterValues("hrmReportId") != null) {
-                for (int i = 0; i < hrmReportIds.length; i++) {
+            if (hrmReportIds != null) {
+                for (String hrmReportId : hrmReportIds) {
                     try {
-                        hrmIds.add(Integer.valueOf(hrmReportIds[i]));
+                        hrmIds.add(Integer.valueOf(hrmReportId));
                     } catch (NumberFormatException e) {
-                        logger.error("Could not parse " + hrmReportIds[i] + " to an integer.");
+                        logger.warn("Rejected HRM PDF request with invalid hrmReportId={}",
+                                LogSanitizer.sanitize(hrmReportId));
+                        response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid HRM report id");
+                        return NONE;
                     }
                 }
             }
 
-            String fileName = "";
             response.setContentType("application/pdf");  //octet-stream
+            response.setHeader("Content-Disposition", "attachment; filename=\"HRMReport_"
+                    + System.currentTimeMillis() + ".pdf\"");
+            File docDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
 
             for (Integer hrmId : hrmIds) {
+                Demographic demographic = null;
                 List<HRMDocumentToDemographic> demographicHrms = hrmDocumentToDemographicDao.findByHrmDocumentId(hrmId);
                 if (demographicHrms != null && !demographicHrms.isEmpty() && demographicHrms.get(0).getDemographicNo() != null) {
-                    demographicNo = demographicHrms.get(0).getDemographicNo();
+                    int demographicNo = demographicHrms.get(0).getDemographicNo();
                     demographic = demographicDao.getDemographicById(demographicNo);
                 }
 
-                String tempFileName;
-                if (demographic != null) {
-                    tempFileName = demographic.getLastName() + "_" + demographic.getFirstName() + "_" + hrmId + "_HRMReport.pdf";
-                    fileName = demographic.getLastName() + "_" + demographic.getFirstName() + "_HRMReport" + "_" + (new Date().getTime()) + ".pdf";
-                } else {
-                    tempFileName = "HRMReport.pdf";
-                    fileName = "_HRMReport" + "_" + (new Date().getTime()) + ".pdf";
+                if (demographic == null) {
+                    logger.info("HRM PDF request has no demographic mapping for hrmId={}", hrmId);
                 }
-                response.setHeader("Content-Disposition", "attachment; filename=\"" + fileName + "\"");
 
-                // Validate the filename component against DOCUMENT_DIR to prevent path traversal
-                // (demographic names from DB could contain path separators)
-                File docDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
-                File validatedTemp = PathValidationUtils.validatePath(tempFileName, docDir);
-                pdfDocs.add(validatedTemp.getPath());
-                tempFiles.add(new TempPdfFile(validatedTemp, hrmId));
+                File tempFile = Files.createTempFile(docDir.toPath(), "hrm-report-" + hrmId + "-", ".pdf").toFile();
+                pdfDocs.add(tempFile.getPath());
+                tempFiles.add(new TempPdfFile(tempFile, hrmId));
 
-                try (FileOutputStream osTemp = new FileOutputStream(validatedTemp)) {
+                try (FileOutputStream osTemp = new FileOutputStream(tempFile)) {
                     HRMPDFCreator hrmpdfCreator = new HRMPDFCreator(osTemp, hrmId, loggedInInfo);
                     hrmpdfCreator.printPdf();
                     osTemp.flush(); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- binary PDF temp stream
@@ -124,11 +119,15 @@ public class PrintHRMReport2Action extends ActionSupport {
             }
             ConcatPDF.concat(pdfDocs, response.getOutputStream());
 
+        } catch (SecurityException e) {
+            throw e;
         } catch (IOException | RuntimeException e) {
             logger.error("Could not generate or stream HRM PDF response", e);
             if (!response.isCommitted()) {
                 try {
-                    response.reset();
+                    response.resetBuffer();
+                    response.setContentType("text/html;charset=UTF-8");
+                    response.setHeader("Content-Disposition", "inline");
                     response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unable to generate HRM PDF");
                 } catch (IOException sendErrorException) {
                     logger.error("Could not send HRM PDF error response", sendErrorException);

@@ -23,7 +23,8 @@
     "react-dom": "^18.0.0"
   },
   "devDependencies": {
-    "@docusaurus/module-type-aliases": "^3.9.2"
+    "@docusaurus/module-type-aliases": "^3.9.2",
+    "playwright": "^1.60.0"
   },
   "browserslist": {
     "production": [

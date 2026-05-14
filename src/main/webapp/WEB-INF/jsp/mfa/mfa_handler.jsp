@@ -28,8 +28,10 @@
 --%>
 
 <%
-    //Make sure user has logged in first and username is in the session
-    if (session.getAttribute("userName") == null) {
+    // The MFA page is shown before a user is fully authenticated. Require the
+    // pending-MFA marker instead of the normal "user" session attribute, which
+    // LoginFilter treats as an authenticated session.
+    if (session.getAttribute("pendingMfaAuthentication") == null) {
         response.sendRedirect(request.getContextPath() + "/logoutPage");
     }
 %>

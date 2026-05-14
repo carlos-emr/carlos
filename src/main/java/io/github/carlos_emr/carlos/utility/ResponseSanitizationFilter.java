@@ -345,10 +345,8 @@ public class ResponseSanitizationFilter implements Filter {
         response.setStatus(status);
         response.setContentType("text/html;charset=UTF-8");
         String body = buildSanitizedErrorPage(status, correlationId);
-        // Content-Length is intentionally not set — the container handles chunked encoding.
-        // Setting it risks byte-count mismatches if the response charset is not UTF-8,
-        // consistent with CsrfGuardScriptInjectionFilter which avoids setContentLength
-        // for writer-based responses for the same reason.
+        byte[] bodyBytes = body.getBytes(StandardCharsets.UTF_8);
+        response.setContentLength(bodyBytes.length);
         try {
             PrintWriter writer = response.getWriter();
             writer.write(body);
@@ -358,7 +356,6 @@ public class ResponseSanitizationFilter implements Filter {
             // Fall back to byte stream so the sanitized error page still reaches the client.
             LOGGER.debug("sendSanitizedError: getWriter() failed (stream mode active)"
                     + " [correlationId={}]: {}", correlationId, ex.getMessage());
-            byte[] bodyBytes = body.getBytes(StandardCharsets.UTF_8);
             response.getOutputStream().write(bodyBytes);
             response.getOutputStream().flush();
         }
@@ -750,13 +747,18 @@ public class ResponseSanitizationFilter implements Filter {
             }
             int status = realResponse.getStatus();
             String capturedPrefix = buffer.toString();
-            if (status >= 400
-                    && (containsStackTrace(capturedPrefix) || containsStackTrace(pendingWrite))) {
+            if (status >= 400) {
                 String correlationId = generateCorrelationId();
                 String sanitizedExcerpt = LogSanitizer.sanitize(capturedPrefix + pendingWrite, 200);
-                LOGGER.error("Stack trace detected before large error response passthrough "
-                        + "[status={} correlationId={} excerpt={}]",
-                        status, correlationId, sanitizedExcerpt);
+                if (containsStackTrace(capturedPrefix) || containsStackTrace(pendingWrite)) {
+                    LOGGER.error("Stack trace detected before large error response reached capture limit "
+                                    + "[status={} correlationId={} excerpt={}]",
+                            status, correlationId, sanitizedExcerpt);
+                } else {
+                    LOGGER.warn("Large error response reached capture limit and was sanitized defensively "
+                                    + "[status={} correlationId={} excerpt={}]",
+                            status, correlationId, sanitizedExcerpt);
+                }
                 sendSanitizedError(realResponse, status, correlationId);
                 buffer.reset();
                 limitExceeded = true;

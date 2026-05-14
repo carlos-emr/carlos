@@ -89,10 +89,11 @@ import static org.mockito.Mockito.when;
  * </ol>
  *
  * <p><b>Adding a new mutator 2Action.</b> The {@link #discoveryCandidatesMustBeRegistered()}
- * test scans {@code src/main/java} for any {@code *2Action.java} containing
- * both {@code SC_METHOD_NOT_ALLOWED} and an {@code equalsIgnoreCase("POST")}
- * check and fails the build if the class is not listed here. New mutators
- * must be registered in one of:
+ * test scans {@code src/main/java} for any {@code *2Action.java} in an audited
+ * slice, or explicitly registered legacy class, containing both
+ * {@code SC_METHOD_NOT_ALLOWED} and an {@code equalsIgnoreCase("POST")} check
+ * and fails the build if the class is not listed here. New mutators must be
+ * registered in one of:
  *
  * <ul>
  *   <li>{@link #unconditionalMutators()} — actions that reject GET on every
@@ -220,16 +221,19 @@ class MutatorActionGetRejectionContractTest {
     );
 
     /**
-     * Package prefixes for the slices currently in scope for this aggregated
-     * contract test, per the acceptance criteria of the originating issue.
+     * Package prefixes for fully audited slices currently in scope for this
+     * aggregated contract test, per the acceptance criteria of the originating
+     * issue.
      *
-     * <p>Classes outside these prefixes are filtered out by the discovery
-     * scan — they are not (yet) covered by this contract. When a new slice
-     * migration lands, add its package prefix here and register each of its
-     * new {@code *2Action} classes in the appropriate list above.
+     * <p>Classes outside these prefixes are filtered out by the discovery scan
+     * unless they are listed in {@link #IN_SCOPE_EXPLICIT_CLASSES}. When a new
+     * slice migration lands, add its package prefix here only after the slice's
+     * existing guarded actions have been audited and classified. For legacy-heavy
+     * slices with a single migrated mutator, add the specific class to
+     * {@link #IN_SCOPE_EXPLICIT_CLASSES} instead.
      *
-     * <p>Candidate classes elsewhere in the codebase (admin, billing,
-     * billings, dxresearch, prescript, prevention, providers, lab, etc.)
+     * <p>Candidate classes elsewhere in the codebase (admin, billings,
+     * dxresearch, prescript, prevention, providers, lab, etc.)
      * typically have their own per-class unit tests for the POST-only
      * contract; they are expected to be folded into this aggregated test in
      * follow-up waves.
@@ -245,6 +249,17 @@ class MutatorActionGetRejectionContractTest {
         "io.github.carlos_emr.carlos.signature.",
         "io.github.carlos_emr.carlos.tickler.",
         "io.github.carlos_emr.carlos.waitinglist."
+    );
+
+    /**
+     * Individual migrated actions from legacy-heavy slices that are covered by
+     * this contract before the entire slice is ready to move under
+     * {@link #IN_SCOPE_PACKAGE_PREFIXES}. Keep this list short and deliberate:
+     * adding a class here means it is registered in one of the contract
+     * manifests above and participates in discovery drift checks.
+     */
+    private static final Set<String> IN_SCOPE_EXPLICIT_CLASSES = Set.of(
+        "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSaveBilling2Action"
     );
 
     @ParameterizedTest(name = "{0} rejects GET and HEAD without side-effects")
@@ -459,6 +474,9 @@ class MutatorActionGetRejectionContractTest {
     }
 
     private static boolean isInScope(String fullyQualifiedClassName) {
+        if (IN_SCOPE_EXPLICIT_CLASSES.contains(fullyQualifiedClassName)) {
+            return true;
+        }
         for (String prefix : IN_SCOPE_PACKAGE_PREFIXES) {
             if (fullyQualifiedClassName.startsWith(prefix)) {
                 return true;

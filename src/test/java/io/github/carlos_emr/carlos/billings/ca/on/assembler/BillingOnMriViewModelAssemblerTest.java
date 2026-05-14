@@ -150,18 +150,34 @@ class BillingOnMriViewModelAssemblerTest {
     }
 
     @Test
-    @DisplayName("should warn and coerce bill center when code is null")
-    void shouldWarnAndCoerceBillCenter_whenCodeIsNull() {
+    @DisplayName("should warn and exclude bill center when code is null")
+    void shouldWarnAndExcludeBillCenter_whenCodeIsNull() {
         Provider provider = provider("777", "Missing", "Center", "OHIP777");
         when(providerDao.getBillableProviders()).thenReturn(List.of(provider));
         when(providerBillCenterDao.find("777")).thenReturn(billCenter("777", null));
 
         BillingOnMriViewModel model = assembler().assemble(requestForYear("2026"), loggedInInfo);
 
-        assertThat(model.getProviderBillCenterMap()).containsEntry("777", "");
+        assertThat(model.getProviderBillCenterMap()).doesNotContainKey("777");
         assertThat(logCapture.messages()).anySatisfy(message -> {
-            assertThat(message).contains("no bill-center code");
+            assertThat(message).contains("missing bill-center code");
             assertThat(message).contains("777");
+        });
+    }
+
+    @Test
+    @DisplayName("should drop MRI row when disk id is malformed")
+    void shouldDropMriRow_whenDiskIdIsMalformed() {
+        DiskFilenameRow row = new DiskFilenameRow("11", "file.html", "OHIP100", "100", "claim", "U", "12.00");
+        when(reviewLoader.getMRIList(anyString(), anyString(), eq("U")))
+                .thenReturn(List.of(disk("not-a-number", "2026-02-03 04:05:06", "2026-02-03 04:05:06", row)));
+
+        BillingOnMriViewModel model = assembler().assemble(requestForYear("2026"), loggedInInfo);
+
+        assertThat(model.getMriRows()).isEmpty();
+        assertThat(logCapture.messages()).anySatisfy(message -> {
+            assertThat(message).contains("dropping MRI row with invalid disk id");
+            assertThat(message).contains("not-a-number");
         });
     }
 

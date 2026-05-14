@@ -22,6 +22,9 @@
 package io.github.carlos_emr.carlos.utility;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
+
+import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -445,6 +448,95 @@ class ResponseSanitizationFilterUnitTest {
             assertThat(sanitized).doesNotContain("IllegalStateException");
             assertThat(sanitized).doesNotContain("io.github.carlos_emr");
             assertThat(sanitized).contains("Reference ID:");
+            assertThat(response.getHeader("Content-Length"))
+                    .isEqualTo(String.valueOf(response.getContentAsByteArray().length));
+        }
+
+        @Test
+        @DisplayName("should sanitize oversized error response even without stack trace prefix")
+        void shouldSanitizeOversizedErrorResponse_evenWithoutStackTracePrefix() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/error.jsp");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            String largeErrorBody = "<html><body>"
+                    + "A".repeat(ResponseSanitizationFilter.MAX_CAPTURE_CHARS + 1)
+                    + "java.lang.IllegalStateException: leaked later\n"
+                    + "\tat io.github.carlos_emr.carlos.ErrorPage.render(ErrorPage.java:42)"
+                    + "</body></html>";
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(500);
+                httpRes.setContentType("text/html");
+                res.getWriter().write(largeErrorBody);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getStatus()).isEqualTo(500);
+            String sanitized = response.getContentAsString();
+            assertThat(sanitized).contains("Reference ID:");
+            assertThat(sanitized).doesNotContain("leaked later");
+            assertThat(sanitized).doesNotContain("io.github.carlos_emr");
+        }
+
+        @Test
+        @DisplayName("should log discarded bytes after oversized error response is sanitized")
+        void shouldLogDiscardedBytes_afterOversizedErrorResponseSanitized() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/error.jsp");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            String stackTraceBody = "java.lang.IllegalStateException: failed\n"
+                    + "\tat io.github.carlos_emr.carlos.ErrorPage.render(ErrorPage.java:42)\n"
+                    + "A".repeat(ResponseSanitizationFilter.MAX_CAPTURE_CHARS + 1);
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(500);
+                httpRes.setContentType("text/html");
+                res.getWriter().write(stackTraceBody);
+                res.getWriter().write("tail");
+                res.getWriter().flush();
+            };
+
+            try (LogCapture capture = LogCapture.forLogger(ResponseSanitizationFilter.class)) {
+                filter.doFilter(request, response, chain);
+
+                assertThat(capture.events()).anySatisfy(event -> {
+                    assertThat(event.getLevel()).isEqualTo(Level.DEBUG);
+                    assertThat(event.getMessage().getFormattedMessage())
+                            .contains("discarded")
+                            .contains("bytes after sanitized large-error response");
+                });
+            }
+        }
+
+        @Test
+        @DisplayName("should warn when sanitized error cannot be sent after commit")
+        void shouldWarn_whenSanitizedErrorCannotBeSentAfterCommit() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/error.jsp");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            response.setStatus(500);
+            response.setCommitted(true);
+            String stackTraceBody = "java.lang.IllegalStateException: failed\n"
+                    + "\tat io.github.carlos_emr.carlos.ErrorPage.render(ErrorPage.java:42)\n"
+                    + "A".repeat(ResponseSanitizationFilter.MAX_CAPTURE_CHARS + 1);
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setContentType("text/html");
+                res.getWriter().write(stackTraceBody);
+            };
+
+            try (LogCapture capture = LogCapture.forLogger(ResponseSanitizationFilter.class)) {
+                filter.doFilter(request, response, chain);
+
+                assertThat(capture.events()).anySatisfy(event -> {
+                    assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                    assertThat(event.getMessage().getFormattedMessage())
+                            .contains("Cannot send sanitized error")
+                            .contains("status=500")
+                            .contains("correlationId=");
+                });
+            }
         }
     }
 

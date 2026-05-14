@@ -184,16 +184,17 @@ class RootEntryRedirectFilterUnitTest {
     }
 
     @Test
-    @DisplayName("should pass through server root when app is not deployed at root")
-    void shouldPassThroughServerRoot_whenAppIsNotDeployedAtRoot() throws Exception {
+    @DisplayName("should forward server root when app is deployed at root")
+    void shouldForwardServerRoot_whenAppIsDeployedAtRoot() throws Exception {
         when(request.getContextPath()).thenReturn("");
         when(request.getRequestURI()).thenReturn("/");
+        when(request.getMethod()).thenReturn("GET");
+        when(request.getRequestDispatcher("/WEB-INF/jsp/login/index.jsp")).thenReturn(dispatcher);
 
         filter.doFilter(request, response, chain);
 
-        verify(chain).doFilter(request, response);
-        verify(response, never()).sendRedirect(anyString());
-        verify(dispatcher, never()).forward(request, response);
+        verify(dispatcher).forward(request, response);
+        verify(chain, never()).doFilter(request, response);
     }
 
     @Test

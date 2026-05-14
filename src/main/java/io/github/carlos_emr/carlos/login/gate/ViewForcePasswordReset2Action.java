@@ -50,7 +50,7 @@ public final class ViewForcePasswordReset2Action extends BaseLoginPageView2Actio
             LOGGER.info("Rejected /forcepasswordreset: unsupported method={}, uri={}, remote={}",
                     LogSanitizer.sanitize(method),
                     LogSanitizer.sanitize(request.getRequestURI()),
-                    request.getRemoteAddr());
+                    LogSanitizer.sanitize(request.getRemoteAddr()));
             response.setHeader("Allow", "GET, HEAD");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
@@ -58,14 +58,16 @@ public final class ViewForcePasswordReset2Action extends BaseLoginPageView2Actio
 
         HttpSession session = request.getSession(false);
         if (session == null) {
-            LOGGER.info("Rejected /forcepasswordreset: missing session, remote={}", request.getRemoteAddr());
+            LOGGER.info("Rejected /forcepasswordreset: missing session, remote={}",
+                    LogSanitizer.sanitize(request.getRemoteAddr()));
             return redirectToExpiredSession(request);
         }
         Object tokenAttr = session.getAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR);
         if (!(tokenAttr instanceof String) || !Login2Action.hasValidLoginCredentialsToken(request)) {
             session.removeAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR);
+            session.removeAttribute(Login2Action.FORCE_PASSWORD_RESET_ERROR_ATTR);
             LOGGER.info("Rejected /forcepasswordreset: missing or stale credential token, remote={}",
-                    request.getRemoteAddr());
+                    LogSanitizer.sanitize(request.getRemoteAddr()));
             return redirectToExpiredSession(request);
         }
 
@@ -92,7 +94,17 @@ public final class ViewForcePasswordReset2Action extends BaseLoginPageView2Actio
         HttpServletResponse response = ServletActionContext.getResponse();
         String redirectUrl = Login2Action.loginFailedRedirectUrl(request,
                 Login2Action.message(request, "provider.providerchangepassword.errorSessionExpired"));
-        response.sendRedirect(redirectUrl);
+        try {
+            response.sendRedirect(redirectUrl);
+        } catch (IOException e) {
+            LOGGER.warn("Unable to redirect expired forced-password-reset session: remote={}",
+                    LogSanitizer.sanitize(request.getRemoteAddr()), e);
+            if (!response.isCommitted()) {
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            } else {
+                LOGGER.error("Forced-password-reset expired-session redirect failed after response commit", e);
+            }
+        }
         return NONE;
     }
 }

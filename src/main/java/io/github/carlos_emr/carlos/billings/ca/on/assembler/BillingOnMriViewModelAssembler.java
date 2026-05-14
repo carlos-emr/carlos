@@ -244,14 +244,11 @@ public class BillingOnMriViewModelAssembler {
             String providerNo = p.getProviderNo();
             ProviderBillCenter pbc = providerBillCenterDao.find(providerNo);
             if (pbc != null) {
-                // Map.copyOf() in BillingOnMriViewModel.Builder rejects null values —
-                // coerce to empty string so a provider with an unset bill-center code
-                // does not cause a NullPointerException when the view model is built.
                 String billCenterCode = pbc.getBillCenterCode();
-                if (billCenterCode == null) {
-                    LOGGER.warn("Billable provider has no bill-center code; using empty bill center for providerNo={}",
+                if (billCenterCode == null || billCenterCode.isBlank()) {
+                    LOGGER.warn("Billable provider is missing bill-center code; excluding providerNo={} from MRI bill-center map",
                             LogSanitizer.sanitize(providerNo));
-                    billCenterCode = "";
+                    continue;
                 }
                 map.put(providerNo, billCenterCode);
             }
@@ -303,10 +300,15 @@ public class BillingOnMriViewModelAssembler {
                     bgColor = "silver";
                 }
                 String trimmedDate = updateDate == null ? "" : updateDate.substring(0, Math.min(16, updateDate.length()));
-                // BillingDiskNameDto.getId() returns the disk id as a String;
-                // legacy JSP injected it raw into a JS onclick. Parse it now
-                // so the view model is type-clean.
-                int diskId = parseIntOrZero(data.getId());
+                // BillingDiskNameDto.getId() returns the disk id as a String.
+                // Invalid ids used to become diskId=0, which produced rows that
+                // looked clickable but could not resolve to a real disk record.
+                Integer diskId = parseDiskId(data.getId());
+                if (diskId == null) {
+                    LOGGER.warn("BillingOnMri: dropping MRI row with invalid disk id [{}]",
+                            LogSanitizer.sanitize(data.getId()));
+                    continue;
+                }
                 rows.add(new BillingOnMriViewModel.MriRow(
                         diskId,
                         nullToEmpty(name),
@@ -324,8 +326,8 @@ public class BillingOnMriViewModelAssembler {
     /**
      * Load the older BillActivity records table. The legacy code mapped
      * providers by OHIP number (not provider_no), so we build a separate
-     * lookup here. Sorting by update-date matches the legacy
-     * {@code Collections.sort(bas, BillActivity.UpdateDateTimeComparator)}.
+     * lookup here. Sorting keeps the legacy newest-first ordering while making
+     * null update timestamps sort last instead of failing the whole page.
      */
     private List<BillingOnMriViewModel.BillActivityRow> loadBillActivityRows(String selectedYear,
                                                                               String currentYearColor) {
@@ -384,14 +386,12 @@ public class BillingOnMriViewModelAssembler {
         return s == null || s.isEmpty() ? fallback : s;
     }
 
-    private static int parseIntOrZero(String s) {
-        if (s == null) return 0;
+    private static Integer parseDiskId(String s) {
+        if (s == null) return null;
         try {
             return Integer.parseInt(s);
         } catch (NumberFormatException e) {
-            LOGGER.warn("BillingOnMri: invalid integer [{}]; using 0",
-                    LogSanitizer.sanitize(s), e);
-            return 0;
+            return null;
         }
     }
 }
