@@ -52,10 +52,10 @@ import org.springframework.stereotype.Component;
 public class SecurityDelete2Action extends ActionSupport {
 
     public static final String SPRING_BEAN_NAME =
-        "io.github.carlos_emr.carlos.admin.web.SecurityDelete2Action";
+        "securityDelete2Action";
 
-    private final SecurityInfoManager securityInfoManager;
-    private final SecurityDao securityDao;
+    private final transient SecurityInfoManager securityInfoManager;
+    private final transient SecurityDao securityDao;
 
     /**
      * Creates the Spring-managed action.

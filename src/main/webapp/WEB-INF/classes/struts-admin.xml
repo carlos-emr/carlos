@@ -97,7 +97,7 @@
         <action name="admin/SecurityUpdate" class="io.github.carlos_emr.carlos.admin.web.SecurityUpdate2Action">
             <result name="success">/WEB-INF/jsp/admin/securityupdate.jsp</result>
         </action>
-        <action name="admin/SecurityDelete" class="io.github.carlos_emr.carlos.admin.web.SecurityDelete2Action">
+        <action name="admin/SecurityDelete" class="securityDelete2Action">
             <result name="success">/WEB-INF/jsp/admin/securitydelete.jsp</result>
         </action>
         <action name="admin/SecurityAddSecurity" class="io.github.carlos_emr.carlos.admin.web.SecurityAddSecurity2Action">

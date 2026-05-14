@@ -286,7 +286,7 @@ class SecurityDelete2ActionTest extends CarlosUnitTestBase {
             dbf.setXIncludeAware(false);
             dbf.setExpandEntityReferences(false);
             DocumentBuilder db = dbf.newDocumentBuilder();
-            db.setEntityResolver((_publicId, _systemId) -> new InputSource(new StringReader("")));
+            db.setEntityResolver((publicId, systemId) -> new InputSource(new StringReader("")));
 
             try (InputStream in = Files.newInputStream(resolveProjectPath(STRUTS_CONFIG))) {
                 return db.parse(in);
@@ -356,7 +356,7 @@ class SecurityDelete2ActionTest extends CarlosUnitTestBase {
         context.registerBean(
             SecurityDelete2Action.SPRING_BEAN_NAME,
             SecurityDelete2Action.class,
-            () -> createAction(),
+            this::createAction,
             definition -> definition.setScope(ConfigurableBeanFactory.SCOPE_PROTOTYPE));
         context.register(MethodSecurityProxyTestConfig.class);
         context.refresh();
