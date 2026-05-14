@@ -88,10 +88,12 @@ class AppointmentTypeDaoCacheIntegrationTest extends CarlosTestBase {
     @Test
     @DisplayName("should cache listAll results when called")
     void shouldCacheListAllResults_whenCalled() {
-        transactionTemplate.executeWithoutResult(status -> {
-            AppointmentType first = buildAppointmentType("cacheType_" + randomSuffix());
+        String originalName = "cacheType_" + randomSuffix();
+        Integer insertedId = transactionTemplate.execute(status -> {
+            AppointmentType first = buildAppointmentType(originalName);
             appointmentTypeDao.persist(first);
             idsToCleanUp.add(first.getId());
+            return first.getId();
         });
 
         List<AppointmentType> firstResult = transactionTemplate.execute(status -> appointmentTypeDao.listAll());
@@ -101,8 +103,15 @@ class AppointmentTypeDaoCacheIntegrationTest extends CarlosTestBase {
                 .as("listAll should populate appointmentTypes cache")
                 .isPositive();
         assertThat(secondResult)
-                .as("second listAll call should be served from the appointmentTypes cache")
-                .isSameAs(firstResult);
+                .as("second listAll call should return a defensive copy of the cached data")
+                .isNotSameAs(firstResult);
+        assertThat(findById(secondResult, insertedId).getName()).isEqualTo(originalName);
+
+        findById(firstResult, insertedId).setName("mutated-local-copy");
+        List<AppointmentType> thirdResult = transactionTemplate.execute(status -> appointmentTypeDao.listAll());
+        assertThat(findById(thirdResult, insertedId).getName())
+                .as("mutating one returned entity instance must not corrupt cached appointmentTypes state")
+                .isEqualTo(originalName);
     }
 
     @Test
@@ -131,6 +140,15 @@ class AppointmentTypeDaoCacheIntegrationTest extends CarlosTestBase {
 
     private String randomSuffix() {
         return String.valueOf(ThreadLocalRandom.current().nextInt(100000, 999999));
+    }
+
+    private AppointmentType findById(List<AppointmentType> appointmentTypes, Integer id) {
+        for (AppointmentType appointmentType : appointmentTypes) {
+            if (id.equals(appointmentType.getId())) {
+                return appointmentType;
+            }
+        }
+        throw new AssertionError("Expected appointment type id " + id + " in result list");
     }
 
     private void clearCache() {

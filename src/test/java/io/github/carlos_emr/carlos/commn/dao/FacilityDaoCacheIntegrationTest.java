@@ -88,10 +88,13 @@ class FacilityDaoCacheIntegrationTest extends CarlosTestBase {
     @Test
     @DisplayName("should cache active facility list when called")
     void shouldCacheActiveFacilityList_whenCalled() {
-        transactionTemplate.executeWithoutResult(status -> {
+        String originalDescription = "cache test";
+        Integer insertedId = transactionTemplate.execute(status -> {
             Facility active = buildFacility("cacheFacility_" + randomSuffix(), false);
+            active.setDescription(originalDescription);
             facilityDao.persist(active);
             idsToCleanUp.add(active.getId());
+            return active.getId();
         });
 
         List<Facility> firstResult = transactionTemplate.execute(status -> facilityDao.findAll(true));
@@ -101,8 +104,15 @@ class FacilityDaoCacheIntegrationTest extends CarlosTestBase {
                 .as("findAll(true) should populate facilities cache")
                 .isPositive();
         assertThat(secondResult)
-                .as("second findAll(true) call should be served from the facilities cache")
-                .isSameAs(firstResult);
+                .as("second findAll(true) call should return a defensive copy of the cached data")
+                .isNotSameAs(firstResult);
+        assertThat(findById(secondResult, insertedId).getDescription()).isEqualTo(originalDescription);
+
+        findById(firstResult, insertedId).setDescription("mutated-local-copy");
+        List<Facility> thirdResult = transactionTemplate.execute(status -> facilityDao.findAll(true));
+        assertThat(findById(thirdResult, insertedId).getDescription())
+                .as("mutating one returned entity instance must not corrupt cached facilities state")
+                .isEqualTo(originalDescription);
     }
 
     @Test
@@ -142,6 +152,15 @@ class FacilityDaoCacheIntegrationTest extends CarlosTestBase {
 
     private String randomSuffix() {
         return UUID.randomUUID().toString().replace("-", "");
+    }
+
+    private Facility findById(List<Facility> facilities, Integer id) {
+        for (Facility facility : facilities) {
+            if (id.equals(facility.getId())) {
+                return facility;
+            }
+        }
+        throw new AssertionError("Expected facility id " + id + " in result list");
     }
 
     private void clearCache() {

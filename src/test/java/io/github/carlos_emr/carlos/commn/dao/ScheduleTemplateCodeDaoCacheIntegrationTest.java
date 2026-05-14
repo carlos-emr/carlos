@@ -110,8 +110,15 @@ class ScheduleTemplateCodeDaoCacheIntegrationTest extends CarlosTestBase {
                 .as("getByCode should populate scheduleTemplateCodes cache")
                 .isPositive();
         assertThat(secondLookup)
-                .as("second getByCode call should be served from the scheduleTemplateCodes cache")
-                .isSameAs(cached);
+                .as("second getByCode call should return a defensive copy of the cached data")
+                .isNotSameAs(cached);
+        assertThat(secondLookup.getId()).isEqualTo(insertedId);
+
+        cached.setDescription("mutated-local-copy");
+        ScheduleTemplateCode thirdLookup = transactionTemplate.execute(status -> scheduleTemplateCodeDao.getByCode(code));
+        assertThat(thirdLookup.getDescription())
+                .as("mutating one returned entity instance must not corrupt cached scheduleTemplateCodes state")
+                .isEqualTo("cache test");
     }
 
     @Test

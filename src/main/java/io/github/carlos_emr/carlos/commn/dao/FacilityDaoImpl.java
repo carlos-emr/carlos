@@ -38,12 +38,18 @@ import jakarta.persistence.Query;
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.config.CacheConfig;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Repository;
 
 @Repository
 public class FacilityDaoImpl extends AbstractDaoImpl<Facility> implements FacilityDao {
+    private static final String ACTIVE_KEY_PREFIX = "active:";
+
+    @Autowired
+    private CacheManager cacheManager;
 
     public FacilityDaoImpl() {
         super(Facility.class);
@@ -54,8 +60,13 @@ public class FacilityDaoImpl extends AbstractDaoImpl<Facility> implements Facili
      *
      * @param active null is find all, true is find only active, false is find only inactive.
      */
-    @Cacheable(value = CacheConfig.FACILITIES, key = "'active:' + #active")
     public List<Facility> findAll(Boolean active) {
+        String cacheKey = ACTIVE_KEY_PREFIX + active;
+        List<Facility> cached = getCachedList(cacheKey);
+        if (cached != null) {
+            return copyFacilities(cached);
+        }
+
         StringBuilder sb = new StringBuilder();
         sb.append("select x from Facility x");
         if (active != null) sb.append(" where x.disabled=?1");
@@ -67,7 +78,66 @@ public class FacilityDaoImpl extends AbstractDaoImpl<Facility> implements Facili
         @SuppressWarnings("unchecked")
         List<Facility> results = query.getResultList();
 
-        return Collections.unmodifiableList(new ArrayList<>(results));
+        List<Facility> snapshot = Collections.unmodifiableList(copyFacilities(results));
+        cache().put(cacheKey, snapshot);
+        return copyFacilities(snapshot);
+    }
+
+    private Cache cache() {
+        Cache cache = cacheManager.getCache(CacheConfig.FACILITIES);
+        if (cache == null) {
+            throw new IllegalStateException("Cache not configured: " + CacheConfig.FACILITIES);
+        }
+        return cache;
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Facility> getCachedList(String key) {
+        Cache.ValueWrapper wrapper = cache().get(key);
+        return wrapper == null ? null : (List<Facility>) wrapper.get();
+    }
+
+    private List<Facility> copyFacilities(List<Facility> source) {
+        List<Facility> copies = new ArrayList<>(source.size());
+        for (Facility facility : source) {
+            copies.add(copyFacility(facility));
+        }
+        return copies;
+    }
+
+    private Facility copyFacility(Facility source) {
+        if (source == null) {
+            return null;
+        }
+
+        Facility copy = new Facility();
+        copy.setId(source.getId());
+        copy.setName(source.getName());
+        copy.setDescription(source.getDescription());
+        copy.setContactName(source.getContactName());
+        copy.setContactEmail(source.getContactEmail());
+        copy.setContactPhone(source.getContactPhone());
+        copy.setHic(source.isHic());
+        copy.setDisabled(source.isDisabled());
+        copy.setOrgId(source.getOrgId());
+        copy.setSectorId(source.getSectorId());
+        copy.setEnableHealthNumberRegistry(source.isEnableHealthNumberRegistry());
+        copy.setEnableDigitalSignatures(source.isEnableDigitalSignatures());
+        copy.setEnableAnonymous(source.isEnableAnonymous());
+        copy.setEnableGroupNotes(source.isEnableGroupNotes());
+        copy.setEnableEncounterTime(source.isEnableEncounterTime());
+        copy.setEnableEncounterTransportationTime(source.isEnableEncounterTransportationTime());
+        copy.setRxInteractionWarningLevel(source.getRxInteractionWarningLevel());
+        copy.setVacancyWithdrawnTicklerProvider(source.getVacancyWithdrawnTicklerProvider());
+        copy.setVacancyWithdrawnTicklerDemographic(source.getVacancyWithdrawnTicklerDemographic());
+        copy.setRegistrationIntake(source.getRegistrationIntake());
+        copy.setDisplayAllVacancies(source.getDisplayAllVacancies());
+        copy.setAssignNewVacancyTicklerProvider(source.getAssignNewVacancyTicklerProvider());
+        copy.setAssignNewVacancyTicklerDemographic(source.getAssignNewVacancyTicklerDemographic());
+        copy.setAssignRejectedVacancyApplicant(source.getAssignRejectedVacancyApplicant());
+        copy.setEnablePhoneEncounter(source.isEnablePhoneEncounter());
+        copy.setLastUpdated(source.getLastUpdated());
+        return copy;
     }
 
     @CacheEvict(value = CacheConfig.FACILITIES, allEntries = true)

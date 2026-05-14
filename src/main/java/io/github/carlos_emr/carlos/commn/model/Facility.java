@@ -220,6 +220,10 @@ public class Facility extends AbstractModel<Integer> implements Serializable {
         return lastUpdated;
     }
 
+    public void setLastUpdated(Date lastUpdated) {
+        this.lastUpdated = lastUpdated == null ? null : new Date(lastUpdated.getTime());
+    }
+
     @PreUpdate
     protected void jpaUpdateLastUpdateTime() {
         lastUpdated = new Date();

@@ -96,7 +96,7 @@ public class CacheConfig {
      *   <tr><td>{@code appointmentTypes}</td><td>20</td><td>30 min</td>
      *       <td>{@code 'all'}, {@code 'name:...'}</td></tr>
      *   <tr><td>{@code scheduleTemplateCodes}</td><td>50</td><td>30 min</td>
-     *       <td>{@code 'all'}, {@code 'templateCodes'}, {@code 'codeChar:...'}, {@code 'codeStr:...'}</td></tr>
+     *       <td>{@code 'all'}, {@code 'templateCodes'}, {@code 'codeChar:...'}</td></tr>
      *   <tr><td>{@code facilities}</td><td>20</td><td>15 min</td>
      *       <td>{@code 'active:true|false|null'}</td></tr>
      * </table>

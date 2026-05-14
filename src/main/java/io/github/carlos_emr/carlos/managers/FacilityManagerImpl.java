@@ -32,6 +32,7 @@
 
 package io.github.carlos_emr.carlos.managers;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.dao.FacilityDao;
@@ -62,6 +63,6 @@ public class FacilityManagerImpl implements FacilityManager {
         //--- log action ---
         LogAction.addLogSynchronous(loggedInInfo, "FacilityManager.getAllFacilities", null);
 
-        return (results);
+        return new ArrayList<>(results);
     }
 }

@@ -38,38 +38,103 @@ import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 import io.github.carlos_emr.carlos.config.CacheConfig;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Repository;
 import io.github.carlos_emr.carlos.commn.model.AppointmentType;
 
 @Repository
 public class AppointmentTypeDaoImpl extends AbstractDaoImpl<AppointmentType> implements AppointmentTypeDao {
+    private static final String ALL_KEY = "all";
+    private static final String NAME_KEY_PREFIX = "name:";
+
+    @Autowired
+    private CacheManager cacheManager;
 
     public AppointmentTypeDaoImpl() {
         super(AppointmentType.class);
     }
 
-    @Cacheable(value = CacheConfig.APPOINTMENT_TYPES, key = "'all'")
     @Override
     public List<AppointmentType> listAll() {
+        List<AppointmentType> cached = getCachedList(ALL_KEY);
+        if (cached != null) {
+            return copyAppointmentTypes(cached);
+        }
+
         String sqlCommand = "select x from AppointmentType x order by x.name";
         Query query = entityManager.createQuery(sqlCommand);
 
         @SuppressWarnings("unchecked")
         List<AppointmentType> results = query.getResultList();
 
-        return Collections.unmodifiableList(new ArrayList<>(results));
+        List<AppointmentType> snapshot = Collections.unmodifiableList(copyAppointmentTypes(results));
+        cache().put(ALL_KEY, snapshot);
+        return copyAppointmentTypes(snapshot);
 
     }
 
-    @Cacheable(value = CacheConfig.APPOINTMENT_TYPES, key = "'name:' + #name",
-               condition = "#name != null && !#name.isEmpty()",
-               unless = "#result == null")
     @Override
     public AppointmentType findByAppointmentTypeByName(String name) {
+        String cacheKey = NAME_KEY_PREFIX + name;
+        if (name != null && !name.isEmpty()) {
+            AppointmentType cached = getCachedAppointmentType(cacheKey);
+            if (cached != null) {
+                return copyAppointmentType(cached);
+            }
+        }
+
         Query query = entityManager.createQuery("from AppointmentType atype where atype.name = ?1").setParameter(1, name);
-        return this.getSingleResultOrNull(query);
+        AppointmentType result = this.getSingleResultOrNull(query);
+        if (result != null && name != null && !name.isEmpty()) {
+            cache().put(cacheKey, copyAppointmentType(result));
+        }
+        return copyAppointmentType(result);
+    }
+
+    private Cache cache() {
+        Cache cache = cacheManager.getCache(CacheConfig.APPOINTMENT_TYPES);
+        if (cache == null) {
+            throw new IllegalStateException("Cache not configured: " + CacheConfig.APPOINTMENT_TYPES);
+        }
+        return cache;
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<AppointmentType> getCachedList(String key) {
+        Cache.ValueWrapper wrapper = cache().get(key);
+        return wrapper == null ? null : (List<AppointmentType>) wrapper.get();
+    }
+
+    private AppointmentType getCachedAppointmentType(String key) {
+        Cache.ValueWrapper wrapper = cache().get(key);
+        return wrapper == null ? null : (AppointmentType) wrapper.get();
+    }
+
+    private List<AppointmentType> copyAppointmentTypes(List<AppointmentType> source) {
+        List<AppointmentType> copies = new ArrayList<>(source.size());
+        for (AppointmentType appointmentType : source) {
+            copies.add(copyAppointmentType(appointmentType));
+        }
+        return copies;
+    }
+
+    private AppointmentType copyAppointmentType(AppointmentType source) {
+        if (source == null) {
+            return null;
+        }
+
+        AppointmentType copy = new AppointmentType();
+        copy.setId(source.getId());
+        copy.setName(source.getName());
+        copy.setNotes(source.getNotes());
+        copy.setReason(source.getReason());
+        copy.setLocation(source.getLocation());
+        copy.setResources(source.getResources());
+        copy.setDuration(source.getDuration());
+        return copy;
     }
 
     @CacheEvict(value = CacheConfig.APPOINTMENT_TYPES, allEntries = true)

@@ -39,29 +39,47 @@ import jakarta.persistence.Query;
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 import io.github.carlos_emr.carlos.commn.model.ScheduleTemplateCode;
 import io.github.carlos_emr.carlos.config.CacheConfig;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Repository;
 
 @Repository
 public class ScheduleTemplateCodeDaoImpl extends AbstractDaoImpl<ScheduleTemplateCode> implements ScheduleTemplateCodeDao {
+    private static final String ALL_KEY = "all";
+    private static final String TEMPLATE_CODES_KEY = "templateCodes";
+    private static final String CODE_KEY_PREFIX = "codeChar:";
+
+    @Autowired
+    private CacheManager cacheManager;
 
     public ScheduleTemplateCodeDaoImpl() {
         super(ScheduleTemplateCode.class);
     }
 
     @SuppressWarnings("unchecked")
-    @Cacheable(value = CacheConfig.SCHEDULE_TEMPLATE_CODES, key = "'all'")
     @Override
     public List<ScheduleTemplateCode> findAll() {
+        List<ScheduleTemplateCode> cached = getCachedList(ALL_KEY);
+        if (cached != null) {
+            return copyScheduleTemplateCodes(cached);
+        }
+
         Query query = createQuery("x", null);
-        return Collections.unmodifiableList(new ArrayList<>(query.getResultList()));
+        List<ScheduleTemplateCode> snapshot = Collections.unmodifiableList(copyScheduleTemplateCodes(query.getResultList()));
+        cache().put(ALL_KEY, snapshot);
+        return copyScheduleTemplateCodes(snapshot);
     }
 
-    @Cacheable(value = CacheConfig.SCHEDULE_TEMPLATE_CODES, key = "'codeChar:' + #code",
-               unless = "#result == null")
     @Override
     public ScheduleTemplateCode getByCode(char code) {
+        String cacheKey = CODE_KEY_PREFIX + code;
+        ScheduleTemplateCode cached = getCachedScheduleTemplateCode(cacheKey);
+        if (cached != null) {
+            return copyScheduleTemplateCode(cached);
+        }
+
         //Query query = entityManager.createQuery("FROM " + modelClass.getSimpleName() + " bst WHERE bst.id IN (:typeCodes)");
         Query query = entityManager.createQuery("select s from ScheduleTemplateCode s where s.code=?1");
         query.setParameter(1, code);
@@ -69,37 +87,79 @@ public class ScheduleTemplateCodeDaoImpl extends AbstractDaoImpl<ScheduleTemplat
         @SuppressWarnings("unchecked")
         List<ScheduleTemplateCode> results = query.getResultList();
         if (!results.isEmpty()) {
-            return results.get(0);
+            ScheduleTemplateCode result = copyScheduleTemplateCode(results.get(0));
+            cache().put(cacheKey, result);
+            return copyScheduleTemplateCode(result);
         }
         return null;
     }
 
-    @Cacheable(value = CacheConfig.SCHEDULE_TEMPLATE_CODES, key = "'templateCodes'")
     @Override
     public List<ScheduleTemplateCode> findTemplateCodes() {
+        List<ScheduleTemplateCode> cached = getCachedList(TEMPLATE_CODES_KEY);
+        if (cached != null) {
+            return copyScheduleTemplateCodes(cached);
+        }
+
         Query query = entityManager.createQuery("select s from ScheduleTemplateCode s where s.bookinglimit > 0 and s.duration <>''");
 
         @SuppressWarnings("unchecked")
         List<ScheduleTemplateCode> results = query.getResultList();
 
-        return Collections.unmodifiableList(new ArrayList<>(results));
+        List<ScheduleTemplateCode> snapshot = Collections.unmodifiableList(copyScheduleTemplateCodes(results));
+        cache().put(TEMPLATE_CODES_KEY, snapshot);
+        return copyScheduleTemplateCodes(snapshot);
     }
 
-    @Cacheable(value = CacheConfig.SCHEDULE_TEMPLATE_CODES, key = "'codeStr:' + #code",
-               condition = "#code != null && !#code.isEmpty()",
-               unless = "#result == null")
     @Override
     public ScheduleTemplateCode findByCode(String code) {
-        char codeChar = code.charAt(0);
-        Query query = entityManager.createQuery("select s from ScheduleTemplateCode s where s.code like ?1");
-        query.setParameter(1, codeChar);
-
-        @SuppressWarnings("unchecked")
-        List<ScheduleTemplateCode> results = query.getResultList();
-        if (!results.isEmpty()) {
-            return results.get(0);
+        if (code == null || code.isEmpty()) {
+            return null;
         }
-        return null;
+        return getByCode(code.charAt(0));
+    }
+
+    private Cache cache() {
+        Cache cache = cacheManager.getCache(CacheConfig.SCHEDULE_TEMPLATE_CODES);
+        if (cache == null) {
+            throw new IllegalStateException("Cache not configured: " + CacheConfig.SCHEDULE_TEMPLATE_CODES);
+        }
+        return cache;
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<ScheduleTemplateCode> getCachedList(String key) {
+        Cache.ValueWrapper wrapper = cache().get(key);
+        return wrapper == null ? null : (List<ScheduleTemplateCode>) wrapper.get();
+    }
+
+    private ScheduleTemplateCode getCachedScheduleTemplateCode(String key) {
+        Cache.ValueWrapper wrapper = cache().get(key);
+        return wrapper == null ? null : (ScheduleTemplateCode) wrapper.get();
+    }
+
+    private List<ScheduleTemplateCode> copyScheduleTemplateCodes(List<ScheduleTemplateCode> source) {
+        List<ScheduleTemplateCode> copies = new ArrayList<>(source.size());
+        for (ScheduleTemplateCode scheduleTemplateCode : source) {
+            copies.add(copyScheduleTemplateCode(scheduleTemplateCode));
+        }
+        return copies;
+    }
+
+    private ScheduleTemplateCode copyScheduleTemplateCode(ScheduleTemplateCode source) {
+        if (source == null) {
+            return null;
+        }
+
+        ScheduleTemplateCode copy = new ScheduleTemplateCode();
+        copy.setId(source.getId());
+        copy.setCode(source.getCode());
+        copy.setDescription(source.getDescription());
+        copy.setDuration(source.getDuration());
+        copy.setColor(source.getColor());
+        copy.setConfirm(source.getConfirm());
+        copy.setBookinglimit(source.getBookinglimit());
+        return copy;
     }
 
     @CacheEvict(value = CacheConfig.SCHEDULE_TEMPLATE_CODES, allEntries = true)
