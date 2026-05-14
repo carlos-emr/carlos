@@ -34,10 +34,10 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
-import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.JDBCUtil;
 
@@ -85,7 +85,7 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
         // Validate file path using PathValidationUtils
         try {
             normalizedFile = PathValidationUtils.validateExistingPath(normalizedFile, safeDir);
-        } catch (SecurityException e) {
+        } catch (FileValidationException | SecurityException e) {
             throw new IllegalArgumentException("Invalid file path: " + normalizedFile.getPath());
         }
 
@@ -132,7 +132,6 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
         return file1;
     }
 
-    @StrutsParameter
     public void setFile1(File file1) {
         this.file1 = file1;
     }
@@ -141,7 +140,6 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
         return file1FileName;
     }
 
-    @StrutsParameter
     public void setFile1FileName(String file1FileName) {
         this.file1FileName = file1FileName;
     }
@@ -150,7 +148,6 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
         return file1ContentType;
     }
 
-    @StrutsParameter
     public void setFile1ContentType(String file1ContentType) {
         this.file1ContentType = file1ContentType;
     }

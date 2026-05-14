@@ -37,6 +37,7 @@ import io.github.carlos_emr.SxmlMisc;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.GenerateRaDescriptionViewModel;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 
 /**
  * Parses fixed-width OHIP RA description files and builds the XML fragments
@@ -67,7 +68,7 @@ public class RaDescriptionFileParser {
         File raFile;
         try {
             raFile = PathValidationUtils.validatePath(filename, new File(docDir));
-        } catch (SecurityException se) {
+        } catch (FileValidationException | SecurityException se) {
             MiscUtils.getLogger().error("Rejected RA filename outside DOCUMENT_DIR: {}",
                     io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(filename), se);
             out.parseFailureReason = ParseFailureReason.SECURITY_REJECTED;

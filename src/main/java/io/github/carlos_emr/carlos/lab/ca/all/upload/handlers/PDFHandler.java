@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -124,7 +125,7 @@ public class PDFHandler implements MessageHandler {
             // Use the validated canonical path
             filePath = targetFile.getCanonicalPath();
 
-        } catch (SecurityException e) {
+        } catch (FileValidationException | SecurityException e) {
             logger.error("Path traversal attempt detected: {}", LogSanitizer.sanitize(filePath)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             return null;
         } catch (IOException e) {

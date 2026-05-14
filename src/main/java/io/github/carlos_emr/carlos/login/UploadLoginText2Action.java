@@ -36,7 +36,6 @@ import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
-import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.commn.dao.PropertyDao;
 import io.github.carlos_emr.carlos.commn.model.Property;
 import io.github.carlos_emr.carlos.commn.service.AcceptableUseAgreementManager;
@@ -148,7 +147,6 @@ public class UploadLoginText2Action extends ActionSupport implements UploadedFil
         return importFile;
     }
 
-    @StrutsParameter
     public void setImportFile(File importFile) {
         if (importFile != null) {
             this.importFile = PathValidationUtils.validateUpload(importFile);

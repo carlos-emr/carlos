@@ -483,7 +483,6 @@ public class Upload2Action extends ActionSupport implements UploadedFilesAware {
         return addUploadFile;
     }
 
-    @StrutsParameter
     public void setAddUploadFile(File addUploadFile) {
         this.addUploadFile = addUploadFile;
     }
@@ -491,7 +490,6 @@ public class Upload2Action extends ActionSupport implements UploadedFilesAware {
     public String getAddUploadFileFileName() {
         return addUploadFileFileName;
     }
-    @StrutsParameter
     public void setAddUploadFileFileName(String addUploadFileFileName) {
         this.addUploadFileFileName = addUploadFileFileName;
         this.setFileName(addUploadFileFileName); // set the file name to the upload file name
@@ -500,7 +498,6 @@ public class Upload2Action extends ActionSupport implements UploadedFilesAware {
     public String getAddUploadFileContentType() {
         return addUploadFileContentType;
     }
-    @StrutsParameter
     public void setAddUploadFileContentType(String addUploadFileContentType) {
         this.addUploadFileContentType = addUploadFileContentType;
         this.setResourceType(addUploadFileContentType); // set the resource type to the upload file content type

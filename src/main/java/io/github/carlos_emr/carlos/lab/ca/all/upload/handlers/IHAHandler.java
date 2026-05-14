@@ -40,6 +40,7 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
 import ca.uhn.hl7v2.model.Message;
 import ca.uhn.hl7v2.util.Terser;
@@ -211,7 +212,7 @@ public class IHAHandler extends DefaultGenericHandler implements MessageHandler 
             Document doc = factory.newDocumentBuilder().parse(file);
             return (doc);
 
-        } catch (SecurityException e) {
+        } catch (FileValidationException | SecurityException e) {
             logger.error("Path traversal attempt detected while parsing XML file: {}", LogSanitizer.sanitize(fileName), e); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             return null;
         } catch (Exception e) {

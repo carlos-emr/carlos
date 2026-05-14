@@ -78,6 +78,7 @@ public class HtmlUpload2Action extends ActionSupport implements UploadedFilesAwa
         }
         try {
             File validatedFormHtml = PathValidationUtils.validateUpload(formHtml);
+            formHtmlFileName = PathValidationUtils.validateFileName(formHtmlFileName);
             String formHtmlStr = new String(Files.readAllBytes(validatedFormHtml.toPath()));
             formHtmlStr = formHtmlStr.replaceAll("\\\\n", "\\\\\\\\n");
             EFormUtil.saveEForm(formName, subject, formHtmlFileName, formHtmlStr, showLatestFormOnly, patientIndependent, roleType);
@@ -129,7 +130,6 @@ public class HtmlUpload2Action extends ActionSupport implements UploadedFilesAwa
         return formHtml;
     }
 
-    @StrutsParameter
     public void setFormHtml(File formHtml) {
         this.formHtml = formHtml;
     }
@@ -138,7 +138,6 @@ public class HtmlUpload2Action extends ActionSupport implements UploadedFilesAwa
         return formHtmlContentType;
     }
 
-    @StrutsParameter
     public void setFormHtmlContentType(String formHtmlContentType) {
         this.formHtmlContentType = formHtmlContentType;
     }
@@ -147,7 +146,6 @@ public class HtmlUpload2Action extends ActionSupport implements UploadedFilesAwa
         return formHtmlFileName;
     }
 
-    @StrutsParameter
     public void setFormHtmlFileName(String formHtmlFileName) {
         this.formHtmlFileName = formHtmlFileName;
     }

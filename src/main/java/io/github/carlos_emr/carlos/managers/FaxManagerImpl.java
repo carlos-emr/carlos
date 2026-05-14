@@ -45,6 +45,7 @@ import io.github.carlos_emr.carlos.fax.core.FaxSchedulerJob;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import io.github.carlos_emr.carlos.form.util.FormTransportContainer;
@@ -333,7 +334,7 @@ public class FaxManagerImpl implements FaxManager {
         Path faxDocument;
         try {
             faxDocument = resolveAndValidateFilePath(faxFilePath);
-        } catch (SecurityException | IOException e) {
+        } catch (FileValidationException | SecurityException | IOException e) {
             logger.error("Invalid or inaccessible fax file path: {}", LogSanitizer.sanitize(faxFilePath), e);
             faxJob.setStatus(STATUS.ERROR);
             faxJob.setStatusString("File missing on local storage or invalid file path.");
@@ -799,7 +800,7 @@ public class FaxManagerImpl implements FaxManager {
 
         try {
             file = PathValidationUtils.validateExistingPath(file, documentDir);
-        } catch (SecurityException e) {
+        } catch (FileValidationException | SecurityException e) {
             // File not in document dir, check if it's in allowed temp directories
             if (!PathValidationUtils.isInAllowedTempDirectory(file)) {
                 logger.error("File path outside allowed directories: {}", LogSanitizer.sanitize(filePath));
@@ -832,7 +833,7 @@ public class FaxManagerImpl implements FaxManager {
 
         try {
             file = PathValidationUtils.validateExistingPath(file, documentDir);
-        } catch (SecurityException e) {
+        } catch (FileValidationException | SecurityException e) {
             // File not in document dir, check if it's in allowed temp directories
             if (!PathValidationUtils.isInAllowedTempDirectory(file)) {
                 logger.error("Path containment check failed - file path outside allowed directories: {}", LogSanitizer.sanitize(filePath));

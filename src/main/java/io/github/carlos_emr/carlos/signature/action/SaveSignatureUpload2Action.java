@@ -45,6 +45,7 @@ import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
@@ -135,7 +136,7 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
         try {
             File tmpDir = new File(System.getProperty("java.io.tmpdir"));
             safeTarget = PathValidationUtils.validateExistingPath(new File(filename), tmpDir);
-        } catch (SecurityException e) {
+        } catch (FileValidationException | SecurityException e) {
             MiscUtils.getLogger().warn("Path traversal attempt blocked for signatureKey: {}", LogSanitizer.sanitize(signatureKey));
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid signature key");
             return NONE;

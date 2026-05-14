@@ -40,6 +40,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
@@ -90,7 +91,7 @@ public class ExcellerisOntarioHandler implements MessageHandler {
             File file = new File(fileName);
             try {
                 file = PathValidationUtils.validateExistingPath(file, docDir);
-            } catch (SecurityException e) {
+            } catch (FileValidationException | SecurityException e) {
                 logger.error("Attempted path traversal detected - file outside document directory: {}", LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                 return null;
             }

@@ -36,6 +36,7 @@ import io.github.carlos_emr.carlos.commn.model.enumerator.LabType;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import org.springframework.stereotype.Component;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.log.LogAction;
@@ -290,7 +291,7 @@ public class LabUploadWs extends AbstractWs {
         File labFile;
         try {
             labFile = PathValidationUtils.validatePath(sanitizedFileName, labFolder);
-        } catch (SecurityException e) {
+        } catch (FileValidationException | SecurityException e) {
             throw new SecurityException("Invalid file path: " + fileName, e);
         }
 

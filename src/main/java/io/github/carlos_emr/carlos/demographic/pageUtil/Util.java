@@ -65,6 +65,7 @@ import io.github.carlos_emr.carlos.commn.dao.PartialDateDao;
 import io.github.carlos_emr.carlos.commn.model.PartialDate;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.prevention.PreventionDisplayConfig;
@@ -198,7 +199,7 @@ public class Util {
         // Validate that the resolved path is within the allowed directory
         try {
             f = PathValidationUtils.validateExistingPath(f, baseDir);
-        } catch (SecurityException e) {
+        } catch (FileValidationException | SecurityException e) {
             logger.error("Error! Attempted path traversal attack detected for file: {}", LogSanitizer.sanitize(filename));
             return false;
         }
@@ -218,7 +219,7 @@ public class Util {
                 try {
                     File validatedFile = PathValidationUtils.validateExistingPath(f, new File(dirPath));
                     return cleanFile(validatedFile);
-                } catch (SecurityException e) {
+                } catch (FileValidationException | SecurityException e) {
                     // File not in this directory, try next configured directory
                     logger.debug("File validation failed for {}: {}", propName, e.getMessage());
                 }
@@ -278,7 +279,7 @@ public class Util {
             // Validate the file path using PathValidationUtils
             try {
                 requestedFile = PathValidationUtils.validateExistingPath(requestedFile, documentDir);
-            } catch (SecurityException e) {
+            } catch (FileValidationException | SecurityException e) {
                 logger.error("Path traversal attempt detected for file: {}", LogSanitizer.sanitize(fileName));
                 return;
             }
@@ -647,7 +648,7 @@ public class Util {
         try {
             PathValidationUtils.validateExistingPath(file, new File(dirName));
             return true;
-        } catch (SecurityException e) {
+        } catch (FileValidationException | SecurityException e) {
             return false;
         }
     }

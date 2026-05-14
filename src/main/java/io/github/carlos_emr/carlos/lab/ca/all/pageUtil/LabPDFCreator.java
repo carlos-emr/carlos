@@ -67,6 +67,7 @@ import io.github.carlos_emr.carlos.commn.printing.FontSettings;
 import io.github.carlos_emr.carlos.commn.printing.PdfWriterFactory;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData;
@@ -294,7 +295,7 @@ public class LabPDFCreator extends PdfPageEventHelper {
 
                 ConcatPDF.concat(alist, os);
             }
-        } catch (SecurityException e) {
+        } catch (FileValidationException | SecurityException e) {
             MiscUtils.getLogger().error("Security violation: PDF temp file path rejected: {}", currentPDF, e);
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);

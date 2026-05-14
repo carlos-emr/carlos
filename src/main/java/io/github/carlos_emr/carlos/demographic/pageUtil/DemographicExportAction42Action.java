@@ -122,6 +122,7 @@ import io.github.carlos_emr.carlos.commn.model.OscarLog;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -2062,7 +2063,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     f = PathValidationUtils.validateExistingPath(
                                             new File(edoc.getFilePath()),
                                             new File(oscarProperties.getProperty("DOCUMENT_DIR")));
-                                } catch (SecurityException e) {
+                                } catch (FileValidationException e) {
                                     exportError.add("Error! Document \"" + Encode.forHtml(edoc.getFileName()) + "\" path is invalid or outside the allowed directory. Skipping.");
                                     logger.error("Path traversal attempt on document export: {}", Encode.forJava(edoc.getFilePath()));
                                     continue;
@@ -2181,7 +2182,7 @@ public class DemographicExportAction42Action extends ActionSupport {
 
                                     try {
                                         hrmFile = PathValidationUtils.validateExistingPath(hrmFile, documentDir);
-                                    } catch (SecurityException e) {
+                                    } catch (FileValidationException e) {
                                         exportError.add("Error! HRM report file '" + Encode.forHtml(reportFile) + "' is outside the allowed directory. HRM report not exported.");
                                         logger.error("HRM report file path traversal attempt: {}", Encode.forJava(reportFile));
                                         continue;

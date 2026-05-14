@@ -100,7 +100,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             // Validate uploaded file is from temp directory for all destinations
             try {
                 docFile = PathValidationUtils.validateUpload(docFile);
-            } catch (SecurityException e) {
+            } catch (FileValidationException e) {
                 logger.error("Invalid upload source - potential path traversal: {}", LogSanitizer.sanitize(docFile.getPath()));
                 map.put("error", "Invalid file upload");
                 docFile = null; // Treat as if no file was uploaded
@@ -301,7 +301,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
         File destinationFile;
         try {
             destinationFile = PathValidationUtils.validatePath(fileName, parentDir);
-        } catch (SecurityException e) {
+        } catch (FileValidationException e) {
             logger.error("Destination file is outside allowed directory: {}", LogSanitizer.sanitize(fileName));
             return false;
         }
@@ -499,7 +499,6 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
         return docFile;
     }
 
-    @StrutsParameter
     public void setDocFile(File docFile) {
         this.docFile = docFile;
     }
@@ -571,7 +570,6 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
         return filedata;
     }
 
-    @StrutsParameter
     public void setFiledata(File Filedata) {
         this.filedata = Filedata;
     }
@@ -580,7 +578,6 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
         return filedataFileName;
     }
 
-    @StrutsParameter
     public void setFiledataFileName(String filedataFileName) {
         this.filedataFileName = filedataFileName;
     }
@@ -589,7 +586,6 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
         return filedataContentType;
     }
 
-    @StrutsParameter
     public void setFiledataContentType(String filedataContentType) {
         this.filedataContentType = filedataContentType;
     }

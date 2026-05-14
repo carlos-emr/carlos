@@ -59,6 +59,7 @@ import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.documentManager.EDoc;
@@ -126,7 +127,7 @@ public class FHIRCommunicationRequestHandler implements MessageHandler {
             File targetFile = new File(fileName);
             try {
                 targetFile = PathValidationUtils.validateExistingPath(targetFile, baseDir);
-            } catch (SecurityException e) {
+            } catch (FileValidationException | SecurityException e) {
                 logger.error("Path traversal attempt detected: {}", LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                 return null;
             }

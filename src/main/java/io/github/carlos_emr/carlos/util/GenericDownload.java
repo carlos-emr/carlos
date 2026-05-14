@@ -33,15 +33,14 @@ package io.github.carlos_emr.carlos.util;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.nio.file.Files;
 
 
 import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.http.HttpSession;
 
-import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -52,50 +51,23 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 public class GenericDownload extends HttpServlet {
 
     private static final Logger log = MiscUtils.getLogger();
+    private static final String DEFAULT_DOWNLOAD_FILENAME = "download";
+    private static final String DEFAULT_CONTENT_TYPE = "application/octet-stream";
 
     public GenericDownload() {
     }
 
     public void doGet(HttpServletRequest req, HttpServletResponse res) throws IOException {
-        try {
-            HttpSession session = req.getSession(true);
-
-            CarlosProperties oscarProps = CarlosProperties.getInstance();
-
-            String filename = req.getParameter("filename");
-            String dir_property = req.getParameter("dir_property");
-            String contentType = req.getParameter("contentType");
-            String dir = oscarProps.getProperty(dir_property);
-            String user = (String) session.getAttribute("user");
-
-            boolean bDo = false;
-            if (filename != null && dir_property != null && dir != null && user != null) {
-                bDo = true;
-            }
-            download(bDo, res, dir, filename, contentType);
-        } catch (IOException e) {
-            throw e;
-        } catch (SecurityException e) {
-            log.warn("SecurityException in GenericDownload: {}", e.getMessage());
-            if (!res.isCommitted()) {
-                res.sendError(HttpServletResponse.SC_FORBIDDEN, "Access Denied");
-            }
-        } catch (Exception e) {
-            log.error("Unexpected error in GenericDownload", e);
-            if (!res.isCommitted()) {
-                res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
-                    "An internal error occurred. Please try again or contact your system administrator.");
-            }
-        }
-
+        log.warn("Rejected direct GenericDownload request from {}", req.getRemoteAddr());
+        res.sendError(HttpServletResponse.SC_GONE, "This download endpoint is no longer available.");
     }
 
     public void download(boolean bDownload, HttpServletResponse res, String dir, String filename, String contentType)
             throws IOException {
         if (bDownload) {
-            ServletOutputStream stream = res.getOutputStream();
-            transferFile(res, stream, dir, filename, contentType);
-            stream.close();
+            try (ServletOutputStream stream = res.getOutputStream()) {
+                transferFile(res, stream, dir, filename, contentType);
+            }
         } else {
             res.sendError(HttpServletResponse.SC_FORBIDDEN, "You have no right to download the file(s).");
         }
@@ -119,32 +91,54 @@ public class GenericDownload extends HttpServlet {
                                 String contentType) throws IOException {
         //faster than "transferFile" method - clocked at 1.1MB/s on a 10Mbps switch
         int BUFFER_SIZE = 2048;
-        String setContentType = "application/octet-stream";
-        if (contentType != null) {
-            setContentType = contentType;
-        }
 
         // Use PathValidationUtils for security validation
         // This sanitizes the filename and validates directory containment
         File directory = new File(dir).getCanonicalFile();
         File curfile = PathValidationUtils.validatePath(filename, directory);
 
-        // Sanitize filename for HTTP header (prevent response splitting)
-        String sanitizedFilename = curfile.getName().replaceAll("[\r\n]", "").replaceAll("[\\p{Cntrl}]", "");
+        String sanitizedFilename = sanitizeAttachmentFilename(curfile.getName());
 
-        res.setContentType(setContentType);
+        res.setContentType(resolveContentType(curfile));
+        res.setHeader("X-Content-Type-Options", "nosniff");
         res.setHeader("Content-Disposition", "attachment;filename=\"" + sanitizedFilename + "\"");
-        
-        FileInputStream fis = new FileInputStream(curfile);
+
         int bufferSize;
         byte[] buffer = new byte[BUFFER_SIZE];
 
-        while ((bufferSize = fis.read(buffer)) != -1) {
-            stream.write(buffer, 0, bufferSize); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- binary file download buffer copy
+        try (FileInputStream fis = new FileInputStream(curfile)) {
+            while ((bufferSize = fis.read(buffer)) != -1) {
+                stream.write(buffer, 0, bufferSize); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- binary file download buffer copy
 
+            }
         }
-        fis.close();
         stream.flush();
-        stream.close();
+    }
+
+    private static String resolveContentType(File file) {
+        try {
+            String detectedType = Files.probeContentType(file.toPath());
+            if (detectedType != null && !detectedType.isBlank()) {
+                return detectedType;
+            }
+        } catch (IOException e) {
+            log.debug("Could not detect content type for {}", file.getName(), e);
+        }
+        return DEFAULT_CONTENT_TYPE;
+    }
+
+    private static String sanitizeAttachmentFilename(String filename) {
+        if (filename == null) {
+            return DEFAULT_DOWNLOAD_FILENAME;
+        }
+
+        String sanitized = filename
+                .replaceAll("[\\r\\n\\u0000-\\u001F\\u007F-\\u009F]", "")
+                .replaceAll("[\"\\\\;]", "_");
+
+        if (sanitized.trim().isEmpty()) {
+            return DEFAULT_DOWNLOAD_FILENAME;
+        }
+        return sanitized;
     }
 }

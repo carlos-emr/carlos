@@ -39,6 +39,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.CarlosProperties;
 
 import io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader;
@@ -72,7 +73,7 @@ public class PhsStarHandler implements MessageHandler {
                 File docDir = new File(documentDir).getCanonicalFile();
                 try {
                     file = PathValidationUtils.validateExistingPath(file, docDir);
-                } catch (SecurityException e) {
+                } catch (FileValidationException | SecurityException e) {
                     logger.error("Attempted to access file outside document directory: " + fileName);
                     MessageUploader.clean(fileId);
                     throw new SecurityException("Access denied: file outside permitted directory");
@@ -90,7 +91,7 @@ public class PhsStarHandler implements MessageHandler {
             handler.init(sb.toString());
 
             return ("success");
-        } catch (SecurityException e) {
+        } catch (FileValidationException | SecurityException e) {
             logger.error("Security violation: " + e.getMessage());
             MessageUploader.clean(fileId);
             throw e;
