@@ -78,6 +78,22 @@ gh pr create                 # GitHub pull request creation
 - PHI (Patient Health Information) must NEVER be logged or exposed
 - **Use `PathValidationUtils` for ALL file path operations** (see below)
 
+### Documentation-Only Changes
+
+When asked for a documentation-only pass, change only comments, Javadocs, Markdown, or other
+non-executable documentation text. Do not hide behavior changes in comment sweeps: no route
+mappings, constants, selectors, assertions, imports, SQL, config values, or executable statements.
+Senior-maintainer comments should explain security boundaries, legacy constraints, invariants,
+and why a surprising pattern exists; avoid line-by-line narration that restates the code.
+
+For login/password-reset work, keep documentation aligned with these invariants:
+- Server-side validation is authoritative; browser password policy checks are only user feedback.
+- Forced-reset credential material stays out of the HTTP session and is referenced by an opaque,
+  short-lived cache token.
+- Retryable reset validation errors may keep the token live; terminal password changes consume it.
+- `scripts/login-playwright-checks.js` is the reference browser/direct-POST regression check for
+  login, failed login, forced reset, CSRF rejection, and provider schedule rendering.
+
 **What counts as PHI vs. internal identifiers:**
 - **PHI** (treat as sensitive): HIN/health card number, patient name, DOB, address, phone, diagnosis text, clinical notes, lab values, medication details — anything that identifies a real person or their care.
 - **NOT PHI** (safe in logs and operator-facing error context): `demographic_no` / `demoNo`, appointment IDs, billing IDs, provider numbers, internal surrogate keys. These are internal indexes scoped to this CARLOS instance — they do not identify a person outside the system and have no meaning without DB access (which is already gated by `SecurityInfoManager`). Including them in error context, exception payloads, and log messages is encouraged because they make incidents debuggable.

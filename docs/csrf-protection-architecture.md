@@ -19,12 +19,16 @@ Developers do **not** need to manually add CSRF tokens to JSPs or AJAX calls.
 
 Four components work together (two custom filters and one servlet registered in `web.xml`, plus one request wrapper instantiated internally by the filter):
 
-### 1. `CsrfGuardScriptInjectionFilter` (mapped to `/*`)
+### 1. `CsrfGuardScriptInjectionFilter` (mapped to `/*` for JSP forwards)
 
 **Class**: `io.github.carlos_emr.carlos.app.CsrfGuardScriptInjectionFilter`
 
-Auto-injects `<script src="contextPath/csrfguard"></script>` into every HTML response before
-`</head>`. This eliminates the need to manually add the script tag to 1,200+ JSPs.
+Auto-injects `<script src="contextPath/csrfguard"></script>` into HTML JSP responses before
+`</head>`. The filter mapping is intentionally limited to `FORWARD` dispatches so injection
+happens at the JSP render layer without wrapping the top-level Struts `REQUEST` response.
+Do not re-add `REQUEST` dispatch unless the Struts/JSP wrapper interaction has been retested;
+double-wrapping has previously produced blank schedule pages even when the Struts action itself
+completed successfully.
 
 **How it works:**
 - Wraps the `HttpServletResponse` with a `CaptureResponseWrapper` that captures `PrintWriter`
@@ -39,6 +43,10 @@ Auto-injects `<script src="contextPath/csrfguard"></script>` into every HTML res
 - The response already contains a `/csrfguard` script reference (idempotency)
 - The response used `getOutputStream()` instead of `getWriter()`
 - The response was committed by `sendRedirect()` or `sendError()` during downstream processing
+
+**Operational invariant:** CSRF validation still runs on protected Struts POST requests through
+`CarlosCsrfGuardFilter`. The `FORWARD`-only script-injection mapping changes where the client
+script is added, not whether incoming mutating requests are validated.
 
 ### 2. `CarlosCsrfGuardFilter` (mapped to `/*`)
 

@@ -101,9 +101,9 @@ public class ResponseSanitizationFilter implements Filter {
     static final String ENABLED_PROPERTY = "response.sanitization.enabled";
 
     /**
-     * Property name that activates developer error display mode. When this property is
-     * {@code true} / {@code yes} / {@code on} in {@code carlos.properties}, this filter
-     * disables itself so that raw exception details reach the browser.
+     * Property name that activates developer error display mode. This property is intentionally
+     * advisory for this filter: raw exception details reach the browser only when
+     * {@code response.sanitization.enabled=false} is also set.
      *
      * <p><strong>SECURITY RISK:</strong> Stack traces expose internal class names,
      * library versions, code paths, and data structures that significantly aid attackers.
@@ -337,7 +337,7 @@ public class ResponseSanitizationFilter implements Filter {
         try {
             response.resetBuffer();
         } catch (IllegalStateException e) {
-            LOGGER.debug("Cannot reset buffer for sanitized error [correlationId={}]: {}",
+            LOGGER.warn("Cannot reset buffer for sanitized error [correlationId={}]: {}",
                     correlationId, e.getMessage());
             return;
         }

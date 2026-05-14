@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnMriViewModel;
@@ -57,13 +58,15 @@ public class ViewBillingOnMri2Action extends ActionSupport {
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
+        HttpServletResponse response = ServletActionContext.getResponse();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         // Reject sessionless requests up front. SecurityInfoManagerImpl.hasPrivilege
         // dereferences loggedInInfo and emits an internal ERROR log on null, which
         // pollutes the log signal for real privilege denials.
         if (loggedInInfo == null) {
-            throw new SecurityException("missing session");
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+            return NONE;
         }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
             throw new SecurityException("missing required sec object (_billing)");
@@ -72,7 +75,7 @@ public class ViewBillingOnMri2Action extends ActionSupport {
         BillingOnMriViewModel model;
         try {
             model = billingONMRIAssembler.assemble(request, loggedInInfo);
-        } catch (BillingDataLoadException e) {
+        } catch (SecurityException | BillingDataLoadException e) {
             throw e;
         } catch (RuntimeException e) {
             throw new BillingDataLoadException("Failed to load OHIP report view model", e);

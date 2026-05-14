@@ -40,6 +40,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Writer;
 import java.util.Locale;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
 
@@ -85,6 +86,7 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
      */
     private static final Pattern CSRFGUARD_SCRIPT_PATTERN =
             Pattern.compile("<script[^>]*src=[\"'][^\"']*\\/csrfguard[\"']", Pattern.CASE_INSENSITIVE);
+    private static final AtomicBoolean HTML_LOOKING_PASSTHROUGH_WARNED = new AtomicBoolean(false);
 
     @Override
     public void init(FilterConfig filterConfig) throws ServletException {
@@ -143,7 +145,7 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             return;
         }
 
-        CaptureResponseWrapper wrapper = new CaptureResponseWrapper(httpResponse);
+        CaptureResponseWrapper wrapper = new CaptureResponseWrapper(httpResponse, httpRequest.getRequestURI());
         LOGGER.debug("CsrfGuard: wrapping request {}", httpRequest.getRequestURI());
         chain.doFilter(request, wrapper);
         LOGGER.debug("CsrfGuard: chain completed for {} committed={} writer={} stream={}",
@@ -313,9 +315,11 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         private boolean committed;
         private Integer deferredContentLength;
         private Long deferredContentLengthLong;
+        private final String requestUri;
 
-        public CaptureResponseWrapper(HttpServletResponse response) {
+        public CaptureResponseWrapper(HttpServletResponse response, String requestUri) {
             super(response);
+            this.requestUri = requestUri;
             // Increase underlying response buffer to 1 MB to prevent premature flushing
             // before our wrapper can capture the complete HTML content for script injection
             // Note: setBufferSize removed for Tomcat 11 compatibility — the default
@@ -344,7 +348,7 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
                 if (isKnownNonHtmlContentType()) {
                     writerPassthrough = true;
                     applyDeferredContentLength();
-                    writer = super.getWriter();
+                    writer = new PrintWriter(new SniffingPassthroughWriter(super.getWriter()));
                 } else {
                     writer = new PrintWriter(new LazyCaptureWriter());
                 }
@@ -484,6 +488,61 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         }
 
         /**
+         * Emits one operator-visible warning when a response opts out of CSRF injection using a
+         * non-HTML content type but the first body chunk looks like a full HTML page. This catches
+         * JSPs that accidentally set {@code text/json} or similar before writing HTML, a failure
+         * mode that otherwise causes missing CSRF tokens with only DEBUG-level evidence.
+         */
+        private void warnIfHtmlLookingPassthrough(String value, int offset, int length) {
+            if (value == null || length <= 0 || !isKnownNonHtmlContentType()) {
+                return;
+            }
+            int safeOffset = Math.max(0, Math.min(offset, value.length()));
+            int safeEnd = Math.max(safeOffset, Math.min(value.length(), safeOffset + length));
+            if (startsWithHtmlDocument(value.subSequence(safeOffset, safeEnd))
+                    && HTML_LOOKING_PASSTHROUGH_WARNED.compareAndSet(false, true)) {
+                LOGGER.warn("CSRF script injection passed through a response with non-HTML "
+                        + "Content-Type [{}] even though the body appears to be HTML; uri={}",
+                        getContentType(), requestUri);
+            }
+        }
+
+        private void warnIfHtmlLookingPassthrough(char[] chars, int offset, int length) {
+            if (chars == null || length <= 0 || !isKnownNonHtmlContentType()) {
+                return;
+            }
+            int safeOffset = Math.max(0, Math.min(offset, chars.length));
+            int safeLength = Math.max(0, Math.min(length, chars.length - safeOffset));
+            if (safeLength == 0) {
+                return;
+            }
+            warnIfHtmlLookingPassthrough(new String(chars, safeOffset, safeLength), 0, safeLength);
+        }
+
+        private static boolean startsWithHtmlDocument(CharSequence value) {
+            int index = 0;
+            int length = value.length();
+            while (index < length && Character.isWhitespace(value.charAt(index))) {
+                index++;
+            }
+            return startsWithIgnoreCase(value, index, "<html")
+                    || startsWithIgnoreCase(value, index, "<!doctype");
+        }
+
+        private static boolean startsWithIgnoreCase(CharSequence value, int offset, String prefix) {
+            if (value.length() - offset < prefix.length()) {
+                return false;
+            }
+            for (int i = 0; i < prefix.length(); i++) {
+                if (Character.toLowerCase(value.charAt(offset + i))
+                        != Character.toLowerCase(prefix.charAt(i))) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        /**
          * Applies Content-Length values deferred while the response mode was still unknown.
          */
         private void applyDeferredContentLength() {
@@ -512,11 +571,13 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
 
             @Override
             public void write(char[] chars, int offset, int length) throws IOException {
+                warnIfHtmlLookingPassthrough(chars, offset, length);
                 getTarget().write(chars, offset, length);
             }
 
             @Override
             public void write(String string, int offset, int length) throws IOException {
+                warnIfHtmlLookingPassthrough(string, offset, length);
                 getTarget().write(string, offset, length);
             }
 
@@ -558,6 +619,41 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
                 }
                 captureWriter = new CharArrayWriter();
                 return captureWriter;
+            }
+        }
+
+        private class SniffingPassthroughWriter extends Writer {
+            private final Writer delegate;
+
+            SniffingPassthroughWriter(Writer delegate) {
+                this.delegate = delegate;
+            }
+
+            @Override
+            public void write(int character) throws IOException {
+                delegate.write(character);
+            }
+
+            @Override
+            public void write(char[] chars, int offset, int length) throws IOException {
+                warnIfHtmlLookingPassthrough(chars, offset, length);
+                delegate.write(chars, offset, length);
+            }
+
+            @Override
+            public void write(String string, int offset, int length) throws IOException {
+                warnIfHtmlLookingPassthrough(string, offset, length);
+                delegate.write(string, offset, length);
+            }
+
+            @Override
+            public void flush() throws IOException {
+                delegate.flush();
+            }
+
+            @Override
+            public void close() throws IOException {
+                delegate.close();
             }
         }
     }

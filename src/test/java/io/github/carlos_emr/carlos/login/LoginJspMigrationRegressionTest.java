@@ -36,6 +36,10 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Locks the migrated root login/error pages onto Struts-backed routes and
  * internal WEB-INF views.
  *
+ * <p>These tests are configuration guardrails, not a substitute for action-level unit tests or
+ * Playwright coverage. Keep assertions focused on routing, CSRF wiring, and JSP migration
+ * invariants that are easy to break during extensionless-route cleanup.</p>
+ *
  * @since 2026-04-15
  */
 @DisplayName("Login JSP migration regressions")

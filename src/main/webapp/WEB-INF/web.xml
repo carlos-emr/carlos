@@ -124,7 +124,9 @@
            1. CSRFGuard validates tokens on all Struts action POST requests
            2. CsrfGuardScriptInjectionFilter is mapped for FORWARD dispatches to JSPs so
               csrfguard.js is injected at the JSP render layer without double-wrapping
-              Struts REQUEST responses. Non-HTML/outputstream responses are passed through.
+              Struts REQUEST responses. Re-adding REQUEST dispatch here can cause Struts/JSP
+              responses to be captured by two wrappers and has previously produced blank
+              schedule pages even though the action completed successfully.
            3. LogoutBroadcastFilter wraps the response BEFORE Struts renders,
               so the logout broadcast script is injected into Struts-rendered HTML pages
               (e.g. Inboxhub, DisplayMessages)

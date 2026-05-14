@@ -12,6 +12,8 @@
  */
 package io.github.carlos_emr.carlos.providers.gate;
 
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+
 /**
  * View gate for {@code provider/providercontrol.jsp} (the provider dashboard /
  * schedule landing page). Enforces {@code _appointment} {@code r} privilege
@@ -19,9 +21,21 @@ package io.github.carlos_emr.carlos.providers.gate;
  * ({@code struts-login.xml}), {@code LoginFilter} refresh list,
  * {@code PersonaService} navbar, and numerous intra-module links.
  *
+ * <p>This action should remain the schedule landing target after successful login. Forwarding the
+ * JSP from a public filter would skip this provider gate and make unauthenticated behavior depend
+ * on JSP scriptlets instead of the shared Struts security boundary.</p>
+ *
  * @since 2026-04-13
  */
 public final class ViewProviderControl2Action extends BaseProviderViewGate2Action {
+
+    public ViewProviderControl2Action() {
+        super();
+    }
+
+    ViewProviderControl2Action(SecurityInfoManager securityInfoManager) {
+        super(securityInfoManager);
+    }
 
     @Override
     protected String getSecurityObject() {

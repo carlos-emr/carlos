@@ -42,6 +42,7 @@ import io.github.carlos_emr.carlos.billing.CA.model.BillActivity;
 import io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnConstants;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingDiskNameDto;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.DiskFilenameRow;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingDataLoadException;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnMriViewModel;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnLookupService;
 import io.github.carlos_emr.carlos.commn.dao.ProviderBillCenterDao;
@@ -86,7 +87,7 @@ public class BillingOnMriViewModelAssembler {
     private final ProviderDataDao providerDataDao;
     private final ProviderBillCenterDao providerBillCenterDao;
     private final SecurityInfoManager securityInfoManager;
-    private final BillingReviewLoader reviewPrep;
+    private final BillingReviewLoader reviewLoader;
     private final BillingOnLookupService lookupService;
 
     public BillingOnMriViewModelAssembler(ProviderDao providerDao,
@@ -94,14 +95,14 @@ public class BillingOnMriViewModelAssembler {
                               ProviderDataDao providerDataDao,
                               ProviderBillCenterDao providerBillCenterDao,
                               SecurityInfoManager securityInfoManager,
-                              BillingReviewLoader reviewPrep,
+                              BillingReviewLoader reviewLoader,
                               BillingOnLookupService lookupService) {
         this.providerDao = providerDao;
         this.billActivityDao = billActivityDao;
         this.providerDataDao = providerDataDao;
         this.providerBillCenterDao = providerBillCenterDao;
         this.securityInfoManager = securityInfoManager;
-        this.reviewPrep = reviewPrep;
+        this.reviewLoader = reviewLoader;
         this.lookupService = lookupService;
     }
 
@@ -132,6 +133,12 @@ public class BillingOnMriViewModelAssembler {
         String selectedYear = request.getParameter("year");
         if (selectedYear == null || selectedYear.isEmpty()) {
             selectedYear = String.valueOf(curYear);
+        }
+        if (!selectedYear.matches("\\d{4}")) {
+            throw new BillingDataLoadException(
+                    "Invalid OHIP archive year",
+                    BillingDataLoadException.Phase.DATE_PARSE,
+                    Map.of("year", LogSanitizer.sanitize(selectedYear)));
         }
 
         List<String> archiveYears = new ArrayList<>();
@@ -199,11 +206,11 @@ public class BillingOnMriViewModelAssembler {
                                                                            boolean isTeamAccessPrivacy) {
         List<io.github.carlos_emr.carlos.billings.ca.on.dto.ProviderDropdownEntry> providerStrs;
         if (isTeamBillingOnly || isTeamAccessPrivacy) {
-            providerStrs = reviewPrep.getTeamProviderBillingStr(userProviderNo);
+            providerStrs = reviewLoader.getTeamProviderBillingStr(userProviderNo);
         } else if (isSiteAccessPrivacy) {
-            providerStrs = reviewPrep.getSiteProviderBillingStr(userProviderNo);
+            providerStrs = reviewLoader.getSiteProviderBillingStr(userProviderNo);
         } else {
-            providerStrs = reviewPrep.getProviderBillingStr();
+            providerStrs = reviewLoader.getProviderBillingStr();
         }
         List<BillingOnMriViewModel.ProviderEntry> options = new ArrayList<>();
         if (providerStrs == null) {
@@ -254,7 +261,7 @@ public class BillingOnMriViewModelAssembler {
                                                             String currentYearColor,
                                                             Set<String> visibleProviderSet,
                                                             boolean filterByVisibleProviders) {
-        List mriList = reviewPrep.getMRIList(selectedYear + "-01-01 00:00:01",
+        List mriList = reviewLoader.getMRIList(selectedYear + "-01-01 00:00:01",
                 selectedYear + "-12-31 23:59:59", "U");
         Properties proName = lookupService.getPropProviderName();
 

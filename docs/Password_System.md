@@ -155,6 +155,12 @@ done
 2. **Force Password Reset**:
    - Set `forcePasswordReset = 1` for new accounts
    - Set for temporary/default passwords
+   - Forced reset is a multi-step login flow: the first successful credential check stages an
+     opaque server-side credential-cache token, and the password update POST consumes that token
+     only after old-password, confirmation, complexity, and CSRF validation pass.
+   - Browser JavaScript provides immediate feedback, but direct POSTs are still validated
+     server-side against `password_min_length`, `password_min_groups`, group character sets, and
+     `IGNORE_PASSWORD_REQUIREMENTS`.
 
 3. **PIN Requirements**:
    - Separate PIN for additional security layer

@@ -99,6 +99,8 @@ import java.util.regex.Pattern;
  *   <li>Input validation for username, password, and PIN formats</li>
  *   <li>Protection against brute force attacks via IP blocking</li>
  *   <li>Secure session regeneration after successful authentication</li>
+ *   <li>Server-side password policy enforcement for forced password resets</li>
+ *   <li>Short-lived opaque credential-cache tokens for multi-request login state</li>
  *   <li>OWASP encoding for all user-provided output</li>
  *   <li>TOTP-based MFA support (RFC 6238)</li>
  *   <li>PHI-compliant audit logging</li>
@@ -114,6 +116,9 @@ import java.util.regex.Pattern;
  *
  * <p>CRITICAL: This action ONLY accepts POST requests for security reasons.
  * GET requests are rejected to prevent credential exposure in URL parameters or server logs.
+ * Forced password reset uses a dedicated POST endpoint that remains behind CSRFGuard even though
+ * it is exempt from the authenticated-session filter; do not move password updates back onto a
+ * public GET/JSP route.
  *
  * <p>This action integrates with Spring-managed services for:
  * <ul>
@@ -166,6 +171,14 @@ public final class Login2Action extends ActionSupport {
      * credential information; credential hashes and PINs are never placed in the session.
      */
     public static final String LOGIN_CREDENTIALS_TOKEN_ATTR = "loginCredentialsToken";
+
+    /**
+     * Session-scoped, one-request error message used by the forced-reset retry redirect.
+     *
+     * <p>Validation failures intentionally redirect back to the GET-only reset page instead of
+     * forwarding after POST. That keeps browser refresh/back behavior safe while preserving the
+     * still-valid credential-cache token for retryable mistakes such as a bad old password.</p>
+     */
     public static final String FORCE_PASSWORD_RESET_ERROR_ATTR = "forcePasswordResetError";
 
     /** Spring-managed service for provider data access and management */
@@ -272,7 +285,7 @@ public final class Login2Action extends ActionSupport {
         // SECURITY: Reject GET requests to prevent credential exposure in URLs/logs
         if (!"POST".equals(request.getMethod())) {
             MiscUtils.getLogger().error("Someone is trying to login with a GET request.", new Exception());
-            String newURL = loginFailedRedirectUrl("Application Error. See Log.");
+            String newURL = loginFailedRedirectUrl(message("login.errorApplicationError"));
             response.sendRedirect(newURL);
             return NONE;
         }
@@ -386,8 +399,11 @@ public final class Login2Action extends ActionSupport {
         if (request.getParameter("forcedpasswordchange") != null
                 && request.getParameter("forcedpasswordchange").equalsIgnoreCase("true")) {
             // Coming back from force password change. Credentials are held in the
-            // server-side LoginCredentialCache, referenced by an opaque one-time token
-            // in the session (the credentials themselves are NEVER placed in the session).
+            // server-side LoginCredentialCache, referenced by an opaque token in the
+            // session (the credentials themselves are NEVER placed in the session).
+            // Retryable validation failures use peek() so the user can correct the
+            // form. Once all validation passes, consume() below makes the terminal
+            // submit single-use before the password is persisted.
             HttpSession pendingResetSession = request.getSession(false);
             Object credsTokenAttr = pendingResetSession == null
                     ? null
@@ -435,7 +451,9 @@ public final class Login2Action extends ActionSupport {
             try {
                 String errorStr = errorHandling(password, newPassword, confirmPassword, oldPassword);
 
-                // Error Handling
+                // Keep the token alive only for retryable validation failures. This preserves
+                // normal form correction while still allowing the success path to consume the
+                // token atomically before persistence.
                 if (errorStr != null && !errorStr.isEmpty()) {
                     return redirectForcePasswordResetRetry(errorStr);
                 }
@@ -532,12 +550,13 @@ public final class Login2Action extends ActionSupport {
                 logger.info("{} Blocked: {}", LOG_PRE, LogSanitizer.sanitize(userName));
                 // return mapping.findForward(where); //go to block page
                 // change to block page
-                String newURL = loginFailedRedirectUrl("Oops! Your account is now locked due to incorrect password attempts!");
+                String lockedMessage = message("login.errorAccountLocked");
+                String newURL = loginFailedRedirectUrl(lockedMessage);
 
                 if (ajaxResponse) {
                     ObjectNode json = objectMapper.createObjectNode();
                     json.put("success", false);
-                    json.put("error", "Oops! Your account is now locked due to incorrect password attempts!");
+                    json.put("error", lockedMessage);
                     response.setContentType("application/json");
                     response.getWriter().write(json.toString());
                     return null;
@@ -559,12 +578,13 @@ public final class Login2Action extends ActionSupport {
             strAuth = cl.auth(userName, password, pin, ip);
         } catch (Exception e) {
             logger.error("Error", e);
-            String newURL = loginFailedRedirectUrl("Unable to process login at this time. Please try again.");
+            String unableToProcessMessage = message("login.errorUnableToProcess");
+            String newURL = loginFailedRedirectUrl(unableToProcessMessage);
 
             if (ajaxResponse) {
                 ObjectNode json = objectMapper.createObjectNode();
                 json.put("success", false);
-                json.put("error", "Unable to process login at this time. Please try again.");
+                json.put("error", unableToProcessMessage);
                 logger.error("Database connection error during login", e);
                 response.setContentType("application/json");
                 response.getWriter().write(json.toString());
@@ -586,7 +606,7 @@ public final class Login2Action extends ActionSupport {
                 logger.info("{} Inactive: {}", LOG_PRE, LogSanitizer.sanitize(userName));
                 LogAction.addLog(strAuth[0], "login", "failed", "inactive");
 
-                String newURL = loginFailedRedirectUrl("Your account is inactive. Please contact your administrator to activate.");
+                String newURL = loginFailedRedirectUrl(message("login.errorAccountInactive"));
 
                 response.sendRedirect(newURL);
                 return NONE;
@@ -807,12 +827,13 @@ public final class Login2Action extends ActionSupport {
         else if (strAuth != null && strAuth.length == 1 && strAuth[0].equals("expired")) {
             logger.warn("Expired password");
             cl.updateLoginList(ip, userName);
-            String newURL = loginFailedRedirectUrl("Your account is expired. Please contact your administrator.");
+            String expiredMessage = message("login.errorAccountExpired");
+            String newURL = loginFailedRedirectUrl(expiredMessage);
 
             if (ajaxResponse) {
                 ObjectNode json = objectMapper.createObjectNode();
                 json.put("success", false);
-                json.put("error", "Your account is expired. Please contact your administrator.");
+                json.put("error", expiredMessage);
                 response.setContentType("application/json");
                 response.getWriter().write(json.toString());
                 return null;
@@ -956,6 +977,17 @@ public final class Login2Action extends ActionSupport {
                 + "&view=0&displaymode=day&dboperation=searchappointmentday&viewall=" + viewAll;
     }
 
+    /**
+     * Redirects a retryable forced-reset validation failure back to the GET view.
+     *
+     * <p>The credential token remains live for this path by design: the user has not yet passed
+     * validation, so there is no terminal password-change attempt to consume. The next view render
+     * copies the session error to the request and removes it from the session.</p>
+     *
+     * @param errorMessage localized message to show on the forced reset form
+     * @return {@link #NONE} because the response has already been redirected
+     * @throws IOException if the servlet container cannot issue the redirect
+     */
     private String redirectForcePasswordResetRetry(String errorMessage) throws IOException {
         HttpSession session = request.getSession(false);
         if (session != null) {
@@ -1036,7 +1068,8 @@ public final class Login2Action extends ActionSupport {
      * <p>The session attribute removed is the opaque credential-cache token (see
      * {@link LoginCredentialCache}); if it is present the corresponding cache entry is
      * also invalidated so that credential material cannot outlive the login attempt.
-     * Legacy {@code userName} and {@code nextPage} attributes are also cleared if present.
+     * Older flow attributes such as {@code userName} and {@code nextPage} are also cleared if
+     * present so stale state from pre-cache login paths cannot influence a later attempt.
      *
      * @param request HttpServletRequest containing the session to clean
      */
@@ -1090,7 +1123,7 @@ public final class Login2Action extends ActionSupport {
      * @param password String the plain-text password (will be encoded before caching)
      * @param pin String the 4-digit PIN (must match [0-9]{4} pattern)
      * @param nextPage String the relative URL to redirect to after password reset (validated before caching)
-     * @throws IllegalArgumentException if password encoding fails
+     * @throws RuntimeException if password encoding fails while staging the credential material
      * @see SecurityManager#encodePassword for password encoding algorithm
      * @see #removeAttributesFromSession for cleanup after password reset
      * @see RedirectValidationUtils#isValidRelativeRedirect for redirect URL validation logic
@@ -1130,7 +1163,7 @@ public final class Login2Action extends ActionSupport {
     /**
      * Validates password change requirements during forced password reset flow.
      *
-     * <p>This method performs three validation checks:
+     * <p>This method performs four validation checks:
      * <ol>
      *   <li>Old password matches the password from the staged successful login</li>
      *   <li>New password and confirmation password match each other</li>
@@ -1169,6 +1202,16 @@ public final class Login2Action extends ActionSupport {
         return validatePasswordPolicy(newPassword);
     }
 
+    /**
+     * Applies the server-side forced-reset password complexity policy.
+     *
+     * <p>The JSP performs the same checks for immediate user feedback, but browser JavaScript is
+     * advisory. This method is the authoritative policy gate for direct POSTs and scripted clients.
+     * It mirrors the configurable length/group settings used by the legacy password-change UI.</p>
+     *
+     * @param newPassword candidate password submitted from the forced reset form
+     * @return empty string when the password is acceptable, otherwise a localized error message
+     */
     private String validatePasswordPolicy(String newPassword) {
         CarlosProperties properties = CarlosProperties.getInstance();
         if (Boolean.parseBoolean(properties.getProperty("IGNORE_PASSWORD_REQUIREMENTS"))) {
@@ -1195,6 +1238,12 @@ public final class Login2Action extends ActionSupport {
         return "";
     }
 
+    /**
+     * Counts how many configured character groups appear in a password candidate.
+     *
+     * <p>Package visibility exists for focused policy tests. Keep this helper deterministic and
+     * side-effect free so tests can cover policy behavior without driving the whole login action.</p>
+     */
     static int countPasswordGroups(String password, String lowerChars, String upperChars, String digitChars,
                                    String specialChars) {
         if (password == null || password.isEmpty()) {
@@ -1233,6 +1282,12 @@ public final class Login2Action extends ActionSupport {
         return chars != null && chars.indexOf(ch) >= 0;
     }
 
+    /**
+     * Reads an integer password-policy property with a safe fallback.
+     *
+     * <p>Misconfigured policy values should not make password changes impossible. Invalid values
+     * are logged for operators and the conservative application default remains in force.</p>
+     */
     private static int intProperty(CarlosProperties properties, String key, int defaultValue) {
         String value = properties.getProperty(key);
         if (value == null) {
@@ -1268,7 +1323,10 @@ public final class Login2Action extends ActionSupport {
      * Persists a new password for a user after forced password reset.
      *
      * <p>This method updates the user's password in the database and clears the
-     * forcePasswordReset flag so the user won't be prompted again on next login.
+     * forcePasswordReset flag so the user won't be prompted again on next login. It assumes the
+     * caller has already validated the old password, confirmation match, reuse rule, complexity
+     * policy, CSRF token, and credential-cache token. Do not call this helper directly from a new
+     * endpoint without preserving those gates.
      *
      * <p>Steps performed:
      * <ol>
@@ -1282,7 +1340,7 @@ public final class Login2Action extends ActionSupport {
      * @param userName String the username of the account to update
      * @param newPassword String the new plain-text password (will be encoded before storage)
      * @throws IllegalStateException if the user's security record cannot be found
-     * @throws IllegalArgumentException if password encoding fails
+     * @throws RuntimeException if password encoding or persistence fails
      * @see #getSecurity for retrieving the Security record
      * @see SecurityManager#encodePassword for password hashing
      * @see SecurityDao#saveEntity for database persistence

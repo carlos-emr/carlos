@@ -33,6 +33,11 @@ import org.apache.struts2.ServletActionContext;
  * Configure behavior via {@link #getSecurityObject()},
  * {@link #getAccessRight()}, and {@link #requirePost()}.
  *
+ * <p>Unauthenticated requests are redirected before {@link LoggedInInfo} is loaded. Some Struts
+ * provider actions can execute before the session filter has a chance to redirect, so the gate
+ * must explicitly check for the session user. That keeps unauthenticated direct hits from
+ * surfacing as server errors and preserves the normal logout/login recovery path.
+ *
  * <p>Provider-module convention: {@code _appointment r} is the default
  * provider-area entry privilege and is used for most view gates regardless of
  * topical relevance (encounter history, vaccine registry, signature edit,
@@ -45,8 +50,15 @@ import org.apache.struts2.ServletActionContext;
  */
 public abstract class BaseProviderViewGate2Action extends ActionSupport {
 
-    private final SecurityInfoManager securityInfoManager =
-            SpringUtils.getBean(SecurityInfoManager.class);
+    private final SecurityInfoManager securityInfoManager;
+
+    protected BaseProviderViewGate2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class));
+    }
+
+    protected BaseProviderViewGate2Action(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
+    }
 
     /** Security object name (e.g. {@code "_appointment"}, {@code "_admin"}). */
     protected abstract String getSecurityObject();
@@ -54,7 +66,12 @@ public abstract class BaseProviderViewGate2Action extends ActionSupport {
     /** Access right ({@code "r"} or {@code "w"}). */
     protected abstract String getAccessRight();
 
-    /** Subclasses override to require POST-only access. */
+    /**
+     * Indicates that a gated action is a mutating endpoint and should reject non-POST methods.
+     *
+     * <p>Provider view gates default to GET-friendly behavior. Override only for endpoints whose
+     * Struts result performs a state change or whose legacy route was POST-only.</p>
+     */
     protected boolean requirePost() {
         return false;
     }

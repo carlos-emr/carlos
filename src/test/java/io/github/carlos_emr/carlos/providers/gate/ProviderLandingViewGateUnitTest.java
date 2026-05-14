@@ -6,7 +6,6 @@
 package io.github.carlos_emr.carlos.providers.gate;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -32,9 +31,16 @@ import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
+/**
+ * Verifies the shared provider gate used by schedule landing pages.
+ *
+ * <p>The important regression here is unauthenticated direct access: provider routes can reach
+ * Struts before the session filter redirects, so the action gate must redirect cleanly instead of
+ * allowing JSP execution or throwing from {@code LoggedInInfo} setup.</p>
+ */
 @Tag("unit")
 @DisplayName("Provider landing view gates")
-class ProviderLandingViewGateUnitTest extends CarlosUnitTestBase {
+class ProviderLandingViewGateUnitTest {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
@@ -48,7 +54,6 @@ class ProviderLandingViewGateUnitTest extends CarlosUnitTestBase {
     @BeforeEach
     void setUp() {
         mockitoCloseable = MockitoAnnotations.openMocks(this);
-        registerMock(SecurityInfoManager.class, securityInfoManager);
 
         request = new MockHttpServletRequest();
         response = new MockHttpServletResponse();
@@ -82,8 +87,8 @@ class ProviderLandingViewGateUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should allow provider control rendering after privilege check")
-    void shouldAllowProviderControlRenderingAfterPrivilegeCheck() throws Exception {
-        String result = new ViewProviderControl2Action().execute();
+    void shouldAllowProviderControlRendering_afterPrivilegeCheck() throws Exception {
+        String result = new ViewProviderControl2Action(securityInfoManager).execute();
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
         assertThat(response.getForwardedUrl()).isNull();
@@ -91,8 +96,8 @@ class ProviderLandingViewGateUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should allow appointment day rendering after privilege check")
-    void shouldAllowAppointmentDayRenderingAfterPrivilegeCheck() throws Exception {
-        String result = new ViewAppointmentAdminDay2Action().execute();
+    void shouldAllowAppointmentDayRendering_afterPrivilegeCheck() throws Exception {
+        String result = new ViewAppointmentAdminDay2Action(securityInfoManager).execute();
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
         assertThat(response.getForwardedUrl()).isNull();
@@ -100,11 +105,11 @@ class ProviderLandingViewGateUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should not render when appointment privilege is missing")
-    void shouldNotRenderWhenAppointmentPrivilegeIsMissing() {
+    void shouldNotRender_whenAppointmentPrivilegeIsMissing() {
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_appointment"), eq("r"), isNull()))
                 .thenReturn(false);
 
-        assertThatThrownBy(() -> new ViewAppointmentAdminDay2Action().execute())
+        assertThatThrownBy(() -> new ViewAppointmentAdminDay2Action(securityInfoManager).execute())
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_appointment");
         assertThat(response.getForwardedUrl()).isNull();
@@ -112,10 +117,10 @@ class ProviderLandingViewGateUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should redirect unauthenticated provider view requests before privilege check")
-    void shouldRedirectUnauthenticatedProviderViewRequestsBeforePrivilegeCheck() throws Exception {
+    void shouldRedirectUnauthenticatedProviderViewRequests_beforePrivilegeCheck() throws Exception {
         request.getSession(false).invalidate();
 
-        String result = new ViewProviderControl2Action().execute();
+        String result = new ViewProviderControl2Action(securityInfoManager).execute();
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getRedirectedUrl()).isEqualTo("/logoutPage");

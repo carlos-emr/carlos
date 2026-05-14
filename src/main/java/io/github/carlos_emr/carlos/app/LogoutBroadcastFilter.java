@@ -426,8 +426,8 @@ public class LogoutBroadcastFilter implements Filter {
     }
 
     /**
-     * Writer that prevents flushing and closing of the underlying writer,
-     * allowing content to be appended after the chain completes.
+     * Writer that keeps the underlying writer open after JSP execution so the filter can append
+     * the logout-broadcast script after the chain completes.
      */
     private static class DelegatingWriter extends PrintWriter {
 
@@ -441,10 +441,11 @@ public class LogoutBroadcastFilter implements Filter {
         }
 
         /**
-         * Suppresses flush to prevent premature buffer flushing while the filter chain executes.
+         * Allows flushes to reach Tomcat while the filter chain executes.
          *
-         * <p>The actual flush is deferred until after the logout broadcast script has been
-         * appended to the response by {@link LogoutBroadcastFilter#appendScript}.
+         * <p>Tomcat 11 forwards depend on normal writer flushing. Commit deferral comes from the
+         * response wrapper's large buffer in the common JSP path; this writer only suppresses
+         * {@link #close()} so the appended script can still be written.</p>
          */
         @Override
         public void flush() {
@@ -572,13 +573,14 @@ public class LogoutBroadcastFilter implements Filter {
         }
 
         /**
-         * Suppresses buffer flushing until after the filter appends the logout broadcast script.
+         * Allows the servlet container to flush its buffer.
          *
-         * <p>Without this guard, the JSP container may flush and commit the response to the
-         * client before {@link LogoutBroadcastFilter#appendScript} can write the script block,
-         * resulting in incomplete or missing injection.
+         * <p>Earlier versions suppressed this call, but Tomcat 11 forwards require the normal
+         * flush path. The wrapper's 1 MB buffer is what gives
+         * {@link LogoutBroadcastFilter#appendScript} room to append the script before commit in
+         * the normal JSP response path.</p>
          *
-         * @throws IOException never thrown by this implementation
+         * @throws IOException if the wrapped response cannot flush
          */
         @Override
         public void flushBuffer() throws IOException {

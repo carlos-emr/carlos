@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.login;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.service.ProviderManager;
 import io.github.carlos_emr.carlos.commn.dao.FacilityDao;
@@ -63,6 +64,14 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/**
+ * Regression coverage for the forced-password-reset security contract.
+ *
+ * <p>These tests intentionally exercise direct action POST behavior rather than relying on the
+ * browser-side password policy JavaScript. The server must reject weak direct POSTs, preserve the
+ * credential token for retryable validation errors, consume the token before terminal persistence,
+ * and leave the account in a usable state after a valid reset.</p>
+ */
 @Tag("unit")
 @Tag("security")
 @DisplayName("Login2Action forced password reset")
@@ -131,6 +140,19 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should redirect to login failure when credential token is missing")
+    void shouldRedirectToLoginFailure_whenCredentialTokenMissing() throws Exception {
+        Login2Action action = newAction(OLD_PASSWORD, "ValidPass1!", "ValidPass1!");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getRedirectedUrl()).contains("/loginfailed");
+        assertThat(request.getSession(false).getAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR)).isNull();
+        verify(securityDao, never()).saveEntity(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
     @DisplayName("should keep credential token when old password validation fails")
     void shouldKeepCredentialToken_whenOldPasswordValidationFails() throws Exception {
         String token = cacheCredentials();
@@ -148,6 +170,44 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should keep credential token when password confirmation mismatches")
+    void shouldKeepCredentialToken_whenPasswordConfirmationMismatches() throws Exception {
+        String token = cacheCredentials();
+        when(securityManager.matchesPassword(OLD_PASSWORD, ENCODED_OLD_PASSWORD)).thenReturn(true);
+        Login2Action action = newAction(OLD_PASSWORD, "ValidPass1!", "OtherPass1!");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/forcepasswordreset");
+        assertThat(request.getSession(false).getAttribute(Login2Action.FORCE_PASSWORD_RESET_ERROR_ATTR))
+                .isEqualTo(Login2Action.message(request,
+                        "provider.providerchangepassword.errorConfirmPasswordMismatch"));
+        assertThat(LoginCredentialCache.getInstance().peek(token)).isNotNull();
+        verify(securityDao, never()).saveEntity(org.mockito.ArgumentMatchers.any());
+        LoginCredentialCache.getInstance().invalidate(token);
+    }
+
+    @Test
+    @DisplayName("should keep credential token when new password matches old password")
+    void shouldKeepCredentialToken_whenNewPasswordMatchesOldPassword() throws Exception {
+        String token = cacheCredentials();
+        when(securityManager.matchesPassword(OLD_PASSWORD, ENCODED_OLD_PASSWORD)).thenReturn(true);
+        Login2Action action = newAction(OLD_PASSWORD, OLD_PASSWORD, OLD_PASSWORD);
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/forcepasswordreset");
+        assertThat(request.getSession(false).getAttribute(Login2Action.FORCE_PASSWORD_RESET_ERROR_ATTR))
+                .isEqualTo(Login2Action.message(request,
+                        "provider.providerchangepassword.errorNewPasswordSameAsOld"));
+        assertThat(LoginCredentialCache.getInstance().peek(token)).isNotNull();
+        verify(securityDao, never()).saveEntity(org.mockito.ArgumentMatchers.any());
+        LoginCredentialCache.getInstance().invalidate(token);
+    }
+
+    @Test
     @DisplayName("should reject weak direct POST password server side and keep retry token")
     void shouldRejectWeakDirectPostPasswordServerSide_andKeepRetryToken() throws Exception {
         String token = cacheCredentials();
@@ -158,10 +218,48 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/forcepasswordreset");
-        assertThat(request.getSession(false).getAttribute(Login2Action.FORCE_PASSWORD_RESET_ERROR_ATTR)).asString().contains("3");
+        assertThat(request.getSession(false).getAttribute(Login2Action.FORCE_PASSWORD_RESET_ERROR_ATTR))
+                .asString()
+                .contains(Login2Action.message(request, "password.policy.violation.msgPasswordStrengthError"));
         assertThat(LoginCredentialCache.getInstance().peek(token)).isNotNull();
         verify(securityDao, never()).saveEntity(org.mockito.ArgumentMatchers.any());
         LoginCredentialCache.getInstance().invalidate(token);
+    }
+
+    @Test
+    @DisplayName("should allow weak password when password requirements are ignored")
+    void shouldAllowWeakPassword_whenPasswordRequirementsIgnored() throws Exception {
+        String originalIgnoreSetting = CarlosProperties.getInstance().getProperty("IGNORE_PASSWORD_REQUIREMENTS");
+        CarlosProperties.getInstance().setProperty("IGNORE_PASSWORD_REQUIREMENTS", "true");
+        String token = cacheCredentials();
+        when(securityManager.matchesPassword(OLD_PASSWORD, ENCODED_OLD_PASSWORD)).thenReturn(true);
+        when(securityDao.findByUserName(USERNAME)).thenReturn(Collections.emptyList());
+        Login2Action action = newAction(OLD_PASSWORD, "weakpass", "weakpass");
+
+        try {
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getRedirectedUrl()).contains("/loginfailed");
+            assertThat(LoginCredentialCache.getInstance().peek(token)).isNull();
+            assertThat(request.getSession(false).getAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR)).isNull();
+            verify(securityDao, never()).saveEntity(org.mockito.ArgumentMatchers.any());
+        } finally {
+            if (originalIgnoreSetting == null) {
+                CarlosProperties.getInstance().remove("IGNORE_PASSWORD_REQUIREMENTS");
+            } else {
+                CarlosProperties.getInstance().setProperty("IGNORE_PASSWORD_REQUIREMENTS", originalIgnoreSetting);
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("should fall back to English login message when locale bundle is missing")
+    void shouldFallBackToEnglishLoginMessage_whenLocaleBundleMissing() {
+        request.addPreferredLocale(java.util.Locale.GERMAN);
+
+        assertThat(Login2Action.message(request, "login.errorUnableToProcess"))
+                .isEqualTo("Unable to process login at this time. Please try again.");
     }
 
     @Test
@@ -228,7 +326,7 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should count password character groups using configured character sets")
-    void shouldCountPasswordCharacterGroupsUsingConfiguredCharacterSets() {
+    void shouldCountPasswordCharacterGroups_withConfiguredCharacterSets() {
         assertThat(Login2Action.countPasswordGroups("lowercase", "abcdefghijklmnopqrstuvwxyz",
                 "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "0123456789", "!@#")).isOne();
         assertThat(Login2Action.countPasswordGroups("Lower123", "abcdefghijklmnopqrstuvwxyz",

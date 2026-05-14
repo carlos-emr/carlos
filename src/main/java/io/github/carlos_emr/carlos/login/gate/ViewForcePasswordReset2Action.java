@@ -15,19 +15,29 @@ package io.github.carlos_emr.carlos.login.gate;
 import java.io.IOException;
 
 import io.github.carlos_emr.carlos.login.Login2Action;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import org.apache.struts2.ServletActionContext;
+import org.apache.logging.log4j.Logger;
 
 /**
  * Gate for the forced-password-reset page, which depends on the staged login
  * credential cache token before the password change is completed.
  *
+ * <p>The view is intentionally GET/HEAD-only. The password update itself must go through the
+ * dedicated POST action, where CSRFGuard, old-password validation, server-side password policy,
+ * and terminal token consumption are enforced. This action exists for Struts mappings that render
+ * the reset JSP directly; {@link io.github.carlos_emr.carlos.login.RootEntryRedirectFilter}
+ * provides the same guard for the extensionless public route.</p>
+ *
  * @since 2026-04-15
  */
 public final class ViewForcePasswordReset2Action extends BaseLoginPageView2Action {
+
+    private static final Logger LOGGER = MiscUtils.getLogger();
 
     @Override
     public String execute() throws Exception {
@@ -43,11 +53,14 @@ public final class ViewForcePasswordReset2Action extends BaseLoginPageView2Actio
 
         HttpSession session = request.getSession(false);
         if (session == null) {
+            LOGGER.info("Rejected /forcepasswordreset: missing session, remote={}", request.getRemoteAddr());
             return redirectToExpiredSession(request);
         }
         Object tokenAttr = session.getAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR);
         if (!(tokenAttr instanceof String) || !Login2Action.hasValidLoginCredentialsToken(request)) {
             session.removeAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR);
+            LOGGER.info("Rejected /forcepasswordreset: missing or stale credential token, remote={}",
+                    request.getRemoteAddr());
             return redirectToExpiredSession(request);
         }
 

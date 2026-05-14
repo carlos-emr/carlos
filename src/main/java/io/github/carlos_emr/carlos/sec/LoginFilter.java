@@ -144,6 +144,9 @@ public class LoginFilter implements Filter {
      *
      * <p>SECURITY NOTE: Any URL added to this list will be publicly accessible
      * without authentication. Ensure no PHI-exposing endpoints are included.
+     * Exempting a POST endpoint from this filter does not exempt it from CSRFGuard; for example,
+     * {@code /forcepasswordresetSubmit} must remain CSRF-protected and must validate the staged
+     * credential-cache token before changing a password.
      */
     private static final String[] EXEMPT_URLS = {
             "/images/Oscar.ico",

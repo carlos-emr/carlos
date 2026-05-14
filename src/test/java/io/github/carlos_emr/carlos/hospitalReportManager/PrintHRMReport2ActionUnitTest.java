@@ -27,6 +27,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -36,9 +37,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.StringReader;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
@@ -50,7 +54,9 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
+import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
@@ -65,6 +71,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Isolated;
+import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -96,6 +103,8 @@ class PrintHRMReport2ActionUnitTest extends CarlosUnitTestBase {
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
     private SecurityInfoManager securityInfoManager;
+    private DemographicDao demographicDao;
+    private HRMDocumentToDemographicDao hrmDocumentToDemographicDao;
     private LoggedInInfo loggedInInfo;
     private String previousDocumentDir;
 
@@ -108,10 +117,12 @@ class PrintHRMReport2ActionUnitTest extends CarlosUnitTestBase {
         response = new MockHttpServletResponse();
 
         securityInfoManager = mock(SecurityInfoManager.class);
+        demographicDao = mock(DemographicDao.class);
+        hrmDocumentToDemographicDao = mock(HRMDocumentToDemographicDao.class);
         loggedInInfo = mock(LoggedInInfo.class);
         registerMock(SecurityInfoManager.class, securityInfoManager);
-        registerMock(DemographicDao.class, mock(DemographicDao.class));
-        registerMock(HRMDocumentToDemographicDao.class, mock(HRMDocumentToDemographicDao.class));
+        registerMock(DemographicDao.class, demographicDao);
+        registerMock(HRMDocumentToDemographicDao.class, hrmDocumentToDemographicDao);
 
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_hrm"), eq("r"), isNull()))
                 .thenReturn(true);
@@ -175,6 +186,46 @@ class PrintHRMReport2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldDeleteAllTempFiles_whenMultipleHrmReportsAreStreamed() throws Exception {
+        request.addParameter("hrmReportId", "101", "102");
+        when(hrmDocumentToDemographicDao.findByHrmDocumentId(101)).thenReturn(List.of(hrmMapping(1)));
+        when(hrmDocumentToDemographicDao.findByHrmDocumentId(102)).thenReturn(List.of(hrmMapping(2)));
+        when(demographicDao.getDemographicById(1)).thenReturn(demographic("Alpha", "One"));
+        when(demographicDao.getDemographicById(2)).thenReturn(demographic("Beta", "Two"));
+
+        try (MockedConstruction<HRMPDFCreator> ignored = mockConstruction(HRMPDFCreator.class);
+                MockedStatic<ConcatPDF> concatPdfMock = mockStatic(ConcatPDF.class)) {
+            concatPdfMock.when(() -> ConcatPDF.concat(any(ArrayList.class), any(OutputStream.class)))
+                    .thenAnswer(invocation -> {
+                        ((OutputStream) invocation.getArgument(1)).write(PDF_BYTES);
+                        return null;
+                    });
+
+            String result = new PrintHRMReport2Action().execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+        }
+
+        try (Stream<Path> files = Files.list(tempDir)) {
+            assertThat(files.toList()).isEmpty();
+        }
+    }
+
+    @Test
+    void shouldSendError_whenPdfMergeThrowsRuntimeException() throws Exception {
+        try (MockedStatic<ConcatPDF> concatPdfMock = mockStatic(ConcatPDF.class)) {
+            concatPdfMock.when(() -> ConcatPDF.concat(any(ArrayList.class), any(OutputStream.class)))
+                    .thenThrow(new RuntimeException("merge failed"));
+
+            String result = new PrintHRMReport2Action().execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(500);
+            assertThat(response.getErrorMessage()).isEqualTo("Unable to generate HRM PDF");
+        }
+    }
+
+    @Test
     void shouldKeepHrmPrintRoute_withoutNamedResults() throws Exception {
         Element action = findAction(parse(STRUTS_DOCUMENT_XML), HRM_PRINT_ROUTE)
                 .orElseThrow(() -> new AssertionError(
@@ -184,6 +235,19 @@ class PrintHRMReport2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(action.getElementsByTagName("result").getLength())
                 .as("%s must not map named JSP results for direct PDF responses", HRM_PRINT_ROUTE)
                 .isZero();
+    }
+
+    private HRMDocumentToDemographic hrmMapping(int demographicNo) {
+        HRMDocumentToDemographic mapping = new HRMDocumentToDemographic();
+        mapping.setDemographicNo(demographicNo);
+        return mapping;
+    }
+
+    private Demographic demographic(String lastName, String firstName) {
+        Demographic demographic = new Demographic();
+        demographic.setLastName(lastName);
+        demographic.setFirstName(firstName);
+        return demographic;
     }
 
     private Optional<Element> findAction(Document document, String actionName) {

@@ -12,13 +12,27 @@
  */
 package io.github.carlos_emr.carlos.providers.gate;
 
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+
 /**
  * View gate for {@code provider/appointmentprovideradminday.jsp}. Enforces
  * {@code _appointment} {@code r} privilege before Struts renders the JSP.
  *
+ * <p>The day-view JSP contains its own legacy session assumptions, but those are not a substitute
+ * for the Struts gate. Keep direct requests routed through this action so unauthenticated or
+ * underprivileged users are handled before JSP execution begins.</p>
+ *
  * @since 2026-04-13
  */
 public final class ViewAppointmentAdminDay2Action extends BaseProviderViewGate2Action {
+
+    public ViewAppointmentAdminDay2Action() {
+        super();
+    }
+
+    ViewAppointmentAdminDay2Action(SecurityInfoManager securityInfoManager) {
+        super(securityInfoManager);
+    }
 
     @Override
     protected String getSecurityObject() {

@@ -29,6 +29,14 @@
 
 --%>
 
+<%--
+    Provider schedule landing view.
+
+    Direct requests must arrive through ViewProviderControl2Action so the shared provider gate can
+    verify an authenticated session and _appointment read privilege before this legacy JSP executes.
+    Do not expose this file through a public filter or container welcome mapping.
+--%>
+
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>

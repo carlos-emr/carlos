@@ -55,15 +55,14 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class PrintHRMReport2Action extends ActionSupport {
-    HttpServletRequest request = ServletActionContext.getRequest();
-    HttpServletResponse response = ServletActionContext.getResponse();
-
 
     private static final Logger logger = MiscUtils.getLogger();
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     public String execute() throws IOException {
+        HttpServletRequest request = ServletActionContext.getRequest();
+        HttpServletResponse response = ServletActionContext.getResponse();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_hrm", "r", null)) {
             throw new SecurityException("missing required sec object (_hrm)");
@@ -75,8 +74,7 @@ public class PrintHRMReport2Action extends ActionSupport {
         HRMDocumentToDemographicDao hrmDocumentToDemographicDao = SpringUtils.getBean(HRMDocumentToDemographicDao.class);
 
         List<Object> pdfDocs = new ArrayList<Object>();
-        File fileTemp = null;
-        FileOutputStream osTemp = null;
+        List<File> tempFiles = new ArrayList<>();
         String[] hrmReportIds = request.getParameterValues("hrmReportId");
         List<Integer> hrmIds = new ArrayList<>();
 
@@ -116,15 +114,17 @@ public class PrintHRMReport2Action extends ActionSupport {
                 File docDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
                 File validatedTemp = PathValidationUtils.validatePath(tempFileName, docDir);
                 pdfDocs.add(validatedTemp.getPath());
-                fileTemp = validatedTemp;
-                osTemp = new FileOutputStream(fileTemp);
+                tempFiles.add(validatedTemp);
 
-                HRMPDFCreator hrmpdfCreator = new HRMPDFCreator(osTemp, hrmId, loggedInInfo);
-                hrmpdfCreator.printPdf();
+                try (FileOutputStream osTemp = new FileOutputStream(validatedTemp)) {
+                    HRMPDFCreator hrmpdfCreator = new HRMPDFCreator(osTemp, hrmId, loggedInInfo);
+                    hrmpdfCreator.printPdf();
+                    osTemp.flush(); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- binary PDF temp stream
+                }
             }
             ConcatPDF.concat(pdfDocs, response.getOutputStream());
 
-        } catch (IOException e) {
+        } catch (IOException | RuntimeException e) {
             logger.error("Could not generate or stream HRM PDF response", e);
             if (!response.isCommitted()) {
                 try {
@@ -136,15 +136,10 @@ public class PrintHRMReport2Action extends ActionSupport {
             }
             return NONE;
         } finally {
-            if (osTemp != null) {
-                try (FileOutputStream tempStream = osTemp) {
-                    tempStream.flush(); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- binary PDF stream
-                } catch (IOException cleanupException) {
-                    logger.error("Could not clean up temporary HRM PDF stream", cleanupException);
+            for (File tempFile : tempFiles) {
+                if (tempFile != null && tempFile.exists() && !tempFile.delete()) {
+                    logger.warn("Could not delete temporary HRM PDF file {}", tempFile.getAbsolutePath());
                 }
-            }
-            if (fileTemp != null) {
-                fileTemp.delete();
             }
         }
 

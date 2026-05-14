@@ -29,6 +29,15 @@
 
 --%>
 
+<%--
+    Forced password reset view.
+
+    This JSP provides client-side password policy feedback only. The authoritative policy,
+    old-password check, CSRF validation, and one-time credential-token consumption are enforced
+    by Login2Action on /forcepasswordresetSubmit. Keep this page GET-rendered and avoid adding
+    password-changing scriptlets here.
+--%>
+
 <%
     String errormsg = "";
     if (request.getAttribute("errormsg") != null) {

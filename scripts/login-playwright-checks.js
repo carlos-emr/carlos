@@ -3,6 +3,15 @@
  * Comprehensive browser checks for the CARLOS login and forced password-reset
  * flow. This script expects the devcontainer database and Tomcat app to be up.
  *
+ * The checks intentionally cover both browser behavior and direct POST attempts:
+ * failed login rendering, public method guards, unauthenticated provider redirects,
+ * CSRF enforcement, weak-password rejection, retryable old-password failures, valid
+ * password persistence, and old-vs-new password login behavior.
+ *
+ * The script mutates TEST_USER's security row while it runs and restores the original
+ * password, forcePasswordReset flag, and passwordUpdateDate in a finally block. Use a
+ * disposable development database, not a production or PHI-bearing environment.
+ *
  * Defaults are for the local devcontainer:
  *   node scripts/login-playwright-checks.js
  *
