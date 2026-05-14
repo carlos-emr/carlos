@@ -12,8 +12,10 @@
  */
 package io.github.carlos_emr.carlos.documentManager.actions;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletRequest;
 import org.apache.struts2.ServletActionContext;
@@ -24,21 +26,26 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Hashtable;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
@@ -63,6 +70,9 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
     @Mock
     private LoggedInInfo mockLoggedInInfo;
 
+    @TempDir
+    private Path documentDir;
+
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
     private AddEditDocument2Action action;
@@ -82,7 +92,7 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
                 .thenReturn(mockLoggedInInfo);
 
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
-        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_edoc"), eq("w"), isNull()))
+        lenient().when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_edoc"), eq("w"), isNull()))
                 .thenReturn(true);
 
         action = new AddEditDocument2Action();
@@ -143,28 +153,20 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
     @DisplayName("should prefer docFile over filedata regardless of list ordering")
     void shouldPreferDocFileOverFiledata_regardlessOfListOrdering() throws Exception {
         tempUploadFile = File.createTempFile("add-edit-document", ".pdf");
-        File filedataTemp = File.createTempFile("filedata-upload", ".pdf");
-        try {
-            UploadedFile filedataUpload = mock(UploadedFile.class);
-            when(filedataUpload.getInputName()).thenReturn("filedata");
-            when(filedataUpload.getAbsolutePath()).thenReturn(filedataTemp.getAbsolutePath());
-            when(filedataUpload.getOriginalName()).thenReturn("html5-upload.pdf");
-            when(filedataUpload.getContentType()).thenReturn("application/pdf");
+        UploadedFile filedataUpload = mock(UploadedFile.class);
+        when(filedataUpload.getInputName()).thenReturn("filedata");
 
-            UploadedFile docFileUpload = mock(UploadedFile.class);
-            when(docFileUpload.getInputName()).thenReturn("docFile");
-            when(docFileUpload.getAbsolutePath()).thenReturn(tempUploadFile.getAbsolutePath());
-            when(docFileUpload.getOriginalName()).thenReturn("echart-upload.pdf");
-            when(docFileUpload.getContentType()).thenReturn("application/pdf");
+        UploadedFile docFileUpload = mock(UploadedFile.class);
+        when(docFileUpload.getInputName()).thenReturn("docFile");
+        when(docFileUpload.getAbsolutePath()).thenReturn(tempUploadFile.getAbsolutePath());
+        when(docFileUpload.getOriginalName()).thenReturn("echart-upload.pdf");
+        when(docFileUpload.getContentType()).thenReturn("application/pdf");
 
-            // filedata appears first in the list - docFile must still win
-            action.withUploadedFiles(List.of(filedataUpload, docFileUpload));
+        // filedata appears first in the list - docFile must still win
+        action.withUploadedFiles(List.of(filedataUpload, docFileUpload));
 
-            assertThat(action.getDocFile().getAbsolutePath()).isEqualTo(tempUploadFile.getAbsolutePath());
-            assertThat(action.getDocFileFileName()).isEqualTo("echart-upload.pdf");
-        } finally {
-            Files.deleteIfExists(filedataTemp.toPath());
-        }
+        assertThat(action.getDocFile().getAbsolutePath()).isEqualTo(tempUploadFile.getAbsolutePath());
+        assertThat(action.getDocFileFileName()).isEqualTo("echart-upload.pdf");
     }
 
     @Test
@@ -182,5 +184,79 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
         assertThat(result).isEqualTo("failAdd");
         Hashtable<String, String> errors = (Hashtable<String, String>) request.getAttribute("docerrors");
         assertThat(errors).containsEntry("uploaderror", "dms.error.uploadError");
+    }
+
+    @Test
+    @DisplayName("should reject standard add upload source outside upload temp directories")
+    @SuppressWarnings("unchecked")
+    void shouldRejectStandardAddUploadSource_whenSourceIsOutsideUploadTempDirectories() {
+        File outsideUploadSource = new File("pom.xml").getAbsoluteFile();
+        assertThat(outsideUploadSource).isFile();
+
+        action.setMode("add");
+        action.setFunction("demographic");
+        action.setFunctionId("123");
+        action.setDocDesc("Consult note");
+        action.setDocType("Consultant Report");
+        action.setDocFile(outsideUploadSource);
+        action.setDocFileFileName("outside.pdf");
+
+        String result = action.execute2();
+
+        assertThat(result).isEqualTo("failAdd");
+        Hashtable<String, String> errors = (Hashtable<String, String>) request.getAttribute("docerrors");
+        assertThat(errors).containsEntry("uploaderror", "dms.error.uploadError");
+    }
+
+    @Test
+    @DisplayName("should reject standard edit upload source outside upload temp directories")
+    @SuppressWarnings("unchecked")
+    void shouldRejectStandardEditUploadSource_whenSourceIsOutsideUploadTempDirectories() {
+        File outsideUploadSource = new File("pom.xml").getAbsoluteFile();
+        assertThat(outsideUploadSource).isFile();
+        String previousUpdateDocumentContent = CarlosProperties.getInstance()
+                .getProperty("ALLOW_UPDATE_DOCUMENT_CONTENT");
+
+        action.setMode("42");
+        action.setDocDesc("Consult note");
+        action.setDocType("Consultant Report");
+        action.setDocFile(outsideUploadSource);
+        action.setDocFileFileName("outside.pdf");
+
+        try {
+            CarlosProperties.getInstance().setProperty("ALLOW_UPDATE_DOCUMENT_CONTENT", "true");
+
+            String result = action.execute2();
+
+            assertThat(result).isEqualTo("failEdit");
+            Hashtable<String, String> errors = (Hashtable<String, String>) request.getAttribute("docerrors");
+            assertThat(errors).containsEntry("uploaderror", "dms.error.uploadError");
+        } finally {
+            if (previousUpdateDocumentContent == null) {
+                CarlosProperties.getInstance().remove("ALLOW_UPDATE_DOCUMENT_CONTENT");
+            } else {
+                CarlosProperties.getInstance()
+                        .setProperty("ALLOW_UPDATE_DOCUMENT_CONTENT", previousUpdateDocumentContent);
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("should propagate writeLocalFile validation failures")
+    void shouldPropagateWriteLocalFileValidationFailures() {
+        String previousDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        try {
+            CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", documentDir.toString());
+
+            assertThatThrownBy(() -> AddEditDocument2Action.writeLocalFile(
+                    new ByteArrayInputStream(new byte[]{1}), ".hidden"))
+                    .isInstanceOf(FileValidationException.class);
+        } finally {
+            if (previousDocumentDir == null) {
+                CarlosProperties.getInstance().remove("DOCUMENT_DIR");
+            } else {
+                CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", previousDocumentDir);
+            }
+        }
     }
 }

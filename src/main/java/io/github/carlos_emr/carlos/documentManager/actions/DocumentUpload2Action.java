@@ -19,7 +19,9 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.HashMap;
@@ -135,6 +137,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                             } else {
                                 map.put("name", docFile.getName());
                                 map.put("size", docFile.length());
+                                storePreferredQueue(queueId);
                             }
                         }
                     } catch (FileValidationException e) {
@@ -145,14 +148,6 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                     }
                 }
 
-                if (queueId != null) {
-                    try {
-                        request.getSession().setAttribute("preferredQueue", String.valueOf(Integer.parseInt(queueId.trim()))); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-                    } catch (NumberFormatException e) {
-                        // Do not store an invalid (non-integer) queue ID in the session (trust boundary protection)
-                        logger.warn("Invalid queue ID format — skipping session attribute update");
-                    }
-                }
             }
             docFile = null;
         } else if (docFile != null) {
@@ -288,8 +283,8 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             return false;
         }
 
-        // Check that filename doesn't contain path traversal sequences
-        if (fileName.contains("..") || fileName.contains("/") || fileName.contains("\\")) {
+        // Check direct path separators; PathValidationUtils handles dot-only and hidden names.
+        if (fileName.contains("/") || fileName.contains("\\")) {
             logger.error("Filename contains invalid path characters");
             return false;
         }
@@ -314,7 +309,8 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
         // Write the file - validate source file at point of use for static analysis visibility
         File validatedDocFile = PathValidationUtils.validateUpload(docFile);
         try (InputStream fis = Files.newInputStream(validatedDocFile.toPath());
-                FileOutputStream fos = new FileOutputStream(destinationFile)) {
+                OutputStream fos = Files.newOutputStream(destinationFile.toPath(),
+                        StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
             IOUtils.copy(fis, fos);
         } catch (IOException e) {
             logger.error("Error writing file to incoming docs", e);
@@ -343,6 +339,15 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
         return queueId != null
                 && queueId.trim().matches("\\d+")
                 && ALLOWED_INCOMING_DOC_FOLDERS.contains(destFolder);
+    }
+
+    private void storePreferredQueue(String queueId) {
+        try {
+            request.getSession().setAttribute("preferredQueue", String.valueOf(Integer.parseInt(queueId.trim()))); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        } catch (NumberFormatException e) {
+            // Do not store an invalid queue ID in the session.
+            logger.warn("Invalid queue ID format — skipping session attribute update");
+        }
     }
 
     public String setUploadDestination() {
