@@ -331,7 +331,7 @@ public class ResponseSanitizationFilter implements Filter {
     private static void sendSanitizedError(HttpServletResponse response, int status,
             String correlationId) throws IOException {
         if (response.isCommitted()) {
-            LOGGER.debug("Cannot send sanitized error — response already committed "
+            LOGGER.warn("Cannot send sanitized error — response already committed "
                     + "[status={} correlationId={}]", status, correlationId);
             return;
         }
@@ -642,6 +642,9 @@ public class ResponseSanitizationFilter implements Filter {
         private final int maxChars;
         private PrintWriter passthroughWriter;
         private boolean limitExceeded;
+        private boolean discardingTaintedOutput;
+        private long discardedByteCount;
+        private boolean discardLogged;
 
         /**
          * Constructs a new writer that buffers into {@code buffer} up to {@code maxChars}
@@ -664,6 +667,7 @@ public class ResponseSanitizationFilter implements Filter {
                 switchToPassthrough(new String(cbuf, off, len));
             }
             if (limitExceeded) {
+                recordDiscardedBytes(cbuf, off, len);
                 passthroughWriter.write(cbuf, off, len);
             } else {
                 buffer.write(cbuf, off, len);
@@ -676,6 +680,7 @@ public class ResponseSanitizationFilter implements Filter {
                 switchToPassthrough(String.valueOf((char) c));
             }
             if (limitExceeded) {
+                recordDiscardedBytes(c);
                 passthroughWriter.write(c);
             } else {
                 buffer.write(c);
@@ -688,6 +693,7 @@ public class ResponseSanitizationFilter implements Filter {
                 switchToPassthrough(str.substring(off, off + len));
             }
             if (limitExceeded) {
+                recordDiscardedBytes(str, off, len);
                 passthroughWriter.write(str, off, len);
             } else {
                 buffer.write(str, off, len);
@@ -699,6 +705,7 @@ public class ResponseSanitizationFilter implements Filter {
             if (limitExceeded && passthroughWriter != null) {
                 passthroughWriter.flush();
             }
+            logDiscardedBytesIfNeeded();
         }
 
         @Override
@@ -753,6 +760,7 @@ public class ResponseSanitizationFilter implements Filter {
                 sendSanitizedError(realResponse, status, correlationId);
                 buffer.reset();
                 limitExceeded = true;
+                discardingTaintedOutput = true;
                 passthroughWriter = new PrintWriter(Writer.nullWriter());
                 return;
             }
@@ -765,6 +773,35 @@ public class ResponseSanitizationFilter implements Filter {
                 passthroughWriter.write(captured);
             }
             buffer.reset();
+        }
+
+        private void recordDiscardedBytes(char[] discardedContent, int off, int len) {
+            if (discardingTaintedOutput && len > 0) {
+                discardedByteCount += new String(discardedContent, off, len)
+                        .getBytes(StandardCharsets.UTF_8).length;
+            }
+        }
+
+        private void recordDiscardedBytes(int discardedContent) {
+            if (discardingTaintedOutput) {
+                discardedByteCount += String.valueOf((char) discardedContent)
+                        .getBytes(StandardCharsets.UTF_8).length;
+            }
+        }
+
+        private void recordDiscardedBytes(String discardedContent, int off, int len) {
+            if (discardingTaintedOutput && discardedContent != null && len > 0) {
+                discardedByteCount += discardedContent.substring(off, off + len)
+                        .getBytes(StandardCharsets.UTF_8).length;
+            }
+        }
+
+        private void logDiscardedBytesIfNeeded() {
+            if (discardingTaintedOutput && discardedByteCount > 0 && !discardLogged) {
+                LOGGER.debug("ResponseSanitizationFilter: discarded {} bytes after sanitized "
+                        + "large-error response", discardedByteCount);
+                discardLogged = true;
+            }
         }
     }
 }

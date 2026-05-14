@@ -85,8 +85,13 @@ public class ViewBillingOnMri2Action extends ActionSupport {
                 if (!response.isCommitted()) {
                     response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
                 } else {
-                    throw new IllegalStateException(
-                            "Unable to reject unauthenticated billing MRI request after response commit", e);
+                    LOGGER.error(
+                            "Unable to reject unauthenticated billing MRI request after response commit: "
+                                    + "method={}, uri={}, remote={}",
+                            LogSanitizer.sanitize(request.getMethod()),
+                            LogSanitizer.sanitize(request.getRequestURI()),
+                            LogSanitizer.sanitize(request.getRemoteAddr()),
+                            e);
                 }
             }
             return NONE;

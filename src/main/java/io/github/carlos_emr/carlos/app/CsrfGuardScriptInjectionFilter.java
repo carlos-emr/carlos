@@ -61,6 +61,9 @@ import java.util.regex.Pattern;
  * dispatches are still wrapped so JSP rendering can be captured after Struts forwards. See
  * {@code docs/csrf-protection-architecture.md} before changing dispatcher mappings.</p>
  *
+ * <p>If {@link CsrfGuard#getInstance()} fails, the filter fails closed with HTTP 503 to avoid
+ * serving HTML without the CSRF script tag.</p>
+ *
  * <p>Injection is skipped when:
  * <ul>
  *   <li>Content-Type is not {@code text/html}</li>

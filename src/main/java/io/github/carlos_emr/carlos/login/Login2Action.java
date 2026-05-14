@@ -267,6 +267,7 @@ public final class Login2Action extends ActionSupport {
      *   <li>"programLocation" - Program location selection interface</li>
      *   <li>"patientIntake" - Patient intake role interface</li>
      *   <li>"mfaHandler" - MFA validation/registration interface</li>
+     *   <li>"failure" - Authentication cannot continue safely</li>
      *   <li>NONE - Processing complete (redirect already sent)</li>
      *   <li>null - AJAX response sent (no forward needed)</li>
      * </ul>

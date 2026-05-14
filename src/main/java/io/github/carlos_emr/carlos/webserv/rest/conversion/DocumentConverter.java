@@ -80,6 +80,19 @@ public class DocumentConverter extends AbstractConverter<Document, DocumentTo1> 
         return d;
     }
 
+    /**
+     * Converts a document domain object into its REST transfer object.
+     *
+     * <p>Reviews are part of the transfer contract when the domain object exposes a non-null
+     * review collection. If Hibernate has not initialized that collection, conversion fails
+     * with {@link ConversionException} instead of silently returning a DTO that looks like it has
+     * no reviews.</p>
+     *
+     * @param loggedInInfo LoggedInInfo the current user context
+     * @param d            Document the domain object to convert
+     * @return DocumentTo1 the REST transfer object
+     * @throws ConversionException when a required associated collection is not initialized
+     */
     @Override
     public DocumentTo1 getAsTransferObject(LoggedInInfo loggedInInfo, Document d) throws ConversionException {
         DocumentTo1 t = new DocumentTo1();
