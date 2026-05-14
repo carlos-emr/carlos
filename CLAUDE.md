@@ -1257,6 +1257,11 @@ docs/test/test-writing-guide.md                       # Test writing patterns an
    - Register SpringUtils mocks FIRST, THEN create static mocks
    - Close static mocks in @AfterEach to prevent test pollution
    - Use @Nested classes with JavaDoc to organize large test suites
+8. **For Log4j2 assertions**: use `io.github.carlos_emr.carlos.test.logging.LogCapture`
+   from `src/test/java/io/github/carlos_emr/carlos/test/logging/LogCapture.java`.
+   Do not define local `AbstractAppender`, `CapturingAppender`, or per-test
+   logger-config copies. `LogCapture` scopes capture to the exact logger under
+   test, stores immutable events, and cleans up safely for parallel Surefire.
 
 Example of proper test development workflow:
 ```java

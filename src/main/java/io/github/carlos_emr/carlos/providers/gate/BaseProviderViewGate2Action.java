@@ -12,15 +12,20 @@
  */
 package io.github.carlos_emr.carlos.providers.gate;
 
+import java.io.IOException;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
-import io.github.carlos_emr.carlos.sec.AuthenticationRejectionHandler;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.sec.AuthenticationRejectionHandler;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
@@ -50,6 +55,7 @@ import org.apache.struts2.ServletActionContext;
  * @since 2026-04-13
  */
 public abstract class BaseProviderViewGate2Action extends ActionSupport {
+    private static final Logger LOGGER = MiscUtils.getLogger();
 
     private final SecurityInfoManager securityInfoManager;
 
@@ -89,7 +95,16 @@ public abstract class BaseProviderViewGate2Action extends ActionSupport {
 
         HttpSession session = request.getSession(false);
         if (session == null || session.getAttribute("user") == null) {
-            AuthenticationRejectionHandler.rejectUnauthenticatedRequest(request, response);
+            try {
+                AuthenticationRejectionHandler.rejectUnauthenticatedRequest(request, response);
+            } catch (IOException e) {
+                LOGGER.warn(
+                        "Unable to reject unauthenticated provider request: method={}, uri={}, remote={}",
+                        LogSanitizer.sanitize(request.getMethod()),
+                        LogSanitizer.sanitize(request.getRequestURI()),
+                        LogSanitizer.sanitize(request.getRemoteAddr()),
+                        e);
+            }
             return NONE;
         }
 

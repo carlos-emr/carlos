@@ -21,19 +21,15 @@
  */
 package io.github.carlos_emr.carlos.utility;
 
-import java.util.List;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
 import org.apache.logging.log4j.Level;
-import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.LogEvent;
-import org.apache.logging.log4j.core.LoggerContext;
-import org.apache.logging.log4j.core.appender.AbstractAppender;
-import org.apache.logging.log4j.core.config.LoggerConfig;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -49,8 +45,8 @@ import static org.assertj.core.api.Assertions.assertThatCode;
  *
  * <p>These exercise the exception-extraction logic (explicit page-context
  * exception vs servlet-error attribute fallback vs no-op) without spinning
- * up a JSP container. Each test attaches a Log4j2 capturing appender to
- * the {@code ErrorPageLogger} category and asserts on the captured events:
+ * up a JSP container. Each test uses {@link LogCapture} on the
+ * {@code ErrorPageLogger} category and asserts on the captured events:
  * count, level, message content, and the throwable instance reference where
  * relevant. The defensive try/catch around the log call is also verified —
  * malformed inputs (non-{@code Throwable} servlet-error attribute, null
@@ -66,37 +62,17 @@ class ErrorPageLoggerUnitTest extends CarlosUnitTestBase {
     private static final String LOGGER_NAME =
             "io.github.carlos_emr.carlos.utility.ErrorPageLogger";
 
-    private CapturingAppender appender;
-    private LoggerContext ctx;
+    private LogCapture logCapture;
 
     @BeforeEach
     void attachAppender() {
-        // Register a DEDICATED LoggerConfig scoped to LOGGER_NAME so this
-        // suite never mutates a shared/root config — Surefire is configured
-        // with parallel=classes (pom.xml), and concurrent tests touching the
-        // same root LoggerConfig race on add/remove/level state, producing
-        // flaky log-capture assertions.
-        //
-        // Each test class gets its own dedicated config under its own logger
-        // name; tearDown removes it cleanly, leaving the parent configuration
-        // untouched. The capturing appender lets us assert what
-        // ErrorPageLogger actually emitted rather than just that it didn't
-        // throw.
-        ctx = (LoggerContext) LogManager.getContext(false);
-        appender = new CapturingAppender();
-        appender.start();
-        LoggerConfig dedicated = new LoggerConfig(LOGGER_NAME, Level.ALL, false);
-        dedicated.addAppender(appender, Level.ALL, null);
-        ctx.getConfiguration().addLogger(LOGGER_NAME, dedicated);
-        ctx.updateLoggers();
+        logCapture = LogCapture.forLogger(LOGGER_NAME);
     }
 
     @AfterEach
     void detachAppender() {
-        if (appender != null) {
-            ctx.getConfiguration().removeLogger(LOGGER_NAME);
-            appender.stop();
-            ctx.updateLoggers();
+        if (logCapture != null) {
+            logCapture.close();
         }
     }
 
@@ -106,7 +82,7 @@ class ErrorPageLoggerUnitTest extends CarlosUnitTestBase {
         MockHttpServletRequest req = new MockHttpServletRequest();
         assertThatCode(() -> ErrorPageLogger.logIfPresent(null, req))
                 .doesNotThrowAnyException();
-        assertThat(appender.events()).isEmpty();
+        assertThat(logCapture.events()).isEmpty();
     }
 
     @Test
@@ -121,10 +97,10 @@ class ErrorPageLoggerUnitTest extends CarlosUnitTestBase {
 
         ErrorPageLogger.logIfPresent(null, req);
 
-        assertThat(appender.events()).hasSize(1);
-        assertThat(appender.events().get(0).getLevel()).isEqualTo(Level.WARN);
+        assertThat(logCapture.events()).hasSize(1);
+        assertThat(logCapture.events().get(0).getLevel()).isEqualTo(Level.WARN);
 
-        String msg = appender.events().get(0).getMessage().getFormattedMessage();
+        String msg = logCapture.events().get(0).getMessage().getFormattedMessage();
         // URI must be reduced to the path only; no query parameters or jsessionid.
         assertThat(msg).contains("uri=/some/path/with");
         assertThat(msg).doesNotContain("jsessionid", "secret=top", "foo=bar", "?");
@@ -148,8 +124,8 @@ class ErrorPageLoggerUnitTest extends CarlosUnitTestBase {
 
         ErrorPageLogger.logIfPresent(null, req);
 
-        assertThat(appender.events()).hasSize(1);
-        LogEvent evt = appender.events().get(0);
+        assertThat(logCapture.events()).hasSize(1);
+        LogEvent evt = logCapture.events().get(0);
         assertThat(evt.getLevel()).isEqualTo(Level.WARN);
         assertThat(evt.getThrown()).isNull();
         String msg = evt.getMessage().getFormattedMessage();
@@ -167,9 +143,9 @@ class ErrorPageLoggerUnitTest extends CarlosUnitTestBase {
 
         ErrorPageLogger.logIfPresent(null, req);
 
-        assertThat(appender.events()).hasSize(1);
-        assertThat(appender.events().get(0).getLevel()).isEqualTo(Level.WARN);
-        assertThat(appender.events().get(0).getMessage().getFormattedMessage())
+        assertThat(logCapture.events()).hasSize(1);
+        assertThat(logCapture.events().get(0).getLevel()).isEqualTo(Level.WARN);
+        assertThat(logCapture.events().get(0).getMessage().getFormattedMessage())
                 .contains("status=403");
     }
 
@@ -187,8 +163,8 @@ class ErrorPageLoggerUnitTest extends CarlosUnitTestBase {
 
         ErrorPageLogger.logIfPresent(t, req);
 
-        assertThat(appender.events()).hasSize(1);
-        LogEvent evt = appender.events().get(0);
+        assertThat(logCapture.events()).hasSize(1);
+        LogEvent evt = logCapture.events().get(0);
         assertThat(evt.getLevel()).isEqualTo(Level.ERROR);
         String msg = evt.getMessage().getFormattedMessage();
         assertThat(msg).contains("uri=/carlos/billing/CA/ON/billingView");
@@ -208,8 +184,8 @@ class ErrorPageLoggerUnitTest extends CarlosUnitTestBase {
 
         ErrorPageLogger.logIfPresent(null, req);
 
-        assertThat(appender.events()).hasSize(1);
-        LogEvent evt = appender.events().get(0);
+        assertThat(logCapture.events()).hasSize(1);
+        LogEvent evt = logCapture.events().get(0);
         assertThat(evt.getLevel()).isEqualTo(Level.ERROR);
         assertThat(evt.getThrown()).isSameAs(fromContainer);
         String msg = evt.getMessage().getFormattedMessage();
@@ -223,8 +199,8 @@ class ErrorPageLoggerUnitTest extends CarlosUnitTestBase {
         assertThatCode(() -> ErrorPageLogger.logIfPresent(new RuntimeException("x"), null))
                 .doesNotThrowAnyException();
         // Single error log emits with method/uri/status all null.
-        assertThat(appender.events()).hasSize(1);
-        assertThat(appender.events().get(0).getLevel()).isEqualTo(Level.ERROR);
+        assertThat(logCapture.events()).hasSize(1);
+        assertThat(logCapture.events().get(0).getLevel()).isEqualTo(Level.ERROR);
     }
 
     @Test
@@ -237,7 +213,7 @@ class ErrorPageLoggerUnitTest extends CarlosUnitTestBase {
 
         assertThatCode(() -> ErrorPageLogger.logIfPresent(null, req))
                 .doesNotThrowAnyException();
-        assertThat(appender.events()).isEmpty();
+        assertThat(logCapture.events()).isEmpty();
     }
 
     /**
@@ -256,8 +232,8 @@ class ErrorPageLoggerUnitTest extends CarlosUnitTestBase {
 
         ErrorPageLogger.logIfPresent(t, req);
 
-        assertThat(appender.events()).hasSize(1);
-        String msg = appender.events().get(0).getMessage().getFormattedMessage();
+        assertThat(logCapture.events()).hasSize(1);
+        String msg = logCapture.events().get(0).getMessage().getFormattedMessage();
         assertThat(msg).contains("uri=/carlos/billing/CA/ON/BillingONCorrection");
         // PHI-correlated query parameters must not leak into logs.
         assertThat(msg).doesNotContain("billing_no");
@@ -286,7 +262,7 @@ class ErrorPageLoggerUnitTest extends CarlosUnitTestBase {
 
         ErrorPageLogger.logIfPresent(t, req);
 
-        String msg = appender.events().get(0).getMessage().getFormattedMessage();
+        String msg = logCapture.events().get(0).getMessage().getFormattedMessage();
         assertThat(msg).contains("uri=/carlos/billing/CA/ON/billingView");
         assertThat(msg).doesNotContain("jsessionid");
         assertThat(msg).doesNotContain("TEST_SESSION_ID_1A2B3C");
@@ -306,7 +282,7 @@ class ErrorPageLoggerUnitTest extends CarlosUnitTestBase {
 
         ErrorPageLogger.logIfPresent(t, req);
 
-        String msg = appender.events().get(0).getMessage().getFormattedMessage();
+        String msg = logCapture.events().get(0).getMessage().getFormattedMessage();
         assertThat(msg).contains("uri=/carlos/billing/CA/ON/BillingONCorrection");
         assertThat(msg).doesNotContain("jsessionid");
         assertThat(msg).doesNotContain("TEST_SESSION_ID_2N4P");
@@ -327,7 +303,7 @@ class ErrorPageLoggerUnitTest extends CarlosUnitTestBase {
 
         ErrorPageLogger.logIfPresent(t, req);
 
-        String msg = appender.events().get(0).getMessage().getFormattedMessage();
+        String msg = logCapture.events().get(0).getMessage().getFormattedMessage();
         assertThat(msg).contains("uri=/carlos/billing/CA/ON/billingView");
     }
 
@@ -356,25 +332,4 @@ class ErrorPageLoggerUnitTest extends CarlosUnitTestBase {
         assertThat(output).doesNotContain("ABC123");
     }
 
-    /**
-     * Minimal in-memory log4j2 appender. Captures events without filtering
-     * so the test can assert any level / any field. Not a full substitute
-     * for log4j-test's ListAppender but sufficient for the 5 cases here.
-     */
-    private static final class CapturingAppender extends AbstractAppender {
-        private final java.util.List<LogEvent> events = new java.util.ArrayList<>();
-
-        CapturingAppender() {
-            super("ErrorPageLoggerUnitTestCaptureAppender", null, null, false, null);
-        }
-
-        @Override
-        public void append(LogEvent event) {
-            events.add(event.toImmutable());
-        }
-
-        List<LogEvent> events() {
-            return events;
-        }
-    }
 }

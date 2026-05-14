@@ -29,7 +29,7 @@ public final class AuthenticationRejectionHandler {
     private static final String AJAX_HEADER = "X-Requested-With";
     private static final String AJAX_VALUE = "XMLHttpRequest";
 
-    private static final String[] STATUS_CODE_PATHS = {
+    static final String[] STATUS_CODE_PATHS = {
             "/Download",
             "/servlet/OscarDownload",
             "/report/reportDownload",
@@ -57,19 +57,37 @@ public final class AuthenticationRejectionHandler {
             HttpServletResponse response) throws IOException {
 
         boolean statusCodeRoute = isStatusCodeRoute(request);
-        LOGGER.info(
-                "Rejected unauthenticated request: method={}, uri={}, routeType={}, remote={}",
-                LogSanitizer.sanitize(request.getMethod()),
-                LogSanitizer.sanitize(normalizedRequestUri(request)),
-                statusCodeRoute ? "status-code" : "browser-page",
-                LogSanitizer.sanitize(request.getRemoteAddr()));
+        String routeType = statusCodeRoute ? "status-code" : "browser-page";
+        String method = LogSanitizer.sanitize(request.getMethod());
+        String uri = LogSanitizer.sanitize(normalizedRequestUri(request));
+        String remote = LogSanitizer.sanitize(request.getRemoteAddr());
+        String acceptHint = LogSanitizer.sanitize(request.getHeader("Accept"));
 
-        if (statusCodeRoute) {
-            response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+        if (response.isCommitted()) {
+            LOGGER.warn(
+                    "Unable to reject unauthenticated request because response is already "
+                            + "committed: method={}, uri={}, routeType={}, remote={}, acceptHint={}",
+                    method,
+                    uri,
+                    routeType,
+                    remote,
+                    acceptHint);
             return;
         }
 
-        response.sendRedirect(request.getContextPath() + LOGOUT_PATH);
+        if (statusCodeRoute) {
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+        } else {
+            response.sendRedirect(request.getContextPath() + LOGOUT_PATH);
+        }
+
+        LOGGER.info(
+                "Rejected unauthenticated request: method={}, uri={}, routeType={}, remote={}, acceptHint={}",
+                method,
+                uri,
+                routeType,
+                remote,
+                acceptHint);
     }
 
     static boolean isStatusCodeRoute(HttpServletRequest request) {
@@ -93,6 +111,8 @@ public final class AuthenticationRejectionHandler {
             return false;
         }
 
+        // Accept: */* is deliberately treated as ambiguous browser-style traffic. Callers that
+        // need a 401 should send an explicit structured media type or the AJAX header.
         return lowerAccept.contains("application/json")
                 || lowerAccept.contains("application/xml")
                 || lowerAccept.contains("text/xml")

@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
+import java.io.IOException;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -28,8 +30,11 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnMriViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.sec.AuthenticationRejectionHandler;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 
+import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOnMriViewModelAssembler;
@@ -48,6 +53,8 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingDataLoadExcepti
  * @since 2026-04-13
  */
 public class ViewBillingOnMri2Action extends ActionSupport {
+    private static final Logger LOGGER = MiscUtils.getLogger();
+
     private final SecurityInfoManager securityInfoManager;
     private final BillingOnMriViewModelAssembler billingONMRIAssembler;
     public ViewBillingOnMri2Action(SecurityInfoManager securityInfoManager,
@@ -66,7 +73,16 @@ public class ViewBillingOnMri2Action extends ActionSupport {
         // dereferences loggedInInfo and emits an internal ERROR log on null, which
         // pollutes the log signal for real privilege denials.
         if (loggedInInfo == null) {
-            AuthenticationRejectionHandler.rejectUnauthenticatedRequest(request, response);
+            try {
+                AuthenticationRejectionHandler.rejectUnauthenticatedRequest(request, response);
+            } catch (IOException e) {
+                LOGGER.warn(
+                        "Unable to reject unauthenticated billing MRI request: method={}, uri={}, remote={}",
+                        LogSanitizer.sanitize(request.getMethod()),
+                        LogSanitizer.sanitize(request.getRequestURI()),
+                        LogSanitizer.sanitize(request.getRemoteAddr()),
+                        e);
+            }
             return NONE;
         }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {

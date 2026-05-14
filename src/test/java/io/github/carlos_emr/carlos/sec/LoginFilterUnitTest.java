@@ -22,15 +22,21 @@
 package io.github.carlos_emr.carlos.sec;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.stream.Stream;
+
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 
 import jakarta.servlet.ServletException;
 
+import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -103,17 +109,95 @@ class LoginFilterUnitTest {
             assertThat(response.getRedirectedUrl()).isNull();
         }
 
-        @Test
-        @DisplayName("should return 401 for download route when unauthenticated")
-        void shouldReturn401ForDownloadRoute_whenUnauthenticated()
+        @ParameterizedTest
+        @MethodSource("io.github.carlos_emr.carlos.sec.LoginFilterUnitTest#statusCodePaths")
+        @DisplayName("should return 401 for status-code route when unauthenticated")
+        void shouldReturn401ForStatusCodeRoute_whenUnauthenticated(String statusCodePath)
                 throws ServletException, IOException {
-            MockHttpServletRequest request = request("GET", CONTEXT_PATH + "/Download");
+            MockHttpServletRequest request = request("GET", CONTEXT_PATH + statusCodePath);
             MockHttpServletResponse response = new MockHttpServletResponse();
 
             filter.doFilter(request, response, new MockFilterChain());
 
             assertThat(response.getStatus()).isEqualTo(401);
             assertThat(response.getRedirectedUrl()).isNull();
+        }
+
+        @Test
+        @DisplayName("should redirect mixed HTML and JSON accept route when unauthenticated")
+        void shouldRedirectMixedHtmlJsonAcceptRoute_whenUnauthenticated()
+                throws ServletException, IOException {
+            MockHttpServletRequest request = request("GET", CONTEXT_PATH + "/admin/api/status");
+            request.addHeader("Accept", "text/html, application/json");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            filter.doFilter(request, response, new MockFilterChain());
+
+            assertThat(response.getRedirectedUrl()).isEqualTo(CONTEXT_PATH + "/logoutPage");
+        }
+
+        @Test
+        @DisplayName("should redirect wildcard accept route when unauthenticated")
+        void shouldRedirectWildcardAcceptRoute_whenUnauthenticated()
+                throws ServletException, IOException {
+            MockHttpServletRequest request = request("GET", CONTEXT_PATH + "/admin/api/status");
+            request.addHeader("Accept", "*/*");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            filter.doFilter(request, response, new MockFilterChain());
+
+            assertThat(response.getRedirectedUrl()).isEqualTo(CONTEXT_PATH + "/logoutPage");
+        }
+
+        @Test
+        @DisplayName("should audit remote address after successful unauthenticated rejection")
+        void shouldAuditRemoteAddress_afterSuccessfulUnauthenticatedRejection()
+                throws ServletException, IOException {
+            try (LogCapture capture = LogCapture.forLogger(AuthenticationRejectionHandler.class)) {
+                MockHttpServletRequest request = request("GET", CONTEXT_PATH + "/admin/api/status");
+                request.setRemoteAddr("198.51.100.27");
+                request.addHeader("Accept", "application/json");
+                MockHttpServletResponse response = new MockHttpServletResponse();
+
+                filter.doFilter(request, response, new MockFilterChain());
+
+                assertThat(response.getStatus()).isEqualTo(401);
+                assertThat(capture.events()).anySatisfy(event -> {
+                    assertThat(event.getLevel()).isEqualTo(Level.INFO);
+                    assertThat(event.getMessage().getFormattedMessage())
+                            .contains("Rejected unauthenticated request")
+                            .contains("routeType=status-code")
+                            .contains("remote=198.51.100.27")
+                            .contains("acceptHint=application/json");
+                });
+            }
+        }
+
+        @Test
+        @DisplayName("should warn without writing when response is already committed")
+        void shouldWarnWithoutWriting_whenResponseAlreadyCommitted()
+                throws ServletException, IOException {
+            try (LogCapture capture = LogCapture.forLogger(AuthenticationRejectionHandler.class)) {
+                MockHttpServletRequest request = request("GET", CONTEXT_PATH + "/admin/api/status");
+                request.addHeader("Accept", "application/json");
+                MockHttpServletResponse response = new MockHttpServletResponse();
+                response.getWriter().write("partial response");
+                response.flushBuffer();
+
+                filter.doFilter(request, response, new MockFilterChain());
+
+                assertThat(response.isCommitted()).isTrue();
+                assertThat(response.getStatus()).isEqualTo(200);
+                assertThat(response.getRedirectedUrl()).isNull();
+                assertThat(capture.events()).anySatisfy(event -> {
+                    assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                    assertThat(event.getMessage().getFormattedMessage())
+                            .contains("response is already committed")
+                            .contains("routeType=status-code")
+                            .contains("remote=203.0.113.10")
+                            .contains("acceptHint=application/json");
+                });
+            }
         }
 
         @Test
@@ -135,7 +219,11 @@ class LoginFilterUnitTest {
                 "/images/favicon.ico",
                 "/library/jquery/jquery-ui-1.14.2.min.css",
                 "/library/bootstrap/5.3.8/css/bootstrap.min.css",
+                "/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js",
+                "/share/css/global.css",
                 "/share/css/searchBox.css",
+                "/share/css/transitions.css",
+                "/share/javascript/carlos-ajax.js",
                 "/share/javascript/Oscar.js",
                 "/js/global.js",
                 "/css/fontawesome-all.min.css"
@@ -507,5 +595,9 @@ class LoginFilterUnitTest {
         request.setContextPath(CONTEXT_PATH);
         request.setRemoteAddr("203.0.113.10");
         return request;
+    }
+
+    private static Stream<String> statusCodePaths() {
+        return Arrays.stream(AuthenticationRejectionHandler.STATUS_CODE_PATHS);
     }
 }

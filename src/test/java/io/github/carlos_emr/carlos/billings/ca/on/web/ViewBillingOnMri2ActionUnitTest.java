@@ -21,15 +21,19 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
+import java.io.IOException;
+
 import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOnMriViewModelAssembler;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingDataLoadException;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnMriViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import org.apache.logging.log4j.Level;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.AfterEach;
@@ -144,6 +148,25 @@ class ViewBillingOnMri2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldReturnNone_whenUnauthenticatedRejectionRedirectFails() throws Exception {
+        loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                .thenReturn(null);
+        RedirectFailingResponse failingResponse = new RedirectFailingResponse();
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(failingResponse);
+
+        try (LogCapture capture = LogCapture.forLogger(ViewBillingOnMri2Action.class)) {
+            assertThat(newAction().execute()).isEqualTo(ActionSupport.NONE);
+
+            assertThat(capture.events()).anySatisfy(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                assertThat(event.getMessage().getFormattedMessage())
+                        .contains("Unable to reject unauthenticated billing MRI request");
+            });
+        }
+        verify(mockSecurityInfoManager, never()).hasPrivilege(any(), any(), any(), any());
+    }
+
+    @Test
     void shouldThrowSecurityException_whenLacksBillingReadPrivilege() {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("r"), isNull()))
                 .thenReturn(false);
@@ -171,5 +194,12 @@ class ViewBillingOnMri2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThatThrownBy(newAction()::execute)
                 .isSameAs(original);
+    }
+
+    private static final class RedirectFailingResponse extends MockHttpServletResponse {
+        @Override
+        public void sendRedirect(String url) throws IOException {
+            throw new IOException("redirect failed");
+        }
     }
 }

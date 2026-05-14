@@ -5,11 +5,15 @@
  */
 package io.github.carlos_emr.carlos.providers.gate;
 
+import java.io.IOException;
+
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import org.apache.logging.log4j.Level;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.AfterEach;
@@ -124,5 +128,31 @@ class ProviderLandingViewGateUnitTest {
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getRedirectedUrl()).isEqualTo("/logoutPage");
+    }
+
+    @Test
+    @DisplayName("should return none when unauthenticated rejection redirect fails")
+    void shouldReturnNone_whenUnauthenticatedRejectionRedirectFails() throws Exception {
+        request.getSession(false).invalidate();
+        RedirectFailingResponse failingResponse = new RedirectFailingResponse();
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(failingResponse);
+
+        try (LogCapture capture = LogCapture.forLogger(BaseProviderViewGate2Action.class)) {
+            String result = new ViewProviderControl2Action(securityInfoManager).execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(capture.events()).anySatisfy(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                assertThat(event.getMessage().getFormattedMessage())
+                        .contains("Unable to reject unauthenticated provider request");
+            });
+        }
+    }
+
+    private static final class RedirectFailingResponse extends MockHttpServletResponse {
+        @Override
+        public void sendRedirect(String url) throws IOException {
+            throw new IOException("redirect failed");
+        }
     }
 }
