@@ -594,6 +594,7 @@ public final class Login2Action extends ActionSupport {
                 } catch (Exception e) {
                     logger.error("Error", e);
                     String newURL = loginFailedRedirectUrl(message("provider.providerchangepassword.errorSessionSetup"));
+                    removeAttributesFromSession(request);
                     response.sendRedirect(newURL);
                     return NONE;
                 }
