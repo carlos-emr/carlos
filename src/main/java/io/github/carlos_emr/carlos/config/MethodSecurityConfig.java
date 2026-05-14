@@ -27,7 +27,7 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 /**
  * Enables Spring Security method interceptors for CARLOS-managed Spring beans.
  *
- * <p>Struts 2Action classes that opt in to declarative authorization must be obtained
+ * <p>Struts 2 action classes that opt in to declarative authorization must be obtained
  * from the Spring object factory as proxied Spring beans. Class-based proxies are
  * required because actions generally do not implement action-specific interfaces.</p>
  *

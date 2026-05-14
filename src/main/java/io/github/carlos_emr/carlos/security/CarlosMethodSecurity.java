@@ -34,12 +34,12 @@ import org.springframework.stereotype.Component;
  *
  * <p>This adapter keeps {@code @PreAuthorize} expressions small while preserving
  * the existing {@link SecurityInfoManager} authorization model and session lookup
- * used by Struts 2Actions.</p>
+ * used by Struts 2 actions.</p>
  *
  * @since 2026-05-06
  */
 // Bean name "carlosMethodSecurity" is referenced by @PreAuthorize SpEL expressions
-// in 2Action classes (e.g. @carlosMethodSecurity.hasPrivilege(...)). Spring would
+// in Struts 2 action classes (e.g. @carlosMethodSecurity.hasPrivilege(...)). Spring would
 // auto-generate this name from the class name, but the explicit value keeps the
 // contract visible here and guards against silent breakage on class rename.
 @Component("carlosMethodSecurity")

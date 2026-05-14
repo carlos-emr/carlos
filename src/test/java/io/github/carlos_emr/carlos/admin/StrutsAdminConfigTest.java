@@ -58,6 +58,8 @@ class StrutsAdminConfigTest {
             "src", "main", "webapp", "WEB-INF", "jsp", "admin", "lookUpLists", "index.jsp");
     private static final Path LOOKUP_LIST_MANAGER_JSP = Path.of(
             "src", "main", "webapp", "WEB-INF", "jsp", "admin", "lookUpLists", "manageLookUpLists.jsp");
+    private static final Path SECURITY_DELETE_JSP = Path.of(
+            "src", "main", "webapp", "WEB-INF", "jsp", "admin", "securitydelete.jsp");
     private static final String LOOKUP_LIST_MANAGER_FRAGMENT =
             "/WEB-INF/jsp/admin/lookUpLists/manageLookUpLists.jsp";
     private static final String LOOKUP_LIST_ITEM_FRAGMENT = "/WEB-INF/jsp/admin/lookUpLists/lookupList.jsp";
@@ -131,6 +133,19 @@ class StrutsAdminConfigTest {
         assertThat(findGlobalExceptionResult("java.lang.Exception"))
                 .as("method-security routing should not add an admin-wide generic exception handler")
                 .isEmpty();
+    }
+
+    @Test
+    @DisplayName("SecurityDelete result JSP should stay aligned with action security")
+    void shouldAlignSecurityDeleteJsp_withActionSecurity() throws Exception {
+        String jsp = readProjectFile(SECURITY_DELETE_JSP);
+
+        assertThat(jsp)
+                .as("SecurityDelete2Action requires admin write access before forwarding to this JSP")
+                .contains("objectName=\"_admin,_admin.userAdmin\" rights=\"w\"");
+        assertThat(jsp)
+                .as("result-only JSP should not load unused global JavaScript helpers")
+                .doesNotContain("/js/global.js");
     }
 
     private Element findAction(String actionName) {
