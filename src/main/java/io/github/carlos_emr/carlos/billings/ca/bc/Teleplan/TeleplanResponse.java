@@ -41,6 +41,7 @@ import java.io.InputStreamReader;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 
 import io.github.carlos_emr.CarlosProperties;
 
@@ -95,7 +96,7 @@ public class TeleplanResponse {
                 File file2;
                 try {
                     file2 = PathValidationUtils.validatePath(realFilename, allowedDir);
-                } catch (SecurityException e) {
+                } catch (FileValidationException | SecurityException e) {
                     throw new SecurityException("File access not allowed outside designated directory");
                 }
 

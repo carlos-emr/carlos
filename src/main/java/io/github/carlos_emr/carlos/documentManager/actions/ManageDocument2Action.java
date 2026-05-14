@@ -51,6 +51,7 @@ import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.documentManager.IncomingDocUtil;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -1640,7 +1641,7 @@ public class ManageDocument2Action extends ActionSupport {
             try {
                 file = PathValidationUtils.validateExistingPath(file, allowedDir);
                 return; // Valid if we get here without exception
-            } catch (SecurityException e) {
+            } catch (FileValidationException e) {
                 // File not in this directory, try next
             }
         }

@@ -45,9 +45,9 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
-import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.report.reportByTemplate.ReportManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
@@ -81,7 +81,7 @@ public class UploadTemplates2Action extends ActionSupport implements UploadedFil
                 // Read the file content
                 byte[] bytes = Files.readAllBytes(validatedTemplateFile.toPath());
                 xml = new String(bytes);
-            } catch (SecurityException se) {
+            } catch (FileValidationException | SecurityException se) {
                 MiscUtils.getLogger().warn("SecurityException during file upload: " + se.getMessage(), se);
                 message = "Error: File upload failed due to security policy violation.";
                 request.setAttribute("message", message);
@@ -122,7 +122,6 @@ public class UploadTemplates2Action extends ActionSupport implements UploadedFil
         return templateFile;
     }
 
-    @StrutsParameter
     public void setTemplateFile(File templateFile) {
         this.templateFile = templateFile;
     }

@@ -36,6 +36,8 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Date;
@@ -82,8 +84,6 @@ import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.encounter.data.EctProgram;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
-import org.openpdf.text.pdf.PdfReader;
-
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.action.UploadedFilesAware;
@@ -102,7 +102,7 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
  * {@link SecurityInfoManager}. File paths are validated using {@link PathValidationUtils}
  * to prevent path traversal attacks. Filenames are sanitized before storage.
  *
- * <p>PDF page counting uses OpenPDF {@link PdfReader} to determine the number of pages
+ * <p>PDF page counting is delegated to {@link EDocUtil} to determine the number of pages
  * in uploaded PDF documents.
  *
  * @see ManageDocument2Action
@@ -216,30 +216,14 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
     }
 
     /**
-     * Counts the number of pages in a local PDF file using OpenPDF PdfReader.
+     * Counts the number of pages in a local PDF file using the centralized document utility.
      * The file is located in the configured DOCUMENT_DIR.
      *
      * @param fileName String the PDF filename (relative to DOCUMENT_DIR)
      * @return int the number of pages, or 0 if the file cannot be read
      */
     public static int countNumOfPages(String fileName) {
-
-        int numOfPage = 0;
-        String docdownload = CarlosProperties.getInstance().getDocumentDirectory();
-        if (!docdownload.endsWith(File.separator)) {
-            docdownload += File.separator;
-        }
-        String filePath = docdownload + fileName;
-
-        try {
-            PdfReader reader = new PdfReader(filePath);
-            numOfPage = reader.getNumberOfPages();
-            reader.close();
-
-        } catch (IOException e) {
-            MiscUtils.getLogger().error("Error", e);
-        }
-        return numOfPage;
+        return EDocUtil.getPDFPageCount(fileName);
     }
 
     /**
@@ -281,16 +265,16 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             if (addDocument(request)) { // if success
                 String contextPath = request.getContextPath();
                 StringBuffer redirect = new StringBuffer(contextPath + "/documentManager/ViewDocumentReport");
-                redirect.append("?docerrors=docerrors"); // Allows the JSP to check if the document was just submitted
-                redirect.append("&function=").append(request.getParameter("function"));
-                redirect.append("&functionid=").append(request.getParameter("functionid"));
-                redirect.append("&curUser").append(request.getParameter("curUser"));
-                redirect.append("&appointmentNo").append(request.getParameter("appointmentNo"));
+                appendQueryParam(redirect, "docerrors", "docerrors"); // Allows the JSP to check if the document was just submitted
+                appendQueryParam(redirect, "function", request.getParameter("function"));
+                appendQueryParam(redirect, "functionid", request.getParameter("functionid"));
+                appendQueryParam(redirect, "curUser", request.getParameter("curUser"));
+                appendQueryParam(redirect, "appointmentNo", request.getParameter("appointmentNo"));
                 String parentAjaxId = request.getParameter("parentAjaxId");
                 // if we're called with parent ajax id inform jsp that parent needs to be updated
-                if (!parentAjaxId.equals("")) {
-                    redirect.append("&parentAjaxId").append(parentAjaxId);
-                    redirect.append("&updateParent").append("true");
+                if (filled(parentAjaxId)) {
+                    appendQueryParam(redirect, "parentAjaxId", parentAjaxId);
+                    appendQueryParam(redirect, "updateParent", "true");
                 }
                 try {
                     response.sendRedirect(redirect.toString());
@@ -691,6 +675,13 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return (s != null && s.trim().length() > 0);
     }
 
+    static void appendQueryParam(StringBuffer redirect, String name, String value) {
+        redirect.append(redirect.indexOf("?") == -1 ? "?" : "&");
+        redirect.append(URLEncoder.encode(name, StandardCharsets.UTF_8));
+        redirect.append("=");
+        redirect.append(URLEncoder.encode(value == null ? "" : value, StandardCharsets.UTF_8));
+    }
+
     private String function = "";
     private String functionId = "";
     private String docType = "";
@@ -817,7 +808,6 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return docFile;
     }
 
-    @StrutsParameter
     public void setDocFile(File docFile) {
         this.docFile = docFile;
     }
@@ -898,7 +888,6 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return filedata;
     }
 
-    @StrutsParameter
     public void setFiledata(File Filedata) {
         this.filedata = Filedata;
     }
@@ -964,7 +953,6 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return docFileFileName;
     }
 
-    @StrutsParameter
     public void setDocFileFileName(String docFileFileName) {
         this.docFileFileName = docFileFileName;
     }
@@ -973,7 +961,6 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return docFileContentType;
     }
 
-    @StrutsParameter
     public void setDocFileContentType(String docFileContentType) {
         this.docFileContentType = docFileContentType;
     }

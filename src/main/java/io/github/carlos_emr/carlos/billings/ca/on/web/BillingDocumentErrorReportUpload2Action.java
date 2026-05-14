@@ -36,6 +36,7 @@ import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingClaimBatchAcknowledgementReportParser;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingClaimsErrorReportParser;
@@ -212,7 +213,7 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
             File destFile;
             try {
                 destFile = PathValidationUtils.validatePath(fileName, placeDir);
-            } catch (SecurityException e) {
+            } catch (FileValidationException | SecurityException e) {
                 MiscUtils.getLogger().error("Invalid MOH report upload filename provided: {}",
                         LogSafe.sanitize(fileName), e);
                 return SaveReportFileResult.failure(FILE_ACCESS_ERROR_MESSAGE);
@@ -308,7 +309,7 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
             File inputFile;
             try {
                 inputFile = PathValidationUtils.validatePath(fileName, safeDir);
-            } catch (SecurityException e) {
+            } catch (FileValidationException | SecurityException e) {
                 MiscUtils.getLogger().error("Invalid MOH report filename provided for {}: {}",
                         LogSafe.sanitize(pathDir), LogSafe.sanitize(fileName), e);
                 return MohReportReadResult.failure(ReadFailureCategory.FILE_ACCESS, FILE_ACCESS_ERROR_MESSAGE);

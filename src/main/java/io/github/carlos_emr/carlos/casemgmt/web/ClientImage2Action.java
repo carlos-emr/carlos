@@ -199,7 +199,6 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
         }
     }
 
-    @StrutsParameter
     public void setClientImage(File clientImage) {
         this.clientImage = clientImage; 
     }

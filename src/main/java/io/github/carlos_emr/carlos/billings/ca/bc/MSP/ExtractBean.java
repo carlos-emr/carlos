@@ -47,6 +47,7 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -336,7 +337,7 @@ public class ExtractBean extends Object implements Serializable {
             PrintStream p = new PrintStream(out);
             p.println(value1);
             p.close();
-        } catch (SecurityException e) {
+        } catch (FileValidationException | SecurityException e) {
             logger.error("Invalid file path detected in writeFile", e);
         } catch (Exception e) {
             logger.error("Unexpected error", e);
@@ -353,7 +354,7 @@ public class ExtractBean extends Object implements Serializable {
                 PrintStream p = new PrintStream(out);
                 p.println(htmlvalue1);
                 p.close();
-            } catch (SecurityException e) {
+            } catch (FileValidationException | SecurityException e) {
                 logger.error("Invalid file path detected in writeHtml", e);
             } catch (Exception e) {
                 logger.error("Unexpected error", e);

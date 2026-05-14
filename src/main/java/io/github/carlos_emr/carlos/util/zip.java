@@ -43,6 +43,7 @@ import java.util.zip.ZipOutputStream;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 
 import io.github.carlos_emr.CarlosProperties;
 
@@ -129,7 +130,7 @@ public class zip {
                 File z;
                 try {
                     z = PathValidationUtils.validatePath(zName, targetDir);
-                } catch (SecurityException e) {
+                } catch (FileValidationException | SecurityException e) {
                     logger.error("Skipping potentially malicious zip entry: " + zName);
                     is.close();
                     continue;

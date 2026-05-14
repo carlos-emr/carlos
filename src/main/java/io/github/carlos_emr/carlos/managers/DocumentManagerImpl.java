@@ -434,7 +434,7 @@ public class DocumentManagerImpl implements DocumentManager {
         File validatedFile;
         try {
             validatedFile = PathValidationUtils.validatePath(filename, new File(documentDir));
-        } catch (SecurityException e) {
+        } catch (FileValidationException e) {
             logger.error("Invalid document filename rejected: {}", Encode.forJava(filename));
             return null;
         }

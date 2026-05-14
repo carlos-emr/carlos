@@ -34,7 +34,6 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
-import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -156,7 +155,6 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
         return image;
     }
 
-    @StrutsParameter
     public void setImage(File image) {
         this.image = image;
     }
@@ -164,12 +162,10 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
     private String imageFileName;
     private String imageFileContentType;
 
-    @StrutsParameter
     public void setImageFileName(String imageFileName) {
         this.imageFileName = imageFileName;
     }
 
-    @StrutsParameter
     public void setImageFileContentType(String imageFileContentType) {
         this.imageFileContentType = imageFileContentType;
     }

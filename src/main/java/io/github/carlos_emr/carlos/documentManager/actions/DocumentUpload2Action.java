@@ -485,7 +485,6 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
         return docFile;
     }
 
-    @StrutsParameter
     public void setDocFile(File docFile) {
         this.docFile = docFile;
     }
@@ -557,7 +556,6 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
         return filedata;
     }
 
-    @StrutsParameter
     public void setFiledata(File Filedata) {
         this.filedata = Filedata;
     }
@@ -566,7 +564,6 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
         return filedataFileName;
     }
 
-    @StrutsParameter
     public void setFiledataFileName(String filedataFileName) {
         this.filedataFileName = filedataFileName;
     }
@@ -575,7 +572,6 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
         return filedataContentType;
     }
 
-    @StrutsParameter
     public void setFiledataContentType(String filedataContentType) {
         this.filedataContentType = filedataContentType;
     }

@@ -51,6 +51,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -266,7 +267,7 @@ public class IHAPOIHandler implements MessageHandler {
         try {
             file = PathValidationUtils.validateExistingPath(file, baseDirFile);
             isValidPath = true;
-        } catch (SecurityException e) {
+        } catch (FileValidationException | SecurityException e) {
             // Try allowed temp directories as fallback
             isValidPath = PathValidationUtils.isInAllowedTempDirectory(file);
         }

@@ -60,6 +60,8 @@ import static org.mockito.Mockito.when;
 @Tag("unit")
 @Tag("documentManager")
 class AddEditDocument2ActionTest extends CarlosUnitTestBase {
+    private static final String PDF_CONTENT_TYPE = "application/pdf";
+    private static final String ECHART_UPLOAD_FILENAME = "echart-upload.pdf";
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
@@ -116,18 +118,14 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
     void shouldCaptureStruts7DocFileUploadMetadata() throws Exception {
         tempUploadFile = File.createTempFile("add-edit-document", ".pdf");
 
-        UploadedFile uploadedFile = mock(UploadedFile.class);
-        when(uploadedFile.getInputName()).thenReturn("docFile");
-        when(uploadedFile.getAbsolutePath()).thenReturn(tempUploadFile.getAbsolutePath());
-        when(uploadedFile.getOriginalName()).thenReturn("echart-upload.pdf");
-        when(uploadedFile.getContentType()).thenReturn("application/pdf");
+        UploadedFile uploadedFile = uploadedFile("docFile", tempUploadFile, ECHART_UPLOAD_FILENAME);
 
         action.withUploadedFiles(List.of(uploadedFile));
 
         assertThat(action.getDocFile()).isNotNull();
         assertThat(action.getDocFile().getAbsolutePath()).isEqualTo(tempUploadFile.getAbsolutePath());
-        assertThat(action.getDocFileFileName()).isEqualTo("echart-upload.pdf");
-        assertThat(action.getDocFileContentType()).isEqualTo("application/pdf");
+        assertThat(action.getDocFileFileName()).isEqualTo(ECHART_UPLOAD_FILENAME);
+        assertThat(action.getDocFileContentType()).isEqualTo(PDF_CONTENT_TYPE);
     }
 
     @Test
@@ -135,38 +133,72 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
     void shouldCaptureStruts7FiledataUploadMetadata_whenDocFileAbsent() throws Exception {
         tempUploadFile = File.createTempFile("add-edit-document", ".pdf");
 
-        UploadedFile uploadedFile = mock(UploadedFile.class);
-        when(uploadedFile.getInputName()).thenReturn("filedata");
-        when(uploadedFile.getAbsolutePath()).thenReturn(tempUploadFile.getAbsolutePath());
-        when(uploadedFile.getOriginalName()).thenReturn("html5-upload.pdf");
-        when(uploadedFile.getContentType()).thenReturn("application/pdf");
+        UploadedFile uploadedFile = uploadedFile("filedata", tempUploadFile, "html5-upload.pdf");
 
         action.withUploadedFiles(List.of(uploadedFile));
 
         assertThat(action.getDocFile()).isNotNull();
         assertThat(action.getDocFile().getAbsolutePath()).isEqualTo(tempUploadFile.getAbsolutePath());
         assertThat(action.getDocFileFileName()).isEqualTo("html5-upload.pdf");
-        assertThat(action.getDocFileContentType()).isEqualTo("application/pdf");
+        assertThat(action.getDocFileContentType()).isEqualTo(PDF_CONTENT_TYPE);
+    }
+
+    @Test
+    @DisplayName("should ignore Struts 7 uploads with unsupported input names")
+    void shouldIgnoreUpload_whenInputNameIsUnsupported() {
+        UploadedFile uploadedFile = mock(UploadedFile.class);
+        when(uploadedFile.getInputName()).thenReturn("otherFile");
+
+        action.withUploadedFiles(List.of(uploadedFile));
+
+        assertThat(action.getDocFile()).isNull();
+        assertThat(action.getDocFileFileName()).isNull();
+        assertThat(action.getDocFileContentType()).isNull();
     }
 
     @Test
     @DisplayName("should prefer docFile over filedata regardless of list ordering")
     void shouldPreferDocFileOverFiledata_regardlessOfListOrdering() throws Exception {
         tempUploadFile = File.createTempFile("add-edit-document", ".pdf");
-        UploadedFile filedataUpload = mock(UploadedFile.class);
-        when(filedataUpload.getInputName()).thenReturn("filedata");
-
-        UploadedFile docFileUpload = mock(UploadedFile.class);
-        when(docFileUpload.getInputName()).thenReturn("docFile");
-        when(docFileUpload.getAbsolutePath()).thenReturn(tempUploadFile.getAbsolutePath());
-        when(docFileUpload.getOriginalName()).thenReturn("echart-upload.pdf");
-        when(docFileUpload.getContentType()).thenReturn("application/pdf");
+        UploadedFile filedataUpload = uploadedInput("filedata");
+        UploadedFile docFileUpload = uploadedFile("docFile", tempUploadFile, ECHART_UPLOAD_FILENAME);
 
         // filedata appears first in the list - docFile must still win
         action.withUploadedFiles(List.of(filedataUpload, docFileUpload));
 
         assertThat(action.getDocFile().getAbsolutePath()).isEqualTo(tempUploadFile.getAbsolutePath());
-        assertThat(action.getDocFileFileName()).isEqualTo("echart-upload.pdf");
+        assertThat(action.getDocFileFileName()).isEqualTo(ECHART_UPLOAD_FILENAME);
+    }
+
+    @Test
+    @DisplayName("should keep the first filedata upload when docFile is absent")
+    void shouldKeepFirstFiledata_whenMultipleFiledataUploadsProvided() throws Exception {
+        tempUploadFile = File.createTempFile("first-filedata-upload", ".pdf");
+        UploadedFile firstFiledataUpload = uploadedFile("filedata", tempUploadFile, "first-upload.pdf");
+        UploadedFile secondFiledataUpload = uploadedInput("filedata");
+
+        action.withUploadedFiles(List.of(firstFiledataUpload, secondFiledataUpload));
+
+        assertThat(action.getDocFile().getAbsolutePath()).isEqualTo(tempUploadFile.getAbsolutePath());
+        assertThat(action.getDocFileFileName()).isEqualTo("first-upload.pdf");
+    }
+
+    @Test
+    @DisplayName("should ignore later uploads after docFile is selected")
+    void shouldIgnoreLaterUploads_whenDocFileIsSelected() throws Exception {
+        tempUploadFile = File.createTempFile("docfile-upload", ".pdf");
+        File laterUploadFile = File.createTempFile("later-upload", ".pdf");
+        try {
+            UploadedFile docFileUpload = uploadedFile("docFile", tempUploadFile, ECHART_UPLOAD_FILENAME);
+            UploadedFile laterUpload = uploadedFile("filedata", laterUploadFile, "later-upload.pdf");
+
+            action.withUploadedFiles(List.of(docFileUpload, laterUpload));
+
+            assertThat(action.getDocFile().getAbsolutePath()).isEqualTo(tempUploadFile.getAbsolutePath());
+            assertThat(action.getDocFileFileName()).isEqualTo(ECHART_UPLOAD_FILENAME);
+        } finally {
+            Files.deleteIfExists(laterUploadFile.toPath());
+        }
     }
 
     @Test
@@ -257,6 +289,75 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
             } else {
                 CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", previousDocumentDir);
             }
+        }
+    }
+
+    private UploadedFile uploadedFile(String inputName, File content, String originalName) {
+        return new TestUploadedFile(inputName, content, originalName);
+    }
+
+    private UploadedFile uploadedInput(String inputName) {
+        UploadedFile uploadedFile = mock(UploadedFile.class);
+        when(uploadedFile.getInputName()).thenReturn(inputName);
+        return uploadedFile;
+    }
+
+    private static final class TestUploadedFile implements UploadedFile {
+        private static final long serialVersionUID = 1L;
+
+        private final String inputName;
+        private final File content;
+        private final String originalName;
+
+        private TestUploadedFile(String inputName, File content, String originalName) {
+            this.inputName = inputName;
+            this.content = content;
+            this.originalName = originalName;
+        }
+
+        @Override
+        public Long length() {
+            return content.length();
+        }
+
+        @Override
+        public String getName() {
+            return content.getName();
+        }
+
+        @Override
+        public String getOriginalName() {
+            return originalName;
+        }
+
+        @Override
+        public boolean isFile() {
+            return true;
+        }
+
+        @Override
+        public boolean delete() {
+            return content.delete();
+        }
+
+        @Override
+        public String getAbsolutePath() {
+            return content.getAbsolutePath();
+        }
+
+        @Override
+        public File getContent() {
+            return content;
+        }
+
+        @Override
+        public String getContentType() {
+            return PDF_CONTENT_TYPE;
+        }
+
+        @Override
+        public String getInputName() {
+            return inputName;
         }
     }
 }

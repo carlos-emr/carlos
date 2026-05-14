@@ -47,6 +47,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -156,7 +157,7 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport {
         } catch (IOException e) {
             MiscUtils.getLogger().error("Error saving file", e);
             isAdded = false;
-        } catch (SecurityException e) {
+        } catch (FileValidationException | SecurityException e) {
             MiscUtils.getLogger().error("Security error saving file", e);
             isAdded = false;
         } catch (IllegalArgumentException e) {

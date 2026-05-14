@@ -35,11 +35,11 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
-import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 import org.owasp.encoder.Encode;
 
@@ -147,7 +147,7 @@ public class ProviderSignatureStamp2Action extends ActionSupport implements Uplo
         File validatedImage;
         try {
             validatedImage = PathValidationUtils.validateUpload(image);
-        } catch (SecurityException e) {
+        } catch (FileValidationException | SecurityException e) {
             MiscUtils.getLogger().warn("Signature stamp upload blocked by path validation for provider {}", providerNo);
             writeJson(response, "{\"success\":false,\"error\":\"Upload rejected\"}");
             return NONE;
@@ -265,7 +265,7 @@ public class ProviderSignatureStamp2Action extends ActionSupport implements Uplo
                 if (sigFile.exists() && !sigFile.delete()) {
                     MiscUtils.getLogger().warn("Could not delete signature file for provider {}: {}", providerNo, sigFile.getAbsolutePath());
                 }
-            } catch (SecurityException e) {
+            } catch (FileValidationException | SecurityException e) {
                 MiscUtils.getLogger().warn("Suspicious signature path for provider {}: {}", providerNo, e.getMessage());
                 writeJson(response, "{\"success\":false,\"error\":\"Delete failed\"}");
                 return NONE;
@@ -311,7 +311,7 @@ public class ProviderSignatureStamp2Action extends ActionSupport implements Uplo
                     exists = true;
                     imageUrl = request.getContextPath() + "/provider/providerSignatureImage";
                 }
-            } catch (SecurityException e) {
+            } catch (FileValidationException | SecurityException e) {
                 MiscUtils.getLogger().warn("Suspicious signature path during check for provider {}: {}", providerNo, e.getMessage());
             } catch (IOException e) {
                 MiscUtils.getLogger().error("Signature stamp check: I/O error for provider {}", providerNo, e);
@@ -410,12 +410,9 @@ public class ProviderSignatureStamp2Action extends ActionSupport implements Uplo
 
     public String getImageFileContentType() { return imageFileContentType; }
 
-    @StrutsParameter
     public void setImage(File image) { this.image = image; }
 
-    @StrutsParameter
     public void setImageFileName(String imageFileName) { this.imageFileName = imageFileName; }
 
-    @StrutsParameter
     public void setImageFileContentType(String imageFileContentType) { this.imageFileContentType = imageFileContentType; }
 }

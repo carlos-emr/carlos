@@ -19,6 +19,7 @@ import io.github.carlos_emr.carlos.managers.FormsManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -335,7 +336,7 @@ public class DocumentPreview2Action extends ActionSupport {
                             canonicalPdfPath = PathValidationUtils.validateExistingPath(canonicalPdfPath.toFile(), baseDir).toPath();
                             isValidPath = true;
                             break;
-                        } catch (SecurityException e) {
+                        } catch (FileValidationException | SecurityException e) {
                             // File not in this directory, try next
                         }
                     }

@@ -50,6 +50,7 @@ import java.util.ResourceBundle;
 
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -99,7 +100,7 @@ public final class IncomingDocUtil {
             File tempDir = new File(System.getProperty("java.io.tmpdir"));
             PathValidationUtils.validatePath(pathComponent, tempDir);
             return true;
-        } catch (SecurityException e) {
+        } catch (FileValidationException e) {
             return false;
         }
     }
@@ -117,7 +118,7 @@ public final class IncomingDocUtil {
             File targetFile = new File(targetPath).getCanonicalFile();
             PathValidationUtils.validateExistingPath(targetFile, baseDir);
             return true;
-        } catch (SecurityException | IOException e) {
+        } catch (FileValidationException | IOException e) {
             logger.error("Error validating path bounds", e);
             return false;
         }

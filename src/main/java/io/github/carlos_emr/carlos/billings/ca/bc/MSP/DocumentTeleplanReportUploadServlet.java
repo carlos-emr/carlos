@@ -45,6 +45,7 @@ import jakarta.servlet.http.Part;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 
 import io.github.carlos_emr.DocumentBean;
 import io.github.carlos_emr.CarlosProperties;
@@ -78,7 +79,7 @@ public class DocumentTeleplanReportUploadServlet extends HttpServlet {
                     Files.copy(in, savedFile.toPath());
                 }
             }
-        } catch (SecurityException e) {
+        } catch (FileValidationException | SecurityException e) {
             MiscUtils.getLogger().error("Path validation failed for uploaded Teleplan file", e);
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);

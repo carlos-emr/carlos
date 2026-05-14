@@ -46,7 +46,6 @@ import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
-import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.commn.OtherIdManager;
 import io.github.carlos_emr.carlos.commn.dao.OscarKeyDao;
 import io.github.carlos_emr.carlos.commn.dao.PublicKeyDao;
@@ -62,6 +61,7 @@ import io.github.carlos_emr.carlos.lab.ca.all.upload.HandlerClassFactory;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.MessageHandler;
 import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 
 import javax.crypto.Cipher;
 import javax.crypto.CipherInputStream;
@@ -120,7 +120,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             // Validate file is from an allowed temp directory
             try {
                 importFile = PathValidationUtils.validateUpload(importFile);
-            } catch (SecurityException e) {
+            } catch (FileValidationException | SecurityException e) {
                 logger.error("Invalid upload source - potential path traversal: " + importFile.getPath());
                 outcome = "exception";
                 httpCode = HttpServletResponse.SC_FORBIDDEN;
@@ -341,7 +341,6 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         return importFile;
     }
 
-    @StrutsParameter
     public void setImportFile(File importFile) {
         this.importFile = importFile;
     }

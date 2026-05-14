@@ -50,6 +50,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.Logger;
@@ -223,7 +224,7 @@ public class MEDITECHHandler implements MessageHandler {
         try {
             file = PathValidationUtils.validateExistingPath(file, basePath.toFile());
             isValidPath = true;
-        } catch (SecurityException e) {
+        } catch (FileValidationException | SecurityException e) {
             // Try allowed temp directories as fallback
             isValidPath = PathValidationUtils.isInAllowedTempDirectory(file);
         }
