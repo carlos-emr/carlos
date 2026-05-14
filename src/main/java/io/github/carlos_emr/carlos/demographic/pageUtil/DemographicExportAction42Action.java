@@ -2665,9 +2665,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                     }
 //
 //	if (setName!=null) zipName = "export_"+setName.replace(" ","")+"_"+UtilDateUtilities.getToday("yyyyMMddHHmmss")+".pgp";
-                    // Both steps are required: legacy character normalization, then directory containment.
-                    String normalizedZipName = PathValidationUtils.validateFileName(zipName);
-                    zipName = PathValidationUtils.validatePath(normalizedZipName, new File(tmpDir)).getName();
+                    zipName = PathValidationUtils.validateUserFilePath(zipName, new File(tmpDir)).getName();
                     if (!Util.zipFiles(files, dirs, zipName, tmpDir)) {
                         logger.debug("Error! Failed to zip export files");
                     }

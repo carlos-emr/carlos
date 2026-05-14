@@ -624,16 +624,17 @@ public class ManageDocument2Action extends ActionSupport {
      * @return File the cache directory
      */
     private static File getDocumentCacheDir(String docdownload) {
-        File docDir = new File(docdownload);
+        File docDir = new File(docdownload).getAbsoluteFile();
         String documentDirName = docDir.getName();
         File parentDir = docDir.getParentFile();
 
-        // Use validatePath to create a validated cache directory path
-        String cacheDirName = PathValidationUtils.validateFileName(documentDirName + "_cache");
-        File cacheDir = PathValidationUtils.validatePath(cacheDirName, parentDir);
+        File cacheDir = PathValidationUtils.validateExistingPath(new File(parentDir, documentDirName + "_cache"), parentDir);
 
-        if (!cacheDir.exists()) {
-            cacheDir.mkdir();
+        if (!cacheDir.exists() && !cacheDir.mkdir() && !cacheDir.isDirectory()) {
+            throw new IllegalStateException("Unable to create document cache directory");
+        }
+        if (!cacheDir.isDirectory()) {
+            throw new IllegalStateException("Document cache path is not a directory");
         }
         return cacheDir;
     }

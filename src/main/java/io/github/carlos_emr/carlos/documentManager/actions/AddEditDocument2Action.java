@@ -41,6 +41,7 @@ import java.nio.file.Path;
 import java.util.Date;
 import java.util.Hashtable;
 import java.util.List;
+import java.util.Locale;
 import java.util.ResourceBundle;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -66,6 +67,7 @@ import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -109,6 +111,9 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
  * @since 2006-07-27
  */
 public class AddEditDocument2Action extends ActionSupport implements UploadedFilesAware {
+    private static final String EDIT_DOCUMENT_NO_ATTRIBUTE = "editDocumentNo";
+    private static final String FAIL_EDIT_RESULT = "failEdit";
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -140,7 +145,15 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
 
         int numberOfPages = 0;
         String originalFileName = filled(this.docFileFileName) ? this.docFileFileName : uploadedDocFile.getName();
-        String fileName = PathValidationUtils.validateFileName(originalFileName);
+        String fileName;
+        try {
+            fileName = PathValidationUtils.validateFileName(originalFileName);
+        } catch (FileValidationException e) {
+            MiscUtils.getLogger().warn("Rejected invalid document upload filename");
+            response.setHeader("oscar_error", e.getMessage());
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
+            return null;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String user = loggedInInfo.getLoggedInProviderNo();
         EDoc newDoc = new EDoc("", "", fileName, "", user, user, this.getSource(), 'A', UtilDateUtilities.getToday("yyyy-MM-dd"), "", "", "demographic", "-1", 0);
@@ -170,7 +183,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             return null;
         }
 
-        if (fileName.endsWith(".PDF") || fileName.endsWith(".pdf")) {
+        if (fileName.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
             newDoc.setContentType("application/pdf");
             // get number of pages when document is pdf;
             numberOfPages = countNumOfPages(fileName);
@@ -261,8 +274,8 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             Hashtable errors = new Hashtable();
             errors.put("uploaderror", "dms.error.uploadError");
             request.setAttribute("docerrors", errors);
-            request.setAttribute("editDocumentNo", "");
-            return "failEdit";
+            request.setAttribute(EDIT_DOCUMENT_NO_ATTRIBUTE, "");
+            return FAIL_EDIT_RESULT;
         } else if (this.getMode().equals("add")) {
             // if add/edit success then send redirect, if failed send a forward (need the formdata and errors hashtables while trying to avoid POSTDATA messages)
             if (addDocument(request)) { // if success
@@ -310,7 +323,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
 
         Hashtable errors = new Hashtable();
         try {
-            if ((this.getDocDesc().length() == 0) || (this.getDocDesc().equals("Enter Title"))) {
+            if (isMissingDocumentDescription()) {
                 errors.put("descmissing", "dms.error.descriptionInvalid");
                 throw new Exception();
             }
@@ -343,7 +356,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             File file = writeLocalFile(Files.newInputStream(docFile.toPath()), fileName2);
             newDoc.setContentType(this.docFileContentType);
 
-            if (fileName2.toLowerCase().endsWith(".pdf")) {
+            if (fileName2.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
                 newDoc.setContentType("application/pdf");
                 int numberOfPages = countNumOfPages(fileName2);
                 newDoc.setNumberOfPages(numberOfPages);
@@ -431,6 +444,11 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
                 EDocUtil.addCaseMgmtNoteLink(cmnl);
             }
 
+        } catch (FileValidationException e) {
+            MiscUtils.getLogger().warn("Rejected invalid document filename");
+            errors.put("uploaderror", "dms.error.invalidFilename");
+            request.setAttribute("docerrors", errors);
+            return false;
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
             // ActionRedirect redirect = new ActionRedirect(mapping.findForward("failAdd"));
@@ -439,6 +457,10 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         }
 
         return true;
+    }
+
+    private boolean isMissingDocumentDescription() {
+        return this.getDocDesc().length() == 0 || this.getDocDesc().equals("Enter Title");
     }
 
     /**
@@ -510,7 +532,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
                 fileName = PathValidationUtils.validateFileName(newDoc.getFileName());
                 // save local file
                 writeLocalFile(Files.newInputStream(this.getDocFile().toPath()), fileName);
-                if (fileName.toLowerCase().endsWith(".pdf")) {
+                if (fileName.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
                     newDoc.setContentType("application/pdf");
                     int numberOfPages = countNumOfPages(fileName);
                     newDoc.setNumberOfPages(numberOfPages);
@@ -543,11 +565,17 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
 
             }
 
+        } catch (FileValidationException e) {
+            errors.put("uploaderror", "dms.error.invalidFilename");
+            request.setAttribute("docerrors", errors);
+            request.setAttribute(EDIT_DOCUMENT_NO_ATTRIBUTE, this.getMode());
+            MiscUtils.getLogger().warn("Rejected invalid document filename");
+            return FAIL_EDIT_RESULT;
         } catch (Exception e) {
             request.setAttribute("docerrors", errors);
-            request.setAttribute("editDocumentNo", this.getMode());
+            request.setAttribute(EDIT_DOCUMENT_NO_ATTRIBUTE, this.getMode());
             MiscUtils.getLogger().error("Failed to edit document", e);
-            return "failEdit";
+            return FAIL_EDIT_RESULT;
         }
         return "successEdit";
     }

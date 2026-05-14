@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.match.IMatchManager;
 import io.github.carlos_emr.carlos.match.MatchManager;
 import io.github.carlos_emr.carlos.match.MatchManagerException;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -72,6 +73,8 @@ import org.apache.struts2.ServletActionContext;
 import org.owasp.encoder.Encode;
 
 public class AddEForm2Action extends ActionSupport {
+    private static final String ERROR_MESSAGE_ATTRIBUTE = "errorMessage";
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -243,6 +246,17 @@ public class AddEForm2Action extends ActionSupport {
                 logger.error("Error retrieving image path placeholders from eForm submission.", e);
             }
 
+            String rawFileName = curForm.getFormFileName();
+            if (rawFileName != null && !rawFileName.isEmpty()) {
+                try {
+                    curForm.setFormFileName(PathValidationUtils.validateFileName(rawFileName));
+                } catch (FileValidationException e) {
+                    logger.warn("Rejected invalid eForm template filename");
+                    request.setAttribute(ERROR_MESSAGE_ATTRIBUTE, e.getMessage());
+                    return "error";
+                }
+            }
+
             String fdid = eformDataManager.saveEformData(loggedInInfo, curForm) + "";
 
             EFormUtil.addEFormValues(paramNames, paramValues, Integer.valueOf(fdid), Integer.valueOf(fid), Integer.valueOf(demographic_no)); //adds parsed values
@@ -270,7 +284,7 @@ public class AddEForm2Action extends ActionSupport {
                 } catch (PDFGenerationException e) {
                     logger.error(e.getMessage(), e);
                     String errorMessage = "This eForm (and attachments, if applicable) could not be added to this patient’s documents. \\n\\n" + e.getMessage();
-                    request.setAttribute("errorMessage", errorMessage);
+                    request.setAttribute(ERROR_MESSAGE_ATTRIBUTE, errorMessage);
                     return "error";
                 }
             }
@@ -315,7 +329,7 @@ public class AddEForm2Action extends ActionSupport {
                 } catch (PDFGenerationException e) {
                     logger.error(e.getMessage(), e);
                     String errorMessage = "This eForm (and attachments, if applicable) could not be downloaded. \\n\\n" + e.getMessage();
-                    request.setAttribute("errorMessage", errorMessage);
+                    request.setAttribute(ERROR_MESSAGE_ATTRIBUTE, errorMessage);
                     return "error";
                 }
 
@@ -354,10 +368,6 @@ public class AddEForm2Action extends ActionSupport {
                 path = path.substring(0, path.indexOf(uri));
                 path += request.getContextPath();
 
-                String rawFileName = curForm.getFormFileName();
-                if (rawFileName != null && !rawFileName.isEmpty()) {
-                    curForm.setFormFileName(PathValidationUtils.validateFileName(rawFileName));
-                }
                 EFormUtil.writeEformTemplate(LoggedInInfo.getLoggedInInfoFromSession(request), paramNames, paramValues, curForm, fdid, program_no, path);
             }
 
@@ -413,7 +423,7 @@ public class AddEForm2Action extends ActionSupport {
                 } catch (PDFGenerationException e) {
                     logger.error(e.getMessage(), e);
                     String errorMessage = "This eForm (and attachments, if applicable) could not be downloaded. \\n\\n" + e.getMessage();
-                    request.setAttribute("errorMessage", errorMessage);
+                    request.setAttribute(ERROR_MESSAGE_ATTRIBUTE, errorMessage);
                     return "error";
                 }
 
@@ -452,7 +462,7 @@ public class AddEForm2Action extends ActionSupport {
                 } catch (PDFGenerationException e) {
                     logger.error(e.getMessage(), e);
                     String errorMessage = "This eForm (and attachments, if applicable) could not be added to this patient’s documents. \\n\\n" + e.getMessage();
-                    request.setAttribute("errorMessage", errorMessage);
+                    request.setAttribute(ERROR_MESSAGE_ATTRIBUTE, errorMessage);
                     return "error";
                 }
             }
@@ -471,16 +481,16 @@ public class AddEForm2Action extends ActionSupport {
 
         String fdid = (String) request.getAttribute("fdid");
 
-		String pdfBase64;
-		try {
-			Path eFormPdfPath = documentAttachmentManager.renderEFormWithAttachments(request, response);
-			pdfBase64 = documentAttachmentManager.convertPDFToBase64(eFormPdfPath);
-		} catch (PDFGenerationException e) {
-			logger.error(e.getMessage(), e);
-			String errorMessage = "This eForm (and attachments, if applicable) could not be downloaded. \\n\\n" + e.getMessage();
-			request.setAttribute("errorMessage", errorMessage);
-			return "error";
-		}
+        String pdfBase64;
+        try {
+            Path eFormPdfPath = documentAttachmentManager.renderEFormWithAttachments(request, response);
+            pdfBase64 = documentAttachmentManager.convertPDFToBase64(eFormPdfPath);
+        } catch (PDFGenerationException e) {
+            logger.error(e.getMessage(), e);
+            String errorMessage = "This eForm (and attachments, if applicable) could not be downloaded. \\n\\n" + e.getMessage();
+            request.setAttribute(ERROR_MESSAGE_ATTRIBUTE, errorMessage);
+            return "error";
+        }
 
 		request.setAttribute("eFormPDF", pdfBase64);
 		request.setAttribute("eFormPDFName", generateFileName(loggedInInfo, Integer.parseInt(demographic_no)));

@@ -43,6 +43,8 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 public class OscarDownload extends GenericDownload {
     private static final Logger log = MiscUtils.getLogger();
+    private static final String INTERNAL_ERROR_MESSAGE =
+            "An internal error occurred. Please try again or contact your system administrator.";
 
     private static final Set<String> ALLOWED_HOMEPATH_KEYS = Set.of(
             "homepath", "ohipdownload", "obecdownload"
@@ -55,12 +57,12 @@ public class OscarDownload extends GenericDownload {
             String homepath = req.getParameter("homepath");
 
             if (rawFilename == null || rawFilename.isBlank()) {
-                res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing required filename parameter.");
+                sendErrorIfPossible(res, HttpServletResponse.SC_BAD_REQUEST, "Missing required filename parameter.");
                 return;
             }
             if (homepath == null || !ALLOWED_HOMEPATH_KEYS.contains(homepath)) {
                 log.warn("OscarDownload rejected invalid homepath key from {}", req.getRemoteAddr());
-                res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid download path key.");
+                sendErrorIfPossible(res, HttpServletResponse.SC_BAD_REQUEST, "Invalid download path key.");
                 return;
             }
 
@@ -71,31 +73,34 @@ public class OscarDownload extends GenericDownload {
                 File downloadDir = new File(backupfilepath).getCanonicalFile();
                 if (!downloadDir.isDirectory()) {
                     log.warn("OscarDownload rejected non-directory path from {}", req.getRemoteAddr());
-                    res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid download directory.");
+                    sendErrorIfPossible(res, HttpServletResponse.SC_BAD_REQUEST, "Invalid download directory.");
                     return;
                 }
-                // Both steps are required: legacy character normalization, then directory containment.
-                String normalizedFilename = PathValidationUtils.validateFileName(rawFilename);
-                String filename = PathValidationUtils.validatePath(normalizedFilename, downloadDir).getName();
+                String filename = PathValidationUtils.validateUserFilePath(rawFilename, downloadDir).getName();
                 ServletOutputStream stream = res.getOutputStream();
                 transferFile(res, stream, backupfilepath, filename);
                 stream.close();
             } else {
-                res.sendError(HttpServletResponse.SC_FORBIDDEN, "You have no right to download the file(s).");
+                sendErrorIfPossible(res, HttpServletResponse.SC_FORBIDDEN, "You have no right to download the file(s).");
             }
         } catch (IOException e) {
             throw e;
         } catch (SecurityException e) {
             log.warn("OscarDownload rejected invalid filename from {}", req.getRemoteAddr());
-            if (!res.isCommitted()) {
-                res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid filename parameter.");
-            }
+            sendErrorIfPossible(res, HttpServletResponse.SC_BAD_REQUEST, "Invalid filename parameter.");
         } catch (Exception e) {
             log.error("Unexpected error in OscarDownload", e);
+            sendErrorIfPossible(res, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, INTERNAL_ERROR_MESSAGE);
+        }
+    }
+
+    private static void sendErrorIfPossible(HttpServletResponse res, int status, String message) {
+        try {
             if (!res.isCommitted()) {
-                res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
-                    "An internal error occurred. Please try again or contact your system administrator.");
+                res.sendError(status, message);
             }
+        } catch (IOException e) {
+            log.error("Could not send error response", e);
         }
     }
 }

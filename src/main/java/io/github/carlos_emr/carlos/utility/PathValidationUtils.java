@@ -41,6 +41,11 @@ import java.util.Set;
  */
 public final class PathValidationUtils {
 
+    public static final String INVALID_FILENAME_MESSAGE =
+            "Invalid filename. Use letters, numbers, spaces, dots, or underscores, and do not start the filename with a dot.";
+    public static final String HIDDEN_FILENAME_MESSAGE =
+            "Invalid filename: hidden files not allowed. Do not start the filename with a dot.";
+
     private static final Logger logger = MiscUtils.getLogger();
 
     /**
@@ -70,17 +75,35 @@ public final class PathValidationUtils {
      * @param userProvidedFileName the filename provided by the user
      * @param allowedDir the directory the file must be within
      * @return the validated File path
-     * @throws SecurityException if validation fails
+     * @throws FileValidationException if validation fails
      */
     public static File validatePath(String userProvidedFileName, File allowedDir) {
-		// 1. Sanitize filename
-		String safeName = sanitizeFileName(userProvidedFileName);
+        // 1. Sanitize filename
+        String safeName = sanitizeFileName(userProvidedFileName);
 
-		// 2. Build and validate path
-		File path = new File(allowedDir, safeName);
-		validateWithinDirectory(path, allowedDir);
+        // 2. Build and validate path
+        File path = new File(allowedDir, safeName);
+        validateWithinDirectory(path, allowedDir);
 
-		return path;
+        return path;
+    }
+
+    /**
+     * Validates a user-provided filename, applies legacy character normalization,
+     * then validates the resulting path is inside the allowed directory.
+     * Use this for new user-facing upload/download filenames that need both filename
+     * hygiene and canonical directory containment.
+     *
+     * @param userProvidedFileName the filename provided by the user
+     * @param allowedDir the directory the file must be within
+     * @return the validated File path
+     * @throws FileValidationException if validation fails
+     */
+    public static File validateUserFilePath(String userProvidedFileName, File allowedDir) {
+        String safeName = validateFileName(userProvidedFileName);
+        File path = new File(allowedDir, safeName);
+        validateWithinDirectory(path, allowedDir);
+        return path;
     }
 
     /**
@@ -94,7 +117,7 @@ public final class PathValidationUtils {
      *
      * @param userProvidedFileName the filename provided by the user
      * @return the validated filename component
-     * @throws SecurityException if validation fails
+     * @throws FileValidationException if validation fails
      */
     public static String validateFileName(String userProvidedFileName) {
         String baseName = sanitizeFileName(userProvidedFileName);
@@ -102,11 +125,11 @@ public final class PathValidationUtils {
 
         if (normalizedName.trim().isEmpty()) {
             logger.warn("Filename became empty after normalization");
-            throw new SecurityException("Invalid filename");
+            throw new FileValidationException(INVALID_FILENAME_MESSAGE);
         }
         if (normalizedName.startsWith(".")) {
             logger.warn("Hidden filenames not allowed after normalization");
-            throw new SecurityException("Invalid filename: hidden files not allowed");
+            throw new FileValidationException(HIDDEN_FILENAME_MESSAGE);
         }
         return normalizedName;
     }
@@ -130,11 +153,11 @@ public final class PathValidationUtils {
      * @param file the file to validate
      * @param allowedDir the directory the file must be within
      * @return the validated File (same as input if valid)
-     * @throws SecurityException if the file is outside the allowed directory
+     * @throws FileValidationException if the file is outside the allowed directory
      */
     public static File validateExistingPath(File file, File allowedDir) {
         if (file == null) {
-            throw new SecurityException("File is null");
+            throw new FileValidationException("File is null");
         }
         validateWithinDirectory(file, allowedDir);
         return file;
@@ -150,7 +173,7 @@ public final class PathValidationUtils {
      *
      * @param sourceFile the uploaded file (from Struts2/Tomcat)
      * @return the canonicalized validated File - use this return value for all subsequent file operations
-     * @throws SecurityException if validation fails
+     * @throws FileValidationException if validation fails
      */
     public static File validateUpload(File sourceFile) {
         return validateSource(sourceFile, null);
@@ -170,17 +193,17 @@ public final class PathValidationUtils {
      * @param userProvidedFileName the original filename from the upload
      * @param destinationDir the directory where the file should be written
      * @return the validated destination File
-     * @throws SecurityException if any validation fails
+     * @throws FileValidationException if any validation fails
      */
     public static File validateUpload(
             File sourceFile,
             String userProvidedFileName,
             File destinationDir) {
-		// 1. Validate source
-		validateSource(sourceFile, destinationDir);
+        // 1. Validate source
+        validateSource(sourceFile, destinationDir);
 
-		// 2. Validate destination path
-		return validatePath(userProvidedFileName, destinationDir);
+        // 2. Validate destination filename and path
+        return validateUserFilePath(userProvidedFileName, destinationDir);
     }
 
     // ========================================================================
@@ -237,7 +260,7 @@ public final class PathValidationUtils {
 
     private static File validateSource(File sourceFile, File expectedBaseDir) {
         if (sourceFile == null) {
-            throw new SecurityException("Uploaded file is null");
+            throw new FileValidationException("Uploaded file is null");
         }
 
         // Canonicalize first to resolve symlinks before any filesystem checks
@@ -246,15 +269,15 @@ public final class PathValidationUtils {
             canonicalFile = sourceFile.getCanonicalFile();
         } catch (IOException e) {
             logger.error("Cannot resolve canonical path for uploaded file", e);
-            throw new SecurityException("Cannot resolve upload file path");
+            throw new FileValidationException("Cannot resolve upload file path", e);
         }
 
         if (!canonicalFile.exists()) {
-            throw new SecurityException("Uploaded file does not exist");
+            throw new FileValidationException("Uploaded file does not exist");
         }
 
         if (!canonicalFile.isFile()) {
-            throw new SecurityException("Uploaded file is not a regular file");
+            throw new FileValidationException("Uploaded file is not a regular file");
         }
 
         // Check expected base directory first
@@ -268,12 +291,12 @@ public final class PathValidationUtils {
         }
 
         logger.error("Invalid upload source path: {}", LogSanitizer.sanitize(canonicalFile.getPath(), 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
-        throw new SecurityException("Invalid upload source");
+        throw new FileValidationException("Invalid upload source");
     }
 
     private static void validateWithinDirectory(File file, File allowedBaseDir) {
         if (allowedBaseDir == null || file == null) {
-            throw new SecurityException("File or allowed base directory is null");
+            throw new FileValidationException("File or allowed base directory is null");
         }
 
         try {
@@ -284,17 +307,17 @@ public final class PathValidationUtils {
                 logger.error("Path {} is outside allowed directory {}",
                         LogSanitizer.sanitize(fileCanonical, 1024),
                         LogSanitizer.sanitize(baseCanonical, 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
-                throw new SecurityException("Invalid file path");
+                throw new FileValidationException("Invalid file path");
             }
         } catch (IOException e) {
             logger.error("Error validating file path", e);
-            throw new SecurityException("Error validating file path");
+            throw new FileValidationException("Error validating file path", e);
         }
     }
 
     private static String sanitizeFileName(String fileName) {
         if (fileName == null || fileName.trim().isEmpty()) {
-            throw new SecurityException("Filename is null or empty");
+            throw new FileValidationException(INVALID_FILENAME_MESSAGE);
         }
 
         // Use Apache Commons IO to extract just the filename
@@ -303,13 +326,13 @@ public final class PathValidationUtils {
         // Reject hidden files (starting with .)
         if (baseName.startsWith(".")) {
             logger.warn("Hidden filenames not allowed");
-            throw new SecurityException("Invalid filename: hidden files not allowed");
+            throw new FileValidationException(HIDDEN_FILENAME_MESSAGE);
         }
 
         // Ensure the result is not empty
         if (baseName.trim().isEmpty()) {
             logger.warn("Filename became empty after sanitization");
-            throw new SecurityException("Invalid filename");
+            throw new FileValidationException(INVALID_FILENAME_MESSAGE);
         }
 
         return baseName;

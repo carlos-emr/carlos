@@ -36,6 +36,7 @@ import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -65,6 +66,10 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
         }
 
         try {
+            if (uploadValidationError != null) {
+                addActionError(uploadValidationError);
+                return ERROR;
+            }
             if (imageFileName == null || imageFileName.isEmpty()) {
                 MiscUtils.getLogger().warn("Image upload rejected: no filename provided");
                 addActionError("Upload failed: no file was selected.");
@@ -81,8 +86,7 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
 
             // Validate upload source and destination filename, and track if the filename changed
             String originalFileName = imageFileName;
-            String normalizedImageFileName = PathValidationUtils.validateFileName(originalFileName);
-            File destinationFile = PathValidationUtils.validateUpload(image, normalizedImageFileName, imageFolder);
+            File destinationFile = PathValidationUtils.validateUpload(image, originalFileName, imageFolder);
             imageFileName = destinationFile.getName();
             boolean fileNameWasSanitized = !originalFileName.equals(imageFileName);
 
@@ -104,6 +108,10 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
             request.setAttribute("status", "uploaded");
             return SUCCESS;
 
+        } catch (FileValidationException e) {
+            MiscUtils.getLogger().warn("Rejected invalid image upload");
+            addActionError(e.getMessage());
+            return ERROR;
         } catch (SecurityException se) {
             MiscUtils.getLogger().warn("SecurityException during image upload: " + se.getMessage(), se);
             addActionError("Upload failed: invalid file or security policy violation");
@@ -123,6 +131,7 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
     }
 
     private File image;
+    private String uploadValidationError;
 
     /**
      * Receives uploaded files from the Struts 7.x {@code ActionFileUploadInterceptor}.
@@ -130,10 +139,16 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
     @Override
     public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
         if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
-            UploadedFile uploaded = uploadedFiles.get(0);
-            this.image = PathValidationUtils.validateUpload(new File(uploaded.getAbsolutePath()));
-            this.imageFileContentType = uploaded.getContentType();
-            this.imageFileName = uploaded.getOriginalName();
+            try {
+                UploadedFile uploaded = uploadedFiles.get(0);
+                this.image = PathValidationUtils.validateUpload(new File(uploaded.getAbsolutePath()));
+                this.imageFileContentType = uploaded.getContentType();
+                this.imageFileName = uploaded.getOriginalName();
+            } catch (FileValidationException e) {
+                this.uploadValidationError = e.getMessage();
+                this.image = null;
+                this.imageFileName = null;
+            }
         }
     }
 

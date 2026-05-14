@@ -49,6 +49,8 @@ import org.apache.logging.log4j.Logger;
 
 public class BackupDownload extends GenericDownload {
     private static final Logger log = MiscUtils.getLogger();
+    private static final String INTERNAL_ERROR_MESSAGE =
+            "An internal error occurred. Please try again or contact your system administrator.";
 
     @SuppressWarnings("unchecked")
     public void doGet(HttpServletRequest req, HttpServletResponse res) throws IOException {
@@ -58,13 +60,11 @@ public class BackupDownload extends GenericDownload {
             // check the rights - validate filename to prevent path traversal
             String rawFilename = req.getParameter("filename");
             if (rawFilename == null || rawFilename.isBlank()) {
-                res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing required filename parameter.");
+                sendErrorIfPossible(res, HttpServletResponse.SC_BAD_REQUEST, "Missing required filename parameter.");
                 return;
             }
             String dir = (String) session.getAttribute("backupfilepath") == null ? "/home/mysql/" : (String) session.getAttribute("backupfilepath");
-            // Both steps are required: legacy character normalization, then directory containment.
-            String normalizedFilename = PathValidationUtils.validateFileName(rawFilename);
-            String filename = PathValidationUtils.validatePath(normalizedFilename, new File(dir).getCanonicalFile()).getName();
+            String filename = PathValidationUtils.validateUserFilePath(rawFilename, new File(dir).getCanonicalFile()).getName();
 
             boolean adminPrivs = false;
 
@@ -83,15 +83,20 @@ public class BackupDownload extends GenericDownload {
             throw e;
         } catch (SecurityException e) {
             log.warn("BackupDownload rejected invalid filename from {}", req.getRemoteAddr());
-            if (!res.isCommitted()) {
-                res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid filename parameter.");
-            }
+            sendErrorIfPossible(res, HttpServletResponse.SC_BAD_REQUEST, "Invalid filename parameter.");
         } catch (Exception e) {
             log.error("Unexpected error in BackupDownload", e);
+            sendErrorIfPossible(res, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, INTERNAL_ERROR_MESSAGE);
+        }
+    }
+
+    private static void sendErrorIfPossible(HttpServletResponse res, int status, String message) {
+        try {
             if (!res.isCommitted()) {
-                res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
-                    "An internal error occurred. Please try again or contact your system administrator.");
+                res.sendError(status, message);
             }
+        } catch (IOException e) {
+            log.error("Could not send error response", e);
         }
     }
 

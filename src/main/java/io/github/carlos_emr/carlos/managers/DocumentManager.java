@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.commn.model.CtlDocument;
 import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.documentManager.dto.DocumentListItemDTO;
 
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 
@@ -65,9 +66,10 @@ public interface DocumentManager {
      * @param providerNo    The optional providers number to route the document to
      * @param documentData  The document byte data
      * @return Document record from the database once it has been created
+     * @throws FileValidationException If the provided document filename is invalid
      * @throws IOException If actions related to getting document data fail
      */
-    public Document createDocument(LoggedInInfo loggedInInfo, Document document, Integer demographicNo, String providerNo, byte[] documentData) throws IOException;
+    public Document createDocument(LoggedInInfo loggedInInfo, Document document, Integer demographicNo, String providerNo, byte[] documentData) throws IOException, FileValidationException;
 
     public List<Document> getDocumentsUpdateAfterDate(LoggedInInfo loggedInInfo, Date updatedAfterThisDateExclusive, int itemsToReturn);
 
