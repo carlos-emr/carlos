@@ -159,11 +159,11 @@
 <html lang="${flatpickrLanguage}">
     <head>
         <title><fmt:message key="tickler.ticklerMain.managerHeading"/></title>
+
+        <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <% if (showScheduleNav) { %>
         <link rel="stylesheet" href="<%=request.getContextPath()%>/css/topnav.css">
         <% } %>
-
-        <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <script type="text/javascript" src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css">
         <script type="text/javascript" src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>

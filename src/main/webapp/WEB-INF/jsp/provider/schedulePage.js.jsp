@@ -45,13 +45,24 @@
         cbiReminderWindow = (String) session.getAttribute("cbiReminderWindow");
     }
 
-    // Load "Open Encounter in Tab" preference
+    // Load schedule navigation separately from the legacy encounter-tab flag.
+    // Junior-dev note: focused schedule navigation should not change how other
+    // screens open encounters, so the old flag remains true only in "tab" mode.
     String curProviderNo = (String) session.getAttribute("user");
     boolean openEncounterInTab = false;
+    String scheduleNavigationMode = UserProperty.SCHEDULE_NAVIGATION_MODE_POPUP;
     if (curProviderNo != null) {
         UserPropertyDAO upDao = SpringUtils.getBean(UserPropertyDAO.class);
         UserProperty tabProp = upDao.getProp(curProviderNo, UserProperty.ENCOUNTER_OPEN_IN_TAB);
-        openEncounterInTab = tabProp != null && "yes".equalsIgnoreCase(tabProp.getValue());
+        UserProperty navProp = upDao.getProp(curProviderNo, UserProperty.SCHEDULE_NAVIGATION_MODE);
+        scheduleNavigationMode = navProp != null ? navProp.getValue() : null;
+        if (!UserProperty.SCHEDULE_NAVIGATION_MODE_TAB.equals(scheduleNavigationMode)
+                && !UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED.equals(scheduleNavigationMode)) {
+            scheduleNavigationMode = tabProp != null && "yes".equalsIgnoreCase(tabProp.getValue())
+                    ? UserProperty.SCHEDULE_NAVIGATION_MODE_TAB
+                    : UserProperty.SCHEDULE_NAVIGATION_MODE_POPUP;
+        }
+        openEncounterInTab = UserProperty.SCHEDULE_NAVIGATION_MODE_TAB.equals(scheduleNavigationMode);
     }
 %>
 function storeApptNo(apptNo) {
@@ -410,19 +421,28 @@ popupPage2(queryString, 'appointment', height, width);
 }
 
 var openEncounterInTab = <%=openEncounterInTab%>;
+var scheduleNavigationMode = '<%=Encode.forJavaScript(scheduleNavigationMode)%>';
 
 function appendQueryParam(url, key, value) {
-var joiner = url.indexOf('?') === -1 ? '?' : '&';
-return url + joiner + encodeURIComponent(key) + '=' + encodeURIComponent(value);
+var parts = String(url).split('#');
+var base = parts[0];
+var fragment = parts.length > 1 ? '#' + parts.slice(1).join('#') : '';
+var joiner = base.indexOf('?') === -1 ? '?' : '&';
+return base + joiner + encodeURIComponent(key) + '=' + encodeURIComponent(value) + fragment;
 }
 
 function openScheduleSection(url, popupAction, clickEvent) {
-if (openEncounterInTab && !(clickEvent && clickEvent.altKey)) {
+if (scheduleNavigationMode === 'focused' && !(clickEvent && clickEvent.altKey)) {
 window.location.href = appendQueryParam(url, 'scheduleNav', '1');
 return false;
 }
+if (scheduleNavigationMode === 'focused' && clickEvent && clickEvent.altKey && typeof popupTab === 'function') {
+// Alt-click gives power users a tab without the schedule shell while keeping the default focused flow simple.
+popupTab(url);
+return false;
+}
 if (typeof popupAction === 'function') {
-popupAction();
+popupAction(url);
 }
 return false;
 }

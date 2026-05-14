@@ -116,13 +116,13 @@
 
 <head>
     <title><fmt:message key="admin.admin.page.title"/></title>
-    <% if (showScheduleNav) { %>
-    <link rel="stylesheet" href="<%=request.getContextPath()%>/css/topnav.css">
-    <% } %>
     <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
     <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet" type="text/css">
     <link href="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css">
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+    <% if (showScheduleNav) { %>
+    <link rel="stylesheet" href="<%=request.getContextPath()%>/css/topnav.css">
+    <% } %>
 
 
     <style>

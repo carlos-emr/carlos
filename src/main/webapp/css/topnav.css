@@ -7,6 +7,83 @@ body {
 }
 
 /* top navigation bar */
+table#firstTable {
+    width: 100%;
+    background-color: white;
+    border-bottom: 1px solid #c0c0c0;
+    height: 25px;
+    margin-bottom: 0;
+}
+
+table#firstTable tr {
+    display: flex;
+    align-items: center;
+}
+
+table#firstTable td {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-family: Arial, sans-serif;
+    font-size: 12px;
+}
+
+table#firstTable tr td.icon-container {
+    padding-left: 10px;
+}
+
+table#firstTable td#firstMenu {
+    flex: 1 1 auto;
+    margin-left: 10px;
+}
+
+table#firstTable td#userSettings {
+    flex: 0 0 auto;
+    margin-right: 15px;
+}
+
+table#firstTable td#firstMenu ul#navlist:not(.dashboardDropdown),
+table#firstTable td#userSettings ul#userSettingsMenu:not(.dashboardDropdown) {
+    margin: 0;
+    padding: 0;
+    white-space: nowrap;
+    list-style-type: none;
+}
+
+table#firstTable td#userSettings ul#userSettingsMenu li,
+table#firstTable td#firstMenu ul#navlist li:not(.dashboardDropdown) {
+    line-height: 1;
+    display: inline-block;
+}
+
+table#firstTable td#firstMenu ul#navlist li a:not(.dashboardDropdown) {
+    display: inline-block;
+    padding: 5px;
+}
+
+table#firstTable a,
+table#firstTable a:visited,
+table#firstTable a:active {
+    color: #00283c;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+table#firstTable a:hover,
+table#firstTable a:focus,
+table#firstTable a:focus-visible,
+table#firstTable td#firstMenu #navlist li:hover,
+table#firstTable td#firstMenu #navlist li a:hover {
+    color: #fff;
+    background-color: #486ebd;
+}
+
+table#firstTable #logoutButton span {
+    font-size: 18px;
+}
+
+/* These rules mirror the schedule header's menu shape without requiring
+   destination pages to import the full appointment stylesheet. */
 table.topnav {
     background-color: #EEEEFF;
     border: 0;

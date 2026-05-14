@@ -112,6 +112,16 @@ public class UserProperty extends AbstractModel<Integer> implements Serializable
     public static final String HIDE_OLD_ECHART_LINK_IN_APPT = "hide_old_echart_link_in_appointment";
     /** Provider preference key: when set to {@code "yes"}, encounters open in a browser tab instead of a popup window. */
     public static final String ENCOUNTER_OPEN_IN_TAB = "encounter_open_in_tab";
+    /**
+     * Provider preference key for the schedule top-menu launch mode.
+     * Keep this separate from ENCOUNTER_OPEN_IN_TAB because the schedule shell
+     * behavior is a navigation preference, while encounter tabs affect clinical
+     * popup behavior across other screens.
+     */
+    public static final String SCHEDULE_NAVIGATION_MODE = "schedule_navigation_mode";
+    public static final String SCHEDULE_NAVIGATION_MODE_POPUP = "popup";
+    public static final String SCHEDULE_NAVIGATION_MODE_TAB = "tab";
+    public static final String SCHEDULE_NAVIGATION_MODE_FOCUSED = "focused";
 
 
     public static final String DEFAULT_PRINTER_PDF_LABEL = "default_printer_pdf_label";

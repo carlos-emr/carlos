@@ -52,6 +52,8 @@
 <%@ page import="java.net.URLEncoder" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 
@@ -77,8 +79,22 @@
         resourcehelpHtml = rbuHtml.getValue();
     }
 
-    String userfirstname = loggedInInfo.getLoggedInProvider().getFirstName();
-    String userlastname = loggedInInfo.getLoggedInProvider().getLastName();
+    Provider loggedInProvider = loggedInInfo != null ? loggedInInfo.getLoggedInProvider() : null;
+    String userfirstname = loggedInProvider != null ? loggedInProvider.getFirstName() : "";
+    String userlastname = loggedInProvider != null ? loggedInProvider.getLastName() : "";
+    String encodedUserName = URLEncoder.encode(StringUtils.trim(userfirstname + " " + userlastname), StandardCharsets.UTF_8);
+    boolean scheduleNavActive = "1".equals(request.getParameter("scheduleNav"));
+
+    // Build menu destinations once so same-tab navigation and popup fallbacks cannot drift apart.
+    String messengerUrl = request.getContextPath() + "/messenger/DisplayMessages?providerNo=" + curUser_no + "&userName=" + encodedUserName;
+    String consultationUrl = request.getContextPath() + "/encounter/IncomingConsultation?providerNo=" + curUser_no + "&userName=" + encodedUserName;
+    String documentReportUrl = request.getContextPath() + "/documentManager/ViewDocumentReport?function=providers&functionid=" + curUser_no + "&curUser=" + curUser_no;
+    String reportIndexUrl = request.getContextPath() + "/report/ViewReportindex";
+    String ticklerUrl = request.getContextPath() + "/tickler/ViewTicklerMain";
+    String administrationUrl = request.getContextPath() + "/administration";
+    String billingReportUrl = request.getContextPath() + "/billing/CA/" + prov + "/billingReportCenter.jsp?displaymode=billreport&providerview=" + curUser_no;
+    String searchUrl = request.getContextPath() + "/demographic/ViewSearch";
+    String econsultUrl = request.getContextPath() + "/encounter/econsult";
 %>
 
 <input type="hidden" value="${pageContext.servletContext.contextPath}" id="contextPath" />
@@ -107,16 +123,6 @@
                     <% } %>
                 </c:if>
 
-                <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
-                    <security:oscarSec roleName="<%=roleName$%>" objectName="_resource" rights="r">
-                        <li>
-                            <a href="#" ONCLICK="popupPage2('<%=resourcebaseurl%>');return false;"
-                               title="<fmt:message key="provider.appointmentProviderAdminDay.viewResources"/>"
-                               onmouseover="window.status='<fmt:message key="provider.appointmentProviderAdminDay.viewResources"/>';return true"><fmt:message key="encounter.Index.clinicalResources"/></a>
-                        </li>
-                    </security:oscarSec>
-                </caisi:isModuleLoad>
-
                 <%
                     if (isMobileOptimized) {
                 %>
@@ -140,13 +146,13 @@
                                     <%
                                     } else {
                                     %>
-                                    <a HREF="#" ONCLICK="popupPage2('<%= request.getContextPath() %>/demographic/ViewSearch');return false;"
+                                    <a HREF="#" ONCLICK="popupPage2('<%=SafeEncode.forJavaScriptAttribute(searchUrl)%>');return false;"
                                        TITLE='<fmt:message key="global.searchPatientRecords"/>'
                                        OnMouseOver="window.status='<fmt:message key="global.searchPatientRecords"/>' ; return true"><fmt:message key="provider.appointmentProviderAdminDay.search"/></a>
                                     <% } %>
                                 </caisi:isModuleLoad>
                                 <caisi:isModuleLoad moduleName="caisi" reverse="true">
-                                    <a HREF="#" ONCLICK="popupPage2('<%= request.getContextPath() %>/demographic/ViewSearch');return false;"
+                                    <a HREF="#" ONCLICK="popupPage2('<%=SafeEncode.forJavaScriptAttribute(searchUrl)%>');return false;"
                                        TITLE='<fmt:message key="global.searchPatientRecords"/>'
                                        OnMouseOver="window.status='<fmt:message key="global.searchPatientRecords"/>' ; return true"><fmt:message key="provider.appointmentProviderAdminDay.search"/></a>
                                 </caisi:isModuleLoad>
@@ -154,25 +160,7 @@
                         </security:oscarSec>
 
                         <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
-                            <security:oscarSec roleName="<%=roleName$%>" objectName="_report" rights="r">
-                                <li>
-                                    <a HREF="#"
-                                       ONCLICK="popupPage2('<%= request.getContextPath() %>/report/ViewReportindex','reportPage');return false;"
-                                       TITLE='<fmt:message key="global.genReport"/>'
-                                       OnMouseOver="window.status='<fmt:message key="global.genReport"/>' ; return true"><fmt:message key="global.report"/></a>
-                                </li>
-                            </security:oscarSec>
                             <oscar:oscarPropertiesCheck property="NOT_FOR_CAISI" value="no" defaultVal="true">
-
-                                <security:oscarSec roleName="<%=roleName$%>" objectName="_billing" rights="r">
-                                    <li>
-                                        <a HREF="#"
-                                           ONCLICK="popupPage2('<%= request.getContextPath() %>/billing/CA/<%=prov%>/billingReportCenter.jsp?displaymode=billreport&providerview=<%=curUser_no%>');return false;"
-                                           TITLE='<fmt:message key="global.genBillReport"/>'
-                                           onMouseOver="window.status='<fmt:message key="global.genBillReport"/>';return true"><fmt:message key="global.billing"/></a>
-                                    </li>
-                                </security:oscarSec>
-
                                 <security:oscarSec roleName="<%=roleName$%>" objectName="_appointment.doctorLink"
                                                    rights="r">
                                     <li>
@@ -188,11 +176,21 @@
                                 </security:oscarSec>
                             </oscar:oscarPropertiesCheck>
                         </caisi:isModuleLoad>
+
+                        <security:oscarSec roleName="<%=roleName$%>" objectName="_tickler" rights="r">
+                            <li>
+                                <a HREF="#"
+                                   ONCLICK="return openScheduleMenuSection('<%=SafeEncode.forJavaScriptAttribute(ticklerUrl)%>', function(u){ popupPage2(u,'ticklerPage'); }, event);"
+                                   TITLE='<fmt:message key="global.tickler"/>'>
+                                    <span id="oscar_new_tickler"><fmt:message key="global.btntickler"/></span></a>
+                            </li>
+                        </security:oscarSec>
+
                         <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
                             <security:oscarSec roleName="<%=roleName$%>" objectName="_msg" rights="r">
                                 <li>
                                     <a HREF="#"
-                                       ONCLICK="popupOscarRx(600,1024,'<%=request.getContextPath()%>/messenger/DisplayMessages?providerNo=<%=curUser_no%>&userName=<%=URLEncoder.encode(loggedInInfo.getLoggedInProvider().getFirstName()+" "+loggedInInfo.getLoggedInProvider().getLastName(), StandardCharsets.UTF_8)%>')"
+                                       ONCLICK="return openScheduleMenuSection('<%=SafeEncode.forJavaScriptAttribute(messengerUrl)%>', function(u){ popupOscarRx(600,1024,u); }, event);"
                                        title="<fmt:message key="global.messenger"/>">
                                         <span id="oscar_new_msg"><fmt:message key="global.msg"/></span></a>
                                 </li>
@@ -202,45 +200,61 @@
                             <security:oscarSec roleName="<%=roleName$%>" objectName="_con" rights="r">
                                 <li id="con">
                                     <a HREF="#"
-                                       ONCLICK="popupOscarRx(625,1024,'<%=request.getContextPath()%>/encounter/IncomingConsultation?providerNo=<%=curUser_no%>&userName=<%=URLEncoder.encode(loggedInInfo.getLoggedInProvider().getFirstName()+" "+loggedInInfo.getLoggedInProvider().getLastName(), StandardCharsets.UTF_8)%>')"
+                                       ONCLICK="return openScheduleMenuSection('<%=SafeEncode.forJavaScriptAttribute(consultationUrl)%>', function(u){ popupOscarRx(625,1024,u); }, event);"
                                        title="<fmt:message key="provider.appointmentProviderAdminDay.viewConReq"/>">
                                         <span id="oscar_aged_consults"><fmt:message key="global.con"/></span></a>
                                 </li>
                             </security:oscarSec>
                         </caisi:isModuleLoad>
-                        <%
-                            boolean hide_eConsult = CarlosProperties.getInstance().isPropertyActive("hide_eConsult_link");
-                            if ("on".equalsIgnoreCase(prov) && !hide_eConsult) {
-                        %>
-                        <li id="econ">
-                            <a href="#" onclick="popupOscarRx(625, 1024, '<%=request.getContextPath()%>/encounter/econsult')"
-                               title="eConsult">
-                                <span><fmt:message key="provider.mainMenu.eConsult"/></span></a>
-                        </li>
-                        <% } %>
                         <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
                             <security:oscarSec roleName="<%=roleName$%>" objectName="_edoc" rights="r">
                                 <li>
                                     <a HREF="#"
-                                       onclick="popup('700', '1024', '<%= request.getContextPath() %>/documentManager/ViewDocumentReport?function=providers&functionid=<%=curUser_no%>&curUser=<%=curUser_no%>', 'edocView');"
+                                       onclick="return openScheduleMenuSection('<%=SafeEncode.forJavaScriptAttribute(documentReportUrl)%>', function(u){ popup('700', '1024', u, 'edocView'); }, event);"
                                        TITLE='<fmt:message key="provider.appointmentProviderAdminDay.viewEdoc"/>'><fmt:message key="global.edoc"/></a>
                                 </li>
                             </security:oscarSec>
                         </caisi:isModuleLoad>
-                        <security:oscarSec roleName="<%=roleName$%>" objectName="_tickler" rights="r">
-                            <li>
-                                <a HREF="#"
-                                   ONCLICK="popupPage2('<%= request.getContextPath() %>/tickler/ViewTicklerMain','<fmt:message key="global.tickler"/>');return false;"
-                                   TITLE='<fmt:message key="global.tickler"/>'>
-                                    <span id="oscar_new_tickler"><fmt:message key="global.btntickler"/></span></a>
-                            </li>
-                        </security:oscarSec>
+
+                        <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
+                            <security:oscarSec roleName="<%=roleName$%>" objectName="_report" rights="r">
+                                <li>
+                                    <a HREF="#"
+                                       ONCLICK="return openScheduleMenuSection('<%=SafeEncode.forJavaScriptAttribute(reportIndexUrl)%>', function(u){ popupPage2(u,'reportPage'); }, event);"
+                                       TITLE='<fmt:message key="global.genReport"/>'
+                                       OnMouseOver="window.status='<fmt:message key="global.genReport"/>' ; return true"><fmt:message key="global.report"/></a>
+                                </li>
+                            </security:oscarSec>
+                        </caisi:isModuleLoad>
+
+                        <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
+                            <security:oscarSec roleName="<%=roleName$%>"
+                                               objectName="_admin,_admin.userAdmin,_admin.schedule,_admin.billing,_admin.resource,_admin.reporting,_admin.backup,_admin.messenger,_admin.eform,_admin.encounter,_admin.misc,_admin.fax,_admin.flowsheet"
+                                               rights="r">
+
+                                <li id="admin2">
+                                    <a href="javascript:void(0)" id="admin-panel" TITLE='<fmt:message key="admin.admin.page.title"/>'
+                                       onclick="return openScheduleMenuSection('<%=SafeEncode.forJavaScriptAttribute(administrationUrl)%>', function(u){ newWindow(u,'admin'); }, event);"><fmt:message key="provider.mainMenu.administration"/></a>
+                                </li>
+
+                            </security:oscarSec>
+                        </caisi:isModuleLoad>
+
+                        <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
+                            <security:oscarSec roleName="<%=roleName$%>" objectName="_resource" rights="r">
+                                <li>
+                                    <a href="#" ONCLICK="popupPage2('<%=SafeEncode.forJavaScriptAttribute(StringUtils.defaultString(resourcebaseurl))%>');return false;"
+                                       title="<fmt:message key="provider.appointmentProviderAdminDay.viewResources"/>"
+                                       onmouseover="window.status='<fmt:message key="provider.appointmentProviderAdminDay.viewResources"/>';return true"><fmt:message key="encounter.Index.clinicalResources"/></a>
+                                </li>
+                            </security:oscarSec>
+                        </caisi:isModuleLoad>
 
                         <oscar:oscarPropertiesCheck property="referral_menu" value="yes">
                             <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.misc" rights="r">
                                 <li id="ref">
                                     <a href="#"
-                                       onclick="popupPage(550,800,'<%=request.getContextPath()%>/admin/ManageBillingReferral');return false;"><fmt:message key="global.manageReferrals"/></a>
+                                   onclick="popupPage(550,800,'<%=request.getContextPath()%>/admin/ManageBillingReferral');return false;"><fmt:message key="global.manageReferrals"/></a>
                                 </li>
                             </security:oscarSec>
                         </oscar:oscarPropertiesCheck>
@@ -251,19 +265,16 @@
                             </a></li>
                         </oscar:oscarPropertiesCheck>
 
-
-                        <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
-                            <security:oscarSec roleName="<%=roleName$%>"
-                                               objectName="_admin,_admin.userAdmin,_admin.schedule,_admin.billing,_admin.resource,_admin.reporting,_admin.backup,_admin.messenger,_admin.eform,_admin.encounter,_admin.misc,_admin.fax,_admin.flowsheet"
-                                               rights="r">
-
-                                <li id="admin2">
-                                    <a href="javascript:void(0)" id="admin-panel" TITLE='<fmt:message key="admin.admin.page.title"/>'
-                                       onclick="newWindow('<%=request.getContextPath()%>/administration','admin')"><fmt:message key="provider.mainMenu.administration"/></a>
-                                </li>
-
-                            </security:oscarSec>
-                        </caisi:isModuleLoad>
+                        <%
+                            boolean hide_eConsult = CarlosProperties.getInstance().isPropertyActive("hide_eConsult_link");
+                            if ("on".equalsIgnoreCase(prov) && !hide_eConsult) {
+                        %>
+                        <li id="econ">
+                            <a href="#" onclick="popupOscarRx(625, 1024, '<%=SafeEncode.forJavaScriptAttribute(econsultUrl)%>')"
+                               title="eConsult">
+                                <span><fmt:message key="provider.mainMenu.eConsult"/></span></a>
+                        </li>
+                        <% } %>
 
                         <security:oscarSec roleName="<%=roleName$%>" objectName="_dashboardDisplay" rights="r">
                             <%
@@ -368,15 +379,82 @@
     </tr>
 </table>
 
-<script type="text/javascript"
-        src="${pageContext.servletContext.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
-        <script src="${pageContext.servletContext.contextPath}/library/jquery/jquery-compat.js"></script>
-<script type="text/javascript"
-        src="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
 <script>
-    const contextPath = document.getElementById("contextPath").value;
-    const inboxLinkClickEvent = "popupInboxManager('" + contextPath + "/web/inboxhub/Inboxhub?method=displayInboxForm', 800);return false;";
-    const unclaimedLabLinkClickEvent = "popupInboxManager('" + contextPath + "/web/inboxhub/Inboxhub?method=displayInboxForm&unclaimed=1', 800);return false;";
+    var scheduleNavActive = <%=scheduleNavActive%>;
+    var contextPath = document.getElementById("contextPath").value;
+
+    function appendScheduleMenuQueryParam(url, key, value) {
+        var parts = String(url).split('#');
+        var base = parts[0];
+        var fragment = parts.length > 1 ? '#' + parts.slice(1).join('#') : '';
+        var joiner = base.indexOf('?') === -1 ? '?' : '&';
+        return base + joiner + encodeURIComponent(key) + '=' + encodeURIComponent(value) + fragment;
+    }
+
+    function openScheduleMenuSection(url, popupAction, clickEvent) {
+        if (scheduleNavActive && !(clickEvent && clickEvent.altKey)) {
+            window.location.href = appendScheduleMenuQueryParam(url, 'scheduleNav', '1');
+            return false;
+        }
+        if (scheduleNavActive && clickEvent && clickEvent.altKey && typeof popupTab === 'function') {
+            // Alt-click intentionally escapes the schedule shell without changing the user's saved mode.
+            popupTab(url);
+            return false;
+        }
+        if (typeof popupAction === 'function') {
+            popupAction(url);
+        }
+        return false;
+    }
+
+    function openMenuPopup(height, width, url, windowName) {
+        if (typeof popup === 'function') {
+            return popup(height, width, url, windowName);
+        }
+        var windowprops = "height=" + height + ",width=" + width
+            + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=50,screenY=50,top=0,left=0";
+        var opened = window.open(url, windowName, windowprops);
+        if (opened) {
+            opened.focus();
+        }
+        return opened;
+    }
+
+    if (typeof newWindow !== 'function') {
+        window.newWindow = function(url, windowName) {
+            return openMenuPopup(window.innerHeight || 700, window.innerWidth || 1024, url, windowName);
+        };
+    }
+
+    if (typeof popupPage2 !== 'function') {
+        window.popupPage2 = function(varpage, windowname, vheight, vwidth) {
+            windowname = typeof windowname !== 'undefined' ? windowname : 'apptProviderSearch';
+            vheight = typeof vheight !== 'undefined' ? vheight : 700;
+            vwidth = typeof vwidth !== 'undefined' ? vwidth : 1024;
+            return openMenuPopup(vheight, vwidth, varpage, windowname);
+        };
+    }
+
+    if (typeof popupPage !== 'function') {
+        window.popupPage = function(vheight, vwidth, varpage) {
+            return openMenuPopup(vheight, vwidth, varpage, 'apptProviderSearch');
+        };
+    }
+
+    if (typeof popupOscarRx !== 'function') {
+        window.popupOscarRx = function(vheight, vwidth, varpage) {
+            return openMenuPopup(vheight, vwidth, varpage, 'oscarRx_appt');
+        };
+    }
+
+    if (typeof popupInboxManager !== 'function') {
+        window.popupInboxManager = function(varpage, height, width) {
+            return openMenuPopup(height || 700, width || 1215, varpage, 'apptProviderInbox');
+        };
+    }
+
+    var inboxLinkClickEvent = "popupInboxManager('" + contextPath + "/web/inboxhub/Inboxhub?method=displayInboxForm', 800);return false;";
+    var unclaimedLabLinkClickEvent = "popupInboxManager('" + contextPath + "/web/inboxhub/Inboxhub?method=displayInboxForm&unclaimed=1', 800);return false;";
 
     const inboxLink = document.getElementById("inboxLink");
     if (inboxLink) {
@@ -388,6 +466,11 @@
     }
 
     function openPreferences(providerNumber) {
+        if (typeof jQuery !== 'function' || typeof jQuery.fn.dialog !== 'function') {
+            // Some pages include this shared menu without jQuery UI. Use the same popup path instead of loading jQuery twice.
+            popupPage(800, 1000, "<%= request.getContextPath() %>/provider/ViewProviderPreference?provider_no=" + encodeURIComponent(providerNumber));
+            return;
+        }
         const $div = jQuery('<div />').appendTo('body');
         const dialogContainer = $div.attr('id', 'preference-dialog');
         const data = {

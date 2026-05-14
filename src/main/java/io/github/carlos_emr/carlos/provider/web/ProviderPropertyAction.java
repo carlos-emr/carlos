@@ -131,7 +131,7 @@ public class ProviderPropertyAction {
         saveIfPresent(request, propertyDAO, providerNo, "encounterWindowWidth", "encounterWindowWidth");
         saveIfPresent(request, propertyDAO, providerNo, "encounterWindowHeight", "encounterWindowHeight");
         saveCheckbox(request, propertyDAO, providerNo, "encounterWindowMaximize", "encounterWindowMaximize");
-        saveCheckbox(request, propertyDAO, providerNo, UserProperty.ENCOUNTER_OPEN_IN_TAB, "encounter_open_in_tab");
+        saveScheduleNavigationMode(request, propertyDAO, providerNo);
         saveIfPresent(request, propertyDAO, providerNo, "quickChartSize", "quickChartSize");
 
         // Contact info (use saveAllowEmpty so users can clear previously set values)
@@ -212,6 +212,33 @@ public class ProviderPropertyAction {
                 MiscUtils.getLogger().error("Failed to save preference '{}' for provider {}", propName, providerNo, e);
                 throw e;  // Propagate to caller
             }
+        }
+    }
+
+    private static void saveScheduleNavigationMode(HttpServletRequest request, UserPropertyDAO dao,
+                                                   String providerNo) throws PersistenceException {
+        String submittedMode = request.getParameter(UserProperty.SCHEDULE_NAVIGATION_MODE);
+        if (submittedMode == null) {
+            // Older forms, tests, or partial preference posts may not include the new selector.
+            // In that case do not rewrite either the new mode or the legacy tab flag.
+            return;
+        }
+
+        String mode = StringUtils.defaultIfBlank(submittedMode, UserProperty.SCHEDULE_NAVIGATION_MODE_POPUP);
+        if (!UserProperty.SCHEDULE_NAVIGATION_MODE_TAB.equals(mode)
+                && !UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED.equals(mode)) {
+            mode = UserProperty.SCHEDULE_NAVIGATION_MODE_POPUP;
+        }
+
+        try {
+            dao.saveProp(providerNo, UserProperty.SCHEDULE_NAVIGATION_MODE, mode);
+            // The legacy flag is still read by non-schedule pages. Only the
+            // explicit "Tabs" mode should keep that wider behavior enabled.
+            dao.saveProp(providerNo, UserProperty.ENCOUNTER_OPEN_IN_TAB,
+                    UserProperty.SCHEDULE_NAVIGATION_MODE_TAB.equals(mode) ? "yes" : "no");
+        } catch (PersistenceException e) {
+            MiscUtils.getLogger().error("Failed to save schedule navigation mode for provider {}", providerNo, e);
+            throw e;
         }
     }
 
