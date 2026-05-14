@@ -42,7 +42,7 @@ import java.util.Set;
 public final class PathValidationUtils {
 
     public static final String INVALID_FILENAME_MESSAGE =
-            "Invalid filename. Use letters, numbers, spaces, dots, or underscores, and do not start the filename with a dot.";
+            "Invalid filename. Use letters, numbers, dots, or underscores. Spaces are converted to underscores, and filenames must not start with a dot.";
     public static final String HIDDEN_FILENAME_MESSAGE =
             "Invalid filename: hidden files not allowed. Do not start the filename with a dot.";
 
@@ -141,10 +141,11 @@ public final class PathValidationUtils {
     }
 
     /**
-     * Validates that an existing file path is within the allowed directory.
+     * Validates that a file path is within the allowed directory.
      * Use this for validating internal/application-created paths before deletion or access.
      * Unlike validatePath(), this does NOT sanitize or reconstruct the path - it validates
-     * the actual file location.
+     * the actual file location. Despite the historical method name, this method does not
+     * require the target file to already exist.
      *
      * <p>This method performs strict validation with NO fallback to temp directories.
      * Use {@link #isInAllowedTempDirectory(File)} separately if you need to check

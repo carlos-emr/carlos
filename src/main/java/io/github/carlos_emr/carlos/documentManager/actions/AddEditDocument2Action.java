@@ -336,6 +336,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
                 errors.put("uploaderror", "dms.error.uploadError");
                 throw new FileNotFoundException();
             }
+            docFile = validateUploadedDocumentSource(docFile, errors);
             if (docFile.length() == 0) {
                 errors.put("uploaderror", "dms.error.uploadError");
                 throw new FileNotFoundException();
@@ -445,8 +446,8 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             }
 
         } catch (FileValidationException e) {
-            MiscUtils.getLogger().warn("Rejected invalid document filename");
-            errors.put("uploaderror", "dms.error.invalidFilename");
+            MiscUtils.getLogger().warn("Rejected invalid document upload source or filename");
+            errors.putIfAbsent("uploaderror", "dms.error.invalidFilename");
             request.setAttribute("docerrors", errors);
             return false;
         } catch (Exception e) {
@@ -488,11 +489,13 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             }
             String fileName = "";
             boolean updateFileContent = false;
+            File validatedDocFileForUpdate = null;
 
             if (CarlosProperties.getInstance().getBooleanProperty("ALLOW_UPDATE_DOCUMENT_CONTENT", "true"))
             {
                 File docFile = this.getDocFile();
                 if (docFile != null && docFile.exists()) {
+                    validatedDocFileForUpdate = validateUploadedDocumentSource(docFile, errors);
                     fileName = PathValidationUtils.validateFileName(this.docFileFileName);
                     updateFileContent = true; // set update to true
                 }
@@ -531,7 +534,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             if (updateFileContent) {
                 fileName = PathValidationUtils.validateFileName(newDoc.getFileName());
                 // save local file
-                writeLocalFile(Files.newInputStream(this.getDocFile().toPath()), fileName);
+                writeLocalFile(Files.newInputStream(validatedDocFileForUpdate.toPath()), fileName);
                 if (fileName.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
                     newDoc.setContentType("application/pdf");
                     int numberOfPages = countNumOfPages(fileName);
@@ -566,10 +569,10 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             }
 
         } catch (FileValidationException e) {
-            errors.put("uploaderror", "dms.error.invalidFilename");
+            errors.putIfAbsent("uploaderror", "dms.error.invalidFilename");
             request.setAttribute("docerrors", errors);
             request.setAttribute(EDIT_DOCUMENT_NO_ATTRIBUTE, this.getMode());
-            MiscUtils.getLogger().warn("Rejected invalid document filename");
+            MiscUtils.getLogger().warn("Rejected invalid document upload source or filename");
             return FAIL_EDIT_RESULT;
         } catch (Exception e) {
             request.setAttribute("docerrors", errors);
@@ -580,6 +583,15 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return "successEdit";
     }
 
+    private File validateUploadedDocumentSource(File docFile, Hashtable errors) {
+        try {
+            return PathValidationUtils.validateUpload(docFile);
+        } catch (FileValidationException e) {
+            errors.put("uploaderror", "dms.error.uploadError");
+            throw e;
+        }
+    }
+
 
     /**
      * Writes an uploaded file to the local document storage directory. The destination
@@ -587,39 +599,28 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
      *
      * @param is InputStream the input stream of the file content to write
      * @param fileName String the target filename (relative to DOCUMENT_DIR)
-     * @return File the written file, or null if an error occurred
-     * @throws Exception if the output stream cannot be closed
+     * @return File the written file
+     * @throws Exception if path validation or file writing fails
      */
     public static File writeLocalFile(InputStream is, String fileName) throws Exception {
-        FileOutputStream fos = null;
-        File file = null;
-        try {
-            // Validate file path using PathValidationUtils
-            String docDir = CarlosProperties.getInstance().getDocumentDirectory();
-            File baseDirFile = new File(docDir);
-            File validatedFile = PathValidationUtils.validatePath(fileName, baseDirFile);
-            Path savePath = validatedFile.toPath();
+        // Validate file path using PathValidationUtils
+        String docDir = CarlosProperties.getInstance().getDocumentDirectory();
+        File baseDirFile = new File(docDir);
+        File validatedFile = PathValidationUtils.validatePath(fileName, baseDirFile);
+        Path savePath = validatedFile.toPath();
 
-            // Create the parent directory
-            Files.createDirectories(savePath.getParent());
+        // Create the parent directory
+        Files.createDirectories(savePath.getParent());
 
-            String savePathStr = savePath.toString();
-            file = new File(savePathStr);
-
-            // Set file output stream to the save path 
-            fos = new FileOutputStream(savePathStr);
-            
+        try (InputStream input = is;
+                FileOutputStream fos = new FileOutputStream(savePath.toFile())) {
             byte[] buf = new byte[128 * 1024];
             int i = 0;
-            while ((i = is.read(buf)) != -1) {
+            while ((i = input.read(buf)) != -1) {
                 fos.write(buf, 0, i);
             }
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
-        } finally {
-            if (fos != null) fos.close();
         }
-        return file;
+        return savePath.toFile();
     }
 
     /**

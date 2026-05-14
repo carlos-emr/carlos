@@ -90,11 +90,11 @@ public final class IncomingDocUtil {
         if (pathComponent == null || pathComponent.isEmpty()) {
             return false;
         }
-        if (pathComponent.contains("/") || pathComponent.contains("\\") || pathComponent.contains("..")) {
+        if (pathComponent.contains("/") || pathComponent.contains("\\")) {
             return false;
         }
 
-        // Use PathValidationUtils to validate hidden-file and empty-component rules.
+        // Use PathValidationUtils to validate hidden, empty, "." and ".." component rules.
         try {
             File tempDir = new File(System.getProperty("java.io.tmpdir"));
             PathValidationUtils.validatePath(pathComponent, tempDir);
