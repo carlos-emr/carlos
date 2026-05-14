@@ -33,6 +33,11 @@ The POC also adds Spring Security's `spring-security-core` and
 
 ## Struts action requirements
 
+> **Important:** An action annotated with `@PreAuthorize` must use the Spring
+> bean name in the Struts `class` attribute, not the action's fully qualified
+> class name. A fully qualified class name can let Struts construct the action
+> directly and bypass the Spring method-security proxy.
+
 For an action to be protected before `execute()` runs:
 
 1. The action must be a Spring bean.
@@ -51,6 +56,12 @@ For an action to be protected before `execute()` runs:
 `SecurityDelete2Action` uses a bean name equal to its Struts `class` value so the
 current Struts mapping can resolve the Spring bean without changing the URL or
 result configuration.
+
+`CarlosMethodSecurity#hasAdminWrite()` intentionally keeps the legacy
+`SecurityDelete2Action` policy of allowing either `_admin w` or
+`_admin.userAdmin w`. `SecurityInfoManager` checks the requested security object
+directly, so future migrations should add named helpers only for shared policies
+that need this kind of multi-object compatibility.
 
 ## Rollout considerations
 

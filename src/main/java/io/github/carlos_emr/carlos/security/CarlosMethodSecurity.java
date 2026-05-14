@@ -64,6 +64,11 @@ public class CarlosMethodSecurity {
     /**
      * Checks whether the current session has admin write access.
      *
+     * <p>This intentionally preserves the legacy {@code SecurityDelete2Action}
+     * policy that accepted either {@code _admin w} or {@code _admin.userAdmin w}.
+     * {@link SecurityInfoManager} evaluates the requested security object directly,
+     * so the two-object check is not collapsed into a single {@code _admin} lookup.</p>
+     *
      * @return {@code true} when the current session has either {@code _admin w}
      *         or {@code _admin.userAdmin w}
      */
