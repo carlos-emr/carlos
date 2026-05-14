@@ -45,10 +45,36 @@ import org.springframework.stereotype.Component;
 @Component("carlosMethodSecurity")
 public class CarlosMethodSecurity {
 
+    private static final String ADMIN_SECURITY_OBJECT = "_admin";
+    private static final String ADMIN_USER_ADMIN_SECURITY_OBJECT = "_admin.userAdmin";
+    private static final String WRITE_PRIVILEGE = "w";
+
     private final SecurityInfoManager securityInfoManager;
 
+    /**
+     * Creates the method-security expression helper.
+     *
+     * @param securityInfoManager the CARLOS privilege manager used for authorization checks
+     * @since 2026-05-06
+     */
     public CarlosMethodSecurity(SecurityInfoManager securityInfoManager) {
         this.securityInfoManager = securityInfoManager;
+    }
+
+    /**
+     * Checks whether the current session has admin write access.
+     *
+     * @return {@code true} when the current session has either {@code _admin w}
+     *         or {@code _admin.userAdmin w}
+     */
+    public boolean hasAdminWrite() {
+        LoggedInInfo loggedInInfo = getCurrentLoggedInInfo();
+        if (loggedInInfo == null) {
+            return false;
+        }
+
+        return hasPrivilege(loggedInInfo, ADMIN_SECURITY_OBJECT, WRITE_PRIVILEGE)
+                || hasPrivilege(loggedInInfo, ADMIN_USER_ADMIN_SECURITY_OBJECT, WRITE_PRIVILEGE);
     }
 
     /**
@@ -64,16 +90,24 @@ public class CarlosMethodSecurity {
             return false;
         }
 
-        HttpServletRequest request = ServletActionContext.getRequest();
-        if (request == null) {
-            return false;
-        }
-
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        LoggedInInfo loggedInInfo = getCurrentLoggedInInfo();
         if (loggedInInfo == null) {
             return false;
         }
 
+        return hasPrivilege(loggedInInfo, secObject, privilege);
+    }
+
+    private LoggedInInfo getCurrentLoggedInInfo() {
+        HttpServletRequest request = ServletActionContext.getRequest();
+        if (request == null) {
+            return null;
+        }
+
+        return LoggedInInfo.getLoggedInInfoFromSession(request);
+    }
+
+    private boolean hasPrivilege(LoggedInInfo loggedInInfo, String secObject, String privilege) {
         return securityInfoManager.hasPrivilege(loggedInInfo, secObject, privilege, null);
     }
 }

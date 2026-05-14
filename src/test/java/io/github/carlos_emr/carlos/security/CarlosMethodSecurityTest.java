@@ -128,4 +128,50 @@ class CarlosMethodSecurityTest extends CarlosUnitTestBase {
         assertThat(allowed).isTrue();
         verify(securityInfoManager).hasPrivilege(loggedInInfo, "_admin", "w", null);
     }
+
+    @Test
+    @DisplayName("should return true when admin write privilege exists")
+    void shouldReturnTrue_whenAdminWritePrivilegeExists() {
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+        loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(loggedInInfo);
+        when(securityInfoManager.hasPrivilege(any(), eq("_admin"), eq("w"), isNull())).thenReturn(true);
+
+        boolean allowed = methodSecurity.hasAdminWrite();
+
+        assertThat(allowed).isTrue();
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_admin", "w", null);
+    }
+
+    @Test
+    @DisplayName("should return true when user-admin write privilege exists")
+    void shouldReturnTrue_whenUserAdminWritePrivilegeExists() {
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+        loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(loggedInInfo);
+        when(securityInfoManager.hasPrivilege(any(), eq("_admin"), eq("w"), isNull())).thenReturn(false);
+        when(securityInfoManager.hasPrivilege(any(), eq("_admin.userAdmin"), eq("w"), isNull())).thenReturn(true);
+
+        boolean allowed = methodSecurity.hasAdminWrite();
+
+        assertThat(allowed).isTrue();
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_admin", "w", null);
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_admin.userAdmin", "w", null);
+    }
+
+    @Test
+    @DisplayName("should return false when admin write privileges are denied")
+    void shouldReturnFalse_whenAdminWritePrivilegesAreDenied() {
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+        loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(loggedInInfo);
+        when(securityInfoManager.hasPrivilege(any(), eq("_admin"), eq("w"), isNull())).thenReturn(false);
+        when(securityInfoManager.hasPrivilege(any(), eq("_admin.userAdmin"), eq("w"), isNull())).thenReturn(false);
+
+        boolean allowed = methodSecurity.hasAdminWrite();
+
+        assertThat(allowed).isFalse();
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_admin", "w", null);
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_admin.userAdmin", "w", null);
+    }
 }

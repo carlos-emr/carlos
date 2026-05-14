@@ -119,7 +119,7 @@ class SecurityDelete2ActionTest extends CarlosUnitTestBase {
     }
 
     private SecurityDelete2Action createAction() {
-        return new SecurityDelete2Action(mockSecurityInfoManager, mockSecurityDao);
+        return new SecurityDelete2Action(mockSecurityDao, new CarlosMethodSecurity(mockSecurityInfoManager));
     }
 
     @Nested
@@ -177,8 +177,7 @@ class SecurityDelete2ActionTest extends CarlosUnitTestBase {
         @DisplayName("should block execute before action body when PreAuthorize denies")
         void shouldBlockExecute_whenPreAuthorizeDenies() {
             CarlosMethodSecurity methodSecurity = mock(CarlosMethodSecurity.class);
-            when(methodSecurity.hasPrivilege("_admin", "w")).thenReturn(false);
-            when(methodSecurity.hasPrivilege("_admin.userAdmin", "w")).thenReturn(false);
+            when(methodSecurity.hasAdminWrite()).thenReturn(false);
 
             try (AnnotationConfigApplicationContext context = methodSecurityContext(methodSecurity)) {
                 SecurityDelete2Action action = context.getBean(
@@ -194,9 +193,7 @@ class SecurityDelete2ActionTest extends CarlosUnitTestBase {
         @DisplayName("should allow execute when PreAuthorize grants admin privilege")
         void shouldAllowExecute_whenPreAuthorizeGrantsAdminPrivilege() throws Exception {
             CarlosMethodSecurity methodSecurity = mock(CarlosMethodSecurity.class);
-            when(methodSecurity.hasPrivilege("_admin", "w")).thenReturn(true);
-            when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin"), eq("w"), isNull()))
-                .thenReturn(true);
+            when(methodSecurity.hasAdminWrite()).thenReturn(true);
             mockRequest.setMethod("POST");
 
             try (AnnotationConfigApplicationContext context = methodSecurityContext(methodSecurity)) {
@@ -341,11 +338,7 @@ class SecurityDelete2ActionTest extends CarlosUnitTestBase {
         AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext();
         context.getBeanFactory().registerSingleton("securityInfoManager", mockSecurityInfoManager);
         context.getBeanFactory().registerSingleton("securityDao", mockSecurityDao);
-        context.register(MethodSecurityConfig.class);
-        context.scan(
-            "io.github.carlos_emr.carlos.admin.web",
-            "io.github.carlos_emr.carlos.security"
-        );
+        context.register(MethodSecurityConfig.class, CarlosMethodSecurity.class, SecurityDelete2Action.class);
         context.refresh();
         return context;
     }
@@ -353,10 +346,10 @@ class SecurityDelete2ActionTest extends CarlosUnitTestBase {
     private AnnotationConfigApplicationContext methodSecurityContext(CarlosMethodSecurity methodSecurity) {
         AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext();
         context.getBeanFactory().registerSingleton("carlosMethodSecurity", methodSecurity);
+        context.getBeanFactory().registerSingleton("securityDao", mockSecurityDao);
         context.registerBean(
             SecurityDelete2Action.SPRING_BEAN_NAME,
             SecurityDelete2Action.class,
-            this::createAction,
             definition -> definition.setScope(ConfigurableBeanFactory.SCOPE_PROTOTYPE));
         context.register(MethodSecurityProxyTestConfig.class);
         context.refresh();

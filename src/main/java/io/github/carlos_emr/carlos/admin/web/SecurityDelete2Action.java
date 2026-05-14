@@ -28,7 +28,7 @@ import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
-import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.security.CarlosMethodSecurity;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
@@ -54,8 +54,8 @@ public class SecurityDelete2Action extends ActionSupport {
     public static final String SPRING_BEAN_NAME =
         "securityDelete2Action";
 
-    private final transient SecurityInfoManager securityInfoManager;
     private final transient SecurityDao securityDao;
+    private final transient CarlosMethodSecurity methodSecurity;
 
     /**
      * Creates the Spring-managed action.
@@ -64,15 +64,17 @@ public class SecurityDelete2Action extends ActionSupport {
      * uses constructor injection instead of the older {@code SpringUtils}
      * service-locator style. That keeps the proxied bean wiring explicit and
      * easier to verify in tests.</p>
+     *
+     * @param securityDao the DAO used to find and remove security records
+     * @param methodSecurity the helper that evaluates the shared admin write policy
      */
-    public SecurityDelete2Action(SecurityInfoManager securityInfoManager, SecurityDao securityDao) {
-        this.securityInfoManager = securityInfoManager;
+    public SecurityDelete2Action(SecurityDao securityDao, CarlosMethodSecurity methodSecurity) {
         this.securityDao = securityDao;
+        this.methodSecurity = methodSecurity;
     }
 
     @Override
-    @PreAuthorize("@carlosMethodSecurity.hasPrivilege('_admin', 'w') "
-        + "or @carlosMethodSecurity.hasPrivilege('_admin.userAdmin', 'w')")
+    @PreAuthorize("@carlosMethodSecurity.hasAdminWrite()")
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
@@ -80,8 +82,7 @@ public class SecurityDelete2Action extends ActionSupport {
 
         // Defense-in-depth: @PreAuthorize above is the primary gate. Remove this check once
         // method-security coverage is broad enough to drop the per-action fallback.
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)
-                && !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.userAdmin", "w", null)) {
+        if (!methodSecurity.hasAdminWrite()) {
             throw new SecurityException("missing required sec object (_admin or _admin.userAdmin)");
         }
 
