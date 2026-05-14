@@ -271,7 +271,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
 
         if (this.getMode().equals("") && this.getFunction().equals("") && this.getFunctionId().equals("")) {
             // file size exceeds the upload limit
-            Hashtable errors = new Hashtable();
+            Hashtable<String, String> errors = new Hashtable<>();
             errors.put("uploaderror", "dms.error.uploadError");
             request.setAttribute("docerrors", errors);
             request.setAttribute(EDIT_DOCUMENT_NO_ATTRIBUTE, "");
@@ -321,7 +321,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
      */
     private boolean addDocument(HttpServletRequest request) {
 
-        Hashtable errors = new Hashtable();
+        Hashtable<String, String> errors = new Hashtable<>();
         try {
             if (isMissingDocumentDescription()) {
                 errors.put("descmissing", "dms.error.descriptionInvalid");
@@ -472,7 +472,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
      * @return String the Struts2 result name ("successEdit" or "failEdit")
      */
     private String editDocument(HttpServletRequest request) {
-        Hashtable errors = new Hashtable();
+        Hashtable<String, String> errors = new Hashtable<>();
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
             throw new SecurityException("missing required sec object (_edoc)");
@@ -583,7 +583,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return "successEdit";
     }
 
-    private File validateUploadedDocumentSource(File docFile, Hashtable errors) {
+    private File validateUploadedDocumentSource(File docFile, Hashtable<String, String> errors) {
         try {
             return PathValidationUtils.validateUpload(docFile);
         } catch (FileValidationException e) {

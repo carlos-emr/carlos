@@ -121,7 +121,7 @@ class DocumentUpload2ActionTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should accept incoming PDF filename with repeated dots")
-    void shouldAcceptIncomingPdfFilenameWithRepeatedDots() throws Exception {
+    void shouldAcceptIncomingPdfFilename_withRepeatedDots() throws Exception {
         request.setParameter("destination", "incomingDocs");
         request.setParameter("queue", "123");
         request.setParameter("destFolder", "Fax");
@@ -136,5 +136,25 @@ class DocumentUpload2ActionTest extends CarlosUnitTestBase {
         assertThat(request.getSession().getAttribute("preferredQueue")).isEqualTo("123");
         assertThat(response.getContentAsString()).contains(tempUploadFile.getName());
         assertThat(Files.readAllBytes(writtenFile)).containsExactly(1);
+    }
+
+    @Test
+    @DisplayName("should not update preferred queue when incoming write fails")
+    void shouldNotUpdatePreferredQueue_whenIncomingWriteFails() throws Exception {
+        Files.createDirectories(incomingDocumentDir.resolve("123"));
+        Files.write(incomingDocumentDir.resolve("123").resolve("Fax"), new byte[]{1});
+
+        request.setParameter("destination", "incomingDocs");
+        request.setParameter("queue", "123");
+        request.setParameter("destFolder", "Fax");
+        action.setFiledata(tempUploadFile);
+        action.setFiledataFileName("scan.pdf");
+        action.setFiledataContentType("application/pdf");
+
+        String result = action.executeUpload();
+
+        assertThat(result).isNull();
+        assertThat(request.getSession().getAttribute("preferredQueue")).isNull();
+        assertThat(response.getContentAsString()).contains("Failed to write file. Please contact administrator");
     }
 }

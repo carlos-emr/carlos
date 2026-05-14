@@ -315,7 +315,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
     private String validateIncomingDocsFileName(String fileName) {
         String baseName = PathValidationUtils.validateFileName(fileName);
 
-        if (!baseName.toLowerCase(Locale.ROOT).endsWith(".pdf") || baseName.equals(".pdf")) {
+        if (!baseName.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
             throw new FileValidationException(PathValidationUtils.INVALID_FILENAME_MESSAGE);
         }
         return baseName;
@@ -328,6 +328,9 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
     }
 
     private void storePreferredQueue(String queueId) {
+        if (queueId == null) {
+            return;
+        }
         try {
             request.getSession().setAttribute("preferredQueue", String.valueOf(Integer.parseInt(queueId.trim()))); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         } catch (NumberFormatException e) {
