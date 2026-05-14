@@ -38,6 +38,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ page import="org.springframework.web.util.JavaScriptUtils" %>
 <%@ page
@@ -222,7 +223,7 @@
     </head>
 
     <body onLoad="setfocus('oldPassword')" topmargin="0" leftmargin="0" rightmargin="0">
-    <form method="post" action="${pageContext.request.contextPath}/login" onsubmit="return checkPwdPolicy();">
+    <form method="post" action="${pageContext.request.contextPath}/forcepasswordresetSubmit" onsubmit="return checkPwdPolicy();">
         <table border=0 cellspacing=0 cellpadding=0 width="100%">
             <tr bgcolor="#486ebd">
                 <th align=CENTER NOWRAP><font face="Helvetica" color="#FFFFFF"><fmt:message key="provider.providerchangepassword.description"/></font></th>
@@ -270,6 +271,7 @@
         </table>
 
         <input type=hidden name='forcedpasswordchange' value='true'/>
+        <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
 
     </form>
     </body>

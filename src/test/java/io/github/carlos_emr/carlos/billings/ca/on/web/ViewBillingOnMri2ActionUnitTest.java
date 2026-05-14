@@ -135,7 +135,7 @@ class ViewBillingOnMri2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThatThrownBy(newAction()::execute)
                 .isInstanceOf(SecurityException.class)
-                .hasMessageContaining("_billing");
+                .hasMessageContaining("missing session");
         verify(mockSecurityInfoManager, never()).hasPrivilege(any(), any(), any(), any());
     }
 

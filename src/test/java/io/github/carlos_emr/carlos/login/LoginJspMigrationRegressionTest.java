@@ -57,6 +57,8 @@ class LoginJspMigrationRegressionTest {
             Path.of("src/main/webapp/WEB-INF/menu-config.xml");
     private static final Path PROVIDER_MAIN_MENU =
             Path.of("src/main/webapp/WEB-INF/jsp/provider/mainMenu.jsp");
+    private static final Path PROVIDER_CONTROL =
+            Path.of("src/main/webapp/WEB-INF/jsp/provider/providercontrol.jsp");
     private static final Path APPOINTMENT_PROVIDER_ADMIN_DAY =
             Path.of("src/main/webapp/WEB-INF/jsp/provider/appointmentprovideradminday.jsp");
     private static final Path PROVIDER_SCHEDULE_PAGE_JS =
@@ -69,6 +71,8 @@ class LoginJspMigrationRegressionTest {
             Path.of("src/main/java/io/github/carlos_emr/carlos/login/gate/ViewForcePasswordReset2Action.java");
     private static final Path FORCE_PASSWORD_RESET_JSP =
             Path.of("src/main/webapp/WEB-INF/jsp/login/forcepasswordreset.jsp");
+    private static final Path LOGIN_FILTER =
+            Path.of("src/main/java/io/github/carlos_emr/carlos/sec/LoginFilter.java");
 
     @Test
     @DisplayName("struts login config should expose the migrated page actions and internal view targets")
@@ -79,6 +83,7 @@ class LoginJspMigrationRegressionTest {
         assertThat(struts).contains("<action name=\"logoutPage\"");
         assertThat(struts).contains("<action name=\"loginfailed\"");
         assertThat(struts).contains("<action name=\"forcepasswordreset\"");
+        assertThat(struts).contains("<action name=\"forcepasswordresetSubmit\"");
         assertThat(struts).contains("<action name=\"location\"");
         assertThat(struts).contains("<action name=\"select_facility\"");
         assertThat(struts).contains("<action name=\"securityError\"");
@@ -113,6 +118,9 @@ class LoginJspMigrationRegressionTest {
         assertThat(webXml).contains("<filter-name>SectionRootCompatibilityFilter</filter-name>");
         assertThat(webXml).contains("org.apache.struts2.dispatcher.filter.StrutsPrepareFilter");
         assertThat(webXml).contains("org.apache.struts2.dispatcher.filter.StrutsExecuteFilter");
+        assertThat(filterMappingBlock(webXml, "CsrfGuardScriptInjectionFilter"))
+                .contains("<dispatcher>FORWARD</dispatcher>")
+                .doesNotContain("<dispatcher>REQUEST</dispatcher>");
         assertThat(webXml).doesNotContain("StrutsPrepareAndExecuteFilter");
         assertThat(loginFilterIndex).isGreaterThan(-1);
         assertThat(sectionRootCompatibilityIndex).isGreaterThan(loginFilterIndex);
@@ -193,6 +201,20 @@ class LoginJspMigrationRegressionTest {
     }
 
     @Test
+    @DisplayName("provider control should include schedule JSPs directly")
+    void providerControlShouldIncludeScheduleJspsDirectly() throws IOException {
+        String providerControl = Files.readString(PROVIDER_CONTROL, StandardCharsets.UTF_8);
+
+        assertThat(providerControl)
+                .contains("{\"day\", \"/WEB-INF/jsp/provider/appointmentprovideradminday.jsp\"}")
+                .contains("{\"month\", \"/WEB-INF/jsp/provider/appointmentprovideradminmonth.jsp\"}")
+                .contains("Providercontrol is itself")
+                .doesNotContain("out.clearBuffer()")
+                .doesNotContain("{\"day\", \"/provider/ViewAppointmentAdminDay\"}")
+                .doesNotContain("{\"month\", \"/provider/ViewAppointmentAdminMonth\"}");
+    }
+
+    @Test
     @DisplayName("representative public callers should use migrated login routes")
     void shouldUseMigratedLoginRoutes_forRepresentativePublicCallers() throws IOException {
         String csrfGuard = Files.readString(CSRF_GUARD, StandardCharsets.UTF_8);
@@ -201,6 +223,8 @@ class LoginJspMigrationRegressionTest {
         assertThat(csrfGuard).contains("%servletContext%/index");
         assertThat(csrfGuard).contains("%servletContext%/logoutPage");
         assertThat(csrfGuard).contains("%servletContext%/errorpage");
+        assertThat(csrfGuard).contains("%servletContext%/login");
+        assertThat(csrfGuard).doesNotContain("%servletContext%/forcepasswordresetSubmit");
         assertThat(menuConfig).doesNotContain("location=\"index.jsp\"");
     }
 
@@ -210,6 +234,7 @@ class LoginJspMigrationRegressionTest {
         String loginAction = Files.readString(LOGIN_ACTION, StandardCharsets.UTF_8);
         String forcePasswordResetGate = Files.readString(FORCE_PASSWORD_RESET_GATE, StandardCharsets.UTF_8);
         String forcePasswordResetJsp = Files.readString(FORCE_PASSWORD_RESET_JSP, StandardCharsets.UTF_8);
+        String loginFilter = Files.readString(LOGIN_FILTER, StandardCharsets.UTF_8);
 
         assertThat(forcePasswordResetGate)
                 .contains("GET, HEAD")
@@ -224,22 +249,19 @@ class LoginJspMigrationRegressionTest {
         assertThat(actionBlock(Files.readString(STRUTS_LOGIN_XML, StandardCharsets.UTF_8), "forcepasswordreset"))
                 .contains("class=\"io.github.carlos_emr.carlos.login.gate.ViewForcePasswordReset2Action\"")
                 .contains("<result name=\"success\">/WEB-INF/jsp/login/forcepasswordreset.jsp</result>");
+        assertThat(actionBlock(Files.readString(STRUTS_LOGIN_XML, StandardCharsets.UTF_8), "forcepasswordresetSubmit"))
+                .contains("class=\"io.github.carlos_emr.carlos.login.Login2Action\"")
+                .contains("<result name=\"forcepasswordreset\">/WEB-INF/jsp/login/forcepasswordreset.jsp</result>");
+        assertThat(loginFilter).contains("\"/forcepasswordresetSubmit\"");
         assertThat(loginAction)
-                .contains("request.getSession(false)")
                 .contains("LOGIN_CREDENTIALS_TOKEN_ATTR")
                 .contains("LoginCredentialCache.getInstance().peek")
+                .contains("LoginCredentialCache.getInstance().consume")
                 .contains("LoginCredentialCache.getInstance().store")
                 .contains("session.setAttribute(LOGIN_CREDENTIALS_TOKEN_ATTR, token)")
                 .contains("response.sendRedirect(request.getContextPath() + \"/forcepasswordreset\")")
                 .contains("hasValidLoginCredentialsToken")
-                .contains("request.setAttribute(\"errormsg\", errorStr)")
                 .contains("loginFailedRedirectUrl")
-                .contains("message(")
-                .contains("import java.util.MissingResourceException;")
-                .contains("ResourceBundle.getBundle(\"oscarResources\", request.getLocale())")
-                .contains("ResourceBundle.getBundle(\"oscarResources\", Locale.ENGLISH)")
-                .contains("Unable to process your request. Please try again.")
-                .contains("securityManager.encodePassword(newPassword)")
                 .contains("URLEncoder.encode(errorMessage, StandardCharsets.UTF_8)")
                 .contains("removeAttributesFromSession(request);")
                 .doesNotContain("FORCE_PASSWORD_RESET_PENDING_ATTR")
@@ -251,6 +273,9 @@ class LoginJspMigrationRegressionTest {
                 .isGreaterThanOrEqualTo(3);
         assertThat(countOccurrences(loginAction, "session.removeAttribute(\"userName\")")).isOne();
         assertThat(forcePasswordResetJsp)
+                .contains("action=\"${pageContext.request.contextPath}/forcepasswordresetSubmit\"")
+                .contains("csrf:tokenname")
+                .contains("csrf:tokenvalue")
                 .contains("request.getAttribute(\"errormsg\")")
                 .doesNotContain("request.getParameter(\"errormsg\")")
                 .doesNotContain("session.getAttribute(\"userName\")");
@@ -291,6 +316,28 @@ class LoginJspMigrationRegressionTest {
             String mapping = webXml.substring(start, end + mappingEnd.length());
             if (mapping.contains(filterNameElement)) {
                 return start;
+            }
+            searchFrom = end + mappingEnd.length();
+        }
+    }
+
+    private static String filterMappingBlock(String webXml, String filterName) {
+        String mappingStart = "<filter-mapping>";
+        String mappingEnd = "</filter-mapping>";
+        String filterNameElement = "<filter-name>" + filterName + "</filter-name>";
+        int searchFrom = 0;
+        while (true) {
+            int start = webXml.indexOf(mappingStart, searchFrom);
+            if (start < 0) {
+                return "";
+            }
+            int end = webXml.indexOf(mappingEnd, start);
+            if (end < 0) {
+                return "";
+            }
+            String mapping = webXml.substring(start, end + mappingEnd.length());
+            if (mapping.contains(filterNameElement)) {
+                return mapping;
             }
             searchFrom = end + mappingEnd.length();
         }

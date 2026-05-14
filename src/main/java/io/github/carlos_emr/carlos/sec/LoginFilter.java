@@ -156,6 +156,7 @@ public class LoginFilter implements Filter {
             "/logoutPage",
             "/index",
             "/forcepasswordreset",
+            "/forcepasswordresetSubmit",
             "/loginfailed",
             "/eformViewForPdfGenerationServlet",
             "/LabViewForPdfGenerationServlet",

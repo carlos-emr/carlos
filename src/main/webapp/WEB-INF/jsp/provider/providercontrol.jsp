@@ -144,8 +144,8 @@
     // RequestDispatcher.include() below takes paths relative to the servlet
     // context root — do NOT prepend request.getContextPath() here.
     String[][] opToFile = new String[][]{
-            {"day", "/provider/ViewAppointmentAdminDay"},
-            {"month", "/provider/ViewAppointmentAdminMonth"},
+            {"day", "/WEB-INF/jsp/provider/appointmentprovideradminday.jsp"},
+            {"month", "/WEB-INF/jsp/provider/appointmentprovideradminmonth.jsp"},
             {"addstatus", "/provider/AddStatus"},
             {"updatepreference", "/provider/ViewProviderUpdatePreference"},
             {"displaymygroup", "/provider/ViewProviderDisplayMyGroup"},
@@ -175,14 +175,11 @@
     // get operation name from request
     String operation = requestParamDict.getDef("displaymode", "");
 
-    // Include the target (Struts action or relative JSP). Struts filters are mapped
-    // to REQUEST, FORWARD, and INCLUDE dispatchers in web.xml so Struts action paths
-    // (like /provider/ViewAppointmentAdminDay) route through Struts on the include,
-    // and JSP file paths are resolved by the JSP servlet (`.jsp` is in
-    // struts.action.excludePattern). This keeps the browser URL as the section-root
-    // /provider/providercontrol router so bookmarks and back-stack behavior are
-    // preserved across display modes.
-    out.clearBuffer();
+    // Include the target view. The day/month schedule views are included as
+    // WEB-INF JSPs because Struts action includes produce an empty response
+    // under the response-buffering filter chain. Providercontrol is itself
+    // routed through the provider gate, and the schedule JSPs keep their
+    // existing in-page security checks.
     String includeTarget = opToFileDict.getDef(operation, "");
     request.getRequestDispatcher(includeTarget).include(request, response);
 %>

@@ -48,9 +48,10 @@
 <!-- only true can access exception object -->
 <%--
   DISPLAY_ERROR — developer mode block.
-  When carlos.properties sets DISPLAY_ERROR=true, render full exception details in
-  the browser to aid local debugging. ResponseSanitizationFilter also disables itself
-  when this flag is active so raw details are not stripped before reaching the client.
+  When carlos.properties sets DISPLAY_ERROR=true, render the developer detail block
+  in the browser to aid local debugging. To allow raw exception details through
+  ResponseSanitizationFilter, also set response.sanitization.enabled=false.
+  DISPLAY_ERROR alone does not disable sanitization.
   SECURITY: this block MUST remain inactive in all production and PHI environments.
 --%>
 <%

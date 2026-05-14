@@ -153,6 +153,12 @@ public final class Login2Action extends ActionSupport {
 
     /** Log message prefix for authentication-related log entries */
     private static final String LOG_PRE = "Login!@#$: ";
+    private static final int DEFAULT_PASSWORD_MIN_LENGTH = 8;
+    private static final int DEFAULT_PASSWORD_MIN_GROUPS = 3;
+    private static final String DEFAULT_PASSWORD_LOWER_CHARS = "abcdefghijklmnopqrstuvwxyz";
+    private static final String DEFAULT_PASSWORD_UPPER_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    private static final String DEFAULT_PASSWORD_DIGIT_CHARS = "0123456789";
+    private static final String DEFAULT_PASSWORD_SPECIAL_CHARS = "! @#$%^&*()_+|~-=`{}[]\\:\";'<>?,./";
 
     /**
      * Session attribute name holding an opaque random token that references credential
@@ -160,6 +166,7 @@ public final class Login2Action extends ActionSupport {
      * credential information; credential hashes and PINs are never placed in the session.
      */
     public static final String LOGIN_CREDENTIALS_TOKEN_ATTR = "loginCredentialsToken";
+    public static final String FORCE_PASSWORD_RESET_ERROR_ATTR = "forcePasswordResetError";
 
     /** Spring-managed service for provider data access and management */
     private final ProviderManager providerManager = SpringUtils.getBean(ProviderManager.class);
@@ -430,9 +437,18 @@ public final class Login2Action extends ActionSupport {
 
                 // Error Handling
                 if (errorStr != null && !errorStr.isEmpty()) {
-                    request.setAttribute("errormsg", errorStr);
-                    return "forcepasswordreset";
+                    return redirectForcePasswordResetRetry(errorStr);
                 }
+
+                LoginCredentialCache.LoginCredentials terminalCredentials =
+                        LoginCredentialCache.getInstance().consume(credsToken);
+                if (terminalCredentials == null) {
+                    logger.info("Forced password reset credential-cache token was replayed or expired before persistence");
+                    removeAttributesFromSession(request);
+                    response.sendRedirect(loginFailedRedirectUrl(message("provider.providerchangepassword.errorSessionExpired")));
+                    return NONE;
+                }
+                userName = terminalCredentials.getUserName();
 
                 persistNewPassword(userName, newPassword);
 
@@ -819,7 +835,7 @@ public final class Login2Action extends ActionSupport {
             }
 
             String oneIdKey = request.getParameter("nameId");
-            String newURL = request.getContextPath() + "/logout?login=failed";
+            String newURL = request.getContextPath() + "/index?login=failed";
             if (oneIdKey != null && !oneIdKey.equals("")) {
                 newURL += "&nameId=" + Encode.forUriComponent(oneIdKey);
             }
@@ -919,9 +935,10 @@ public final class Login2Action extends ActionSupport {
     /**
      * Builds the canonical post-login schedule landing path.
      *
-     * <p>This bypasses the legacy {@code provider/providercontrol} dispatcher
-     * and sends authenticated users directly to the day-view schedule action
-     * with today's date and the configured default {@code viewall} mode.</p>
+     * <p>This sends authenticated users to the provider-control router with
+     * today's day-view parameters. The router is the established browser
+     * endpoint for schedule views and includes the underlying Struts view
+     * action after the provider gate has checked privileges.</p>
      *
      * @return internal application path for the default provider schedule view
      */
@@ -933,10 +950,19 @@ public final class Login2Action extends ActionSupport {
         }
 
         return request.getContextPath()
-                + "/provider/ViewAppointmentAdminDay?year=" + now.get(Calendar.YEAR)
+                + "/provider/providercontrol?year=" + now.get(Calendar.YEAR)
                 + "&month=" + (now.get(Calendar.MONTH) + 1)
                 + "&day=" + now.get(Calendar.DAY_OF_MONTH)
                 + "&view=0&displaymode=day&dboperation=searchappointmentday&viewall=" + viewAll;
+    }
+
+    private String redirectForcePasswordResetRetry(String errorMessage) throws IOException {
+        HttpSession session = request.getSession(false);
+        if (session != null) {
+            session.setAttribute(FORCE_PASSWORD_RESET_ERROR_ATTR, errorMessage);
+        }
+        response.sendRedirect(request.getContextPath() + "/forcepasswordreset");
+        return NONE;
     }
 
     /**
@@ -1109,6 +1135,7 @@ public final class Login2Action extends ActionSupport {
      *   <li>Old password matches the password from the staged successful login</li>
      *   <li>New password and confirmation password match each other</li>
      *   <li>New password is different from old password (unless IGNORE_PASSWORD_REQUIREMENTS is true)</li>
+     *   <li>New password satisfies the configured password complexity policy</li>
      * </ol>
      *
      * <p>The method returns a display-safe error message if validation fails, or an empty
@@ -1139,7 +1166,85 @@ public final class Login2Action extends ActionSupport {
             return message("provider.providerchangepassword.errorNewPasswordSameAsOld");
         }
 
+        return validatePasswordPolicy(newPassword);
+    }
+
+    private String validatePasswordPolicy(String newPassword) {
+        CarlosProperties properties = CarlosProperties.getInstance();
+        if (Boolean.parseBoolean(properties.getProperty("IGNORE_PASSWORD_REQUIREMENTS"))) {
+            return "";
+        }
+
+        int minLength = intProperty(properties, "password_min_length", DEFAULT_PASSWORD_MIN_LENGTH);
+        if (newPassword == null || newPassword.length() < minLength) {
+            return message("password.policy.violation.msgPasswordLengthError") + " "
+                    + minLength + " " + message("password.policy.violation.msgSymbols");
+        }
+
+        int minGroups = intProperty(properties, "password_min_groups", DEFAULT_PASSWORD_MIN_GROUPS);
+        int groupsUsed = countPasswordGroups(newPassword,
+                properties.getProperty("password_group_lower_chars", DEFAULT_PASSWORD_LOWER_CHARS),
+                properties.getProperty("password_group_upper_chars", DEFAULT_PASSWORD_UPPER_CHARS),
+                properties.getProperty("password_group_digits", DEFAULT_PASSWORD_DIGIT_CHARS),
+                properties.getProperty("password_group_special", DEFAULT_PASSWORD_SPECIAL_CHARS));
+        if (groupsUsed < minGroups) {
+            return message("password.policy.violation.msgPasswordStrengthError") + " "
+                    + minGroups + " " + message("password.policy.violation.msgPasswordGroups");
+        }
+
         return "";
+    }
+
+    static int countPasswordGroups(String password, String lowerChars, String upperChars, String digitChars,
+                                   String specialChars) {
+        if (password == null || password.isEmpty()) {
+            return 0;
+        }
+
+        boolean lower = false;
+        boolean upper = false;
+        boolean digit = false;
+        boolean special = false;
+        for (int i = 0; i < password.length(); i++) {
+            char ch = password.charAt(i);
+            if (!lower && containsChar(lowerChars, ch)) {
+                lower = true;
+            }
+            if (!upper && containsChar(upperChars, ch)) {
+                upper = true;
+            }
+            if (!digit && containsChar(digitChars, ch)) {
+                digit = true;
+            }
+            if (!special && containsChar(specialChars, ch)) {
+                special = true;
+            }
+        }
+
+        int groups = 0;
+        if (lower) groups++;
+        if (upper) groups++;
+        if (digit) groups++;
+        if (special) groups++;
+        return groups;
+    }
+
+    private static boolean containsChar(String chars, char ch) {
+        return chars != null && chars.indexOf(ch) >= 0;
+    }
+
+    private static int intProperty(CarlosProperties properties, String key, int defaultValue) {
+        String value = properties.getProperty(key);
+        if (value == null) {
+            return defaultValue;
+        }
+        try {
+            return Integer.parseInt(value.trim());
+        } catch (NumberFormatException e) {
+            logger.warn("Invalid integer property {}={}, using default {}", key, LogSanitizer.sanitize(value),
+                    defaultValue);
+            return defaultValue;
+        }
     }
 
     /**

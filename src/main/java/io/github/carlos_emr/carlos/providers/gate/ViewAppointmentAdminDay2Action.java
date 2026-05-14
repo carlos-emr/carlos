@@ -14,7 +14,7 @@ package io.github.carlos_emr.carlos.providers.gate;
 
 /**
  * View gate for {@code provider/appointmentprovideradminday.jsp}. Enforces
- * {@code _appointment} {@code r} privilege before forwarding to the JSP.
+ * {@code _appointment} {@code r} privilege before Struts renders the JSP.
  *
  * @since 2026-04-13
  */

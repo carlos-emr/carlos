@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.login;
 
 import java.io.IOException;
+import java.util.Map;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -39,6 +40,13 @@ public class RootEntryRedirectFilter extends HttpFilter {
     private static final String LOGIN_JSP = "/WEB-INF/jsp/login/index.jsp";
     private static final String FORCE_PASSWORD_RESET_PATH = "/forcepasswordreset";
     private static final String FORCE_PASSWORD_RESET_JSP = "/WEB-INF/jsp/login/forcepasswordreset.jsp";
+    private static final Map<String, String> PUBLIC_VIEW_JSPS = Map.of(
+            "/closenreload", "/WEB-INF/jsp/common/closenreload.jsp",
+            "/errorpage", "/WEB-INF/jsp/error/errorpage.jsp",
+            "/failure", "/WEB-INF/jsp/error/failure.jsp",
+            "/loginfailed", "/WEB-INF/jsp/login/loginfailed.jsp",
+            "/logoutPage", "/WEB-INF/jsp/login/logout.jsp",
+            "/securityError", "/WEB-INF/jsp/error/securityError.jsp");
 
     @Override
     protected void doFilter(
@@ -49,6 +57,11 @@ public class RootEntryRedirectFilter extends HttpFilter {
         String requestUri = request.getRequestURI();
 
         if (isLoginEntryRequest(requestUri, contextPath)) {
+            if (!isViewMethod(request.getMethod())) {
+                response.setHeader("Allow", "GET, HEAD");
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+                return;
+            }
             request.getRequestDispatcher(LOGIN_JSP).forward(request, response);
             return;
         }
@@ -64,7 +77,19 @@ public class RootEntryRedirectFilter extends HttpFilter {
                         Login2Action.message(request, "provider.providerchangepassword.errorSessionExpired")));
                 return;
             }
+            copyForcePasswordResetError(request);
             request.getRequestDispatcher(FORCE_PASSWORD_RESET_JSP).forward(request, response);
+            return;
+        }
+
+        String publicViewJsp = publicViewJsp(requestUri, contextPath);
+        if (publicViewJsp != null) {
+            if (!isViewMethod(request.getMethod())) {
+                response.setHeader("Allow", "GET, HEAD");
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+                return;
+            }
+            request.getRequestDispatcher(publicViewJsp).forward(request, response);
             return;
         }
 
@@ -83,6 +108,27 @@ public class RootEntryRedirectFilter extends HttpFilter {
         return contextPath != null
                 && !contextPath.isEmpty()
                 && requestUri.equals(contextPath + FORCE_PASSWORD_RESET_PATH);
+    }
+
+    static String publicViewJsp(String requestUri, String contextPath) {
+        if (contextPath == null || contextPath.isEmpty() || requestUri == null
+                || !requestUri.startsWith(contextPath)) {
+            return null;
+        }
+        String relativePath = requestUri.substring(contextPath.length());
+        return PUBLIC_VIEW_JSPS.get(relativePath);
+    }
+
+    private static void copyForcePasswordResetError(HttpServletRequest request) {
+        var session = request.getSession(false);
+        if (session == null) {
+            return;
+        }
+        Object error = session.getAttribute(Login2Action.FORCE_PASSWORD_RESET_ERROR_ATTR);
+        if (error instanceof String) {
+            request.setAttribute("errormsg", error);
+            session.removeAttribute(Login2Action.FORCE_PASSWORD_RESET_ERROR_ATTR);
+        }
     }
 
     private static boolean isViewMethod(String method) {

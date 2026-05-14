@@ -122,10 +122,9 @@
          before Struts execution. Once Struts executes an action, later filters in the chain do
          not run for that request. Placing these filters here ensures:
            1. CSRFGuard validates tokens on all Struts action POST requests
-           2. CsrfGuardScriptInjectionFilter skips direct REQUEST dispatch (Tomcat 11 unwraps
-              wrappers during forward), but runs on the FORWARD dispatch to the JSP where
-              it wraps the response and injects csrfguard.js. The FORWARD dispatcher also
-              prevents the default 8KB response buffer from truncating large JSP pages.
+           2. CsrfGuardScriptInjectionFilter is mapped for FORWARD dispatches to JSPs so
+              csrfguard.js is injected at the JSP render layer without double-wrapping
+              Struts REQUEST responses. Non-HTML/outputstream responses are passed through.
            3. LogoutBroadcastFilter wraps the response BEFORE Struts renders,
               so the logout broadcast script is injected into Struts-rendered HTML pages
               (e.g. Inboxhub, DisplayMessages)
@@ -138,7 +137,6 @@
     <filter-mapping>
         <filter-name>CsrfGuardScriptInjectionFilter</filter-name>
         <url-pattern>/*</url-pattern>
-        <dispatcher>REQUEST</dispatcher>
         <dispatcher>FORWARD</dispatcher>
     </filter-mapping>
     <filter-mapping>
@@ -227,7 +225,8 @@
 		<filter-class>io.github.carlos_emr.carlos.app.CsrfGuardScriptInjectionFilter</filter-class>
 	</filter>
     <!-- filter-mapping for CsrfGuardScriptInjectionFilter is declared earlier in the file,
-         before struts2, so csrfguard.js is injected into Struts-rendered HTML responses. -->
+         before struts2, so csrfguard.js is injected into JSP FORWARD responses without
+         wrapping the top-level Struts REQUEST. -->
 
 	<filter>
 		<filter-name>LogoutBroadcastFilter</filter-name>

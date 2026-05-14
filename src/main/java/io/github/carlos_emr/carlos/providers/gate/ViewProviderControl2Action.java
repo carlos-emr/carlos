@@ -15,7 +15,7 @@ package io.github.carlos_emr.carlos.providers.gate;
 /**
  * View gate for {@code provider/providercontrol.jsp} (the provider dashboard /
  * schedule landing page). Enforces {@code _appointment} {@code r} privilege
- * before forwarding to the JSP. Entry point referenced from the login redirect
+ * before Struts renders the JSP. Entry point referenced from the login redirect
  * ({@code struts-login.xml}), {@code LoginFilter} refresh list,
  * {@code PersonaService} navbar, and numerous intra-module links.
  *

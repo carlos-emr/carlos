@@ -63,6 +63,7 @@ class RootEntryRedirectFilterUnitTest {
     void shouldForwardContextRootWithTrailingSlashToLoginJsp() throws Exception {
         when(request.getContextPath()).thenReturn("/carlos");
         when(request.getRequestURI()).thenReturn("/carlos/");
+        when(request.getMethod()).thenReturn("GET");
         when(request.getRequestDispatcher("/WEB-INF/jsp/login/index.jsp")).thenReturn(dispatcher);
 
         filter.doFilter(request, response, chain);
@@ -76,12 +77,28 @@ class RootEntryRedirectFilterUnitTest {
     void shouldForwardCanonicalIndexPathToLoginJsp() throws Exception {
         when(request.getContextPath()).thenReturn("/carlos");
         when(request.getRequestURI()).thenReturn("/carlos/index");
+        when(request.getMethod()).thenReturn("GET");
         when(request.getRequestDispatcher("/WEB-INF/jsp/login/index.jsp")).thenReturn(dispatcher);
 
         filter.doFilter(request, response, chain);
 
         verify(dispatcher).forward(request, response);
         verify(chain, never()).doFilter(request, response);
+    }
+
+    @Test
+    @DisplayName("should reject non view methods for login entry paths")
+    void shouldRejectNonViewMethodsForLoginEntryPaths() throws Exception {
+        when(request.getContextPath()).thenReturn("/carlos");
+        when(request.getRequestURI()).thenReturn("/carlos/index");
+        when(request.getMethod()).thenReturn("POST");
+
+        filter.doFilter(request, response, chain);
+
+        verify(response).setHeader("Allow", "GET, HEAD");
+        verify(response).sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        verify(chain, never()).doFilter(request, response);
+        verify(dispatcher, never()).forward(request, response);
     }
 
     @Test
@@ -109,6 +126,33 @@ class RootEntryRedirectFilterUnitTest {
     }
 
     @Test
+    @DisplayName("should move force password reset retry error from session to request")
+    void shouldMoveForcePasswordResetRetryErrorFromSessionToRequest() throws Exception {
+        HttpSession session = mock(HttpSession.class);
+        String token = LoginCredentialCache.getInstance().store(
+                new LoginCredentialCache.LoginCredentials("carlosdoc", "encoded", "2026", null));
+
+        when(request.getContextPath()).thenReturn("/carlos");
+        when(request.getRequestURI()).thenReturn("/carlos/forcepasswordreset");
+        when(request.getMethod()).thenReturn("GET");
+        when(request.getSession(false)).thenReturn(session);
+        when(session.getAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR)).thenReturn(token);
+        when(session.getAttribute(Login2Action.FORCE_PASSWORD_RESET_ERROR_ATTR)).thenReturn("retry error");
+        when(request.getRequestDispatcher("/WEB-INF/jsp/login/forcepasswordreset.jsp")).thenReturn(dispatcher);
+
+        try {
+            filter.doFilter(request, response, chain);
+
+            verify(request).setAttribute("errormsg", "retry error");
+            verify(session).removeAttribute(Login2Action.FORCE_PASSWORD_RESET_ERROR_ATTR);
+            verify(dispatcher).forward(request, response);
+            verify(chain, never()).doFilter(request, response);
+        } finally {
+            LoginCredentialCache.getInstance().invalidate(token);
+        }
+    }
+
+    @Test
     @DisplayName("should redirect force password reset path when credential token is missing")
     void shouldRedirectForcePasswordResetPathWhenCredentialTokenIsMissing() throws Exception {
         when(request.getContextPath()).thenReturn("/carlos");
@@ -121,6 +165,35 @@ class RootEntryRedirectFilterUnitTest {
 
         verify(response).sendRedirect(anyString());
         verify(chain, never()).doFilter(request, response);
+    }
+
+    @Test
+    @DisplayName("should forward login failure path to JSP")
+    void shouldForwardLoginFailurePathToJsp() throws Exception {
+        when(request.getContextPath()).thenReturn("/carlos");
+        when(request.getRequestURI()).thenReturn("/carlos/loginfailed");
+        when(request.getMethod()).thenReturn("GET");
+        when(request.getRequestDispatcher("/WEB-INF/jsp/login/loginfailed.jsp")).thenReturn(dispatcher);
+
+        filter.doFilter(request, response, chain);
+
+        verify(dispatcher).forward(request, response);
+        verify(chain, never()).doFilter(request, response);
+    }
+
+    @Test
+    @DisplayName("should reject non view methods for public login utility paths")
+    void shouldRejectNonViewMethodsForPublicLoginUtilityPaths() throws Exception {
+        when(request.getContextPath()).thenReturn("/carlos");
+        when(request.getRequestURI()).thenReturn("/carlos/loginfailed");
+        when(request.getMethod()).thenReturn("POST");
+
+        filter.doFilter(request, response, chain);
+
+        verify(response).setHeader("Allow", "GET, HEAD");
+        verify(response).sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        verify(chain, never()).doFilter(request, response);
+        verify(dispatcher, never()).forward(request, response);
     }
 
     @Test
