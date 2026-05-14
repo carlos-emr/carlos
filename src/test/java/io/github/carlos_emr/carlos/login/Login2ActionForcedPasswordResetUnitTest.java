@@ -48,6 +48,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Isolated;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.MockedConstruction;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
@@ -59,9 +60,12 @@ import java.util.Collections;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -282,6 +286,71 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should not persist when terminal credential consume returns null")
+    void shouldNotPersist_whenTerminalCredentialConsumeReturnsNull() throws Exception {
+        String token = "terminal-replay-token";
+        LoginCredentialCache.LoginCredentials credentials =
+                new LoginCredentialCache.LoginCredentials(USERNAME, ENCODED_OLD_PASSWORD, "2026", null);
+        LoginCredentialCache credentialCache = mock(LoginCredentialCache.class);
+        request.getSession().setAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR, token);
+        when(credentialCache.peek(token)).thenReturn(credentials);
+        when(credentialCache.consume(token)).thenReturn(null);
+        when(securityManager.matchesPassword(OLD_PASSWORD, ENCODED_OLD_PASSWORD)).thenReturn(true);
+
+        try (MockedStatic<LoginCredentialCache> credentialCacheMock = mockStatic(LoginCredentialCache.class)) {
+            credentialCacheMock.when(LoginCredentialCache::getInstance).thenReturn(credentialCache);
+            Login2Action action = newAction(OLD_PASSWORD, "ValidPass1!", "ValidPass1!");
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getRedirectedUrl()).contains("/loginfailed");
+            verify(credentialCache).consume(token);
+            verify(credentialCache).invalidate(token);
+            verify(securityDao, never()).saveEntity(org.mockito.ArgumentMatchers.any());
+        }
+    }
+
+    @Test
+    @DisplayName("should return failure when MFA registration setup fails")
+    void shouldReturnFailure_whenMfaRegistrationSetupFails() throws Exception {
+        String password = "ValidPass1!";
+        Security security = forcedResetSecurity();
+        security.setForcePasswordReset(Boolean.FALSE);
+        security.setUsingMfa(true);
+        Provider provider = activeProvider();
+
+        request.setParameter("forcedpasswordchange", "false");
+        when(securityDao.findByUserName(USERNAME)).thenReturn(Collections.singletonList(security));
+        when(providerDao.getProvider("999998")).thenReturn(provider);
+        when(mfaManager.isMfaRegistrationRequired(security.getId()))
+                .thenThrow(new IllegalStateException("qr setup failed"));
+
+        try (MockedStatic<MfaManager> mfaManagerStatic = mockStatic(MfaManager.class);
+             MockedConstruction<LoginCheckLogin> mockedLoginChecks = mockConstruction(LoginCheckLogin.class,
+                (mock, context) -> {
+                    when(mock.auth(USERNAME, password, "2026", request.getRemoteAddr()))
+                            .thenReturn(new String[]{"999998", "Test", "Provider", "", "doctor", "0"});
+                    when(mock.getSecurity()).thenReturn(security);
+                    when(mock.isBlock(anyString(), anyString())).thenReturn(false);
+                })) {
+            mfaManagerStatic.when(MfaManager::isOscarMfaEnabled).thenReturn(true);
+            Login2Action action = newAction(null, null, null);
+            action.setUsername(USERNAME);
+            action.setPassword(password);
+            action.setPin("2026");
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo("failure");
+            assertThat(request.getAttribute("errMsg")).isNotNull();
+            assertThat(request.getAttribute("mfaRegistrationRequired")).isNull();
+            assertThat(request.getAttribute("qrData")).isNull();
+            assertThat(mockedLoginChecks.constructed()).hasSize(1);
+        }
+    }
+
+    @Test
     @DisplayName("should persist valid forced reset password and clear reset token")
     void shouldPersistValidForcedResetPassword_andClearResetToken() throws Exception {
         String token = cacheCredentials();
@@ -299,14 +368,17 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
         when(providerPreferenceDao.find("999998")).thenReturn(new ProviderPreference());
         when(providerDao.getFacilityIds("999998")).thenReturn(Collections.emptyList());
         when(facilityDao.findAll(true)).thenReturn(Collections.emptyList());
+        LoginCredentialCache credentialCacheSpy = spy(LoginCredentialCache.getInstance());
 
-        try (MockedConstruction<LoginCheckLogin> mockedLoginChecks = mockConstruction(LoginCheckLogin.class,
+        try (MockedStatic<LoginCredentialCache> credentialCacheMock = mockStatic(LoginCredentialCache.class);
+             MockedConstruction<LoginCheckLogin> mockedLoginChecks = mockConstruction(LoginCheckLogin.class,
                 (mock, context) -> {
                     when(mock.auth(USERNAME, newPassword, "2026", request.getRemoteAddr()))
                             .thenReturn(new String[]{"999998", "Test", "Provider", "", "doctor", "0"});
                     when(mock.getSecurity()).thenReturn(security);
                     when(mock.isBlock(anyString(), anyString())).thenReturn(false);
                 })) {
+            credentialCacheMock.when(LoginCredentialCache::getInstance).thenReturn(credentialCacheSpy);
             Login2Action action = newAction(OLD_PASSWORD, newPassword, newPassword);
 
             String result = action.execute();
@@ -316,9 +388,12 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
             assertThat(LoginCredentialCache.getInstance().peek(token)).isNull();
             assertThat(request.getSession(false).getAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR)).isNull();
             assertThat(mockedLoginChecks.constructed()).hasSize(1);
+            InOrder inOrder = inOrder(credentialCacheSpy, securityDao);
+            inOrder.verify(credentialCacheSpy).peek(token);
+            inOrder.verify(credentialCacheSpy).consume(token);
+            inOrder.verify(securityDao).saveEntity(securityCaptor.capture());
         }
 
-        verify(securityDao).saveEntity(securityCaptor.capture());
         Security persistedSecurity = securityCaptor.getValue();
         assertThat(persistedSecurity).isSameAs(security);
         assertThat(persistedSecurity.getPassword()).isEqualTo(encodedNewPassword);

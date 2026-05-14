@@ -104,6 +104,12 @@ public abstract class BaseProviderViewGate2Action extends ActionSupport {
                         LogSanitizer.sanitize(request.getRequestURI()),
                         LogSanitizer.sanitize(request.getRemoteAddr()),
                         e);
+                if (!response.isCommitted()) {
+                    response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                } else {
+                    throw new IllegalStateException(
+                            "Unable to reject unauthenticated provider request after response commit", e);
+                }
             }
             return NONE;
         }

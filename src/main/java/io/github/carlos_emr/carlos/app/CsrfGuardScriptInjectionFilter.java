@@ -57,6 +57,10 @@ import java.util.regex.Pattern;
  * Responses using {@link ServletOutputStream} (binary content like PDFs, images) pass
  * through untouched.</p>
  *
+ * <p>The web.xml mapping is load-bearing: REQUEST dispatches skip AJAX calls, while FORWARD
+ * dispatches are still wrapped so JSP rendering can be captured after Struts forwards. See
+ * {@code docs/csrf-protection-architecture.md} before changing dispatcher mappings.</p>
+ *
  * <p>Injection is skipped when:
  * <ul>
  *   <li>Content-Type is not {@code text/html}</li>
@@ -134,9 +138,10 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         try {
             csrfGuard = CsrfGuard.getInstance();
         } catch (Exception e) {
-            LOGGER.error("CsrfGuard.getInstance() failed — page will be served without CSRF "
-                    + "script tag (method={})", httpRequest.getMethod(), e);
-            chain.doFilter(request, response);
+            LOGGER.error("CsrfGuard.getInstance() failed — failing closed so HTML is not "
+                    + "served without CSRF script injection (method={} uri={})",
+                    httpRequest.getMethod(), httpRequest.getRequestURI(), e);
+            httpResponse.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
             return;
         }
 

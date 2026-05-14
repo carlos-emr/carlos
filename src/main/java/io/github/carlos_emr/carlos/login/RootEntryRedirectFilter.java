@@ -35,11 +35,11 @@ import org.apache.logging.log4j.Logger;
 /**
  * Forwards login entrypoint requests to their JSP views.
  *
- * <p>This filter owns only public, view-only entry routes that need to render WEB-INF JSPs before
- * Struts is involved. It deliberately rejects non-GET/HEAD methods for these routes so a direct
- * POST to {@code /index} or {@code /forcepasswordreset} cannot be treated as a view render.
- * Public utility pages such as {@code /loginfailed} remain in Struts so their shared method and
- * security documentation stays in one canonical action.</p>
+ * <p>This filter owns only the public login entry route that needs to render a WEB-INF JSP before
+ * Struts is involved. It deliberately rejects non-GET/HEAD methods for this route so a direct
+ * POST to {@code /index} cannot be treated as a view render. It also enforces the same view-method
+ * guard for {@code /forcepasswordreset} before CSRFGuard runs; GET/HEAD still pass through to the
+ * canonical Struts action so token validation and retry-error handoff stay in one place.</p>
  *
  * <p>Do not add authenticated application pages here. Provider and clinical pages should stay
  * behind their Struts actions/gates so unauthenticated requests cannot bypass the normal
@@ -50,9 +50,8 @@ import org.apache.logging.log4j.Logger;
 public class RootEntryRedirectFilter extends HttpFilter {
 
     private static final Logger LOGGER = MiscUtils.getLogger();
-    private static final String LOGIN_JSP = "/WEB-INF/jsp/login/index.jsp";
     private static final String FORCE_PASSWORD_RESET_PATH = "/forcepasswordreset";
-    private static final String FORCE_PASSWORD_RESET_JSP = "/WEB-INF/jsp/login/forcepasswordreset.jsp";
+    private static final String LOGIN_JSP = "/WEB-INF/jsp/login/index.jsp";
 
     @Override
     protected void doFilter(
@@ -64,41 +63,15 @@ public class RootEntryRedirectFilter extends HttpFilter {
 
         if (isLoginEntryRequest(requestUri, contextPath)) {
             if (!isViewMethod(request.getMethod())) {
-                LOGGER.info("Rejected login entry view: unsupported method={}, uri={}, remote={}",
-                        LogSanitizer.sanitize(request.getMethod()),
-                        LogSanitizer.sanitize(requestUri),
-                        request.getRemoteAddr());
-                response.setHeader("Allow", "GET, HEAD");
-                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+                rejectNonViewMethod(request, response, requestUri, "login entry view");
                 return;
             }
             request.getRequestDispatcher(LOGIN_JSP).forward(request, response);
             return;
         }
 
-        if (isForcePasswordResetRequest(requestUri, contextPath)) {
-            if (!isViewMethod(request.getMethod())) {
-                LOGGER.info("Rejected /forcepasswordreset: unsupported method={}, uri={}, remote={}",
-                        LogSanitizer.sanitize(request.getMethod()),
-                        LogSanitizer.sanitize(requestUri),
-                        request.getRemoteAddr());
-                response.setHeader("Allow", "GET, HEAD");
-                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-                return;
-            }
-            // The reset form is not a public page. It is view-only, but it still requires the
-            // short-lived credential-cache token staged by a successful password-authentication
-            // step. Without this guard, direct browsing could expose the reset UI without a
-            // validated old credential.
-            if (!Login2Action.hasValidLoginCredentialsToken(request)) {
-                LOGGER.info("Rejected /forcepasswordreset: missing or stale credential token, remote={}",
-                        request.getRemoteAddr());
-                response.sendRedirect(Login2Action.loginFailedRedirectUrl(request,
-                        Login2Action.message(request, "provider.providerchangepassword.errorSessionExpired")));
-                return;
-            }
-            copyForcePasswordResetError(request);
-            request.getRequestDispatcher(FORCE_PASSWORD_RESET_JSP).forward(request, response);
+        if (isForcePasswordResetRequest(requestUri, contextPath) && !isViewMethod(request.getMethod())) {
+            rejectNonViewMethod(request, response, requestUri, "force password reset view");
             return;
         }
 
@@ -119,27 +92,22 @@ public class RootEntryRedirectFilter extends HttpFilter {
                 && requestUri.equals(contextPath + FORCE_PASSWORD_RESET_PATH);
     }
 
-    /**
-     * Moves a retryable forced-reset validation error from session scope to request scope.
-     *
-     * <p>The reset POST redirects back to the GET view to avoid refresh resubmission. This method
-     * gives the JSP one render of the error and then clears it so stale messages do not survive a
-     * later successful retry.</p>
-     */
-    private static void copyForcePasswordResetError(HttpServletRequest request) {
-        var session = request.getSession(false);
-        if (session == null) {
-            return;
-        }
-        Object error = session.getAttribute(Login2Action.FORCE_PASSWORD_RESET_ERROR_ATTR);
-        if (error instanceof String) {
-            request.setAttribute("errormsg", error);
-            session.removeAttribute(Login2Action.FORCE_PASSWORD_RESET_ERROR_ATTR);
-        }
-    }
-
     private static boolean isViewMethod(String method) {
         return "GET".equalsIgnoreCase(method) || "HEAD".equalsIgnoreCase(method);
+    }
+
+    private static void rejectNonViewMethod(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            String requestUri,
+            String routeName) throws IOException {
+        LOGGER.info("Rejected {}: unsupported method={}, uri={}, remote={}",
+                routeName,
+                LogSanitizer.sanitize(request.getMethod()),
+                LogSanitizer.sanitize(requestUri),
+                request.getRemoteAddr());
+        response.setHeader("Allow", "GET, HEAD");
+        response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
     }
 
 }

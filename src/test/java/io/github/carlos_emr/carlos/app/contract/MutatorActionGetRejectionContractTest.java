@@ -135,6 +135,9 @@ class MutatorActionGetRejectionContractTest {
                     "_appointment", "d"),
             Arguments.of("io.github.carlos_emr.carlos.appointment.pageUtil.AppointmentUpdateRecord2Action",
                     "_appointment", "w"),
+            // --- billing ---
+            Arguments.of("io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSaveBilling2Action",
+                    "_billing", "w"),
             // --- report ---
             Arguments.of("io.github.carlos_emr.carlos.report.pageUtil.DbManageProvider2Action",
                     "_admin.reporting", "w"),

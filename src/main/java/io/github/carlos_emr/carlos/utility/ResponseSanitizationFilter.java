@@ -116,8 +116,8 @@ public class ResponseSanitizationFilter implements Filter {
 
     /**
      * Maximum number of characters to buffer per response before switching to pass-through mode.
-     * Responses larger than this cannot contain a stack trace header; skipping inspection
-     * avoids unbounded heap growth for large encounter notes, lab reports, etc.
+     * The buffered prefix is still inspected before passthrough so oversized error pages cannot
+     * leak a stack trace before normal page content.
      */
     static final int MAX_CAPTURE_CHARS = 512 * 1024;
 
@@ -259,9 +259,10 @@ public class ResponseSanitizationFilter implements Filter {
             return;
         }
 
-        // Response exceeded the capture limit — content already written directly to the real
-        // response by CapturingSwitchingWriter. Large responses cannot contain stack traces;
-        // skip inspection.
+        // Response exceeded the capture limit after CapturingSwitchingWriter made a terminal
+        // decision about the buffered prefix. Safe large responses have already been flushed
+        // through; tainted error prefixes are converted to sanitized error pages before any raw
+        // stack trace reaches the client.
         if (wrapper.isCaptureLimitExceeded()) {
             return;
         }
@@ -628,10 +629,11 @@ public class ResponseSanitizationFilter implements Filter {
      * {@code maxChars} characters, then switches to direct pass-through via the real
      * response {@link PrintWriter} to prevent unbounded heap growth for large responses.
      *
-     * <p>When the limit is exceeded the buffered content is flushed to the real writer
-     * before subsequent writes go directly there. Callers can test
-     * {@link #isLimitExceeded()} to determine whether content was captured in the buffer
-     * or written directly to the real response (in which case no write-back is needed).</p>
+     * <p>When the limit is exceeded, the buffered prefix and triggering write are inspected if
+     * the response is an error. Tainted error output is replaced with a sanitized page before any
+     * raw stack trace is flushed; otherwise the buffered content is flushed to the real writer and
+     * subsequent writes go directly there. Callers can test {@link #isLimitExceeded()} to
+     * determine whether no write-back is needed.</p>
      */
     private static class CapturingSwitchingWriter extends Writer {
 
@@ -659,7 +661,7 @@ public class ResponseSanitizationFilter implements Filter {
         @Override
         public void write(char[] cbuf, int off, int len) throws IOException {
             if (!limitExceeded && buffer.size() + len > maxChars) {
-                switchToPassthrough();
+                switchToPassthrough(new String(cbuf, off, len));
             }
             if (limitExceeded) {
                 passthroughWriter.write(cbuf, off, len);
@@ -671,7 +673,7 @@ public class ResponseSanitizationFilter implements Filter {
         @Override
         public void write(int c) throws IOException {
             if (!limitExceeded && buffer.size() + 1 > maxChars) {
-                switchToPassthrough();
+                switchToPassthrough(String.valueOf((char) c));
             }
             if (limitExceeded) {
                 passthroughWriter.write(c);
@@ -683,7 +685,7 @@ public class ResponseSanitizationFilter implements Filter {
         @Override
         public void write(String str, int off, int len) throws IOException {
             if (!limitExceeded && buffer.size() + len > maxChars) {
-                switchToPassthrough();
+                switchToPassthrough(str.substring(off, off + len));
             }
             if (limitExceeded) {
                 passthroughWriter.write(str, off, len);
@@ -731,17 +733,34 @@ public class ResponseSanitizationFilter implements Filter {
          * Flushes the in-memory buffer to the real response writer and switches to
          * direct pass-through mode for all subsequent writes.
          *
+         * @param pendingWrite String the write that triggered the limit check, used to catch
+         *                     stack traces when the first write itself exceeds the limit
          * @throws IOException if the real response writer cannot be obtained or written to
          */
-        private void switchToPassthrough() throws IOException {
+        private void switchToPassthrough(String pendingWrite) throws IOException {
             if (limitExceeded) {
+                return;
+            }
+            int status = realResponse.getStatus();
+            String capturedPrefix = buffer.toString();
+            if (status >= 400
+                    && (containsStackTrace(capturedPrefix) || containsStackTrace(pendingWrite))) {
+                String correlationId = generateCorrelationId();
+                String sanitizedExcerpt = LogSanitizer.sanitize(capturedPrefix + pendingWrite, 200);
+                LOGGER.error("Stack trace detected before large error response passthrough "
+                        + "[status={} correlationId={} excerpt={}]",
+                        status, correlationId, sanitizedExcerpt);
+                sendSanitizedError(realResponse, status, correlationId);
+                buffer.reset();
+                limitExceeded = true;
+                passthroughWriter = new PrintWriter(Writer.nullWriter());
                 return;
             }
             limitExceeded = true;
             LOGGER.debug("ResponseSanitizationFilter: capture limit exceeded ({} chars)"
                     + " — switching to passthrough mode", maxChars);
             passthroughWriter = realResponse.getWriter();
-            char[] captured = buffer.toCharArray();
+            char[] captured = capturedPrefix.toCharArray();
             if (captured.length > 0) {
                 passthroughWriter.write(captured);
             }

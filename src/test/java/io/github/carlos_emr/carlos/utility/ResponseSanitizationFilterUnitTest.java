@@ -421,6 +421,31 @@ class ResponseSanitizationFilterUnitTest {
 
             assertThat(response.getContentType()).contains("text/html");
         }
+
+        @Test
+        @DisplayName("should sanitize oversized error response before passthrough")
+        void shouldSanitizeOversizedErrorResponse_beforePassthrough() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/error.jsp");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            String stackTraceBody = "java.lang.IllegalStateException: failed\n"
+                    + "\tat io.github.carlos_emr.carlos.ErrorPage.render(ErrorPage.java:42)\n"
+                    + "A".repeat(ResponseSanitizationFilter.MAX_CAPTURE_CHARS + 1);
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(500);
+                httpRes.setContentType("text/html");
+                res.getWriter().write(stackTraceBody);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getStatus()).isEqualTo(500);
+            String sanitized = response.getContentAsString();
+            assertThat(sanitized).doesNotContain("IllegalStateException");
+            assertThat(sanitized).doesNotContain("io.github.carlos_emr");
+            assertThat(sanitized).contains("Reference ID:");
+        }
     }
 
     // -------------------------------------------------------------------------

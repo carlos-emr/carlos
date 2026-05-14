@@ -113,8 +113,9 @@ public class DocumentConverter extends AbstractConverter<Document, DocumentTo1> 
             DocumentReviewConverter reviewConverter = new DocumentReviewConverter();
             t.setReviews(reviewConverter.getAllAsTransferObjects(loggedInInfo, d.getReviews()));
         } else if (d.getReviews() != null) {
-            logger.warn("Reviews not initialized on document {}; skipping in REST response",
+            logger.warn("Reviews not initialized on document {}; failing REST conversion",
                     LogSanitizer.sanitize(String.valueOf(d.getDocumentNo())));
+            throw new ConversionException("Document reviews were not initialized");
         }
 
         return t;

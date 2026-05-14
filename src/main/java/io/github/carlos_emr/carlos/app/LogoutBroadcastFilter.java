@@ -470,7 +470,7 @@ public class LogoutBroadcastFilter implements Filter {
     }
 
     /**
-     * Response wrapper that defers flushing so the filter can append content
+     * Response wrapper that keeps enough response body buffered for the filter to append content
      * after the filter chain has written its output.
      *
      * <p>Tracks whether {@code getWriter()} or {@code getOutputStream()} was called
@@ -496,21 +496,6 @@ public class LogoutBroadcastFilter implements Filter {
         }
 
         /**
-         * Returns the underlying response and marks the writer path as obtained.
-         *
-         * <p>Called by Servlet/JSP infrastructure when downstream code needs the raw response
-         * object. Marks {@code responseWriterObtained} so the script appender knows which
-         * output channel was used.
-         *
-         * @return ServletResponse the underlying HTTP response
-         */
-        @Override
-        public ServletResponse getResponse() {
-            responseWriterObtained = true;
-            return super.getResponse();
-        }
-
-        /**
          * Returns the raw servlet output stream and marks the stream path as obtained.
          *
          * <p>Unlike {@link #getWriter()}, the returned stream is <em>not</em> wrapped
@@ -532,11 +517,12 @@ public class LogoutBroadcastFilter implements Filter {
         /**
          * Returns a {@link DelegatingWriter} wrapping the underlying response writer.
          *
-         * <p>The delegating writer suppresses {@code close()} and {@code flush()} calls
-         * made by the JSP container during JSP execution, ensuring the filter can still
-         * append the logout broadcast script after the chain completes.
+         * <p>The delegating writer suppresses {@code close()} calls made by the JSP container
+         * during JSP execution. Flush calls pass through because Tomcat 11
+         * {@code RequestDispatcher.forward()} depends on them; the 1 MB response buffer is what
+         * keeps normal JSP output available for the script append after the chain completes.
          *
-         * @return PrintWriter a delegating writer that suppresses premature close and flush
+         * @return PrintWriter a delegating writer that suppresses premature close
          * @throws IOException if the underlying writer cannot be obtained
          */
         @Override
@@ -554,7 +540,7 @@ public class LogoutBroadcastFilter implements Filter {
          * <p>Used by {@link LogoutBroadcastFilter#appendScript} to determine which output
          * channel to use when writing the injected script.
          *
-         * @return boolean true if {@link #getWriter()} or {@link #getResponse()} was called
+         * @return boolean true if {@link #getWriter()} was called
          */
         public boolean isResponseWriterObtained() {
             return responseWriterObtained;

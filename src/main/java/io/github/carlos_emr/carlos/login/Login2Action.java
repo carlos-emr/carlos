@@ -50,7 +50,6 @@ import io.github.carlos_emr.carlos.managers.AppManager;
 import io.github.carlos_emr.carlos.managers.MfaManager;
 import io.github.carlos_emr.carlos.managers.SecurityManager;
 import io.github.carlos_emr.carlos.managers.UserSessionManager;
-import org.owasp.encoder.Encode;
 import org.springframework.context.ApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
 import io.github.carlos_emr.CarlosProperties;
@@ -701,7 +700,13 @@ public final class Login2Action extends ActionSupport {
                             request.setAttribute("qrData", this.mfaManager.getQRCodeImageData(sec.getId(), mfaSecret.toString()));
                         }
                     } catch (IllegalStateException e) {
+                        logger.warn("Unable to prepare MFA registration: providerNo={}, securityId={}",
+                                LogSanitizer.sanitize(providerNo),
+                                LogSanitizer.sanitize(String.valueOf(sec.getSecurityNo())),
+                                e);
+                        request.getSession().invalidate();
                         request.setAttribute("errMsg", "Something went wrong while processing, please try again or contact support.");
+                        return "failure";
                     }
                     request.setAttribute("securityId", String.valueOf(sec.getSecurityNo()));
                     return "mfaHandler";
@@ -787,7 +792,7 @@ public final class Login2Action extends ActionSupport {
             List<Integer> facilityIds = providerDao.getFacilityIds(provider.getProviderNo());
             if (facilityIds.size() > 1) {
                 String facilityPath = "/select_facility?nextPage=";
-                String newURL = request.getContextPath() + facilityPath + Encode.forUriComponent(where);
+                String newURL = request.getContextPath() + facilityPath + SafeEncode.forUriComponent(where);
 
                 response.sendRedirect(newURL);
                 return NONE;
@@ -858,7 +863,7 @@ public final class Login2Action extends ActionSupport {
             String oneIdKey = request.getParameter("nameId");
             String newURL = request.getContextPath() + "/index?login=failed";
             if (oneIdKey != null && !oneIdKey.equals("")) {
-                newURL += "&nameId=" + Encode.forUriComponent(oneIdKey);
+                newURL += "&nameId=" + SafeEncode.forUriComponent(oneIdKey);
             }
             response.sendRedirect(newURL);
             return NONE;
@@ -879,7 +884,7 @@ public final class Login2Action extends ActionSupport {
             Provider prov = providerDao.getProvider((String) request.getSession().getAttribute("user"));
             ObjectNode json = objectMapper.createObjectNode();
             json.put("success", true);
-            json.put("providerName", Encode.forJavaScript(prov.getFormattedName()));
+            json.put("providerName", SafeEncode.forJavaScript(prov.getFormattedName()));
             json.put("providerNo", prov.getProviderNo());
             response.setContentType("application/json");
             response.getWriter().write(json.toString());
@@ -943,7 +948,7 @@ public final class Login2Action extends ActionSupport {
             ObjectNode json = objectMapper.createObjectNode();
             json.put("success", true);
             // SECURITY: OWASP encode provider name for JavaScript context
-            json.put("providerName", Encode.forJavaScript(prov.getFormattedName()));
+            json.put("providerName", SafeEncode.forJavaScript(prov.getFormattedName()));
             json.put("providerNo", prov.getProviderNo());
             response.setContentType("application/json");
             response.getWriter().write(json.toString());
@@ -1123,7 +1128,6 @@ public final class Login2Action extends ActionSupport {
      * @param password String the plain-text password (will be encoded before caching)
      * @param pin String the 4-digit PIN (must match [0-9]{4} pattern)
      * @param nextPage String the relative URL to redirect to after password reset (validated before caching)
-     * @throws RuntimeException if password encoding fails while staging the credential material
      * @see SecurityManager#encodePassword for password encoding algorithm
      * @see #removeAttributesFromSession for cleanup after password reset
      * @see RedirectValidationUtils#isValidRelativeRedirect for redirect URL validation logic
@@ -1340,7 +1344,6 @@ public final class Login2Action extends ActionSupport {
      * @param userName String the username of the account to update
      * @param newPassword String the new plain-text password (will be encoded before storage)
      * @throws IllegalStateException if the user's security record cannot be found
-     * @throws RuntimeException if password encoding or persistence fails
      * @see #getSecurity for retrieving the Security record
      * @see SecurityManager#encodePassword for password hashing
      * @see SecurityDao#saveEntity for database persistence

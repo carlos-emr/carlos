@@ -30,9 +30,9 @@ import org.apache.logging.log4j.Logger;
  *
  * <p>The view is intentionally GET/HEAD-only. The password update itself must go through the
  * dedicated POST action, where CSRFGuard, old-password validation, server-side password policy,
- * and terminal token consumption are enforced. This action exists for Struts mappings that render
- * the reset JSP directly; {@link io.github.carlos_emr.carlos.login.RootEntryRedirectFilter}
- * provides the same guard for the extensionless public route.</p>
+ * and terminal token consumption are enforced. This action is the canonical owner for the
+ * extensionless {@code /forcepasswordreset} route; do not add a filter-level direct JSP forward
+ * for this page.</p>
  *
  * @since 2026-04-15
  */
@@ -69,7 +69,23 @@ public final class ViewForcePasswordReset2Action extends BaseLoginPageView2Actio
             return redirectToExpiredSession(request);
         }
 
+        copyForcePasswordResetError(request, session);
         return SUCCESS;
+    }
+
+    /**
+     * Moves a retryable forced-reset validation error from session scope to request scope.
+     *
+     * <p>The reset POST redirects back to the GET view to avoid refresh resubmission. This gives
+     * the JSP one render of the error and then clears it so stale messages do not survive a later
+     * successful retry.</p>
+     */
+    private void copyForcePasswordResetError(HttpServletRequest request, HttpSession session) {
+        Object error = session.getAttribute(Login2Action.FORCE_PASSWORD_RESET_ERROR_ATTR);
+        if (error instanceof String) {
+            request.setAttribute("errormsg", error);
+            session.removeAttribute(Login2Action.FORCE_PASSWORD_RESET_ERROR_ATTR);
+        }
     }
 
     private String redirectToExpiredSession(HttpServletRequest request) throws IOException {

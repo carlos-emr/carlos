@@ -156,6 +156,7 @@ class ViewBillingOnMri2ActionUnitTest extends CarlosUnitTestBase {
 
         try (LogCapture capture = LogCapture.forLogger(ViewBillingOnMri2Action.class)) {
             assertThat(newAction().execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(failingResponse.getStatus()).isEqualTo(500);
 
             assertThat(capture.events()).anySatisfy(event -> {
                 assertThat(event.getLevel()).isEqualTo(Level.WARN);

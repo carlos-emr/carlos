@@ -25,8 +25,6 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.http.HttpSession;
-import java.util.Locale;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -44,9 +42,10 @@ import static org.mockito.Mockito.when;
 /**
  * Tests the public login-view forwarding filter.
  *
- * <p>The filter is intentionally narrow: it renders public GET/HEAD views, rejects mutating
- * methods, and requires a staged credential token for the forced-reset form. Provider pages and
- * other authenticated views should not be added here because they belong behind Struts gates.</p>
+ * <p>The filter is intentionally narrow: it renders the public login GET/HEAD view and rejects
+ * mutating methods for that route. The forced-reset view also gets a pre-CSRF method guard here,
+ * but GET/HEAD still pass to Struts so token checks remain in the canonical action. Provider pages
+ * should not be added here because they belong behind Struts gates.</p>
  */
 @Tag("unit")
 @DisplayName("RootEntryRedirectFilter")
@@ -124,98 +123,35 @@ class RootEntryRedirectFilterUnitTest {
         verify(dispatcher, never()).forward(request, response);
     }
 
-    @Test
-    @DisplayName("should forward force password reset path to JSP when credential token is valid")
-    void shouldForwardForcePasswordResetPathToJsp_whenCredentialTokenIsValid() throws Exception {
-        HttpSession session = mock(HttpSession.class);
-        String token = LoginCredentialCache.getInstance().store(
-                new LoginCredentialCache.LoginCredentials("carlosdoc", "encoded", "2026", null));
-
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD"})
+    @DisplayName("should pass force password reset view methods through to Struts")
+    void shouldPassForcePasswordResetViewMethods_throughToStruts(String method) throws Exception {
         when(request.getContextPath()).thenReturn("/carlos");
         when(request.getRequestURI()).thenReturn("/carlos/forcepasswordreset");
-        when(request.getMethod()).thenReturn("GET");
-        when(request.getSession(false)).thenReturn(session);
-        when(session.getAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR)).thenReturn(token);
-        when(request.getRequestDispatcher("/WEB-INF/jsp/login/forcepasswordreset.jsp")).thenReturn(dispatcher);
-
-        try {
-            filter.doFilter(request, response, chain);
-
-            verify(dispatcher).forward(request, response);
-            verify(chain, never()).doFilter(request, response);
-        } finally {
-            LoginCredentialCache.getInstance().invalidate(token);
-        }
-    }
-
-    @Test
-    @DisplayName("should move force password reset retry error from session to request")
-    void shouldMoveForcePasswordResetRetryError_toRequest() throws Exception {
-        HttpSession session = mock(HttpSession.class);
-        String token = LoginCredentialCache.getInstance().store(
-                new LoginCredentialCache.LoginCredentials("carlosdoc", "encoded", "2026", null));
-
-        when(request.getContextPath()).thenReturn("/carlos");
-        when(request.getRequestURI()).thenReturn("/carlos/forcepasswordreset");
-        when(request.getMethod()).thenReturn("GET");
-        when(request.getSession(false)).thenReturn(session);
-        when(session.getAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR)).thenReturn(token);
-        when(session.getAttribute(Login2Action.FORCE_PASSWORD_RESET_ERROR_ATTR)).thenReturn("retry error");
-        when(request.getRequestDispatcher("/WEB-INF/jsp/login/forcepasswordreset.jsp")).thenReturn(dispatcher);
-
-        try {
-            filter.doFilter(request, response, chain);
-
-            verify(request).setAttribute("errormsg", "retry error");
-            verify(session).removeAttribute(Login2Action.FORCE_PASSWORD_RESET_ERROR_ATTR);
-            verify(dispatcher).forward(request, response);
-            verify(chain, never()).doFilter(request, response);
-        } finally {
-            LoginCredentialCache.getInstance().invalidate(token);
-        }
-    }
-
-    @Test
-    @DisplayName("should ignore non string force password reset retry error")
-    void shouldIgnoreForcePasswordResetRetryError_whenNotString() throws Exception {
-        HttpSession session = mock(HttpSession.class);
-        String token = LoginCredentialCache.getInstance().store(
-                new LoginCredentialCache.LoginCredentials("carlosdoc", "encoded", "2026", null));
-        Object nonStringError = new Object();
-
-        when(request.getContextPath()).thenReturn("/carlos");
-        when(request.getRequestURI()).thenReturn("/carlos/forcepasswordreset");
-        when(request.getMethod()).thenReturn("GET");
-        when(request.getSession(false)).thenReturn(session);
-        when(session.getAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR)).thenReturn(token);
-        when(session.getAttribute(Login2Action.FORCE_PASSWORD_RESET_ERROR_ATTR)).thenReturn(nonStringError);
-        when(request.getRequestDispatcher("/WEB-INF/jsp/login/forcepasswordreset.jsp")).thenReturn(dispatcher);
-
-        try {
-            filter.doFilter(request, response, chain);
-
-            verify(request, never()).setAttribute(anyString(), anyString());
-            verify(session, never()).removeAttribute(Login2Action.FORCE_PASSWORD_RESET_ERROR_ATTR);
-            verify(dispatcher).forward(request, response);
-            verify(chain, never()).doFilter(request, response);
-        } finally {
-            LoginCredentialCache.getInstance().invalidate(token);
-        }
-    }
-
-    @Test
-    @DisplayName("should redirect force password reset path when credential token is missing")
-    void shouldRedirectForcePasswordResetPath_whenCredentialTokenIsMissing() throws Exception {
-        when(request.getContextPath()).thenReturn("/carlos");
-        when(request.getRequestURI()).thenReturn("/carlos/forcepasswordreset");
-        when(request.getMethod()).thenReturn("GET");
-        when(request.getSession(false)).thenReturn(null);
-        when(request.getLocale()).thenReturn(Locale.ENGLISH);
+        when(request.getMethod()).thenReturn(method);
 
         filter.doFilter(request, response, chain);
 
-        verify(response).sendRedirect(anyString());
+        verify(chain).doFilter(request, response);
+        verify(response, never()).sendRedirect(anyString());
+        verify(response, never()).sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        verify(dispatcher, never()).forward(request, response);
+    }
+
+    @Test
+    @DisplayName("should reject force password reset non view methods before CSRF")
+    void shouldRejectForcePasswordResetNonViewMethods_beforeCsrf() throws Exception {
+        when(request.getContextPath()).thenReturn("/carlos");
+        when(request.getRequestURI()).thenReturn("/carlos/forcepasswordreset");
+        when(request.getMethod()).thenReturn("POST");
+
+        filter.doFilter(request, response, chain);
+
+        verify(response).setHeader("Allow", "GET, HEAD");
+        verify(response).sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         verify(chain, never()).doFilter(request, response);
+        verify(dispatcher, never()).forward(request, response);
     }
 
     @ParameterizedTest

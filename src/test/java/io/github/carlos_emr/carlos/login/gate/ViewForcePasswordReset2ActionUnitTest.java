@@ -125,4 +125,45 @@ class ViewForcePasswordReset2ActionUnitTest {
             LoginCredentialCache.getInstance().invalidate(token);
         }
     }
+
+    @Test
+    @DisplayName("should move retry error from session to request")
+    void shouldMoveRetryError_fromSessionToRequest() throws Exception {
+        String token = LoginCredentialCache.getInstance().store(
+                new LoginCredentialCache.LoginCredentials("carlosdoc", "encoded", "2026", null));
+        request.getSession(true).setAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR, token);
+        request.getSession(false).setAttribute(Login2Action.FORCE_PASSWORD_RESET_ERROR_ATTR, "retry error");
+
+        try {
+            String result = new ViewForcePasswordReset2Action().execute();
+
+            assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(request.getAttribute("errormsg")).isEqualTo("retry error");
+            assertThat(request.getSession(false).getAttribute(Login2Action.FORCE_PASSWORD_RESET_ERROR_ATTR))
+                    .isNull();
+        } finally {
+            LoginCredentialCache.getInstance().invalidate(token);
+        }
+    }
+
+    @Test
+    @DisplayName("should ignore non string retry error")
+    void shouldIgnoreRetryError_whenNotString() throws Exception {
+        String token = LoginCredentialCache.getInstance().store(
+                new LoginCredentialCache.LoginCredentials("carlosdoc", "encoded", "2026", null));
+        Object nonStringError = new Object();
+        request.getSession(true).setAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR, token);
+        request.getSession(false).setAttribute(Login2Action.FORCE_PASSWORD_RESET_ERROR_ATTR, nonStringError);
+
+        try {
+            String result = new ViewForcePasswordReset2Action().execute();
+
+            assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(request.getAttribute("errormsg")).isNull();
+            assertThat(request.getSession(false).getAttribute(Login2Action.FORCE_PASSWORD_RESET_ERROR_ATTR))
+                    .isSameAs(nonStringError);
+        } finally {
+            LoginCredentialCache.getInstance().invalidate(token);
+        }
+    }
 }

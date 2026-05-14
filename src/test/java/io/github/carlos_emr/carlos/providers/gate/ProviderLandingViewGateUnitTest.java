@@ -141,6 +141,7 @@ class ProviderLandingViewGateUnitTest {
             String result = new ViewProviderControl2Action(securityInfoManager).execute();
 
             assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(failingResponse.getStatus()).isEqualTo(500);
             assertThat(capture.events()).anySatisfy(event -> {
                 assertThat(event.getLevel()).isEqualTo(Level.WARN);
                 assertThat(event.getMessage().getFormattedMessage())
