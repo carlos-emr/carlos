@@ -75,6 +75,7 @@ import static org.mockito.Mockito.*;
 @Tag("security")
 class SecurityDelete2ActionTest extends CarlosUnitTestBase {
 
+    private AutoCloseable mocks;
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
 
@@ -87,7 +88,7 @@ class SecurityDelete2ActionTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void setUp() {
-        MockitoAnnotations.openMocks(this);
+        mocks = MockitoAnnotations.openMocks(this);
 
         mockRequest = new MockHttpServletRequest();
         mockResponse = new MockHttpServletResponse();
@@ -106,9 +107,10 @@ class SecurityDelete2ActionTest extends CarlosUnitTestBase {
     }
 
     @AfterEach
-    void tearDown() {
+    void tearDown() throws Exception {
         if (loggedInInfoMock != null) loggedInInfoMock.close();
         if (servletActionContextMock != null) servletActionContextMock.close();
+        if (mocks != null) mocks.close();
     }
 
     private SecurityDelete2Action createActionWithPrivilege() {

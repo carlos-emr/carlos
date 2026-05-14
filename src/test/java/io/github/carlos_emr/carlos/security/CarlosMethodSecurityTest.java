@@ -57,6 +57,7 @@ import static org.mockito.Mockito.when;
 @Tag("security")
 class CarlosMethodSecurityTest extends CarlosUnitTestBase {
 
+    private AutoCloseable mocks;
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
 
@@ -67,16 +68,17 @@ class CarlosMethodSecurityTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void setUp() {
-        MockitoAnnotations.openMocks(this);
+        mocks = MockitoAnnotations.openMocks(this);
         methodSecurity = new CarlosMethodSecurity(securityInfoManager);
         servletActionContextMock = mockStatic(ServletActionContext.class);
         loggedInInfoMock = mockStatic(LoggedInInfo.class);
     }
 
     @AfterEach
-    void tearDown() {
+    void tearDown() throws Exception {
         if (loggedInInfoMock != null) loggedInInfoMock.close();
         if (servletActionContextMock != null) servletActionContextMock.close();
+        if (mocks != null) mocks.close();
     }
 
     @Test

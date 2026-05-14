@@ -142,8 +142,7 @@ class StrutsAdminConfigTest {
 
         assertThat(jsp)
                 .as("SecurityDelete2Action requires admin write access before forwarding to this JSP")
-                .contains("objectName=\"_admin,_admin.userAdmin\" rights=\"w\"");
-        assertThat(jsp)
+                .contains("objectName=\"_admin,_admin.userAdmin\" rights=\"w\"")
                 .as("result-only JSP should not load unused global JavaScript helpers")
                 .doesNotContain("/js/global.js");
     }
