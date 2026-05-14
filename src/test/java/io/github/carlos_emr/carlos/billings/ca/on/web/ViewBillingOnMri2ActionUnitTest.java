@@ -56,9 +56,10 @@ import static org.mockito.Mockito.when;
 /**
  * Unit tests for {@link ViewBillingOnMri2Action}.
  *
- * <p>The missing-session case intentionally returns 401 before privilege checks run. That keeps
- * login/session regressions separate from billing privilege failures when this view is reached
- * through Struts, while avoiding a noisy server-side security exception for simple session loss.</p>
+ * <p>The missing-session case intentionally follows the shared browser-page rejection policy before
+ * privilege checks run. That keeps login/session regressions separate from billing privilege
+ * failures when this view is reached through Struts, while avoiding a noisy server-side security
+ * exception for simple session loss.</p>
  *
  * @since 2026-05-10
  */
@@ -133,12 +134,12 @@ class ViewBillingOnMri2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldReturnUnauthorized_whenSessionMissing() throws Exception {
+    void shouldRedirectToLogoutPage_whenSessionMissing() throws Exception {
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(null);
 
         assertThat(newAction().execute()).isEqualTo(ActionSupport.NONE);
-        assertThat(mockResponse.getStatus()).isEqualTo(401);
+        assertThat(mockResponse.getRedirectedUrl()).isEqualTo("/logoutPage");
         verify(mockSecurityInfoManager, never()).hasPrivilege(any(), any(), any(), any());
     }
 

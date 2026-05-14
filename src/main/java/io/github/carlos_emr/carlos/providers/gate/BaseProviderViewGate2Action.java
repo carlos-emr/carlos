@@ -16,6 +16,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
+import io.github.carlos_emr.carlos.sec.AuthenticationRejectionHandler;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -33,10 +34,10 @@ import org.apache.struts2.ServletActionContext;
  * Configure behavior via {@link #getSecurityObject()},
  * {@link #getAccessRight()}, and {@link #requirePost()}.
  *
- * <p>Unauthenticated requests are redirected before {@link LoggedInInfo} is loaded. Some Struts
- * provider actions can execute before the session filter has a chance to redirect, so the gate
- * must explicitly check for the session user. That keeps unauthenticated direct hits from
- * surfacing as server errors and preserves the normal logout/login recovery path.
+ * <p>Unauthenticated requests are rejected before {@link LoggedInInfo} is loaded. The servlet
+ * {@code LoginFilter} is the canonical gate, but this class keeps the same check as
+ * defence-in-depth so direct action invocation and future filter-order changes cannot surface as
+ * server errors or JSP execution.
  *
  * <p>Provider-module convention: {@code _appointment r} is the default
  * provider-area entry privilege and is used for most view gates regardless of
@@ -88,7 +89,7 @@ public abstract class BaseProviderViewGate2Action extends ActionSupport {
 
         HttpSession session = request.getSession(false);
         if (session == null || session.getAttribute("user") == null) {
-            response.sendRedirect(request.getContextPath() + "/logoutPage");
+            AuthenticationRejectionHandler.rejectUnauthenticatedRequest(request, response);
             return NONE;
         }
 

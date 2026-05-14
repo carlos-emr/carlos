@@ -27,6 +27,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnMriViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.sec.AuthenticationRejectionHandler;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.apache.struts2.ActionSupport;
@@ -65,7 +66,7 @@ public class ViewBillingOnMri2Action extends ActionSupport {
         // dereferences loggedInInfo and emits an internal ERROR log on null, which
         // pollutes the log signal for real privilege denials.
         if (loggedInInfo == null) {
-            response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+            AuthenticationRejectionHandler.rejectUnauthenticatedRequest(request, response);
             return NONE;
         }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {

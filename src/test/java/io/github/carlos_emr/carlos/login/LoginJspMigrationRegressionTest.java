@@ -129,6 +129,7 @@ class LoginJspMigrationRegressionTest {
         assertThat(loginFilterIndex).isGreaterThan(-1);
         assertThat(sectionRootCompatibilityIndex).isGreaterThan(loginFilterIndex);
         assertThat(prepareIndex).isGreaterThan(-1);
+        assertThat(prepareIndex).isGreaterThan(loginFilterIndex);
         assertThat(loggedInUserIndex).isGreaterThan(prepareIndex);
         assertThat(executeIndex).isGreaterThan(loggedInUserIndex);
         assertThat(strutsXml).contains("woff|woff2|ttf");

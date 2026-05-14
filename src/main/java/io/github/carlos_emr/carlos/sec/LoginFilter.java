@@ -151,8 +151,16 @@ public class LoginFilter implements Filter {
     private static final String[] EXEMPT_URLS = {
             "/images/Oscar.ico",
             "/images/Logo.png",
+            "/images/favicon.ico",
+            "/images/OSCAR-LOGO.gif",
             "/images/cloud-bg.svg",
+            "/library/bootstrap/5.3.8/css/bootstrap.min.css",
+            "/library/jquery/jquery-3.7.1.min.js",
+            "/library/jquery/jquery-compat.js",
+            "/library/jquery/jquery-ui-1.14.2.min.css",
             "/signature_pad/",
+            "/share/css/searchBox.css",
+            "/share/javascript/Oscar.js",
             "/lab/CMLlabUpload",
             "/lab/newLabUpload",
             "/login",
@@ -169,7 +177,9 @@ public class LoginFilter implements Filter {
             "/EFormSignatureViewForPdfGenerationServlet",
             "/EFormImageViewForPdfGenerationServlet",
             "/js/bootstrap",
+            "/js/global.js",
             "/css/bootstrap",
+            "/css/fontawesome-all.min.css",
             "/css/Roboto.css",
             "/loginResource",
             "/css/font/Roboto",
@@ -198,6 +208,14 @@ public class LoginFilter implements Filter {
     private static final String[] EXEMPT_URLS_FOR_REQUEST_TIMEOUT = {
             "/images/Oscar.ico",
             "/images/Logo.png",
+            "/images/favicon.ico",
+            "/images/OSCAR-LOGO.gif",
+            "/library/bootstrap/5.3.8/css/bootstrap.min.css",
+            "/library/jquery/jquery-3.7.1.min.js",
+            "/library/jquery/jquery-compat.js",
+            "/library/jquery/jquery-ui-1.14.2.min.css",
+            "/share/css/searchBox.css",
+            "/share/javascript/Oscar.js",
             "/login",
             "/logoutPage",
             "/index",
@@ -210,12 +228,13 @@ public class LoginFilter implements Filter {
             "/EFormSignatureViewForPdfGenerationServlet",
             "/EFormImageViewForPdfGenerationServlet",
             "/provider/providercontrol",
-            "/js",
             "/provider/ViewTabAlertsRefresh",
             "/SystemMessage",
             "/FacilityMessage",
             "/js/bootstrap",
+            "/js/global.js",
             "/css/bootstrap",
+            "/css/fontawesome-all.min.css",
             "/css/Roboto.css",
             "/loginResource",
             "/css/font/Roboto",
@@ -276,8 +295,8 @@ public class LoginFilter implements Filter {
      *
      * <p>Session validation:
      * <ul>
-     *   <li>If no session or no "user" attribute → redirect to {@code /logoutPage}
-     *       (unless URL is exempt)</li>
+     *   <li>If no session or no "user" attribute → reject through
+     *       {@link AuthenticationRejectionHandler} unless URL is exempt</li>
      *   <li>If session exists → check inactivity timeout</li>
      * </ul>
      *
@@ -335,7 +354,7 @@ public class LoginFilter implements Filter {
             // SECURITY: Root directory auto-exemption was removed to prevent
             // accidental exposure of resources. All exemptions must be explicit.
             if (!inListOfExemptions(requestURI, contextPath, EXEMPT_URLS)) {
-                httpResponse.sendRedirect(contextPath + "/logoutPage");
+                AuthenticationRejectionHandler.rejectUnauthenticatedRequest(httpRequest, httpResponse);
                 return;
             }
         }

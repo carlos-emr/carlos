@@ -220,13 +220,31 @@ async function expectSchedulePage(page, label) {
       await api.dispose();
     });
 
-    await record('unauthenticated provider schedule access redirects to login', async () => {
+    await record('unauthenticated protected browser pages redirect to login', async () => {
       const context = await newBrowserContext(browser);
       const page = await context.newPage();
       await page.goto(`${baseUrl}/provider/providercontrol`, { waitUntil: 'domcontentloaded' });
       await page.waitForURL(/login|logout|index/, { timeout: 15000 });
       await assertNotBlank(page, 'unauthenticated provider redirect');
+      await page.goto(`${baseUrl}/billing/CA/ON/ViewBillingONMRI`, { waitUntil: 'domcontentloaded' });
+      await page.waitForURL(/login|logout|index/, { timeout: 15000 });
+      await assertNotBlank(page, 'unauthenticated billing MRI redirect');
       await context.close();
+    });
+
+    await record('unauthenticated structured and download routes return 401', async () => {
+      const api = await request.newContext();
+      const ajax = await api.get(`${baseUrl}/billing/CA/ON/ViewSearchRefDocAjax`, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      });
+      assert(ajax.status() === 401, `AJAX unauth expected 401, got ${ajax.status()}`);
+      const json = await api.get(`${baseUrl}/admin/api/status`, {
+        headers: { Accept: 'application/json' },
+      });
+      assert(json.status() === 401, `JSON unauth expected 401, got ${json.status()}`);
+      const download = await api.get(`${baseUrl}/Download`);
+      assert(download.status() === 401, `download unauth expected 401, got ${download.status()}`);
+      await api.dispose();
     });
 
     await record('normal login reaches a nonblank authenticated schedule page', async () => {

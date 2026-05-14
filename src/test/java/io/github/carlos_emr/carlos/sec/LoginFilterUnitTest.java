@@ -21,11 +21,20 @@
  */
 package io.github.carlos_emr.carlos.sec;
 
+import java.io.IOException;
+
+import jakarta.servlet.ServletException;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.mock.web.MockFilterChain;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -48,6 +57,113 @@ class LoginFilterUnitTest {
     @BeforeEach
     void setUp() {
         filter = new LoginFilter();
+    }
+
+    @Nested
+    @DisplayName("Unauthenticated route handling")
+    class UnauthenticatedRouteHandling {
+
+        @Test
+        @DisplayName("should redirect protected browser route when unauthenticated")
+        void shouldRedirectProtectedBrowserRoute_whenUnauthenticated()
+                throws ServletException, IOException {
+            MockHttpServletRequest request = request("GET", CONTEXT_PATH + "/provider/ViewProviderControl");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            filter.doFilter(request, response, new MockFilterChain());
+
+            assertThat(response.getRedirectedUrl()).isEqualTo(CONTEXT_PATH + "/logoutPage");
+        }
+
+        @Test
+        @DisplayName("should return 401 for AJAX route when unauthenticated")
+        void shouldReturn401ForAjaxRoute_whenUnauthenticated()
+                throws ServletException, IOException {
+            MockHttpServletRequest request = request("GET", CONTEXT_PATH + "/billing/CA/ON/ViewSearchRefDocAjax");
+            request.addHeader("X-Requested-With", "XMLHttpRequest");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            filter.doFilter(request, response, new MockFilterChain());
+
+            assertThat(response.getStatus()).isEqualTo(401);
+            assertThat(response.getRedirectedUrl()).isNull();
+        }
+
+        @Test
+        @DisplayName("should return 401 for JSON route when unauthenticated")
+        void shouldReturn401ForJsonRoute_whenUnauthenticated()
+                throws ServletException, IOException {
+            MockHttpServletRequest request = request("GET", CONTEXT_PATH + "/admin/api/status");
+            request.addHeader("Accept", "application/json");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            filter.doFilter(request, response, new MockFilterChain());
+
+            assertThat(response.getStatus()).isEqualTo(401);
+            assertThat(response.getRedirectedUrl()).isNull();
+        }
+
+        @Test
+        @DisplayName("should return 401 for download route when unauthenticated")
+        void shouldReturn401ForDownloadRoute_whenUnauthenticated()
+                throws ServletException, IOException {
+            MockHttpServletRequest request = request("GET", CONTEXT_PATH + "/Download");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            filter.doFilter(request, response, new MockFilterChain());
+
+            assertThat(response.getStatus()).isEqualTo(401);
+            assertThat(response.getRedirectedUrl()).isNull();
+        }
+
+        @Test
+        @DisplayName("should pass exempt login route when unauthenticated")
+        void shouldPassExemptLoginRoute_whenUnauthenticated()
+                throws ServletException, IOException {
+            MockHttpServletRequest request = request("GET", CONTEXT_PATH + "/index");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            MockFilterChain chain = new MockFilterChain();
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(chain.getRequest()).isSameAs(request);
+            assertThat(response.getRedirectedUrl()).isNull();
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {
+                "/images/favicon.ico",
+                "/library/jquery/jquery-ui-1.14.2.min.css",
+                "/library/bootstrap/5.3.8/css/bootstrap.min.css",
+                "/share/css/searchBox.css",
+                "/share/javascript/Oscar.js",
+                "/js/global.js",
+                "/css/fontawesome-all.min.css"
+        })
+        @DisplayName("should pass exact public asset route when unauthenticated")
+        void shouldPassExactPublicAssetRoute_whenUnauthenticated(String assetPath)
+                throws ServletException, IOException {
+            MockHttpServletRequest request = request("GET", CONTEXT_PATH + assetPath);
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            MockFilterChain chain = new MockFilterChain();
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(chain.getRequest()).isSameAs(request);
+            assertThat(response.getRedirectedUrl()).isNull();
+        }
+
+        @Test
+        @DisplayName("should not pass dynamic JavaScript JSP when unauthenticated")
+        void shouldNotPassDynamicJavascriptJsp_whenUnauthenticated()
+                throws ServletException, IOException {
+            MockHttpServletRequest request = request("GET", CONTEXT_PATH + "/js/checkPassword.js.jsp");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            filter.doFilter(request, response, new MockFilterChain());
+
+            assertThat(response.getRedirectedUrl()).isEqualTo(CONTEXT_PATH + "/logoutPage");
+        }
     }
 
     @Nested
@@ -384,5 +500,12 @@ class LoginFilterUnitTest {
             assertThat(LoginFilter.normalizeUri("//carlos/./ws/../admin///secret;jsessionid=x"))
                     .isEqualTo("/carlos/admin/secret");
         }
+    }
+
+    private static MockHttpServletRequest request(String method, String uri) {
+        MockHttpServletRequest request = new MockHttpServletRequest(method, uri);
+        request.setContextPath(CONTEXT_PATH);
+        request.setRemoteAddr("203.0.113.10");
+        return request;
     }
 }
