@@ -48,13 +48,15 @@ public class BackupDownload extends GenericDownload {
     private static final String DEFAULT_BACKUP_DIRECTORY = "/home/mysql/";
 
     private static final Logger log = MiscUtils.getLogger();
+    private static final String INTERNAL_ERROR_MESSAGE =
+            "An internal error occurred. Please try again or contact your system administrator.";
 
     public void doGet(HttpServletRequest req, HttpServletResponse res) throws IOException {
         try {
             // check the rights - sanitize filename to prevent XSS and path traversal
             String rawFilename = req.getParameter("filename");
             if (rawFilename == null || rawFilename.isBlank()) {
-                res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing required filename parameter.");
+                sendErrorIfPossible(res, HttpServletResponse.SC_BAD_REQUEST, "Missing required filename parameter.");
                 return;
             }
 

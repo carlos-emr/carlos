@@ -36,6 +36,7 @@ import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.managers.DocumentManager;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import io.github.carlos_emr.carlos.webserv.rest.conversion.DocumentConverter;
@@ -62,6 +63,7 @@ import java.util.Map;
 @Consumes(MediaType.APPLICATION_JSON)
 public class DocumentService extends AbstractServiceImpl {
     private static Logger logger = MiscUtils.getLogger();
+    private static final String FAILED_STATUS = "Failed";
 
     @Autowired
     private DocumentManager documentManager;
@@ -77,7 +79,7 @@ public class DocumentService extends AbstractServiceImpl {
     public Response saveDocumentToDemographic(DocumentTo1 documentT) {
         Response response;
 
-        if (StringUtils.isNotEmpty(documentT.getFileName()) && documentT.getFileContents().length > 0 && documentT.getDemographicNo() != null) {
+        if (hasRequiredDocumentPayload(documentT)) {
             try {
                 DocumentConverter documentConverter = new DocumentConverter();
                 LoggedInInfo loggedInInfo = getLoggedInInfo();
@@ -87,6 +89,8 @@ public class DocumentService extends AbstractServiceImpl {
                 Document document = documentConverter.getAsDomainObject(loggedInInfo, documentT);
                 document = documentManager.createDocument(loggedInInfo, document, documentT.getDemographicNo(), documentT.getProviderNo(), documentT.getFileContents());
                 response = Response.ok(documentConverter.getAsTransferObject(loggedInInfo, document)).build();
+            } catch (FileValidationException e) {
+                response = Response.status(Response.Status.BAD_REQUEST).entity(e.getMessage()).build();
             } catch (IOException e) {
                 response = Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("The document could not be saved.").build();
             }
@@ -113,12 +117,12 @@ public class DocumentService extends AbstractServiceImpl {
         // Validate access
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.WRITE, "")) {
             logger.error("Write Access Denied _edoc for provider {}", loggedInInfo.getLoggedInProviderNo());
-            return Response.status(Response.Status.FORBIDDEN).entity(createResponseMap(documentTo1.getFileName(), "Failed", "Access Denied")).build();
+            return Response.status(Response.Status.FORBIDDEN).entity(createResponseMap(getFileName(documentTo1), FAILED_STATUS, "Access Denied")).build();
         }
 
         // Validate input
-        if (isInvalidDocument(documentTo1)) { return Response.status(Response.Status.BAD_REQUEST).entity(createResponseMap(documentTo1.getFileName(), "Failed", "Missing required fields: fileName, fileContent, contentType, or queue")).build(); }
-        if (documentTo1.getQueue() < 1) { return Response.status(Response.Status.BAD_REQUEST).entity(createResponseMap(documentTo1.getFileName(), "Failed", "Invalid queue: must be 1 or greater")).build(); }
+        if (isInvalidDocument(documentTo1)) { return Response.status(Response.Status.BAD_REQUEST).entity(createResponseMap(getFileName(documentTo1), FAILED_STATUS, "Missing required fields: fileName, fileContent, contentType, or queue")).build(); }
+        if (documentTo1.getQueue() < 1) { return Response.status(Response.Status.BAD_REQUEST).entity(createResponseMap(getFileName(documentTo1), FAILED_STATUS, "Invalid queue: must be 1 or greater")).build(); }
 
         if (StringUtils.isEmpty(documentTo1.getSource())) { documentTo1.setSource("REST API"); }
 
@@ -131,9 +135,12 @@ public class DocumentService extends AbstractServiceImpl {
 
         try {
             document = documentManager.createDocument(loggedInInfo, document, documentTo1.getDemographicNo(), documentTo1.getProviderNo(), documentTo1.getFileContents());
+        } catch (FileValidationException e) {
+            logger.warn("Document rejected due to invalid filename");
+            return Response.status(Response.Status.BAD_REQUEST).entity(createResponseMap(getFileName(documentTo1), FAILED_STATUS, e.getMessage())).build();
         } catch (IOException e) {
-            logger.error("Document could not be saved: {}", documentTo1.getFileName(), e);
-            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createResponseMap(documentTo1.getFileName(), "Failed", "Internal error: " + e.getMessage())).build();
+            logger.error("Document could not be saved: {}", getFileName(documentTo1), e);
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createResponseMap(getFileName(documentTo1), FAILED_STATUS, "Internal error: " + e.getMessage())).build();
         }
 
         Integer queueId = documentManager.addDocumentToQueue(loggedInInfo, document.getDocumentNo(), documentTo1.getQueue());
@@ -163,6 +170,18 @@ public class DocumentService extends AbstractServiceImpl {
         }
 
         return false;
+    }
+
+    private boolean hasRequiredDocumentPayload(DocumentTo1 doc) {
+        return doc != null
+                && StringUtils.isNotEmpty(doc.getFileName())
+                && doc.getFileContents() != null
+                && doc.getFileContents().length > 0
+                && doc.getDemographicNo() != null;
+    }
+
+    private String getFileName(DocumentTo1 doc) {
+        return doc == null ? null : doc.getFileName();
     }
 
     private Map<String, String> createResponseMap(String fileName, String status, String message) {

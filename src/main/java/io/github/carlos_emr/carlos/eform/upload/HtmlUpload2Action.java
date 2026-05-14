@@ -36,6 +36,7 @@ import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -55,6 +56,8 @@ import java.util.List;
  * {@code ActionFileUploadInterceptor}.</p>
  */
 public class HtmlUpload2Action extends ActionSupport implements UploadedFilesAware {
+    private static final String ERROR_MESSAGE_ATTRIBUTE = "errorMessage";
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -65,14 +68,25 @@ public class HtmlUpload2Action extends ActionSupport implements UploadedFilesAwa
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_eform", "w", null)) {
             throw new SecurityException("missing required sec object (_eform)");
         }
+        if (uploadValidationError != null) {
+            request.setAttribute(ERROR_MESSAGE_ATTRIBUTE, uploadValidationError);
+            return "fail";
+        }
+        if (formHtml == null || formHtmlFileName == null || formHtmlFileName.trim().isEmpty()) {
+            request.setAttribute(ERROR_MESSAGE_ATTRIBUTE, PathValidationUtils.INVALID_FILENAME_MESSAGE);
+            return "fail";
+        }
         try {
             File validatedFormHtml = PathValidationUtils.validateUpload(formHtml);
             String formHtmlStr = new String(Files.readAllBytes(validatedFormHtml.toPath()));
             formHtmlStr = formHtmlStr.replaceAll("\\\\n", "\\\\\\\\n");
-            String fileName = formHtmlFileName != null ? formHtmlFileName : formHtml.getName();
-            EFormUtil.saveEForm(formName, subject, fileName, formHtmlStr, showLatestFormOnly, patientIndependent, roleType);
+            EFormUtil.saveEForm(formName, subject, formHtmlFileName, formHtmlStr, showLatestFormOnly, patientIndependent, roleType);
             request.setAttribute("status", "success");
             return SUCCESS;
+        } catch (FileValidationException e) {
+            request.setAttribute(ERROR_MESSAGE_ATTRIBUTE, e.getMessage());
+            MiscUtils.getLogger().warn("Rejected invalid eForm HTML upload");
+            return "fail";
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
             return "fail";
@@ -83,6 +97,7 @@ public class HtmlUpload2Action extends ActionSupport implements UploadedFilesAwa
     private File formHtml;
     private String formHtmlContentType;
     private String formHtmlFileName;
+    private String uploadValidationError;
     private String formName;
     private String subject;
     private boolean showLatestFormOnly;
@@ -96,13 +111,15 @@ public class HtmlUpload2Action extends ActionSupport implements UploadedFilesAwa
     @Override
     public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
         if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
-            UploadedFile uploaded = uploadedFiles.get(0);
-            this.formHtml = PathValidationUtils.validateUpload(new File(uploaded.getAbsolutePath()));
-            this.formHtmlContentType = uploaded.getContentType();
-            String rawName = uploaded.getOriginalName();
-            if (rawName != null && !rawName.trim().isEmpty()) {
+            try {
+                UploadedFile uploaded = uploadedFiles.get(0);
+                this.formHtml = PathValidationUtils.validateUpload(new File(uploaded.getAbsolutePath()));
+                this.formHtmlContentType = uploaded.getContentType();
+                String rawName = uploaded.getOriginalName();
                 this.formHtmlFileName = PathValidationUtils.validateFileName(rawName);
-            } else {
+            } catch (FileValidationException e) {
+                this.uploadValidationError = e.getMessage();
+                this.formHtml = null;
                 this.formHtmlFileName = null;
             }
         }

@@ -41,6 +41,7 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
@@ -66,6 +67,7 @@ import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ImagePDFCreator;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 
 /**
  * Spring-managed implementation of the {@link DocumentManager} interface for managing
@@ -171,9 +173,11 @@ public class DocumentManagerImpl implements DocumentManager {
      * @param providerNo    The optional provider number to route the document to
      * @param documentData  The document byte data
      * @return Document record from the database once it has been created
+     * @throws FileValidationException If the provided document filename is invalid
      * @throws IOException If actions related to getting document data fail
      */
-    public Document createDocument(LoggedInInfo loggedInInfo, Document document, Integer demographicNo, String providerNo, byte[] documentData) throws IOException {
+    @Override
+    public Document createDocument(LoggedInInfo loggedInInfo, Document document, Integer demographicNo, String providerNo, byte[] documentData) throws IOException, FileValidationException {
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "w", "")) {
             throw new RuntimeException("Write Access Denied _edoc for provider " + loggedInInfo.getLoggedInProviderNo());
@@ -191,8 +195,11 @@ public class DocumentManagerImpl implements DocumentManager {
             // Normalize the original filename, then validate the final timestamped storage path.
             String normalizedFileName = PathValidationUtils.validateFileName(originalFileName);
             String storageFileName = dateTimeFormat.format(today) + "_" + normalizedFileName;
-            file = PathValidationUtils.validatePath(storageFileName, new File(documentPath));
+            file = PathValidationUtils.validateExistingPath(new File(documentPath, storageFileName), new File(documentPath));
             fileName = file.getName();
+        } catch (FileValidationException e) {
+            logger.warn("Document filename failed validation");
+            throw e;
         } catch (SecurityException e) {
             logger.error("Document filename failed path validation");
             throw new IOException("Document filename failed path validation", e);
@@ -201,13 +208,14 @@ public class DocumentManagerImpl implements DocumentManager {
 
         // Gets the number of pages for the document
         int numberOfPages = 1;
-        if (fileName.toLowerCase().endsWith("pdf")) {
+        String lowerFileName = fileName.toLowerCase(Locale.ROOT);
+        if (lowerFileName.endsWith(".pdf")) {
 			try (PDDocument pdDocument = Loader.loadPDF(file)) {
             numberOfPages = pdDocument.getNumberOfPages();
 			} catch (IOException e) {
 				numberOfPages = 0;
 			}
-        } else if (fileName.toLowerCase().endsWith("html")) {
+        } else if (lowerFileName.endsWith(".html")) {
             numberOfPages = 0;
         }
         document.setNumberofpages(numberOfPages);
