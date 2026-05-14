@@ -38,6 +38,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
@@ -85,22 +86,12 @@ public class OscarDownload extends GenericDownload {
             }
         } catch (IOException e) {
             throw e;
-        } catch (SecurityException e) {
+        } catch (FileValidationException e) {
             log.warn("OscarDownload rejected invalid filename from {}", req.getRemoteAddr());
             sendErrorIfPossible(res, HttpServletResponse.SC_BAD_REQUEST, "Invalid filename parameter.");
         } catch (Exception e) {
             log.error("Unexpected error in OscarDownload", e);
             sendErrorIfPossible(res, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, INTERNAL_ERROR_MESSAGE);
-        }
-    }
-
-    private static void sendErrorIfPossible(HttpServletResponse res, int status, String message) {
-        try {
-            if (!res.isCommitted()) {
-                res.sendError(status, message);
-            }
-        } catch (IOException e) {
-            log.error("Could not send error response", e);
         }
     }
 }

@@ -42,6 +42,7 @@ import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.carlos.commn.dao.SecObjPrivilegeDao;
 import io.github.carlos_emr.carlos.commn.model.SecObjPrivilege;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -81,22 +82,12 @@ public class BackupDownload extends GenericDownload {
             download(bDownload, res, dir, filename, null);
         } catch (IOException e) {
             throw e;
-        } catch (SecurityException e) {
+        } catch (FileValidationException e) {
             log.warn("BackupDownload rejected invalid filename from {}", req.getRemoteAddr());
             sendErrorIfPossible(res, HttpServletResponse.SC_BAD_REQUEST, "Invalid filename parameter.");
         } catch (Exception e) {
             log.error("Unexpected error in BackupDownload", e);
             sendErrorIfPossible(res, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, INTERNAL_ERROR_MESSAGE);
-        }
-    }
-
-    private static void sendErrorIfPossible(HttpServletResponse res, int status, String message) {
-        try {
-            if (!res.isCommitted()) {
-                res.sendError(status, message);
-            }
-        } catch (IOException e) {
-            log.error("Could not send error response", e);
         }
     }
 

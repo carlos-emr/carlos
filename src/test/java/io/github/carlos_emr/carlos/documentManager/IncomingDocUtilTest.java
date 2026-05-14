@@ -20,13 +20,13 @@ class IncomingDocUtilTest {
 
     @Test
     @DisplayName("should allow repeated dots inside filename component")
-    void shouldAllowRepeatedDotsInsideFilenameComponent() throws Exception {
+    void shouldAllowRepeatedDots_insideFilenameComponent() throws Exception {
         assertThat(isValidPathComponent("my..file.pdf")).isTrue();
     }
 
     @Test
     @DisplayName("should reject traversal and hidden path components")
-    void shouldRejectTraversalAndHiddenPathComponents() throws Exception {
+    void shouldRejectTraversalAndHidden_pathComponents() throws Exception {
         assertThat(isValidPathComponent("/..")).isFalse();
         assertThat(isValidPathComponent("..")).isFalse();
         assertThat(isValidPathComponent(".env")).isFalse();

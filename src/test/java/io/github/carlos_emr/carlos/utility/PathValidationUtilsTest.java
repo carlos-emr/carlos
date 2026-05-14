@@ -171,7 +171,7 @@ public class PathValidationUtilsTest {
 
         @Test
         @DisplayName("should reject null filename")
-        void shouldRejectNullFilename() {
+        void shouldRejectNullFilename_withNullInput() {
             assertThatThrownBy(() -> PathValidationUtils.validateFileName(null))
                 .isInstanceOf(FileValidationException.class)
                 .hasMessageContaining(PathValidationUtils.INVALID_FILENAME_MESSAGE);
@@ -179,7 +179,7 @@ public class PathValidationUtilsTest {
 
         @Test
         @DisplayName("should reject empty filename")
-        void shouldRejectEmptyFilename() {
+        void shouldRejectEmptyFilename_withEmptyString() {
             assertThatThrownBy(() -> PathValidationUtils.validateFileName(""))
                 .isInstanceOf(FileValidationException.class)
                 .hasMessageContaining(PathValidationUtils.INVALID_FILENAME_MESSAGE);
@@ -213,7 +213,7 @@ public class PathValidationUtilsTest {
 
         @Test
         @DisplayName("should reject hidden filename")
-        void shouldRejectHiddenFilename() {
+        void shouldRejectHiddenFilename_whenNameStartsWithDot() {
             assertThatThrownBy(() -> PathValidationUtils.validateUserFilePath(".env", allowedDir))
                 .isInstanceOf(FileValidationException.class)
                 .hasMessageContaining("hidden files not allowed");
@@ -489,7 +489,7 @@ public class PathValidationUtilsTest {
 
         @Test
         @DisplayName("should normalize upload destination filename")
-        void shouldNormalizeUploadDestinationFilename() throws IOException {
+        void shouldNormalizeUploadDestinationFilename_whenNameHasSpecialChars() throws IOException {
             String systemTempDir = System.getProperty("java.io.tmpdir");
             File sourceFile = new File(systemTempDir, "upload_b1b2c3d4_5678_90ab_cdef_123456789abc_00000000.tmp");
             assertThat(sourceFile.createNewFile()).isTrue();

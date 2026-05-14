@@ -101,6 +101,16 @@ public class GenericDownload extends HttpServlet {
         }
     }
 
+    protected static void sendErrorIfPossible(HttpServletResponse res, int status, String message) {
+        try {
+            if (!res.isCommitted()) {
+                res.sendError(status, message);
+            }
+        } catch (IOException e) {
+            log.error("Could not send error response", e);
+        }
+    }
+
     protected void transferFile(HttpServletResponse res, ServletOutputStream stream, String dir, String filename) throws IOException {
         transferFile(res, stream, dir, filename, null);
     }
