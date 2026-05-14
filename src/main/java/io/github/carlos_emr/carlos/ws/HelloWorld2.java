@@ -5,6 +5,9 @@ import jakarta.xml.bind.annotation.XmlAccessType;
 import jakarta.xml.bind.annotation.XmlAccessorType;
 import java.io.Serializable;
 
+/**
+ * Secondary HelloWorld web service endpoint for integration testing.
+ */
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "helloWorld2", propOrder = { "arg0" })
 public class HelloWorld2 implements Serializable

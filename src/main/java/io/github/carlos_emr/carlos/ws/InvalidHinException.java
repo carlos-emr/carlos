@@ -5,6 +5,9 @@ import jakarta.xml.bind.annotation.XmlAccessType;
 import jakarta.xml.bind.annotation.XmlAccessorType;
 import java.io.Serializable;
 
+/**
+ * Exception thrown when an invalid Health Insurance Number (HIN) is provided.
+ */
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "InvalidHinException")
 public class InvalidHinException implements Serializable

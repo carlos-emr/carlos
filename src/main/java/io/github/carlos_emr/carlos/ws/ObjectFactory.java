@@ -5,6 +5,9 @@ import jakarta.xml.bind.JAXBElement;
 import javax.xml.namespace.QName;
 import jakarta.xml.bind.annotation.XmlRegistry;
 
+/**
+ * Factory class to create instances of XML or web service objects.
+ */
 @XmlRegistry
 public class ObjectFactory
 {

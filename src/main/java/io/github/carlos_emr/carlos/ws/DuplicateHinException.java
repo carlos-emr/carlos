@@ -5,6 +5,9 @@ import jakarta.xml.bind.annotation.XmlAccessType;
 import jakarta.xml.bind.annotation.XmlAccessorType;
 import java.io.Serializable;
 
+/**
+ * Exception thrown when a duplicate Health Insurance Number (HIN) is detected.
+ */
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "DuplicateHinException")
 public class DuplicateHinException implements Serializable

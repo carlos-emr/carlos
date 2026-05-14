@@ -6,6 +6,9 @@ import com.fasterxml.jackson.databind.SerializerProvider;
 import java.io.IOException;
 import java.util.Calendar;
 
+/**
+ * Custom JSON serializer for formatting dates into a JavaScript-compatible format.
+ */
 public class JsDateSerializer extends JsonSerializer<java.sql.Date> {
     @Override
     public void serialize(java.sql.Date value, JsonGenerator gen, SerializerProvider serializers) 
