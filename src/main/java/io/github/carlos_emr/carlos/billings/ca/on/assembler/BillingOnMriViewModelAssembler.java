@@ -57,6 +57,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewLoader;
+import org.apache.logging.log4j.Logger;
 
 /**
  * Assembles {@link BillingOnMriViewModel} for {@code billingONMRI.jsp}, the
@@ -77,6 +78,8 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewLoader;
  */
 @org.springframework.stereotype.Service
 public class BillingOnMriViewModelAssembler {
+
+    private static final Logger LOGGER = MiscUtils.getLogger();
 
     /** Color cycle the legacy JSP used to highlight the selected year row. */
     private static final String[] YEAR_COLORS = {"#CCFFCC", "#BBBBBB", "#CCCCCC", "#DDDDDD", "#EEEEEE"};
@@ -244,7 +247,13 @@ public class BillingOnMriViewModelAssembler {
                 // Map.copyOf() in BillingOnMriViewModel.Builder rejects null values —
                 // coerce to empty string so a provider with an unset bill-center code
                 // does not cause a NullPointerException when the view model is built.
-                map.put(providerNo, pbc.getBillCenterCode() == null ? "" : pbc.getBillCenterCode());
+                String billCenterCode = pbc.getBillCenterCode();
+                if (billCenterCode == null) {
+                    LOGGER.warn("Billable provider has no bill-center code; using empty bill center for providerNo={}",
+                            LogSanitizer.sanitize(providerNo));
+                    billCenterCode = "";
+                }
+                map.put(providerNo, billCenterCode);
             }
         }
         return map;
@@ -333,6 +342,7 @@ public class BillingOnMriViewModelAssembler {
         if (bas == null) {
             return Collections.emptyList();
         }
+        bas = new ArrayList<>(bas);
         // Use a null-safe comparator — updateDateTime can be null for in-progress claims.
         bas.sort(Comparator.comparing(BillActivity::getUpdateDateTime, Comparator.nullsLast(Comparator.reverseOrder())));
 
@@ -379,7 +389,7 @@ public class BillingOnMriViewModelAssembler {
         try {
             return Integer.parseInt(s);
         } catch (NumberFormatException e) {
-            MiscUtils.getLogger().warn("BillingOnMri: invalid integer [{}]; using 0",
+            LOGGER.warn("BillingOnMri: invalid integer [{}]; using 0",
                     LogSanitizer.sanitize(s), e);
             return 0;
         }

@@ -194,10 +194,10 @@ public class LogoutBroadcastFilter implements Filter {
         try {
             appendScript(delegatingResponse, httpRequest.getContextPath(), httpRequest.getLocale());
         } catch (IOException e) {
-            logger.debug("Skipping logout broadcast script injection because the script could not be written.", e);
+            logger.warn("Skipping logout broadcast script injection because the script could not be written.", e);
             return;
         } catch (IllegalStateException e) {
-            logger.debug("Skipping logout broadcast script injection because the response writer was unavailable and the output stream write failed.", e);
+            logger.warn("Skipping logout broadcast script injection because the response writer was unavailable and the output stream write failed.", e);
             return;
         }
     }

@@ -211,6 +211,9 @@ async function expectSchedulePage(page, label) {
       const post = await api.post(`${baseUrl}/index`, { form: { anything: 'x' } });
       assert(post.status() === 405, `POST /index expected 405, got ${post.status()}`);
       assert((post.headers().allow || '').includes('GET'), `POST /index missing Allow GET header`);
+      const resetPost = await api.post(`${baseUrl}/forcepasswordreset`, { form: { anything: 'x' } });
+      assert(resetPost.status() === 405, `POST /forcepasswordreset expected 405, got ${resetPost.status()}`);
+      assert((resetPost.headers().allow || '').includes('GET'), 'POST /forcepasswordreset missing Allow GET header');
       const get = await api.get(`${baseUrl}/index`);
       assert(get.status() === 200, `GET /index expected 200, got ${get.status()}`);
       await assertResponseNotBlank(get, 'GET /index');

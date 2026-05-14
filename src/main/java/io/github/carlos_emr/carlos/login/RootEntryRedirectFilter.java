@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.login;
 
 import java.io.IOException;
 
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -63,6 +64,10 @@ public class RootEntryRedirectFilter extends HttpFilter {
 
         if (isLoginEntryRequest(requestUri, contextPath)) {
             if (!isViewMethod(request.getMethod())) {
+                LOGGER.info("Rejected login entry view: unsupported method={}, uri={}, remote={}",
+                        LogSanitizer.sanitize(request.getMethod()),
+                        LogSanitizer.sanitize(requestUri),
+                        request.getRemoteAddr());
                 response.setHeader("Allow", "GET, HEAD");
                 response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
                 return;
@@ -73,6 +78,10 @@ public class RootEntryRedirectFilter extends HttpFilter {
 
         if (isForcePasswordResetRequest(requestUri, contextPath)) {
             if (!isViewMethod(request.getMethod())) {
+                LOGGER.info("Rejected /forcepasswordreset: unsupported method={}, uri={}, remote={}",
+                        LogSanitizer.sanitize(request.getMethod()),
+                        LogSanitizer.sanitize(requestUri),
+                        request.getRemoteAddr());
                 response.setHeader("Allow", "GET, HEAD");
                 response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
                 return;

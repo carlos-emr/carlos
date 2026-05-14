@@ -74,7 +74,7 @@ public class PrintHRMReport2Action extends ActionSupport {
         HRMDocumentToDemographicDao hrmDocumentToDemographicDao = SpringUtils.getBean(HRMDocumentToDemographicDao.class);
 
         List<Object> pdfDocs = new ArrayList<Object>();
-        List<File> tempFiles = new ArrayList<>();
+        List<TempPdfFile> tempFiles = new ArrayList<>();
         String[] hrmReportIds = request.getParameterValues("hrmReportId");
         List<Integer> hrmIds = new ArrayList<>();
 
@@ -114,7 +114,7 @@ public class PrintHRMReport2Action extends ActionSupport {
                 File docDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
                 File validatedTemp = PathValidationUtils.validatePath(tempFileName, docDir);
                 pdfDocs.add(validatedTemp.getPath());
-                tempFiles.add(validatedTemp);
+                tempFiles.add(new TempPdfFile(validatedTemp, hrmId));
 
                 try (FileOutputStream osTemp = new FileOutputStream(validatedTemp)) {
                     HRMPDFCreator hrmpdfCreator = new HRMPDFCreator(osTemp, hrmId, loggedInInfo);
@@ -136,9 +136,11 @@ public class PrintHRMReport2Action extends ActionSupport {
             }
             return NONE;
         } finally {
-            for (File tempFile : tempFiles) {
+            for (TempPdfFile tempPdfFile : tempFiles) {
+                File tempFile = tempPdfFile.file();
                 if (tempFile != null && tempFile.exists() && !tempFile.delete()) {
-                    logger.warn("Could not delete temporary HRM PDF file {}", tempFile.getAbsolutePath());
+                    logger.warn("Could not delete temporary HRM PDF file for hrmId={}",
+                            tempPdfFile.hrmId());
                 }
             }
         }
@@ -147,5 +149,8 @@ public class PrintHRMReport2Action extends ActionSupport {
         // The success path streams the PDF directly; there is no success result mapping.
         // Returning SUCCESS makes Struts render the global error page over the PDF as "0".
         return NONE;
+    }
+
+    private record TempPdfFile(File file, Integer hrmId) {
     }
 }

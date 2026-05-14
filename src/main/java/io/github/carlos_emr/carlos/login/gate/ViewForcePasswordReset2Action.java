@@ -15,6 +15,7 @@ package io.github.carlos_emr.carlos.login.gate;
 import java.io.IOException;
 
 import io.github.carlos_emr.carlos.login.Login2Action;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -46,6 +47,10 @@ public final class ViewForcePasswordReset2Action extends BaseLoginPageView2Actio
 
         String method = request.getMethod();
         if (!"GET".equalsIgnoreCase(method) && !"HEAD".equalsIgnoreCase(method)) {
+            LOGGER.info("Rejected /forcepasswordreset: unsupported method={}, uri={}, remote={}",
+                    LogSanitizer.sanitize(method),
+                    LogSanitizer.sanitize(request.getRequestURI()),
+                    request.getRemoteAddr());
             response.setHeader("Allow", "GET, HEAD");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;

@@ -46,6 +46,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedConstruction;
 import org.mockito.Mock;
@@ -75,6 +76,7 @@ import static org.mockito.Mockito.when;
 @Tag("unit")
 @Tag("security")
 @DisplayName("Login2Action forced password reset")
+@Isolated
 class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
 
     private static final String USERNAME = "carlosdoc";

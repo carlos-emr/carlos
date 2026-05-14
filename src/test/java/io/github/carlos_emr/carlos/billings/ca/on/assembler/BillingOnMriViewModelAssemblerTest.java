@@ -7,13 +7,34 @@ package io.github.carlos_emr.carlos.billings.ca.on.assembler;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billing.CA.dao.BillActivityDao;
+import io.github.carlos_emr.carlos.billing.CA.model.BillActivity;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingDiskNameDto;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.DiskFilenameRow;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.ProviderDropdownEntry;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingDataLoadException;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnLookupService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewLoader;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnMriViewModel;
 import io.github.carlos_emr.carlos.commn.dao.ProviderBillCenterDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderDataDao;
+import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.commn.model.ProviderBillCenter;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Date;
+import java.util.List;
+import java.util.Properties;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.LogEvent;
+import org.apache.logging.log4j.core.LoggerContext;
+import org.apache.logging.log4j.core.appender.AbstractAppender;
+import org.apache.logging.log4j.core.config.Configuration;
+import org.apache.logging.log4j.core.config.LoggerConfig;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -23,7 +44,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -39,24 +60,149 @@ import static org.mockito.Mockito.when;
 @DisplayName("BillingOnMriViewModelAssembler")
 class BillingOnMriViewModelAssemblerTest {
 
+    private ProviderDao providerDao;
+    private BillActivityDao billActivityDao;
+    private ProviderDataDao providerDataDao;
+    private ProviderBillCenterDao providerBillCenterDao;
+    private SecurityInfoManager securityInfoManager;
+    private BillingReviewLoader reviewLoader;
+    private BillingOnLookupService lookupService;
+    private LoggedInInfo loggedInInfo;
+    private CapturingAppender appender;
+    private LoggerConfig addedLoggerConfig;
+    private boolean createdLogger;
+    private String addedLoggerName;
+
+    @BeforeEach
+    void setUp() {
+        providerDao = mock(ProviderDao.class);
+        billActivityDao = mock(BillActivityDao.class);
+        providerDataDao = mock(ProviderDataDao.class);
+        providerBillCenterDao = mock(ProviderBillCenterDao.class);
+        securityInfoManager = mock(SecurityInfoManager.class);
+        reviewLoader = mock(BillingReviewLoader.class);
+        lookupService = mock(BillingOnLookupService.class);
+        loggedInInfo = mock(LoggedInInfo.class);
+
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+        when(reviewLoader.getProviderBillingStr()).thenReturn(List.of());
+        when(reviewLoader.getMRIList(anyString(), anyString(), eq("U"))).thenReturn(List.of());
+        when(lookupService.getPropProviderName()).thenReturn(new Properties());
+        when(providerDao.getBillableProviders()).thenReturn(List.of());
+        when(providerDao.getActiveProviders()).thenReturn(List.of());
+        when(billActivityDao.findCurrentByDateRange(any(), any())).thenReturn(List.of());
+
+        attachCapturingAppender();
+    }
+
+    @AfterEach
+    void tearDown() {
+        LoggerContext ctx = (LoggerContext) LogManager.getContext(false);
+        if (addedLoggerConfig != null) {
+            addedLoggerConfig.removeAppender(appender.getName());
+        }
+        if (createdLogger && addedLoggerName != null) {
+            ctx.getConfiguration().removeLogger(addedLoggerName);
+        }
+        if (appender != null) {
+            appender.stop();
+        }
+        ctx.updateLoggers();
+    }
+
     @Test
     @DisplayName("should reject malformed year before billing queries")
     void shouldRejectMalformedYear_beforeBillingQueries() {
-        ProviderDao providerDao = mock(ProviderDao.class);
-        BillActivityDao billActivityDao = mock(BillActivityDao.class);
-        ProviderDataDao providerDataDao = mock(ProviderDataDao.class);
-        ProviderBillCenterDao providerBillCenterDao = mock(ProviderBillCenterDao.class);
-        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
-        BillingReviewLoader reviewLoader = mock(BillingReviewLoader.class);
-        BillingOnLookupService lookupService = mock(BillingOnLookupService.class);
-        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.addParameter("year", "20xx");
 
-        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
-        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), anyString(), anyString(), isNull()))
-                .thenReturn(false);
-        BillingOnMriViewModelAssembler assembler = new BillingOnMriViewModelAssembler(
+        assertThatThrownBy(() -> assembler().assemble(request, loggedInInfo))
+                .isInstanceOfSatisfying(BillingDataLoadException.class, exception -> {
+                    assertThat(exception.phase()).isEqualTo(BillingDataLoadException.Phase.DATE_PARSE);
+                    assertThat(exception.context()).containsEntry("year", "20xx");
+                });
+        verifyNoInteractions(providerDao, billActivityDao, providerDataDao, providerBillCenterDao,
+                reviewLoader, lookupService);
+    }
+
+    @Test
+    @DisplayName("should assemble model when inputs are valid")
+    void shouldAssembleModel_whenInputsAreValid() {
+        Provider provider = provider("100", "Alpha", "Anne", "OHIP100");
+        ProviderBillCenter billCenter = billCenter("100", "BC1");
+        BillingDiskNameDto disk = disk("7", "2026-02-03 04:05:06", "2026-02-03 01:02:03",
+                new DiskFilenameRow("11", "claim.html", "OHIP100", "100", "5", "U", "123.45"));
+        BillActivity activity = billActivity("OHIP100", new Date(1_779_999_999_000L), "9",
+                "123.456", "old.ohip", "old.html");
+        Properties providerNames = new Properties();
+        providerNames.setProperty("100", "Alpha, Anne");
+
+        when(reviewLoader.getProviderBillingStr()).thenReturn(List.of(
+                new ProviderDropdownEntry("100", "Alpha", "Anne", "OHIP100", "GRP", "SPEC")));
+        when(providerDao.getBillableProviders()).thenReturn(List.of(provider));
+        when(providerBillCenterDao.find("100")).thenReturn(billCenter);
+        when(reviewLoader.getMRIList("2026-01-01 00:00:01", "2026-12-31 23:59:59", "U"))
+                .thenReturn(List.of(disk));
+        when(lookupService.getPropProviderName()).thenReturn(providerNames);
+        when(providerDao.getActiveProviders()).thenReturn(List.of(provider));
+        when(billActivityDao.findCurrentByDateRange(any(), any())).thenReturn(List.of(activity));
+
+        BillingOnMriViewModel model = assembler().assemble(requestForYear("2026"), loggedInInfo);
+
+        assertThat(model.getSelectedYear()).isEqualTo("2026");
+        assertThat(model.getProviderOptions())
+                .extracting(BillingOnMriViewModel.ProviderEntry::providerNo)
+                .containsExactly("100");
+        assertThat(model.getProviderBillCenterMap()).containsEntry("100", "BC1");
+        assertThat(model.getMriRows()).singleElement().satisfies(row -> {
+            assertThat(row.diskId()).isEqualTo(7);
+            assertThat(row.providerName()).isEqualTo("Alpha, Anne");
+            assertThat(row.updateDate()).isEqualTo("2026-02-03 04:05");
+            assertThat(row.rowBgColor()).isEqualTo("silver");
+        });
+        assertThat(model.getBillActivityRows()).singleElement().satisfies(row -> {
+            assertThat(row.providerName()).isEqualTo("Alpha, Anne");
+            assertThat(row.claimRecord()).isEqualTo("9");
+            assertThat(row.formattedTotal()).isEqualTo("123.45");
+        });
+    }
+
+    @Test
+    @DisplayName("should warn and coerce bill center when code is null")
+    void shouldWarnAndCoerceBillCenter_whenCodeIsNull() {
+        Provider provider = provider("777", "Missing", "Center", "OHIP777");
+        when(providerDao.getBillableProviders()).thenReturn(List.of(provider));
+        when(providerBillCenterDao.find("777")).thenReturn(billCenter("777", null));
+
+        BillingOnMriViewModel model = assembler().assemble(requestForYear("2026"), loggedInInfo);
+
+        assertThat(model.getProviderBillCenterMap()).containsEntry("777", "");
+        assertThat(appender.messages()).anySatisfy(message -> {
+            assertThat(message).contains("no bill-center code");
+            assertThat(message).contains("777");
+        });
+    }
+
+    @Test
+    @DisplayName("should sort bill activities when update date is null")
+    void shouldSortBillActivities_whenUpdateDateIsNull() {
+        Provider provider = provider("100", "Alpha", "Anne", "OHIP100");
+        BillActivity nullDate = billActivity("OHIP100", null, "null-date", "1.00", "null.ohip", "null.html");
+        BillActivity dated = billActivity("OHIP100", new Date(1_779_999_999_000L), "dated", "2.00",
+                "dated.ohip", "dated.html");
+        when(providerDao.getActiveProviders()).thenReturn(List.of(provider));
+        when(billActivityDao.findCurrentByDateRange(any(), any()))
+                .thenReturn(new ArrayList<>(List.of(nullDate, dated)));
+
+        BillingOnMriViewModel model = assembler().assemble(requestForYear("2026"), loggedInInfo);
+
+        assertThat(model.getBillActivityRows())
+                .extracting(BillingOnMriViewModel.BillActivityRow::claimRecord)
+                .containsExactly("dated", "null-date");
+    }
+
+    private BillingOnMriViewModelAssembler assembler() {
+        return new BillingOnMriViewModelAssembler(
                 providerDao,
                 billActivityDao,
                 providerDataDao,
@@ -64,13 +210,89 @@ class BillingOnMriViewModelAssemblerTest {
                 securityInfoManager,
                 reviewLoader,
                 lookupService);
+    }
 
-        assertThatThrownBy(() -> assembler.assemble(request, loggedInInfo))
-                .isInstanceOfSatisfying(BillingDataLoadException.class, exception -> {
-                    assertThat(exception.phase()).isEqualTo(BillingDataLoadException.Phase.DATE_PARSE);
-                    assertThat(exception.context()).containsEntry("year", "20xx");
-                });
-        verifyNoInteractions(providerDao, billActivityDao, providerDataDao, providerBillCenterDao,
-                reviewLoader, lookupService);
+    private MockHttpServletRequest requestForYear(String year) {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addParameter("year", year);
+        request.addParameter("xml_vdate", year + "-01-01");
+        request.addParameter("xml_appointment_date", year + "-01-31");
+        request.addParameter("useProviderMOH", "true");
+        return request;
+    }
+
+    private Provider provider(String providerNo, String lastName, String firstName, String ohipNo) {
+        Provider provider = new Provider(providerNo, lastName, "doctor", "M", "00", firstName);
+        provider.setOhipNo(ohipNo);
+        return provider;
+    }
+
+    private ProviderBillCenter billCenter(String providerNo, String billCenterCode) {
+        ProviderBillCenter billCenter = new ProviderBillCenter();
+        billCenter.setProviderNo(providerNo);
+        billCenter.setBillCenterCode(billCenterCode);
+        return billCenter;
+    }
+
+    private BillingDiskNameDto disk(String id, String updatedAt, String createdAt, DiskFilenameRow filenameRow) {
+        BillingDiskNameDto disk = new BillingDiskNameDto();
+        disk.setId(id);
+        disk.setUpdatedatetime(updatedAt);
+        disk.setCreatedatetime(createdAt);
+        disk.setOhipfilename("claim.ohip");
+        disk.setFilenames(List.of(filenameRow));
+        return disk;
+    }
+
+    private BillActivity billActivity(String ohipNo, Date updateDate, String claimRecord, String total,
+                                      String ohipFile, String htmlFile) {
+        BillActivity activity = new BillActivity();
+        activity.setProviderOhipNo(ohipNo);
+        activity.setUpdateDateTime(updateDate);
+        activity.setClaimRecord(claimRecord);
+        activity.setTotal(total);
+        activity.setOhipFilename(ohipFile);
+        activity.setHtmlFilename(htmlFile);
+        return activity;
+    }
+
+    private void attachCapturingAppender() {
+        LoggerContext ctx = (LoggerContext) LogManager.getContext(false);
+        Configuration config = ctx.getConfiguration();
+
+        appender = new CapturingAppender("BillingOnMriViewModelAssemblerTest-capture");
+        appender.start();
+        config.addAppender(appender);
+
+        String loggerName = BillingOnMriViewModelAssembler.class.getName();
+        LoggerConfig existing = config.getLoggerConfig(loggerName);
+        if (!loggerName.equals(existing.getName())) {
+            LoggerConfig scoped = new LoggerConfig(loggerName, Level.ALL, true);
+            config.addLogger(loggerName, scoped);
+            existing = scoped;
+            createdLogger = true;
+            addedLoggerName = loggerName;
+        }
+        addedLoggerConfig = existing;
+        addedLoggerConfig.addAppender(appender, Level.ALL, null);
+        ctx.updateLoggers();
+    }
+
+    /** Minimal log4j2 appender that captures formatted messages for assertion. */
+    private static final class CapturingAppender extends AbstractAppender {
+        private final List<String> captured = Collections.synchronizedList(new ArrayList<>());
+
+        CapturingAppender(String name) {
+            super(name, null, null, false, null);
+        }
+
+        @Override
+        public void append(LogEvent event) {
+            captured.add(event.getMessage().getFormattedMessage());
+        }
+
+        List<String> messages() {
+            return new ArrayList<>(captured);
+        }
     }
 }

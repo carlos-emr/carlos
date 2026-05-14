@@ -85,6 +85,18 @@ class ViewForcePasswordReset2ActionUnitTest {
     }
 
     @Test
+    @DisplayName("should redirect and clear token when credential token is not a string")
+    void shouldRedirectAndClearToken_whenCredentialTokenIsNotString() throws Exception {
+        request.getSession(true).setAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR, 12345);
+
+        String result = new ViewForcePasswordReset2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getRedirectedUrl()).contains("/loginfailed");
+        assertThat(request.getSession(false).getAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR)).isNull();
+    }
+
+    @Test
     @DisplayName("should redirect and clear token when credential token is stale")
     void shouldRedirectAndClearToken_whenCredentialTokenStale() throws Exception {
         request.getSession(true).setAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR, "stale-token");
