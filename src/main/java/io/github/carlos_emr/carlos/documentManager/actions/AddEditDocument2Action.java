@@ -45,6 +45,7 @@ import java.util.Hashtable;
 import java.util.List;
 import java.util.Locale;
 import java.util.ResourceBundle;
+import java.util.regex.Pattern;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -117,6 +118,9 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
     private static final String FUNCTION_ID_PARAMETER = "functionid";
     private static final String CURRENT_USER_PARAMETER = "curUser";
     private static final String APPOINTMENT_NO_PARAMETER = "appointmentNo";
+    private static final String DOCUMENT_REPORT_PATH = "/documentManager/ViewDocumentReport";
+    private static final int MAX_REDIRECT_PARAMETER_LENGTH = 128;
+    private static final Pattern SAFE_REDIRECT_PARAMETER = Pattern.compile("[A-Za-z0-9_.:-]{0,128}");
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -158,6 +162,24 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
             return null;
         }
+
+        ValidatedDocumentUpload validatedSource;
+        File file;
+        try {
+            validatedSource = ValidatedDocumentUpload.from(uploadedDocFile);
+            if (validatedSource.length() == 0) {
+                response.setHeader("oscar_error", props.getString("dms.addDocument.errorZeroSize"));
+                response.sendError(500, props.getString("dms.addDocument.errorZeroSize"));
+                return null;
+            }
+            file = writeLocalFile(validatedSource.openStream(), fileName); // write file to local dir
+        } catch (FileValidationException e) {
+            MiscUtils.getLogger().warn("Rejected invalid document upload source");
+            response.setHeader("oscar_error", e.getMessage());
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
+            return null;
+        }
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String user = loggedInInfo.getLoggedInProviderNo();
         EDoc newDoc = new EDoc("", "", fileName, "", user, user, this.getSource(), 'A', UtilDateUtilities.getToday("yyyy-MM-dd"), "", "", "demographic", "-1", 0);
@@ -170,16 +192,6 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         if (pp != null && pp.getProgramId() != null) {
             newDoc.setProgramId(pp.getProgramId().intValue());
         }
-
-        // save local file;
-        if (uploadedDocFile.length() == 0) {
-            response.setHeader("oscar_error", props.getString("dms.addDocument.errorZeroSize"));
-            response.sendError(500, props.getString("dms.addDocument.errorZeroSize"));
-            return null;
-        }
-        // Validate uploaded source is from an allowed temp directory before reading
-        File validatedSource = PathValidationUtils.validateUpload(uploadedDocFile);
-        File file = writeLocalFile(openValidatedUploadStream(validatedSource), fileName); // write file to local dir
 
         if (!file.exists() || file.length() < validatedSource.length()) {
             response.setHeader("oscar_error", props.getString("dms.addDocument.errorNoWrite"));
@@ -267,21 +279,9 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         } else if (this.getMode().equals("add")) {
             // if add/edit success then send redirect, if failed send a forward (need the formdata and errors hashtables while trying to avoid POSTDATA messages)
             if (addDocument(request)) { // if success
-                String contextPath = request.getContextPath();
-                StringBuilder redirect = new StringBuilder(contextPath + "/documentManager/ViewDocumentReport");
-                appendQueryParam(redirect, "docerrors", "docerrors"); // Allows the JSP to check if the document was just submitted
-                appendQueryParam(redirect, FUNCTION_PARAMETER, request.getParameter(FUNCTION_PARAMETER));
-                appendQueryParam(redirect, FUNCTION_ID_PARAMETER, request.getParameter(FUNCTION_ID_PARAMETER));
-                appendQueryParam(redirect, CURRENT_USER_PARAMETER, request.getParameter(CURRENT_USER_PARAMETER));
-                appendQueryParam(redirect, APPOINTMENT_NO_PARAMETER, request.getParameter(APPOINTMENT_NO_PARAMETER));
-                String parentAjaxId = request.getParameter("parentAjaxId");
-                // if we're called with parent ajax id inform jsp that parent needs to be updated
-                if (filled(parentAjaxId)) {
-                    appendQueryParam(redirect, "parentAjaxId", parentAjaxId);
-                    appendQueryParam(redirect, "updateParent", "true");
-                }
+                String redirect = buildDocumentReportRedirect(request);
                 try {
-                    response.sendRedirect(redirect.toString());
+                    response.sendRedirect(redirect); // codeql[java/unvalidated-url-redirection] -- fixed same-app target; request values are allowlisted query parameters only
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
@@ -324,8 +324,8 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
                 errors.put("uploaderror", "dms.error.uploadError");
                 throw new FileNotFoundException();
             }
-            docFile = validateUploadedDocumentSource(docFile, errors);
-            if (docFile.length() == 0) {
+            ValidatedDocumentUpload docUpload = validateUploadedDocumentSource(docFile, errors);
+            if (docUpload.length() == 0) {
                 errors.put("uploaderror", "dms.error.uploadError");
                 throw new FileNotFoundException();
             }
@@ -342,7 +342,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             String fileName2 = newDoc.getFileName();
 
             // save local file
-            File file = writeLocalFile(openValidatedDocumentSourceStream(docFile, errors), fileName2);
+            File file = writeLocalFile(docUpload.openStream(), fileName2);
             newDoc.setContentType(this.docFileContentType);
 
             if (fileName2.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
@@ -477,7 +477,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             }
             String fileName = "";
             boolean updateFileContent = false;
-            File validatedDocFileForUpdate = null;
+            ValidatedDocumentUpload validatedDocFileForUpdate = null;
 
             if (CarlosProperties.getInstance().getBooleanProperty("ALLOW_UPDATE_DOCUMENT_CONTENT", "true"))
             {
@@ -522,7 +522,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             if (updateFileContent) {
                 fileName = PathValidationUtils.validateFileName(newDoc.getFileName());
                 // save local file
-                writeLocalFile(openValidatedDocumentSourceStream(validatedDocFileForUpdate, errors), fileName);
+                writeLocalFile(validatedDocFileForUpdate.openStream(), fileName);
                 if (fileName.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
                     newDoc.setContentType("application/pdf");
                     int numberOfPages = countNumOfPages(fileName);
@@ -571,27 +571,33 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return "successEdit";
     }
 
-    private File validateUploadedDocumentSource(File docFile, Hashtable<String, String> errors) {
+    private ValidatedDocumentUpload validateUploadedDocumentSource(File docFile, Hashtable<String, String> errors) {
         try {
-            return PathValidationUtils.validateUpload(docFile);
+            return ValidatedDocumentUpload.from(docFile);
         } catch (FileValidationException e) {
             errors.put("uploaderror", "dms.error.uploadError");
             throw e;
         }
     }
 
-    private static InputStream openValidatedUploadStream(File uploadFile) throws IOException {
-        File validatedUpload = PathValidationUtils.validateUpload(uploadFile);
-        return Files.newInputStream(validatedUpload.toPath()); // codeql[java/path-injection] -- validatedUpload is canonicalized and allowlisted by PathValidationUtils.validateUpload immediately before opening
-    }
+    private static final class ValidatedDocumentUpload {
+        private final File file;
 
-    private static InputStream openValidatedDocumentSourceStream(
-            File uploadFile, Hashtable<String, String> errors) throws IOException {
-        try {
-            return openValidatedUploadStream(uploadFile);
-        } catch (FileValidationException e) {
-            errors.put("uploaderror", "dms.error.uploadError");
-            throw e;
+        private ValidatedDocumentUpload(File file) {
+            this.file = file;
+        }
+
+        private static ValidatedDocumentUpload from(File uploadFile) {
+            File validatedUpload = PathValidationUtils.validateUpload(uploadFile); // codeql[java/path-injection] -- validation boundary for Struts/Tomcat upload temp files; validateUpload canonicalizes and allowlists the source
+            return new ValidatedDocumentUpload(validatedUpload);
+        }
+
+        private long length() {
+            return file.length();
+        }
+
+        private InputStream openStream() throws IOException {
+            return Files.newInputStream(file.toPath()); // codeql[java/path-injection] -- file was canonicalized and allowlisted by ValidatedDocumentUpload.from before this sink
         }
     }
 
@@ -696,6 +702,46 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
 
     private boolean filled(String s) {
         return (s != null && s.trim().length() > 0);
+    }
+
+    static String buildDocumentReportRedirect(HttpServletRequest request) {
+        StringBuilder redirect = new StringBuilder(safeContextPath(request.getContextPath()))
+                .append(DOCUMENT_REPORT_PATH);
+        appendQueryParam(redirect, "docerrors", "docerrors"); // Allows the JSP to check if the document was just submitted
+        appendQueryParam(redirect, FUNCTION_PARAMETER, safeRedirectParameter(request.getParameter(FUNCTION_PARAMETER)));
+        appendQueryParam(redirect, FUNCTION_ID_PARAMETER, safeRedirectParameter(request.getParameter(FUNCTION_ID_PARAMETER)));
+        appendQueryParam(redirect, CURRENT_USER_PARAMETER, safeRedirectParameter(request.getParameter(CURRENT_USER_PARAMETER)));
+        appendQueryParam(redirect, APPOINTMENT_NO_PARAMETER, safeRedirectParameter(request.getParameter(APPOINTMENT_NO_PARAMETER)));
+
+        String parentAjaxId = safeRedirectParameter(request.getParameter("parentAjaxId"));
+        if (!parentAjaxId.isEmpty()) {
+            appendQueryParam(redirect, "parentAjaxId", parentAjaxId);
+            appendQueryParam(redirect, "updateParent", "true");
+        }
+        return redirect.toString();
+    }
+
+    private static String safeContextPath(String contextPath) {
+        if (contextPath == null || contextPath.isBlank()) {
+            return "";
+        }
+        if (!contextPath.startsWith("/") || contextPath.startsWith("//")
+                || contextPath.contains("\\") || contextPath.contains("\r") || contextPath.contains("\n")) {
+            throw new SecurityException("Invalid context path");
+        }
+        return contextPath;
+    }
+
+    static String safeRedirectParameter(String value) {
+        if (value == null) {
+            return "";
+        }
+        String trimmed = value.trim();
+        if (trimmed.length() > MAX_REDIRECT_PARAMETER_LENGTH
+                || !SAFE_REDIRECT_PARAMETER.matcher(trimmed).matches()) {
+            return "";
+        }
+        return trimmed;
     }
 
     static void appendQueryParam(StringBuilder redirect, String name, String value) {

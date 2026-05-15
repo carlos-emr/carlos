@@ -6,15 +6,21 @@
 package io.github.carlos_emr.carlos.eform.upload;
 
 import io.github.carlos_emr.carlos.casemgmt.web.ClientImage2Action;
+import io.github.carlos_emr.carlos.commn.dao.MeasurementCSSLocationDao;
+import io.github.carlos_emr.carlos.demographic.pageUtil.ImportDemographicDataAction42Action;
 import io.github.carlos_emr.carlos.documentManager.actions.AddEditDocument2Action;
 import io.github.carlos_emr.carlos.documentManager.actions.DocumentUpload2Action;
 import io.github.carlos_emr.carlos.eform.actions.ManageEForm2Action;
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementStyleSheet2Action;
 import io.github.carlos_emr.carlos.form.pageUtil.FrmXmlUpload2Action;
+import io.github.carlos_emr.carlos.integration.mcedt.Update2Action;
 import io.github.carlos_emr.carlos.integration.mcedt.mailbox.Upload2Action;
 import io.github.carlos_emr.carlos.lab.ca.all.pageUtil.InsideLabUpload2Action;
 import io.github.carlos_emr.carlos.login.UploadLoginText2Action;
 import io.github.carlos_emr.carlos.provider.web.ProviderSignatureStamp2Action;
 import io.github.carlos_emr.carlos.report.reportByTemplate.actions.UploadTemplates2Action;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -25,10 +31,13 @@ import java.lang.reflect.Method;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 @DisplayName("Upload Parameter Binding Regression Unit Tests")
 @Tag("unit")
-class UploadParameterBindingRegressionUnitTest {
+class UploadParameterBindingRegressionUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("upload metadata setters should not be Struts parameter-bound")
@@ -57,6 +66,11 @@ class UploadParameterBindingRegressionUnitTest {
         assertNotParameterBound(FrmXmlUpload2Action.class, "setFile1", File.class);
         assertNotParameterBound(FrmXmlUpload2Action.class, "setFile1FileName", String.class);
         assertNotParameterBound(FrmXmlUpload2Action.class, "setFile1ContentType", String.class);
+        assertNotParameterBound(EctAddMeasurementStyleSheet2Action.class, "setFile", File.class);
+        assertNotParameterBound(EctAddMeasurementStyleSheet2Action.class, "setFileFileName", String.class);
+        assertNotParameterBound(ImportDemographicDataAction42Action.class, "setImportFile", File.class);
+        assertNotParameterBound(ImportDemographicDataAction42Action.class, "setImportFileFileName", String.class);
+        assertNotParameterBound(Update2Action.class, "setContent", File.class);
         assertNotParameterBound(UploadLoginText2Action.class, "setImportFile", File.class);
         assertNotParameterBound(ProviderSignatureStamp2Action.class, "setImage", File.class);
         assertNotParameterBound(ProviderSignatureStamp2Action.class, "setImageFileName", String.class);
@@ -76,6 +90,37 @@ class UploadParameterBindingRegressionUnitTest {
                 "setImportFile", File.class);
     }
 
+    @Test
+    @DisplayName("UploadedFilesAware actions should bind only their expected upload field")
+    void uploadedFilesAwareActionsShouldBindOnlyTheirExpectedUploadField() {
+        registerMock(MeasurementCSSLocationDao.class, mock(MeasurementCSSLocationDao.class));
+
+        File ignoredFile = new File("/tmp/ignored-upload.tmp").getAbsoluteFile();
+        File measurementFile = new File("/tmp/measurement.css").getAbsoluteFile();
+        File importFile = new File("/tmp/import.zip").getAbsoluteFile();
+        File contentFile = new File("/tmp/content.bin").getAbsoluteFile();
+
+        EctAddMeasurementStyleSheet2Action measurementAction = mock(EctAddMeasurementStyleSheet2Action.class, CALLS_REAL_METHODS);
+        measurementAction.withUploadedFiles(List.of(
+                uploadedFile("ignored", ignoredFile, "ignored.txt"),
+                uploadedFile("file", measurementFile, "measurement.css")));
+        assertThat(measurementAction.getFile()).isEqualTo(measurementFile);
+        assertThat(measurementAction.getFileName()).isEqualTo("measurement.css");
+
+        ImportDemographicDataAction42Action importAction = mock(ImportDemographicDataAction42Action.class, CALLS_REAL_METHODS);
+        importAction.withUploadedFiles(List.of(
+                uploadedFile("ignored", ignoredFile, "ignored.txt"),
+                uploadedFile("importFile", importFile, "import.zip")));
+        assertThat(importAction.getImportFile()).isEqualTo(importFile);
+        assertThat(importAction.getImportFileFileName()).isEqualTo("import.zip");
+
+        Update2Action updateAction = mock(Update2Action.class, CALLS_REAL_METHODS);
+        updateAction.withUploadedFiles(List.of(
+                uploadedFile("ignored", ignoredFile, "ignored.txt"),
+                uploadedFile("content", contentFile, "content.bin")));
+        assertThat(updateAction.getContent()).isEqualTo(contentFile);
+    }
+
     private static void assertNotParameterBound(Class<?> actionClass, String methodName, Class<?> parameterType)
             throws NoSuchMethodException {
         Method method = actionClass.getMethod(methodName, parameterType);
@@ -90,5 +135,13 @@ class UploadParameterBindingRegressionUnitTest {
         assertThat(method.isAnnotationPresent(StrutsParameter.class))
                 .as("%s#%s should only be populated by UploadedFilesAware", actionClass.getSimpleName(), methodName)
                 .isFalse();
+    }
+
+    private static UploadedFile uploadedFile(String inputName, File file, String originalName) {
+        UploadedFile uploadedFile = mock(UploadedFile.class);
+        when(uploadedFile.getInputName()).thenReturn(inputName);
+        when(uploadedFile.getAbsolutePath()).thenReturn(file.getAbsolutePath());
+        when(uploadedFile.getOriginalName()).thenReturn(originalName);
+        return uploadedFile;
     }
 }

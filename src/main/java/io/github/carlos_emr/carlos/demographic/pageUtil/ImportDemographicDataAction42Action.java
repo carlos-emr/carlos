@@ -74,6 +74,8 @@ import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.commons.lang3.time.DateFormatUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.action.UploadedFilesAware;
+import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import org.apache.xmlbeans.XmlException;
 import org.apache.xmlbeans.XmlOptions;
@@ -143,7 +145,7 @@ import java.util.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
-public class ImportDemographicDataAction42Action extends ActionSupport {
+public class ImportDemographicDataAction42Action extends ActionSupport implements UploadedFilesAware {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -227,6 +229,11 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         ArrayList<String[]> logs = new ArrayList<>();
         validXmlFileList = new ArrayList<>();
         String[] logResult;
+        ServletContext servletContext = ServletActionContext.getServletContext();
+        File safeDir = (File) servletContext.getAttribute("jakarta.servlet.context.tempdir");
+        if (safeDir == null) {
+            throw new IllegalStateException("Unable to access servlet temp directory");
+        }
 
         /*
          * get filename, filetype, and input stream of the import; then
@@ -234,18 +241,13 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
          * thread to close gracefully while the import is being processed.
          */
         String filename = importFileFileName;
-        Path filePath = importFile.toPath().normalize();
-
-        // Get context of the temp directory, get the file path to the the temp directory
-        ServletContext servletContext = ServletActionContext.getServletContext();
-
-        // Validate the paths using PathValidationUtils
-        File safeDir = (File) servletContext.getAttribute("jakarta.servlet.context.tempdir"); // Use a safe directory
-        try {
-            filePath = PathValidationUtils.validateExistingPath(filePath.toFile(), safeDir).toPath();
-        } catch (FileValidationException | SecurityException e) {
-            throw new IllegalArgumentException("Invalid file path: Access outside the allowed directory is not permitted.");
+        if (importFile == null) {
+            throw new IllegalArgumentException("Import file is required.");
         }
+        if (filename == null || filename.trim().isEmpty()) {
+            filename = importFile.getName();
+        }
+        Path filePath = PathValidationUtils.validateUpload(importFile).toPath();
 
         int dotIndex = filename.lastIndexOf('.');
         String filetype = (dotIndex == -1) ? "" : filename.substring(dotIndex + 1).toLowerCase();
@@ -4860,7 +4862,20 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         return importFile;
     }
 
-    @StrutsParameter
+    @Override
+    public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
+        if (uploadedFiles == null) {
+            return;
+        }
+        for (UploadedFile uploaded : uploadedFiles) {
+            if ("importFile".equals(uploaded.getInputName())) {
+                this.importFile = new File(uploaded.getAbsolutePath());
+                this.importFileFileName = uploaded.getOriginalName();
+                return;
+            }
+        }
+    }
+
     public void setImportFile(File importFile) {
         this.importFile = importFile;
     }
@@ -4869,7 +4884,6 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         return importFileFileName;
     }
 
-    @StrutsParameter
     public void setImportFileFileName(String importFileFileName) {
         this.importFileFileName = importFileFileName;
     }

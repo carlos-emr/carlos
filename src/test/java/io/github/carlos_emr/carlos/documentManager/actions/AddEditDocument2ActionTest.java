@@ -18,6 +18,7 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.junit.jupiter.api.AfterEach;
@@ -272,6 +273,65 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
                         .setProperty("ALLOW_UPDATE_DOCUMENT_CONTENT", previousUpdateDocumentContent);
             }
         }
+    }
+
+    @Test
+    @DisplayName("should return bad request when HTML5 upload source is outside upload temp directories")
+    void shouldReturnBadRequestForHtml5UploadSource_whenSourceIsOutsideUploadTempDirectories() throws Exception {
+        File outsideUploadSource = new File("pom.xml").getAbsoluteFile();
+        assertThat(outsideUploadSource).isFile();
+
+        action.setDocFile(outsideUploadSource);
+        action.setDocFileFileName("outside.pdf");
+
+        String result = action.html5MultiUpload();
+
+        assertThat(result).isNull();
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        assertThat(response.getHeader("oscar_error")).contains("Invalid upload source");
+    }
+
+    @Test
+    @DisplayName("should build document report redirect with allowlisted local parameters")
+    void shouldBuildDocumentReportRedirect_withAllowlistedLocalParameters() {
+        request.setContextPath("/oscar");
+        request.addParameter("function", "demographic");
+        request.addParameter("functionid", "123");
+        request.addParameter("curUser", "prov-1");
+        request.addParameter("appointmentNo", "456");
+        request.addParameter("parentAjaxId", "doc-panel:1");
+
+        String redirect = AddEditDocument2Action.buildDocumentReportRedirect(request);
+
+        assertThat(redirect).isEqualTo("/oscar/documentManager/ViewDocumentReport"
+                + "?docerrors=docerrors"
+                + "&function=demographic"
+                + "&functionid=123"
+                + "&curUser=prov-1"
+                + "&appointmentNo=456"
+                + "&parentAjaxId=doc-panel%3A1"
+                + "&updateParent=true");
+    }
+
+    @Test
+    @DisplayName("should strip unsafe values from document report redirect parameters")
+    void shouldStripUnsafeValuesFromDocumentReportRedirectParameters() {
+        request.setContextPath("/oscar");
+        request.addParameter("function", "demographic");
+        request.addParameter("functionid", "123\r\nLocation:https://evil.example");
+        request.addParameter("curUser", "//evil.example");
+        request.addParameter("appointmentNo", "456");
+        request.addParameter("parentAjaxId", "doc<script>");
+
+        String redirect = AddEditDocument2Action.buildDocumentReportRedirect(request);
+
+        assertThat(redirect).isEqualTo("/oscar/documentManager/ViewDocumentReport"
+                + "?docerrors=docerrors"
+                + "&function=demographic"
+                + "&functionid="
+                + "&curUser="
+                + "&appointmentNo=456");
+        assertThat(redirect).doesNotContain("evil", "Location", "parentAjaxId", "script");
     }
 
     @Test
