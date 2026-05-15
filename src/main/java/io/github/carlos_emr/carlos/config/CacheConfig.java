@@ -97,7 +97,7 @@ public class CacheConfig {
      *       <td>{@code 'all'}, {@code 'name:...'}</td></tr>
      *   <tr><td>{@code scheduleTemplateCodes}</td><td>50</td><td>30 min</td>
      *       <td>{@code 'all'}, {@code 'templateCodes'}, {@code 'codeChar:...'}</td></tr>
-     *   <tr><td>{@code facilities}</td><td>20</td><td>15 min</td>
+     *   <tr><td>{@code facilities}</td><td>3</td><td>15 min</td>
      *       <td>{@code 'active:true|false|null'}</td></tr>
      * </table>
      *
@@ -115,7 +115,7 @@ public class CacheConfig {
                 buildCache(LOOKUP_LISTS, 50, Duration.ofMinutes(30)),
                 buildCache(APPOINTMENT_TYPES, 20, Duration.ofMinutes(30)),
                 buildCache(SCHEDULE_TEMPLATE_CODES, 50, Duration.ofMinutes(30)),
-                buildCache(FACILITIES, 20, Duration.ofMinutes(15))
+                buildCache(FACILITIES, 3, Duration.ofMinutes(15))
         ));
         delegate.afterPropertiesSet();
         return new TransactionAwareCacheManagerProxy(delegate);

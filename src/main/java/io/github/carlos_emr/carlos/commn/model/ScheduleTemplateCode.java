@@ -52,13 +52,26 @@ public class ScheduleTemplateCode extends AbstractModel<Integer> {
     private String confirm;
     private int bookinglimit;
 
+    public ScheduleTemplateCode() {
+    }
+
+    private ScheduleTemplateCode(ScheduleTemplateCode source) {
+        this.id = source.id;
+        this.code = source.code;
+        this.description = source.description;
+        this.duration = source.duration;
+        this.color = source.color;
+        this.confirm = source.confirm;
+        this.bookinglimit = source.bookinglimit;
+    }
+
+    public static ScheduleTemplateCode copyOf(ScheduleTemplateCode source) {
+        return source == null ? null : new ScheduleTemplateCode(source);
+    }
+
     @Override
     public Integer getId() {
         return id;
-    }
-
-    public void setId(Integer id) {
-        this.id = id;
     }
 
     public String getDescription() {

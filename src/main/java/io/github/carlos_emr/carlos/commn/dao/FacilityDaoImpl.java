@@ -100,44 +100,9 @@ public class FacilityDaoImpl extends AbstractDaoImpl<Facility> implements Facili
     private List<Facility> copyFacilities(List<Facility> source) {
         List<Facility> copies = new ArrayList<>(source.size());
         for (Facility facility : source) {
-            copies.add(copyFacility(facility));
+            copies.add(Facility.copyOf(facility));
         }
         return copies;
-    }
-
-    private Facility copyFacility(Facility source) {
-        if (source == null) {
-            return null;
-        }
-
-        Facility copy = new Facility();
-        copy.setId(source.getId());
-        copy.setName(source.getName());
-        copy.setDescription(source.getDescription());
-        copy.setContactName(source.getContactName());
-        copy.setContactEmail(source.getContactEmail());
-        copy.setContactPhone(source.getContactPhone());
-        copy.setHic(source.isHic());
-        copy.setDisabled(source.isDisabled());
-        copy.setOrgId(source.getOrgId());
-        copy.setSectorId(source.getSectorId());
-        copy.setEnableHealthNumberRegistry(source.isEnableHealthNumberRegistry());
-        copy.setEnableDigitalSignatures(source.isEnableDigitalSignatures());
-        copy.setEnableAnonymous(source.isEnableAnonymous());
-        copy.setEnableGroupNotes(source.isEnableGroupNotes());
-        copy.setEnableEncounterTime(source.isEnableEncounterTime());
-        copy.setEnableEncounterTransportationTime(source.isEnableEncounterTransportationTime());
-        copy.setRxInteractionWarningLevel(source.getRxInteractionWarningLevel());
-        copy.setVacancyWithdrawnTicklerProvider(source.getVacancyWithdrawnTicklerProvider());
-        copy.setVacancyWithdrawnTicklerDemographic(source.getVacancyWithdrawnTicklerDemographic());
-        copy.setRegistrationIntake(source.getRegistrationIntake());
-        copy.setDisplayAllVacancies(source.getDisplayAllVacancies());
-        copy.setAssignNewVacancyTicklerProvider(source.getAssignNewVacancyTicklerProvider());
-        copy.setAssignNewVacancyTicklerDemographic(source.getAssignNewVacancyTicklerDemographic());
-        copy.setAssignRejectedVacancyApplicant(source.getAssignRejectedVacancyApplicant());
-        copy.setEnablePhoneEncounter(source.isEnablePhoneEncounter());
-        copy.setLastUpdated(source.getLastUpdated());
-        return copy;
     }
 
     @CacheEvict(value = CacheConfig.FACILITIES, allEntries = true)

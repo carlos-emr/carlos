@@ -77,7 +77,7 @@ public class ScheduleTemplateCodeDaoImpl extends AbstractDaoImpl<ScheduleTemplat
         String cacheKey = CODE_KEY_PREFIX + code;
         ScheduleTemplateCode cached = getCachedScheduleTemplateCode(cacheKey);
         if (cached != null) {
-            return copyScheduleTemplateCode(cached);
+            return ScheduleTemplateCode.copyOf(cached);
         }
 
         //Query query = entityManager.createQuery("FROM " + modelClass.getSimpleName() + " bst WHERE bst.id IN (:typeCodes)");
@@ -87,9 +87,9 @@ public class ScheduleTemplateCodeDaoImpl extends AbstractDaoImpl<ScheduleTemplat
         @SuppressWarnings("unchecked")
         List<ScheduleTemplateCode> results = query.getResultList();
         if (!results.isEmpty()) {
-            ScheduleTemplateCode result = copyScheduleTemplateCode(results.get(0));
+            ScheduleTemplateCode result = ScheduleTemplateCode.copyOf(results.get(0));
             cache().put(cacheKey, result);
-            return copyScheduleTemplateCode(result);
+            return ScheduleTemplateCode.copyOf(result);
         }
         return null;
     }
@@ -141,25 +141,9 @@ public class ScheduleTemplateCodeDaoImpl extends AbstractDaoImpl<ScheduleTemplat
     private List<ScheduleTemplateCode> copyScheduleTemplateCodes(List<ScheduleTemplateCode> source) {
         List<ScheduleTemplateCode> copies = new ArrayList<>(source.size());
         for (ScheduleTemplateCode scheduleTemplateCode : source) {
-            copies.add(copyScheduleTemplateCode(scheduleTemplateCode));
+            copies.add(ScheduleTemplateCode.copyOf(scheduleTemplateCode));
         }
         return copies;
-    }
-
-    private ScheduleTemplateCode copyScheduleTemplateCode(ScheduleTemplateCode source) {
-        if (source == null) {
-            return null;
-        }
-
-        ScheduleTemplateCode copy = new ScheduleTemplateCode();
-        copy.setId(source.getId());
-        copy.setCode(source.getCode());
-        copy.setDescription(source.getDescription());
-        copy.setDuration(source.getDuration());
-        copy.setColor(source.getColor());
-        copy.setConfirm(source.getConfirm());
-        copy.setBookinglimit(source.getBookinglimit());
-        return copy;
     }
 
     @CacheEvict(value = CacheConfig.SCHEDULE_TEMPLATE_CODES, allEntries = true)

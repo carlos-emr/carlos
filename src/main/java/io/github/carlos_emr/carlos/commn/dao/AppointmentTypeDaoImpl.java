@@ -82,16 +82,16 @@ public class AppointmentTypeDaoImpl extends AbstractDaoImpl<AppointmentType> imp
         if (name != null && !name.isEmpty()) {
             AppointmentType cached = getCachedAppointmentType(cacheKey);
             if (cached != null) {
-                return copyAppointmentType(cached);
+                return AppointmentType.copyOf(cached);
             }
         }
 
         Query query = entityManager.createQuery("from AppointmentType atype where atype.name = ?1").setParameter(1, name);
         AppointmentType result = this.getSingleResultOrNull(query);
         if (result != null && name != null && !name.isEmpty()) {
-            cache().put(cacheKey, copyAppointmentType(result));
+            cache().put(cacheKey, AppointmentType.copyOf(result));
         }
-        return copyAppointmentType(result);
+        return AppointmentType.copyOf(result);
     }
 
     private Cache cache() {
@@ -116,25 +116,9 @@ public class AppointmentTypeDaoImpl extends AbstractDaoImpl<AppointmentType> imp
     private List<AppointmentType> copyAppointmentTypes(List<AppointmentType> source) {
         List<AppointmentType> copies = new ArrayList<>(source.size());
         for (AppointmentType appointmentType : source) {
-            copies.add(copyAppointmentType(appointmentType));
+            copies.add(AppointmentType.copyOf(appointmentType));
         }
         return copies;
-    }
-
-    private AppointmentType copyAppointmentType(AppointmentType source) {
-        if (source == null) {
-            return null;
-        }
-
-        AppointmentType copy = new AppointmentType();
-        copy.setId(source.getId());
-        copy.setName(source.getName());
-        copy.setNotes(source.getNotes());
-        copy.setReason(source.getReason());
-        copy.setLocation(source.getLocation());
-        copy.setResources(source.getResources());
-        copy.setDuration(source.getDuration());
-        return copy;
     }
 
     @CacheEvict(value = CacheConfig.APPOINTMENT_TYPES, allEntries = true)
