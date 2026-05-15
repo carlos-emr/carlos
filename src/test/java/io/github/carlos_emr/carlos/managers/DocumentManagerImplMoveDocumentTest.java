@@ -1,5 +1,6 @@
 package io.github.carlos_emr.carlos.managers;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -66,6 +67,41 @@ class DocumentManagerImplMoveDocumentTest extends CarlosUnitTestBase {
 
         assertThat(Files.exists(sourceDir.resolve(filename))).isFalse();
         assertThat(Files.readAllBytes(destinationDir.resolve(filename))).containsExactly(1, 2, 3);
+    }
+
+    @Test
+    @DisplayName("moves document from configured document store source to destination")
+    void movesDocumentFromConfiguredDocumentStoreSourceToDestination() throws Exception {
+        Path targetDir = Files.createDirectories(Path.of("target"));
+        Path documentRoot = Files.createTempDirectory(targetDir, "document-root-");
+        Path sourceDir = Files.createDirectory(documentRoot.resolve("source"));
+        Path destinationDir = Files.createDirectory(tempDir.resolve("destination"));
+        String filename = "stored-document.pdf";
+        Files.write(sourceDir.resolve(filename), new byte[]{4, 5, 6});
+
+        CarlosProperties properties = CarlosProperties.getInstance();
+        String previousDocumentDir = properties.getProperty("DOCUMENT_DIR");
+        try {
+            properties.setProperty("DOCUMENT_DIR", documentRoot.toString());
+
+            Document document = new Document();
+            document.setDocfilename(filename);
+            document.setDocumentNo(43);
+
+            manager.moveDocument(loggedInInfo, document, sourceDir.toString(), destinationDir.toString());
+
+            assertThat(Files.exists(sourceDir.resolve(filename))).isFalse();
+            assertThat(Files.readAllBytes(destinationDir.resolve(filename))).containsExactly(4, 5, 6);
+        } finally {
+            if (previousDocumentDir == null) {
+                properties.remove("DOCUMENT_DIR");
+            } else {
+                properties.setProperty("DOCUMENT_DIR", previousDocumentDir);
+            }
+            Files.deleteIfExists(sourceDir.resolve(filename));
+            Files.deleteIfExists(sourceDir);
+            Files.deleteIfExists(documentRoot);
+        }
     }
 
     @Test

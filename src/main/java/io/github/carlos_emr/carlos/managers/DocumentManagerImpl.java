@@ -374,7 +374,7 @@ public class DocumentManagerImpl implements DocumentManager {
                 toPath = getParentDirectory();
             }
             String docFilename = validateStoredDocumentFilename(document.getDocfilename());
-            Path from = validateTempSourceDocument(fromPath, docFilename);
+            Path from = validateMoveSourceDocument(fromPath, docFilename);
             Path to = validateDocumentDestination(toPath, docFilename);
             Files.move(from, to, StandardCopyOption.REPLACE_EXISTING);
 
@@ -400,12 +400,46 @@ public class DocumentManagerImpl implements DocumentManager {
         return filename;
     }
 
-    private Path validateTempSourceDocument(String fromPath, String docFilename) {
+    private Path validateMoveSourceDocument(String fromPath, String docFilename) {
         if (fromPath == null || fromPath.trim().isEmpty()) {
             throw new FileValidationException("Source path is required");
         }
         File sourceFile = FileSystems.getDefault().getPath(fromPath, docFilename).toFile();
-        return PathValidationUtils.validateUpload(sourceFile).toPath();
+        if (PathValidationUtils.isInAllowedTempDirectory(sourceFile)) {
+            return PathValidationUtils.validateUpload(sourceFile).toPath();
+        }
+        return validateStoredDocumentSource(sourceFile).toPath();
+    }
+
+    private File validateStoredDocumentSource(File sourceFile) {
+        for (File allowedSourceDir : getDocumentMoveSourceDirectories()) {
+            try {
+                File validatedSource = PathValidationUtils.validateExistingPath(sourceFile, allowedSourceDir);
+                if (!validatedSource.exists()) {
+                    throw new FileValidationException("Source document does not exist");
+                }
+                if (!validatedSource.isFile()) {
+                    throw new FileValidationException("Source document is not a regular file");
+                }
+                return validatedSource;
+            } catch (FileValidationException e) {
+                // Try the next configured document source root.
+            }
+        }
+        throw new FileValidationException("Invalid document move source");
+    }
+
+    private List<File> getDocumentMoveSourceDirectories() {
+        List<File> sourceDirectories = new ArrayList<>();
+        addConfiguredDirectory(sourceDirectories, CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
+        addConfiguredDirectory(sourceDirectories, CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR"));
+        return sourceDirectories;
+    }
+
+    private void addConfiguredDirectory(List<File> directories, String directoryPath) {
+        if (directoryPath != null && !directoryPath.trim().isEmpty()) {
+            directories.add(new File(directoryPath));
+        }
     }
 
     private Path validateDocumentDestination(String toPath, String docFilename) {

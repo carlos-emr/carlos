@@ -292,7 +292,7 @@ public class LabUploadWs extends AbstractWs {
         try {
             labFile = PathValidationUtils.validatePath(sanitizedFileName, labFolder);
         } catch (FileValidationException | SecurityException e) {
-            throw new SecurityException("Invalid file path: " + fileName, e);
+            throw new SecurityException("Invalid file path", e);
         }
 
         // Save a copy of the lab locally. This is done to mimic the manual lab

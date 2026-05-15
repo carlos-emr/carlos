@@ -203,8 +203,8 @@ public final class PathValidationUtils {
         // 1. Validate source
         validateSource(sourceFile, destinationDir);
 
-        // 2. Validate destination filename and path
-        return validateUserFilePath(userProvidedFileName, destinationDir);
+        // 2. Preserve existing upload filename sanitization semantics and validate destination path
+        return validatePath(userProvidedFileName, destinationDir);
     }
 
     // ========================================================================
