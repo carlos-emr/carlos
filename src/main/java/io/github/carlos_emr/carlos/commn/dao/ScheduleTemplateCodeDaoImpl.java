@@ -51,6 +51,10 @@ public class ScheduleTemplateCodeDaoImpl extends AbstractDaoImpl<ScheduleTemplat
     private static final String TEMPLATE_CODES_KEY = "templateCodes";
     private static final String CODE_KEY_PREFIX = "codeChar:";
 
+    /*
+     * Reads use CacheManager directly instead of @Cacheable so cache hits can return
+     * fresh entity copies. @Cacheable would return the cached entity/list instance.
+     */
     private final CacheManager cacheManager;
 
     @Autowired
@@ -68,9 +72,11 @@ public class ScheduleTemplateCodeDaoImpl extends AbstractDaoImpl<ScheduleTemplat
         }
 
         Query query = createQuery("x", null);
-        List<ScheduleTemplateCode> snapshot = Collections.unmodifiableList(copyScheduleTemplateCodes(query.getResultList()));
-        cache().put(ALL_KEY, snapshot);
-        return copyScheduleTemplateCodes(snapshot);
+        List<ScheduleTemplateCode> results = query.getResultList();
+        List<ScheduleTemplateCode> snapshot = copyScheduleTemplateCodes(results);
+        List<ScheduleTemplateCode> response = copyScheduleTemplateCodes(results);
+        cache().put(ALL_KEY, Collections.unmodifiableList(snapshot));
+        return response;
     }
 
     @Override
@@ -107,9 +113,10 @@ public class ScheduleTemplateCodeDaoImpl extends AbstractDaoImpl<ScheduleTemplat
         @SuppressWarnings("unchecked")
         List<ScheduleTemplateCode> results = query.getResultList();
 
-        List<ScheduleTemplateCode> snapshot = Collections.unmodifiableList(copyScheduleTemplateCodes(results));
-        cache().put(TEMPLATE_CODES_KEY, snapshot);
-        return copyScheduleTemplateCodes(snapshot);
+        List<ScheduleTemplateCode> snapshot = copyScheduleTemplateCodes(results);
+        List<ScheduleTemplateCode> response = copyScheduleTemplateCodes(results);
+        cache().put(TEMPLATE_CODES_KEY, Collections.unmodifiableList(snapshot));
+        return response;
     }
 
     @Override
@@ -167,6 +174,14 @@ public class ScheduleTemplateCodeDaoImpl extends AbstractDaoImpl<ScheduleTemplat
     @Override
     public ScheduleTemplateCode saveEntity(ScheduleTemplateCode entity) { return super.saveEntity(entity); }
 
+    // batch* methods use a separate EntityManager and invoke persist/remove on it directly,
+    // bypassing the Spring proxy, so @CacheEvict on persist/remove never fires through this
+    // path. Override both overloads to restore eviction at the proxied boundary.
+    //
+    // beforeInvocation = true: AbstractDaoImpl.batchPersist commits sub-batches inside its
+    // loop, so a later sub-batch failure leaves earlier sub-batches persisted to the DB.
+    // Default beforeInvocation = false would skip eviction on exception, pinning stale
+    // entries in the cache until TTL.
     @CacheEvict(value = CacheConfig.SCHEDULE_TEMPLATE_CODES, allEntries = true, beforeInvocation = true)
     @Override
     public void batchPersist(List<ScheduleTemplateCode> oList) { super.batchPersist(oList); }

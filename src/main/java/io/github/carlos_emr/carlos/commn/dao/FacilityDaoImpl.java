@@ -48,6 +48,10 @@ import org.springframework.stereotype.Repository;
 public class FacilityDaoImpl extends AbstractDaoImpl<Facility> implements FacilityDao {
     private static final String ACTIVE_KEY_PREFIX = "active:";
 
+    /*
+     * Reads use CacheManager directly instead of @Cacheable so cache hits can return
+     * fresh entity copies. @Cacheable would return the cached entity/list instance.
+     */
     private final CacheManager cacheManager;
 
     @Autowired
@@ -79,9 +83,10 @@ public class FacilityDaoImpl extends AbstractDaoImpl<Facility> implements Facili
         @SuppressWarnings("unchecked")
         List<Facility> results = query.getResultList();
 
-        List<Facility> snapshot = Collections.unmodifiableList(copyFacilities(results));
-        cache().put(cacheKey, snapshot);
-        return copyFacilities(snapshot);
+        List<Facility> snapshot = copyFacilities(results);
+        List<Facility> response = copyFacilities(results);
+        cache().put(cacheKey, Collections.unmodifiableList(snapshot));
+        return response;
     }
 
     private Cache cache() {
@@ -126,6 +131,14 @@ public class FacilityDaoImpl extends AbstractDaoImpl<Facility> implements Facili
     @Override
     public Facility saveEntity(Facility entity) { return super.saveEntity(entity); }
 
+    // batch* methods use a separate EntityManager and invoke persist/remove on it directly,
+    // bypassing the Spring proxy, so @CacheEvict on persist/remove never fires through this
+    // path. Override both overloads to restore eviction at the proxied boundary.
+    //
+    // beforeInvocation = true: AbstractDaoImpl.batchPersist commits sub-batches inside its
+    // loop, so a later sub-batch failure leaves earlier sub-batches persisted to the DB.
+    // Default beforeInvocation = false would skip eviction on exception, pinning stale
+    // entries in the cache until TTL.
     @CacheEvict(value = CacheConfig.FACILITIES, allEntries = true, beforeInvocation = true)
     @Override
     public void batchPersist(List<Facility> oList) { super.batchPersist(oList); }

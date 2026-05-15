@@ -50,6 +50,10 @@ public class AppointmentTypeDaoImpl extends AbstractDaoImpl<AppointmentType> imp
     private static final String ALL_KEY = "all";
     private static final String NAME_KEY_PREFIX = "name:";
 
+    /*
+     * Reads use CacheManager directly instead of @Cacheable so cache hits can return
+     * fresh entity copies. @Cacheable would return the cached entity/list instance.
+     */
     private final CacheManager cacheManager;
 
     @Autowired
@@ -71,10 +75,10 @@ public class AppointmentTypeDaoImpl extends AbstractDaoImpl<AppointmentType> imp
         @SuppressWarnings("unchecked")
         List<AppointmentType> results = query.getResultList();
 
-        List<AppointmentType> snapshot = Collections.unmodifiableList(copyAppointmentTypes(results));
-        cache().put(ALL_KEY, snapshot);
-        return copyAppointmentTypes(snapshot);
-
+        List<AppointmentType> snapshot = copyAppointmentTypes(results);
+        List<AppointmentType> response = copyAppointmentTypes(results);
+        cache().put(ALL_KEY, Collections.unmodifiableList(snapshot));
+        return response;
     }
 
     @Override
@@ -142,6 +146,14 @@ public class AppointmentTypeDaoImpl extends AbstractDaoImpl<AppointmentType> imp
     @Override
     public AppointmentType saveEntity(AppointmentType entity) { return super.saveEntity(entity); }
 
+    // batch* methods use a separate EntityManager and invoke persist/remove on it directly,
+    // bypassing the Spring proxy, so @CacheEvict on persist/remove never fires through this
+    // path. Override both overloads to restore eviction at the proxied boundary.
+    //
+    // beforeInvocation = true: AbstractDaoImpl.batchPersist commits sub-batches inside its
+    // loop, so a later sub-batch failure leaves earlier sub-batches persisted to the DB.
+    // Default beforeInvocation = false would skip eviction on exception, pinning stale
+    // entries in the cache until TTL.
     @CacheEvict(value = CacheConfig.APPOINTMENT_TYPES, allEntries = true, beforeInvocation = true)
     @Override
     public void batchPersist(List<AppointmentType> oList) { super.batchPersist(oList); }
