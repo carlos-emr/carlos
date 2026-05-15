@@ -48,6 +48,7 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.RaDetail;
 import io.github.carlos_emr.carlos.commn.model.RaHeader;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
@@ -143,7 +144,13 @@ public class BillingOnRaService {
         if (documentDir.isEmpty()) {
             throw new BillingValidationException("Cannot import RA file: DOCUMENT_DIR is not configured");
         }
-        File safeFile = PathValidationUtils.validateExistingPath(new File(filePathName), new File(documentDir));
+        File safeFile;
+        try {
+            safeFile = PathValidationUtils.validateExistingPath(new File(filePathName), new File(documentDir));
+        } catch (FileValidationException e) {
+            _logger.error("RA import rejected invalid path: {}", LogSanitizer.sanitize(filePathName), e);
+            throw new SecurityException("Invalid RA import path", e);
+        }
         filePathName = safeFile.getPath();
 
         if (filePathName.indexOf("/") >= 0) {
