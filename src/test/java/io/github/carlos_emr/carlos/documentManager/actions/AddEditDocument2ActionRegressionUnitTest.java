@@ -19,7 +19,7 @@ class AddEditDocument2ActionRegressionUnitTest {
     @Test
     @DisplayName("should append encoded query parameters with equals signs")
     void shouldAppendEncodedQueryParamsWithEqualsSigns() {
-        StringBuffer redirect = new StringBuffer("/ctx/documentManager/ViewDocumentReport");
+        StringBuilder redirect = new StringBuilder("/ctx/documentManager/ViewDocumentReport");
 
         AddEditDocument2Action.appendQueryParam(redirect, "function", "demographic&injected=true");
         AddEditDocument2Action.appendQueryParam(redirect, "curUser", "provider 1");

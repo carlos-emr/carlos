@@ -81,6 +81,7 @@ import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
@@ -1260,7 +1261,7 @@ public final class EDocUtil {
                 throw new SecurityException("Access denied: File is outside the allowed directories");
             }
         } catch (IOException e) {
-            logger.error("Error resolving file path: " + fileName, e);
+            logger.error("Error resolving file path: {}", LogSanitizer.sanitize(fileName, 1024), e);
             throw new SecurityException("Unable to resolve file path securely", e);
         }
     }
@@ -1274,7 +1275,7 @@ public final class EDocUtil {
         try {
             targetFile = PathValidationUtils.validatePath(fileName, docDirFile);
         } catch (FileValidationException | SecurityException e) {
-            throw new SecurityException("Invalid filename: " + fileName);
+            throw new SecurityException("Invalid filename", e);
         }
 
         Path docDirPath = docDirFile.toPath().toAbsolutePath().normalize();
@@ -1339,7 +1340,7 @@ public final class EDocUtil {
             // This handles stale data from different environments gracefully
             Path inputPath = Paths.get(fileName);
             if (inputPath.isAbsolute() && !Files.exists(inputPath)) {
-                logger.debug("File not found (may be from different environment): " + fileName);
+                logger.debug("File not found (may be from different environment): {}", LogSanitizer.sanitize(fileName, 1024));
                 return 0;
             }
             // resolvePath validates the path is within allowed directories
@@ -1350,16 +1351,16 @@ public final class EDocUtil {
                 try (PDDocument pdf = Loader.loadPDF(path.toFile())) {
                     pagecount = pdf.getNumberOfPages();
                 } catch (IOException e) {
-                    logger.error("Could not read PDF file: " + fileName, e);
+                    logger.error("Could not read PDF file: {}", LogSanitizer.sanitize(fileName, 1024), e);
                 }
             } else {
-                logger.warn("File " + fileName + " not found for page count.");
+                logger.warn("File {} not found for page count.", LogSanitizer.sanitize(fileName, 1024));
             }
         } catch (FileValidationException | SecurityException e) {
-            logger.error("Security violation: Attempted to access file outside allowed directory: " + fileName, e);
+            logger.error("Security violation: Attempted to access file outside allowed directory: {}", LogSanitizer.sanitize(fileName, 1024), e);
             // Return 0 to indicate error without exposing security details
         } catch (IllegalArgumentException e) {
-            logger.error("Invalid file name provided: " + fileName, e);
+            logger.error("Invalid file name provided: {}", LogSanitizer.sanitize(fileName, 1024), e);
             // Return 0 to indicate error
         }
 

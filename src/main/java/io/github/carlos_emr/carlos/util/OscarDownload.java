@@ -78,9 +78,9 @@ public class OscarDownload extends GenericDownload {
                     return;
                 }
                 String filename = PathValidationUtils.validateUserFilePath(rawFilename, downloadDir).getName();
-                ServletOutputStream stream = res.getOutputStream();
-                transferFile(res, stream, backupfilepath, filename);
-                stream.close();
+                try (ServletOutputStream stream = res.getOutputStream()) {
+                    transferFile(res, stream, backupfilepath, filename);
+                }
             } else {
                 sendErrorIfPossible(res, HttpServletResponse.SC_FORBIDDEN, "You have no right to download the file(s).");
             }

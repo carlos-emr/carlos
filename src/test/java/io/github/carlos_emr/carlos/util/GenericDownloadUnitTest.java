@@ -70,12 +70,12 @@ class GenericDownloadUnitTest {
 
     private static final class TestGenericDownload extends GenericDownload {
         private void transfer(MockHttpServletResponse response, String dir, String filename) throws Exception {
-            transferFile(response, response.getOutputStream(), dir, filename, "application/pdf");
+            transferFile(response, response.getOutputStream(), dir, filename);
         }
 
         private void transfer(MockHttpServletResponse response, String dir, String filename, String contentType)
                 throws Exception {
-            transferFile(response, response.getOutputStream(), dir, filename, contentType);
+            transferFile(response, response.getOutputStream(), dir, filename);
         }
     }
 }

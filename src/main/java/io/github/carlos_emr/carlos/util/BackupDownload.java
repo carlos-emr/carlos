@@ -79,7 +79,7 @@ public class BackupDownload extends GenericDownload {
             if (filename != null && adminPrivs) {
                 bDownload = true;
             }
-            download(bDownload, res, dir, filename, null);
+            download(bDownload, res, dir, filename);
         } catch (IOException e) {
             throw e;
         } catch (FileValidationException e) {

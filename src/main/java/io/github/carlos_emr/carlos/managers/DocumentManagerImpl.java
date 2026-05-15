@@ -177,7 +177,7 @@ public class DocumentManagerImpl implements DocumentManager {
      * @throws IOException If actions related to getting document data fail
      */
     @Override
-    public Document createDocument(LoggedInInfo loggedInInfo, Document document, Integer demographicNo, String providerNo, byte[] documentData) throws IOException, FileValidationException {
+    public Document createDocument(LoggedInInfo loggedInInfo, Document document, Integer demographicNo, String providerNo, byte[] documentData) throws IOException {
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "w", "")) {
             throw new RuntimeException("Write Access Denied _edoc for provider " + loggedInInfo.getLoggedInProviderNo());
@@ -195,14 +195,12 @@ public class DocumentManagerImpl implements DocumentManager {
             // Normalize the original filename, then validate the final timestamped storage path.
             String normalizedFileName = PathValidationUtils.validateFileName(originalFileName);
             String storageFileName = dateTimeFormat.format(today) + "_" + normalizedFileName;
-            file = PathValidationUtils.validateExistingPath(new File(documentPath, storageFileName), new File(documentPath));
+            File documentDir = new File(documentPath);
+            file = PathValidationUtils.validatePath(storageFileName, documentDir);
             fileName = file.getName();
         } catch (FileValidationException e) {
             logger.warn("Document filename failed validation");
             throw e;
-        } catch (SecurityException e) {
-            logger.error("Document filename failed path validation");
-            throw new IOException("Document filename failed path validation", e);
         }
         FileUtils.writeByteArrayToFile(file, documentData);
 

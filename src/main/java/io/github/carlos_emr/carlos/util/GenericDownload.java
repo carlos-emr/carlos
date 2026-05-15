@@ -62,11 +62,11 @@ public class GenericDownload extends HttpServlet {
         res.sendError(HttpServletResponse.SC_GONE, "This download endpoint is no longer available.");
     }
 
-    public void download(boolean bDownload, HttpServletResponse res, String dir, String filename, String contentType)
+    public void download(boolean bDownload, HttpServletResponse res, String dir, String filename)
             throws IOException {
         if (bDownload) {
             try (ServletOutputStream stream = res.getOutputStream()) {
-                transferFile(res, stream, dir, filename, contentType);
+                transferFile(res, stream, dir, filename);
             }
         } else {
             res.sendError(HttpServletResponse.SC_FORBIDDEN, "You have no right to download the file(s).");
@@ -84,11 +84,6 @@ public class GenericDownload extends HttpServlet {
     }
 
     protected void transferFile(HttpServletResponse res, ServletOutputStream stream, String dir, String filename) throws IOException {
-        transferFile(res, stream, dir, filename, null);
-    }
-
-    protected void transferFile(HttpServletResponse res, ServletOutputStream stream, String dir, String filename,
-                                String contentType) throws IOException {
         //faster than "transferFile" method - clocked at 1.1MB/s on a 10Mbps switch
         int BUFFER_SIZE = 2048;
 
@@ -101,6 +96,10 @@ public class GenericDownload extends HttpServlet {
 
         res.setContentType(resolveContentType(curfile));
         res.setHeader("X-Content-Type-Options", "nosniff");
+        // RFC 6266 / RFC 5987: the filename= token is ISO-8859-1; non-ASCII names
+        // require filename*=UTF-8''<percent-encoded> for broad browser compatibility.
+        // Filenames stored in CARLOS pass through PathValidationUtils normalisation
+        // which strips non-ASCII, so this form is safe for current usage.
         res.setHeader("Content-Disposition", "attachment;filename=\"" + sanitizedFilename + "\"");
 
         int bufferSize;
@@ -109,7 +108,6 @@ public class GenericDownload extends HttpServlet {
         try (FileInputStream fis = new FileInputStream(curfile)) {
             while ((bufferSize = fis.read(buffer)) != -1) {
                 stream.write(buffer, 0, bufferSize); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- binary file download buffer copy
-
             }
         }
         stream.flush();
