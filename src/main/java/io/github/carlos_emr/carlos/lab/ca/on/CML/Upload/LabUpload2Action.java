@@ -44,7 +44,6 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.lab.FileUploadCheck;
 import io.github.carlos_emr.carlos.lab.ca.on.CML.ABCDParser;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
-import io.github.carlos_emr.carlos.utility.FileValidationException;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -89,7 +88,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                 try {
                     // Validates source file is from an allowed temp location
                     importFile = PathValidationUtils.validateUpload(importFile);
-                } catch (FileValidationException | SecurityException e) {
+                } catch (SecurityException e) {
                     _logger.error("Invalid upload source: " + importFile.getPath());
                     outcome = "accessDenied";
                     request.setAttribute("outcome", outcome);
@@ -117,7 +116,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                         try {
                             File docDirFile = new File(documentDir);
                             localFile = PathValidationUtils.validateExistingPath(localFile, docDirFile);
-                        } catch (FileValidationException | SecurityException e) {
+                        } catch (SecurityException e) {
                             _logger.error("Invalid file path: " + localFileName);
                             outcome = "accessDenied";
                             request.setAttribute("outcome", outcome);
@@ -195,7 +194,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             File targetFile;
             try {
                 targetFile = PathValidationUtils.validatePath(targetFileName, docDir);
-            } catch (FileValidationException | SecurityException e) {
+            } catch (SecurityException e) {
                 MiscUtils.getLogger().error("Invalid filename: " + targetFileName);
                 return null;
             }

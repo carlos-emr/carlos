@@ -84,7 +84,6 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
-import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.MyDateFormat;
@@ -1252,7 +1251,7 @@ public final class EDocUtil {
             try {
                 inputFile = PathValidationUtils.validateExistingPath(inputFile, documentDir);
                 return canonicalPath;
-            } catch (FileValidationException | SecurityException e) {
+            } catch (SecurityException e) {
                 // Not in document directory, check temp directories
                 if (PathValidationUtils.isInAllowedTempDirectory(inputFile)) {
                     return canonicalPath;
@@ -1274,7 +1273,7 @@ public final class EDocUtil {
         File targetFile;
         try {
             targetFile = PathValidationUtils.validatePath(fileName, docDirFile);
-        } catch (FileValidationException | SecurityException e) {
+        } catch (SecurityException e) {
             throw new SecurityException("Invalid filename", e);
         }
 
@@ -1356,7 +1355,7 @@ public final class EDocUtil {
             } else {
                 logger.warn("File {} not found for page count.", LogSanitizer.sanitize(fileName, 1024));
             }
-        } catch (FileValidationException | SecurityException e) {
+        } catch (SecurityException e) {
             logger.error("Security violation: Attempted to access file outside allowed directory: {}", LogSanitizer.sanitize(fileName, 1024), e);
             // Return 0 to indicate error without exposing security details
         } catch (IllegalArgumentException e) {

@@ -57,7 +57,6 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
-import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.documentManager.EDoc;
@@ -202,7 +201,7 @@ public class GeneratePatientLetters2Action extends ActionSupport {
 
                 fullPatientlist.add(savePath);
 
-            } catch (FileValidationException | SecurityException secEx) {
+            } catch (SecurityException secEx) {
                 MiscUtils.getLogger().error("Security violation generating letter for demo {}: {}", LogSanitizer.sanitize(demos[i]), secEx.getMessage());
             } catch (Exception jpException) {
                 MiscUtils.getLogger().error("Error", jpException);

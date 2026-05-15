@@ -61,7 +61,6 @@ import io.github.carlos_emr.carlos.lab.ca.all.upload.HandlerClassFactory;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.MessageHandler;
 import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
-import io.github.carlos_emr.carlos.utility.FileValidationException;
 
 import javax.crypto.Cipher;
 import javax.crypto.CipherInputStream;
@@ -120,7 +119,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             // Validate file is from an allowed temp directory
             try {
                 importFile = PathValidationUtils.validateUpload(importFile);
-            } catch (FileValidationException | SecurityException e) {
+            } catch (SecurityException e) {
                 logger.error("Invalid upload source - potential path traversal: " + importFile.getPath());
                 outcome = "exception";
                 httpCode = HttpServletResponse.SC_FORBIDDEN;

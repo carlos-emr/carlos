@@ -222,12 +222,31 @@ public class DocumentManagerImpl implements DocumentManager {
         document.setDocfilename(fileName);
 		if (document.getDocdesc() == null || document.getDocdesc().isEmpty()) { document.setDocdesc(fileName); }
 
-        // Creates and saves the document
-        saveDocument(document, demographicNo, providerNo);
+        // Creates and saves the document. If persistence fails before a document
+        // record exists, remove the file copied for this failed request.
+        try {
+            saveDocument(document, demographicNo, providerNo);
+        } catch (RuntimeException e) {
+            if (document.getId() == null) {
+                deleteUnpersistedDocumentFile(file);
+            }
+            throw e;
+        }
 
 		LogAction.addLogSynchronous(loggedInInfo, "DocumentManager.createDocument()", "Document ID: " + document.getId().toString() + " Demographic: " + (demographicNo != null ? demographicNo.toString() : "N/A") + " FileName: " + document.getDocfilename());
 
         return document;
+    }
+
+    private void deleteUnpersistedDocumentFile(File file) {
+        if (file == null) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(file.toPath());
+        } catch (IOException e) {
+            logger.warn("Unable to delete unpersisted document file: {}", LogSanitizer.sanitize(file.getPath()), e);
+        }
     }
 
     public List<Document> getDocumentsUpdateAfterDate(LoggedInInfo loggedInInfo, Date updatedAfterThisDateExclusive, int itemsToReturn) {

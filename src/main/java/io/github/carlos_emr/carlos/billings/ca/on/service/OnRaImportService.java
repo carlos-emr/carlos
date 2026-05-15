@@ -32,7 +32,6 @@ import io.github.carlos_emr.DocumentBean;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
-import io.github.carlos_emr.carlos.utility.FileValidationException;
 
 /**
  * Handles the optional RA-file import requested by {@code documentBean}.
@@ -106,7 +105,7 @@ public class OnRaImportService {
             File safeFile = PathValidationUtils.validatePath(filename, new File(documentDir));
             remittanceAdviceService.importRAFile(safeFile.getPath());
             return ImportOutcome.IMPORTED;
-        } catch (FileValidationException | SecurityException e) {
+        } catch (SecurityException e) {
             MiscUtils.getLogger().error(
                     "Blocked unsafe RA import filename '{}'",
                     LogSanitizer.sanitize(filename), e);

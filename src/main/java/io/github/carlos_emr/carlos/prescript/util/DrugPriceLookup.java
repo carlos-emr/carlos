@@ -50,7 +50,6 @@ import io.github.carlos_emr.carlos.commn.dao.ResourceStorageDao;
 import io.github.carlos_emr.carlos.commn.model.ResourceStorage;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
-import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
 
@@ -141,7 +140,7 @@ public class DrugPriceLookup {
 				formularyFile = PathValidationUtils.validateExistingPath(formularyFile, formularyFile.getParentFile());
 				log.info("loading odb file from property {}", fileName);
 				return new BufferedInputStream(new FileInputStream(formularyFile));
-			} catch (FileValidationException | SecurityException e) {
+			} catch (SecurityException e) {
 				log.error("Formulary file path validation failed, skipping property source: {}", fileName, e);
 			}
 		}

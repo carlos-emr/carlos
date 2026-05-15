@@ -43,7 +43,6 @@ import org.apache.logging.log4j.Logger;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
-import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.CarlosProperties;
 
 /**
@@ -101,7 +100,7 @@ public class LoginResourceAction extends HttpServlet {
                 try {
                     File imagesDir = new File(getImagesDir());
                     image = PathValidationUtils.validatePath(sanitizedFilename, imagesDir);
-                } catch (FileValidationException | SecurityException e) {
+                } catch (SecurityException e) {
                     log.warn("Path validation rejected for filename: {}", sanitizedFilename);
                     response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid resource path");
                     return;

@@ -44,7 +44,6 @@ import io.github.carlos_emr.carlos.fax.provider.FaxProviderClientFactory;
 import io.github.carlos_emr.carlos.fax.provider.FaxProviderException;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
-import io.github.carlos_emr.carlos.utility.FileValidationException;
 
 import io.github.carlos_emr.CarlosProperties;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -164,7 +163,7 @@ public class FaxSender {
                         if (sentFax.getStatusString() != null) {
                             faxJob.setStatusString(sentFax.getStatusString());
                         }
-                    } catch (IllegalArgumentException | FileValidationException | SecurityException e) {
+                    } catch (IllegalArgumentException | SecurityException e) {
                         String statusMessage = "INVALID OR UNSAFE FAX FILE PATH";
                         faxJob.setStatusString(statusMessage);
                         log.warn("Skipping fax id {} due to invalid or unsafe file path", faxJob.getId(), e);
@@ -261,7 +260,7 @@ public class FaxSender {
                 // Prefer files that are under DOCUMENT_DIR and already exist
                 absoluteFile = PathValidationUtils.validateExistingPath(absoluteFile, new File(documentDir));
                 return absoluteFile.toPath();
-            } catch (FileValidationException | SecurityException e) {
+            } catch (SecurityException e) {
                 // Allow absolute paths in an explicitly allowed temp directory
                 // (e.g., for dynamically generated fax cover sheets or attachments)
                 if (PathValidationUtils.isInAllowedTempDirectory(absoluteFile)) {
@@ -278,7 +277,7 @@ public class FaxSender {
         try {
             File validatedFile = PathValidationUtils.validatePath(filename, new File(documentDir));
             return validatedFile.toPath();
-        } catch (FileValidationException | SecurityException e) {
+        } catch (SecurityException e) {
             log.error("Path validation failed for relative fax job filename: {}", filename, e);
             // Do not fall back to a different file; propagate the failure.
             throw new SecurityException("Invalid fax job path", e);

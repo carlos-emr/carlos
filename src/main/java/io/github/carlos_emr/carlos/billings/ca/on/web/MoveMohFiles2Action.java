@@ -53,7 +53,6 @@ import io.github.carlos_emr.carlos.util.zip;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
-import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.WebUtils;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
@@ -296,7 +295,7 @@ public class MoveMohFiles2Action extends ActionSupport {
                     unzipMSG = "(Cannot unzip)";
                 }
             }
-        } catch (FileValidationException | SecurityException e) {
+        } catch (SecurityException e) {
             // Distinguish the path-traversal case from the IO-error case so
             // the operator can tell whether their file selection is invalid
             // vs the disk failed mid-unzip.
@@ -361,7 +360,7 @@ public class MoveMohFiles2Action extends ActionSupport {
                 file = PathValidationUtils.validateExistingPath(file, edtFolderFile);
                 result = true;
                 break;
-            } catch (FileValidationException | SecurityException e) {
+            } catch (SecurityException e) {
                 // SecurityException covers two distinct cases — "not in
                 // this folder" (expected, try next) and "path-traversal
                 // attempt" (attack). Both look the same to the caller,
@@ -416,7 +415,7 @@ public class MoveMohFiles2Action extends ActionSupport {
         // defence-in-depth check.
         try {
             return PathValidationUtils.validatePath(safeFileName, new File(folderPath));
-        } catch (FileValidationException | SecurityException e) {
+        } catch (SecurityException e) {
             logger.warn("Rejected file path: {} in {}",
                     LogSanitizer.sanitize(fileName), LogSanitizer.sanitize(folderPath), e);
             return null;

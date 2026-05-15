@@ -34,7 +34,6 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
-import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.struts2.ServletActionContext;
@@ -98,7 +97,7 @@ public class ProviderSignatureImage2Action extends ActionSupport {
         File sigFile;
         try {
             sigFile = PathValidationUtils.validatePath(signatureName, imageFolder);
-        } catch (FileValidationException | SecurityException e) {
+        } catch (SecurityException e) {
             MiscUtils.getLogger().warn("Blocked path traversal attempt for signature image", e);
             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
             return NONE;

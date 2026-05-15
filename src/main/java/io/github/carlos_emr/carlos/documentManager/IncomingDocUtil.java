@@ -118,7 +118,7 @@ public final class IncomingDocUtil {
             File targetFile = new File(targetPath).getCanonicalFile();
             PathValidationUtils.validateExistingPath(targetFile, baseDir);
             return true;
-        } catch (FileValidationException | IOException e) {
+        } catch (SecurityException | IOException e) {
             logger.error("Error validating path bounds", e);
             return false;
         }

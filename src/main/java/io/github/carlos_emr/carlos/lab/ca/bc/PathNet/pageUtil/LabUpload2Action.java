@@ -44,7 +44,6 @@ import io.github.carlos_emr.carlos.lab.FileUploadCheck;
 import io.github.carlos_emr.carlos.lab.ca.bc.PathNet.Connection;
 import io.github.carlos_emr.carlos.lab.ca.bc.PathNet.HL7.Message;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
-import io.github.carlos_emr.carlos.utility.FileValidationException;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -83,7 +82,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             // Validate file is from an allowed temp directory
             try {
                 importFile = PathValidationUtils.validateUpload(importFile);
-            } catch (FileValidationException | SecurityException e) {
+            } catch (SecurityException e) {
                 _logger.error("Invalid upload source - potential path traversal: " + importFile.getPath());
                 outcome = "exception";
                 request.setAttribute("outcome", outcome);

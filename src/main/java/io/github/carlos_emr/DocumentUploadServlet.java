@@ -45,7 +45,6 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
-import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 /**
@@ -122,7 +121,7 @@ public class DocumentUploadServlet extends HttpServlet {
                     if (!providedFile.exists()) {
                         providedFile = PathValidationUtils.validatePath(sanitizedFilename, archiveDir);
                     }
-                } catch (FileValidationException | SecurityException e) {
+                } catch (SecurityException e) {
                     MiscUtils.getLogger().error("File does not reside in a valid path: {}", LogSanitizer.sanitize(providedFilename), e);
                     return;
                 }
@@ -164,7 +163,7 @@ public class DocumentUploadServlet extends HttpServlet {
                             File inboxDir = new File(inboxFolder);
                             FileUtils.copyFileToDirectory(savedFile, inboxDir);
                         }
-                    } catch (FileValidationException | SecurityException e) {
+                    } catch (SecurityException e) {
                         MiscUtils.getLogger().error("Invalid uploaded filename: {}", LogSanitizer.sanitize(submittedFilename), e);
                         continue;
                     } catch (IOException e) {

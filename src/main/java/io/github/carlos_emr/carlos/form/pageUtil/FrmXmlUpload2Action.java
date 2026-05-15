@@ -37,7 +37,6 @@ import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
-import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.JDBCUtil;
 
@@ -85,7 +84,7 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
         // Validate file path using PathValidationUtils
         try {
             normalizedFile = PathValidationUtils.validateExistingPath(normalizedFile, safeDir);
-        } catch (FileValidationException | SecurityException e) {
+        } catch (SecurityException e) {
             throw new IllegalArgumentException("Invalid file path: " + normalizedFile.getPath());
         }
 
