@@ -81,7 +81,7 @@
         }
     }
 
-    List<ScheduleTemplateCode> stcs = new java.util.ArrayList<>(scheduleTemplateCodeDao.findAll());
+    List<ScheduleTemplateCode> stcs = scheduleTemplateCodeDao.findAll();
     Collections.sort(stcs, ScheduleTemplateCode.CodeComparator);
 
 

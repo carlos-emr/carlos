@@ -27,7 +27,9 @@ import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -38,25 +40,25 @@ class LookupEntityCopyFactoryUnitTest {
 
     @Test
     @DisplayName("should copy all AppointmentType fields")
-    void shouldCopyAllAppointmentTypeFields() throws Exception {
+    void shouldCopyAllAppointmentTypeFields_forAllInstanceFields() throws Exception {
         assertCopyFactoryCopiesAllFields(AppointmentType.class, AppointmentType::copyOf);
     }
 
     @Test
     @DisplayName("should copy all Facility fields")
-    void shouldCopyAllFacilityFields() throws Exception {
+    void shouldCopyAllFacilityFields_forAllInstanceFields() throws Exception {
         assertCopyFactoryCopiesAllFields(Facility.class, Facility::copyOf);
     }
 
     @Test
     @DisplayName("should copy all ScheduleTemplateCode fields")
-    void shouldCopyAllScheduleTemplateCodeFields() throws Exception {
+    void shouldCopyAllScheduleTemplateCodeFields_forAllInstanceFields() throws Exception {
         assertCopyFactoryCopiesAllFields(ScheduleTemplateCode.class, ScheduleTemplateCode::copyOf);
     }
 
     @Test
     @DisplayName("should defensively copy Facility lastUpdated")
-    void shouldDefensivelyCopyFacilityLastUpdated() throws Exception {
+    void shouldDefensivelyCopyFacilityLastUpdated_withIndependentDateInstance() throws Exception {
         Facility source = populated(Facility.class);
 
         Facility copy = Facility.copyOf(source);
@@ -84,10 +86,7 @@ class LookupEntityCopyFactoryUnitTest {
         T copy = copyFactory.copyOf(source);
 
         assertThat(copy).isNotSameAs(source);
-        for (Field field : modelClass.getDeclaredFields()) {
-            if (Modifier.isStatic(field.getModifiers())) {
-                continue;
-            }
+        for (Field field : instanceFieldsIn(modelClass)) {
             field.setAccessible(true);
             assertThat(field.get(copy))
                     .as("field: %s", field.getName())
@@ -98,15 +97,26 @@ class LookupEntityCopyFactoryUnitTest {
     private <T> T populated(Class<T> modelClass) throws Exception {
         T instance = modelClass.getDeclaredConstructor().newInstance();
         int fieldIndex = 1;
-        for (Field field : modelClass.getDeclaredFields()) {
-            if (Modifier.isStatic(field.getModifiers())) {
-                continue;
-            }
+        for (Field field : instanceFieldsIn(modelClass)) {
             field.setAccessible(true);
             field.set(instance, valueFor(field, fieldIndex));
             fieldIndex++;
         }
         return instance;
+    }
+
+    private List<Field> instanceFieldsIn(Class<?> modelClass) {
+        List<Field> fields = new ArrayList<>();
+        Class<?> currentClass = modelClass;
+        while (currentClass != null && currentClass != Object.class) {
+            for (Field field : currentClass.getDeclaredFields()) {
+                if (!Modifier.isStatic(field.getModifiers())) {
+                    fields.add(field);
+                }
+            }
+            currentClass = currentClass.getSuperclass();
+        }
+        return fields;
     }
 
     private Object valueFor(Field field, int fieldIndex) {
