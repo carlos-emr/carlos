@@ -51,12 +51,14 @@ table#firstTable td#userSettings ul#userSettingsMenu:not(.dashboardDropdown) {
 }
 
 table#firstTable td#userSettings ul#userSettingsMenu li,
-table#firstTable td#firstMenu ul#navlist li:not(.dashboardDropdown) {
+/* Keep top-level menu layout from leaking into dashboard dropdown rows; the
+   dropdown marker is on a nested div, so scope these rules to direct children. */
+table#firstTable td#firstMenu ul#navlist > li {
     line-height: 1;
     display: inline-block;
 }
 
-table#firstTable td#firstMenu ul#navlist li a:not(.dashboardDropdown) {
+table#firstTable td#firstMenu ul#navlist > li > a {
     display: inline-block;
     padding: 5px;
 }
@@ -115,7 +117,7 @@ table.topnav td {
     white-space: nowrap;
 }
 
-#navlist li {
+#navlist > li {
     padding-top: 0.5px;
     padding-bottom: 0.5px;
     padding-left: 2.5px;
@@ -123,18 +125,26 @@ table.topnav td {
     display: inline;
 }
 
-#navlist li:hover {
+#navlist > li:hover {
     color: #fff;
     background-color: #486ebd;
 }
 
-#navlist li a:hover {
+#navlist > li > a:hover {
     color: #fff;
     background-color: #486ebd;
 }
 
-.tabalert {
-    color: red;
+/* Match the schedule bar alert affordance; these links need higher specificity
+   than the general topnav anchor color rules above. */
+table#firstTable #unclaimedLabLink.tabalert,
+table#firstTable #oscar_new_tickler {
+    color: red !important;
+}
+
+table#firstTable #unclaimedLabLink.tabalert:hover,
+table#firstTable a:hover #oscar_new_tickler {
+    color: #fff !important;
 }
 
 /*end of top navigation bar */

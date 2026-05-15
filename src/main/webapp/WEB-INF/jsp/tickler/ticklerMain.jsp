@@ -785,6 +785,10 @@
         <form name="serviceform" method="get" action="<%= request.getContextPath() %>/tickler/ViewTicklerMain">
             <input type="hidden" name="Submit" value="">
             <input type="hidden" name="demoview" value="<carlos:encode value='<%= isDemoView ? demographic_no : "" %>' context="htmlAttribute"/>">
+            <% if (showScheduleNav) { %>
+            <%-- Filter submits rebuild the page; keep scheduleNav so the included top bar does not vanish. --%>
+            <input type="hidden" name="scheduleNav" value="1">
+            <% } %>
 
             <c:if test="${not hasDemoView}">
                 <div class="row mb-2">
@@ -952,6 +956,10 @@
 
         <form name="ticklerform" method="post" action="DbTicklerMain">
             <input type="hidden" name="parentAjaxId" value="${carlos:forHtmlAttribute(param.parentAjaxId)}"/>
+            <% if (showScheduleNav) { %>
+            <%-- Complete/delete posts also reload this view, so preserve the schedule shell flag there too. --%>
+            <input type="hidden" name="scheduleNav" value="1">
+            <% } %>
             <table id="ticklerResults" class="table table-striped table-sm" style="width:100%">
                 <thead>
                 <tr>

@@ -423,6 +423,10 @@
                     <input type="hidden" name="desc" id="desc" value="<carlos:encode value='<%= desc != null ? desc : "" %>' context="htmlAttribute"/>"/>
                     <input type="hidden" name="offset" id="offset" value="<carlos:encode value='<%= String.valueOf(offset) %>' context="htmlAttribute"/>"/>
                     <input type="hidden" name="limit" id="limit" value="<carlos:encode value='<%= String.valueOf(limit) %>' context="htmlAttribute"/>"/>
+                    <% if (showScheduleNav) { %>
+                    <%-- Sorting and pagination submit this form; this hidden flag keeps the schedule top bar visible after each submit. --%>
+                    <input type="hidden" name="scheduleNav" value="1"/>
+                    <% } %>
                 </div>
             </form>
 

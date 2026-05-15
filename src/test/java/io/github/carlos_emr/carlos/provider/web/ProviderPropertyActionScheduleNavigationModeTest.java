@@ -7,24 +7,27 @@ package io.github.carlos_emr.carlos.provider.web;
 
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 
 import java.lang.reflect.Method;
 
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 @DisplayName("ProviderPropertyAction schedule navigation mode")
-class ProviderPropertyActionScheduleNavigationModeTest {
+class ProviderPropertyActionScheduleNavigationModeTest extends CarlosUnitTestBase {
 
     private static final String PROVIDER_NO = "999998";
 
     @Test
     @DisplayName("focused mode does not enable legacy encounter tabs")
-    void focusedModeDoesNotEnableLegacyEncounterTabs() throws Exception {
+    void shouldPersistScheduleNavigationMode_whenFocusedSelected() throws Exception {
         UserPropertyDAO dao = mock(UserPropertyDAO.class);
         MockHttpServletRequest request = requestWithMode(UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED);
 
@@ -37,7 +40,7 @@ class ProviderPropertyActionScheduleNavigationModeTest {
 
     @Test
     @DisplayName("tab mode keeps legacy encounter tab behavior enabled")
-    void tabModeKeepsLegacyEncounterTabBehaviorEnabled() throws Exception {
+    void shouldPersistScheduleNavigationMode_whenTabSelected() throws Exception {
         UserPropertyDAO dao = mock(UserPropertyDAO.class);
         MockHttpServletRequest request = requestWithMode(UserProperty.SCHEDULE_NAVIGATION_MODE_TAB);
 
@@ -50,7 +53,7 @@ class ProviderPropertyActionScheduleNavigationModeTest {
 
     @Test
     @DisplayName("invalid mode falls back to popups")
-    void invalidModeFallsBackToPopups() throws Exception {
+    void shouldFallbackToPopup_whenModeInvalid() throws Exception {
         UserPropertyDAO dao = mock(UserPropertyDAO.class);
         MockHttpServletRequest request = requestWithMode("unexpected");
 
@@ -63,16 +66,15 @@ class ProviderPropertyActionScheduleNavigationModeTest {
 
     @Test
     @DisplayName("missing mode parameter leaves existing navigation settings untouched")
-    void missingModeParameterLeavesExistingNavigationSettingsUntouched() throws Exception {
+    void shouldSkipPersistence_whenModeMissing() throws Exception {
         UserPropertyDAO dao = mock(UserPropertyDAO.class);
         MockHttpServletRequest request = new MockHttpServletRequest();
 
         invokeSaveScheduleNavigationMode(request, dao);
 
-        // Partial preference posts and older forms must not silently rewrite navigation mode.
-        verify(dao, never()).saveProp(PROVIDER_NO, UserProperty.SCHEDULE_NAVIGATION_MODE,
-                UserProperty.SCHEDULE_NAVIGATION_MODE_POPUP);
-        verify(dao, never()).saveProp(PROVIDER_NO, UserProperty.ENCOUNTER_OPEN_IN_TAB, "no");
+        // Partial preference posts and older forms must not write these keys with any value.
+        verify(dao, never()).saveProp(eq(PROVIDER_NO), eq(UserProperty.SCHEDULE_NAVIGATION_MODE), anyString());
+        verify(dao, never()).saveProp(eq(PROVIDER_NO), eq(UserProperty.ENCOUNTER_OPEN_IN_TAB), anyString());
     }
 
     private static MockHttpServletRequest requestWithMode(String mode) {

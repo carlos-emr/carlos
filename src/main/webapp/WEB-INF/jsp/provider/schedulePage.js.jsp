@@ -33,7 +33,6 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -64,6 +63,7 @@
         }
         openEncounterInTab = UserProperty.SCHEDULE_NAVIGATION_MODE_TAB.equals(scheduleNavigationMode);
     }
+    pageContext.setAttribute("scheduleNavigationModeValue", scheduleNavigationMode);
 %>
 function storeApptNo(apptNo) {
 var url = "<%= request.getContextPath() %>/provider/ViewStoreApptInSession";
@@ -421,7 +421,8 @@ popupPage2(queryString, 'appointment', height, width);
 }
 
 var openEncounterInTab = <%=openEncounterInTab%>;
-var scheduleNavigationMode = '<%=Encode.forJavaScript(scheduleNavigationMode)%>';
+// Use the JSP encoder wrapper here so null modes render safely and match the rest of this file.
+var scheduleNavigationMode = '${carlos:forJavaScript(scheduleNavigationModeValue)}';
 
 function appendQueryParam(url, key, value) {
 var parts = String(url).split('#');

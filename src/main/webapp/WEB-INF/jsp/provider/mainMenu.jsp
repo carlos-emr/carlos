@@ -92,7 +92,6 @@
     String reportIndexUrl = request.getContextPath() + "/report/ViewReportindex";
     String ticklerUrl = request.getContextPath() + "/tickler/ViewTicklerMain";
     String administrationUrl = request.getContextPath() + "/administration";
-    String billingReportUrl = request.getContextPath() + "/billing/CA/" + prov + "/billingReportCenter.jsp?displaymode=billreport&providerview=" + curUser_no;
     String searchUrl = request.getContextPath() + "/demographic/ViewSearch";
     String econsultUrl = request.getContextPath() + "/encounter/econsult";
 %>
@@ -396,9 +395,13 @@
             window.location.href = appendScheduleMenuQueryParam(url, 'scheduleNav', '1');
             return false;
         }
-        if (scheduleNavActive && clickEvent && clickEvent.altKey && typeof popupTab === 'function') {
+        if (scheduleNavActive && clickEvent && clickEvent.altKey) {
             // Alt-click intentionally escapes the schedule shell without changing the user's saved mode.
-            popupTab(url);
+            if (typeof popupTab === 'function') {
+                popupTab(url);
+            } else {
+                window.open(url, '_blank', 'noopener');
+            }
             return false;
         }
         if (typeof popupAction === 'function') {

@@ -75,6 +75,7 @@
 <%
     boolean authed = true;
     boolean showScheduleNav = "1".equals(request.getParameter("scheduleNav"));
+    String scheduleNavQuerySuffix = showScheduleNav ? "&scheduleNav=1" : "";
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_edoc,_admin,_admin.edocdelete" rights="r" reverse="<%=true%>">
     <%authed = false; %>
@@ -242,6 +243,10 @@
                 fields['functionid'] = funcId;
                 fields['viewstatus'] = viewStatus;
                 fields['source'] = 'report';
+                <% if (showScheduleNav) { %>
+                // Dynamic document actions post a new form, so add scheduleNav here to keep the schedule header after the action.
+                fields['scheduleNav'] = '1';
+                <% } %>
                 for (var key in fields) {
                     var input = document.createElement('input');
                     input.type = 'hidden';
@@ -430,6 +435,10 @@
         <form action="${pageContext.request.contextPath}/documentManager/combinePDFs" method="post">
             <input type="hidden" name="curUser" value="<%=curUser%>">
             <input type="hidden" name="demoId" value="<carlos:encode value='<%= moduleid %>' context="htmlAttribute"/>">
+            <% if (showScheduleNav) { %>
+            <%-- Combine-PDF submits leave the current request, so carry the schedule shell flag explicitly. --%>
+            <input type="hidden" name="scheduleNav" value="1">
+            <% } %>
             <div class="documentLists"><%-- STUFF TO DISPLAY --%> <%
                 ArrayList categories = new ArrayList();
                 ArrayList categoryKeys = new ArrayList();
@@ -467,7 +476,7 @@
                                 <div class="mb-3">
                                         <%--      <label for="viewstatus"><fmt:message key="dms.documentReport.msgViewStatus"/></label>--%>
                                     <select class="form-select" id="viewstatus" name="viewstatus"
-                                            onchange="var val = encodeURIComponent(this.options[this.selectedIndex].value); window.location.href='?function=<carlos:encode value='<%= module %>' context="uriComponent"/>&functionid=<carlos:encode value='<%= moduleid %>' context="uriComponent"/>&view=<carlos:encode value='<%= view %>' context="uriComponent"/>&viewstatus=' + val;">
+                                            onchange="var val = encodeURIComponent(this.options[this.selectedIndex].value); window.location.href='?function=<carlos:encode value='<%= module %>' context="uriComponent"/>&functionid=<carlos:encode value='<%= moduleid %>' context="uriComponent"/>&view=<carlos:encode value='<%= view %>' context="uriComponent"/>&viewstatus=' + val + '<%=scheduleNavQuerySuffix%>';">
                                         <option value="all"
                                                 <%=viewstatus.equalsIgnoreCase("all") ? "selected" : ""%>><fmt:message key="dms.documentReport.msgAll"/></option>
                                         <option value="deleted"
@@ -483,7 +492,7 @@
                                         <%--          <label for="view"><fmt:message key="dms.documentReport.msgView"/></label>--%>
                                     <select id="viewdoctype<%=i%>" name="view" id="view"
                                             class="form-select"
-                                            onchange="var val = encodeURIComponent(this.options[this.selectedIndex].value); window.location.href='?function=<carlos:encode value='<%= module %>' context="uriComponent"/>&functionid=<carlos:encode value='<%= moduleid %>' context="uriComponent"/>&view=' + val;">
+                                            onchange="var val = encodeURIComponent(this.options[this.selectedIndex].value); window.location.href='?function=<carlos:encode value='<%= module %>' context="uriComponent"/>&functionid=<carlos:encode value='<%= moduleid %>' context="uriComponent"/>&view=' + val + '<%=scheduleNavQuerySuffix%>';">
                                         <option value=""><fmt:message key="dms.documentReport.msgAll"/></option>
                                         <%
                                             for (int i3 = 0; i3 < doctypes.size(); i3++) {
@@ -498,7 +507,8 @@
                                 <%if (DocumentBrowserLink) {%>
                                 <div class="mb-3">
                                     <a class="btn btn-link"
-                                        href="${ pageContext.request.contextPath }/documentManager/ViewDocumentBrowser?function=<carlos:encode value='<%= module %>' context="uriComponent"/>&functionid=<carlos:encode value='<%= moduleid %>' context="uriComponent"/>&categorykey=<carlos:encode value='<%= currentkey %>' context="uri"/>">
+                                        <%-- The browser link is a full navigation; append scheduleNav so it remains in the schedule shell. --%>
+                                        href="${ pageContext.request.contextPath }/documentManager/ViewDocumentBrowser?function=<carlos:encode value='<%= module %>' context="uriComponent"/>&functionid=<carlos:encode value='<%= moduleid %>' context="uriComponent"/>&categorykey=<carlos:encode value='<%= currentkey %>' context="uri"/><%=scheduleNavQuerySuffix%>">
                                         <fmt:message key="dms.documentReport.msgBrowser"/>
                                     </a>
                                 </div>
