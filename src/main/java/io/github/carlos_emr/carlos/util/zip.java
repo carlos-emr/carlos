@@ -110,8 +110,7 @@ public class zip {
         BufferedInputStream is = null;
         ZipEntry entry;
 
-        try {
-            ZipFile zipfile = new ZipFile(fullpath);
+        try (ZipFile zipfile = new ZipFile(fullpath)) {
             File targetDir = new File(dirName);
 
             entries = zipfile.entries();
@@ -151,7 +150,6 @@ public class zip {
                 dest.close();
                 is.close();
             }
-            zipfile.close();
             //nee to move zip file to archive folder
             File afile = new File(fullpath);
             File dir = new File(dirName + "unzip_archive/");
@@ -167,4 +165,3 @@ public class zip {
         return result;
     }
 }
-

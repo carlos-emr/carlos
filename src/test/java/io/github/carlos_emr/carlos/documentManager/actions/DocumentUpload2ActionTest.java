@@ -134,7 +134,7 @@ class DocumentUpload2ActionTest extends CarlosUnitTestBase {
         Path writtenFile = incomingDocumentDir.resolve("123").resolve("Fax").resolve("my.file.pdf");
         assertThat(result).isNull();
         assertThat(request.getSession().getAttribute("preferredQueue")).isEqualTo("123");
-        assertThat(response.getContentAsString()).contains(tempUploadFile.getName());
+        assertThat(response.getContentAsString()).contains("my.file.pdf");
         assertThat(Files.readAllBytes(writtenFile)).containsExactly(1);
     }
 

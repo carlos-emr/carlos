@@ -135,7 +135,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                                 map.put("error", "Failed to write file. Please contact administrator");
                                 MiscUtils.getLogger().error("Failed to write file to {}", LogSanitizer.sanitize(destFolder)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                             } else {
-                                map.put("name", docFile.getName());
+                                map.put("name", sanitizedFileName);
                                 map.put("size", docFile.length());
                                 storePreferredQueue(queueId);
                             }
@@ -211,7 +211,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                     }
                 }
 
-                map.put("name", docFile.getName());
+                map.put("name", fileName);
                 map.put("size", docFile.length());
             } catch (FileValidationException e) {
                 logger.warn("Rejected invalid document upload filename");

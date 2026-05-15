@@ -57,7 +57,6 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
-import org.owasp.encoder.Encode;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -68,6 +67,7 @@ import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ImagePDFCreator;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 /**
  * Spring-managed implementation of the {@link DocumentManager} interface for managing
@@ -372,8 +372,9 @@ public class DocumentManagerImpl implements DocumentManager {
             if (toPath == null) {
                 toPath = getParentDirectory();
             }
-            Path from = FileSystems.getDefault().getPath(fromPath, document.getDocfilename());
-            Path to = FileSystems.getDefault().getPath(toPath, document.getDocfilename());
+            String docFilename = validateStoredDocumentFilename(document.getDocfilename());
+            Path from = validateTempSourceDocument(fromPath, docFilename);
+            Path to = validateDocumentDestination(toPath, docFilename);
             Files.move(from, to, StandardCopyOption.REPLACE_EXISTING);
 
             LogAction.addLog(loggedInInfo, "EformDataManager.moveDocument", "Document was moved", "Document No." + document.getDocumentNo(), "", fromPath + " to " + toPath);
@@ -381,7 +382,38 @@ public class DocumentManagerImpl implements DocumentManager {
         } catch (IOException e) {
             MiscUtils.getLogger().error("Document failed move. Id: " + document.getDocumentNo() + " From: " + fromPath + " To: " + toPath, e);
             LogAction.addLog(loggedInInfo, "EformDataManager.moveDocument", "Document failed move ", "Document No." + document.getDocumentNo(), "", fromPath + " to " + toPath);
+        } catch (FileValidationException | InvalidPathException e) {
+            logger.error("Document move rejected for invalid path. Document No. {}", document.getDocumentNo(), e);
+            LogAction.addLog(loggedInInfo, "EformDataManager.moveDocument", "Document failed move ", "Document No." + document.getDocumentNo(), "", fromPath + " to " + toPath);
+            throw new SecurityException("Invalid document move path", e);
         }
+    }
+
+    private String validateStoredDocumentFilename(String filename) {
+        if (filename == null || filename.isEmpty()) {
+            throw new FileValidationException(PathValidationUtils.INVALID_FILENAME_MESSAGE);
+        }
+        if (filename.contains("/") || filename.contains("\\")) {
+            throw new FileValidationException(PathValidationUtils.INVALID_FILENAME_MESSAGE);
+        }
+        return filename;
+    }
+
+    private Path validateTempSourceDocument(String fromPath, String docFilename) {
+        if (fromPath == null || fromPath.trim().isEmpty()) {
+            throw new FileValidationException("Source path is required");
+        }
+        File sourceFile = FileSystems.getDefault().getPath(fromPath, docFilename).toFile();
+        return PathValidationUtils.validateUpload(sourceFile).toPath();
+    }
+
+    private Path validateDocumentDestination(String toPath, String docFilename) {
+        if (toPath == null || toPath.trim().isEmpty()) {
+            throw new FileValidationException("Destination path is required");
+        }
+        File destinationDir = FileSystems.getDefault().getPath(toPath).toFile();
+        File destinationFile = FileSystems.getDefault().getPath(toPath, docFilename).toFile();
+        return PathValidationUtils.validateExistingPath(destinationFile, destinationDir).toPath();
     }
 
     /** @return String the configured parent document directory path */
@@ -423,7 +455,7 @@ public class DocumentManagerImpl implements DocumentManager {
         // Reject filenames containing path separators. Stored filenames are plain basenames;
         // silently stripping a subdirectory component could resolve to a different file.
         if (filename.contains("/") || filename.contains("\\")) {
-            logger.error("Document filename contains path separator, rejected: {}", Encode.forJava(filename));
+            logger.error("Document filename contains path separator, rejected: {}", LogSanitizer.sanitize(filename));
             return null;
         }
 
@@ -433,7 +465,7 @@ public class DocumentManagerImpl implements DocumentManager {
         try {
             validatedFile = PathValidationUtils.validatePath(filename, new File(documentDir));
         } catch (FileValidationException e) {
-            logger.error("Invalid document filename rejected: {}", Encode.forJava(filename));
+            logger.error("Invalid document filename rejected: {}", LogSanitizer.sanitize(filename));
             return null;
         }
 
