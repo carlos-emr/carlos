@@ -30,9 +30,11 @@
 <%
     // The MFA page is shown before a user is fully authenticated. Require the
     // pending-MFA marker instead of the normal "user" session attribute, which
-    // LoginFilter treats as an authenticated session.
+    // LoginFilter treats as an authenticated session. Return immediately after
+    // redirect so the MFA form is never written to a committed response.
     if (session.getAttribute("pendingMfaAuthentication") == null) {
         response.sendRedirect(request.getContextPath() + "/logoutPage");
+        return;
     }
 %>
 

@@ -45,6 +45,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -92,6 +93,7 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should include context path when building receipt redirect")
     void shouldIncludeContextPath_whenBuildingReceiptRedirect() {
         String redirectUrl = BillingSaveBilling2Action.receiptRedirectUrl(
                 "/carlos", List.of("101", "102"));
@@ -101,6 +103,7 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should use root-relative billing route when context path is empty")
     void shouldUseRootRelativeBillingRoute_whenContextPathIsEmpty() {
         String redirectUrl = BillingSaveBilling2Action.receiptRedirectUrl("", List.of("101"));
 
@@ -109,6 +112,7 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should reject GET before billing writes")
     void shouldRejectGetBeforeBillingWrites_whenSavingBilling() throws Exception {
         request.setMethod("GET");
 
@@ -121,6 +125,7 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should reject HEAD before billing writes")
     void shouldRejectHeadBeforeBillingWrites_whenSavingBilling() throws Exception {
         request.setMethod("HEAD");
 
@@ -133,6 +138,7 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should redirect unauthenticated request when session user attribute is missing")
     void shouldRedirectUnauthenticatedRequest_whenSessionUserAttributeIsMissing() throws Exception {
         request.setMethod("POST");
 
@@ -145,6 +151,7 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should send bad request when billing session bean is missing")
     void shouldSendBadRequest_whenBillingSessionBeanIsMissing() throws Exception {
         request.setMethod("POST");
         request.getSession().setAttribute("user", "100");
@@ -161,6 +168,26 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(result).isEqualTo(ActionSupport.NONE);
             assertThat(response.getStatus()).isEqualTo(400);
             assertThat(response.getErrorMessage()).isEqualTo("Billing session expired");
+            verifyNoInteractions(billingmasterDAO, appointmentDao, appointmentArchiveDao);
+        }
+    }
+
+    @Test
+    @DisplayName("should throw security exception when user lacks billing write privilege")
+    void shouldThrowSecurityException_whenUserLacksBillingWritePrivilege() {
+        request.setMethod("POST");
+        request.getSession().setAttribute("user", "100");
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class)) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_billing"), eq("w"), isNull()))
+                    .thenReturn(false);
+
+            assertThatThrownBy(() -> new BillingSaveBilling2Action().execute())
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required sec object (_billing)");
             verifyNoInteractions(billingmasterDAO, appointmentDao, appointmentArchiveDao);
         }
     }

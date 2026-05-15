@@ -166,6 +166,22 @@ class BillingOnMriViewModelAssemblerTest {
     }
 
     @Test
+    @DisplayName("should warn and exclude bill center when code is blank")
+    void shouldWarnAndExcludeBillCenter_whenCodeIsBlank() {
+        Provider provider = provider("778", "Blank", "Center", "OHIP778");
+        when(providerDao.getBillableProviders()).thenReturn(List.of(provider));
+        when(providerBillCenterDao.find("778")).thenReturn(billCenter("778", "   "));
+
+        BillingOnMriViewModel model = assembler().assemble(requestForYear("2026"), loggedInInfo);
+
+        assertThat(model.getProviderBillCenterMap()).doesNotContainKey("778");
+        assertThat(logCapture.messages()).anySatisfy(message -> {
+            assertThat(message).contains("missing bill-center code");
+            assertThat(message).contains("778");
+        });
+    }
+
+    @Test
     @DisplayName("should drop MRI row when disk id is malformed")
     void shouldDropMriRow_whenDiskIdIsMalformed() {
         DiskFilenameRow row = new DiskFilenameRow("11", "file.html", "OHIP100", "100", "claim", "U", "12.00");

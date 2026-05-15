@@ -563,7 +563,11 @@ public final class Login2Action extends ActionSupport {
                 response.sendRedirect(loginFailedRedirectUrl(message("login.errorSecurityRecordMissing")));
                 return NONE;
             }
-            if (CarlosProperties.getInstance().getBooleanProperty("mandatory_password_reset", "true") &&
+            // Default mandatory password-reset enforcement to enabled. Older deployments that did
+            // not define the property still need server-side forced-reset handling when the
+            // Security row is flagged, otherwise a missing config key silently bypasses a security
+            // control.
+            if (isMandatoryPasswordResetEnabled() &&
                     security.isForcePasswordReset() != null && security.isForcePasswordReset()
                     && forcedpasswordchange) {
 
@@ -637,6 +641,13 @@ public final class Login2Action extends ActionSupport {
      *
      * <p>Only pending-MFA attributes are stored here. The canonical {@code user} session
      * attribute is set by {@link #completeAuthenticatedLogin} after the OTP validates.</p>
+     *
+     * @param cl authenticated password/PIN login object to resume after MFA
+     * @param strAuth authentication result fields returned by {@link LoginCheckLogin#auth}
+     * @param security security row for the authenticated provider
+     * @param ip remote address used for audit logging
+     * @return {@code mfaHandler} when the challenge view is ready, or {@code failure} when
+     *         registration setup cannot safely continue
      */
     private String beginPendingMfaChallenge(LoginCheckLogin cl, String[] strAuth, Security security, String ip) {
         HttpSession session = request.getSession(false);
@@ -676,6 +687,19 @@ public final class Login2Action extends ActionSupport {
 
     /**
      * Validates a submitted MFA code, then completes the normal authenticated login flow.
+     *
+     * <p>The pending-MFA session is the boundary between password/PIN success and an authenticated
+     * application session. Fatal validation failures clear that pending state so the staged
+     * {@link LoginCheckLogin} and authentication result cannot survive after a corrupted secret,
+     * missing security record, or broken TOTP key. Retryable user-code failures intentionally keep
+     * the pending state so the user can enter a new OTP.</p>
+     *
+     * @param ip remote address used for logging and final login audit
+     * @param isMobileOptimized whether mobile session flags should be applied after success
+     * @param submitType mobile/full-site submit mode from the original request
+     * @param ajaxResponse whether the final response should be JSON instead of a Struts result
+     * @return Struts result name, {@link #NONE}, or null for direct AJAX responses
+     * @throws IOException if redirecting or writing the final response fails
      */
     private String validateMfaAndCompleteLogin(String ip, boolean isMobileOptimized, String submitType,
                                                boolean ajaxResponse) throws IOException {
@@ -720,6 +744,7 @@ public final class Login2Action extends ActionSupport {
                         LogSanitizer.sanitize(String.valueOf(security.getSecurityNo())),
                         LogSanitizer.sanitize(ip),
                         e);
+                clearPendingMfaSession(session);
                 request.setAttribute("errMsg", message("login.errorUnableToProcess"));
                 return "failure";
             }
@@ -734,6 +759,7 @@ public final class Login2Action extends ActionSupport {
                     LogSanitizer.sanitize(String.valueOf(security.getSecurityNo())),
                     LogSanitizer.sanitize(ip),
                     e);
+            clearPendingMfaSession(session);
             request.setAttribute("errMsg", message("login.errorUnableToProcess"));
             return "failure";
         }
@@ -769,6 +795,15 @@ public final class Login2Action extends ActionSupport {
         return completeAuthenticatedLogin(cl, strAuth, ip, isMobileOptimized, submitType, ajaxResponse);
     }
 
+    /**
+     * Returns whether the session contains all state required to validate a pending MFA challenge.
+     *
+     * <p>Every attribute is required and type-checked. Missing or wrong-typed state is treated as an
+     * expired challenge rather than reconstructing login state from request parameters.</p>
+     *
+     * @param session candidate HTTP session
+     * @return true when the session contains the pending-MFA marker, login object, and auth result
+     */
     private boolean hasPendingMfaSession(HttpSession session) {
         return session != null
                 && Boolean.TRUE.equals(session.getAttribute(PENDING_MFA_AUTH_ATTR))
@@ -776,6 +811,18 @@ public final class Login2Action extends ActionSupport {
                 && session.getAttribute(PENDING_MFA_AUTH_RESULT_ATTR) instanceof String[];
     }
 
+    /**
+     * Validates an RFC 6238 TOTP code with one time-step of clock skew tolerance.
+     *
+     * <p>Authenticator apps and server clocks can differ briefly. Accepting the current, previous,
+     * or next time step preserves the usual +/- one-step tolerance without accepting an unbounded
+     * replay window.</p>
+     *
+     * @param mfaSecret Base32-encoded MFA secret
+     * @param submittedCode user-submitted six-digit TOTP code
+     * @return true when the submitted code matches the current, previous, or next time step
+     * @throws java.security.InvalidKeyException when the decoded secret cannot create a valid TOTP key
+     */
     private boolean isValidTotpCode(String mfaSecret, String submittedCode) throws java.security.InvalidKeyException {
         TimeBasedOneTimePasswordGenerator totpGenerator = new TimeBasedOneTimePasswordGenerator();
         byte[] decodedKey = new Base32().decode(mfaSecret);
@@ -788,6 +835,14 @@ public final class Login2Action extends ActionSupport {
                 || totpGenerator.generateOneTimePasswordString(key, now.plus(timeStep)).equals(submittedCode);
     }
 
+    /**
+     * Removes all pre-authentication MFA state from the session.
+     *
+     * <p>The staged login object and authentication result represent a successful password/PIN check
+     * and must be cleared before any fatal MFA failure returns control to Struts.</p>
+     *
+     * @param session session containing pending-MFA state
+     */
     private void clearPendingMfaSession(HttpSession session) {
         session.removeAttribute(PENDING_MFA_AUTH_ATTR);
         session.removeAttribute(PENDING_MFA_LOGIN_CHECK_ATTR);
@@ -795,6 +850,18 @@ public final class Login2Action extends ActionSupport {
         session.removeAttribute("mfaSecret");
     }
 
+    /**
+     * Builds the minimal authenticated context needed to persist a newly registered MFA secret.
+     *
+     * <p>MFA registration happens before the normal {@code user}-authenticated session is created,
+     * so this context is derived from pending-MFA state rather than the canonical logged-in session
+     * attributes.</p>
+     *
+     * @param session pending-MFA session that will become the authenticated session on success
+     * @param strAuth authentication result fields returned by {@link LoginCheckLogin#auth}
+     * @param security security row for the authenticated provider
+     * @return minimal {@link LoggedInInfo} context required by {@link MfaManager#saveMfaSecret}
+     */
     private LoggedInInfo buildLoggedInInfoForPendingMfa(HttpSession session, String[] strAuth, Security security) {
         LoggedInInfo loggedInInfo = new LoggedInInfo();
         loggedInInfo.setSession(session);
@@ -808,6 +875,21 @@ public final class Login2Action extends ActionSupport {
 
     /**
      * Completes session setup after password/PIN authentication and any required MFA have succeeded.
+     *
+     * <p>This is the only path that creates the canonical authenticated session marker
+     * ({@code user}). Callers must complete forced password reset and MFA checks before invoking it,
+     * because {@link io.github.carlos_emr.carlos.sec.LoginFilter} treats that marker as logged-in
+     * state. If the provider row cannot be loaded after authentication, the new session is
+     * invalidated and the method returns {@code failure} rather than leaving a partial session.</p>
+     *
+     * @param cl authenticated login object carrying the security row
+     * @param strAuth authentication result fields returned by {@link LoginCheckLogin#auth}
+     * @param ip remote address used for audit logging
+     * @param isMobileOptimized whether mobile session flags should be applied
+     * @param submitType mobile/full-site submit mode
+     * @param ajaxResponse whether to write the final provider JSON response directly
+     * @return Struts result name, {@link #NONE} after redirect, {@code failure}, or null for AJAX
+     * @throws IOException if redirecting or writing the response fails
      */
     private String completeAuthenticatedLogin(LoginCheckLogin cl, String[] strAuth, String ip,
                                               boolean isMobileOptimized, String submitType,
@@ -908,6 +990,13 @@ public final class Login2Action extends ActionSupport {
 
         String username = (String) session.getAttribute("user");
         Provider provider = providerManager.getProvider(username);
+        if (provider == null) {
+            logger.error("Authenticated login could not load provider record: providerNo={}, remote={}",
+                    LogSanitizer.sanitize(username), LogSanitizer.sanitize(ip));
+            session.invalidate();
+            request.setAttribute("errMsg", message("login.errorUnableToProcess"));
+            return "failure";
+        }
         session.setAttribute("provider", provider); // nosemgrep: tainted-session-from-http-request
         session.setAttribute(SessionConstants.LOGGED_IN_PROVIDER, provider); // nosemgrep: tainted-session-from-http-request
         session.setAttribute(SessionConstants.LOGGED_IN_SECURITY, cl.getSecurity()); // nosemgrep: tainted-session-from-http-request
@@ -998,6 +1087,22 @@ public final class Login2Action extends ActionSupport {
     }
 
     /**
+     * Returns whether flagged accounts must be routed through forced password reset.
+     *
+     * <p>This setting is a security control, so an omitted key is treated as enabled. The shared
+     * {@code getBooleanProperty(key, "true")} helper only checks whether the configured value is
+     * active and therefore returns false for missing positive-valued keys.</p>
+     *
+     * @return true when {@code mandatory_password_reset} is missing or set to true/yes/on
+     */
+    private boolean isMandatoryPasswordResetEnabled() {
+        String value = CarlosProperties.getInstance().getProperty("mandatory_password_reset", "true");
+        return value != null && ("true".equalsIgnoreCase(value.trim())
+                || "yes".equalsIgnoreCase(value.trim())
+                || "on".equalsIgnoreCase(value.trim()));
+    }
+
+    /**
      * Redirects a retryable forced-reset validation failure back to the GET view.
      *
      * <p>The credential token remains live for this path by design: the user has not yet passed
@@ -1048,8 +1153,7 @@ public final class Login2Action extends ActionSupport {
                 return ResourceBundle.getBundle("oscarResources", Locale.ENGLISH).getString(key);
             } catch (MissingResourceException fallbackException) {
                 logger.warn("Missing default message for key: {}", key);
-                return "Unable to process your request. Please try again. (key="
-                        + LogSanitizer.sanitize(key) + ")";
+                return "Unable to process your request. Please try again.";
             }
         }
     }
@@ -1089,8 +1193,9 @@ public final class Login2Action extends ActionSupport {
      * <p>The session attribute removed is the opaque credential-cache token (see
      * {@link LoginCredentialCache}); if it is present the corresponding cache entry is
      * also invalidated so that credential material cannot outlive the login attempt.
-     * Older flow attributes such as {@code userName} and {@code nextPage} are also cleared if
-     * present so stale state from pre-cache login paths cannot influence a later attempt.
+     * The retry-display attribute {@link #FORCE_PASSWORD_RESET_ERROR_ATTR} and older flow
+     * attributes such as {@code userName} and {@code nextPage} are also cleared if present so stale
+     * state from pre-cache login paths cannot influence a later attempt.
      *
      * @param request HttpServletRequest containing the session to clean
      */

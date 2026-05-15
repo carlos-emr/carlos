@@ -48,6 +48,7 @@ import org.apache.logging.log4j.Logger;
 import org.owasp.encoder.Encode;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
@@ -64,13 +65,21 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  *       On detection, the window broadcasts logout to all others.</li>
  * </ol>
  *
- * <p>Injection conditions (all must be true):
+ * <p>Injection conditions (all must be true after downstream rendering completes):
  * <ul>
  *   <li>Response Content-Type starts with {@code text/html}</li>
  *   <li>Not an AJAX request (no {@code X-Requested-With: XMLHttpRequest} header)</li>
- *   <li>User has a valid session ({@code session.getAttribute("user") != null})</li>
+ *   <li>User has a valid session ({@code session.getAttribute("user") != null}); login
+ *       submissions may be wrapped before that attribute exists, but the script is appended only
+ *       after the Struts action creates the authenticated session</li>
  *   <li>URL is not in the exclusion list (configurable via {@code exclusions} init-param)</li>
+ *   <li>URL is not a known static asset prefix such as {@code /library/} or {@code /share/}</li>
  * </ul>
+ *
+ * <p>The filter wraps only requests that already have an authenticated session or are known to
+ * establish one during the Struts action chain ({@code POST /login} and
+ * {@code POST /forcepasswordresetSubmit}). Wrapped responses configure the 1 MB injection buffer
+ * lazily after downstream code marks the response as HTML.
  *
  * <p>The injected script reads the {@code INACTIVITY_LIMIT_MINS} property (default 60)
  * to set a client-side safety net timeout for prolonged network outages. The property
@@ -100,6 +109,7 @@ public class LogoutBroadcastFilter implements Filter {
 
     private static final String HTTP_HEADER_VALUE_AJAX_REQUESTED_WITH = "XMLHttpRequest";
     private static final String HTTP_HEADER_NAME_AJAX_REQUESTED_WITH = "X-Requested-With";
+    private static final int HTML_INJECTION_BUFFER_SIZE_BYTES = 1024 * 1024;
 
     /** Default inactivity limit in minutes when INACTIVITY_LIMIT_MINS is not configured. */
     private static final int DEFAULT_INACTIVITY_LIMIT_MINS = 60;
@@ -146,8 +156,10 @@ public class LogoutBroadcastFilter implements Filter {
     /**
      * Filters HTML responses to append the logout broadcast and session heartbeat script.
      *
-     * <p>Excluded URLs are short-circuited before response wrapping to avoid unnecessary
-     * buffer allocation (e.g., for the lightweight SessionHeartbeat endpoint).
+     * <p>Excluded URLs, static assets, AJAX requests, and anonymous public pages are
+     * short-circuited before response wrapping. The 1 MB injection buffer is configured lazily
+     * only for eligible HTML responses, so anonymous login pages and static assets do not pay
+     * the buffer cost.
      *
      * <p>The script is appended only to authenticated, non-AJAX, HTML responses
      * that are not in the exclusion list.
@@ -164,8 +176,7 @@ public class LogoutBroadcastFilter implements Filter {
 
         HttpServletRequest httpRequest = (HttpServletRequest) request;
 
-        // Short-circuit excluded URLs before wrapping to avoid 1MB buffer allocation
-        if (isExcluded(httpRequest)) {
+        if (!isResponseWrappingCandidate(httpRequest)) {
             chain.doFilter(request, response);
             return;
         }
@@ -181,14 +192,7 @@ public class LogoutBroadcastFilter implements Filter {
 
         // Only inject for HTML responses
         String contentType = delegatingResponse.getContentType();
-        if (contentType == null || !contentType.toLowerCase().startsWith("text/html")) {
-            delegatingResponse.applyDeferredContentLength();
-            return;
-        }
-
-        // Don't inject for AJAX requests
-        String requestedWith = httpRequest.getHeader(HTTP_HEADER_NAME_AJAX_REQUESTED_WITH);
-        if (requestedWith != null && HTTP_HEADER_VALUE_AJAX_REQUESTED_WITH.equalsIgnoreCase(requestedWith)) {
+        if (contentType == null || !contentType.toLowerCase(Locale.ROOT).startsWith("text/html")) {
             delegatingResponse.applyDeferredContentLength();
             return;
         }
@@ -196,14 +200,109 @@ public class LogoutBroadcastFilter implements Filter {
         try {
             appendScript(delegatingResponse, httpRequest.getContextPath(), httpRequest.getLocale());
         } catch (IOException e) {
-            logger.warn("Skipping logout broadcast script injection because the script could not be written.", e);
+            logger.error("Skipping logout broadcast script injection because the script could not be written: uri={}, sessionId={}",
+                    sanitizedRequestUri(httpRequest), sanitizedSessionId(httpRequest), e);
             delegatingResponse.applyDeferredContentLength();
             return;
         } catch (IllegalStateException e) {
-            logger.warn("Skipping logout broadcast script injection because the response writer was unavailable and the output stream write failed.", e);
+            logger.error("Skipping logout broadcast script injection because the response writer was unavailable and the output stream write failed: uri={}, sessionId={}",
+                    sanitizedRequestUri(httpRequest), sanitizedSessionId(httpRequest), e);
             delegatingResponse.applyDeferredContentLength();
             return;
         }
+    }
+
+    /**
+     * Returns a log-safe request URI for script-injection failure diagnostics.
+     *
+     * @param request current HTTP request
+     * @return sanitized URI suitable for operator logs
+     */
+    private String sanitizedRequestUri(HttpServletRequest request) {
+        return LogSanitizer.sanitize(request.getRequestURI());
+    }
+
+    /**
+     * Returns a log-safe session identifier without creating a session.
+     *
+     * <p>The session id helps correlate failed append attempts with server logs while avoiding raw
+     * identifier exposure.</p>
+     *
+     * @param request current HTTP request
+     * @return sanitized session id, or {@code <none>} when no session exists
+     */
+    private String sanitizedSessionId(HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        return session == null ? "<none>" : LogSanitizer.sanitize(session.getId());
+    }
+
+    /**
+     * Determines whether a request should receive the response wrapper at all.
+     *
+     * <p>This is the performance-sensitive gate. Anonymous public pages and static/AJAX requests
+     * bypass wrapping completely, while already-authenticated requests and the two login submissions
+     * that can establish a session are wrapped so the post-chain append decision has enough body
+     * control.</p>
+     *
+     * @param request current HTTP request
+     * @return true when the response should be wrapped for possible script injection
+     */
+    private boolean isResponseWrappingCandidate(HttpServletRequest request) {
+        if (isExcluded(request) || isStaticAssetPath(request) || isAjaxRequest(request)) {
+            return false;
+        }
+
+        HttpSession session = request.getSession(false);
+        return (session != null && session.getAttribute("user") != null)
+                || isSessionEstablishingPath(request);
+    }
+
+    /**
+     * Identifies known public static asset trees that must never pay the wrapper cost.
+     *
+     * @param request current HTTP request
+     * @return true for static asset paths such as {@code /library/...} and {@code /share/...}
+     */
+    private boolean isStaticAssetPath(HttpServletRequest request) {
+        String servletPath = getNormalizedRequestPath(request);
+        if (servletPath == null) {
+            return false;
+        }
+        return servletPath.startsWith("/library/") || servletPath.startsWith("/share/");
+    }
+
+    /**
+     * Identifies XMLHttpRequest-style calls where injecting HTML script would corrupt the payload.
+     *
+     * @param request current HTTP request
+     * @return true when the request declares {@code X-Requested-With: XMLHttpRequest}
+     */
+    private boolean isAjaxRequest(HttpServletRequest request) {
+        String requestedWith = request.getHeader(HTTP_HEADER_NAME_AJAX_REQUESTED_WITH);
+        return requestedWith != null && HTTP_HEADER_VALUE_AJAX_REQUESTED_WITH.equalsIgnoreCase(requestedWith);
+    }
+
+    /**
+     * Identifies login submissions that may create an authenticated session during the chain.
+     *
+     * <p>These paths start anonymous, but they need wrapping before Struts runs so the first
+     * post-login HTML response can receive the logout heartbeat script. The post-chain session
+     * check in {@link #doFilter(ServletRequest, ServletResponse, FilterChain)} still prevents
+     * injection when authentication fails.</p>
+     *
+     * @param request current HTTP request
+     * @return true for session-establishing POST routes
+     */
+    private boolean isSessionEstablishingPath(HttpServletRequest request) {
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            return false;
+        }
+
+        String servletPath = getNormalizedRequestPath(request);
+        if (servletPath == null) {
+            return false;
+        }
+        return "/login".equals(servletPath) || "/forcepasswordresetsubmit".equals(servletPath);
     }
 
     /**
@@ -213,12 +312,11 @@ public class LogoutBroadcastFilter implements Filter {
      * @return boolean true if the URL should be excluded from script injection
      */
     private boolean isExcluded(HttpServletRequest request) {
-        String servletPath = request.getServletPath();
+        String servletPath = getNormalizedRequestPath(request);
         if (servletPath == null) {
             return false;
         }
 
-        servletPath = normalizeServletPath(servletPath);
         for (String ex : exclusions) {
             if (matchesExcludedPath(servletPath, ex)) {
                 return true;
@@ -227,10 +325,52 @@ public class LogoutBroadcastFilter implements Filter {
         return false;
     }
 
+    /**
+     * Normalizes a servlet path for case-insensitive path matching.
+     *
+     * @param servletPath raw servlet path or context-relative URI
+     * @return lower-case trimmed path string
+     */
     private String normalizeServletPath(String servletPath) {
         return servletPath.toLowerCase(Locale.ROOT).trim();
     }
 
+    /**
+     * Returns a context-relative request path for filter matching.
+     *
+     * <p>Some servlet containers or tests leave {@code servletPath} empty for extensionless routes,
+     * so this method falls back to {@code requestURI} and removes the context path before
+     * normalizing.</p>
+     *
+     * @param request current HTTP request
+     * @return normalized path beginning with {@code /}, or null when no path is available
+     */
+    private String getNormalizedRequestPath(HttpServletRequest request) {
+        String servletPath = request.getServletPath();
+        if (servletPath == null || servletPath.trim().isEmpty()) {
+            servletPath = request.getRequestURI();
+            String contextPath = request.getContextPath();
+            if (servletPath != null && contextPath != null && !contextPath.isEmpty()
+                    && servletPath.startsWith(contextPath)) {
+                servletPath = servletPath.substring(contextPath.length());
+            }
+        }
+
+        if (servletPath == null || servletPath.trim().isEmpty()) {
+            return null;
+        }
+
+        servletPath = normalizeServletPath(servletPath);
+        return servletPath.startsWith("/") ? servletPath : "/" + servletPath;
+    }
+
+    /**
+     * Matches either an exact excluded path or a child path under an excluded prefix.
+     *
+     * @param servletPath normalized request path
+     * @param exclusion normalized configured exclusion
+     * @return true when the request should bypass logout script injection
+     */
     private boolean matchesExcludedPath(String servletPath, String exclusion) {
         if (servletPath.equals(exclusion)) {
             return true;
@@ -476,11 +616,13 @@ public class LogoutBroadcastFilter implements Filter {
     }
 
     /**
-     * Response wrapper that keeps enough response body buffered for the filter to append content
-     * after the filter chain has written its output.
+     * Response wrapper that keeps enough HTML response body buffered for the filter to append
+     * content after the filter chain has written its output.
      *
      * <p>Tracks whether {@code getWriter()} or {@code getOutputStream()} was called
-     * so the filter knows which output method to use for appending.
+     * so the filter knows which output method to use for appending. Content-Length is deferred
+     * while wrapped because an injected script changes the final byte count; if no script is
+     * appended, {@link #applyDeferredContentLength()} restores the downstream value.
      */
     private static class DelegatingServletResponse extends HttpServletResponseWrapper {
 
@@ -490,19 +632,20 @@ public class LogoutBroadcastFilter implements Filter {
         private int deferredContentLength;
         private long deferredContentLengthLong;
         private boolean deferredContentLengthIsLong;
+        private boolean htmlInjectionBufferConfigured;
         private DelegatingWriter writer;
 
         /**
          * Creates a DelegatingServletResponse wrapping the given HTTP response.
          *
-         * <p>Allocates a 1 MB server-side buffer to ensure the response body is held in
-         * memory until the filter can append the logout broadcast script after the chain.
+         * <p>The 1 MB server-side buffer is configured lazily once downstream code marks the
+         * response as HTML. This avoids allocating the large buffer for redirects, JSON,
+         * binary streams, and other wrapped-but-not-injected responses.
          *
          * @param response HttpServletResponse the HTTP response to wrap
          */
         public DelegatingServletResponse(HttpServletResponse response) {
             super(response);
-            response.setBufferSize(1024 * 1024);
         }
 
         /**
@@ -521,6 +664,7 @@ public class LogoutBroadcastFilter implements Filter {
         @Override
         public ServletOutputStream getOutputStream() throws IOException {
             responseOutputStreamObtained = true;
+            configureHtmlInjectionBufferIfNeeded();
             return super.getOutputStream();
         }
 
@@ -538,10 +682,22 @@ public class LogoutBroadcastFilter implements Filter {
         @Override
         public PrintWriter getWriter() throws IOException {
             responseWriterObtained = true;
+            configureHtmlInjectionBufferIfNeeded();
             if (writer == null) {
                 writer = new DelegatingWriter(super.getWriter());
             }
             return writer;
+        }
+
+        /**
+         * Records the response content type and configures the HTML append buffer when appropriate.
+         *
+         * @param type response Content-Type value supplied by downstream code
+         */
+        @Override
+        public void setContentType(String type) {
+            super.setContentType(type);
+            configureHtmlInjectionBufferIfNeeded();
         }
 
         /**
@@ -586,6 +742,38 @@ public class LogoutBroadcastFilter implements Filter {
             super.flushBuffer();
         }
 
+        /**
+         * Resets the response and clears any deferred headers owned by this wrapper.
+         *
+         * <p>Reset means downstream code has intentionally abandoned the previous body and headers,
+         * commonly to send an error response. Keeping an earlier Content-Length after that point
+         * would risk stale-length headers on the replacement response.</p>
+         */
+        @Override
+        public void reset() {
+            clearDeferredContentLength();
+            htmlInjectionBufferConfigured = false;
+            super.reset();
+        }
+
+        /**
+         * Resets only the body buffer and clears deferred Content-Length state.
+         *
+         * <p>The servlet response keeps its headers across {@code resetBuffer()}, but the body length
+         * no longer matches any prior downstream Content-Length. Clearing the deferred value avoids
+         * replaying an obsolete length after an error path swaps the response body.</p>
+         */
+        @Override
+        public void resetBuffer() {
+            clearDeferredContentLength();
+            super.resetBuffer();
+        }
+
+        /**
+         * Defers integer Content-Length until the filter knows whether it will append a script.
+         *
+         * @param len downstream response length in bytes
+         */
         @Override
         public void setContentLength(int len) {
             contentLengthDeferred = true;
@@ -593,6 +781,11 @@ public class LogoutBroadcastFilter implements Filter {
             deferredContentLengthIsLong = false;
         }
 
+        /**
+         * Defers long Content-Length until the filter knows whether it will append a script.
+         *
+         * @param len downstream response length in bytes
+         */
         @Override
         public void setContentLengthLong(long len) {
             contentLengthDeferred = true;
@@ -600,8 +793,18 @@ public class LogoutBroadcastFilter implements Filter {
             deferredContentLengthIsLong = true;
         }
 
+        /**
+         * Defers Content-Length headers and routes Content-Type through {@link #setContentType}.
+         *
+         * @param name header name
+         * @param value header value
+         */
         @Override
         public void setHeader(String name, String value) {
+            if (isContentTypeHeader(name)) {
+                setContentType(value);
+                return;
+            }
             if (isContentLengthHeader(name)) {
                 deferContentLengthHeader(value);
                 return;
@@ -609,8 +812,18 @@ public class LogoutBroadcastFilter implements Filter {
             super.setHeader(name, value);
         }
 
+        /**
+         * Defers added Content-Length headers and routes Content-Type through {@link #setContentType}.
+         *
+         * @param name header name
+         * @param value header value
+         */
         @Override
         public void addHeader(String name, String value) {
+            if (isContentTypeHeader(name)) {
+                setContentType(value);
+                return;
+            }
             if (isContentLengthHeader(name)) {
                 deferContentLengthHeader(value);
                 return;
@@ -618,6 +831,12 @@ public class LogoutBroadcastFilter implements Filter {
             super.addHeader(name, value);
         }
 
+        /**
+         * Defers integer Content-Length headers while passing through other integer headers.
+         *
+         * @param name header name
+         * @param value integer header value
+         */
         @Override
         public void setIntHeader(String name, int value) {
             if (isContentLengthHeader(name)) {
@@ -627,6 +846,12 @@ public class LogoutBroadcastFilter implements Filter {
             super.setIntHeader(name, value);
         }
 
+        /**
+         * Defers added integer Content-Length headers while passing through other integer headers.
+         *
+         * @param name header name
+         * @param value integer header value
+         */
         @Override
         public void addIntHeader(String name, int value) {
             if (isContentLengthHeader(name)) {
@@ -636,6 +861,13 @@ public class LogoutBroadcastFilter implements Filter {
             super.addIntHeader(name, value);
         }
 
+        /**
+         * Replays the deferred downstream Content-Length when the filter decides not to append.
+         *
+         * <p>If script injection occurs, the original length is intentionally discarded because the
+         * body is longer. If downstream code calls {@link #reset()} or {@link #resetBuffer()}, the
+         * deferred value is cleared so reset error responses cannot inherit stale lengths.</p>
+         */
         void applyDeferredContentLength() {
             if (!contentLengthDeferred || isCommitted()) {
                 return;
@@ -647,17 +879,57 @@ public class LogoutBroadcastFilter implements Filter {
             }
         }
 
+        /**
+         * Caches string Content-Length header values until the final append decision is known.
+         *
+         * @param value raw Content-Length header value from downstream code
+         */
         private void deferContentLengthHeader(String value) {
             try {
                 setContentLengthLong(Long.parseLong(value));
             } catch (NumberFormatException e) {
-                logger.debug("Ignoring malformed Content-Length header value from downstream response: {}",
-                        value, e);
+                logger.warn("Ignoring malformed Content-Length header value from downstream response: {}",
+                        LogSanitizer.sanitize(value), e);
             }
+        }
+
+        /**
+         * Clears all deferred Content-Length state after reset or replacement response paths.
+         */
+        private void clearDeferredContentLength() {
+            contentLengthDeferred = false;
+            deferredContentLength = 0;
+            deferredContentLengthLong = 0L;
+            deferredContentLengthIsLong = false;
         }
 
         private boolean isContentLengthHeader(String name) {
             return "Content-Length".equalsIgnoreCase(name);
+        }
+
+        private boolean isContentTypeHeader(String name) {
+            return "Content-Type".equalsIgnoreCase(name);
+        }
+
+        /**
+         * Enables the large servlet buffer only when the response is known to be HTML.
+         *
+         * <p>The wrapper may be installed before Struts runs, but many wrapped responses eventually
+         * become redirects, JSON, or binary output. Deferring this call avoids allocating the 1 MB
+         * buffer until HTML injection is actually possible.</p>
+         */
+        private void configureHtmlInjectionBufferIfNeeded() {
+            if (htmlInjectionBufferConfigured || isCommitted()) {
+                return;
+            }
+
+            String contentType = getContentType();
+            if (contentType == null || !contentType.toLowerCase(Locale.ROOT).startsWith("text/html")) {
+                return;
+            }
+
+            setBufferSize(HTML_INJECTION_BUFFER_SIZE_BYTES);
+            htmlInjectionBufferConfigured = true;
         }
     }
 }

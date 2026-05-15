@@ -33,12 +33,14 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.ProviderPreference;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.decisionSupport.service.DSService;
+import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.AppManager;
 import io.github.carlos_emr.carlos.managers.MfaManager;
 import io.github.carlos_emr.carlos.managers.SecurityManager;
 import io.github.carlos_emr.carlos.managers.UserSessionManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
+import com.eatthepath.otp.TimeBasedOneTimePasswordGenerator;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.AfterEach;
@@ -56,12 +58,16 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.mock.web.MockHttpSession;
+import org.springframework.test.util.ReflectionTestUtils;
 
+import java.security.InvalidKeyException;
 import java.util.Collections;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
@@ -77,6 +83,10 @@ import static org.mockito.Mockito.when;
  * browser-side password policy JavaScript. The server must reject weak direct POSTs, preserve the
  * credential token for retryable validation errors, consume the token before terminal persistence,
  * and leave the account in a usable state after a valid reset.</p>
+ *
+ * <p>The same action also owns the pending-MFA handoff, so this class pins the session-state
+ * invariants that keep a password/PIN-authenticated user from becoming fully authenticated until
+ * OTP validation succeeds.</p>
  */
 @Tag("unit")
 @Tag("security")
@@ -87,6 +97,9 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
     private static final String USERNAME = "carlosdoc";
     private static final String ENCODED_OLD_PASSWORD = "encoded-old-password";
     private static final String OLD_PASSWORD = "OldPass1!";
+    private static final String PENDING_MFA_LOGIN_CHECK_ATTR = "pendingMfaLoginCheck";
+    private static final String PENDING_MFA_AUTH_RESULT_ATTR = "pendingMfaAuthResult";
+    private static final String[] STR_AUTH = {"999998", "Test", "Provider", "", "doctor", "0"};
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private AutoCloseable mockitoCloseable;
@@ -227,6 +240,8 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
         assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/forcepasswordreset");
         assertThat(request.getSession(false).getAttribute(Login2Action.FORCE_PASSWORD_RESET_ERROR_ATTR)).isNotNull();
         assertThat(LoginCredentialCache.getInstance().peek(token)).isNotNull();
+        logActionMock.verify(() -> LogAction.addLog(USERNAME, "login", "forced_password_reset_failed",
+                "old_password_mismatch"));
         verify(securityDao, never()).saveEntity(org.mockito.ArgumentMatchers.any());
         LoginCredentialCache.getInstance().invalidate(token);
     }
@@ -447,6 +462,250 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should redirect to login failure when MFA session is missing")
+    void shouldRedirectToLoginFailure_whenMfaSessionIsMissing() throws Exception {
+        Login2Action action = newAction(null, null, null);
+        action.setCode("123456");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getRedirectedUrl()).contains("/loginfailed");
+    }
+
+    @Test
+    @DisplayName("should clear pending MFA session when security record is missing")
+    void shouldClearPendingMfaSession_whenSecurityRecordIsMissing() throws Exception {
+        LoginCheckLogin loginCheck = stagePendingMfa(null);
+        Login2Action action = newAction(null, null, null);
+        action.setCode("123456");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getRedirectedUrl()).contains("/loginfailed");
+        assertPendingMfaCleared();
+        verify(loginCheck).getSecurity();
+    }
+
+    @Test
+    @DisplayName("should clear pending MFA session when secret lookup fails")
+    void shouldClearPendingMfaSession_whenSecretLookupFails() throws Exception {
+        Security security = forcedResetSecurity();
+        security.setForcePasswordReset(Boolean.FALSE);
+        stagePendingMfa(security);
+        when(mfaManager.getMfaSecret(security)).thenThrow(new IllegalStateException("secret lookup failed"));
+        Login2Action action = newAction(null, null, null);
+        action.setCode("123456");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo("failure");
+        assertThat(request.getAttribute("errMsg")).isNotNull();
+        assertPendingMfaCleared();
+    }
+
+    @Test
+    @DisplayName("should clear pending MFA session when TOTP key is invalid")
+    void shouldClearPendingMfaSession_whenTotpKeyIsInvalid() throws Exception {
+        Security security = forcedResetSecurity();
+        security.setForcePasswordReset(Boolean.FALSE);
+        stagePendingMfa(security);
+        when(mfaManager.getMfaSecret(security)).thenReturn("JBSWY3DPEHPK3PXP");
+
+        try (MockedConstruction<TimeBasedOneTimePasswordGenerator> ignored =
+                     mockConstruction(TimeBasedOneTimePasswordGenerator.class, (mock, context) -> {
+                         when(mock.getAlgorithm()).thenReturn("HmacSHA1");
+                         when(mock.getTimeStep()).thenReturn(java.time.Duration.ofSeconds(30));
+                         when(mock.generateOneTimePasswordString(any(), any()))
+                                 .thenThrow(new InvalidKeyException("bad key"));
+                     })) {
+            Login2Action action = newAction(null, null, null);
+            action.setCode("123456");
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo("failure");
+            assertThat(request.getAttribute("errMsg")).isNotNull();
+            assertPendingMfaCleared();
+        }
+    }
+
+    @Test
+    @DisplayName("should keep pending MFA session when submitted code is invalid")
+    void shouldKeepPendingMfaSession_whenSubmittedCodeIsInvalid() throws Exception {
+        Security security = forcedResetSecurity();
+        security.setForcePasswordReset(Boolean.FALSE);
+        stagePendingMfa(security);
+        when(mfaManager.getMfaSecret(security)).thenReturn("JBSWY3DPEHPK3PXP");
+
+        try (MockedConstruction<TimeBasedOneTimePasswordGenerator> ignored =
+                     mockConstruction(TimeBasedOneTimePasswordGenerator.class, (mock, context) -> {
+                         when(mock.getAlgorithm()).thenReturn("HmacSHA1");
+                         when(mock.getTimeStep()).thenReturn(java.time.Duration.ofSeconds(30));
+                         when(mock.generateOneTimePasswordString(any(), any())).thenReturn("654321");
+                     })) {
+            Login2Action action = newAction(null, null, null);
+            action.setCode("123456");
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo("mfaHandler");
+            assertThat(request.getSession(false).getAttribute(Login2Action.PENDING_MFA_AUTH_ATTR))
+                    .isEqualTo(Boolean.TRUE);
+            logActionMock.verify(() -> LogAction.addLog("999998", "login", "mfa_failed", "mfa",
+                    request.getRemoteAddr()));
+        }
+    }
+
+    @Test
+    @DisplayName("should complete login and clear pending MFA session when code is valid")
+    void shouldCompleteLoginAndClearPendingMfaSession_whenCodeIsValid() throws Exception {
+        Security security = forcedResetSecurity();
+        security.setForcePasswordReset(Boolean.FALSE);
+        stagePendingMfa(security);
+        stubSuccessfulProviderLogin();
+        when(mfaManager.getMfaSecret(security)).thenReturn("JBSWY3DPEHPK3PXP");
+
+        try (MockedConstruction<TimeBasedOneTimePasswordGenerator> ignored =
+                     mockConstruction(TimeBasedOneTimePasswordGenerator.class, (mock, context) -> {
+                         when(mock.getAlgorithm()).thenReturn("HmacSHA1");
+                         when(mock.getTimeStep()).thenReturn(java.time.Duration.ofSeconds(30));
+                         when(mock.generateOneTimePasswordString(any(), any())).thenReturn("123456");
+                     })) {
+            Login2Action action = newAction(null, null, null);
+            action.setCode("123456");
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getRedirectedUrl()).contains("/provider/providercontrol");
+            assertThat(request.getSession(false).getAttribute(Login2Action.PENDING_MFA_AUTH_ATTR)).isNull();
+            assertThat(request.getSession(false).getAttribute("user")).isEqualTo("999998");
+        }
+    }
+
+    @Test
+    @DisplayName("should clear pending MFA session when registration save fails")
+    void shouldClearPendingMfaSession_whenMfaRegistrationSaveFails() throws Exception {
+        Security security = forcedResetSecurity();
+        security.setForcePasswordReset(Boolean.FALSE);
+        stagePendingMfa(security);
+        request.getSession(false).setAttribute("mfaSecret", "JBSWY3DPEHPK3PXP");
+        Login2Action action = newAction(null, null, null);
+        action.setCode("123456");
+        action.setMfaRegistrationFlow(true);
+        doThrow(new IllegalStateException("save failed"))
+                .when(mfaManager).saveMfaSecret(any(), any(), anyString());
+
+        try (MockedConstruction<TimeBasedOneTimePasswordGenerator> ignored =
+                     mockConstruction(TimeBasedOneTimePasswordGenerator.class, (mock, context) -> {
+                         when(mock.getAlgorithm()).thenReturn("HmacSHA1");
+                         when(mock.getTimeStep()).thenReturn(java.time.Duration.ofSeconds(30));
+                         when(mock.generateOneTimePasswordString(any(), any())).thenReturn("123456");
+                     })) {
+            String result = action.execute();
+
+            assertThat(result).isEqualTo("failure");
+            assertThat(request.getAttribute("errMsg")).isNotNull();
+            assertPendingMfaCleared();
+        }
+    }
+
+    @Test
+    @DisplayName("should fail safely when provider record is missing after MFA")
+    void shouldFailSafely_whenProviderRecordIsMissingAfterMfa() throws Exception {
+        Security security = forcedResetSecurity();
+        security.setForcePasswordReset(Boolean.FALSE);
+        stagePendingMfa(security);
+        MockHttpSession pendingSession = (MockHttpSession) request.getSession(false);
+        when(mfaManager.getMfaSecret(security)).thenReturn("JBSWY3DPEHPK3PXP");
+        when(providerManager.getProvider("999998")).thenReturn(null);
+        when(providerPreferenceDao.find("999998")).thenReturn(new ProviderPreference());
+
+        try (MockedConstruction<TimeBasedOneTimePasswordGenerator> ignored =
+                     mockConstruction(TimeBasedOneTimePasswordGenerator.class, (mock, context) -> {
+                         when(mock.getAlgorithm()).thenReturn("HmacSHA1");
+                         when(mock.getTimeStep()).thenReturn(java.time.Duration.ofSeconds(30));
+                         when(mock.generateOneTimePasswordString(any(), any())).thenReturn("123456");
+                     })) {
+            Login2Action action = newAction(null, null, null);
+            action.setCode("123456");
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo("failure");
+            assertThat(request.getAttribute("errMsg")).isNotNull();
+            assertThat(pendingSession.isInvalid()).isTrue();
+        }
+    }
+
+    @Test
+    @DisplayName("should stage forced reset when mandatory reset property is missing")
+    void shouldStageForcedReset_whenMandatoryResetPropertyIsMissing() throws Exception {
+        String originalMandatoryReset = CarlosProperties.getInstance().getProperty("mandatory_password_reset");
+        String password = "ValidPass1!";
+        Security security = forcedResetSecurity();
+        Provider provider = activeProvider();
+
+        request.setParameter("forcedpasswordchange", "false");
+        CarlosProperties.getInstance().remove("mandatory_password_reset");
+        when(securityManager.encodePassword(password)).thenReturn(ENCODED_OLD_PASSWORD);
+        when(securityDao.findByUserName(USERNAME)).thenReturn(Collections.singletonList(security));
+        when(providerDao.getProvider("999998")).thenReturn(provider);
+
+        try (MockedConstruction<LoginCheckLogin> mockedLoginChecks = mockConstruction(LoginCheckLogin.class,
+                (mock, context) -> {
+                    when(mock.auth(USERNAME, password, "2026", request.getRemoteAddr()))
+                            .thenReturn(STR_AUTH);
+                    when(mock.getSecurity()).thenReturn(security);
+                    when(mock.isBlock(anyString(), anyString())).thenReturn(false);
+                })) {
+            Login2Action action = newAction(null, null, null);
+            action.setUsername(USERNAME);
+            action.setPassword(password);
+            action.setPin("2026");
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/forcepasswordreset");
+            assertThat(request.getSession(false).getAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR))
+                    .isInstanceOf(String.class);
+            assertThat(mockedLoginChecks.constructed()).hasSize(1);
+        } finally {
+            if (originalMandatoryReset == null) {
+                CarlosProperties.getInstance().remove("mandatory_password_reset");
+            } else {
+                CarlosProperties.getInstance().setProperty("mandatory_password_reset", originalMandatoryReset);
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("should discard invalid next page when staging forced reset credentials")
+    void shouldDiscardInvalidNextPage_whenStagingForcedResetCredentials() throws Exception {
+        String password = "ValidPass1!";
+        when(securityManager.encodePassword(password)).thenReturn(ENCODED_OLD_PASSWORD);
+        Login2Action action = newAction(null, null, null);
+
+        ReflectionTestUtils.invokeMethod(action, "setUserInfoToSession", request, USERNAME, password, "2026",
+                "https://evil.example/phish");
+
+        String token = (String) request.getSession(false)
+                .getAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR);
+        assertThat(LoginCredentialCache.getInstance().peek(token).getNextPage()).isNull();
+        LoginCredentialCache.getInstance().invalidate(token);
+    }
+
+    @Test
+    @DisplayName("should return generic fallback when message key is missing everywhere")
+    void shouldReturnGenericFallback_whenMessageKeyIsMissingEverywhere() {
+        assertThat(Login2Action.message(request, "login.missing.test.key"))
+                .isEqualTo("Unable to process your request. Please try again.");
+    }
+
+    @Test
     @DisplayName("should persist valid forced reset password and clear reset token")
     void shouldPersistValidForcedResetPassword_andClearResetToken() throws Exception {
         String token = cacheCredentials();
@@ -514,6 +773,31 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
         action.setNewPassword(newPassword);
         action.setConfirmPassword(confirmPassword);
         return action;
+    }
+
+    private LoginCheckLogin stagePendingMfa(Security security) {
+        LoginCheckLogin loginCheck = mock(LoginCheckLogin.class);
+        when(loginCheck.getSecurity()).thenReturn(security);
+        request.getSession().setAttribute(Login2Action.PENDING_MFA_AUTH_ATTR, Boolean.TRUE);
+        request.getSession().setAttribute(PENDING_MFA_LOGIN_CHECK_ATTR, loginCheck);
+        request.getSession().setAttribute(PENDING_MFA_AUTH_RESULT_ATTR, STR_AUTH);
+        return loginCheck;
+    }
+
+    private void assertPendingMfaCleared() {
+        assertThat(request.getSession(false).getAttribute(Login2Action.PENDING_MFA_AUTH_ATTR)).isNull();
+        assertThat(request.getSession(false).getAttribute(PENDING_MFA_LOGIN_CHECK_ATTR)).isNull();
+        assertThat(request.getSession(false).getAttribute(PENDING_MFA_AUTH_RESULT_ATTR)).isNull();
+        assertThat(request.getSession(false).getAttribute("mfaSecret")).isNull();
+    }
+
+    private void stubSuccessfulProviderLogin() {
+        Provider provider = activeProvider();
+        when(providerManager.getProvider("999998")).thenReturn(provider);
+        when(providerDao.getProvider("999998")).thenReturn(provider);
+        when(providerPreferenceDao.find("999998")).thenReturn(new ProviderPreference());
+        when(providerDao.getFacilityIds("999998")).thenReturn(Collections.emptyList());
+        when(facilityDao.findAll(true)).thenReturn(Collections.emptyList());
     }
 
     private String cacheCredentials() {

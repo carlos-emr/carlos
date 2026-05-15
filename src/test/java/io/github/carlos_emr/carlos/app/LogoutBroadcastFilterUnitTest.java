@@ -22,16 +22,19 @@
 package io.github.carlos_emr.carlos.app;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.WriteListener;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.FilterConfig;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
+import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -54,6 +57,8 @@ import static org.mockito.Mockito.when;
 @Tag("unit")
 @DisplayName("LogoutBroadcastFilter")
 class LogoutBroadcastFilterUnitTest {
+
+    private static final int HTML_INJECTION_BUFFER_SIZE_BYTES = 1024 * 1024;
 
     private LogoutBroadcastFilter filter;
     private MockedStatic<CarlosProperties> carlosPropertiesMock;
@@ -87,7 +92,7 @@ class LogoutBroadcastFilterUnitTest {
         HttpSession session = request.getSession(true);
         session.setAttribute("user", "123");
 
-        MockHttpServletResponse response = new MockHttpServletResponse();
+        TrackingMockHttpServletResponse response = new TrackingMockHttpServletResponse();
 
         FilterChain chain = (servletRequest, servletResponse) -> {
             servletResponse.setContentType("text/html;charset=UTF-8");
@@ -105,6 +110,7 @@ class LogoutBroadcastFilterUnitTest {
         // onto the heartbeat URL at runtime. OWASP JS-encoding escapes the leading slash as \/.
         assertThat(content).contains("var cp='" + contextPath.replace("/", "\\/") + "';");
         assertThat(content).contains("fetch(cp+'/status/SessionHeartbeat?autoRefresh=true')");
+        assertThat(response.getLastRequestedBufferSize()).isEqualTo(HTML_INJECTION_BUFFER_SIZE_BYTES);
     }
 
     @Test
@@ -114,7 +120,7 @@ class LogoutBroadcastFilterUnitTest {
         request.setContextPath("/carlos");
         request.getSession(true);
 
-        MockHttpServletResponse response = new MockHttpServletResponse();
+        TrackingMockHttpServletResponse response = new TrackingMockHttpServletResponse();
 
         FilterChain chain = (servletRequest, servletResponse) -> {
             servletResponse.setContentType("text/html;charset=UTF-8");
@@ -126,14 +132,22 @@ class LogoutBroadcastFilterUnitTest {
         String content = response.getContentAsString();
         assertThat(content).contains("<html><body>login</body></html>");
         assertThat(content).doesNotContain("window.__carlosLogoutActive=true;");
+        assertThat(response.getSetBufferSizeCallCount()).isZero();
     }
 
     @Test
-    @DisplayName("should append logout script when session is created during rendering")
-    void shouldAppendLogoutScript_whenSessionIsCreatedDuringRendering() throws Exception {
-        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/provider/providercontrol");
+    @DisplayName("should not configure large buffer for anonymous public pages")
+    void shouldNotConfigureLargeBuffer_whenAnonymousPublicPageRenders() throws Exception {
+        assertAnonymousHtmlFastPath("/index");
+        assertAnonymousHtmlFastPath("/loginfailed");
+    }
+
+    @Test
+    @DisplayName("should append logout script when login creates session during rendering")
+    void shouldAppendLogoutScript_whenLoginCreatesSessionDuringRendering() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/login");
         request.setContextPath("/carlos");
-        MockHttpServletResponse response = new MockHttpServletResponse();
+        TrackingMockHttpServletResponse response = new TrackingMockHttpServletResponse();
 
         FilterChain chain = (servletRequest, servletResponse) -> {
             ((MockHttpServletRequest) servletRequest).getSession(true).setAttribute("user", "123");
@@ -146,6 +160,14 @@ class LogoutBroadcastFilterUnitTest {
         String content = response.getContentAsString();
         assertThat(content).contains("<html><body>schedule</body></html>");
         assertThat(content).contains("window.__carlosLogoutActive=true;");
+        assertThat(response.getLastRequestedBufferSize()).isEqualTo(HTML_INJECTION_BUFFER_SIZE_BYTES);
+    }
+
+    @Test
+    @DisplayName("should not wrap static library or share assets")
+    void shouldNotWrapStaticAssets_whenAuthenticatedSessionExists() throws Exception {
+        assertStaticAssetFastPath("/library/jquery/jquery-3.7.1.min.js");
+        assertStaticAssetFastPath("/share/javascript/Oscar.js");
     }
 
     @Test
@@ -154,7 +176,7 @@ class LogoutBroadcastFilterUnitTest {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/provider/providercontrol");
         request.setContextPath("/carlos");
         request.getSession(true).setAttribute("user", "123");
-        MockHttpServletResponse response = new MockHttpServletResponse();
+        TrackingMockHttpServletResponse response = new TrackingMockHttpServletResponse();
         String body = "<html><body>schedule</body></html>";
 
         FilterChain chain = (servletRequest, servletResponse) -> {
@@ -167,6 +189,113 @@ class LogoutBroadcastFilterUnitTest {
 
         assertThat(response.getContentAsString()).contains("window.__carlosLogoutActive=true;");
         assertThat(response.getHeader("Content-Length")).isNull();
+        assertThat(response.getLastRequestedBufferSize()).isEqualTo(HTML_INJECTION_BUFFER_SIZE_BYTES);
+    }
+
+    @Test
+    @DisplayName("should not configure large buffer for authenticated AJAX HTML response")
+    void shouldNotConfigureLargeBuffer_whenAuthenticatedAjaxHtmlResponseRenders() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/provider/providercontrol");
+        request.setContextPath("/carlos");
+        request.addHeader("X-Requested-With", "XMLHttpRequest");
+        request.getSession(true).setAttribute("user", "123");
+        TrackingMockHttpServletResponse response = new TrackingMockHttpServletResponse();
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.setContentType("text/html;charset=UTF-8");
+            servletResponse.getWriter().write("<html><body>ajax</body></html>");
+        };
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(response.getContentAsString()).contains("<html><body>ajax</body></html>");
+        assertThat(response.getContentAsString()).doesNotContain("window.__carlosLogoutActive=true;");
+        assertThat(response.getSetBufferSizeCallCount()).isZero();
+    }
+
+    @Test
+    @DisplayName("should preserve content length without large buffer for JSON response")
+    void shouldPreserveContentLengthWithoutLargeBuffer_whenAuthenticatedJsonResponseRenders() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/status/SomeJsonAction");
+        request.setContextPath("/carlos");
+        request.getSession(true).setAttribute("user", "123");
+        TrackingMockHttpServletResponse response = new TrackingMockHttpServletResponse();
+        String body = "{\"valid\":true}";
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.setContentType("application/json;charset=UTF-8");
+            servletResponse.setContentLength(body.getBytes(StandardCharsets.UTF_8).length);
+            servletResponse.getWriter().write(body);
+        };
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(response.getContentAsString()).isEqualTo(body);
+        assertThat(response.getHeader("Content-Length"))
+                .isEqualTo(String.valueOf(body.getBytes(StandardCharsets.UTF_8).length));
+        assertThat(response.getSetBufferSizeCallCount()).isZero();
+    }
+
+    @Test
+    @DisplayName("should clear deferred content length when downstream resets buffer")
+    void shouldClearDeferredContentLength_whenDownstreamResetsBuffer() throws Exception {
+        MockHttpServletRequest request = authenticatedRequest("/status/SomeJsonAction");
+        TrackingMockHttpServletResponse response = new TrackingMockHttpServletResponse();
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.setContentType("application/json;charset=UTF-8");
+            servletResponse.setContentLength(99);
+            servletResponse.resetBuffer();
+            servletResponse.getWriter().write("{}");
+        };
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(response.getContentAsString()).isEqualTo("{}");
+        assertThat(response.getHeader("Content-Length")).isNull();
+    }
+
+    @Test
+    @DisplayName("should clear deferred content length when downstream resets response")
+    void shouldClearDeferredContentLength_whenDownstreamResetsResponse() throws Exception {
+        MockHttpServletRequest request = authenticatedRequest("/status/SomeJsonAction");
+        TrackingMockHttpServletResponse response = new TrackingMockHttpServletResponse();
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.setContentType("application/json;charset=UTF-8");
+            servletResponse.setContentLength(99);
+            servletResponse.reset();
+            servletResponse.setContentType("application/json;charset=UTF-8");
+            servletResponse.getWriter().write("{}");
+        };
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(response.getContentAsString()).isEqualTo("{}");
+        assertThat(response.getHeader("Content-Length")).isNull();
+    }
+
+    @Test
+    @DisplayName("should warn when downstream sets malformed content length")
+    void shouldWarn_whenDownstreamSetsMalformedContentLength() throws Exception {
+        MockHttpServletRequest request = authenticatedRequest("/status/SomeJsonAction");
+        TrackingMockHttpServletResponse response = new TrackingMockHttpServletResponse();
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.setContentType("application/json;charset=UTF-8");
+            ((HttpServletResponse) servletResponse).setHeader("Content-Length", "bad-length<script>");
+            servletResponse.getWriter().write("{}");
+        };
+
+        try (LogCapture capture = LogCapture.forLogger(LogoutBroadcastFilter.class)) {
+            filter.doFilter(request, response, chain);
+
+            assertThat(capture.events()).anySatisfy(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                assertThat(event.getMessage().getFormattedMessage())
+                        .contains("Ignoring malformed Content-Length header value");
+            });
+        }
     }
 
     @Test
@@ -211,6 +340,52 @@ class LogoutBroadcastFilterUnitTest {
         assertThat(content).contains("window.__carlosLogoutActive=true;");
     }
 
+    @Test
+    @DisplayName("should log error when script append flush fails")
+    void shouldLogError_whenScriptAppendFlushFails() throws Exception {
+        MockHttpServletRequest request = authenticatedRequest("/provider/providercontrol");
+        request.setRequestURI("/carlos/provider/providercontrol;jsessionid=abc123");
+        OutputStreamAppendFailingResponse response = new OutputStreamAppendFailingResponse();
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.setContentType("text/html;charset=UTF-8");
+            servletResponse.getOutputStream().write("<html><body>schedule</body></html>"
+                    .getBytes(StandardCharsets.UTF_8));
+            response.failWrites();
+        };
+
+        try (LogCapture capture = LogCapture.forLogger(LogoutBroadcastFilter.class)) {
+            filter.doFilter(request, response, chain);
+
+            assertThat(capture.events()).anySatisfy(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.ERROR);
+                assertThat(event.getMessage().getFormattedMessage())
+                        .contains("Skipping logout broadcast script injection")
+                        .contains("uri=/carlos/provider/providercontrol");
+            });
+        }
+    }
+
+    @Test
+    @DisplayName("should log error when writer and output stream append paths fail")
+    void shouldLogError_whenWriterAndOutputStreamAppendPathsFail() throws Exception {
+        MockHttpServletRequest request = authenticatedRequest("/provider/providercontrol");
+        MockResponseWithNoAppendOutput response = new MockResponseWithNoAppendOutput();
+
+        FilterChain chain = (servletRequest, servletResponse) ->
+                servletResponse.setContentType("text/html;charset=UTF-8");
+
+        try (LogCapture capture = LogCapture.forLogger(LogoutBroadcastFilter.class)) {
+            filter.doFilter(request, response, chain);
+
+            assertThat(capture.events()).anySatisfy(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.ERROR);
+                assertThat(event.getMessage().getFormattedMessage())
+                        .contains("response writer was unavailable and the output stream write failed");
+            });
+        }
+    }
+
     /**
      * Mock response that refuses writer access so the filter must fall back to the output stream.
      *
@@ -253,6 +428,111 @@ class LogoutBroadcastFilterUnitTest {
          */
         String getBodyAsString() {
             return body.toString(StandardCharsets.UTF_8);
+        }
+    }
+
+    private void assertStaticAssetFastPath(String path) throws Exception {
+        MockHttpServletRequest request = authenticatedRequest(path);
+        TrackingMockHttpServletResponse response = new TrackingMockHttpServletResponse();
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.setContentType("text/javascript;charset=UTF-8");
+            servletResponse.getWriter().write("window.assetLoaded=true;");
+        };
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(response.getContentAsString()).isEqualTo("window.assetLoaded=true;");
+        assertThat(response.getSetBufferSizeCallCount()).isZero();
+    }
+
+    private MockHttpServletRequest authenticatedRequest(String path) {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", path);
+        request.setContextPath("/carlos");
+        request.setRequestURI("/carlos" + path);
+        request.getSession(true).setAttribute("user", "123");
+        return request;
+    }
+
+    private void assertAnonymousHtmlFastPath(String path) throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", path);
+        request.setContextPath("/carlos");
+        TrackingMockHttpServletResponse response = new TrackingMockHttpServletResponse();
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.setContentType("text/html;charset=UTF-8");
+            servletResponse.getWriter().write("<html><body>public</body></html>");
+        };
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(response.getContentAsString()).contains("<html><body>public</body></html>");
+        assertThat(response.getContentAsString()).doesNotContain("window.__carlosLogoutActive=true;");
+        assertThat(response.getSetBufferSizeCallCount()).isZero();
+    }
+
+    private static class TrackingMockHttpServletResponse extends MockHttpServletResponse {
+
+        private int setBufferSizeCallCount;
+        private Integer lastRequestedBufferSize;
+
+        @Override
+        public void setBufferSize(int size) {
+            setBufferSizeCallCount++;
+            lastRequestedBufferSize = size;
+            super.setBufferSize(size);
+        }
+
+        int getSetBufferSizeCallCount() {
+            return setBufferSizeCallCount;
+        }
+
+        Integer getLastRequestedBufferSize() {
+            return lastRequestedBufferSize;
+        }
+    }
+
+    private static class MockResponseWithNoAppendOutput extends MockHttpServletResponse {
+        @Override
+        public PrintWriter getWriter() {
+            throw new IllegalStateException("Writer unavailable");
+        }
+
+        @Override
+        public ServletOutputStream getOutputStream() {
+            throw new IllegalStateException("Output stream unavailable");
+        }
+    }
+
+    private static class OutputStreamAppendFailingResponse extends MockHttpServletResponse {
+
+        private boolean failWrites;
+
+        private final ServletOutputStream outputStream = new ServletOutputStream() {
+            @Override
+            public boolean isReady() {
+                return true;
+            }
+
+            @Override
+            public void setWriteListener(WriteListener writeListener) {
+            }
+
+            @Override
+            public void write(int b) throws IOException {
+                if (failWrites) {
+                    throw new IOException("append failed");
+                }
+            }
+        };
+
+        @Override
+        public ServletOutputStream getOutputStream() {
+            return outputStream;
+        }
+
+        void failWrites() {
+            failWrites = true;
         }
     }
 }

@@ -57,10 +57,10 @@ import java.util.regex.Pattern;
  * Responses using {@link ServletOutputStream} (binary content like PDFs, images) pass
  * through untouched.</p>
  *
-     * <p>The deployed web.xml mapping is load-bearing and currently FORWARD-only so JSP rendering
-     * can be captured after Struts forwards without double-wrapping the top-level request. The
-     * REQUEST-dispatch branch remains defensive for tests or future remapping; see
-     * {@code docs/csrf-protection-architecture.md} before changing dispatcher mappings.</p>
+ * <p>The deployed web.xml mapping is load-bearing and currently FORWARD-only so JSP rendering
+ * can be captured after Struts forwards without double-wrapping the top-level request. The
+ * REQUEST-dispatch branch remains defensive for tests or future remapping; see
+ * {@code docs/csrf-protection-architecture.md} before changing dispatcher mappings.</p>
  *
  * <p>If {@link CsrfGuard#getInstance()} fails, the filter fails closed with HTTP 503 to avoid
  * serving HTML without the CSRF script tag.</p>
@@ -68,8 +68,8 @@ import java.util.regex.Pattern;
  * <p>Injection is skipped when:
  * <ul>
  *   <li>Content-Type is not {@code text/html}</li>
-     *   <li>The request is AJAX ({@code X-Requested-With: XMLHttpRequest}) on REQUEST dispatch
-     *       if that dispatcher mapping is re-enabled</li>
+ *   <li>The request is AJAX ({@code X-Requested-With: XMLHttpRequest}) on REQUEST dispatch
+ *       if that dispatcher mapping is re-enabled</li>
  *   <li>CSRFGuard is disabled</li>
  *   <li>The response already contains a {@code /csrfguard} script reference (idempotency)</li>
  *   <li>The response used {@code getOutputStream()} instead of {@code getWriter()}</li>

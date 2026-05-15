@@ -69,10 +69,9 @@ public final class ErrorPageLogger {
         // hierarchy is supposed to produce, and a stack-trace log loop is
         // possible if errorpage.jsp is itself the next page Tomcat tries to
         // render. Wrap the entire body in a defensive try/catch and swallow
-        // anything that escapes the log call (corrupted servlet attribute
-        // bound to a non-Throwable, log4j2 ConfigurationException at runtime,
-        // ClassCastException on a buggy filter that stashed a String under
-        // jakarta.servlet.error.exception, etc.).
+        // anything that escapes the log call (for example, a logging backend
+        // failure while formatting a throwable, or an unexpected servlet
+        // container attribute state during error-page dispatch).
         try {
             Throwable t = explicitException;
             if (t == null && request != null) {

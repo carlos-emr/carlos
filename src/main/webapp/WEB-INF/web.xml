@@ -127,9 +127,10 @@
               Struts REQUEST responses. Re-adding REQUEST dispatch here can cause Struts/JSP
               responses to be captured by two wrappers and has previously produced blank
               schedule pages even though the action completed successfully.
-           3. LogoutBroadcastFilter wraps the response BEFORE Struts renders,
-              so the logout broadcast script is injected into Struts-rendered HTML pages
-              (e.g. Inboxhub, DisplayMessages)
+           3. LogoutBroadcastFilter remains before Struts so it can inject into
+              Struts-rendered HTML pages (e.g. Inboxhub, DisplayMessages), but it
+              only wraps authenticated/session-establishing requests and configures
+              its large buffer lazily for HTML responses.
          Filter declarations remain in their respective sections below;
          only filter-mapping order determines chain position. -->
     <filter-mapping>
