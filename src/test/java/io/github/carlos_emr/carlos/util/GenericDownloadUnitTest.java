@@ -75,6 +75,7 @@ class GenericDownloadUnitTest {
 
         private void transfer(MockHttpServletResponse response, String dir, String filename, String contentType)
                 throws Exception {
+            response.setContentType(contentType);
             transferFile(response, response.getOutputStream(), dir, filename);
         }
     }

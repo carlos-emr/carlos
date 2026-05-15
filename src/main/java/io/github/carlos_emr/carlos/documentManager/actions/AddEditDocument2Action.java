@@ -113,6 +113,10 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
 public class AddEditDocument2Action extends ActionSupport implements UploadedFilesAware {
     private static final String EDIT_DOCUMENT_NO_ATTRIBUTE = "editDocumentNo";
     private static final String FAIL_EDIT_RESULT = "failEdit";
+    private static final String FUNCTION_PARAMETER = "function";
+    private static final String FUNCTION_ID_PARAMETER = "functionid";
+    private static final String CURRENT_USER_PARAMETER = "curUser";
+    private static final String APPOINTMENT_NO_PARAMETER = "appointmentNo";
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -175,7 +179,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         }
         // Validate uploaded source is from an allowed temp directory before reading
         File validatedSource = PathValidationUtils.validateUpload(uploadedDocFile);
-        File file = writeLocalFile(Files.newInputStream(validatedSource.toPath()), fileName); // write file to local dir
+        File file = writeLocalFile(openValidatedUploadStream(validatedSource), fileName); // write file to local dir
 
         if (!file.exists() || file.length() < validatedSource.length()) {
             response.setHeader("oscar_error", props.getString("dms.addDocument.errorNoWrite"));
@@ -266,10 +270,10 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
                 String contextPath = request.getContextPath();
                 StringBuilder redirect = new StringBuilder(contextPath + "/documentManager/ViewDocumentReport");
                 appendQueryParam(redirect, "docerrors", "docerrors"); // Allows the JSP to check if the document was just submitted
-                appendQueryParam(redirect, "function", request.getParameter("function"));
-                appendQueryParam(redirect, "functionid", request.getParameter("functionid"));
-                appendQueryParam(redirect, "curUser", request.getParameter("curUser"));
-                appendQueryParam(redirect, "appointmentNo", request.getParameter("appointmentNo"));
+                appendQueryParam(redirect, FUNCTION_PARAMETER, request.getParameter(FUNCTION_PARAMETER));
+                appendQueryParam(redirect, FUNCTION_ID_PARAMETER, request.getParameter(FUNCTION_ID_PARAMETER));
+                appendQueryParam(redirect, CURRENT_USER_PARAMETER, request.getParameter(CURRENT_USER_PARAMETER));
+                appendQueryParam(redirect, APPOINTMENT_NO_PARAMETER, request.getParameter(APPOINTMENT_NO_PARAMETER));
                 String parentAjaxId = request.getParameter("parentAjaxId");
                 // if we're called with parent ajax id inform jsp that parent needs to be updated
                 if (filled(parentAjaxId)) {
@@ -283,11 +287,11 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
                 }
                 return NONE;
             } else {
-                request.setAttribute("function", request.getParameter("function"));
-                request.setAttribute("functionid", request.getParameter("functionid"));
+                request.setAttribute(FUNCTION_PARAMETER, request.getParameter(FUNCTION_PARAMETER));
+                request.setAttribute(FUNCTION_ID_PARAMETER, request.getParameter(FUNCTION_ID_PARAMETER));
                 request.setAttribute("parentAjaxId", request.getParameter("parentAjaxId"));
-                request.setAttribute("curUser", request.getParameter("curUser"));
-                request.setAttribute("appointmentNo", request.getParameter("appointmentNo"));
+                request.setAttribute(CURRENT_USER_PARAMETER, request.getParameter(CURRENT_USER_PARAMETER));
+                request.setAttribute(APPOINTMENT_NO_PARAMETER, request.getParameter(APPOINTMENT_NO_PARAMETER));
                 return "failAdd";
             }
         } else {
@@ -338,7 +342,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             String fileName2 = newDoc.getFileName();
 
             // save local file
-            File file = writeLocalFile(Files.newInputStream(docFile.toPath()), fileName2);
+            File file = writeLocalFile(openValidatedDocumentSourceStream(docFile, errors), fileName2);
             newDoc.setContentType(this.docFileContentType);
 
             if (fileName2.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
@@ -518,7 +522,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             if (updateFileContent) {
                 fileName = PathValidationUtils.validateFileName(newDoc.getFileName());
                 // save local file
-                writeLocalFile(Files.newInputStream(validatedDocFileForUpdate.toPath()), fileName);
+                writeLocalFile(openValidatedDocumentSourceStream(validatedDocFileForUpdate, errors), fileName);
                 if (fileName.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
                     newDoc.setContentType("application/pdf");
                     int numberOfPages = countNumOfPages(fileName);
@@ -576,6 +580,21 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         }
     }
 
+    private static InputStream openValidatedUploadStream(File uploadFile) throws IOException {
+        File validatedUpload = PathValidationUtils.validateUpload(uploadFile);
+        return Files.newInputStream(validatedUpload.toPath()); // codeql[java/path-injection] -- validatedUpload is canonicalized and allowlisted by PathValidationUtils.validateUpload immediately before opening
+    }
+
+    private static InputStream openValidatedDocumentSourceStream(
+            File uploadFile, Hashtable<String, String> errors) throws IOException {
+        try {
+            return openValidatedUploadStream(uploadFile);
+        } catch (FileValidationException e) {
+            errors.put("uploaderror", "dms.error.uploadError");
+            throw e;
+        }
+    }
+
 
     /**
      * Writes an uploaded file to the local document storage directory. The destination
@@ -592,9 +611,13 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         File baseDirFile = new File(docDir);
         File validatedFile = PathValidationUtils.validatePath(fileName, baseDirFile);
         Path savePath = validatedFile.toPath();
+        Path parentPath = savePath.getParent();
+        if (parentPath == null) {
+            throw new FileValidationException("Document storage path has no parent directory");
+        }
 
         // Create the parent directory
-        Files.createDirectories(savePath.getParent());
+        Files.createDirectories(parentPath);
 
         try (InputStream input = is;
                 FileOutputStream fos = new FileOutputStream(savePath.toFile())) {

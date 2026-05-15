@@ -151,20 +151,14 @@ public class BillingOnRaService {
             _logger.error("RA import rejected invalid path: {}", LogSanitizer.sanitize(filePathName), e);
             throw new SecurityException("Invalid RA import path", e);
         }
-        filePathName = safeFile.getPath();
-
-        if (filePathName.indexOf("/") >= 0) {
-            filename = filePathName.substring(filePathName.lastIndexOf("/") + 1);
-        } else if (filePathName.indexOf("\\") >= 0) {
-            filename = filePathName.substring(filePathName.lastIndexOf("\\") + 1);
-        }
+        filename = safeFile.getName();
 
         // try-with-resources: any throw in the parse loop below must close
         // the file handle. Without this, an IOException from readLine
         // (or any RuntimeException downstream) leaks the FD AND with the
         // class-level rollbackFor=Exception.class above, the transaction
         // rolls back so partial RaHeader/RaDetail rows are not committed.
-        try (FileInputStream file = new FileInputStream(filePathName);
+        try (FileInputStream file = new FileInputStream(safeFile);
              InputStreamReader reader = new InputStreamReader(file);
              BufferedReader input = new BufferedReader(reader)) {
         String nextline;

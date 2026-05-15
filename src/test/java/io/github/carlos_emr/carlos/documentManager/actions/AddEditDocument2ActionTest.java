@@ -35,6 +35,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Hashtable;
@@ -275,13 +276,13 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should propagate writeLocalFile validation failures")
-    void shouldPropagateWriteLocalFileValidationFailures() {
+    void shouldPropagateWriteLocalFileValidationFailures() throws IOException {
         String previousDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
-        try {
+        try (ByteArrayInputStream input = new ByteArrayInputStream(new byte[]{1})) {
             CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", documentDir.toString());
 
             assertThatThrownBy(() -> AddEditDocument2Action.writeLocalFile(
-                    new ByteArrayInputStream(new byte[]{1}), ".hidden"))
+                    input, ".hidden"))
                     .isInstanceOf(FileValidationException.class);
         } finally {
             if (previousDocumentDir == null) {
