@@ -39,7 +39,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.CarlosProperties;
 
 /**
- * @author jaygallagher
+ * Maintains a specific set of service and fee codes applicable only to Workers Compensation Board claims.
  */
 public class WCBCodes {
 

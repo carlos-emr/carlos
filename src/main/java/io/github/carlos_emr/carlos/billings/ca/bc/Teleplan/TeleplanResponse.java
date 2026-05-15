@@ -45,7 +45,7 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.CarlosProperties;
 
 /**
- * @author jay
+ * Data transfer object or model that parses and holds the response received from a Teleplan submission.
  */
 public class TeleplanResponse {
     static Logger log = MiscUtils.getLogger();

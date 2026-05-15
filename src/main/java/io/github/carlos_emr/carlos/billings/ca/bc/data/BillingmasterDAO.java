@@ -50,7 +50,7 @@ import io.github.carlos_emr.carlos.entities.WCB;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 /**
- * @author jay
+ * Primary data access object for creating, reading, updating, and deleting master billing records.
  */
 @Repository
 @SuppressWarnings("unchecked")

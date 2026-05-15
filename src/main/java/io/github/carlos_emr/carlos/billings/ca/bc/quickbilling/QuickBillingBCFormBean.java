@@ -38,10 +38,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 
+/**
+ * Form bean carrying data between the web view and the backend for BC quick billing operations.
+ */
 public class QuickBillingBCFormBean {
 
     /**
-     * @author Dennis Warren
      * Company Colcamex Resources
      * Date Jun 4, 2012
      */

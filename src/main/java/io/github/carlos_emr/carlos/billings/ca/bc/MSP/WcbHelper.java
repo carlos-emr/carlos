@@ -38,7 +38,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 /**
- * @author Jay Gallagher
+ * Utility class assisting with common data formatting and validation tasks specific to WCB claims.
  */
 public class WcbHelper {
 

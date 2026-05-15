@@ -61,7 +61,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.CarlosProperties;
 
 /**
- * @author jay
+ * Interface or implementation providing programmatic access to the Teleplan billing service and its operations.
  */
 public class TeleplanAPI {
     static Logger log = MiscUtils.getLogger();

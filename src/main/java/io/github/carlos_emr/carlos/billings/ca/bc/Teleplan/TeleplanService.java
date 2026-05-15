@@ -38,7 +38,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
- * @author jay
+ * Core business logic service managing the orchestration of generating, sending, and receiving Teleplan claims.
  */
 public class TeleplanService {
     static Logger log = MiscUtils.getLogger();

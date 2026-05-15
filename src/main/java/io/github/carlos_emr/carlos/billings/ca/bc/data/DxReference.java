@@ -51,7 +51,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 /**
- * @author jay
+ * Reference model storing diagnostic codes (ICD-9/ICD-10) and their associated descriptions.
  */
 public class DxReference {
     private static final Logger _log = MiscUtils.getLogger();

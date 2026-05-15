@@ -46,7 +46,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 
 /**
- * @author jaygallagher
+ * Constructs and formats WCB-specific billing claims for transmission via the Teleplan network.
  */
 public class WCBTeleplanSubmission {
     private static Logger log = MiscUtils.getLogger();

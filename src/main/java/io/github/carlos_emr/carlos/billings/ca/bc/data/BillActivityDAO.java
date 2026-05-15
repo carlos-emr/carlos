@@ -44,7 +44,7 @@ import io.github.carlos_emr.carlos.entities.Billactivity;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 /**
- * @author jay
+ * Data access object tracking state changes and lifecycle events (e.g., submitted, paid) of individual bills.
  */
 public class BillActivityDAO {
 

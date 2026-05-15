@@ -45,7 +45,7 @@ import io.github.carlos_emr.CarlosProperties;
 
 
 /**
- * @author jay
+ * Service responsible for caching, validating, and retrieving valid Teleplan service and diagnostic codes.
  */
 public class TeleplanCodesManager {
 

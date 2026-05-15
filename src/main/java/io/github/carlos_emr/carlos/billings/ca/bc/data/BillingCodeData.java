@@ -40,7 +40,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.SqlUtils;
 
 /**
- * @author root
+ * Data structure encapsulating the properties, fee amounts, and rules associated with a specific billing code.
  */
 public final class BillingCodeData implements Comparable {
     /**
