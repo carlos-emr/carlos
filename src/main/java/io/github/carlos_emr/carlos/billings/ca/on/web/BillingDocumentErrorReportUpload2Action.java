@@ -249,7 +249,7 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
             try {
                 inboxFile = PathValidationUtils.validatePath(destFile.getName(), inboxDirFile);
             } catch (FileValidationException | SecurityException e) {
-                MiscUtils.getLogger().error("Invalid filename for inbox: {}", LogSanitizer.sanitize(destFile == null ? "null" : destFile.getName()));
+                MiscUtils.getLogger().error("Invalid filename for inbox: {}", LogSanitizer.sanitize(destFile.getName()));
                 return SaveReportFileResult.failure(FILE_ACCESS_ERROR_MESSAGE);
             }
 

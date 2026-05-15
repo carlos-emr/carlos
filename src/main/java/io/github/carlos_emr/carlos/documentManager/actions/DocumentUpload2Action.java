@@ -116,6 +116,8 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                 map.put("error", props.getString("dms.documentUpload.onlyPdf"));
             } else if (docFile.length() == 0) {
                 map.put("error", 4);
+                deleteUploadedTempFile(docFile);
+                docFile = null;
                 throw new FileNotFoundException();
             } else {
                 String queueId = request.getParameter("queue");
@@ -150,6 +152,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                 }
 
             }
+            deleteUploadedTempFile(docFile);
             docFile = null;
         } else if (docFile != null) {
             try {
@@ -175,6 +178,8 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                 // save local file;
                 if (docFile.length() == 0) {
                     map.put("error", 4);
+                    deleteUploadedTempFile(docFile);
+                    docFile = null;
                     throw new FileNotFoundException();
                 }
 
@@ -214,9 +219,12 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
 
                 map.put("name", fileName);
                 map.put("size", docFile.length());
+                deleteUploadedTempFile(docFile);
+                docFile = null;
             } catch (FileValidationException e) {
                 logger.warn("Rejected invalid document upload filename");
                 map.put("error", e.getMessage());
+                deleteUploadedTempFile(docFile);
                 docFile = null;
             }
         }
@@ -229,6 +237,12 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
 
         objectMapper.writeValue(response.getOutputStream(), jsonArray);
         return null;
+    }
+
+    private void deleteUploadedTempFile(File uploadedFile) {
+        if (uploadedFile != null && uploadedFile.exists() && !uploadedFile.delete()) {
+            logger.warn("Unable to delete uploaded temp file: {}", LogSanitizer.sanitize(uploadedFile.getPath()));
+        }
     }
 
     /**

@@ -127,10 +127,10 @@ import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.WebUtils;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
-import org.owasp.encoder.Encode;
 import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
 
@@ -2064,8 +2064,8 @@ public class DemographicExportAction42Action extends ActionSupport {
                                             new File(edoc.getFilePath()),
                                             new File(oscarProperties.getProperty("DOCUMENT_DIR")));
                                 } catch (FileValidationException e) {
-                                    exportError.add("Error! Document \"" + Encode.forHtml(edoc.getFileName()) + "\" path is invalid or outside the allowed directory. Skipping.");
-                                    logger.error("Path traversal attempt on document export: {}", Encode.forJava(edoc.getFilePath()));
+                                    exportError.add("Error! Document \"" + SafeEncode.forHtmlContent(edoc.getFileName()) + "\" path is invalid or outside the allowed directory. Skipping.");
+                                    logger.error("Path traversal attempt on document export: {}", LogSanitizer.sanitize(edoc.getFilePath()));
                                     continue;
                                 }
                                 if (!f.exists()) {
@@ -2183,8 +2183,8 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     try {
                                         hrmFile = PathValidationUtils.validateExistingPath(hrmFile, documentDir);
                                     } catch (FileValidationException e) {
-                                        exportError.add("Error! HRM report file '" + Encode.forHtml(reportFile) + "' is outside the allowed directory. HRM report not exported.");
-                                        logger.error("HRM report file path traversal attempt: {}", Encode.forJava(reportFile));
+                                        exportError.add("Error! HRM report file '" + SafeEncode.forHtmlContent(reportFile) + "' is outside the allowed directory. HRM report not exported.");
+                                        logger.error("HRM report file path traversal attempt: {}", LogSanitizer.sanitize(reportFile));
                                         continue;
                                     }
 

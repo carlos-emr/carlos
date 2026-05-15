@@ -635,7 +635,7 @@ public class ManageDocument2Action extends ActionSupport {
             throw new FileValidationException("Document cache parent directory is required");
         }
 
-        File cacheDir = PathValidationUtils.validateExistingPath(new File(parentDir, documentDirName + "_cache"), parentDir);
+        File cacheDir = PathValidationUtils.validatePath(documentDirName + "_cache", parentDir);
 
         if (!cacheDir.exists() && !cacheDir.mkdir() && !cacheDir.isDirectory()) {
             throw new IllegalStateException("Unable to create document cache directory");

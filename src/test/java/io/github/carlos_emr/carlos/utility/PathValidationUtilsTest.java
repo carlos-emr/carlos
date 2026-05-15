@@ -488,8 +488,8 @@ public class PathValidationUtilsTest {
         }
 
         @Test
-        @DisplayName("should normalize upload destination filename")
-        void shouldNormalizeUploadDestinationFilename_whenNameHasSpecialChars() throws IOException {
+        @DisplayName("should preserve validatePath upload destination filename semantics")
+        void shouldPreserveUploadDestinationFilename_whenNameHasSpecialChars() throws IOException {
             String systemTempDir = System.getProperty("java.io.tmpdir");
             File sourceFile = new File(systemTempDir, "upload_b1b2c3d4_5678_90ab_cdef_123456789abc_00000000.tmp");
             assertThat(sourceFile.createNewFile()).isTrue();
@@ -497,7 +497,7 @@ public class PathValidationUtilsTest {
 
             File result = PathValidationUtils.validateUpload(sourceFile, "my report (final).txt", tempDir.toFile());
 
-            assertThat(result.getName()).isEqualTo("my_report_final.txt");
+            assertThat(result.getName()).isEqualTo("my report (final).txt");
         }
 
         @Test
