@@ -52,7 +52,6 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
-import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
@@ -200,7 +199,7 @@ public class ManageTeleplan2Action extends ActionSupport {
         File allowedDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
         try {
             file = PathValidationUtils.validateExistingPath(file, allowedDir);
-        } catch (FileValidationException | SecurityException e) {
+        } catch (SecurityException e) {
             // File might be in temp directory from Teleplan API
             if (!PathValidationUtils.isInAllowedTempDirectory(file)) {
                 throw new SecurityException("File access not allowed outside designated directory");
@@ -273,7 +272,7 @@ public class ManageTeleplan2Action extends ActionSupport {
         File allowedDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
         try {
             file = PathValidationUtils.validateExistingPath(file, allowedDir);
-        } catch (FileValidationException | SecurityException e) {
+        } catch (SecurityException e) {
             // File might be in temp directory from Teleplan API
             if (!PathValidationUtils.isInAllowedTempDirectory(file)) {
                 throw new SecurityException("File access not allowed outside designated directory");
@@ -574,7 +573,7 @@ public class ManageTeleplan2Action extends ActionSupport {
             File allowedDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
             try {
                 file = PathValidationUtils.validateExistingPath(file, allowedDir);
-            } catch (FileValidationException | SecurityException e) {
+            } catch (SecurityException e) {
                 // File might be in temp directory from Teleplan API
                 if (!PathValidationUtils.isInAllowedTempDirectory(file)) {
                     throw new SecurityException("File access not allowed outside designated directory");

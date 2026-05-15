@@ -6,7 +6,18 @@
 package io.github.carlos_emr.carlos.documentManager.actions;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
+import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO;
+import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteLinkDAO;
+import io.github.carlos_emr.carlos.commn.dao.CtlDocTypeDao;
+import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao;
+import io.github.carlos_emr.carlos.documentManager.EDocUtil;
+import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletRequest;
@@ -29,9 +40,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
@@ -50,14 +63,18 @@ class DocumentUpload2ActionTest extends CarlosUnitTestBase {
     @Mock
     private LoggedInInfo mockLoggedInInfo;
 
+    private ProgramManager2 mockProgramManager;
+
     @TempDir
     private Path incomingDocumentDir;
 
+    private Path documentDir;
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
     private DocumentUpload2Action action;
     private File tempUploadFile;
     private String previousIncomingDocumentDir;
+    private String previousDocumentDir;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -73,15 +90,20 @@ class DocumentUpload2ActionTest extends CarlosUnitTestBase {
                 .thenReturn(mockLoggedInInfo);
 
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
+        mockProgramManager = mock(ProgramManager2.class);
+        registerMock(ProgramManager2.class, mockProgramManager);
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_edoc"), eq("w"), isNull()))
                 .thenReturn(true);
 
         action = new DocumentUpload2Action();
         tempUploadFile = File.createTempFile("document-upload", ".pdf");
         Files.write(tempUploadFile.toPath(), new byte[]{1});
+        documentDir = Files.createDirectories(incomingDocumentDir.resolve("documents"));
 
         previousIncomingDocumentDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
+        previousDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         CarlosProperties.getInstance().setProperty("INCOMINGDOCUMENT_DIR", incomingDocumentDir.toString());
+        CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", documentDir.toString());
     }
 
     @AfterEach
@@ -93,6 +115,11 @@ class DocumentUpload2ActionTest extends CarlosUnitTestBase {
             CarlosProperties.getInstance().remove("INCOMINGDOCUMENT_DIR");
         } else {
             CarlosProperties.getInstance().setProperty("INCOMINGDOCUMENT_DIR", previousIncomingDocumentDir);
+        }
+        if (previousDocumentDir == null) {
+            CarlosProperties.getInstance().remove("DOCUMENT_DIR");
+        } else {
+            CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", previousDocumentDir);
         }
         if (loggedInInfoMock != null) {
             loggedInInfoMock.close();
@@ -156,5 +183,42 @@ class DocumentUpload2ActionTest extends CarlosUnitTestBase {
         assertThat(result).isNull();
         assertThat(request.getSession().getAttribute("preferredQueue")).isNull();
         assertThat(response.getContentAsString()).contains("Failed to write file. Please contact administrator");
+    }
+
+    @Test
+    @DisplayName("should delete temp upload and copied file when document persistence fails")
+    void shouldDeleteTempUploadAndCopiedFile_whenDocumentPersistenceFails() throws Exception {
+        request.getSession().setAttribute("user", "123");
+        when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("123");
+        registerEDocUtilStaticDependencies();
+        action.setFiledata(tempUploadFile);
+        action.setFiledataFileName("failed upload.txt");
+        action.setFiledataContentType("text/plain");
+
+        try (MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class)) {
+            eDocUtilMock.when(() -> EDocUtil.addDocumentSQL(any()))
+                    .thenThrow(new RuntimeException("database unavailable"));
+
+            assertThatThrownBy(() -> action.executeUpload())
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessageContaining("database unavailable");
+        }
+
+        assertThat(tempUploadFile).doesNotExist();
+        try (var files = Files.list(documentDir)) {
+            assertThat(files.toList()).isEmpty();
+        }
+    }
+
+    private void registerEDocUtilStaticDependencies() {
+        createAndRegisterMock(ProgramManager.class);
+        createAndRegisterMock(CaseManagementNoteLinkDAO.class);
+        createAndRegisterMock(CaseManagementNoteDAO.class);
+        createAndRegisterMock(TicklerLinkDao.class);
+        createAndRegisterMock(TicklerManager.class);
+        createAndRegisterMock(ProviderDao.class);
+        createAndRegisterMock(CtlDocTypeDao.class);
+        createAndRegisterMock(DemographicManager.class);
+        createAndRegisterMock(CtlDocumentDao.class);
     }
 }

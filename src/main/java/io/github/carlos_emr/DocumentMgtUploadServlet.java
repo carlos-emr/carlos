@@ -46,7 +46,6 @@ import jakarta.servlet.http.Part;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
-import io.github.carlos_emr.carlos.utility.FileValidationException;
 
 /**
  * Servlet for handling document management system file uploads.
@@ -112,7 +111,7 @@ public class DocumentMgtUploadServlet extends HttpServlet {
                     Files.copy(in, savedFile.toPath());
                 }
             }
-        } catch (FileValidationException | SecurityException e) {
+        } catch (SecurityException e) {
             MiscUtils.getLogger().error("Path validation failed for uploaded file", e);
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);

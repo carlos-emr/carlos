@@ -42,7 +42,6 @@ import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.utility.DateRange;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
-import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -567,7 +566,7 @@ public class OhipClaimExtractService implements Serializable {
         File safeFile;
         try {
             safeFile = PathValidationUtils.validatePath(ohipFilename, new File(home_dir));
-        } catch (FileValidationException | SecurityException e) {
+        } catch (SecurityException e) {
             logger.error("Path traversal attempt detected for OHIP file: {}", ohipFilename, e);
             throw new BillingFileWriteException(
                     "Refused to write OHIP claim file due to path-traversal: " + ohipFilename, e);
@@ -594,7 +593,7 @@ public class OhipClaimExtractService implements Serializable {
         File safeFile;
         try {
             safeFile = PathValidationUtils.validatePath(htmlFilename, new File(home_dir1));
-        } catch (FileValidationException | SecurityException e) {
+        } catch (SecurityException e) {
             logger.error("Path traversal attempt detected for HTML file: {}", htmlFilename, e);
             throw new BillingFileWriteException(
                     "Refused to write OHIP HTML companion file due to path-traversal: " + htmlFilename, e);

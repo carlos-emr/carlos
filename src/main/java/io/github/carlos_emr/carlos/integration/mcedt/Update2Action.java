@@ -37,7 +37,6 @@ import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
-import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -181,7 +180,7 @@ public class Update2Action extends ActionSupport implements UploadedFilesAware {
         try {
             File validatedContent = PathValidationUtils.validateUpload(content);
             result.setContent(Files.readAllBytes(validatedContent.toPath()));
-        } catch (FileValidationException | SecurityException e) {
+        } catch (SecurityException e) {
             throw new SecurityException("Invalid upload file path", e);
         } catch (Exception e) {
             throw new RuntimeException("Unable to read upload data", e);

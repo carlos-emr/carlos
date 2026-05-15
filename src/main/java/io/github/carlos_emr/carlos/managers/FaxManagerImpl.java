@@ -45,7 +45,6 @@ import io.github.carlos_emr.carlos.fax.core.FaxSchedulerJob;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
-import io.github.carlos_emr.carlos.utility.FileValidationException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import io.github.carlos_emr.carlos.form.util.FormTransportContainer;
@@ -800,7 +799,7 @@ public class FaxManagerImpl implements FaxManager {
 
         try {
             file = PathValidationUtils.validateExistingPath(file, documentDir);
-        } catch (FileValidationException | SecurityException e) {
+        } catch (SecurityException e) {
             // File not in document dir, check if it's in allowed temp directories
             if (!PathValidationUtils.isInAllowedTempDirectory(file)) {
                 logger.error("File path outside allowed directories: {}", LogSafe.sanitize(filePath));
@@ -833,7 +832,7 @@ public class FaxManagerImpl implements FaxManager {
 
         try {
             file = PathValidationUtils.validateExistingPath(file, documentDir);
-        } catch (FileValidationException | SecurityException e) {
+        } catch (SecurityException e) {
             // File not in document dir, check if it's in allowed temp directories
             if (!PathValidationUtils.isInAllowedTempDirectory(file)) {
                 logger.error("Path containment check failed - file path outside allowed directories: {}", LogSafe.sanitize(filePath));

@@ -36,7 +36,6 @@ import io.github.carlos_emr.carlos.utility.DigitalSignatureUtils;
 import io.github.carlos_emr.carlos.utility.EncryptionUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
-import io.github.carlos_emr.carlos.utility.FileValidationException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -148,7 +147,7 @@ public class DigitalSignatureManagerImpl implements DigitalSignatureManager {
             );
         } catch (FileNotFoundException e) {
             logger.debug("Signature file not found. User probably didn't collect a signature.", e);
-        } catch (FileValidationException | SecurityException e) {
+        } catch (SecurityException e) {
             logger.warn("Blocked unsafe file access attempt.", e);
         } catch (Exception e) {
             logger.error("Unexpected error processing digital signature.", e);
@@ -188,7 +187,7 @@ public class DigitalSignatureManagerImpl implements DigitalSignatureManager {
                     loggedInInfo.getCurrentFacility().getId(),
                     providerNo, demographicNo, imageData, moduleType
             );
-        } catch (FileValidationException | SecurityException e) {
+        } catch (SecurityException e) {
             logger.warn("Blocked unsafe file access attempt for stamp signature.", e);
         } catch (IOException e) {
             logger.error("Error reading stamp signature file: {}", stampFilename, e);

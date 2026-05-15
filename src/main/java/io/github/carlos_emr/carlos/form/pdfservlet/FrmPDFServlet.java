@@ -51,7 +51,6 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
-import io.github.carlos_emr.carlos.utility.FileValidationException;
 
 import io.github.carlos_emr.carlos.form.FrmRecord;
 import io.github.carlos_emr.carlos.form.FrmRecordFactory;
@@ -931,7 +930,7 @@ public class FrmPDFServlet extends HttpServlet {
                 log.debug("Loaded config from filesystem: " + safeFilename);
                 return props;
             }
-        } catch (FileValidationException | SecurityException e) {
+        } catch (SecurityException e) {
             log.warn("Path validation failed for file: " + safeFilename);
             return null;
         } catch (Exception e) {

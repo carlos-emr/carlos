@@ -16,7 +16,6 @@ package io.github.carlos_emr.carlos.documentManager.actions;
 
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -108,24 +107,17 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             }
         }
 
-        if (docFile != null && destination != null && destination.equals("incomingDocs")) {
-            String fileName = this.filedataFileName;
-            if (fileName == null || fileName.trim().isEmpty()) {
-                map.put("error", PathValidationUtils.INVALID_FILENAME_MESSAGE);
-            } else if (!fileName.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
-                map.put("error", props.getString("dms.documentUpload.onlyPdf"));
-            } else if (docFile.length() == 0) {
-                map.put("error", 4);
-                deleteUploadedTempFile(docFile);
-                docFile = null;
-                throw new FileNotFoundException();
-            } else {
-                String queueId = request.getParameter("queue");
-                String destFolder = request.getParameter("destFolder");
-
-                if (!isValidIncomingDestination(queueId, destFolder)) {
-                    logger.warn("Rejected invalid incoming document destination");
-                    map.put("error", INVALID_INCOMING_DESTINATION_MESSAGE);
+        File uploadedTempFile = docFile;
+        try {
+            if (docFile != null && destination != null && destination.equals("incomingDocs")) {
+                String fileName = this.filedataFileName;
+                if (fileName == null || fileName.trim().isEmpty()) {
+                    map.put("error", PathValidationUtils.INVALID_FILENAME_MESSAGE);
+                } else if (!fileName.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
+                    map.put("error", props.getString("dms.documentUpload.onlyPdf"));
+                } else if (docFile.length() == 0) {
+                    map.put("error", 4);
+                    throw new FileNotFoundException();
                 } else {
                     boolean success = writeToIncomingDocs(docFile, queueId, destFolder, sanitizedFileName);
                     if (!success) {
@@ -194,25 +186,108 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                         logger.warn("Invalid queue ID format — skipping queue link");
                         request.getSession().removeAttribute(PREFERRED_QUEUE_SESSION_KEY);
                     } else {
-                        WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
-                        QueueDocumentLinkDao queueDocumentLinkDAO = (QueueDocumentLinkDao) ctx.getBean(QueueDocumentLinkDao.class);
-                        Integer qid = Integer.parseInt(queueId.trim());
-                        Integer did = Integer.parseInt(doc_no.trim());
-                        queueDocumentLinkDAO.addActiveQueueDocumentLink(qid, did);
-                        request.getSession().setAttribute(PREFERRED_QUEUE_SESSION_KEY, String.valueOf(qid)); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+                        try {
+                            String sanitizedFileName = validateIncomingDocsFileName(fileName);
+                            File f = new File(IncomingDocUtil.getAndCreateIncomingDocumentFilePathName(queueId, destFolder, sanitizedFileName));
+                            if (f.exists()) {
+                                map.put("error", sanitizedFileName + " " + props.getString("dms.documentUpload.alreadyExists"));
+                            } else {
+                                boolean success = writeToIncomingDocs(docFile, queueId, destFolder, sanitizedFileName);
+                                if (!success) {
+                                    map.put("error", "Failed to write file. Please contact administrator");
+                                    MiscUtils.getLogger().error("Failed to write file to {}", LogSanitizer.sanitize(destFolder)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                                } else {
+                                    map.put("name", sanitizedFileName);
+                                    map.put("size", docFile.length());
+                                    storePreferredQueue(queueId);
+                                }
+                            }
+                        } catch (FileValidationException e) {
+                            map.put("error", e.getMessage());
+                        } catch (IllegalArgumentException | SecurityException e) {
+                            logger.warn("Rejected invalid incoming document destination");
+                            map.put("error", INVALID_INCOMING_DESTINATION_MESSAGE);
+                        }
                     }
-                }
 
-                map.put("name", fileName);
-                map.put("size", docFile.length());
-                deleteUploadedTempFile(docFile);
-                docFile = null;
-            } catch (FileValidationException e) {
-                logger.warn("Rejected invalid document upload filename");
-                map.put("error", e.getMessage());
-                deleteUploadedTempFile(docFile);
-                docFile = null;
+                }
+            } else if (docFile != null) {
+                File copiedDocumentFile = null;
+                boolean documentRecordCreated = false;
+                try {
+                    int numberOfPages = 0;
+                    String fileName = PathValidationUtils.validateFileName(this.filedataFileName);
+                    String user = (String) request.getSession().getAttribute("user");
+                    SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
+                    EDoc newDoc = new EDoc("", "", fileName, "", user, user, this.getSource(), 'A',
+                            simpleDateFormat.format(Calendar.getInstance().getTime()),
+                            "", "", "demographic", "-1", 0);
+                    newDoc.setDocPublic("0");
+
+                    // if the document was added in the context of a program
+                    ProgramManager2 programManager = SpringUtils.getBean(ProgramManager2.class);
+                    LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+                    ProgramProvider pp = programManager.getCurrentProgramInDomain(loggedInInfo, loggedInInfo.getLoggedInProviderNo());
+                    if (pp != null && pp.getProgramId() != null) {
+                        newDoc.setProgramId(pp.getProgramId().intValue());
+                    }
+
+                    fileName = newDoc.getFileName();
+                    String filePath = newDoc.getFilePath();
+                    // save local file;
+                    if (docFile.length() == 0) {
+                        map.put("error", 4);
+                        throw new FileNotFoundException();
+                    }
+
+                    // write file to local dir
+                    copiedDocumentFile = writeLocalFile(docFile, fileName);
+                    newDoc.setContentType(this.filedataContentType);
+                    if (fileName.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
+                        newDoc.setContentType("application/pdf");
+                        // get number of pages when document is a PDF
+                        numberOfPages = countNumOfPages(filePath);
+                    }
+                    newDoc.setNumberOfPages(numberOfPages);
+                    String doc_no = EDocUtil.addDocumentSQL(newDoc);
+                    documentRecordCreated = true;
+                    LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
+
+                    String providerId = request.getParameter("providers");
+                    if (providerId != null) {
+                        WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
+                        ProviderInboxRoutingDao providerInboxRoutingDao = (ProviderInboxRoutingDao) ctx.getBean(ProviderInboxRoutingDao.class);
+                        providerInboxRoutingDao.addToProviderInbox(providerId, Integer.parseInt(doc_no), "DOC");
+                    }
+
+                    String queueId = request.getParameter("queue");
+                    if (queueId != null && !queueId.equals("-1")) {
+                        if (!queueId.trim().matches("\\d+")) {
+                            logger.warn("Invalid queue ID format — skipping queue link");
+                            request.getSession().removeAttribute(PREFERRED_QUEUE_SESSION_KEY);
+                        } else {
+                            WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
+                            QueueDocumentLinkDao queueDocumentLinkDAO = (QueueDocumentLinkDao) ctx.getBean(QueueDocumentLinkDao.class);
+                            Integer qid = Integer.parseInt(queueId.trim());
+                            Integer did = Integer.parseInt(doc_no.trim());
+                            queueDocumentLinkDAO.addActiveQueueDocumentLink(qid, did);
+                            request.getSession().setAttribute(PREFERRED_QUEUE_SESSION_KEY, String.valueOf(qid)); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+                        }
+                    }
+
+                    map.put("name", fileName);
+                    map.put("size", docFile.length());
+                } catch (FileValidationException e) {
+                    deleteCopiedDocumentIfUnpersisted(copiedDocumentFile, documentRecordCreated);
+                    logger.warn("Rejected invalid document upload filename");
+                    map.put("error", e.getMessage());
+                } catch (Exception e) {
+                    deleteCopiedDocumentIfUnpersisted(copiedDocumentFile, documentRecordCreated);
+                    throw e;
+                }
             }
+        } finally {
+            deleteUploadedTempFile(uploadedTempFile);
         }
         ArrayNode jsonArray = objectMapper.createArrayNode();
         ObjectNode jsonObject = objectMapper.valueToTree(map);
@@ -248,33 +323,41 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
      * @param fileName the name for the file on disk
      * @throws Exception when an error occurs
      */
-    private void writeLocalFile(File docFile, String fileName) throws Exception {
-        InputStream fis = null;
-        FileOutputStream fos = null;
+    private File writeLocalFile(File docFile, String fileName) throws Exception {
+        File destinationFile = null;
+        boolean writeSucceeded = false;
         try {
-            fis = Files.newInputStream(docFile.toPath());
             String documentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
             if (!documentDir.endsWith(File.separator)) {
                 documentDir += File.separator;
             }
             // Validate the destination path using PathValidationUtils
             File baseDir = new File(documentDir);
-            File destinationFile = PathValidationUtils.validatePath(fileName, baseDir);
+            destinationFile = PathValidationUtils.validatePath(fileName, baseDir);
 
-            fos = new FileOutputStream(destinationFile);
-            byte[] buf = new byte[128 * 1024];
-            int i = 0;
-            while ((i = fis.read(buf)) != -1) {
-                fos.write(buf, 0, i);
+            try (InputStream fis = Files.newInputStream(docFile.toPath());
+                    OutputStream fos = Files.newOutputStream(destinationFile.toPath())) {
+                byte[] buf = new byte[128 * 1024];
+                int i = 0;
+                while ((i = fis.read(buf)) != -1) {
+                    fos.write(buf, 0, i);
+                }
             }
+            writeSucceeded = true;
+            return destinationFile;
         } catch (Exception e) {
             logger.error("Error writing local file", e);
             throw e;
         } finally {
-            if (fis != null)
-                fis.close();
-            if (fos != null)
-                fos.close();
+            if (!writeSucceeded) {
+                deleteCopiedDocumentIfUnpersisted(destinationFile, false);
+            }
+        }
+    }
+
+    private void deleteCopiedDocumentIfUnpersisted(File copiedDocumentFile, boolean documentRecordCreated) {
+        if (!documentRecordCreated && copiedDocumentFile != null && copiedDocumentFile.exists() && !copiedDocumentFile.delete()) {
+            logger.warn("Unable to delete unpersisted document file: {}", LogSanitizer.sanitize(copiedDocumentFile.getPath()));
         }
     }
 

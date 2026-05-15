@@ -47,7 +47,6 @@ import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
-import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.report.reportByTemplate.ReportManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
@@ -81,7 +80,7 @@ public class UploadTemplates2Action extends ActionSupport implements UploadedFil
                 // Read the file content
                 byte[] bytes = Files.readAllBytes(validatedTemplateFile.toPath());
                 xml = new String(bytes);
-            } catch (FileValidationException | SecurityException se) {
+            } catch (SecurityException se) {
                 MiscUtils.getLogger().warn("SecurityException during file upload: " + se.getMessage(), se);
                 message = "Error: File upload failed due to security policy violation.";
                 request.setAttribute("message", message);

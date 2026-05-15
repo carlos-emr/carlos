@@ -98,7 +98,6 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
-import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.SessionConstants;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.webserv.LabUploadWs;
@@ -554,7 +553,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
         } catch (IOException e) {
             logger.error("SECURITY: I/O error while validating ZIP entry {}: {}", Encode.forJava(entryName), e.getMessage(), e);
             return null;
-        } catch (FileValidationException | SecurityException e) {
+        } catch (SecurityException e) {
             logger.error("SECURITY: Rejecting malicious ZIP entry: {}", Encode.forJava(entryName), e);
             return null;
         }
@@ -2817,7 +2816,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
                                 try {
                                     File allowedRoot = new File(currentDirectory);
                                     sourceFile = PathValidationUtils.validateExistingPath(sourceFile, allowedRoot);
-                                } catch (FileValidationException | SecurityException e) {
+                                } catch (SecurityException e) {
                                     logger.error("SECURITY: Rejecting file copy - resolved path outside allowed directory. FilePath: {}, SourceFile: {}",
                                         Encode.forJava(new File(filePath).getName()),
                                         Encode.forJava(sourceFile.getName()),
@@ -3408,7 +3407,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
         try {
             file = PathValidationUtils.validateExistingPath(file, allowedRoot);
             return file;
-        } catch (FileValidationException | SecurityException e) {
+        } catch (SecurityException e) {
             logger.error("SECURITY: Rejecting malicious file path from XML. originalPath='{}', resolvedPath='{}'",
                     Encode.forJava(originalPath), Encode.forJava(file.getPath()), e);
             return null;

@@ -518,7 +518,7 @@ public class NioFileManagerImpl implements NioFileManager {
             }
 
             return destinationFile.getPath();
-        } catch (FileValidationException | IOException e) {
+        } catch (SecurityException | IOException e) {
             log.error("An error occurred while moving the PDF file", e);
             return null;
         }

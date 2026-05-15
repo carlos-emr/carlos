@@ -28,7 +28,6 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
-import io.github.carlos_emr.carlos.utility.FileValidationException;
 
 import org.openpdf.text.Document;
 import org.openpdf.text.DocumentException;
@@ -123,7 +122,7 @@ public class ImagePDFCreator extends PdfPageEventHelper {
         File imageFile;
         try {
             imageFile = PathValidationUtils.validateExistingPath(new File(imagePath), new File(documentDir));
-        } catch (FileValidationException | SecurityException e) {
+        } catch (SecurityException e) {
             logger.error("Image path validation failed - access outside document directory blocked");
             throw new DocumentException("Invalid image path");
         }
