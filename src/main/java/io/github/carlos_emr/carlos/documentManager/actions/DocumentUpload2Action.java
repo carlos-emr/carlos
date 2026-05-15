@@ -197,7 +197,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                     }
                 }
 
-                map.put("name", docFile.getName());
+                map.put("name", fileName);
                 map.put("size", docFile.length());
             } catch (FileValidationException e) {
                 logger.warn("Rejected invalid document upload filename");

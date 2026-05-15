@@ -99,12 +99,11 @@ public class NioFileManagerImpl implements NioFileManager {
             return null;
         }
 
-        // Sanitize the filename to prevent path traversal
-        String sanitizedFilename = sanitizeFileName(filename);
-        
-        // Additional validation after sanitization
-        if (sanitizedFilename.isEmpty() || "invalid_filename".equals(sanitizedFilename)) {
-            log.error("Filename failed sanitization: " + filename);
+        String sanitizedFilename;
+        try {
+            sanitizedFilename = sanitizeFileName(filename);
+        } catch (FileValidationException e) {
+            log.error("Filename failed sanitization: {}", LogSanitizer.sanitize(filename));
             return null;
         }
 
@@ -174,8 +173,13 @@ public class NioFileManagerImpl implements NioFileManager {
             throw new RuntimeException("Read Access Denied _edoc for provider " + loggedInInfo.getLoggedInProviderNo());
         }
 
-        // Sanitize the filename to prevent path traversal
-        String sanitizedFilename = sanitizeFileName(filename);
+        String sanitizedFilename;
+        try {
+            sanitizedFilename = sanitizeFileName(filename);
+        } catch (FileValidationException e) {
+            log.error("Filename failed sanitization: {}", LogSanitizer.sanitize(filename));
+            return null;
+        }
 
         Path cacheFilePath = hasCacheVersion2(loggedInInfo, sanitizedFilename, pageNum);
 
@@ -285,8 +289,13 @@ public class NioFileManagerImpl implements NioFileManager {
             return false;
         }
 
-        // Sanitize the filename - remove any path traversal attempts
-        String sanitizedFileName = sanitizeFileName(fileName);
+        String sanitizedFileName;
+        try {
+            sanitizedFileName = sanitizeFileName(fileName);
+        } catch (FileValidationException e) {
+            log.error("Filename failed sanitization: {}", LogSanitizer.sanitize(fileName));
+            return false;
+        }
         
         Path documentCacheDir = getDocumentCacheDirectory(loggedInInfo);
         
@@ -334,12 +343,11 @@ public class NioFileManagerImpl implements NioFileManager {
      */
     private String sanitizeFileName(String fileName) {
         if (fileName == null) {
-            return "";
+            throw new FileValidationException(PathValidationUtils.INVALID_FILENAME_MESSAGE);
         }
         
         // First, get just the filename component (removes any path)
-        Path path = Paths.get(fileName);
-        String baseName = path.getFileName() != null ? path.getFileName().toString() : "";
+        String baseName = FilenameUtils.getName(fileName);
         
         // Remove any remaining path traversal sequences or special characters
         // that could be used maliciously
@@ -367,7 +375,12 @@ public class NioFileManagerImpl implements NioFileManager {
         if (fileType == null) {
             fileType = DEFAULT_FILE_SUFFIX;
         }
-        String sanitizedName = sanitizeFileName(fileName);
+        String sanitizedName;
+        try {
+            sanitizedName = sanitizeFileName(fileName);
+        } catch (FileValidationException e) {
+            throw new IOException(PathValidationUtils.INVALID_FILENAME_MESSAGE, e);
+        }
         // Sanitize fileType to only allow safe alphanumeric extension characters
         String sanitizedType = fileType.replaceAll("[^a-zA-Z0-9]", "");
         if (sanitizedType.isEmpty()) {
@@ -430,18 +443,6 @@ public class NioFileManagerImpl implements NioFileManager {
                 throw new SecurityException("Path traversal attempt detected", e);
             }
             
-            // Additional check: ensure the file is actually a temporary file created by this system
-            // Check if it's in one of our known temp subdirectories
-            String filePathStr = tempfile.toString();
-            boolean isValidTempFile = filePathStr.contains(TEMP_PDF_DIRECTORY) || 
-                                     filePathStr.contains(DEFAULT_GENERIC_TEMP) ||
-                                     tempfile.getParent().equals(systemTempDir);
-            
-            if (!isValidTempFile) {
-                log.error("Attempt to delete non-temporary file: " + fileName);
-                return false;
-            }
-            
             return Files.deleteIfExists(tempfile);
         } catch (SecurityException e) {
             log.error("Security violation while attempting to delete file: {}", LogSanitizer.sanitize(fileName), e);
@@ -459,21 +460,17 @@ public class NioFileManagerImpl implements NioFileManager {
      * Filename string in File out
      */
     public File getOscarDocument(String fileName) {
-        // Sanitize the filename to prevent path traversal
-        String sanitizedFileName = sanitizeFileName(fileName);
-        
-        Path documentDir = Paths.get(getDocumentDirectory()).normalize().toAbsolutePath();
-        Path oscarDocument = documentDir.resolve(sanitizedFileName).normalize().toAbsolutePath();
-        
-        // Ensure the file is within the document directory
         try {
+            String sanitizedFileName = sanitizeFileName(fileName);
+            Path documentDir = Paths.get(getDocumentDirectory()).normalize().toAbsolutePath();
+            Path oscarDocument = documentDir.resolve(sanitizedFileName).normalize().toAbsolutePath();
+
             oscarDocument = PathValidationUtils.validateExistingPath(oscarDocument.toFile(), documentDir.toFile()).toPath();
+            return oscarDocument.toFile();
         } catch (FileValidationException e) {
             log.error("Path traversal attempt in getOscarDocument: {}", LogSanitizer.sanitize(fileName));
             throw new SecurityException("Path traversal attempt detected", e);
         }
-        
-        return oscarDocument.toFile();
     }
 
     /**
@@ -491,24 +488,12 @@ public class NioFileManagerImpl implements NioFileManager {
      */
     public String copyFileToOscarDocuments(String tempFilePath) {
         try {
-            // Use FilenameUtils.getName() to extract just the filename, removing any path components
-            // This is more reliable than manual path manipulation as it handles edge cases
-            String sanitizedFileName = FilenameUtils.getName(tempFilePath);
-            if (sanitizedFileName == null || sanitizedFileName.isEmpty()) {
-                log.error("Invalid file path provided: " + tempFilePath);
-                return null;
-            }
+            String sanitizedFileName = sanitizeFileName(tempFilePath);
 
             // Get source and destination directories
             File documentDir = new File(getDocumentDirectory());
-            File sourceFile = new File(tempFilePath);
+            File sourceFile = PathValidationUtils.validateUpload(new File(tempFilePath));
             File destinationFile = new File(documentDir, sanitizedFileName);
-
-            // Validate that source file exists and is a regular file
-            if (!sourceFile.exists() || !sourceFile.isFile()) {
-                log.error("Source file does not exist or is not a regular file: " + tempFilePath);
-                return null;
-            }
 
             // Validate destination path using PathValidationUtils
             destinationFile = PathValidationUtils.validatePath(sanitizedFileName, documentDir);
@@ -522,7 +507,7 @@ public class NioFileManagerImpl implements NioFileManager {
             }
 
             return destinationFile.getPath();
-        } catch (IOException e) {
+        } catch (FileValidationException | IOException e) {
             log.error("An error occurred while moving the PDF file", e);
             return null;
         }
