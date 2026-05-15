@@ -270,7 +270,7 @@ public class FaxSender {
 
                 // Do NOT silently substitute a different file; fail the job instead.
                 log.error("Invalid absolute fax job path: {}", filename, e);
-                throw e;
+                throw new SecurityException("Invalid fax job path", e);
             }
         }
 
@@ -281,7 +281,7 @@ public class FaxSender {
         } catch (FileValidationException | SecurityException e) {
             log.error("Path validation failed for relative fax job filename: {}", filename, e);
             // Do not fall back to a different file; propagate the failure.
-            throw e;
+            throw new SecurityException("Invalid fax job path", e);
         }
     }
 }

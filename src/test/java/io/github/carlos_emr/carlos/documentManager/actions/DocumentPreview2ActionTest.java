@@ -21,14 +21,39 @@
  */
 package io.github.carlos_emr.carlos.documentManager.actions;
 
+import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
+import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO;
+import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteLinkDAO;
+import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
+import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
+import io.github.carlos_emr.carlos.commn.dao.CtlDocTypeDao;
+import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.EFormDao;
+import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
+import io.github.carlos_emr.carlos.commn.dao.EFormGroupDao;
+import io.github.carlos_emr.carlos.commn.dao.EFormValueDao;
+import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
+import io.github.carlos_emr.carlos.commn.dao.TicklerDao;
+import io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao;
+import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
-import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMUtil;
+import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMCategoryDao;
+import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentDao;
+import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentSubClassDao;
+import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
+import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMSubClassDao;
+import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.FormsManager;
+import io.github.carlos_emr.carlos.managers.NioFileManager;
+import io.github.carlos_emr.carlos.managers.PreventionManager;
+import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletRequest;
@@ -56,6 +81,7 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
@@ -119,10 +145,41 @@ class DocumentPreview2ActionTest extends CarlosUnitTestBase {
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
         registerMock(DocumentAttachmentManager.class, mockDocumentAttachmentManager);
         registerMock(FormsManager.class, mockFormsManager);
+        registerStaticUtilityDependencies();
 
-        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), any(), any(), any())).thenReturn(true);
+        lenient().when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), any(), any(), any())).thenReturn(true);
 
         action = spy(new DocumentPreview2Action());
+    }
+
+    private void registerStaticUtilityDependencies() {
+        createAndRegisterMock(ProgramManager.class);
+        createAndRegisterMock(CaseManagementNoteLinkDAO.class);
+        createAndRegisterMock(CaseManagementNoteDAO.class);
+        createAndRegisterMock(TicklerLinkDao.class);
+        createAndRegisterMock(TicklerManager.class);
+        createAndRegisterMock(ProviderDao.class);
+        createAndRegisterMock(CtlDocTypeDao.class);
+        createAndRegisterMock(DemographicManager.class);
+        createAndRegisterMock(CtlDocumentDao.class);
+
+        createAndRegisterMock(CaseManagementManager.class);
+        createAndRegisterMock(EFormDataDao.class);
+        createAndRegisterMock(EFormValueDao.class);
+        createAndRegisterMock(EFormGroupDao.class);
+        createAndRegisterMock(TicklerDao.class);
+        createAndRegisterMock(PreventionManager.class);
+        createAndRegisterMock(ProgramManager2.class);
+        createAndRegisterMock(ConsultationRequestDao.class);
+        createAndRegisterMock(ProfessionalSpecialistDao.class);
+        createAndRegisterMock(EFormDao.class);
+
+        createAndRegisterMock(HRMDocumentDao.class);
+        createAndRegisterMock(HRMDocumentToDemographicDao.class);
+        createAndRegisterMock(HRMSubClassDao.class);
+        createAndRegisterMock(HRMDocumentSubClassDao.class);
+        createAndRegisterMock(HRMCategoryDao.class);
+        createAndRegisterMock(NioFileManager.class);
     }
 
     @AfterEach
@@ -222,6 +279,7 @@ class DocumentPreview2ActionTest extends CarlosUnitTestBase {
         when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_hrm", SecurityInfoManager.READ, null)).thenReturn(false);
         when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_lab", SecurityInfoManager.READ, null)).thenReturn(false);
         when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_form", SecurityInfoManager.READ, null)).thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_eform", SecurityInfoManager.READ, null)).thenReturn(false);
 
         eDocUtilMock = mockStatic(EDocUtil.class);
         eFormUtilMock = mockStatic(EFormUtil.class);

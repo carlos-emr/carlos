@@ -465,8 +465,9 @@ class SaveSignatureUpload2ActionTest extends CarlosUnitTestBase {
                     any(LoggedInInfo.class), eq(signatureKey), eq(42), eq(ModuleType.PRESCRIPTION)))
                     .thenReturn(saved);
 
-            try (MockedStatic<Encode> encodeMock = mockStatic(Encode.class)) {
+            try (MockedStatic<Encode> encodeMock = mockStatic(Encode.class, CALLS_REAL_METHODS)) {
                 encodeMock.when(() -> Encode.forHtmlAttribute("777")).thenReturn("encoded-777");
+                encodeMock.clearInvocations();
 
                 action.execute();
 
