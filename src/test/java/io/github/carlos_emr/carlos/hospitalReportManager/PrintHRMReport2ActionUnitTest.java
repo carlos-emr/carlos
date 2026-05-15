@@ -58,10 +58,12 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
+import org.apache.logging.log4j.Level;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.AfterEach;
@@ -242,6 +244,28 @@ class PrintHRMReport2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldLogCommittedResponse_whenPdfMergeFailsAfterCommit() throws Exception {
+        CommittedMockHttpServletResponse committedResponse = new CommittedMockHttpServletResponse();
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(committedResponse);
+
+        try (MockedStatic<ConcatPDF> concatPdfMock = mockStatic(ConcatPDF.class);
+                LogCapture capture = LogCapture.forLogger(PrintHRMReport2Action.class)) {
+            concatPdfMock.when(() -> ConcatPDF.concat(any(ArrayList.class), any(OutputStream.class)))
+                    .thenThrow(new RuntimeException("merge failed after commit"));
+
+            String result = new PrintHRMReport2Action().execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(capture.events()).anySatisfy(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.ERROR);
+                assertThat(event.getMessage().getFormattedMessage())
+                        .contains("after response commit")
+                        .contains("responseCommitted=true");
+            });
+        }
+    }
+
+    @Test
     void shouldKeepHrmPrintRoute_withoutNamedResults() throws Exception {
         Element action = findAction(parse(STRUTS_DOCUMENT_XML), HRM_PRINT_ROUTE)
                 .orElseThrow(() -> new AssertionError(
@@ -296,5 +320,12 @@ class PrintHRMReport2ActionUnitTest extends CarlosUnitTestBase {
         DocumentBuilder db = dbf.newDocumentBuilder();
         db.setEntityResolver((publicId, systemId) -> new InputSource(new StringReader("")));
         return db;
+    }
+
+    private static class CommittedMockHttpServletResponse extends MockHttpServletResponse {
+        @Override
+        public boolean isCommitted() {
+            return true;
+        }
     }
 }

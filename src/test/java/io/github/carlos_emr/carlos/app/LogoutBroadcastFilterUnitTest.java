@@ -164,6 +164,28 @@ class LogoutBroadcastFilterUnitTest {
     }
 
     @Test
+    @DisplayName("should append logout script when forced reset submit creates session during rendering")
+    void shouldAppendLogoutScript_whenForcedResetSubmitCreatesSessionDuringRendering() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "");
+        request.setContextPath("/carlos");
+        request.setRequestURI("/carlos/forcepasswordresetSubmit");
+        TrackingMockHttpServletResponse response = new TrackingMockHttpServletResponse();
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            ((MockHttpServletRequest) servletRequest).getSession(true).setAttribute("user", "123");
+            servletResponse.setContentType("text/html;charset=UTF-8");
+            servletResponse.getWriter().write("<html><body>schedule</body></html>");
+        };
+
+        filter.doFilter(request, response, chain);
+
+        String content = response.getContentAsString();
+        assertThat(content).contains("<html><body>schedule</body></html>");
+        assertThat(content).contains("window.__carlosLogoutActive=true;");
+        assertThat(response.getLastRequestedBufferSize()).isEqualTo(HTML_INJECTION_BUFFER_SIZE_BYTES);
+    }
+
+    @Test
     @DisplayName("should not wrap static library or share assets")
     void shouldNotWrapStaticAssets_whenAuthenticatedSessionExists() throws Exception {
         assertStaticAssetFastPath("/library/jquery/jquery-3.7.1.min.js");
@@ -234,6 +256,110 @@ class LogoutBroadcastFilterUnitTest {
         assertThat(response.getHeader("Content-Length"))
                 .isEqualTo(String.valueOf(body.getBytes(StandardCharsets.UTF_8).length));
         assertThat(response.getSetBufferSizeCallCount()).isZero();
+    }
+
+    @Test
+    @DisplayName("should route setHeader content type through lazy HTML buffer")
+    void shouldRouteSetHeaderContentType_throughLazyHtmlBuffer() throws Exception {
+        MockHttpServletRequest request = authenticatedRequest("/provider/providercontrol");
+        TrackingMockHttpServletResponse response = new TrackingMockHttpServletResponse();
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            ((HttpServletResponse) servletResponse).setHeader("Content-Type", "text/html;charset=UTF-8");
+            servletResponse.getWriter().write("<html><body>schedule</body></html>");
+        };
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(response.getContentAsString()).contains("window.__carlosLogoutActive=true;");
+        assertThat(response.getLastRequestedBufferSize()).isEqualTo(HTML_INJECTION_BUFFER_SIZE_BYTES);
+    }
+
+    @Test
+    @DisplayName("should route addHeader content type through lazy HTML buffer")
+    void shouldRouteAddHeaderContentType_throughLazyHtmlBuffer() throws Exception {
+        MockHttpServletRequest request = authenticatedRequest("/provider/providercontrol");
+        TrackingMockHttpServletResponse response = new TrackingMockHttpServletResponse();
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            ((HttpServletResponse) servletResponse).addHeader("Content-Type", "text/html;charset=UTF-8");
+            servletResponse.getWriter().write("<html><body>schedule</body></html>");
+        };
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(response.getContentAsString()).contains("window.__carlosLogoutActive=true;");
+        assertThat(response.getLastRequestedBufferSize()).isEqualTo(HTML_INJECTION_BUFFER_SIZE_BYTES);
+    }
+
+    @Test
+    @DisplayName("should preserve integer content length without large buffer for JSON response")
+    void shouldPreserveIntegerContentLengthWithoutLargeBuffer_whenAuthenticatedJsonResponseRenders() throws Exception {
+        MockHttpServletRequest request = authenticatedRequest("/status/SomeJsonAction");
+        TrackingMockHttpServletResponse response = new TrackingMockHttpServletResponse();
+        String body = "{\"valid\":true}";
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.setContentType("application/json;charset=UTF-8");
+            ((HttpServletResponse) servletResponse).setIntHeader("Content-Length",
+                    body.getBytes(StandardCharsets.UTF_8).length);
+            servletResponse.getWriter().write(body);
+        };
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(response.getContentAsString()).isEqualTo(body);
+        assertThat(response.getHeader("Content-Length"))
+                .isEqualTo(String.valueOf(body.getBytes(StandardCharsets.UTF_8).length));
+        assertThat(response.getSetBufferSizeCallCount()).isZero();
+    }
+
+    @Test
+    @DisplayName("should preserve added integer content length without large buffer for JSON response")
+    void shouldPreserveAddedIntegerContentLengthWithoutLargeBuffer_whenAuthenticatedJsonResponseRenders()
+            throws Exception {
+        MockHttpServletRequest request = authenticatedRequest("/status/SomeJsonAction");
+        TrackingMockHttpServletResponse response = new TrackingMockHttpServletResponse();
+        String body = "{\"valid\":true}";
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.setContentType("application/json;charset=UTF-8");
+            ((HttpServletResponse) servletResponse).addIntHeader("Content-Length",
+                    body.getBytes(StandardCharsets.UTF_8).length);
+            servletResponse.getWriter().write(body);
+        };
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(response.getContentAsString()).isEqualTo(body);
+        assertThat(response.getHeader("Content-Length"))
+                .isEqualTo(String.valueOf(body.getBytes(StandardCharsets.UTF_8).length));
+        assertThat(response.getSetBufferSizeCallCount()).isZero();
+    }
+
+    @Test
+    @DisplayName("should skip injection when HTML buffer cannot be enlarged after body write")
+    void shouldSkipInjection_whenHtmlBufferCannotBeEnlargedAfterBodyWrite() throws Exception {
+        MockHttpServletRequest request = authenticatedRequest("/provider/providercontrol");
+        LateBufferFailingResponse response = new LateBufferFailingResponse();
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.getWriter().write("<html><body>schedule</body></html>");
+            servletResponse.setContentType("text/html;charset=UTF-8");
+        };
+
+        try (LogCapture capture = LogCapture.forLogger(LogoutBroadcastFilter.class)) {
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getContentAsString()).contains("<html><body>schedule</body></html>");
+            assertThat(response.getContentAsString()).doesNotContain("window.__carlosLogoutActive=true;");
+            assertThat(capture.events()).anySatisfy(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                assertThat(event.getMessage().getFormattedMessage())
+                        .contains("HTML response buffer could not be enlarged")
+                        .contains("uri=/carlos/provider/providercontrol");
+            });
+        }
     }
 
     @Test
@@ -489,6 +615,13 @@ class LogoutBroadcastFilterUnitTest {
 
         Integer getLastRequestedBufferSize() {
             return lastRequestedBufferSize;
+        }
+    }
+
+    private static class LateBufferFailingResponse extends MockHttpServletResponse {
+        @Override
+        public void setBufferSize(int size) {
+            throw new IllegalStateException("body already written");
         }
     }
 

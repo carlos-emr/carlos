@@ -122,16 +122,21 @@ public class PrintHRMReport2Action extends ActionSupport {
         } catch (SecurityException e) {
             throw e;
         } catch (IOException | RuntimeException e) {
-            logger.error("Could not generate or stream HRM PDF response", e);
-            if (!response.isCommitted()) {
-                try {
-                    response.resetBuffer();
-                    response.setContentType("text/html;charset=UTF-8");
-                    response.setHeader("Content-Disposition", "inline");
-                    response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unable to generate HRM PDF");
-                } catch (IOException sendErrorException) {
-                    logger.error("Could not send HRM PDF error response", sendErrorException);
-                }
+            if (response.isCommitted()) {
+                // Once PDF bytes are committed, a follow-up error page would corrupt the stream;
+                // log the partial-response condition and let the direct-response action end.
+                logger.error("Could not generate or stream HRM PDF response after response commit; "
+                        + "client may receive a partial PDF: responseCommitted=true", e);
+                return NONE;
+            }
+            logger.error("Could not generate or stream HRM PDF response before commit", e);
+            try {
+                response.resetBuffer();
+                response.setContentType("text/html;charset=UTF-8");
+                response.setHeader("Content-Disposition", "inline");
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unable to generate HRM PDF");
+            } catch (IOException sendErrorException) {
+                logger.error("Could not send HRM PDF error response", sendErrorException);
             }
             return NONE;
         } finally {

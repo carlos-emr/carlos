@@ -33,7 +33,12 @@
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
-    String errormsg = request.getParameter("errormsg");
+    // In-action security failures pass a request attribute; legacy redirects still pass errormsg
+    // as a query parameter. Prefer the attribute so direct request state is not dropped.
+    Object errormsgAttr = request.getAttribute("errormsg");
+    String errormsg = errormsgAttr instanceof String
+            ? (String) errormsgAttr
+            : request.getParameter("errormsg");
 %>
 
 <html>

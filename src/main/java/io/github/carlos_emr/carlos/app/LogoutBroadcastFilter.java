@@ -78,7 +78,9 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  *
  * <p>The filter wraps only requests that already have an authenticated session or are known to
  * establish one during the Struts action chain ({@code POST /login} and
- * {@code POST /forcepasswordresetSubmit}). Wrapped responses configure the 1 MB injection buffer
+ * {@code POST /forcepasswordresetSubmit}). Path matching is case-insensitive after request-path
+ * normalization; the camel-case route name above documents the Struts action, while comparisons
+ * use the normalized lower-case form. Wrapped responses configure the 1 MB injection buffer
  * lazily after downstream code marks the response as HTML.
  *
  * <p>The injected script reads the {@code INACTIVITY_LIMIT_MINS} property (default 60)
@@ -193,6 +195,13 @@ public class LogoutBroadcastFilter implements Filter {
         // Only inject for HTML responses
         String contentType = delegatingResponse.getContentType();
         if (contentType == null || !contentType.toLowerCase(Locale.ROOT).startsWith("text/html")) {
+            delegatingResponse.applyDeferredContentLength();
+            return;
+        }
+        if (delegatingResponse.isHtmlInjectionBufferUnavailable()) {
+            logger.warn("Skipping logout broadcast script injection because the HTML response buffer "
+                    + "could not be enlarged before body content was written: uri={}, sessionId={}",
+                    sanitizedRequestUri(httpRequest), sanitizedSessionId(httpRequest));
             delegatingResponse.applyDeferredContentLength();
             return;
         }
@@ -633,6 +642,7 @@ public class LogoutBroadcastFilter implements Filter {
         private long deferredContentLengthLong;
         private boolean deferredContentLengthIsLong;
         private boolean htmlInjectionBufferConfigured;
+        private boolean htmlInjectionBufferUnavailable;
         private DelegatingWriter writer;
 
         /**
@@ -728,17 +738,18 @@ public class LogoutBroadcastFilter implements Filter {
          * Allows the servlet container to flush its buffer.
          *
          * <p>Earlier versions suppressed this call, but Tomcat 11 forwards require the normal
-         * flush path. The wrapper's 1 MB buffer is what gives
-         * {@link LogoutBroadcastFilter#appendScript} room to append the script before commit in
-         * the normal JSP response path.</p>
+         * flush path. When the response has already been marked as HTML before body bytes are
+         * written, the lazily configured append buffer gives {@link LogoutBroadcastFilter#appendScript}
+         * room to append the script before commit. Non-HTML responses and late HTML markings use the
+         * container's normal buffer behavior.</p>
          *
          * @throws IOException if the wrapped response cannot flush
          */
         @Override
         public void flushBuffer() throws IOException {
-            // Allow flushing - Tomcat 11 requires this for RequestDispatcher.forward()
-            // to work correctly. The 1MB buffer size ensures the response body is still
-            // available for script appending in the common case.
+            // Allow flushing - Tomcat 11 requires this for RequestDispatcher.forward().
+            // Script append safety comes from the lazy HTML buffer when it was configured
+            // before downstream code wrote the body.
             super.flushBuffer();
         }
 
@@ -753,6 +764,7 @@ public class LogoutBroadcastFilter implements Filter {
         public void reset() {
             clearDeferredContentLength();
             htmlInjectionBufferConfigured = false;
+            htmlInjectionBufferUnavailable = false;
             super.reset();
         }
 
@@ -766,6 +778,7 @@ public class LogoutBroadcastFilter implements Filter {
         @Override
         public void resetBuffer() {
             clearDeferredContentLength();
+            htmlInjectionBufferUnavailable = false;
             super.resetBuffer();
         }
 
@@ -880,6 +893,20 @@ public class LogoutBroadcastFilter implements Filter {
         }
 
         /**
+         * Returns whether the wrapper could not enlarge the HTML response buffer in time.
+         *
+         * <p>This is a per-response safety signal. If downstream code obtains the writer and writes
+         * body bytes before declaring {@code text/html}, servlet containers may reject
+         * {@link #setBufferSize(int)}. The filter then skips injection instead of aborting the
+         * request.</p>
+         *
+         * @return true when script injection should be skipped for this response
+         */
+        boolean isHtmlInjectionBufferUnavailable() {
+            return htmlInjectionBufferUnavailable;
+        }
+
+        /**
          * Caches string Content-Length header values until the final append decision is known.
          *
          * @param value raw Content-Length header value from downstream code
@@ -919,7 +946,7 @@ public class LogoutBroadcastFilter implements Filter {
          * buffer until HTML injection is actually possible.</p>
          */
         private void configureHtmlInjectionBufferIfNeeded() {
-            if (htmlInjectionBufferConfigured || isCommitted()) {
+            if (htmlInjectionBufferConfigured || htmlInjectionBufferUnavailable || isCommitted()) {
                 return;
             }
 
@@ -928,8 +955,12 @@ public class LogoutBroadcastFilter implements Filter {
                 return;
             }
 
-            setBufferSize(HTML_INJECTION_BUFFER_SIZE_BYTES);
-            htmlInjectionBufferConfigured = true;
+            try {
+                setBufferSize(HTML_INJECTION_BUFFER_SIZE_BYTES);
+                htmlInjectionBufferConfigured = true;
+            } catch (IllegalStateException e) {
+                htmlInjectionBufferUnavailable = true;
+            }
         }
     }
 }

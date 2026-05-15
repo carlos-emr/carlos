@@ -64,6 +64,7 @@ import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.security.InvalidKeyException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
@@ -278,7 +279,7 @@ public final class Login2Action extends ActionSupport {
      *   <li>"programLocation" - Program location selection interface</li>
      *   <li>"patientIntake" - Patient intake role interface</li>
      *   <li>"mfaHandler" - MFA validation/registration interface</li>
-     *   <li>"failure" - Authentication cannot continue safely</li>
+     *   <li>"error" - Authentication cannot continue safely and a login failure page should render</li>
      *   <li>NONE - Processing complete (redirect already sent)</li>
      *   <li>null - AJAX response sent (no forward needed)</li>
      * </ul>
@@ -646,7 +647,7 @@ public final class Login2Action extends ActionSupport {
      * @param strAuth authentication result fields returned by {@link LoginCheckLogin#auth}
      * @param security security row for the authenticated provider
      * @param ip remote address used for audit logging
-     * @return {@code mfaHandler} when the challenge view is ready, or {@code failure} when
+     * @return {@code mfaHandler} when the challenge view is ready, or {@code error} when
      *         registration setup cannot safely continue
      */
     private String beginPendingMfaChallenge(LoginCheckLogin cl, String[] strAuth, Security security, String ip) {
@@ -670,15 +671,15 @@ public final class Login2Action extends ActionSupport {
                 request.setAttribute("mfaRegistrationRequired", true);
                 request.setAttribute("qrData", this.mfaManager.getQRCodeImageData(security.getId(), mfaSecret.toString()));
             }
-        } catch (IllegalStateException e) {
+        } catch (RuntimeException e) {
             logger.warn("Unable to prepare MFA registration: providerNo={}, securityId={}, remote={}",
                     LogSanitizer.sanitize(security.getProviderNo()),
                     LogSanitizer.sanitize(String.valueOf(security.getSecurityNo())),
                     LogSanitizer.sanitize(ip),
                     e);
+            clearPendingMfaSession(session);
             session.invalidate();
-            request.setAttribute("errMsg", message("login.errorUnableToProcess"));
-            return "failure";
+            return loginFailureResult(message("login.errorUnableToProcess"));
         }
 
         request.setAttribute("securityId", String.valueOf(security.getSecurityNo()));
@@ -745,23 +746,21 @@ public final class Login2Action extends ActionSupport {
                         LogSanitizer.sanitize(ip),
                         e);
                 clearPendingMfaSession(session);
-                request.setAttribute("errMsg", message("login.errorUnableToProcess"));
-                return "failure";
+                return loginFailureResult(message("login.errorUnableToProcess"));
             }
         }
 
         boolean validCode;
         try {
             validCode = isValidTotpCode(mfaSecret, this.code);
-        } catch (java.security.InvalidKeyException e) {
+        } catch (InvalidKeyException e) {
             logger.error("Unable to validate MFA code: providerNo={}, securityId={}, remote={}",
                     LogSanitizer.sanitize(security.getProviderNo()),
                     LogSanitizer.sanitize(String.valueOf(security.getSecurityNo())),
                     LogSanitizer.sanitize(ip),
                     e);
             clearPendingMfaSession(session);
-            request.setAttribute("errMsg", message("login.errorUnableToProcess"));
-            return "failure";
+            return loginFailureResult(message("login.errorUnableToProcess"));
         }
 
         if (!validCode) {
@@ -786,8 +785,7 @@ public final class Login2Action extends ActionSupport {
                         LogSanitizer.sanitize(ip),
                         e);
                 clearPendingMfaSession(session);
-                request.setAttribute("errMsg", message("login.errorUnableToProcess"));
-                return "failure";
+                return loginFailureResult(message("login.errorUnableToProcess"));
             }
         }
 
@@ -821,12 +819,20 @@ public final class Login2Action extends ActionSupport {
      * @param mfaSecret Base32-encoded MFA secret
      * @param submittedCode user-submitted six-digit TOTP code
      * @return true when the submitted code matches the current, previous, or next time step
-     * @throws java.security.InvalidKeyException when the decoded secret cannot create a valid TOTP key
+     * @throws InvalidKeyException when the decoded secret cannot create a valid TOTP key
      */
-    private boolean isValidTotpCode(String mfaSecret, String submittedCode) throws java.security.InvalidKeyException {
+    private boolean isValidTotpCode(String mfaSecret, String submittedCode) throws InvalidKeyException {
         TimeBasedOneTimePasswordGenerator totpGenerator = new TimeBasedOneTimePasswordGenerator();
-        byte[] decodedKey = new Base32().decode(mfaSecret);
-        SecretKeySpec key = new SecretKeySpec(decodedKey, totpGenerator.getAlgorithm());
+        SecretKeySpec key;
+        try {
+            byte[] decodedKey = new Base32().decode(mfaSecret);
+            if (decodedKey == null || decodedKey.length == 0) {
+                throw new IllegalArgumentException("empty decoded MFA secret");
+            }
+            key = new SecretKeySpec(decodedKey, totpGenerator.getAlgorithm());
+        } catch (IllegalArgumentException | NullPointerException e) {
+            throw new InvalidKeyException("malformed MFA secret", e);
+        }
         java.time.Instant now = java.time.Instant.now();
         java.time.Duration timeStep = totpGenerator.getTimeStep();
 
@@ -994,8 +1000,7 @@ public final class Login2Action extends ActionSupport {
             logger.error("Authenticated login could not load provider record: providerNo={}, remote={}",
                     LogSanitizer.sanitize(username), LogSanitizer.sanitize(ip));
             session.invalidate();
-            request.setAttribute("errMsg", message("login.errorUnableToProcess"));
-            return "failure";
+            return loginFailureResult(message("login.errorUnableToProcess"));
         }
         session.setAttribute("provider", provider); // nosemgrep: tainted-session-from-http-request
         session.setAttribute(SessionConstants.LOGGED_IN_PROVIDER, provider); // nosemgrep: tainted-session-from-http-request
@@ -1179,6 +1184,20 @@ public final class Login2Action extends ActionSupport {
         return loginFailedRedirectUrl(request, errorMessage);
     }
 
+    /**
+     * Routes fatal in-action login failures to the login failure view with a request-scoped message.
+     *
+     * <p>Do not use the {@code failure} result for these paths: the Struts mapping sends that result
+     * to the logout broadcast page, which intentionally does not render login error details.</p>
+     *
+     * @param errorMessage localized, display-safe error message
+     * @return {@code error} so Struts renders {@code loginfailed.jsp}
+     */
+    private String loginFailureResult(String errorMessage) {
+        request.setAttribute("errormsg", errorMessage);
+        return "error";
+    }
+
     private String message(String key) {
         return message(request, key);
     }
@@ -1193,9 +1212,9 @@ public final class Login2Action extends ActionSupport {
      * <p>The session attribute removed is the opaque credential-cache token (see
      * {@link LoginCredentialCache}); if it is present the corresponding cache entry is
      * also invalidated so that credential material cannot outlive the login attempt.
-     * The retry-display attribute {@link #FORCE_PASSWORD_RESET_ERROR_ATTR} and older flow
-     * attributes such as {@code userName} and {@code nextPage} are also cleared if present so stale
-     * state from pre-cache login paths cannot influence a later attempt.
+     * The retry-display attribute {@link #FORCE_PASSWORD_RESET_ERROR_ATTR} is cleared along with
+     * older flow attributes such as {@code userName} and {@code nextPage}, so stale state from
+     * pre-cache login paths cannot influence a later attempt.
      *
      * @param request HttpServletRequest containing the session to clean
      */
@@ -1297,8 +1316,9 @@ public final class Login2Action extends ActionSupport {
      *   <li>New password satisfies the configured password complexity policy</li>
      * </ol>
      *
-     * <p>The method returns a display-safe error message if validation fails, or an empty
-     * string if all validations pass.
+     * <p>The method returns a display-safe error message if validation fails, or an empty string if
+     * all validations pass. Each rejection emits a PHI-safe audit reason so direct POST probing is
+     * visible to operators without recording password material.
      *
      * @param userName provider login name used only for PHI-safe audit context
      * @param oldEncodedPassword String password hash staged from the successful login
@@ -1314,22 +1334,58 @@ public final class Login2Action extends ActionSupport {
         // Verify old password matches the password from the staged successful login.
         if (oldPassword == null || oldEncodedPassword == null
                 || !this.securityManager.matchesPassword(oldPassword, oldEncodedPassword)) {
-            logger.info("Forced password reset rejected because old password did not match: user={}",
-                    LogSanitizer.sanitize(userName));
-            LogAction.addLog(userName, "login", "forced_password_reset_failed", "old_password_mismatch");
-            return message("provider.providerchangepassword.errorOldPasswordMismatch");
+            return rejectForcedPasswordReset(userName, "old_password_mismatch",
+                    "provider.providerchangepassword.errorOldPasswordMismatch");
         }
         // Verify new password and confirmation match
         else if (newPassword == null || confirmPassword == null || !Objects.equals(newPassword, confirmPassword)) {
-            return message("provider.providerchangepassword.errorConfirmPasswordMismatch");
+            return rejectForcedPasswordReset(userName, "confirm_password_mismatch",
+                    "provider.providerchangepassword.errorConfirmPasswordMismatch");
         }
         // Verify new password is different from old password (unless requirement is disabled)
         else if (!Boolean.parseBoolean(CarlosProperties.getInstance().getProperty("IGNORE_PASSWORD_REQUIREMENTS"))
                 && Objects.equals(newPassword, oldPassword)) {
-            return message("provider.providerchangepassword.errorNewPasswordSameAsOld");
+            return rejectForcedPasswordReset(userName, "new_password_same_as_old",
+                    "provider.providerchangepassword.errorNewPasswordSameAsOld");
         }
 
-        return validatePasswordPolicy(newPassword);
+        PasswordPolicyResult policyResult = validatePasswordPolicy(newPassword);
+        if (!policyResult.isValid()) {
+            auditForcedPasswordResetFailure(userName, policyResult.auditReason());
+        }
+        return policyResult.errorMessage();
+    }
+
+    /**
+     * Builds the localized forced-reset rejection message while recording the shared audit event.
+     *
+     * <p>Keep password material out of {@code auditReason}; callers pass stable symbolic reasons so
+     * operators can distinguish probing patterns without exposing submitted credentials.</p>
+     *
+     * @param userName provider login name used only for PHI-safe audit context
+     * @param auditReason stable symbolic rejection reason
+     * @param messageKey resource-bundle key for the user-facing rejection message
+     * @return localized display-safe rejection message
+     */
+    private String rejectForcedPasswordReset(String userName, String auditReason, String messageKey) {
+        auditForcedPasswordResetFailure(userName, auditReason);
+        return message(messageKey);
+    }
+
+    /**
+     * Records forced password-reset validation failures through both the application log and audit log.
+     *
+     * <p>The audit event intentionally stores only the provider login name and a symbolic reason.
+     * Old/new password values and password-policy details beyond the failure class must never be
+     * logged.</p>
+     *
+     * @param userName provider login name associated with the staged reset attempt
+     * @param auditReason stable symbolic rejection reason
+     */
+    private void auditForcedPasswordResetFailure(String userName, String auditReason) {
+        logger.info("Forced password reset rejected: user={}, reason={}",
+                LogSanitizer.sanitize(userName), auditReason);
+        LogAction.addLog(userName, "login", "forced_password_reset_failed", auditReason);
     }
 
     /**
@@ -1340,18 +1396,19 @@ public final class Login2Action extends ActionSupport {
      * It mirrors the configurable length/group settings used by the legacy password-change UI.</p>
      *
      * @param newPassword candidate password submitted from the forced reset form
-     * @return empty string when the password is acceptable, otherwise a localized error message
+     * @return validation result containing the display message and audit reason when rejected
      */
-    private String validatePasswordPolicy(String newPassword) {
+    private PasswordPolicyResult validatePasswordPolicy(String newPassword) {
         CarlosProperties properties = CarlosProperties.getInstance();
         if (Boolean.parseBoolean(properties.getProperty("IGNORE_PASSWORD_REQUIREMENTS"))) {
-            return "";
+            return PasswordPolicyResult.valid();
         }
 
         int minLength = intProperty(properties, "password_min_length", DEFAULT_PASSWORD_MIN_LENGTH);
         if (newPassword == null || newPassword.length() < minLength) {
-            return message("password.policy.violation.msgPasswordLengthError") + " "
-                    + minLength + " " + message("password.policy.violation.msgSymbols");
+            return PasswordPolicyResult.invalid(message("password.policy.violation.msgPasswordLengthError") + " "
+                    + minLength + " " + message("password.policy.violation.msgSymbols"),
+                    "password_policy_min_length");
         }
 
         int minGroups = intProperty(properties, "password_min_groups", DEFAULT_PASSWORD_MIN_GROUPS);
@@ -1361,11 +1418,33 @@ public final class Login2Action extends ActionSupport {
                 properties.getProperty("password_group_digits", DEFAULT_PASSWORD_DIGIT_CHARS),
                 properties.getProperty("password_group_special", DEFAULT_PASSWORD_SPECIAL_CHARS));
         if (groupsUsed < minGroups) {
-            return message("password.policy.violation.msgPasswordStrengthError") + " "
-                    + minGroups + " " + message("password.policy.violation.msgPasswordGroups");
+            return PasswordPolicyResult.invalid(message("password.policy.violation.msgPasswordStrengthError") + " "
+                    + minGroups + " " + message("password.policy.violation.msgPasswordGroups"),
+                    "password_policy_min_groups");
         }
 
-        return "";
+        return PasswordPolicyResult.valid();
+    }
+
+    /**
+     * Carries both halves of a password-policy decision.
+     *
+     * <p>The display message stays localized for the reset page while {@code auditReason} remains a
+     * stable, non-sensitive token for audit logging. Valid results use an empty message and no audit
+     * reason.</p>
+     */
+    private record PasswordPolicyResult(String errorMessage, String auditReason) {
+        private static PasswordPolicyResult valid() {
+            return new PasswordPolicyResult("", null);
+        }
+
+        private static PasswordPolicyResult invalid(String errorMessage, String auditReason) {
+            return new PasswordPolicyResult(errorMessage, auditReason);
+        }
+
+        private boolean isValid() {
+            return errorMessage == null || errorMessage.isEmpty();
+        }
     }
 
     /**
