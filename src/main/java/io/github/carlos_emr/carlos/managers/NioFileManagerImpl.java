@@ -80,6 +80,7 @@ public class NioFileManagerImpl implements NioFileManager {
     private static final String TEMP_PDF_DIRECTORY = "tempPDF";
     private static final String DEFAULT_FILE_SUFFIX = "pdf";
     private static final String DEFAULT_GENERIC_TEMP = "tempDirectory";
+    private static final String FILENAME_SANITIZATION_FAILURE_MESSAGE = "Filename failed sanitization: {}";
     private static final String BASE_DOCUMENT_DIR = CarlosProperties.getInstance().getProperty("BASE_DOCUMENT_DIR");
 
     public Path hasCacheVersion2(LoggedInInfo loggedInInfo, String filename, Integer pageNum) {
@@ -103,7 +104,7 @@ public class NioFileManagerImpl implements NioFileManager {
         try {
             sanitizedFilename = sanitizeFileName(filename);
         } catch (FileValidationException e) {
-            log.error("Filename failed sanitization: {}", LogSanitizer.sanitize(filename));
+            log.error(FILENAME_SANITIZATION_FAILURE_MESSAGE, LogSanitizer.sanitize(filename));
             return null;
         }
 
@@ -177,7 +178,7 @@ public class NioFileManagerImpl implements NioFileManager {
         try {
             sanitizedFilename = sanitizeFileName(filename);
         } catch (FileValidationException e) {
-            log.error("Filename failed sanitization: {}", LogSanitizer.sanitize(filename));
+            log.error(FILENAME_SANITIZATION_FAILURE_MESSAGE, LogSanitizer.sanitize(filename));
             return null;
         }
 
@@ -293,7 +294,7 @@ public class NioFileManagerImpl implements NioFileManager {
         try {
             sanitizedFileName = sanitizeFileName(fileName);
         } catch (FileValidationException e) {
-            log.error("Filename failed sanitization: {}", LogSanitizer.sanitize(fileName));
+            log.error(FILENAME_SANITIZATION_FAILURE_MESSAGE, LogSanitizer.sanitize(fileName));
             return false;
         }
         

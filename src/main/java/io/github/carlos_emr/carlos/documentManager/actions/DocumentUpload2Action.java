@@ -75,6 +75,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
 
     private static final Set<String> ALLOWED_INCOMING_DOC_FOLDERS = Set.of("Fax", "Mail", "File", "Refile");
     private static final String INVALID_INCOMING_DESTINATION_MESSAGE = "Invalid incoming document destination.";
+    private static final String PREFERRED_QUEUE_SESSION_KEY = "preferredQueue";
     private static Logger logger = MiscUtils.getLogger();
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -200,14 +201,14 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                 if (queueId != null && !queueId.equals("-1")) {
                     if (!queueId.trim().matches("\\d+")) {
                         logger.warn("Invalid queue ID format — skipping queue link");
-                        request.getSession().removeAttribute("preferredQueue");
+                        request.getSession().removeAttribute(PREFERRED_QUEUE_SESSION_KEY);
                     } else {
                         WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
                         QueueDocumentLinkDao queueDocumentLinkDAO = (QueueDocumentLinkDao) ctx.getBean(QueueDocumentLinkDao.class);
                         Integer qid = Integer.parseInt(queueId.trim());
                         Integer did = Integer.parseInt(doc_no.trim());
                         queueDocumentLinkDAO.addActiveQueueDocumentLink(qid, did);
-                        request.getSession().setAttribute("preferredQueue", String.valueOf(qid)); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+                        request.getSession().setAttribute(PREFERRED_QUEUE_SESSION_KEY, String.valueOf(qid)); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
                     }
                 }
 
@@ -346,7 +347,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             return;
         }
         try {
-            request.getSession().setAttribute("preferredQueue", String.valueOf(Integer.parseInt(queueId.trim()))); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+            request.getSession().setAttribute(PREFERRED_QUEUE_SESSION_KEY, String.valueOf(Integer.parseInt(queueId.trim()))); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         } catch (NumberFormatException e) {
             // Do not store an invalid queue ID in the session.
             logger.warn("Invalid queue ID format — skipping session attribute update");

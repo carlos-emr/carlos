@@ -59,7 +59,7 @@ public class GenericDownload extends HttpServlet {
 
     public void doGet(HttpServletRequest req, HttpServletResponse res) throws IOException {
         log.warn("Rejected direct GenericDownload request from {}", req.getRemoteAddr());
-        res.sendError(HttpServletResponse.SC_GONE, "This download endpoint is no longer available.");
+        sendErrorIfPossible(res, HttpServletResponse.SC_GONE, "This download endpoint is no longer available.");
     }
 
     public void download(boolean bDownload, HttpServletResponse res, String dir, String filename)
@@ -69,7 +69,7 @@ public class GenericDownload extends HttpServlet {
                 transferFile(res, stream, dir, filename);
             }
         } else {
-            res.sendError(HttpServletResponse.SC_FORBIDDEN, "You have no right to download the file(s).");
+            sendErrorIfPossible(res, HttpServletResponse.SC_FORBIDDEN, "You have no right to download the file(s).");
         }
     }
 

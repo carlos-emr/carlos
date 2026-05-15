@@ -93,6 +93,7 @@ import io.github.carlos_emr.carlos.utility.LogSanitizer;
 public class DocumentManagerImpl implements DocumentManager {
 
     private static final String PARENT_DIR = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+    private static final String MOVE_DOCUMENT_LOG_ACTION = "EformDataManager.moveDocument";
     private final Logger logger = MiscUtils.getLogger();
 
     @Autowired
@@ -377,14 +378,14 @@ public class DocumentManagerImpl implements DocumentManager {
             Path to = validateDocumentDestination(toPath, docFilename);
             Files.move(from, to, StandardCopyOption.REPLACE_EXISTING);
 
-            LogAction.addLog(loggedInInfo, "EformDataManager.moveDocument", "Document was moved", "Document No." + document.getDocumentNo(), "", fromPath + " to " + toPath);
+            LogAction.addLog(loggedInInfo, MOVE_DOCUMENT_LOG_ACTION, "Document was moved", "Document No." + document.getDocumentNo(), "", fromPath + " to " + toPath);
 
         } catch (IOException e) {
             MiscUtils.getLogger().error("Document failed move. Id: " + document.getDocumentNo() + " From: " + fromPath + " To: " + toPath, e);
-            LogAction.addLog(loggedInInfo, "EformDataManager.moveDocument", "Document failed move ", "Document No." + document.getDocumentNo(), "", fromPath + " to " + toPath);
+            LogAction.addLog(loggedInInfo, MOVE_DOCUMENT_LOG_ACTION, "Document failed move ", "Document No." + document.getDocumentNo(), "", fromPath + " to " + toPath);
         } catch (FileValidationException | InvalidPathException e) {
             logger.error("Document move rejected for invalid path. Document No. {}", document.getDocumentNo(), e);
-            LogAction.addLog(loggedInInfo, "EformDataManager.moveDocument", "Document failed move ", "Document No." + document.getDocumentNo(), "", fromPath + " to " + toPath);
+            LogAction.addLog(loggedInInfo, MOVE_DOCUMENT_LOG_ACTION, "Document failed move ", "Document No." + document.getDocumentNo(), "", fromPath + " to " + toPath);
             throw new SecurityException("Invalid document move path", e);
         }
     }

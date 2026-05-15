@@ -400,7 +400,7 @@ public class PathValidationUtilsTest {
 
         @Test
         @DisplayName("should throw FileValidationException when source is a directory")
-        void shouldThrowFileValidationException_whenSourceIsDirectory() throws IOException {
+        void shouldThrowFileValidationException_whenSourceIsDirectory() {
             // Given
             File directory = tempDir.resolve("subdir").toFile();
             directory.mkdir();
