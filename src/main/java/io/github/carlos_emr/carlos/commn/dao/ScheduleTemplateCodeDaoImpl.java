@@ -87,8 +87,8 @@ public class ScheduleTemplateCodeDaoImpl extends AbstractDaoImpl<ScheduleTemplat
         @SuppressWarnings("unchecked")
         List<ScheduleTemplateCode> results = query.getResultList();
         if (!results.isEmpty()) {
-            ScheduleTemplateCode result = ScheduleTemplateCode.copyOf(results.get(0));
-            cache().put(cacheKey, result);
+            ScheduleTemplateCode result = results.get(0);
+            cache().put(cacheKey, ScheduleTemplateCode.copyOf(result));
             return ScheduleTemplateCode.copyOf(result);
         }
         return null;
