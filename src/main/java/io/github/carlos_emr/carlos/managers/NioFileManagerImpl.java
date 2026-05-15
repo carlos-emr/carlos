@@ -425,9 +425,11 @@ public class NioFileManagerImpl implements NioFileManager {
      */
     public final boolean deleteTempFile(final String fileName) {
         try {
-            // Get the system temp directory as the base directory
-            Path systemTempDir = Paths.get(System.getProperty("java.io.tmpdir")).toRealPath().normalize();
-            
+            if (fileName == null || fileName.trim().isEmpty()) {
+                log.warn("No temp file path provided for deletion");
+                return false;
+            }
+
             // Parse and normalize the provided file path
             Path tempfile = Paths.get(fileName).normalize().toAbsolutePath();
             
@@ -436,12 +438,20 @@ public class NioFileManagerImpl implements NioFileManager {
                 tempfile = tempfile.toRealPath();
             }
             
-            // Validate that the file is within the system temp directory
-            try {
-                tempfile = PathValidationUtils.validateExistingPath(tempfile.toFile(), systemTempDir.toFile()).toPath();
-            } catch (FileValidationException e) {
-                log.error("Attempt to delete file outside of temp directory: {}", LogSanitizer.sanitize(fileName));
-                throw new SecurityException("Path traversal attempt detected", e);
+            // Validate against the same temp allowlist used for uploads.
+            // This includes java.io.tmpdir and Tomcat work directories.
+            if (!PathValidationUtils.isInAllowedTempDirectory(tempfile.toFile())) {
+                log.error("Attempt to delete file outside of allowed temp directories: {}", LogSanitizer.sanitize(fileName));
+                throw new SecurityException("Path traversal attempt detected");
+            }
+
+            if (!Files.exists(tempfile)) {
+                return false;
+            }
+
+            if (!Files.isRegularFile(tempfile)) {
+                log.error("Attempt to delete a non-file temp path: {}", LogSanitizer.sanitize(fileName));
+                throw new SecurityException("Temp deletion target must be a regular file");
             }
             
             return Files.deleteIfExists(tempfile);
@@ -449,7 +459,7 @@ public class NioFileManagerImpl implements NioFileManager {
             log.error("Security violation while attempting to delete file: {}", LogSanitizer.sanitize(fileName), e);
             throw e; // Re-throw security exceptions
         } catch (IOException e) {
-            log.error("Error while deleting temp cache image file " + fileName, e);
+            log.error("Error while deleting temp cache image file {}", LogSanitizer.sanitize(fileName), e);
         }
         return false;
     }

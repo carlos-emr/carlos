@@ -32,6 +32,8 @@ import ca.ontario.health.edt.*;
 import org.apache.struts2.ActionSupport;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.action.UploadedFilesAware;
+import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -48,7 +50,7 @@ import java.util.List;
 import static io.github.carlos_emr.carlos.integration.mcedt.ActionUtils.*;
 import static io.github.carlos_emr.carlos.integration.mcedt.McedtConstants.SESSION_KEY_UPLOAD_DETAILS;
 
-public class Update2Action extends ActionSupport {
+public class Update2Action extends ActionSupport implements UploadedFilesAware {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -156,9 +158,21 @@ public class Update2Action extends ActionSupport {
         return content;
     }
 
-    @StrutsParameter
     public void setContent(File content) {
         this.content = content;
+    }
+
+    @Override
+    public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
+        if (uploadedFiles == null) {
+            return;
+        }
+        for (UploadedFile uploaded : uploadedFiles) {
+            if ("content".equals(uploaded.getInputName())) {
+                this.content = new File(uploaded.getAbsolutePath());
+                return;
+            }
+        }
     }
 
     public UpdateRequest toUpdateRequest() {

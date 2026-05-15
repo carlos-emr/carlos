@@ -44,6 +44,7 @@ import org.apache.commons.io.FilenameUtils;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementCSSLocationDao;
 import io.github.carlos_emr.carlos.commn.model.MeasurementCSSLocation;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -55,7 +56,8 @@ import io.github.carlos_emr.CarlosProperties;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import org.apache.struts2.action.UploadedFilesAware;
+import org.apache.struts2.dispatcher.multipart.UploadedFile;
 
 /**
  * Struts2 action that handles file upload submission for measurement CSS stylesheets.
@@ -65,7 +67,7 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
  *
  * @since 2004-03-12
  */
-public class EctAddMeasurementStyleSheet2Action extends ActionSupport {
+public class EctAddMeasurementStyleSheet2Action extends ActionSupport implements UploadedFilesAware {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -114,6 +116,7 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport {
                 MiscUtils.getLogger().debug("No file provided for measurement stylesheet upload");
                 return false;
             }
+            File validatedUpload = PathValidationUtils.validateUpload(file);
 
             // Validate and sanitize the filename first
             if (fileName == null || fileName.trim().isEmpty()) {
@@ -125,7 +128,7 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport {
             
             // Additional validation: ensure no directory traversal characters
             if (sanitizedFileName.contains("..") || sanitizedFileName.contains("/") || sanitizedFileName.contains("\\")) {
-                MiscUtils.getLogger().error("Attempted path traversal detected in filename: " + fileName);
+                MiscUtils.getLogger().error("Attempted path traversal detected in filename: {}", LogSanitizer.sanitize(fileName));
                 throw new SecurityException("Invalid filename - path traversal detected");
             }
             
@@ -150,7 +153,7 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport {
             File destinationFile = PathValidationUtils.validatePath(sanitizedFileName, uploadDir);
 
             // Write the file to the validated destination
-            try (FileInputStream fis = new FileInputStream(file)) {
+            try (FileInputStream fis = new FileInputStream(validatedUpload)) {
                 Files.copy(fis, destinationFile.toPath());
             }
 
@@ -189,7 +192,20 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport {
         return file;
     }
 
-    @StrutsParameter
+    @Override
+    public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
+        if (uploadedFiles == null) {
+            return;
+        }
+        for (UploadedFile uploaded : uploadedFiles) {
+            if ("file".equals(uploaded.getInputName())) {
+                this.file = new File(uploaded.getAbsolutePath());
+                this.fileName = uploaded.getOriginalName();
+                return;
+            }
+        }
+    }
+
     public void setFile(File file) {
         this.file = file;
     }
@@ -198,7 +214,6 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport {
         return fileName;
     }
 
-    @StrutsParameter
     public void setFileFileName(String fileName) {
         this.fileName = fileName;
     }
