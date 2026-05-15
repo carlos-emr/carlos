@@ -264,7 +264,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             // if add/edit success then send redirect, if failed send a forward (need the formdata and errors hashtables while trying to avoid POSTDATA messages)
             if (addDocument(request)) { // if success
                 String contextPath = request.getContextPath();
-                StringBuffer redirect = new StringBuffer(contextPath + "/documentManager/ViewDocumentReport");
+                StringBuilder redirect = new StringBuilder(contextPath + "/documentManager/ViewDocumentReport");
                 appendQueryParam(redirect, "docerrors", "docerrors"); // Allows the JSP to check if the document was just submitted
                 appendQueryParam(redirect, "function", request.getParameter("function"));
                 appendQueryParam(redirect, "functionid", request.getParameter("functionid"));
@@ -675,7 +675,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return (s != null && s.trim().length() > 0);
     }
 
-    static void appendQueryParam(StringBuffer redirect, String name, String value) {
+    static void appendQueryParam(StringBuilder redirect, String name, String value) {
         redirect.append(redirect.indexOf("?") == -1 ? "?" : "&");
         redirect.append(URLEncoder.encode(name, StandardCharsets.UTF_8));
         redirect.append("=");

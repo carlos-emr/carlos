@@ -69,7 +69,7 @@ public interface DocumentManager {
      * @throws FileValidationException If the provided document filename is invalid
      * @throws IOException If actions related to getting document data fail
      */
-    public Document createDocument(LoggedInInfo loggedInInfo, Document document, Integer demographicNo, String providerNo, byte[] documentData) throws IOException, FileValidationException;
+    public Document createDocument(LoggedInInfo loggedInInfo, Document document, Integer demographicNo, String providerNo, byte[] documentData) throws IOException;
 
     public List<Document> getDocumentsUpdateAfterDate(LoggedInInfo loggedInInfo, Date updatedAfterThisDateExclusive, int itemsToReturn);
 
