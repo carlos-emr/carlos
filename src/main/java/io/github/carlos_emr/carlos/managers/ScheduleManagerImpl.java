@@ -198,17 +198,13 @@ public class ScheduleManagerImpl implements ScheduleManager {
     }
 
     public List<ScheduleTemplateCode> getScheduleTemplateCodes() {
-        List<ScheduleTemplateCode> scheduleTemplateCodes = scheduleTemplateCodeDao.findAll();
-
         // This method will not log access as the codes are not private medical data.
-        return scheduleTemplateCodes;
+        return scheduleTemplateCodeDao.findAll();
     }
 
     public List<AppointmentType> getAppointmentTypes() {
-        List<AppointmentType> appointmentTypes = appointmentTypeDao.listAll();
-
         // This method will not log access as the appointment types are not private medical data.
-        return appointmentTypes;
+        return appointmentTypeDao.listAll();
     }
 
     public void addAppointment(LoggedInInfo loggedInInfo, Security security, Appointment appointment) {

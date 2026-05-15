@@ -48,11 +48,12 @@ import org.springframework.stereotype.Repository;
 public class FacilityDaoImpl extends AbstractDaoImpl<Facility> implements FacilityDao {
     private static final String ACTIVE_KEY_PREFIX = "active:";
 
-    @Autowired
-    private CacheManager cacheManager;
+    private final CacheManager cacheManager;
 
-    public FacilityDaoImpl() {
+    @Autowired
+    public FacilityDaoImpl(CacheManager cacheManager) {
         super(Facility.class);
+        this.cacheManager = cacheManager;
     }
 
     /**

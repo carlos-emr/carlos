@@ -96,7 +96,9 @@
 	
 	
 	 <bean id="appointmentArchiveDao" class="io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDaoImpl" autowire="byName" />
-	<bean id="appointmentTypeDao" class="io.github.carlos_emr.carlos.commn.dao.AppointmentTypeDaoImpl" autowire="byName" />
+	<bean id="appointmentTypeDao" class="io.github.carlos_emr.carlos.commn.dao.AppointmentTypeDaoImpl" autowire="byName">
+		<constructor-arg ref="cacheManager" />
+	</bean>
 	<bean id="billingONCHeader1Dao" class="io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1DaoImpl" autowire="byName" />
 	
 	<bean id="DxDao" class="io.github.carlos_emr.carlos.commn.dao.DxDaoImpl" autowire="byName" />

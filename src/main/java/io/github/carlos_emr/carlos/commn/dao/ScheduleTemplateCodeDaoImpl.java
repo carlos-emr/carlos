@@ -51,11 +51,12 @@ public class ScheduleTemplateCodeDaoImpl extends AbstractDaoImpl<ScheduleTemplat
     private static final String TEMPLATE_CODES_KEY = "templateCodes";
     private static final String CODE_KEY_PREFIX = "codeChar:";
 
-    @Autowired
-    private CacheManager cacheManager;
+    private final CacheManager cacheManager;
 
-    public ScheduleTemplateCodeDaoImpl() {
+    @Autowired
+    public ScheduleTemplateCodeDaoImpl(CacheManager cacheManager) {
         super(ScheduleTemplateCode.class);
+        this.cacheManager = cacheManager;
     }
 
     @SuppressWarnings("unchecked")

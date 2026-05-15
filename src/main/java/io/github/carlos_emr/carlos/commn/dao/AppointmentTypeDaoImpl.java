@@ -50,11 +50,12 @@ public class AppointmentTypeDaoImpl extends AbstractDaoImpl<AppointmentType> imp
     private static final String ALL_KEY = "all";
     private static final String NAME_KEY_PREFIX = "name:";
 
-    @Autowired
-    private CacheManager cacheManager;
+    private final CacheManager cacheManager;
 
-    public AppointmentTypeDaoImpl() {
+    @Autowired
+    public AppointmentTypeDaoImpl(CacheManager cacheManager) {
         super(AppointmentType.class);
+        this.cacheManager = cacheManager;
     }
 
     @Override

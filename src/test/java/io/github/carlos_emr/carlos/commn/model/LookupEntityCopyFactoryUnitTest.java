@@ -65,8 +65,9 @@ class LookupEntityCopyFactoryUnitTest {
         lastUpdated.setAccessible(true);
         Date sourceLastUpdated = (Date) lastUpdated.get(source);
         Date copyLastUpdated = (Date) lastUpdated.get(copy);
-        assertThat(copyLastUpdated).isEqualTo(sourceLastUpdated);
-        assertThat(copyLastUpdated).isNotSameAs(sourceLastUpdated);
+        assertThat(copyLastUpdated)
+                .isEqualTo(sourceLastUpdated)
+                .isNotSameAs(sourceLastUpdated);
     }
 
     @Test
