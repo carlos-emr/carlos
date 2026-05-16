@@ -356,12 +356,12 @@ async function expectSchedulePage(page, label) {
       const context = await newBrowserContext(browser);
       const page = await context.newPage();
       await loginToForcedReset(page);
-      const response = await page.evaluate(async (submitPath) => {
+      const response = await page.evaluate(async ({ submitPath, password, resetPassword }) => {
         const body = new URLSearchParams({
           forcedpasswordchange: 'true',
-          oldPassword: testPassword,
-          newPassword: resetPasswordNoCsrf,
-          confirmPassword: resetPasswordNoCsrf,
+          oldPassword: password,
+          newPassword: resetPassword,
+          confirmPassword: resetPassword,
         });
         const res = await fetch(`${submitPath}/forcepasswordresetSubmit`, {
           method: 'POST',
@@ -370,7 +370,7 @@ async function expectSchedulePage(page, label) {
           body,
         });
         return { status: res.status, url: res.url, text: (await res.text()).slice(0, 300) };
-      }, appPath);
+      }, { submitPath: appPath, password: testPassword, resetPassword: resetPasswordNoCsrf });
       assert(
         response.status === 403 || /csrf/i.test(response.text) || response.url.includes('/errorpage'),
         `missing-CSRF POST was not rejected: ${JSON.stringify(response)}`
@@ -385,10 +385,10 @@ async function expectSchedulePage(page, label) {
       const context = await newBrowserContext(browser);
       const page = await context.newPage();
       const csrf = await loginToForcedReset(page);
-      const response = await page.evaluate(async ({ csrfName, csrfValue, submitPath }) => {
+      const response = await page.evaluate(async ({ csrfName, csrfValue, submitPath, password }) => {
         const body = new URLSearchParams({
           forcedpasswordchange: 'true',
-          oldPassword: testPassword,
+          oldPassword: password,
           newPassword: 'short',
           confirmPassword: 'short',
           [csrfName]: csrfValue,
@@ -400,7 +400,7 @@ async function expectSchedulePage(page, label) {
           body,
         });
         return { status: res.status, url: res.url, text: (await res.text()).slice(0, 1000) };
-      }, { ...csrf, submitPath: appPath });
+      }, { ...csrf, submitPath: appPath, password: testPassword });
       assert(response.status === 200, `weak password POST expected 200 reset response, got ${response.status}`);
       assert(/forcepasswordreset|Password/i.test(response.text), 'weak password POST did not return reset/error content');
       const row = securityRow();
