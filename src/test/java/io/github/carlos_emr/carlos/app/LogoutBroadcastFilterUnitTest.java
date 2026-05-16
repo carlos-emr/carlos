@@ -189,7 +189,46 @@ class LogoutBroadcastFilterUnitTest {
     @DisplayName("should not wrap static library or share assets")
     void shouldNotWrapStaticAssets_whenAuthenticatedSessionExists() throws Exception {
         assertStaticAssetFastPath("/library/jquery/jquery-3.7.1.min.js");
+        assertStaticAssetFastPath("/Library/jquery/jquery-3.7.1.min.js");
         assertStaticAssetFastPath("/share/javascript/Oscar.js");
+    }
+
+    @Test
+    @DisplayName("should wrap paths that only prefix collide with static asset roots")
+    void shouldWrapPathPrefixCollisions_whenAuthenticatedSessionExists() throws Exception {
+        MockHttpServletRequest request = authenticatedRequest("/library-old/page");
+        TrackingMockHttpServletResponse response = new TrackingMockHttpServletResponse();
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.setContentType("text/html;charset=UTF-8");
+            servletResponse.getWriter().write("<html><body>not a static asset</body></html>");
+        };
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(response.getContentAsString()).contains("window.__carlosLogoutActive=true;");
+        assertThat(response.getLastRequestedBufferSize()).isEqualTo(HTML_INJECTION_BUFFER_SIZE_BYTES);
+    }
+
+    @Test
+    @DisplayName("should honor custom exclusion init parameter")
+    void shouldHonorCustomExclusion_whenConfigured() throws Exception {
+        FilterConfig config = mock(FilterConfig.class);
+        when(config.getInitParameter("exclusions")).thenReturn("/customSkip");
+        LogoutBroadcastFilter customFilter = new LogoutBroadcastFilter();
+        customFilter.init(config);
+        MockHttpServletRequest request = authenticatedRequest("/customSkip/child");
+        TrackingMockHttpServletResponse response = new TrackingMockHttpServletResponse();
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.setContentType("text/html;charset=UTF-8");
+            servletResponse.getWriter().write("<html><body>excluded</body></html>");
+        };
+
+        customFilter.doFilter(request, response, chain);
+
+        assertThat(response.getContentAsString()).isEqualTo("<html><body>excluded</body></html>");
+        assertThat(response.getSetBufferSizeCallCount()).isZero();
     }
 
     @Test
@@ -276,6 +315,26 @@ class LogoutBroadcastFilterUnitTest {
     }
 
     @Test
+    @DisplayName("should configure HTML buffer only once")
+    void shouldConfigureHtmlBufferOnlyOnce_whenContentTypeIsRepeated() throws Exception {
+        MockHttpServletRequest request = authenticatedRequest("/provider/providercontrol");
+        TrackingMockHttpServletResponse response = new TrackingMockHttpServletResponse();
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.setContentType("text/html;charset=UTF-8");
+            ((HttpServletResponse) servletResponse).setHeader("Content-Type", "text/html;charset=UTF-8");
+            ((HttpServletResponse) servletResponse).addHeader("Content-Type", "text/html;charset=UTF-8");
+            servletResponse.getWriter().write("<html><body>schedule</body></html>");
+        };
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(response.getContentAsString()).contains("window.__carlosLogoutActive=true;");
+        assertThat(response.getSetBufferSizeCallCount()).isOne();
+        assertThat(response.getLastRequestedBufferSize()).isEqualTo(HTML_INJECTION_BUFFER_SIZE_BYTES);
+    }
+
+    @Test
     @DisplayName("should route addHeader content type through lazy HTML buffer")
     void shouldRouteAddHeaderContentType_throughLazyHtmlBuffer() throws Exception {
         MockHttpServletRequest request = authenticatedRequest("/provider/providercontrol");
@@ -354,12 +413,39 @@ class LogoutBroadcastFilterUnitTest {
             assertThat(response.getContentAsString()).contains("<html><body>schedule</body></html>");
             assertThat(response.getContentAsString()).doesNotContain("window.__carlosLogoutActive=true;");
             assertThat(capture.events()).anySatisfy(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.DEBUG);
+                assertThat(event.getMessage().getFormattedMessage())
+                        .contains("setBufferSize rejected for logout broadcast HTML injection")
+                        .contains("uri=/carlos/provider/providercontrol");
+                assertThat(event.getThrown()).isInstanceOf(IllegalStateException.class);
+            });
+            assertThat(capture.events()).anySatisfy(event -> {
                 assertThat(event.getLevel()).isEqualTo(Level.WARN);
                 assertThat(event.getMessage().getFormattedMessage())
                         .contains("HTML response buffer could not be enlarged")
-                        .contains("uri=/carlos/provider/providercontrol");
+                        .contains("uri=/carlos/provider/providercontrol")
+                        .contains("sessionId=");
             });
         }
+    }
+
+    @Test
+    @DisplayName("should not replay deferred content length after response is committed")
+    void shouldNotReplayDeferredContentLength_whenResponseIsCommitted() throws Exception {
+        MockHttpServletRequest request = authenticatedRequest("/status/SomeJsonAction");
+        CommittedContentLengthTrackingResponse response = new CommittedContentLengthTrackingResponse();
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.setContentType("application/json;charset=UTF-8");
+            servletResponse.setContentLength(99);
+            servletResponse.getWriter().write("{}");
+        };
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(response.getContentAsString()).isEqualTo("{}");
+        assertThat(response.getSetContentLengthCallCount()).isZero();
+        assertThat(response.getSetContentLengthLongCallCount()).isZero();
     }
 
     @Test
@@ -615,6 +701,37 @@ class LogoutBroadcastFilterUnitTest {
 
         Integer getLastRequestedBufferSize() {
             return lastRequestedBufferSize;
+        }
+    }
+
+    private static class CommittedContentLengthTrackingResponse extends TrackingMockHttpServletResponse {
+
+        private int setContentLengthCallCount;
+        private int setContentLengthLongCallCount;
+
+        @Override
+        public boolean isCommitted() {
+            return true;
+        }
+
+        @Override
+        public void setContentLength(int len) {
+            setContentLengthCallCount++;
+            super.setContentLength(len);
+        }
+
+        @Override
+        public void setContentLengthLong(long len) {
+            setContentLengthLongCallCount++;
+            super.setContentLengthLong(len);
+        }
+
+        int getSetContentLengthCallCount() {
+            return setContentLengthCallCount;
+        }
+
+        int getSetContentLengthLongCallCount() {
+            return setContentLengthLongCallCount;
         }
     }
 

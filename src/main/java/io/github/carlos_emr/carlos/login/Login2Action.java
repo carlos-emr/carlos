@@ -672,13 +672,16 @@ public final class Login2Action extends ActionSupport {
                 request.setAttribute("qrData", this.mfaManager.getQRCodeImageData(security.getId(), mfaSecret.toString()));
             }
         } catch (RuntimeException e) {
-            logger.warn("Unable to prepare MFA registration: providerNo={}, securityId={}, remote={}",
+            clearPendingMfaSession(session);
+            session.invalidate();
+            if (e instanceof SecurityException || e instanceof NullPointerException) {
+                throw e;
+            }
+            logger.error("Unable to prepare MFA registration: providerNo={}, securityId={}, remote={}",
                     LogSanitizer.sanitize(security.getProviderNo()),
                     LogSanitizer.sanitize(String.valueOf(security.getSecurityNo())),
                     LogSanitizer.sanitize(ip),
                     e);
-            clearPendingMfaSession(session);
-            session.invalidate();
             return loginFailureResult(message("login.errorUnableToProcess"));
         }
 
@@ -819,7 +822,8 @@ public final class Login2Action extends ActionSupport {
      * @param mfaSecret Base32-encoded MFA secret
      * @param submittedCode user-submitted six-digit TOTP code
      * @return true when the submitted code matches the current, previous, or next time step
-     * @throws InvalidKeyException when the decoded secret cannot create a valid TOTP key
+     * @throws InvalidKeyException when the Base32 secret is null, empty, malformed, or cannot
+     *         create a valid TOTP key
      */
     private boolean isValidTotpCode(String mfaSecret, String submittedCode) throws InvalidKeyException {
         TimeBasedOneTimePasswordGenerator totpGenerator = new TimeBasedOneTimePasswordGenerator();
@@ -1443,7 +1447,7 @@ public final class Login2Action extends ActionSupport {
         }
 
         private boolean isValid() {
-            return errorMessage == null || errorMessage.isEmpty();
+            return (errorMessage == null || errorMessage.isEmpty()) && auditReason == null;
         }
     }
 

@@ -157,6 +157,7 @@ class PrintHRMReport2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should return none when HRM PDF is streamed")
     void shouldReturnNone_whenHrmPdfIsStreamed() throws Exception {
         try (MockedStatic<ConcatPDF> concatPdfMock = mockStatic(ConcatPDF.class)) {
             concatPdfMock.when(() -> ConcatPDF.concat(any(ArrayList.class), any(OutputStream.class)))
@@ -178,6 +179,7 @@ class PrintHRMReport2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should return none when response stream cannot be opened")
     void shouldReturnNone_whenResponseStreamCannotBeOpened() throws Exception {
         HttpServletResponse failingResponse = mock(HttpServletResponse.class);
         when(failingResponse.isCommitted()).thenReturn(false);
@@ -193,6 +195,7 @@ class PrintHRMReport2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should reject request when HRM report id is invalid")
     void shouldRejectRequest_whenHrmReportIdIsInvalid() throws Exception {
         request.setParameter("hrmReportId", "101", "../patient-name");
 
@@ -204,6 +207,7 @@ class PrintHRMReport2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should delete all temp files when multiple HRM reports are streamed")
     void shouldDeleteAllTempFiles_whenMultipleHrmReportsAreStreamed() throws Exception {
         request.addParameter("hrmReportId", "101", "102");
         when(hrmDocumentToDemographicDao.findByHrmDocumentId(101)).thenReturn(List.of(hrmMapping(1)));
@@ -230,6 +234,7 @@ class PrintHRMReport2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should send error when PDF merge throws runtime exception")
     void shouldSendError_whenPdfMergeThrowsRuntimeException() throws Exception {
         try (MockedStatic<ConcatPDF> concatPdfMock = mockStatic(ConcatPDF.class)) {
             concatPdfMock.when(() -> ConcatPDF.concat(any(ArrayList.class), any(OutputStream.class)))
@@ -244,6 +249,7 @@ class PrintHRMReport2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should log committed response when PDF merge fails after commit")
     void shouldLogCommittedResponse_whenPdfMergeFailsAfterCommit() throws Exception {
         CommittedMockHttpServletResponse committedResponse = new CommittedMockHttpServletResponse();
         servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(committedResponse);
@@ -266,6 +272,7 @@ class PrintHRMReport2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should keep HRM print route without named results")
     void shouldKeepHrmPrintRoute_withoutNamedResults() throws Exception {
         Element action = findAction(parse(STRUTS_DOCUMENT_XML), HRM_PRINT_ROUTE)
                 .orElseThrow(() -> new AssertionError(

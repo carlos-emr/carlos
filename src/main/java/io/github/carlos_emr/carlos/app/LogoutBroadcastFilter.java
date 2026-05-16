@@ -183,7 +183,9 @@ public class LogoutBroadcastFilter implements Filter {
             return;
         }
 
-        DelegatingServletResponse delegatingResponse = new DelegatingServletResponse((HttpServletResponse) response);
+        String safeRequestUri = sanitizedRequestUri(httpRequest);
+        DelegatingServletResponse delegatingResponse = new DelegatingServletResponse(
+                (HttpServletResponse) response, safeRequestUri);
         chain.doFilter(request, delegatingResponse);
 
         HttpSession session = httpRequest.getSession(false);
@@ -201,7 +203,7 @@ public class LogoutBroadcastFilter implements Filter {
         if (delegatingResponse.isHtmlInjectionBufferUnavailable()) {
             logger.warn("Skipping logout broadcast script injection because the HTML response buffer "
                     + "could not be enlarged before body content was written: uri={}, sessionId={}",
-                    sanitizedRequestUri(httpRequest), sanitizedSessionId(httpRequest));
+                    safeRequestUri, sanitizedSessionId(httpRequest));
             delegatingResponse.applyDeferredContentLength();
             return;
         }
@@ -210,12 +212,12 @@ public class LogoutBroadcastFilter implements Filter {
             appendScript(delegatingResponse, httpRequest.getContextPath(), httpRequest.getLocale());
         } catch (IOException e) {
             logger.error("Skipping logout broadcast script injection because the script could not be written: uri={}, sessionId={}",
-                    sanitizedRequestUri(httpRequest), sanitizedSessionId(httpRequest), e);
+                    safeRequestUri, sanitizedSessionId(httpRequest), e);
             delegatingResponse.applyDeferredContentLength();
             return;
         } catch (IllegalStateException e) {
             logger.error("Skipping logout broadcast script injection because the response writer was unavailable and the output stream write failed: uri={}, sessionId={}",
-                    sanitizedRequestUri(httpRequest), sanitizedSessionId(httpRequest), e);
+                    safeRequestUri, sanitizedSessionId(httpRequest), e);
             delegatingResponse.applyDeferredContentLength();
             return;
         }
@@ -644,6 +646,7 @@ public class LogoutBroadcastFilter implements Filter {
         private boolean htmlInjectionBufferConfigured;
         private boolean htmlInjectionBufferUnavailable;
         private DelegatingWriter writer;
+        private final String requestUriForLog;
 
         /**
          * Creates a DelegatingServletResponse wrapping the given HTTP response.
@@ -653,9 +656,11 @@ public class LogoutBroadcastFilter implements Filter {
          * binary streams, and other wrapped-but-not-injected responses.
          *
          * @param response HttpServletResponse the HTTP response to wrap
+         * @param requestUriForLog sanitized request URI for buffer diagnostics
          */
-        public DelegatingServletResponse(HttpServletResponse response) {
+        public DelegatingServletResponse(HttpServletResponse response, String requestUriForLog) {
             super(response);
+            this.requestUriForLog = requestUriForLog;
         }
 
         /**
@@ -702,6 +707,10 @@ public class LogoutBroadcastFilter implements Filter {
         /**
          * Records the response content type and configures the HTML append buffer when appropriate.
          *
+         * <p>Header callers are routed here too, so {@code Content-Type: text/html} has the same
+         * lazy buffer side effect whether downstream code uses {@link #setContentType(String)},
+         * {@link #setHeader(String, String)}, or {@link #addHeader(String, String)}.</p>
+         *
          * @param type response Content-Type value supplied by downstream code
          */
         @Override
@@ -741,7 +750,8 @@ public class LogoutBroadcastFilter implements Filter {
          * flush path. When the response has already been marked as HTML before body bytes are
          * written, the lazily configured append buffer gives {@link LogoutBroadcastFilter#appendScript}
          * room to append the script before commit. Non-HTML responses and late HTML markings use the
-         * container's normal buffer behavior.</p>
+         * container's normal buffer behavior. If the container rejects late buffer enlargement,
+         * {@link #isHtmlInjectionBufferUnavailable()} signals the outer filter to skip injection.</p>
          *
          * @throws IOException if the wrapped response cannot flush
          */
@@ -773,7 +783,9 @@ public class LogoutBroadcastFilter implements Filter {
          *
          * <p>The servlet response keeps its headers across {@code resetBuffer()}, but the body length
          * no longer matches any prior downstream Content-Length. Clearing the deferred value avoids
-         * replaying an obsolete length after an error path swaps the response body.</p>
+         * replaying an obsolete length after an error path swaps the response body. The HTML buffer
+         * configured flag is intentionally left intact because servlet containers keep the buffer
+         * size across {@code resetBuffer()} just as they keep headers.</p>
          */
         @Override
         public void resetBuffer() {
@@ -807,7 +819,8 @@ public class LogoutBroadcastFilter implements Filter {
         }
 
         /**
-         * Defers Content-Length headers and routes Content-Type through {@link #setContentType}.
+         * Defers Content-Length headers and routes Content-Type through {@link #setContentType},
+         * including the lazy HTML-buffer configuration performed there.
          *
          * @param name header name
          * @param value header value
@@ -826,7 +839,8 @@ public class LogoutBroadcastFilter implements Filter {
         }
 
         /**
-         * Defers added Content-Length headers and routes Content-Type through {@link #setContentType}.
+         * Defers added Content-Length headers and routes Content-Type through {@link #setContentType},
+         * including the lazy HTML-buffer configuration performed there.
          *
          * @param name header name
          * @param value header value
@@ -959,6 +973,8 @@ public class LogoutBroadcastFilter implements Filter {
                 setBufferSize(HTML_INJECTION_BUFFER_SIZE_BYTES);
                 htmlInjectionBufferConfigured = true;
             } catch (IllegalStateException e) {
+                logger.debug("setBufferSize rejected for logout broadcast HTML injection: uri={}, committed={}, contentType={}",
+                        requestUriForLog, isCommitted(), LogSanitizer.sanitize(contentType), e);
                 htmlInjectionBufferUnavailable = true;
             }
         }

@@ -127,17 +127,20 @@ class ViewBillingOnMri2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should return success when assembler succeeds")
     void shouldReturnSuccess_whenAssemblerSucceeds() throws Exception {
         assertThat(newAction().execute()).isEqualTo(ActionSupport.SUCCESS);
     }
 
     @Test
+    @DisplayName("should expose model as request attribute")
     void shouldExposeModel_asRequestAttribute() throws Exception {
         newAction().execute();
         assertThat(mockRequest.getAttribute("mriModel")).isSameAs(STUB_MODEL);
     }
 
     @Test
+    @DisplayName("should redirect to logout page when session is missing")
     void shouldRedirectToLogoutPage_whenSessionMissing() throws Exception {
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(null);
@@ -148,6 +151,7 @@ class ViewBillingOnMri2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should return none when unauthenticated rejection redirect fails")
     void shouldReturnNone_whenUnauthenticatedRejectionRedirectFails() throws Exception {
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(null);
@@ -168,6 +172,7 @@ class ViewBillingOnMri2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should return none when unauthenticated rejection fails after commit")
     void shouldReturnNone_whenUnauthenticatedRejectionFailsAfterCommit() throws Exception {
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(null);
@@ -188,6 +193,7 @@ class ViewBillingOnMri2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should throw security exception when lacks billing read privilege")
     void shouldThrowSecurityException_whenLacksBillingReadPrivilege() {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("r"), isNull()))
                 .thenReturn(false);
@@ -198,6 +204,7 @@ class ViewBillingOnMri2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should wrap runtime exception as billing data load exception")
     void shouldWrapRuntimeException_asBillingDataLoadException() {
         RuntimeException cause = new NullPointerException("null bill center");
         when(mockAssembler.assemble(any(), any())).thenThrow(cause);
@@ -209,6 +216,7 @@ class ViewBillingOnMri2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should rethrow billing data load exception unchanged")
     void shouldRethrowBillingDataLoadException_unchanged() {
         BillingDataLoadException original = new BillingDataLoadException("disk error");
         when(mockAssembler.assemble(any(), any())).thenThrow(original);

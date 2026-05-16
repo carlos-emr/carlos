@@ -30,7 +30,6 @@
 --%>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     // In-action security failures pass a request attribute; legacy redirects still pass errormsg
@@ -39,6 +38,7 @@
     String errormsg = errormsgAttr instanceof String
             ? (String) errormsgAttr
             : request.getParameter("errormsg");
+    request.setAttribute("errormsg", errormsg);
 %>
 
 <html>
@@ -50,7 +50,7 @@
     <body>
     <!--h2>OSCAR has encountered the following fatal error:</h2>
       <hr-->
-    <p><carlos:encode value='<%= errormsg %>' context="html"/>
+    <p><carlos:encode value="${errormsg}" context="html"/>
     <p>Please correct and try again.
     </body>
 </html>

@@ -75,6 +75,8 @@ class LoginJspMigrationRegressionTest {
             Path.of("src/main/java/io/github/carlos_emr/carlos/login/gate/ViewForcePasswordReset2Action.java");
     private static final Path FORCE_PASSWORD_RESET_JSP =
             Path.of("src/main/webapp/WEB-INF/jsp/login/forcepasswordreset.jsp");
+    private static final Path LOGIN_FAILED_JSP =
+            Path.of("src/main/webapp/WEB-INF/jsp/login/loginfailed.jsp");
     private static final Path LOGIN_FILTER =
             Path.of("src/main/java/io/github/carlos_emr/carlos/sec/LoginFilter.java");
 
@@ -97,6 +99,10 @@ class LoginJspMigrationRegressionTest {
         assertThat(struts).contains("/WEB-INF/jsp/login/index.jsp");
         assertThat(struts).contains("/WEB-INF/jsp/error/errorpage.jsp");
         assertThat(struts).contains("/WEB-INF/jsp/common/closenreload.jsp");
+        assertThat(actionBlock(struts, "login"))
+                .contains("<result name=\"error\">/WEB-INF/jsp/login/loginfailed.jsp</result>");
+        assertThat(actionBlock(struts, "forcepasswordresetSubmit"))
+                .contains("<result name=\"error\">/WEB-INF/jsp/login/loginfailed.jsp</result>");
         assertThat(struts).doesNotContain("/WEB-INF/jsp/error/WEB-INF/jsp/error/");
         assertThat(struts).doesNotContain("/WEB-INF/jsp/common/WEB-INF/jsp/common/");
     }
@@ -217,6 +223,23 @@ class LoginJspMigrationRegressionTest {
                 .doesNotContain("out.clearBuffer()")
                 .doesNotContain("{\"day\", \"/provider/ViewAppointmentAdminDay\"}")
                 .doesNotContain("{\"month\", \"/provider/ViewAppointmentAdminMonth\"}");
+    }
+
+    @Test
+    @DisplayName("login failure JSP should prefer action attributes before legacy query parameters")
+    void shouldPreferActionAttribute_beforeLegacyLoginFailureQueryParameter() throws IOException {
+        String loginFailedJsp = Files.readString(LOGIN_FAILED_JSP, StandardCharsets.UTF_8);
+
+        assertThat(loginFailedJsp)
+                .contains("request.getAttribute(\"errormsg\")")
+                .contains("request.getParameter(\"errormsg\")");
+        assertThat(loginFailedJsp.indexOf("request.getAttribute(\"errormsg\")"))
+                .isLessThan(loginFailedJsp.indexOf("request.getParameter(\"errormsg\")"));
+        assertThat(loginFailedJsp)
+                .contains("request.setAttribute(\"errormsg\", errormsg)")
+                .contains("value=\"${errormsg}\"")
+                .doesNotContain("<%= errormsg %>")
+                .doesNotContain("owasp.encoder.jakarta.advanced");
     }
 
     @Test

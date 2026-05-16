@@ -32,6 +32,8 @@ import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.ProviderPreference;
 import io.github.carlos_emr.carlos.commn.model.Security;
+import io.github.carlos_emr.carlos.commn.model.ServiceRequestToken;
+import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.decisionSupport.service.DSService;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.AppManager;
@@ -39,6 +41,7 @@ import io.github.carlos_emr.carlos.managers.MfaManager;
 import io.github.carlos_emr.carlos.managers.SecurityManager;
 import io.github.carlos_emr.carlos.managers.UserSessionManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.util.AlertTimer;
 
 import com.eatthepath.otp.TimeBasedOneTimePasswordGenerator;
 import org.apache.struts2.ActionSupport;
@@ -61,10 +64,13 @@ import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.security.InvalidKeyException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
@@ -450,6 +456,43 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should propagate security exception when MFA registration setup is unauthorized")
+    void shouldPropagateSecurityException_whenMfaRegistrationSetupUnauthorized() throws Exception {
+        String password = "ValidPass1!";
+        Security security = forcedResetSecurity();
+        security.setForcePasswordReset(Boolean.FALSE);
+        security.setUsingMfa(true);
+
+        request.setParameter("forcedpasswordchange", "false");
+        when(securityDao.findByUserName(USERNAME)).thenReturn(Collections.singletonList(security));
+        when(providerDao.getProvider("999998")).thenReturn(activeProvider());
+        when(mfaManager.isMfaRegistrationRequired(security.getId()))
+                .thenThrow(new SecurityException("missing required sec object (_security)"));
+
+        try (MockedStatic<MfaManager> mfaManagerStatic = mockStatic(MfaManager.class);
+             MockedConstruction<LoginCheckLogin> mockedLoginChecks = mockConstruction(LoginCheckLogin.class,
+                (mock, context) -> {
+                    when(mock.auth(USERNAME, password, "2026", request.getRemoteAddr()))
+                            .thenReturn(STR_AUTH);
+                    when(mock.getSecurity()).thenReturn(security);
+                    when(mock.isBlock(anyString(), anyString())).thenReturn(false);
+                })) {
+            mfaManagerStatic.when(MfaManager::isOscarMfaEnabled).thenReturn(true);
+            Login2Action action = newAction(null, null, null);
+            action.setUsername(USERNAME);
+            action.setPassword(password);
+            action.setPin("2026");
+
+            assertThatThrownBy(action::execute)
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("(_security)");
+            assertThat(request.getSession(false)).isNull();
+            assertThat(request.getAttribute("errormsg")).isNull();
+            assertThat(mockedLoginChecks.constructed()).hasSize(1);
+        }
+    }
+
+    @Test
     @DisplayName("should not preserve authenticated session when MFA challenge starts")
     void shouldNotPreserveAuthenticatedSession_whenMfaChallengeStarts() throws Exception {
         String password = "ValidPass1!";
@@ -622,6 +665,33 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should regenerate QR data when MFA registration code is invalid")
+    void shouldRegenerateQrData_whenMfaRegistrationCodeIsInvalid() throws Exception {
+        Security security = forcedResetSecurity();
+        security.setForcePasswordReset(Boolean.FALSE);
+        stagePendingMfa(security);
+        request.getSession(false).setAttribute("mfaSecret", "JBSWY3DPEHPK3PXP");
+        when(mfaManager.getQRCodeImageData(security.getId(), "JBSWY3DPEHPK3PXP")).thenReturn("qr-data");
+
+        try (MockedConstruction<TimeBasedOneTimePasswordGenerator> ignored =
+                     mockTotpReturning("654321")) {
+            Login2Action action = newAction(null, null, null);
+            action.setCode("123456");
+            action.setMfaRegistrationFlow(true);
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo("mfaHandler");
+            assertThat(request.getAttribute("mfaRegistrationRequired")).isEqualTo(Boolean.TRUE);
+            assertThat(request.getAttribute("qrData")).isEqualTo("qr-data");
+            assertThat(request.getSession(false).getAttribute(Login2Action.PENDING_MFA_AUTH_ATTR))
+                    .isEqualTo(Boolean.TRUE);
+            logActionMock.verify(() -> LogAction.addLog("999998", "login", "mfa_failed", "mfa",
+                    request.getRemoteAddr()));
+        }
+    }
+
+    @Test
     @DisplayName("should complete login and clear pending MFA session when code is valid")
     void shouldCompleteLoginAndClearPendingMfaSession_whenCodeIsValid() throws Exception {
         Security security = forcedResetSecurity();
@@ -645,6 +715,234 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
             assertThat(response.getRedirectedUrl()).contains("/provider/providercontrol");
             assertThat(request.getSession(false).getAttribute(Login2Action.PENDING_MFA_AUTH_ATTR)).isNull();
             assertThat(request.getSession(false).getAttribute("user")).isEqualTo("999998");
+        }
+    }
+
+    @Test
+    @DisplayName("should redirect to facility selector when provider has multiple facilities")
+    void shouldRedirectToFacilitySelector_whenProviderHasMultipleFacilities() throws Exception {
+        Security security = forcedResetSecurity();
+        security.setForcePasswordReset(Boolean.FALSE);
+        stagePendingMfa(security);
+        stubSuccessfulProviderLogin();
+        when(providerDao.getFacilityIds("999998")).thenReturn(Arrays.asList(10, 11));
+        when(mfaManager.getMfaSecret(security)).thenReturn("JBSWY3DPEHPK3PXP");
+
+        try (MockedConstruction<TimeBasedOneTimePasswordGenerator> ignored = mockTotpReturning("123456")) {
+            Login2Action action = newAction(null, null, null);
+            action.setCode("123456");
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/select_facility?nextPage=provider");
+            assertPendingMfaCleared();
+        }
+    }
+
+    @Test
+    @DisplayName("should record facility assignment when provider has one facility")
+    void shouldRecordFacilityAssignment_whenProviderHasOneFacility() throws Exception {
+        Security security = forcedResetSecurity();
+        security.setForcePasswordReset(Boolean.FALSE);
+        stagePendingMfa(security);
+        stubSuccessfulProviderLogin();
+        when(providerDao.getFacilityIds("999998")).thenReturn(Collections.singletonList(10));
+        when(mfaManager.getMfaSecret(security)).thenReturn("JBSWY3DPEHPK3PXP");
+
+        try (MockedConstruction<TimeBasedOneTimePasswordGenerator> ignored = mockTotpReturning("123456")) {
+            Login2Action action = newAction(null, null, null);
+            action.setCode("123456");
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            logActionMock.verify(() -> LogAction.addLog("999998", "log in", "login", "facilityId=10",
+                    request.getRemoteAddr()));
+            assertThat(response.getRedirectedUrl()).contains("/provider/providercontrol");
+            assertPendingMfaCleared();
+        }
+    }
+
+    @Test
+    @DisplayName("should initialize CAISI session attributes when CAISI is enabled")
+    void shouldInitializeCaisiSessionAttributes_whenCaisiIsEnabled() throws Exception {
+        String originalCaisi = CarlosProperties.getInstance().getProperty("caisi");
+        Security security = forcedResetSecurity();
+        security.setForcePasswordReset(Boolean.FALSE);
+        ProviderPreference preference = new ProviderPreference();
+        preference.setDefaultCaisiPmm("enabled");
+        preference.setDefaultNewOscarCme("enabled");
+        preference.setNewTicklerWarningWindow("15");
+        UserProperty ticklerProvider = new UserProperty();
+        ticklerProvider.setValue("777777");
+        request.getSession().getServletContext().setAttribute("CaseMgmtUsers", new ArrayList<String>());
+        stagePendingMfa(security);
+        stubSuccessfulProviderLogin(preference);
+        when(userPropertyDao.getProp("999998", UserProperty.PROVIDER_FOR_TICKLER_WARNING))
+                .thenReturn(ticklerProvider);
+        when(mfaManager.getMfaSecret(security)).thenReturn("JBSWY3DPEHPK3PXP");
+
+        try {
+            CarlosProperties.getInstance().setProperty("caisi", "yes");
+            try (MockedConstruction<TimeBasedOneTimePasswordGenerator> ignored = mockTotpReturning("123456")) {
+                Login2Action action = newAction(null, null, null);
+                action.setCode("123456");
+
+                String result = action.execute();
+
+                assertThat(result).isEqualTo("caisiPMM");
+                assertThat(request.getSession(false).getAttribute("tklerProviderNo")).isEqualTo("777777");
+                assertThat(request.getSession(false).getAttribute("newticklerwarningwindow")).isEqualTo("15");
+                assertThat(request.getSession(false).getAttribute("default_pmm")).isEqualTo("enabled");
+                assertThat(request.getSession(false).getAttribute("caisiBillingPreferenceNotDelete")).isEqualTo("0");
+                assertThat(request.getSession(false).getAttribute("CaseMgmtUsers"))
+                        .asList()
+                        .contains("999998");
+            }
+        } finally {
+            restoreProperty("caisi", originalCaisi);
+        }
+    }
+
+    @Test
+    @DisplayName("should start BC alert timer when billing region is BC")
+    void shouldStartBcAlertTimer_whenBillingRegionIsBc() throws Exception {
+        String originalBillRegion = CarlosProperties.getInstance().getProperty("billregion");
+        String originalAlertFrequency = CarlosProperties.getInstance().getProperty("ALERT_POLL_FREQUENCY");
+        String originalAlerts = CarlosProperties.getInstance().getProperty("CDM_ALERTS");
+        Security security = forcedResetSecurity();
+        security.setForcePasswordReset(Boolean.FALSE);
+        stagePendingMfa(security);
+        stubSuccessfulProviderLogin();
+        when(mfaManager.getMfaSecret(security)).thenReturn("JBSWY3DPEHPK3PXP");
+
+        try {
+            CarlosProperties.getInstance().setProperty("billregion", "BC");
+            CarlosProperties.getInstance().setProperty("ALERT_POLL_FREQUENCY", "120000");
+            CarlosProperties.getInstance().setProperty("CDM_ALERTS", "A,B");
+            try (MockedStatic<AlertTimer> alertTimerMock = mockStatic(AlertTimer.class);
+                 MockedConstruction<TimeBasedOneTimePasswordGenerator> ignored = mockTotpReturning("123456")) {
+                alertTimerMock.when(() -> AlertTimer.getInstance(any(String[].class), eq(120000L)))
+                        .thenReturn(mock(AlertTimer.class));
+                Login2Action action = newAction(null, null, null);
+                action.setCode("123456");
+
+                String result = action.execute();
+
+                assertThat(result).isEqualTo(ActionSupport.NONE);
+                alertTimerMock.verify(() -> AlertTimer.getInstance(any(String[].class), eq(120000L)));
+            }
+        } finally {
+            restoreProperty("billregion", originalBillRegion);
+            restoreProperty("ALERT_POLL_FREQUENCY", originalAlertFrequency);
+            restoreProperty("CDM_ALERTS", originalAlerts);
+        }
+    }
+
+    @Test
+    @DisplayName("should route patient intake users to patient intake result")
+    void shouldRoutePatientIntakeUsers_toPatientIntakeResult() throws Exception {
+        Security security = forcedResetSecurity();
+        security.setForcePasswordReset(Boolean.FALSE);
+        stagePendingMfa(security, new String[]{"999998", "Test", "Provider", "", "Patient Intake", "0"});
+        stubSuccessfulProviderLogin();
+        when(mfaManager.getMfaSecret(security)).thenReturn("JBSWY3DPEHPK3PXP");
+
+        try (MockedConstruction<TimeBasedOneTimePasswordGenerator> ignored = mockTotpReturning("123456")) {
+            Login2Action action = newAction(null, null, null);
+            action.setCode("123456");
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo("patientIntake");
+            assertPendingMfaCleared();
+        }
+    }
+
+    @Test
+    @DisplayName("should persist oauth token provider when program location login completes")
+    void shouldPersistOauthTokenProvider_whenProgramLocationLoginCompletes() throws Exception {
+        String originalUseProgramLocation = CarlosProperties.getInstance().getProperty("useProgramLocation");
+        Security security = forcedResetSecurity();
+        security.setForcePasswordReset(Boolean.FALSE);
+        ServiceRequestToken token = new ServiceRequestToken();
+        request.setParameter("oauth_token", "oauth-123");
+        stagePendingMfa(security);
+        stubSuccessfulProviderLogin();
+        when(serviceRequestTokenDao.findByTokenId("oauth-123")).thenReturn(token);
+        when(mfaManager.getMfaSecret(security)).thenReturn("JBSWY3DPEHPK3PXP");
+
+        try {
+            CarlosProperties.getInstance().setProperty("useProgramLocation", "true");
+            try (MockedConstruction<TimeBasedOneTimePasswordGenerator> ignored = mockTotpReturning("123456")) {
+                Login2Action action = newAction(null, null, null);
+                action.setCode("123456");
+
+                String result = action.execute();
+
+                assertThat(result).isEqualTo("programLocation");
+                assertThat(token.getProviderNo()).isEqualTo("999998");
+                verify(serviceRequestTokenDao).merge(token);
+            }
+        } finally {
+            restoreProperty("useProgramLocation", originalUseProgramLocation);
+        }
+    }
+
+    @Test
+    @DisplayName("should write AJAX JSON when login completes with ajax response")
+    void shouldWriteAjaxJson_whenLoginCompletesWithAjaxResponse() throws Exception {
+        String originalUseProgramLocation = CarlosProperties.getInstance().getProperty("useProgramLocation");
+        Security security = forcedResetSecurity();
+        security.setForcePasswordReset(Boolean.FALSE);
+        request.setParameter("ajaxResponse", "true");
+        stagePendingMfa(security);
+        stubSuccessfulProviderLogin();
+        when(mfaManager.getMfaSecret(security)).thenReturn("JBSWY3DPEHPK3PXP");
+
+        try {
+            CarlosProperties.getInstance().setProperty("useProgramLocation", "true");
+            try (MockedConstruction<TimeBasedOneTimePasswordGenerator> ignored = mockTotpReturning("123456")) {
+                Login2Action action = newAction(null, null, null);
+                action.setCode("123456");
+
+                String result = action.execute();
+
+                assertThat(result).isNull();
+                assertThat(response.getContentType()).isEqualTo("application/json");
+                assertThat(response.getContentAsString())
+                        .contains("\"success\":true")
+                        .contains("\"providerNo\":\"999998\"");
+            }
+        } finally {
+            restoreProperty("useProgramLocation", originalUseProgramLocation);
+        }
+    }
+
+    @Test
+    @DisplayName("should preserve existing session when invalidate session flag is false")
+    void shouldPreserveExistingSession_whenInvalidateSessionFlagIsFalse() throws Exception {
+        Security security = forcedResetSecurity();
+        security.setForcePasswordReset(Boolean.FALSE);
+        MockHttpSession pendingSession = (MockHttpSession) request.getSession();
+        pendingSession.setAttribute("oauthState", "keep-me");
+        request.setParameter("invalidate_session", "false");
+        stagePendingMfa(security);
+        stubSuccessfulProviderLogin();
+        when(mfaManager.getMfaSecret(security)).thenReturn("JBSWY3DPEHPK3PXP");
+
+        try (MockedConstruction<TimeBasedOneTimePasswordGenerator> ignored = mockTotpReturning("123456")) {
+            Login2Action action = newAction(null, null, null);
+            action.setCode("123456");
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(pendingSession.isInvalid()).isFalse();
+            assertThat(request.getSession(false)).isSameAs(pendingSession);
+            assertThat(request.getSession(false).getAttribute("oauthState")).isEqualTo("keep-me");
+            assertPendingMfaCleared();
         }
     }
 
@@ -907,11 +1205,15 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
     }
 
     private LoginCheckLogin stagePendingMfa(Security security) {
+        return stagePendingMfa(security, STR_AUTH);
+    }
+
+    private LoginCheckLogin stagePendingMfa(Security security, String[] strAuth) {
         LoginCheckLogin loginCheck = mock(LoginCheckLogin.class);
         when(loginCheck.getSecurity()).thenReturn(security);
         request.getSession().setAttribute(Login2Action.PENDING_MFA_AUTH_ATTR, Boolean.TRUE);
         request.getSession().setAttribute(PENDING_MFA_LOGIN_CHECK_ATTR, loginCheck);
-        request.getSession().setAttribute(PENDING_MFA_AUTH_RESULT_ATTR, STR_AUTH);
+        request.getSession().setAttribute(PENDING_MFA_AUTH_RESULT_ATTR, strAuth);
         return loginCheck;
     }
 
@@ -923,12 +1225,32 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
     }
 
     private void stubSuccessfulProviderLogin() {
+        stubSuccessfulProviderLogin(new ProviderPreference());
+    }
+
+    private void stubSuccessfulProviderLogin(ProviderPreference providerPreference) {
         Provider provider = activeProvider();
         when(providerManager.getProvider("999998")).thenReturn(provider);
         when(providerDao.getProvider("999998")).thenReturn(provider);
-        when(providerPreferenceDao.find("999998")).thenReturn(new ProviderPreference());
+        when(providerPreferenceDao.find("999998")).thenReturn(providerPreference);
         when(providerDao.getFacilityIds("999998")).thenReturn(Collections.emptyList());
         when(facilityDao.findAll(true)).thenReturn(Collections.emptyList());
+    }
+
+    private MockedConstruction<TimeBasedOneTimePasswordGenerator> mockTotpReturning(String generatedCode) {
+        return mockConstruction(TimeBasedOneTimePasswordGenerator.class, (mock, context) -> {
+            when(mock.getAlgorithm()).thenReturn("HmacSHA1");
+            when(mock.getTimeStep()).thenReturn(java.time.Duration.ofSeconds(30));
+            when(mock.generateOneTimePasswordString(any(), any())).thenReturn(generatedCode);
+        });
+    }
+
+    private void restoreProperty(String key, String originalValue) {
+        if (originalValue == null) {
+            CarlosProperties.getInstance().remove(key);
+        } else {
+            CarlosProperties.getInstance().setProperty(key, originalValue);
+        }
     }
 
     private String cacheCredentials() {
