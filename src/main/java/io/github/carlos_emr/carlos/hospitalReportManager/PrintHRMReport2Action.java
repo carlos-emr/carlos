@@ -47,7 +47,9 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -93,7 +95,8 @@ public class PrintHRMReport2Action extends ActionSupport {
             response.setContentType("application/pdf");  //octet-stream
             response.setHeader("Content-Disposition", "attachment; filename=\"HRMReport_"
                     + System.currentTimeMillis() + ".pdf\"");
-            File docDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
+            Path docDir = validatedDocumentDirectory(
+                    CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
 
             for (Integer hrmId : hrmIds) {
                 Demographic demographic = null;
@@ -107,7 +110,8 @@ public class PrintHRMReport2Action extends ActionSupport {
                     logger.info("HRM PDF request has no demographic mapping for hrmId={}", hrmId);
                 }
 
-                File tempFile = Files.createTempFile(docDir.toPath(), "hrm-report-" + hrmId + "-", ".pdf").toFile();
+                // hrmId is integer-parsed above; no user-controlled path segment reaches the temp filename.
+                File tempFile = Files.createTempFile(docDir, "hrm-report-" + hrmId + "-", ".pdf").toFile();
                 pdfDocs.add(tempFile.getPath());
                 tempFiles.add(new TempPdfFile(tempFile, hrmId));
 
@@ -153,6 +157,24 @@ public class PrintHRMReport2Action extends ActionSupport {
         // The success path streams the PDF directly; there is no success result mapping.
         // Returning SUCCESS makes Struts render the global error page over the PDF as "0".
         return NONE;
+    }
+
+    static Path validatedDocumentDirectory(String configuredDocumentDir) throws IOException {
+        if (configuredDocumentDir == null || configuredDocumentDir.trim().isEmpty()) {
+            throw new IOException("DOCUMENT_DIR is not configured for HRM PDF generation");
+        }
+
+        Path documentDirectory;
+        try {
+            documentDirectory = Path.of(configuredDocumentDir).toAbsolutePath().normalize();
+        } catch (InvalidPathException e) {
+            throw new IOException("DOCUMENT_DIR is not a valid path for HRM PDF generation", e);
+        }
+
+        if (!Files.isDirectory(documentDirectory)) {
+            throw new IOException("DOCUMENT_DIR is not an existing directory for HRM PDF generation");
+        }
+        return documentDirectory;
     }
 
     private record TempPdfFile(File file, Integer hrmId) {

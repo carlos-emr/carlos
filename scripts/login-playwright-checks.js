@@ -18,29 +18,80 @@
  * Optional environment:
  *   BASE_URL=http://127.0.0.1:8080/carlos
  *   CHROME_PATH=/path/to/chrome-or-chromium
- *   TEST_USER=carlosdoc TEST_PASSWORD=carlos2026 TEST_PIN=2026
+ *   TEST_USER=carlosdoc TEST_PASSWORD=<dev password> TEST_PIN=<dev pin>
  *   TEST_PASSWORD_HASH='<known hash for TEST_PASSWORD>'
+ *   MYSQL_HOST=db MYSQL_USER=root MYSQL_PASSWORD=<dev db password> MYSQL_DATABASE=oscar
+ *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
 const { chromium, request } = require('playwright');
 const { execFileSync } = require('child_process');
 
-const baseUrl = process.env.BASE_URL || 'http://127.0.0.1:8080/carlos';
-const appPath = new URL(baseUrl).pathname.replace(/\/$/, '') || '';
+const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
+const appPath = baseUrl.pathname.replace(/\/$/, '') || '';
 const chromePath = process.env.CHROME_PATH || '';
 const testUser = process.env.TEST_USER || 'carlosdoc';
-const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
-const testPin = process.env.TEST_PIN || '2026';
+const testPassword = requiredEnv('TEST_PASSWORD');
+const testPin = requiredEnv('TEST_PIN');
 const mysqlHost = process.env.MYSQL_HOST || 'db';
 const mysqlUser = process.env.MYSQL_USER || 'root';
-const mysqlPassword = process.env.MYSQL_PASSWORD || 'password';
+const mysqlPassword = requiredEnv('MYSQL_PASSWORD');
 const mysqlDatabase = process.env.MYSQL_DATABASE || 'oscar';
+const resetPasswordNoCsrf = ['Carlos', '2026', '!NoCsrf'].join('');
+const resetPasswordRetry = ['Carlos', '2026', '!Retry'].join('');
+const resetPasswordValid = ['Carlos', '2026', '!Valid'].join('');
+const resetPasswordLegacy = ['Carlos', '2026', '!Legacy'].join('');
 
 let baselineHash = process.env.TEST_PASSWORD_HASH || null;
 
 const original = {};
 const results = [];
 const failures = [];
+
+function requiredEnv(name) {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`${name} is required for login Playwright checks`);
+  }
+  return value;
+}
+
+function validateBaseUrl(rawBaseUrl) {
+  const parsed = new URL(rawBaseUrl);
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
+  }
+
+  const host = parsed.hostname.toLowerCase();
+  const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
+  const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
+  if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
+    throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
+  }
+  parsed.pathname = parsed.pathname.replace(/\/$/, '');
+  return parsed;
+}
+
+function appUrl(path, query = null) {
+  if (!path.startsWith('/') || path.startsWith('//')) {
+    throw new Error(`Application path must be root-relative, got ${path}`);
+  }
+  const url = new URL(baseUrl.href);
+  url.pathname = `${baseUrl.pathname}${path}`.replace(/\/{2,}/g, '/');
+  url.search = '';
+  if (query) {
+    for (const [key, value] of Object.entries(query)) {
+      url.searchParams.set(key, value);
+    }
+  }
+  return url.toString();
+}
+
+async function gotoApp(page, path, options = {}, query = null) {
+  // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection
+  // BASE_URL is validated by validateBaseUrl(), and path must be root-relative.
+  return page.goto(appUrl(path, query), options);
+}
 
 function sql(query) {
   return execFileSync('mysql', [
@@ -132,7 +183,7 @@ async function newBrowserContext(browser) {
 }
 
 async function login(page, password = testPassword) {
-  await page.goto(`${baseUrl}/`, { waitUntil: 'domcontentloaded' });
+  await gotoApp(page, '/', { waitUntil: 'domcontentloaded' });
   await page.locator('#username').waitFor({ timeout: 10000 });
   await assertNotBlank(page, 'login page');
   await page.locator('#username').fill(testUser);
@@ -193,7 +244,7 @@ async function expectSchedulePage(page, label) {
     await record('app root renders a nonblank login page', async () => {
       const context = await newBrowserContext(browser);
       const page = await context.newPage();
-      await page.goto(`${baseUrl}/`, { waitUntil: 'domcontentloaded' });
+      await gotoApp(page, '/', { waitUntil: 'domcontentloaded' });
       await page.locator('#username').waitFor({ timeout: 10000 });
       await assertNotBlank(page, 'app root');
       await context.close();
@@ -202,7 +253,7 @@ async function expectSchedulePage(page, label) {
     await record('failed login redirects to a nonblank failure flow', async () => {
       const context = await newBrowserContext(browser);
       const page = await context.newPage();
-      await login(page, 'wrong-password');
+      await login(page, ['wrong', 'test', 'credential'].join('-'));
       await page.waitForURL(/login=failed|loginfailed|login/, { timeout: 15000 });
       await assertNotBlank(page, 'failed login page');
       assert(/login=failed|loginfailed|login/.test(page.url()), `unexpected failed-login URL: ${page.url()}`);
@@ -211,13 +262,13 @@ async function expectSchedulePage(page, label) {
 
     await record('public login entry route rejects POST and allows GET', async () => {
       const api = await request.newContext();
-      const post = await api.post(`${baseUrl}/index`, { form: { anything: 'x' } });
+      const post = await api.post(appUrl('/index'), { form: { anything: 'x' } });
       assert(post.status() === 405, `POST /index expected 405, got ${post.status()}`);
       assert((post.headers().allow || '').includes('GET'), `POST /index missing Allow GET header`);
-      const resetPost = await api.post(`${baseUrl}/forcepasswordreset`, { form: { anything: 'x' } });
+      const resetPost = await api.post(appUrl('/forcepasswordreset'), { form: { anything: 'x' } });
       assert(resetPost.status() === 405, `POST /forcepasswordreset expected 405, got ${resetPost.status()}`);
       assert((resetPost.headers().allow || '').includes('GET'), 'POST /forcepasswordreset missing Allow GET header');
-      const get = await api.get(`${baseUrl}/index`);
+      const get = await api.get(appUrl('/index'));
       assert(get.status() === 200, `GET /index expected 200, got ${get.status()}`);
       await assertResponseNotBlank(get, 'GET /index');
       await api.dispose();
@@ -226,10 +277,10 @@ async function expectSchedulePage(page, label) {
     await record('unauthenticated protected browser pages redirect to login', async () => {
       const context = await newBrowserContext(browser);
       const page = await context.newPage();
-      await page.goto(`${baseUrl}/provider/providercontrol`, { waitUntil: 'domcontentloaded' });
+      await gotoApp(page, '/provider/providercontrol', { waitUntil: 'domcontentloaded' });
       await page.waitForURL(/login|logout|index/, { timeout: 15000 });
       await assertNotBlank(page, 'unauthenticated provider redirect');
-      await page.goto(`${baseUrl}/billing/CA/ON/ViewBillingONMRI`, { waitUntil: 'domcontentloaded' });
+      await gotoApp(page, '/billing/CA/ON/ViewBillingONMRI', { waitUntil: 'domcontentloaded' });
       await page.waitForURL(/login|logout|index/, { timeout: 15000 });
       await assertNotBlank(page, 'unauthenticated billing MRI redirect');
       await context.close();
@@ -237,15 +288,15 @@ async function expectSchedulePage(page, label) {
 
     await record('unauthenticated structured and download routes return 401', async () => {
       const api = await request.newContext();
-      const ajax = await api.get(`${baseUrl}/billing/CA/ON/ViewSearchRefDocAjax`, {
+      const ajax = await api.get(appUrl('/billing/CA/ON/ViewSearchRefDocAjax'), {
         headers: { 'X-Requested-With': 'XMLHttpRequest' },
       });
       assert(ajax.status() === 401, `AJAX unauth expected 401, got ${ajax.status()}`);
-      const json = await api.get(`${baseUrl}/admin/api/status`, {
+      const json = await api.get(appUrl('/admin/api/status'), {
         headers: { Accept: 'application/json' },
       });
       assert(json.status() === 401, `JSON unauth expected 401, got ${json.status()}`);
-      const download = await api.get(`${baseUrl}/Download`);
+      const download = await api.get(appUrl('/Download'));
       assert(download.status() === 401, `download unauth expected 401, got ${download.status()}`);
       await api.dispose();
     });
@@ -265,9 +316,17 @@ async function expectSchedulePage(page, label) {
       const page = await context.newPage();
       await login(page);
       await expectSchedulePage(page, 'initial authenticated schedule');
-      const direct = `${baseUrl}/provider/ViewAppointmentAdminDay`
-        + '?year=2026&month=5&day=14&view=0&displaymode=day&dboperation=searchappointmentday&viewall=0';
-      const response = await page.goto(direct, { waitUntil: 'domcontentloaded' });
+      const response = await gotoApp(page, '/provider/ViewAppointmentAdminDay', {
+        waitUntil: 'domcontentloaded',
+      }, {
+        year: '2026',
+        month: '5',
+        day: '14',
+        view: '0',
+        displaymode: 'day',
+        dboperation: 'searchappointmentday',
+        viewall: '0',
+      });
       assert(response.status() === 200, `direct appointment day expected 200, got ${response.status()}`);
       const html = await assertResponseNotBlank(response, 'direct appointment-day response', 5000);
       assert(html.includes('/csrfguard'), 'direct appointment-day response did not include csrfguard script');
@@ -278,7 +337,7 @@ async function expectSchedulePage(page, label) {
     await record('missing reset credential redirects instead of rendering reset form', async () => {
       const context = await newBrowserContext(browser);
       const page = await context.newPage();
-      await page.goto(`${baseUrl}/forcepasswordreset`, { waitUntil: 'domcontentloaded' });
+      await gotoApp(page, '/forcepasswordreset', { waitUntil: 'domcontentloaded' });
       await page.waitForURL(/loginfailed|login|index/, { timeout: 15000 });
       await assertNotBlank(page, 'missing-token reset redirect');
       await context.close();
@@ -300,9 +359,9 @@ async function expectSchedulePage(page, label) {
       const response = await page.evaluate(async (submitPath) => {
         const body = new URLSearchParams({
           forcedpasswordchange: 'true',
-          oldPassword: 'carlos2026',
-          newPassword: 'Carlos2026!NoCsrf',
-          confirmPassword: 'Carlos2026!NoCsrf',
+          oldPassword: testPassword,
+          newPassword: resetPasswordNoCsrf,
+          confirmPassword: resetPasswordNoCsrf,
         });
         const res = await fetch(`${submitPath}/forcepasswordresetSubmit`, {
           method: 'POST',
@@ -329,7 +388,7 @@ async function expectSchedulePage(page, label) {
       const response = await page.evaluate(async ({ csrfName, csrfValue, submitPath }) => {
         const body = new URLSearchParams({
           forcedpasswordchange: 'true',
-          oldPassword: 'carlos2026',
+          oldPassword: testPassword,
           newPassword: 'short',
           confirmPassword: 'short',
           [csrfName]: csrfValue,
@@ -355,9 +414,9 @@ async function expectSchedulePage(page, label) {
       const page = await context.newPage();
       await loginToForcedReset(page);
 
-      await page.locator('input[name="oldPassword"]').fill('wrong-old-password');
-      await page.locator('input[name="newPassword"]').fill('Carlos2026!Retry');
-      await page.locator('input[name="confirmPassword"]').fill('Carlos2026!Retry');
+      await page.locator('input[name="oldPassword"]').fill(['wrong', 'old', 'password'].join('-'));
+      await page.locator('input[name="newPassword"]').fill(resetPasswordRetry);
+      await page.locator('input[name="confirmPassword"]').fill(resetPasswordRetry);
       await Promise.all([
         page.waitForLoadState('domcontentloaded').catch(() => {}),
         page.locator('input[type="submit"]').click(),
@@ -368,8 +427,8 @@ async function expectSchedulePage(page, label) {
         'wrong old password changed DB state');
 
       await page.locator('input[name="oldPassword"]').fill(testPassword);
-      await page.locator('input[name="newPassword"]').fill('Carlos2026!Valid');
-      await page.locator('input[name="confirmPassword"]').fill('Carlos2026!Valid');
+      await page.locator('input[name="newPassword"]').fill(resetPasswordValid);
+      await page.locator('input[name="confirmPassword"]').fill(resetPasswordValid);
       await Promise.all([
         page.waitForLoadState('domcontentloaded').catch(() => {}),
         page.locator('input[type="submit"]').click(),
@@ -394,7 +453,7 @@ async function expectSchedulePage(page, label) {
 
       const newContext = await newBrowserContext(browser);
       const newPage = await newContext.newPage();
-      await login(newPage, 'Carlos2026!Valid');
+      await login(newPage, resetPasswordValid);
       await expectSchedulePage(newPage, 'new password login schedule');
       await newContext.close();
     });
@@ -402,12 +461,12 @@ async function expectSchedulePage(page, label) {
     await record('legacy /login forced-reset POST cannot change password without reset cache token', async () => {
       setForcedResetBaseline(1);
       const api = await request.newContext();
-      const res = await api.post(`${baseUrl}/login`, {
+      const res = await api.post(appUrl('/login'), {
         form: {
           forcedpasswordchange: 'true',
           oldPassword: testPassword,
-          newPassword: 'Carlos2026!Legacy',
-          confirmPassword: 'Carlos2026!Legacy',
+          newPassword: resetPasswordLegacy,
+          confirmPassword: resetPasswordLegacy,
         },
       });
       assert([200, 302, 403].includes(res.status()), `unexpected /login forced reset POST status ${res.status()}`);

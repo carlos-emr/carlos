@@ -173,6 +173,31 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should skip appointment update when appointment number is malformed")
+    void shouldSkipAppointmentUpdate_whenAppointmentNumberIsMalformed() throws Exception {
+        request.setMethod("POST");
+        request.getSession().setAttribute("user", "100");
+        request.getSession().setAttribute("billingSessionBean", minimalBillingSessionBean("not-a-number"));
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("100");
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class)) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_billing"), eq("w"), isNull()))
+                    .thenReturn(true);
+
+            String result = new BillingSaveBilling2Action().execute();
+
+            assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+            BillingSessionBean bean = (BillingSessionBean) request.getSession()
+                    .getAttribute("billingSessionBean");
+            assertThat(bean.getApptNo()).isEqualTo("0");
+            verifyNoInteractions(appointmentDao, appointmentArchiveDao, billingmasterDAO);
+        }
+    }
+
+    @Test
     @DisplayName("should throw security exception when user lacks billing write privilege")
     void shouldThrowSecurityException_whenUserLacksBillingWritePrivilege() {
         request.setMethod("POST");
@@ -190,5 +215,14 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
                     .hasMessage("missing required sec object (_billing)");
             verifyNoInteractions(billingmasterDAO, appointmentDao, appointmentArchiveDao);
         }
+    }
+
+    private BillingSessionBean minimalBillingSessionBean(String apptNo) {
+        BillingSessionBean bean = new BillingSessionBean();
+        bean.setApptNo(apptNo);
+        bean.setEncounter("E");
+        bean.setBillingType("MSP");
+        bean.setBillItem(new java.util.ArrayList<>());
+        return bean;
     }
 }

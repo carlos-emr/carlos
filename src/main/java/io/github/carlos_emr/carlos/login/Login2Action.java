@@ -189,7 +189,7 @@ public final class Login2Action extends ActionSupport {
      * session, so MFA state must use distinct attributes that grant no application access.</p>
      */
     public static final String PENDING_MFA_AUTH_ATTR = "pendingMfaAuthentication";
-    private static final String PENDING_MFA_LOGIN_CHECK_ATTR = "pendingMfaLoginCheck";
+    private static final String PENDING_MFA_SECURITY_ATTR = "pendingMfaSecurity";
     private static final String PENDING_MFA_AUTH_RESULT_ATTR = "pendingMfaAuthResult";
 
     /** Spring-managed service for provider data access and management */
@@ -587,10 +587,10 @@ public final class Login2Action extends ActionSupport {
             }
 
             if (MfaManager.isOscarMfaEnabled() && security.isUsingMfa()) {
-                return beginPendingMfaChallenge(cl, strAuth, security, ip);
+                return beginPendingMfaChallenge(strAuth, security, ip);
             }
 
-            return completeAuthenticatedLogin(cl, strAuth, ip, isMobileOptimized, submitType, ajaxResponse);
+            return completeAuthenticatedLogin(security, strAuth, ip, isMobileOptimized, submitType, ajaxResponse);
 
         }
         // >> 6. Authentication Failure Handling
@@ -643,14 +643,13 @@ public final class Login2Action extends ActionSupport {
      * <p>Only pending-MFA attributes are stored here. The canonical {@code user} session
      * attribute is set by {@link #completeAuthenticatedLogin} after the OTP validates.</p>
      *
-     * @param cl authenticated password/PIN login object to resume after MFA
      * @param strAuth authentication result fields returned by {@link LoginCheckLogin#auth}
      * @param security security row for the authenticated provider
      * @param ip remote address used for audit logging
      * @return {@code mfaHandler} when the challenge view is ready, or {@code error} when
      *         registration setup cannot safely continue
      */
-    private String beginPendingMfaChallenge(LoginCheckLogin cl, String[] strAuth, Security security, String ip) {
+    private String beginPendingMfaChallenge(String[] strAuth, Security security, String ip) {
         HttpSession session = request.getSession(false);
         if (session != null) {
             session.invalidate();
@@ -658,7 +657,7 @@ public final class Login2Action extends ActionSupport {
         session = request.getSession();
         session.setMaxInactiveInterval(300);
         session.setAttribute(PENDING_MFA_AUTH_ATTR, Boolean.TRUE); // nosemgrep: tainted-session-from-http-request
-        session.setAttribute(PENDING_MFA_LOGIN_CHECK_ATTR, cl); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute(PENDING_MFA_SECURITY_ATTR, security); // nosemgrep: tainted-session-from-http-request
         session.setAttribute(PENDING_MFA_AUTH_RESULT_ATTR, strAuth); // nosemgrep: tainted-session-from-http-request
 
         try {
@@ -694,7 +693,7 @@ public final class Login2Action extends ActionSupport {
      *
      * <p>The pending-MFA session is the boundary between password/PIN success and an authenticated
      * application session. Fatal validation failures clear that pending state so the staged
-     * {@link LoginCheckLogin} and authentication result cannot survive after a corrupted secret,
+     * serializable security row and authentication result cannot survive after a corrupted secret,
      * missing security record, or broken TOTP key. Retryable user-code failures intentionally keep
      * the pending state so the user can enter a new OTP.</p>
      *
@@ -711,20 +710,23 @@ public final class Login2Action extends ActionSupport {
         if (!hasPendingMfaSession(session)) {
             logger.info("Rejected MFA verification without valid pending challenge: remote={}",
                     LogSanitizer.sanitize(ip));
+            if (session != null) {
+                clearPendingMfaSession(session);
+            }
             response.sendRedirect(loginFailedRedirectUrl(message("provider.providerchangepassword.errorSessionExpired")));
             return NONE;
         }
 
-        LoginCheckLogin cl = (LoginCheckLogin) session.getAttribute(PENDING_MFA_LOGIN_CHECK_ATTR);
         String[] strAuth = (String[]) session.getAttribute(PENDING_MFA_AUTH_RESULT_ATTR);
-        Security security = cl.getSecurity();
-        if (security == null) {
+        Object securityAttr = session.getAttribute(PENDING_MFA_SECURITY_ATTR);
+        if (!(securityAttr instanceof Security)) {
             logger.error("Rejected MFA verification because pending challenge has no security record: remote={}",
                     LogSanitizer.sanitize(ip));
             clearPendingMfaSession(session);
             response.sendRedirect(loginFailedRedirectUrl(message("login.errorSecurityRecordMissing")));
             return NONE;
         }
+        Security security = (Security) securityAttr;
 
         String mfaSecret;
         if (this.mfaRegistrationFlow) {
@@ -793,7 +795,7 @@ public final class Login2Action extends ActionSupport {
         }
 
         clearPendingMfaSession(session);
-        return completeAuthenticatedLogin(cl, strAuth, ip, isMobileOptimized, submitType, ajaxResponse);
+        return completeAuthenticatedLogin(security, strAuth, ip, isMobileOptimized, submitType, ajaxResponse);
     }
 
     /**
@@ -803,12 +805,11 @@ public final class Login2Action extends ActionSupport {
      * expired challenge rather than reconstructing login state from request parameters.</p>
      *
      * @param session candidate HTTP session
-     * @return true when the session contains the pending-MFA marker, login object, and auth result
+     * @return true when the session contains the pending-MFA marker and auth result
      */
     private boolean hasPendingMfaSession(HttpSession session) {
         return session != null
                 && Boolean.TRUE.equals(session.getAttribute(PENDING_MFA_AUTH_ATTR))
-                && session.getAttribute(PENDING_MFA_LOGIN_CHECK_ATTR) instanceof LoginCheckLogin
                 && session.getAttribute(PENDING_MFA_AUTH_RESULT_ATTR) instanceof String[];
     }
 
@@ -855,7 +856,7 @@ public final class Login2Action extends ActionSupport {
      */
     private void clearPendingMfaSession(HttpSession session) {
         session.removeAttribute(PENDING_MFA_AUTH_ATTR);
-        session.removeAttribute(PENDING_MFA_LOGIN_CHECK_ATTR);
+        session.removeAttribute(PENDING_MFA_SECURITY_ATTR);
         session.removeAttribute(PENDING_MFA_AUTH_RESULT_ATTR);
         session.removeAttribute("mfaSecret");
     }
@@ -892,7 +893,7 @@ public final class Login2Action extends ActionSupport {
      * state. If the provider row cannot be loaded after authentication, the new session is
      * invalidated and the method returns {@code failure} rather than leaving a partial session.</p>
      *
-     * @param cl authenticated login object carrying the security row
+     * @param security authenticated security row
      * @param strAuth authentication result fields returned by {@link LoginCheckLogin#auth}
      * @param ip remote address used for audit logging
      * @param isMobileOptimized whether mobile session flags should be applied
@@ -901,7 +902,7 @@ public final class Login2Action extends ActionSupport {
      * @return Struts result name, {@link #NONE} after redirect, {@code failure}, or null for AJAX
      * @throws IOException if redirecting or writing the response fails
      */
-    private String completeAuthenticatedLogin(LoginCheckLogin cl, String[] strAuth, String ip,
+    private String completeAuthenticatedLogin(Security security, String[] strAuth, String ip,
                                               boolean isMobileOptimized, String submitType,
                                               boolean ajaxResponse) throws IOException {
         HttpSession session = request.getSession(false);
@@ -916,8 +917,8 @@ public final class Login2Action extends ActionSupport {
         session = request.getSession();
         session.setMaxInactiveInterval(7200);
 
-        if (cl.getSecurity() != null) {
-            this.userSessionManager.registerUserSession(cl.getSecurity().getSecurityNo(), session);
+        if (security != null) {
+            this.userSessionManager.registerUserSession(security.getSecurityNo(), session);
         }
 
         logger.debug("Assigned new session for: {} : {} : {}", LogSanitizer.sanitize(strAuth[0]), LogSanitizer.sanitize(strAuth[3]), LogSanitizer.sanitize(strAuth[4]));
@@ -992,9 +993,14 @@ public final class Login2Action extends ActionSupport {
         if (pvar.getProperty("billregion").equals("BC")) {
             String alertFreq = pvar.getProperty("ALERT_POLL_FREQUENCY");
             if (alertFreq != null) {
-                Long longFreq = Long.valueOf(alertFreq);
-                String[] alertCodes = CarlosProperties.getInstance().getProperty("CDM_ALERTS").split(",");
-                AlertTimer.getInstance(alertCodes, longFreq.longValue());
+                try {
+                    Long longFreq = Long.valueOf(alertFreq);
+                    String[] alertCodes = CarlosProperties.getInstance().getProperty("CDM_ALERTS").split(",");
+                    AlertTimer.getInstance(alertCodes, longFreq.longValue());
+                } catch (NumberFormatException e) {
+                    logger.warn("Skipping BC alert timer setup because ALERT_POLL_FREQUENCY is invalid: value={}",
+                            LogSanitizer.sanitize(alertFreq), e);
+                }
             }
         }
 
@@ -1008,7 +1014,7 @@ public final class Login2Action extends ActionSupport {
         }
         session.setAttribute("provider", provider); // nosemgrep: tainted-session-from-http-request
         session.setAttribute(SessionConstants.LOGGED_IN_PROVIDER, provider); // nosemgrep: tainted-session-from-http-request
-        session.setAttribute(SessionConstants.LOGGED_IN_SECURITY, cl.getSecurity()); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute(SessionConstants.LOGGED_IN_SECURITY, security); // nosemgrep: tainted-session-from-http-request
 
         List<Integer> facilityIds = providerDao.getFacilityIds(provider.getProviderNo());
         if (facilityIds.size() > 1) {

@@ -138,7 +138,7 @@ public final class ErrorPageLogger {
             // Last-ditch: best-effort write to System.err so a logging-config
             // failure doesn't leave operations entirely blind.
             try {
-                String suppressedSummary = suppressed == null ? "unknown" : suppressed.toString();
+                String suppressedSummary = suppressed.getClass().getName();
                 System.err.println("ErrorPageLogger: suppressed exception during error logging (" + suppressedSummary + ")");
             } catch (Throwable ignored) {
                 // Last-ditch logging must never make the error page fail.

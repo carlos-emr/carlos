@@ -83,13 +83,7 @@ public class BillingSaveBilling2Action extends ActionSupport {
             return NONE;
         }
 
-        HttpSession session = request.getSession(false);
-        if (session == null || session.getAttribute("user") == null) {
-            rejectUnauthenticatedBillingSave(request, response);
-            return NONE;
-        }
-
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        LoggedInInfo loggedInInfo = authenticatedBillingUser(request);
         if (loggedInInfo == null) {
             rejectUnauthenticatedBillingSave(request, response);
             return NONE;
@@ -99,21 +93,15 @@ public class BillingSaveBilling2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
-        Object billingSessionAttr = session.getAttribute("billingSessionBean");
-        if (!(billingSessionAttr instanceof BillingSessionBean)) {
-            log.warn("Rejected BC billing save because billingSessionBean is missing: method={}, uri={}, remote={}",
-                    LogSanitizer.sanitize(request.getMethod()),
-                    LogSanitizer.sanitize(request.getRequestURI()),
-                    LogSanitizer.sanitize(request.getRemoteAddr()));
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Billing session expired");
+        BillingSessionBean bean = billingSessionBean(request);
+        if (bean == null) {
+            rejectExpiredBillingSession(request, response);
             return NONE;
         }
-        BillingSessionBean bean = (BillingSessionBean) billingSessionAttr;
 
         bean.setCreator(loggedInInfo.getLoggedInProviderNo());
 
         MiscUtils.getLogger().debug("appointment_no---: " + bean.getApptNo());
-        ApptStatusData as = new ApptStatusData();
 
         Date curDate = new Date();
         String billingid = "";
@@ -121,33 +109,8 @@ public class BillingSaveBilling2Action extends ActionSupport {
         String dataCenterId = CarlosProperties.getInstance().getProperty("dataCenterId");
         String billingMasterId = "";
 
-        if (bean.getApptNo() == null || bean.getApptNo().equalsIgnoreCase("null")) {
-            bean.setApptNo("0");
-        }
-
-        ////////////
-        if (bean.getApptNo() != null && !bean.getApptNo().trim().equals("0") && !bean.getApptNo().trim().equals("")) {
-            String apptStatus = "";
-            Appointment appt = appointmentDao.find(Integer.parseInt(bean.getApptNo()));
-            if (appt == null) {
-                log.warn("BC billing save could not update appointment because apptNo={} was not found",
-                        LogSanitizer.sanitize(bean.getApptNo()));
-            } else {
-                apptStatus = appt.getStatus();
-            }
-            String billStatus = as.billStatus(apptStatus);
-            ///Update Appointment information
-            log.debug("appointment_no: " + bean.getApptNo());
-            log.debug("BillStatus:" + billStatus);
-
-            if (appt != null) {
-                appointmentArchiveDao.archiveAppointment(appt);
-                appt.setStatus(billStatus);
-                appt.setLastUpdateUser(bean.getCreator());
-                appointmentDao.merge(appt);
-            }
-
-        }
+        normalizeAppointmentNo(bean);
+        updateAppointmentStatus(bean);
 
         char billingAccountStatus = getBillingAccountStatus(bean);
 
@@ -234,6 +197,34 @@ public class BillingSaveBilling2Action extends ActionSupport {
         return SUCCESS;
     }
 
+    private LoggedInInfo authenticatedBillingUser(HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        if (session == null || session.getAttribute("user") == null) {
+            return null;
+        }
+        return LoggedInInfo.getLoggedInInfoFromSession(request);
+    }
+
+    private BillingSessionBean billingSessionBean(HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        if (session == null) {
+            return null;
+        }
+        Object billingSessionAttr = session.getAttribute("billingSessionBean");
+        return billingSessionAttr instanceof BillingSessionBean
+                ? (BillingSessionBean) billingSessionAttr
+                : null;
+    }
+
+    private void rejectExpiredBillingSession(HttpServletRequest request, HttpServletResponse response)
+            throws IOException {
+        log.warn("Rejected BC billing save because billingSessionBean is missing: method={}, uri={}, remote={}",
+                LogSanitizer.sanitize(request.getMethod()),
+                LogSanitizer.sanitize(request.getRequestURI()),
+                LogSanitizer.sanitize(request.getRemoteAddr()));
+        response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Billing session expired");
+    }
+
     private void rejectUnauthenticatedBillingSave(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
         try {
@@ -260,6 +251,45 @@ public class BillingSaveBilling2Action extends ActionSupport {
         }
         redirectUrl.append("receipt=yes");
         return redirectUrl.toString();
+    }
+
+    private void normalizeAppointmentNo(BillingSessionBean bean) {
+        String rawApptNo = bean.getApptNo();
+        String trimmedApptNo = rawApptNo == null ? "" : rawApptNo.trim();
+        if (trimmedApptNo.isEmpty() || trimmedApptNo.equalsIgnoreCase("null")) {
+            bean.setApptNo("0");
+            return;
+        }
+        try {
+            bean.setApptNo(String.valueOf(Integer.parseInt(trimmedApptNo)));
+        } catch (NumberFormatException e) {
+            log.warn("BC billing save ignored malformed appointment number: apptNo={}",
+                    LogSanitizer.sanitize(rawApptNo), e);
+            bean.setApptNo("0");
+        }
+    }
+
+    private void updateAppointmentStatus(BillingSessionBean bean) {
+        int apptNo = parseOptionalAppointmentNo(bean.getApptNo());
+        if (apptNo == 0) {
+            return;
+        }
+
+        Appointment appt = appointmentDao.find(apptNo);
+        if (appt == null) {
+            log.warn("BC billing save could not update appointment because apptNo={} was not found",
+                    LogSanitizer.sanitize(bean.getApptNo()));
+            return;
+        }
+
+        String billStatus = new ApptStatusData().billStatus(appt.getStatus());
+        log.debug("appointment_no: " + bean.getApptNo());
+        log.debug("BillStatus:" + billStatus);
+
+        appointmentArchiveDao.archiveAppointment(appt);
+        appt.setStatus(billStatus);
+        appt.setLastUpdateUser(bean.getCreator());
+        appointmentDao.merge(appt);
     }
 
     private Billing getBillingObj(final BillingSessionBean bean, final Date curDate, final char billingAccountStatus) {
@@ -354,9 +384,9 @@ public class BillingSaveBilling2Action extends ActionSupport {
         try {
             return Integer.parseInt(raw.trim());
         } catch (NumberFormatException e) {
-            throw new IllegalArgumentException(
-                    "BC appointment number is malformed [" + LogSanitizer.sanitizeForDisplay(raw) + "]",
-                    e);
+            log.warn("BC billing save treated malformed appointment number as no appointment: apptNo={}",
+                    LogSanitizer.sanitize(raw), e);
+            return 0;
         }
     }
 

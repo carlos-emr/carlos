@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.hospitalReportManager;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -204,6 +205,16 @@ class PrintHRMReport2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(400);
         assertThat(response.getErrorMessage()).isEqualTo("Invalid HRM report id");
+    }
+
+    @Test
+    @DisplayName("should reject missing document directory before creating temp files")
+    void shouldRejectMissingDocumentDirectory_beforeCreatingTempFiles() {
+        Path missingDir = tempDir.resolve("missing-document-dir");
+
+        assertThatThrownBy(() -> PrintHRMReport2Action.validatedDocumentDirectory(missingDir.toString()))
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining("DOCUMENT_DIR is not an existing directory");
     }
 
     @Test
