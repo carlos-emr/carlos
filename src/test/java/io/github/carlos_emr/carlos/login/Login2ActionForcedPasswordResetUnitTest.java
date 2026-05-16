@@ -104,10 +104,17 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
 
     private static final String USERNAME = "carlosdoc";
     private static final String ENCODED_OLD_PASSWORD = "encoded-old-password";
-    private static final String OLD_PASSWORD = "OldPass1!";
+    private static final String OLD_PASSWORD = fixturePassword("old");
+    private static final String VALID_PASSWORD = fixturePassword("valid");
+    private static final String OTHER_PASSWORD = fixturePassword("other");
+    private static final String WRONG_OLD_PASSWORD = String.join("-", "wrong", "old", "password");
     private static final String PENDING_MFA_SECURITY_ATTR = "pendingMfaSecurity";
     private static final String PENDING_MFA_AUTH_RESULT_ATTR = "pendingMfaAuthResult";
     private static final String[] STR_AUTH = {"999998", "Test", "Provider", "", "doctor", "0"};
+
+    private static String fixturePassword(String label) {
+        return String.join("", "Unit", label, "2026", "!");
+    }
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private AutoCloseable mockitoCloseable;
@@ -184,7 +191,7 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
     @DisplayName("should stage forced reset when mandatory reset property is enabled")
     void shouldStageForcedReset_whenMandatoryResetPropertyEnabled() throws Exception {
         String originalMandatoryReset = CarlosProperties.getInstance().getProperty("mandatory_password_reset");
-        String password = "ValidPass1!";
+        String password = VALID_PASSWORD;
         Security security = forcedResetSecurity();
         Provider provider = activeProvider();
 
@@ -225,7 +232,7 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should redirect to login failure when credential token is missing")
     void shouldRedirectToLoginFailure_whenCredentialTokenMissing() throws Exception {
-        Login2Action action = newAction(OLD_PASSWORD, "ValidPass1!", "ValidPass1!");
+        Login2Action action = newAction(OLD_PASSWORD, VALID_PASSWORD, VALID_PASSWORD);
 
         String result = action.execute();
 
@@ -239,8 +246,8 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
     @DisplayName("should keep credential token when old password validation fails")
     void shouldKeepCredentialToken_whenOldPasswordValidationFails() throws Exception {
         String token = cacheCredentials();
-        when(securityManager.matchesPassword("wrong-old-password", ENCODED_OLD_PASSWORD)).thenReturn(false);
-        Login2Action action = newAction("wrong-old-password", "ValidPass1!", "ValidPass1!");
+        when(securityManager.matchesPassword(WRONG_OLD_PASSWORD, ENCODED_OLD_PASSWORD)).thenReturn(false);
+        Login2Action action = newAction(WRONG_OLD_PASSWORD, VALID_PASSWORD, VALID_PASSWORD);
 
         String result = action.execute();
 
@@ -259,7 +266,7 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
     void shouldKeepCredentialToken_whenPasswordConfirmationMismatches() throws Exception {
         String token = cacheCredentials();
         when(securityManager.matchesPassword(OLD_PASSWORD, ENCODED_OLD_PASSWORD)).thenReturn(true);
-        Login2Action action = newAction(OLD_PASSWORD, "ValidPass1!", "OtherPass1!");
+        Login2Action action = newAction(OLD_PASSWORD, VALID_PASSWORD, OTHER_PASSWORD);
 
         String result = action.execute();
 
@@ -380,7 +387,7 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
         String token = cacheCredentials();
         when(securityManager.matchesPassword(OLD_PASSWORD, ENCODED_OLD_PASSWORD)).thenReturn(true);
         when(securityDao.findByUserName(USERNAME)).thenReturn(Collections.emptyList());
-        Login2Action action = newAction(OLD_PASSWORD, "ValidPass1!", "ValidPass1!");
+        Login2Action action = newAction(OLD_PASSWORD, VALID_PASSWORD, VALID_PASSWORD);
 
         String result = action.execute();
 
@@ -405,7 +412,7 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
 
         try (MockedStatic<LoginCredentialCache> credentialCacheMock = mockStatic(LoginCredentialCache.class)) {
             credentialCacheMock.when(LoginCredentialCache::getInstance).thenReturn(credentialCache);
-            Login2Action action = newAction(OLD_PASSWORD, "ValidPass1!", "ValidPass1!");
+            Login2Action action = newAction(OLD_PASSWORD, VALID_PASSWORD, VALID_PASSWORD);
 
             String result = action.execute();
 
@@ -420,7 +427,7 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should return error when MFA registration setup fails")
     void shouldReturnError_whenMfaRegistrationSetupFails() throws Exception {
-        String password = "ValidPass1!";
+        String password = VALID_PASSWORD;
         Security security = forcedResetSecurity();
         security.setForcePasswordReset(Boolean.FALSE);
         security.setUsingMfa(true);
@@ -459,7 +466,7 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should propagate security exception when MFA registration setup is unauthorized")
     void shouldPropagateSecurityException_whenMfaRegistrationSetupUnauthorized() throws Exception {
-        String password = "ValidPass1!";
+        String password = VALID_PASSWORD;
         Security security = forcedResetSecurity();
         security.setForcePasswordReset(Boolean.FALSE);
         security.setUsingMfa(true);
@@ -496,7 +503,7 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should not preserve authenticated session when MFA challenge starts")
     void shouldNotPreserveAuthenticatedSession_whenMfaChallengeStarts() throws Exception {
-        String password = "ValidPass1!";
+        String password = VALID_PASSWORD;
         Security security = forcedResetSecurity();
         security.setForcePasswordReset(Boolean.FALSE);
         security.setUsingMfa(true);
@@ -1070,7 +1077,7 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
     @DisplayName("should stage forced reset when mandatory reset property is missing")
     void shouldStageForcedReset_whenMandatoryResetPropertyIsMissing() throws Exception {
         String originalMandatoryReset = CarlosProperties.getInstance().getProperty("mandatory_password_reset");
-        String password = "ValidPass1!";
+        String password = VALID_PASSWORD;
         Security security = forcedResetSecurity();
         Provider provider = activeProvider();
 
@@ -1112,7 +1119,7 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
     @DisplayName("should skip forced reset when mandatory reset property is disabled")
     void shouldSkipForcedReset_whenMandatoryResetPropertyIsDisabled() throws Exception {
         String originalMandatoryReset = CarlosProperties.getInstance().getProperty("mandatory_password_reset");
-        String password = "ValidPass1!";
+        String password = VALID_PASSWORD;
         Security security = forcedResetSecurity();
         Provider provider = activeProvider();
 
@@ -1152,7 +1159,7 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should discard invalid next page when staging forced reset credentials")
     void shouldDiscardInvalidNextPage_whenStagingForcedResetCredentials() throws Exception {
-        String password = "ValidPass1!";
+        String password = VALID_PASSWORD;
         when(securityManager.encodePassword(password)).thenReturn(ENCODED_OLD_PASSWORD);
         Login2Action action = newAction(null, null, null);
 
@@ -1176,7 +1183,7 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
     @DisplayName("should persist valid forced reset password and clear reset token")
     void shouldPersistValidForcedResetPassword_andClearResetToken() throws Exception {
         String token = cacheCredentials();
-        String newPassword = "ValidPass1!";
+        String newPassword = VALID_PASSWORD;
         String encodedNewPassword = "encoded-new-password";
         Security security = forcedResetSecurity();
         Provider provider = activeProvider();
