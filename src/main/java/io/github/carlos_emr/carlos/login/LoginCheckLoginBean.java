@@ -333,7 +333,7 @@ public final class LoginCheckLoginBean {
      *
      * <p>Security measures:
      * <ul>
-     *   <li>Clears userpassword and password fields to prevent memory-based attacks</li>
+     *   <li>Drops object references to userpassword and password fields after the expired attempt</li>
      *   <li>Logs expiration event with OWASP-encoded username for PHI protection</li>
      *   <li>Returns ["expired"] array to indicate account expiration</li>
      * </ul>
@@ -346,7 +346,8 @@ public final class LoginCheckLoginBean {
         logger.warn(errorMsg);
         // SECURITY: OWASP encode username for HTML context to prevent injection in logs
         LogAction.addLogSynchronous("", "expired", LogConst.CON_LOGIN, Encode.forHtmlContent(username), ip);
-        // Clear sensitive data from memory
+        // Drop references after the expired attempt. These are immutable Strings, so this does not
+        // wipe already-allocated heap contents.
         userpassword = null;
         password = null;
         return new String[]{"expired"};

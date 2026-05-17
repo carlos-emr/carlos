@@ -52,6 +52,17 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 class OscarResourcesBundleParseTest {
 
     private static final String[] LOCALES = {"en", "fr", "es", "pt_BR", "pl"};
+    private static final String[] LOGIN_ERROR_KEYS = {
+            "login.errorApplicationError",
+            "login.errorAccountLocked",
+            "login.errorUnableToProcess",
+            "login.errorSecurityRecordMissing",
+            "login.errorAccountInactive",
+            "login.errorAccountExpired",
+            "login.errorInvalidCredentials",
+            "login.errorResetStaging",
+            "login.errorResetPersistence"
+    };
 
     @Test
     @DisplayName("should parse every oscarResources locale file without IllegalArgumentException")
@@ -85,6 +96,29 @@ class OscarResourcesBundleParseTest {
         } finally {
             Locale.setDefault(originalDefault);
             ResourceBundle.clearCache();
+        }
+    }
+
+    @Test
+    @DisplayName("should define login error keys in every shipped locale bundle")
+    void shouldDefineLoginErrorKeys_inEveryLocale() throws Exception {
+        for (String locale : LOCALES) {
+            Properties bundle = loadBundle(locale);
+            for (String key : LOGIN_ERROR_KEYS) {
+                assertThat(bundle.getProperty(key))
+                        .as("oscarResources_%s.properties should define %s", locale, key)
+                        .isNotBlank();
+            }
+        }
+    }
+
+    private Properties loadBundle(String locale) throws Exception {
+        String resource = "/oscarResources_" + locale + ".properties";
+        try (InputStream is = OscarResourcesBundleParseTest.class.getResourceAsStream(resource)) {
+            assertThat(is).as("resource %s must exist on the classpath", resource).isNotNull();
+            Properties p = new Properties();
+            p.load(is);
+            return p;
         }
     }
 }

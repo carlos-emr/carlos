@@ -108,6 +108,19 @@ class ProviderLandingViewGateUnitTest {
     }
 
     @Test
+    @DisplayName("should return 405 when POST-only provider gate receives GET")
+    void shouldReturn405_whenRequirePostSubclassReceivesGet() throws Exception {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "w", null))
+                .thenReturn(true);
+
+        String result = new ViewProviderUpdatePassword2Action(securityInfoManager).execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(405);
+        assertThat(response.getForwardedUrl()).isNull();
+    }
+
+    @Test
     @DisplayName("should not render when appointment privilege is missing")
     void shouldNotRender_whenAppointmentPrivilegeIsMissing() {
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_appointment"), eq("r"), isNull()))

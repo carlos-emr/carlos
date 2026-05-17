@@ -139,6 +139,8 @@ class MutatorActionGetRejectionContractTest {
             // --- billing ---
             Arguments.of("io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSaveBilling2Action",
                     "_billing", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingUpdateBilling2Action",
+                    "_billing", "w"),
             // --- report ---
             Arguments.of("io.github.carlos_emr.carlos.report.pageUtil.DbManageProvider2Action",
                     "_admin.reporting", "w"),
@@ -259,7 +261,8 @@ class MutatorActionGetRejectionContractTest {
      * manifests above and participates in discovery drift checks.
      */
     private static final Set<String> IN_SCOPE_EXPLICIT_CLASSES = Set.of(
-        "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSaveBilling2Action"
+        "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSaveBilling2Action",
+        "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingUpdateBilling2Action"
     );
 
     @ParameterizedTest(name = "{0} rejects GET and HEAD without side-effects")

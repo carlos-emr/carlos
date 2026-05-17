@@ -441,10 +441,10 @@ public final class Login2Action extends ActionSupport {
 
             try {
                 persistNewPassword(userName, newPassword);
-            } catch (IllegalArgumentException | IllegalStateException e) {
+            } catch (RuntimeException e) {
                 logger.error("Forced password reset failed before password persistence completed", e);
                 removeAttributesFromSession(request);
-                response.sendRedirect(loginFailedRedirectUrl(message("provider.providerchangepassword.errorSessionSetup")));
+                response.sendRedirect(loginFailedRedirectUrl(message("login.errorResetPersistence")));
                 return NONE;
             }
 
@@ -607,7 +607,7 @@ public final class Login2Action extends ActionSupport {
                     setUserInfoToSession(request, userName, password, pin, nextPage);
                 } catch (Exception e) {
                     logger.error("Unable to stage forced password reset credentials", e);
-                    String newURL = loginFailedRedirectUrl(message("provider.providerchangepassword.errorSessionSetup"));
+                    String newURL = loginFailedRedirectUrl(message("login.errorResetStaging"));
                     removeAttributesFromSession(request);
                     response.sendRedirect(newURL);
                     return NONE;

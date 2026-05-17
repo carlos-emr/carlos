@@ -67,7 +67,9 @@ import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.io.Serializable;
+import java.net.URLDecoder;
 import java.security.InvalidKeyException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -224,6 +226,48 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
             assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/forcepasswordreset");
             assertThat(request.getSession(false).getAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR))
                     .isInstanceOf(String.class);
+            assertThat(mockedLoginChecks.constructed()).hasSize(1);
+        } finally {
+            if (originalMandatoryReset == null) {
+                CarlosProperties.getInstance().remove("mandatory_password_reset");
+            } else {
+                CarlosProperties.getInstance().setProperty("mandatory_password_reset", originalMandatoryReset);
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("should redirect with staging message when forced reset setup fails")
+    void shouldRedirectWithStagingMessage_whenForcedResetSetupFails() throws Exception {
+        String originalMandatoryReset = CarlosProperties.getInstance().getProperty("mandatory_password_reset");
+        String password = VALID_PASSWORD;
+        Security security = forcedResetSecurity();
+        Provider provider = activeProvider();
+
+        request.setParameter("forcedpasswordchange", "false");
+        CarlosProperties.getInstance().setProperty("mandatory_password_reset", "true");
+        when(securityManager.encodePassword(password)).thenThrow(new IllegalStateException("encoder unavailable"));
+        when(securityDao.findByUserName(USERNAME)).thenReturn(Collections.singletonList(security));
+        when(providerDao.getProvider("999998")).thenReturn(provider);
+
+        try (MockedConstruction<LoginCheckLogin> mockedLoginChecks = mockConstruction(LoginCheckLogin.class,
+                (mock, context) -> {
+                    when(mock.auth(USERNAME, password, "2026", request.getRemoteAddr()))
+                            .thenReturn(new String[]{"999998", "Test", "Provider", "", "doctor", "0"});
+                    when(mock.getSecurity()).thenReturn(security);
+                    when(mock.isBlock(anyString(), anyString())).thenReturn(false);
+                })) {
+            Login2Action action = newAction(null, null, null);
+            action.setUsername(USERNAME);
+            action.setPassword(password);
+            action.setPin("2026");
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getRedirectedUrl()).contains("/loginfailed");
+            assertThat(decodedRedirect()).contains(Login2Action.message(request, "login.errorResetStaging"));
+            assertThat(request.getSession(false).getAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR)).isNull();
             assertThat(mockedLoginChecks.constructed()).hasSize(1);
         } finally {
             if (originalMandatoryReset == null) {
@@ -410,6 +454,36 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
         assertThat(LoginCredentialCache.getInstance().peek(token)).isNull();
         assertThat(request.getSession(false).getAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR)).isNull();
         verify(securityDao, never()).saveEntity(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    @DisplayName("should consume token and show persistence message when database save fails")
+    void shouldConsumeTokenAndShowPersistenceMessage_whenDatabaseSaveFails() throws Exception {
+        String token = cacheCredentials();
+        String newPassword = VALID_PASSWORD;
+        Security security = forcedResetSecurity();
+
+        when(securityManager.matchesPassword(OLD_PASSWORD, ENCODED_OLD_PASSWORD)).thenReturn(true);
+        when(securityManager.encodePassword(newPassword)).thenReturn("encoded-new-password");
+        when(securityDao.findByUserName(USERNAME)).thenReturn(Collections.singletonList(security));
+        doThrow(new RuntimeException("database unavailable"))
+                .when(securityDao).saveEntity(org.mockito.ArgumentMatchers.any(Security.class));
+        Login2Action action = newAction(OLD_PASSWORD, newPassword, newPassword);
+
+        try (LogCapture capture = LogCapture.forLogger(Login2Action.class)) {
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getRedirectedUrl()).contains("/loginfailed");
+            assertThat(decodedRedirect()).contains(Login2Action.message(request, "login.errorResetPersistence"));
+            assertThat(LoginCredentialCache.getInstance().peek(token)).isNull();
+            assertThat(request.getSession(false).getAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR)).isNull();
+            assertThat(capture.events()).anySatisfy(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.ERROR);
+                assertThat(event.getMessage().getFormattedMessage())
+                        .contains("Forced password reset failed before password persistence completed");
+            });
+        }
     }
 
     @Test
@@ -1710,6 +1784,10 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
         action.setNewPassword(newPassword);
         action.setConfirmPassword(confirmPassword);
         return action;
+    }
+
+    private String decodedRedirect() {
+        return URLDecoder.decode(response.getRedirectedUrl(), StandardCharsets.UTF_8);
     }
 
     private void stagePendingMfa(Security security) {
