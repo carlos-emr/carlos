@@ -181,6 +181,18 @@ class AuthenticationRejectionHandlerUnitTest {
     }
 
     @Test
+    @DisplayName("should write text status response when generated content accepts problem JSON")
+    void shouldWriteTextStatusResponse_whenGeneratedContentAcceptsProblemJson() throws Exception {
+        MockHttpServletRequest request = request("/Download");
+        request.addHeader("Accept", "application/problem+json");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        AuthenticationRejectionHandler.rejectUnauthenticatedRequest(request, response);
+
+        assertTextUnauthorized(response);
+    }
+
+    @Test
     @DisplayName("should redirect when accept header includes HTML before JSON")
     void shouldRedirect_whenAcceptHeaderIncludesHtmlBeforeJson() throws Exception {
         MockHttpServletRequest request = request("/admin/api/status");

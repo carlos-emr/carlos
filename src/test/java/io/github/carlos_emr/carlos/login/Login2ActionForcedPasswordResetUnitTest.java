@@ -1200,6 +1200,47 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should skip BC alert timer when startup fails")
+    void shouldSkipBcAlertTimer_whenStartupFails() throws Exception {
+        String originalBillRegion = CarlosProperties.getInstance().getProperty("billregion");
+        String originalAlertFrequency = CarlosProperties.getInstance().getProperty("ALERT_POLL_FREQUENCY");
+        String originalAlerts = CarlosProperties.getInstance().getProperty("CDM_ALERTS");
+        Security security = forcedResetSecurity();
+        security.setForcePasswordReset(Boolean.FALSE);
+        stagePendingMfa(security);
+        stubSuccessfulProviderLogin();
+        when(mfaManager.getMfaSecret(security)).thenReturn("JBSWY3DPEHPK3PXP");
+
+        try {
+            CarlosProperties.getInstance().setProperty("billregion", "BC");
+            CarlosProperties.getInstance().setProperty("ALERT_POLL_FREQUENCY", "120000");
+            CarlosProperties.getInstance().setProperty("CDM_ALERTS", "A,B");
+            try (MockedStatic<AlertTimer> alertTimerMock = mockStatic(AlertTimer.class);
+                 LogCapture capture = LogCapture.forLogger(Login2Action.class);
+                 MockedConstruction<TimeBasedOneTimePasswordGenerator> ignored = mockTotpReturning("123456")) {
+                alertTimerMock.when(() -> AlertTimer.getInstance(any(String[].class), eq(120000L)))
+                        .thenThrow(new RuntimeException("timer failed"));
+                Login2Action action = newAction(null, null, null);
+                action.setCode("123456");
+
+                String result = action.execute();
+
+                assertThat(result).isEqualTo(ActionSupport.NONE);
+                assertThat(response.getRedirectedUrl()).contains("/provider/providercontrol");
+                assertThat(capture.events()).anySatisfy(event -> {
+                    assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                    assertThat(event.getMessage().getFormattedMessage())
+                            .contains("AlertTimer startup failed");
+                });
+            }
+        } finally {
+            restoreProperty("billregion", originalBillRegion);
+            restoreProperty("ALERT_POLL_FREQUENCY", originalAlertFrequency);
+            restoreProperty("CDM_ALERTS", originalAlerts);
+        }
+    }
+
+    @Test
     @DisplayName("should route patient intake users to patient intake result")
     void shouldRoutePatientIntakeUsers_toPatientIntakeResult() throws Exception {
         Security security = forcedResetSecurity();

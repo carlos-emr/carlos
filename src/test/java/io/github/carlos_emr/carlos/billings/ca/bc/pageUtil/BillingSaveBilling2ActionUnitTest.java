@@ -238,6 +238,37 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should write expired session body after output stream obtained")
+    void shouldWriteExpiredSessionBody_whenOutputStreamWasAlreadyObtained() throws Exception {
+        request.setMethod("POST");
+        request.getSession().setAttribute("user", "100");
+        response.getOutputStream();
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
+             LogCapture capture = LogCapture.forLogger(BillingSaveBilling2Action.class)) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_billing"), eq("w"), isNull()))
+                    .thenReturn(true);
+
+            String result = new BillingSaveBilling2Action().execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(400);
+            assertThat(response.getContentType()).isEqualTo("text/plain;charset=UTF-8");
+            assertThat(response.getContentAsString()).isEqualTo("Billing session expired.");
+            assertThat(capture.events()).anySatisfy(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                assertThat(event.getMessage().getFormattedMessage())
+                        .contains("Response writer unavailable")
+                        .contains("falling back to output stream");
+            });
+            verifyNoInteractions(billingmasterDAO, appointmentDao, appointmentArchiveDao);
+        }
+    }
+
+    @Test
     @DisplayName("should reject malformed appointment number before billing writes")
     void shouldRejectMalformedAppointmentNumber_beforeBillingWrites() throws Exception {
         request.setMethod("POST");
@@ -339,7 +370,7 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should substitute appointment number when translated pattern has apostrophe")
     void shouldSubstituteAppointmentNumber_whenTranslatedPatternHasApostrophe() {
-        assertThat(BillingSaveBilling2Action.formatMessagePattern(
+        assertThat(BillingSaveBilling2Action.formatMalformedAppointmentMessage(
                 "L'identifiant de rendez-vous \"{0}\" est invalide.", "abc123"))
                 .isEqualTo("L'identifiant de rendez-vous \"abc123\" est invalide.");
     }
@@ -347,7 +378,7 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should preserve already escaped apostrophe in translated pattern")
     void shouldPreserveAlreadyEscapedApostrophe_whenTranslatedPatternIsValid() {
-        assertThat(BillingSaveBilling2Action.formatMessagePattern(
+        assertThat(BillingSaveBilling2Action.formatMalformedAppointmentMessage(
                 "L''identifiant de rendez-vous \"{0}\" est invalide.", "abc123"))
                 .isEqualTo("L'identifiant de rendez-vous \"abc123\" est invalide.");
     }
@@ -356,7 +387,7 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
     @DisplayName("should not warn when appointment number contains placeholder text")
     void shouldNotWarn_whenAppointmentNumberContainsPlaceholderText() {
         try (LogCapture capture = LogCapture.forLogger(BillingSaveBilling2Action.class)) {
-            assertThat(BillingSaveBilling2Action.formatMessagePattern(
+            assertThat(BillingSaveBilling2Action.formatMalformedAppointmentMessage(
                     "Malformed appointment number \"{0}\".", "bad-{0}"))
                     .isEqualTo("Malformed appointment number \"bad-{0}\".");
 
@@ -369,7 +400,7 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
     @DisplayName("should warn when message pattern leaves placeholder unsubstituted")
     void shouldWarn_whenMessagePatternLeavesPlaceholderUnsubstituted() {
         try (LogCapture capture = LogCapture.forLogger(BillingSaveBilling2Action.class)) {
-            assertThat(BillingSaveBilling2Action.formatMessagePattern(
+            assertThat(BillingSaveBilling2Action.formatMalformedAppointmentMessage(
                     "Malformed appointment number '{0}'.", "abc123"))
                     .isEqualTo("Malformed appointment number 'abc123'.");
 
@@ -385,7 +416,7 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
     @DisplayName("should warn and use fallback when message pattern is invalid")
     void shouldWarnAndUseFallback_whenMessagePatternIsInvalid() {
         try (LogCapture capture = LogCapture.forLogger(BillingSaveBilling2Action.class)) {
-            assertThat(BillingSaveBilling2Action.formatMessagePattern(
+            assertThat(BillingSaveBilling2Action.formatMalformedAppointmentMessage(
                     "Malformed appointment number \"{O}\".", "abc123"))
                     .isEqualTo("Malformed appointment number \"abc123\". "
                             + "Please return to billing and re-select the appointment.");
@@ -395,6 +426,25 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
                 assertThat(event.getMessage().getFormattedMessage())
                         .contains("message pattern is invalid");
             });
+        }
+    }
+
+    @Test
+    @DisplayName("should not retry quote recovery when invalid pattern fallback contains placeholder text")
+    void shouldNotRetryQuoteRecovery_whenInvalidPatternFallbackContainsPlaceholderText() {
+        try (LogCapture capture = LogCapture.forLogger(BillingSaveBilling2Action.class)) {
+            assertThat(BillingSaveBilling2Action.formatMalformedAppointmentMessage(
+                    "Malformed appointment number \"{O}\".", "bad-{0}"))
+                    .isEqualTo("Malformed appointment number \"bad-{0}\". "
+                            + "Please return to billing and re-select the appointment.");
+
+            assertThat(capture.events()).anySatisfy(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                assertThat(event.getMessage().getFormattedMessage())
+                        .contains("message pattern is invalid");
+            });
+            assertThat(capture.events()).noneSatisfy(event -> assertThat(event.getMessage()
+                    .getFormattedMessage()).contains("retrying with escaped single quotes"));
         }
     }
 
@@ -434,6 +484,14 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
                         .contains("billing.billingSave.missingRoundSevenKey");
             });
         }
+    }
+
+    @Test
+    @DisplayName("should use English locale when billing message locale is null")
+    void shouldUseEnglishLocale_whenBillingMessageLocaleIsNull() {
+        assertThat(BillingSaveBilling2Action.message(null,
+                "billing.billingSave.sessionExpired", "fallback value."))
+                .isEqualTo("Billing session expired.");
     }
 
     @Test

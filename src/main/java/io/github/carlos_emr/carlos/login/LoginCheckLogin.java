@@ -236,10 +236,10 @@ public final class LoginCheckLogin {
      * [0] = provider number
      * [1] = first name
      * [2] = last name
-     * [3] = username
-     * [4] = user role
+     * [3] = profession
+     * [4] = roles
      * [5] = expired days (for password expiration warning)
-     * [6] = ... (additional fields)
+     * [6] = email
      * </pre>
      *
      * <p>Failure (length == 1):

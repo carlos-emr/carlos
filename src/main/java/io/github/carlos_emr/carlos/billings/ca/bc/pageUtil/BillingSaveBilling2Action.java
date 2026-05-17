@@ -72,7 +72,7 @@ public class BillingSaveBilling2Action extends ActionSupport {
     private static final String BILLING_SESSION_EXPIRED_KEY = "billing.billingSave.sessionExpired";
     private static final String BILLING_SESSION_EXPIRED_FALLBACK = "Billing session expired.";
     private static final String MALFORMED_APPOINTMENT_NO_KEY = "billing.billingSave.malformedAppointmentNo";
-    /** MessageFormat pattern; keep appointment number placeholder as {@code {0}}. */
+    /** MessageFormat pattern consumed by {@link #formatMalformedAppointmentMessage(String, String)}. */
     private static final String MALFORMED_APPOINTMENT_NO_FALLBACK = "Malformed appointment number \"{0}\". "
             + "Please return to billing and re-select the appointment.";
 
@@ -259,12 +259,13 @@ public class BillingSaveBilling2Action extends ActionSupport {
      */
     // Package-private so direct-response fallback behavior can be pinned without servlet plumbing.
     static String message(Locale locale, String key, String fallback) {
-        String localized = messageFromBundle(locale, key);
+        Locale effectiveLocale = locale == null ? Locale.ENGLISH : locale;
+        String localized = messageFromBundle(effectiveLocale, key);
         if (localized != null) {
             return localized;
         }
 
-        if (locale == null || !Locale.ENGLISH.getLanguage().equals(locale.getLanguage())) {
+        if (!Locale.ENGLISH.getLanguage().equals(effectiveLocale.getLanguage())) {
             String english = messageFromBundle(Locale.ENGLISH, key);
             if (english != null) {
                 return english;
@@ -273,6 +274,9 @@ public class BillingSaveBilling2Action extends ActionSupport {
         return fallback;
     }
 
+    /**
+     * Looks up one resource-bundle message for a non-null locale.
+     */
     private static String messageFromBundle(Locale locale, String key) {
         ResourceBundle bundle;
         try {
@@ -319,12 +323,28 @@ public class BillingSaveBilling2Action extends ActionSupport {
         response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
         response.setContentType("text/plain;charset=UTF-8");
-        writeBody(request, response, formatMessagePattern(messagePattern, rawAppointmentNo));
+        writeBody(request, response, formatMalformedAppointmentMessage(messagePattern, rawAppointmentNo));
     }
 
-    static String formatMessagePattern(String messagePattern, String rawAppointmentNo) {
+    /**
+     * Formats the localized malformed-appointment response body.
+     *
+     * <p>{@link MessageFormat} treats single quotes as escape delimiters. Translators often write
+     * natural-language apostrophes without doubling them, which can make {@code {0}} render
+     * literally. The first pass preserves correctly escaped translations; if the appointment
+     * placeholder survives and the pattern has an unescaped quote, the second pass escapes only those
+     * unescaped quotes. Invalid patterns skip recovery and use the appointment-specific fallback so
+     * operator logs do not imply quote recovery was attempted.</p>
+     */
+    static String formatMalformedAppointmentMessage(String messagePattern, String rawAppointmentNo) {
         String sanitizedAppointmentNo = LogSanitizer.sanitizeForDisplay(rawAppointmentNo);
-        String formatted = formatMessagePatternOnce(messagePattern, sanitizedAppointmentNo);
+        MessagePatternResult result = formatMessagePatternOnce(
+                messagePattern, sanitizedAppointmentNo, MALFORMED_APPOINTMENT_NO_FALLBACK);
+        if (result.usedFallback()) {
+            return result.message();
+        }
+
+        String formatted = result.message();
         if (containsUnsubstitutedAppointmentPlaceholder(formatted, sanitizedAppointmentNo)) {
             if (!hasUnescapedSingleQuote(messagePattern)) {
                 log.warn("Billing save message pattern left appointment placeholder unsubstituted: "
@@ -333,8 +353,11 @@ public class BillingSaveBilling2Action extends ActionSupport {
             }
             log.warn("Billing save message pattern left appointment placeholder unsubstituted; "
                     + "retrying with escaped single quotes");
-            formatted = formatMessagePatternOnce(
-                    escapeUnescapedSingleQuotes(messagePattern), sanitizedAppointmentNo);
+            result = formatMessagePatternOnce(
+                    escapeUnescapedSingleQuotes(messagePattern),
+                    sanitizedAppointmentNo,
+                    MALFORMED_APPOINTMENT_NO_FALLBACK);
+            formatted = result.message();
             if (containsUnsubstitutedAppointmentPlaceholder(formatted, sanitizedAppointmentNo)) {
                 log.warn("Billing save message pattern still left appointment placeholder "
                         + "unsubstituted after quote recovery: pattern={}",
@@ -344,16 +367,27 @@ public class BillingSaveBilling2Action extends ActionSupport {
         return formatted;
     }
 
-    private static String formatMessagePatternOnce(String messagePattern, String sanitizedAppointmentNo) {
+    private static MessagePatternResult formatMessagePatternOnce(
+            String messagePattern,
+            String sanitizedAppointmentNo,
+            String fallbackPattern) {
+
         try {
-            return MessageFormat.format(messagePattern, sanitizedAppointmentNo);
+            return new MessagePatternResult(
+                    MessageFormat.format(messagePattern, sanitizedAppointmentNo), false);
         } catch (IllegalArgumentException e) {
             log.warn("Billing save message pattern is invalid; using hardcoded fallback: pattern={}",
                     LogSanitizer.sanitize(messagePattern), e);
-            return MALFORMED_APPOINTMENT_NO_FALLBACK.replace("{0}", sanitizedAppointmentNo);
+            return new MessagePatternResult(
+                    fallbackPattern.replace("{0}", sanitizedAppointmentNo), true);
         }
     }
 
+    /**
+     * Detects whether a rendered message still contains the appointment placeholder outside the
+     * sanitized appointment value itself. A literal appointment number such as {@code bad-{0}} must
+     * not look like a translation failure.
+     */
     private static boolean containsUnsubstitutedAppointmentPlaceholder(
             String formatted,
             String sanitizedAppointmentNo) {
@@ -367,6 +401,10 @@ public class BillingSaveBilling2Action extends ActionSupport {
         return formatted.replace(sanitizedAppointmentNo, "").contains("{0}");
     }
 
+    /**
+     * Returns true when the pattern has at least one single quote that is not already doubled for
+     * {@link MessageFormat}.
+     */
     private static boolean hasUnescapedSingleQuote(String messagePattern) {
         for (int i = 0; i < messagePattern.length(); i++) {
             if (messagePattern.charAt(i) == '\'') {
@@ -380,6 +418,9 @@ public class BillingSaveBilling2Action extends ActionSupport {
         return false;
     }
 
+    /**
+     * Escapes only single quotes that are not already escaped for {@link MessageFormat}.
+     */
     private static String escapeUnescapedSingleQuotes(String messagePattern) {
         StringBuilder escaped = new StringBuilder(messagePattern.length());
         for (int i = 0; i < messagePattern.length(); i++) {
@@ -396,6 +437,12 @@ public class BillingSaveBilling2Action extends ActionSupport {
         return escaped.toString();
     }
 
+    /**
+     * Writes a direct billing-rejection body after the caller has selected status and content type.
+     *
+     * <p>The request is used only for sanitized diagnostics if an upstream wrapper has already
+     * obtained the servlet output stream and the writer path is unavailable.</p>
+     */
     private void writeBody(HttpServletRequest request, HttpServletResponse response, String body) throws IOException {
         try {
             response.getWriter().write(body);
@@ -408,6 +455,9 @@ public class BillingSaveBilling2Action extends ActionSupport {
                     writerUnavailable);
             response.getOutputStream().write(body.getBytes(StandardCharsets.UTF_8));
         }
+    }
+
+    private record MessagePatternResult(String message, boolean usedFallback) {
     }
 
     /**

@@ -977,6 +977,8 @@ public final class Login2Action extends ActionSupport {
             logger.warn("Skipping BC alert timer setup because ALERT_POLL_FREQUENCY is invalid: value={}",
                     LogSanitizer.sanitize(alertFreq), e);
         } catch (RuntimeException e) {
+            // The alert timer is post-login convenience work; startup defects must be visible but
+            // cannot strand an otherwise authenticated BC user at the login boundary.
             logger.warn("Skipping BC alert timer setup because AlertTimer startup failed", e);
         }
     }

@@ -38,9 +38,10 @@ public final class AuthenticationRejectionHandler {
 
     /**
      * Paths whose unauthenticated responses are consumed by scripts, downloads, or generated
-     * content clients. The unmodifiable list returned by {@link List#of()} keeps the manifest
-     * immutable so tests and future migrations cannot accidentally alter the process-wide rejection
-     * contract.
+     * content clients. A request matches an entry exactly or as a child path, for example
+     * {@code /Download/file.pdf} matches {@code /Download} but {@code /Downloads} does not. The
+     * {@code List.of(...)} contents are unmodifiable, and the unit test pins the exact route
+     * set so future migrations cannot accidentally change the rejection contract.
      */
     static final List<String> STATUS_CODE_PATHS = List.of(
             "/Download",
@@ -129,6 +130,12 @@ public final class AuthenticationRejectionHandler {
         writeBody(request, response, "Unauthorized");
     }
 
+    /**
+     * Writes the small direct-response body after content negotiation has already been decided.
+     *
+     * <p>The request is only used for PHI-safe diagnostic context if upstream wrappers have already
+     * obtained the servlet output stream and the writer path is unavailable.</p>
+     */
     private static void writeBody(
             HttpServletRequest request,
             HttpServletResponse response,
@@ -185,9 +192,10 @@ public final class AuthenticationRejectionHandler {
      *
      * <p>Uses substring matching to support normal multi-value {@code Accept} headers such as
      * {@code application/xml, application/json;q=0.8}. This intentionally does not parse
-     * {@code q=} weights: any explicit JSON token is treated as a JSON-capable client. The match is
-     * broad enough for common structured variants such as {@code application/problem+json}; callers
-     * sending unrelated JSON-like tokens should not rely on content negotiation here.</p>
+     * {@code q=} weights: any explicit literal {@code application/json} token is treated as a
+     * JSON-capable client. Structured suffixes such as {@code application/problem+json},
+     * {@code application/ld+json}, and {@code application/vnd.api+json} do not match this legacy
+     * check unless they also include a separate {@code application/json} value.</p>
      */
     private static boolean prefersJsonResponse(HttpServletRequest request) {
         String accept = request.getHeader("Accept");
