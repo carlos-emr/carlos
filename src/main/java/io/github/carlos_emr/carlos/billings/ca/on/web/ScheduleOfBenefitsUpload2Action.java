@@ -43,7 +43,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.FeeScheduleImportRequest;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.FeeScheduleImportResult;
 import io.github.carlos_emr.carlos.billings.ca.on.service.FeeScheduleImportService;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -120,7 +120,7 @@ public class ScheduleOfBenefitsUpload2Action extends ActionSupport implements Up
 
         } catch (Exception e) {
             MiscUtils.getLogger().error("Failed to preview Schedule of Benefits upload {}",
-                    LogSanitizer.sanitize(importFileFileName), e);
+                    LogSafe.sanitize(importFileFileName), e);
             outcome = "exception";
             forceUpdate = false;
         }

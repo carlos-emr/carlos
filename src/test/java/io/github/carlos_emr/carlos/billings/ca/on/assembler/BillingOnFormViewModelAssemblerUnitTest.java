@@ -416,7 +416,7 @@ class BillingOnFormViewModelAssemblerUnitTest extends CarlosUnitTestBase {
                 "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/assembler/BillingOnFormViewModelAssembler.java"));
 
         assertThat(source).doesNotContain("Drools billing-guidelines evaluation failed for demo={}");
-        assertThat(source).doesNotContain("LogSanitizer.sanitize(demoNo), userNo, e");
+        assertThat(source).doesNotContain("LogSafe.sanitize(demoNo), userNo, e");
         assertThat(source).doesNotContain("OutOfMemoryError-adjacent");
     }
 

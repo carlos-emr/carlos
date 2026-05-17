@@ -45,11 +45,11 @@ import jakarta.servlet.http.HttpServletResponseWrapper;
 import jakarta.servlet.http.HttpSession;
 
 import org.apache.logging.log4j.Logger;
-import org.owasp.encoder.Encode;
 
 import io.github.carlos_emr.CarlosProperties;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 
 /**
  * Servlet filter that injects session heartbeat and logout broadcast JavaScript
@@ -211,7 +211,7 @@ public class LogoutBroadcastFilter implements Filter {
         if (delegatingResponse.isResponseOutputStreamObtained()) {
             logger.warn("Skipping logout broadcast script injection because response used "
                     + "ServletOutputStream: uri={}, contentType={}",
-                    safeRequestUri, LogSanitizer.sanitize(contentType));
+                    safeRequestUri, LogSafe.sanitize(contentType));
             delegatingResponse.applyDeferredContentLength();
             return;
         }
@@ -238,7 +238,7 @@ public class LogoutBroadcastFilter implements Filter {
      * @return sanitized URI suitable for operator logs
      */
     private String sanitizedRequestUri(HttpServletRequest request) {
-        return LogSanitizer.sanitizeUri(request.getRequestURI());
+        return LogSafe.sanitizeUri(request.getRequestURI());
     }
 
     /**
@@ -492,12 +492,12 @@ public class LogoutBroadcastFilter implements Filter {
                 "if(window.__carlosLogoutActive)return;" +
                 "window.__carlosLogoutActive=true;" +
 
-                "var cp='" + Encode.forJavaScript(contextPath) + "';" +
+                "var cp='" + SafeEncode.forJavaScript(contextPath) + "';" +
                 "var ilMs=" + inactivityLimitMins + "*60000;" +
                 "var lastOk=Date.now();" +
                 "var loginUrl=cp+'/index';" +
                 "var done=false;" +
-                "var logoutMsg='" + Encode.forJavaScript(getLoggedOutMessage(locale)) + "';" +
+                "var logoutMsg='" + SafeEncode.forJavaScript(getLoggedOutMessage(locale)) + "';" +
                 // Grace period: ignore logout broadcasts for 5s after page load
                 // to prevent stale broadcasts from prior sessions causing immediate logout
                 "var ready=false;setTimeout(function(){ready=true},5000);" +
@@ -928,7 +928,7 @@ public class LogoutBroadcastFilter implements Filter {
                 setContentLengthLong(Long.parseLong(value));
             } catch (NumberFormatException e) {
                 logger.warn("Ignoring malformed Content-Length header value from downstream response: {}",
-                        LogSanitizer.sanitize(value), e);
+                        LogSafe.sanitize(value), e);
             }
         }
 
@@ -972,7 +972,7 @@ public class LogoutBroadcastFilter implements Filter {
                 htmlInjectionBufferConfigured = true;
             } catch (IllegalStateException e) {
                 logger.debug("setBufferSize rejected for logout broadcast HTML injection: uri={}, committed={}, contentType={}",
-                        requestUriForLog, isCommitted(), LogSanitizer.sanitize(contentType), e);
+                        requestUriForLog, isCommitted(), LogSafe.sanitize(contentType), e);
                 htmlInjectionBufferUnavailable = true;
             }
         }

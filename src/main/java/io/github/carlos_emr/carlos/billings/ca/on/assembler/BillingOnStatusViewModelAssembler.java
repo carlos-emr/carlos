@@ -54,7 +54,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.LabelValueBean;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingStatusLoader;
 import io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingOnStatus2Action;
@@ -383,8 +383,8 @@ public class BillingOnStatusViewModelAssembler {
                 } catch (RuntimeException nfe) {
                     feeUnreadable = true;
                     MiscUtils.getLogger().warn("Rejected-bill fee is not numeric for billingNo={} fee={}",
-                            LogSanitizer.sanitize(bObj.getBilling_no()),
-                            LogSanitizer.sanitize(bObj.getFee()), nfe);
+                            LogSafe.sanitize(bObj.getBilling_no()),
+                            LogSafe.sanitize(bObj.getFee()), nfe);
                     formattedFee = "N/A";
                 }
                 String stdCurr = formattedFee;

@@ -105,9 +105,10 @@
 		<url-pattern>/*</url-pattern>
 	</filter-mapping>
 
-    <!-- Redirect bare context-root requests to the canonical Struts login action.
-         This replaces the old public index welcome files and must run before
-         Struts so "/" never falls through to container welcome-file resolution. -->
+    <!-- Forward bare context-root and /index requests directly to the internal login JSP.
+         This replaces the old public index welcome files and must run before Struts so
+         "/" never falls through to container welcome-file resolution. The same filter
+         only guards /forcepasswordreset method routing; the Struts action owns token checks. -->
     <filter>
         <filter-name>RootEntryRedirectFilter</filter-name>
         <filter-class>io.github.carlos_emr.carlos.login.RootEntryRedirectFilter</filter-class>

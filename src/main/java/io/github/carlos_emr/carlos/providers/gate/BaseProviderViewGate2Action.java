@@ -19,8 +19,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.sec.AuthenticationRejectionHandler;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.sec.UnauthenticatedRejectionResolver;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -96,13 +96,13 @@ public abstract class BaseProviderViewGate2Action extends ActionSupport {
         HttpSession session = request.getSession(false);
         if (session == null || session.getAttribute("user") == null) {
             try {
-                AuthenticationRejectionHandler.rejectUnauthenticatedRequest(request, response);
+                UnauthenticatedRejectionResolver.rejectUnauthenticatedRequest(request, response);
             } catch (IOException e) {
                 LOGGER.warn(
                         "Unable to reject unauthenticated provider request: method={}, uri={}, remote={}",
-                        LogSanitizer.sanitize(request.getMethod()),
-                        LogSanitizer.sanitize(request.getRequestURI()),
-                        LogSanitizer.sanitize(request.getRemoteAddr()),
+                        LogSafe.sanitize(request.getMethod()),
+                        LogSafe.sanitizeUri(request.getRequestURI()),
+                        LogSafe.sanitize(request.getRemoteAddr()),
                         e);
                 if (!response.isCommitted()) {
                     response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
@@ -110,9 +110,9 @@ public abstract class BaseProviderViewGate2Action extends ActionSupport {
                     LOGGER.error(
                             "Unable to reject unauthenticated provider request after response commit: "
                                     + "method={}, uri={}, remote={}",
-                            LogSanitizer.sanitize(request.getMethod()),
-                            LogSanitizer.sanitize(request.getRequestURI()),
-                            LogSanitizer.sanitize(request.getRemoteAddr()),
+                            LogSafe.sanitize(request.getMethod()),
+                            LogSafe.sanitizeUri(request.getRequestURI()),
+                            LogSafe.sanitize(request.getRemoteAddr()),
                             e);
                 }
             }

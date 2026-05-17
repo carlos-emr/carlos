@@ -69,7 +69,7 @@ public class RaDescriptionFileParser {
             raFile = PathValidationUtils.validatePath(filename, new File(docDir));
         } catch (SecurityException se) {
             MiscUtils.getLogger().error("Rejected RA filename outside DOCUMENT_DIR: {}",
-                    io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(filename), se);
+                    io.github.carlos_emr.carlos.utility.LogSafe.sanitize(filename), se);
             out.parseFailureReason = ParseFailureReason.SECURITY_REJECTED;
             return out;
         }

@@ -43,7 +43,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile;
@@ -102,7 +102,7 @@ public final class BillingUpdateBilling2Action
         } catch (Exception e) {
             throw new IllegalStateException(
                     "BC billing note update failed for billingNo="
-                            + LogSanitizer.sanitizeForDisplay(this.getBillingNo()),
+                            + LogSafe.sanitizeForDisplay(this.getBillingNo()),
                     e);
         }
 

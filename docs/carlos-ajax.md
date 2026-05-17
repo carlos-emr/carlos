@@ -15,7 +15,7 @@
 
 Replacing `Ajax.Request` / `Ajax.Updater` with raw `fetch()` is error-prone because:
 
-1. **Server-side header dependencies** — Three Java servlet filters check for the `X-Requested-With: XMLHttpRequest` header. Omitting it corrupts AJAX responses with injected HTML.
+1. **Server-side header dependencies** — Two deployed Java servlet filters check for the `X-Requested-With: XMLHttpRequest` header, and CSRF script injection uses it only if the filter is remapped to top-level `REQUEST` dispatch. Omitting it can corrupt AJAX responses with injected HTML or change authentication-rejection handling.
 2. **Content-Type contract** — Server actions expect `application/x-www-form-urlencoded` for POST data. `fetch()` does not set this by default.
 3. **Callback ordering** — Prototype fires callbacks in a specific sequence (`onSuccess` → DOM update → script execution → `onComplete`). Breaking this order breaks dependent code.
 4. **Script execution** — Modern `innerHTML` does NOT execute `<script>` tags. Some AJAX responses contain inline scripts that must run.
@@ -150,7 +150,8 @@ For POST requests, it also sets:
 }
 ```
 
-**Why**: Three server-side Java filters check `X-Requested-With`:
+**Why**: Two deployed server-side Java filters check `X-Requested-With`, and a third uses it only
+if CSRF script injection is remapped to top-level `REQUEST` dispatches:
 - `PrivacyStatementAppendingFilter` — skips privacy statement injection for AJAX
 - `CsrfGuardScriptInjectionFilter` — skips CSRF `<script>` injection for AJAX only if
   REQUEST dispatch mapping is re-enabled; the deployed FORWARD-only mapping injects at JSP render

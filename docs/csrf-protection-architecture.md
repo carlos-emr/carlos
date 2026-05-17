@@ -10,8 +10,10 @@ CARLOS EMR uses [OWASP CSRFGuard 4.5](https://github.com/OWASP/www-project-csrfg
 Cross-Site Request Forgery protection. The implementation uses the **Synchronizer Token Pattern**
 with session-scoped tokens, validated server-side on every state-changing request.
 
-CSRF tokens are **automatically injected** into forms and AJAX requests by client-side JavaScript.
-Developers do **not** need to manually add CSRF tokens to JSPs or AJAX calls.
+CSRF tokens are **automatically injected** into standard forms and legacy XMLHttpRequest helpers
+that the CSRFGuard script can instrument. Developers do **not** need to manually add CSRF tokens to
+plain JSP forms, but manual `fetch()` calls and custom AJAX helpers must send the CSRF token header
+explicitly.
 
 ---
 
@@ -340,11 +342,14 @@ The login flow creates the session and generates tokens on the first GET to a pr
    `SLF4J(W): No SLF4J providers were found`
 3. Configure logger level in `log4j2.xml`: `<Logger name="org.owasp.csrfguard" level="debug"/>`
 
-### Large pages (>1 MB) not getting CSRF script injected
+### Large pages not getting CSRF script injected
 
-The `CsrfGuardScriptInjectionFilter` increases the response buffer to 1 MB. Pages larger than
-this may flush content to the client before script injection can occur. If this is an issue,
-increase the buffer size in `CsrfGuardScriptInjectionFilter.CaptureResponseWrapper` constructor.
+The `CsrfGuardScriptInjectionFilter` captures writer-based HTML output in memory with a
+`CharArrayWriter` and then injects the CSRF script before writing the final response. It does not
+increase the servlet response buffer, because Tomcat 11 forwards can reject late `setBufferSize()`
+calls after a JSP has obtained its writer. If injection is missing, check for early direct writes to
+the underlying response, `ServletOutputStream` use, committed-response redirects/errors, or a
+non-HTML `Content-Type` that forced passthrough.
 
 ---
 

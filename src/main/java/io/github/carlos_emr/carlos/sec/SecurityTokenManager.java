@@ -37,7 +37,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletRequest;
 import jakarta.servlet.ServletResponse;
 
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.ReflectionConstants;
 
@@ -68,7 +68,7 @@ public abstract class SecurityTokenManager {
             managerName = managerName.trim();
             if (!managerName.startsWith(ALLOWED_PACKAGE_PREFIX)) {
                 MiscUtils.getLogger().error("Rejected token manager class outside allowed package: {}",
-                        LogSanitizer.sanitize(managerName));
+                        LogSafe.sanitize(managerName));
                 return null;
             }
             try {
@@ -76,7 +76,7 @@ public abstract class SecurityTokenManager {
                         .getDeclaredConstructor().newInstance();
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Unable to load token manager: {}",
-                        LogSanitizer.sanitize(managerName), e);
+                        LogSafe.sanitize(managerName), e);
             }
         }
 

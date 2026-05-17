@@ -30,7 +30,7 @@ package io.github.carlos_emr.carlos.webserv.rest.conversion;
 
 import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DocumentReviewTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DocumentTo1;
@@ -127,7 +127,7 @@ public class DocumentConverter extends AbstractConverter<Document, DocumentTo1> 
             t.setReviews(reviewConverter.getAllAsTransferObjects(loggedInInfo, d.getReviews()));
         } else if (d.getReviews() != null) {
             logger.warn("Reviews not initialized on document {}; failing REST conversion",
-                    LogSanitizer.sanitize(String.valueOf(d.getDocumentNo())));
+                    LogSafe.sanitize(String.valueOf(d.getDocumentNo())));
             throw new ConversionException("Document reviews were not initialized");
         }
 

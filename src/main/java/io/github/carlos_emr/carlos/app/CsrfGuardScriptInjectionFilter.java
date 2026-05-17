@@ -21,7 +21,7 @@
  */
 package io.github.carlos_emr.carlos.app;
 
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import org.owasp.csrfguard.CsrfGuard;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -127,7 +127,7 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
 
         HttpServletRequest httpRequest = (HttpServletRequest) request;
         HttpServletResponse httpResponse = (HttpServletResponse) response;
-        String safeRequestUri = LogSanitizer.sanitizeUri(httpRequest.getRequestURI());
+        String safeRequestUri = LogSafe.sanitizeUri(httpRequest.getRequestURI());
 
         // Skip AJAX requests on REQUEST dispatch only (not FORWARD).
         // On FORWARD dispatch, the CaptureResponseWrapper is needed to prevent
@@ -147,7 +147,7 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         } catch (Exception e) {
             LOGGER.error("CsrfGuard.getInstance() failed — failing closed so HTML is not "
                     + "served without CSRF script injection (method={} uri={})",
-                    LogSanitizer.sanitize(httpRequest.getMethod()), safeRequestUri, e);
+                    LogSafe.sanitize(httpRequest.getMethod()), safeRequestUri, e);
             httpResponse.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
             return;
         }
@@ -261,7 +261,11 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
     }
 
     /**
-     * Writes the final content to the real response, updating Content-Length.
+     * Writes the final content to the real response.
+     *
+     * <p>{@code Content-Length} is updated only on the output-stream fallback path, where this
+     * method writes the exact byte array. The normal writer path leaves length calculation to the
+     * container so response character encoding cannot create a stale byte count.</p>
      *
      * <p>Uses {@code getWriter()} for text content because Tomcat 11's
      * {@code RequestDispatcher.forward()} may have already opened the writer
@@ -332,10 +336,9 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         public CaptureResponseWrapper(HttpServletResponse response, String requestUri) {
             super(response);
             this.requestUri = requestUri;
-            // Increase underlying response buffer to 1 MB to prevent premature flushing
-            // before our wrapper can capture the complete HTML content for script injection
-            // Note: setBufferSize removed for Tomcat 11 compatibility — the default
-            // buffer is sufficient since we capture via CharArrayWriter, not the response buffer
+            // Do not call setBufferSize() here. Tomcat 11 forwards can reject late buffer-size
+            // changes after a JSP has obtained its writer, so the capture boundary is the
+            // CharArrayWriter below rather than the servlet container's response buffer.
         }
 
         @Override

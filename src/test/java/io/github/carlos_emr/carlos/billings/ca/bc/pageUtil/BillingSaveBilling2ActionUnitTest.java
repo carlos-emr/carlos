@@ -21,12 +21,18 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.bc.pageUtil;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Locale;
 
+import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingHistoryDAO;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
+import io.github.carlos_emr.carlos.billings.ca.service.GstSettingsService;
 import io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
+import io.github.carlos_emr.carlos.commn.model.Appointment;
+import io.github.carlos_emr.carlos.commn.model.Billing;
+import io.github.carlos_emr.carlos.entities.Billingmaster;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -45,11 +51,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -57,8 +66,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -82,6 +93,7 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
     @Mock private AppointmentArchiveDao appointmentArchiveDao;
     @Mock private OscarAppointmentDao appointmentDao;
     @Mock private BillingmasterDAO billingmasterDAO;
+    @Mock private GstSettingsService gstSettingsService;
 
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
@@ -96,6 +108,8 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
         registerMock(AppointmentArchiveDao.class, appointmentArchiveDao);
         registerMock(OscarAppointmentDao.class, appointmentDao);
         registerMock(BillingmasterDAO.class, billingmasterDAO);
+        registerMock(GstSettingsService.class, gstSettingsService);
+        when(gstSettingsService.getCurrentPercent()).thenReturn(BigDecimal.ZERO);
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
@@ -521,6 +535,133 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should save bill update appointment and redirect receipt when session is valid")
+    void shouldSaveBillUpdateAppointmentAndRedirectReceipt_whenSessionIsValid() throws Exception {
+        request.setMethod("POST");
+        request.setContextPath("/carlos");
+        request.addParameter("dispPrice+00100", "125.50");
+        request.addParameter("WCBid", "77");
+        request.getSession().setAttribute("user", "100");
+        BillingSessionBean bean = populatedBillingSessionBean("123");
+        BillingBillingManager.BillingItem item = new BillingBillingManager()
+                .new BillingItem("00100", "Office visit", "100.00", "100", 2);
+        bean.getBillItem().add(item);
+        request.getSession().setAttribute("billingSessionBean", bean);
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("100");
+        Appointment appointment = new Appointment();
+        appointment.setId(123);
+        appointment.setStatus("N");
+        when(appointmentDao.find(123)).thenReturn(appointment);
+        doAnswer(invocation -> {
+            Billing billing = invocation.getArgument(0);
+            ReflectionTestUtils.setField(billing, "id", 456);
+            return null;
+        }).when(billingmasterDAO).save(any(Billing.class));
+        doAnswer(invocation -> {
+            Billingmaster master = invocation.getArgument(0);
+            master.setBillingmasterNo(789);
+            return null;
+        }).when(billingmasterDAO).save(any(Billingmaster.class));
+        ArgumentCaptor<Billing> billingCaptor = ArgumentCaptor.forClass(Billing.class);
+        ArgumentCaptor<Billingmaster> masterCaptor = ArgumentCaptor.forClass(Billingmaster.class);
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
+             MockedConstruction<BillingHistoryDAO> archiveConstruction =
+                     mockConstruction(BillingHistoryDAO.class)) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_billing"), eq("w"), isNull()))
+                    .thenReturn(true);
+            BillingSaveBilling2Action action = new BillingSaveBilling2Action();
+            action.setSubmit("Save & Print Receipt");
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getRedirectedUrl())
+                    .isEqualTo("/carlos/billing/CA/BC/billingView?billing_no=456&receipt=yes");
+            verify(appointmentArchiveDao).archiveAppointment(appointment);
+            verify(appointmentDao).merge(appointment);
+            assertThat(appointment.getLastUpdateUser()).isEqualTo("100");
+            verify(billingmasterDAO).save(billingCaptor.capture());
+            verify(billingmasterDAO).save(masterCaptor.capture());
+            assertThat(archiveConstruction.constructed()).hasSize(1);
+            verify(archiveConstruction.constructed().get(0)).createBillingHistoryArchive("789");
+        }
+
+        Billing savedBilling = billingCaptor.getValue();
+        assertThat(savedBilling.getAppointmentNo()).isEqualTo(123);
+        assertThat(savedBilling.getDemographicNo()).isEqualTo(22);
+        assertThat(savedBilling.getProviderNo()).isEqualTo("200");
+        assertThat(savedBilling.getTotal()).isEqualTo("251.00");
+
+        Billingmaster savedMaster = masterCaptor.getValue();
+        assertThat(savedMaster.getBillingNo()).isEqualTo(456);
+        assertThat(savedMaster.getBillAmount()).isEqualTo("251.00");
+        assertThat(savedMaster.getPaymentMethod()).isEqualTo(3);
+        assertThat(savedMaster.getWcbId()).isEqualTo(77);
+    }
+
+    @Test
+    @DisplayName("should reject malformed payment type before billing writes")
+    void shouldRejectMalformedPaymentType_beforeBillingWrites() throws Exception {
+        request.setMethod("POST");
+        request.getSession().setAttribute("user", "100");
+        BillingSessionBean bean = populatedBillingSessionBean("0");
+        bean.setPaymentType("bad");
+        bean.getBillItem().add(new BillingBillingManager()
+                .new BillingItem("00100", "Office visit", "100.00", "100", 1));
+        request.getSession().setAttribute("billingSessionBean", bean);
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("100");
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class)) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_billing"), eq("w"), isNull()))
+                    .thenReturn(true);
+
+            String result = new BillingSaveBilling2Action().execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(400);
+            assertThat(response.getContentAsString())
+                    .isEqualTo("Malformed billing request. Please return to billing and retry.");
+            verifyNoInteractions(billingmasterDAO, appointmentDao, appointmentArchiveDao);
+        }
+    }
+
+    @Test
+    @DisplayName("should reject malformed WCB id before billing writes")
+    void shouldRejectMalformedWcbId_beforeBillingWrites() throws Exception {
+        request.setMethod("POST");
+        request.getSession().setAttribute("user", "100");
+        BillingSessionBean bean = populatedBillingSessionBean("0");
+        bean.setWcbId("bad");
+        bean.getBillItem().add(new BillingBillingManager()
+                .new BillingItem("00100", "Office visit", "100.00", "100", 1));
+        request.getSession().setAttribute("billingSessionBean", bean);
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("100");
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class)) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_billing"), eq("w"), isNull()))
+                    .thenReturn(true);
+
+            String result = new BillingSaveBilling2Action().execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(400);
+            assertThat(response.getContentAsString())
+                    .isEqualTo("Malformed billing request. Please return to billing and retry.");
+            verifyNoInteractions(billingmasterDAO, appointmentDao, appointmentArchiveDao);
+        }
+    }
+
+    @Test
     @DisplayName("should throw security exception when user lacks billing write privilege")
     void shouldThrowSecurityException_whenUserLacksBillingWritePrivilege() {
         request.setMethod("POST");
@@ -545,6 +686,52 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
         bean.setApptNo(apptNo);
         bean.setEncounter("E");
         bean.setBillingType("MSP");
+        bean.setPaymentType("1");
+        bean.setBillItem(new java.util.ArrayList<>());
+        return bean;
+    }
+
+    private BillingSessionBean populatedBillingSessionBean(String apptNo) {
+        BillingSessionBean bean = minimalBillingSessionBean(apptNo);
+        bean.setEncounter("O");
+        bean.setBillingType("WCB");
+        bean.setPatientNo("22");
+        bean.setPatientName("Test Patient");
+        bean.setPatientFirstName("Test");
+        bean.setPatientLastName("Patient");
+        bean.setPatientDoB("1980-01-02");
+        bean.setPatientPHN("1234567890");
+        bean.setPatientSex("M");
+        bean.setBillingProvider("200");
+        bean.setApptProviderNo("201");
+        bean.setBillingPracNo("PRAC");
+        bean.setBillingGroupNo("GROUP");
+        bean.setBillRegion("BC");
+        bean.setVisitLocation("00");
+        bean.setVisitType("O");
+        bean.setServiceDate("2026-05-17");
+        bean.setAdmissionDate("2026-05-17");
+        bean.setGrandtotal("251.00");
+        bean.setPaymentType("3");
+        bean.setWcbId("77");
+        bean.setCorrespondenceCode("C");
+        bean.setDependent("00");
+        bean.setAfterHours("0");
+        bean.setSubmissionCode("0");
+        bean.setService_to_date("");
+        bean.setDx1("001");
+        bean.setDx2("");
+        bean.setDx3("");
+        bean.setReferral1("");
+        bean.setReferral2("");
+        bean.setReferType1("");
+        bean.setReferType2("");
+        bean.setFacilityNum("");
+        bean.setFacilitySubNum("");
+        bean.setShortClaimNote("");
+        bean.setMessageNotes("");
+        bean.setMva_claim_code("");
+        bean.setIcbc_claim_no("");
         bean.setBillItem(new java.util.ArrayList<>());
         return bean;
     }

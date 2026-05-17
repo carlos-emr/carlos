@@ -51,7 +51,7 @@
     String safeNextPage = (rawNextPage != null && allowedNextPages.contains(rawNextPage)) ? rawNextPage : "";
     if (rawNextPage != null && safeNextPage.isEmpty()) {
         org.apache.logging.log4j.LogManager.getLogger("select_facility")
-            .warn("Rejected nextPage parameter: {}", io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(rawNextPage)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            .warn("Rejected nextPage parameter: {}", io.github.carlos_emr.carlos.utility.LogSafe.sanitize(rawNextPage)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
     }
 %>
 <ul>

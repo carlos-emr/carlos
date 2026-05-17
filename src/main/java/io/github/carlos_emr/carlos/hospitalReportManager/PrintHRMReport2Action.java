@@ -35,7 +35,7 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -85,7 +85,7 @@ public class PrintHRMReport2Action extends ActionSupport {
                         hrmIds.add(Integer.valueOf(hrmReportId));
                     } catch (NumberFormatException e) {
                         logger.warn("Rejected HRM PDF request with invalid hrmReportId={}",
-                                LogSanitizer.sanitize(hrmReportId));
+                                LogSafe.sanitize(hrmReportId));
                         response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid HRM report id");
                         return NONE;
                     }

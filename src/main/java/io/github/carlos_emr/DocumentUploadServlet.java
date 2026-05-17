@@ -45,7 +45,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 /**
  * Servlet for handling document file uploads with path validation and security.
@@ -102,7 +102,7 @@ public class DocumentUploadServlet extends HttpServlet {
             // Validate and sanitize the filename to prevent path traversal
             String sanitizedFilename = FilenameUtils.getName(providedFilename);
             if (sanitizedFilename == null || sanitizedFilename.isEmpty()) {
-                MiscUtils.getLogger().error("Invalid filename provided: {}", LogSanitizer.sanitize(providedFilename)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                MiscUtils.getLogger().error("Invalid filename provided: {}", LogSafe.sanitize(providedFilename)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 return;
             }
 
@@ -122,13 +122,13 @@ public class DocumentUploadServlet extends HttpServlet {
                         providedFile = PathValidationUtils.validatePath(sanitizedFilename, archiveDir);
                     }
                 } catch (SecurityException e) {
-                    MiscUtils.getLogger().error("File does not reside in a valid path: {}", LogSanitizer.sanitize(providedFilename), e);
+                    MiscUtils.getLogger().error("File does not reside in a valid path: {}", LogSafe.sanitize(providedFilename), e);
                     return;
                 }
 
                 // Verify the file exists before copying
                 if (!providedFile.exists()) {
-                    MiscUtils.getLogger().error("File not found: {}", LogSanitizer.sanitize(sanitizedFilename)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                    MiscUtils.getLogger().error("File not found: {}", LogSafe.sanitize(sanitizedFilename)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                     return;
                 }
 
@@ -136,7 +136,7 @@ public class DocumentUploadServlet extends HttpServlet {
                 fileheader = sanitizedFilename;
 
             } catch (IOException e) {
-                MiscUtils.getLogger().error("Error processing file: {}", LogSanitizer.sanitize(sanitizedFilename), e);
+                MiscUtils.getLogger().error("Error processing file: {}", LogSafe.sanitize(sanitizedFilename), e);
                 return;
             }
         } else {
@@ -164,10 +164,10 @@ public class DocumentUploadServlet extends HttpServlet {
                             FileUtils.copyFileToDirectory(savedFile, inboxDir);
                         }
                     } catch (SecurityException e) {
-                        MiscUtils.getLogger().error("Invalid uploaded filename: {}", LogSanitizer.sanitize(submittedFilename), e);
+                        MiscUtils.getLogger().error("Invalid uploaded filename: {}", LogSafe.sanitize(submittedFilename), e);
                         continue;
                     } catch (IOException e) {
-                        MiscUtils.getLogger().error("Error processing file: {}", LogSanitizer.sanitize(submittedFilename), e);
+                        MiscUtils.getLogger().error("Error processing file: {}", LogSafe.sanitize(submittedFilename), e);
                         continue;
                     }
                 }

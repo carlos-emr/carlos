@@ -47,6 +47,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -305,7 +306,7 @@ public class LoginFilter implements Filter {
      * <p>Session validation:
      * <ul>
      *   <li>If no session or no "user" attribute → reject through
-     *       {@link AuthenticationRejectionHandler} unless URL is exempt</li>
+     *       {@link UnauthenticatedRejectionResolver} unless URL is exempt</li>
      *   <li>If session exists → check inactivity timeout</li>
      * </ul>
      *
@@ -363,7 +364,7 @@ public class LoginFilter implements Filter {
             // SECURITY: Root directory auto-exemption was removed to prevent
             // accidental exposure of resources. All exemptions must be explicit.
             if (!inListOfExemptions(requestURI, contextPath, EXEMPT_URLS)) {
-                AuthenticationRejectionHandler.rejectUnauthenticatedRequest(httpRequest, httpResponse);
+                UnauthenticatedRejectionResolver.rejectUnauthenticatedRequest(httpRequest, httpResponse);
                 return;
             }
         }
@@ -395,7 +396,15 @@ public class LoginFilter implements Filter {
                     session.setAttribute("last_request_time", thisRequestDate);
                 }
             } catch (Exception e) {
-                logger.error("ERROR checking for last activity. Limit Activity :" + InActivityLimitInMins, e);
+                logger.error("ERROR checking for last activity. Failing closed. Limit Activity: {}",
+                        LogSafe.sanitize(InActivityLimitInMins), e);
+                if (!httpResponse.isCommitted()) {
+                    httpResponse.sendRedirect(contextPath + "/logoutPage");
+                } else {
+                    logger.warn("Unable to redirect after inactivity check failure because response is already committed: uri={}",
+                            LogSafe.sanitizeUri(httpRequest.getRequestURI()));
+                }
+                return;
             }
         }
 

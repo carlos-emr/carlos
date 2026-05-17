@@ -70,7 +70,7 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import org.owasp.encoder.Encode;
 
 public class ProgramManagerView2Action extends ActionSupport {
@@ -140,7 +140,7 @@ public class ProgramManagerView2Action extends ActionSupport {
         }
         // Validate programId is present and numeric before storing in session (CWE-501: Trust Boundary Violation)
         if (programId == null || programId.isBlank() || !programId.matches("\\d+")) {
-            logger.error("Invalid or missing programId: {}", LogSanitizer.sanitize(String.valueOf(programId))); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            logger.error("Invalid or missing programId: {}", LogSafe.sanitize(String.valueOf(programId))); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             addActionError("Invalid or missing required parameter");
             return ERROR;
         }
@@ -149,7 +149,7 @@ public class ProgramManagerView2Action extends ActionSupport {
             programIdInt = Integer.valueOf(programId);
             programId = String.valueOf(programIdInt);
         } catch (NumberFormatException e) {
-            logger.error("Invalid programId format: {}", LogSanitizer.sanitize(String.valueOf(programId)));
+            logger.error("Invalid programId format: {}", LogSafe.sanitize(String.valueOf(programId)));
             addActionError("Invalid or missing required parameter");
             return ERROR;
         }
@@ -319,7 +319,7 @@ public class ProgramManagerView2Action extends ActionSupport {
             try {
                 programId = String.valueOf(Integer.parseInt(programId));
             } catch (NumberFormatException e) {
-                logger.warn("Invalid non-numeric program ID received: {}", LogSanitizer.sanitize(programId));
+                logger.warn("Invalid non-numeric program ID received: {}", LogSafe.sanitize(programId));
                 programId = null;
             }
         }
@@ -329,7 +329,7 @@ public class ProgramManagerView2Action extends ActionSupport {
         try {
             clientIdInt = Integer.parseInt(clientIdStr);
         } catch (NumberFormatException e) {
-            logger.warn("Invalid non-numeric clientId received: {}", LogSanitizer.sanitize(clientIdStr));
+            logger.warn("Invalid non-numeric clientId received: {}", LogSafe.sanitize(clientIdStr));
             return view();
         }
         String clientId = String.valueOf(clientIdInt);
@@ -340,7 +340,7 @@ public class ProgramManagerView2Action extends ActionSupport {
         try {
             queueIdLong = Long.parseLong(queueIdStr);
         } catch (NumberFormatException e) {
-            logger.warn("Invalid non-numeric queueId received: {}", LogSanitizer.sanitize(queueIdStr));
+            logger.warn("Invalid non-numeric queueId received: {}", LogSafe.sanitize(queueIdStr));
             return view();
         }
 
@@ -352,7 +352,7 @@ public class ProgramManagerView2Action extends ActionSupport {
         ProgramQueue queue = programQueueManager.getProgramQueue(String.valueOf(queueIdLong));
         Program fullProgram = programManager.getProgram(String.valueOf(programId));
         if (fullProgram == null) {
-            logger.warn("No program found for programId received for admission: {}", LogSanitizer.sanitize(String.valueOf(programId))); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            logger.warn("No program found for programId received for admission: {}", LogSafe.sanitize(String.valueOf(programId))); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             return view();
         }
         String dischargeNotes = request.getParameter("admission.dischargeNotes");
@@ -411,7 +411,7 @@ public class ProgramManagerView2Action extends ActionSupport {
         try {
             programIdInt = Integer.valueOf(programIdStr);
         } catch (NumberFormatException e) {
-            logger.warn("Invalid or missing non-numeric programId in session: {}", LogSanitizer.sanitize(programIdStr));
+            logger.warn("Invalid or missing non-numeric programId in session: {}", LogSafe.sanitize(programIdStr));
             return view();
         }
         String programId = String.valueOf(programIdInt);
@@ -422,7 +422,7 @@ public class ProgramManagerView2Action extends ActionSupport {
         try {
             clientIdInt = Integer.parseInt(clientIdStr);
         } catch (NumberFormatException e) {
-            logger.warn("Invalid non-numeric clientId received: {}", LogSanitizer.sanitize(clientIdStr));
+            logger.warn("Invalid non-numeric clientId received: {}", LogSafe.sanitize(clientIdStr));
             return view();
         }
         String clientId = String.valueOf(clientIdInt);
@@ -433,7 +433,7 @@ public class ProgramManagerView2Action extends ActionSupport {
         try {
             queueIdLong = Long.parseLong(queueIdStr);
         } catch (NumberFormatException e) {
-            logger.warn("Invalid non-numeric queueId received: {}", LogSanitizer.sanitize(queueIdStr));
+            logger.warn("Invalid non-numeric queueId received: {}", LogSafe.sanitize(queueIdStr));
             return view();
         }
 
@@ -533,7 +533,7 @@ public class ProgramManagerView2Action extends ActionSupport {
                 String admissionId = name.substring(8);
                 Admission admission = admissionManager.getAdmission(Long.valueOf(admissionId));
                 if (admission == null) {
-                    logger.warn("admission #{} not found.", LogSanitizer.sanitize(admissionId)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                    logger.warn("admission #{} not found.", LogSafe.sanitize(admissionId)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                     continue;
                 }
 
@@ -624,7 +624,7 @@ public class ProgramManagerView2Action extends ActionSupport {
             try {
                 programId = String.valueOf(Integer.parseInt(programId));
             } catch (NumberFormatException e) {
-                logger.warn("Invalid non-numeric program ID received: {}", LogSanitizer.sanitize(programId));
+                logger.warn("Invalid non-numeric program ID received: {}", LogSafe.sanitize(programId));
                 programId = null;
             }
         }
@@ -635,7 +635,7 @@ public class ProgramManagerView2Action extends ActionSupport {
         try {
             clientIdInt = Integer.parseInt(clientIdStr);
         } catch (NumberFormatException e) {
-            logger.warn("Invalid non-numeric clientId received: {}", LogSanitizer.sanitize(clientIdStr));
+            logger.warn("Invalid non-numeric clientId received: {}", LogSafe.sanitize(clientIdStr));
             return view();
         }
         String clientId = String.valueOf(clientIdInt);
@@ -644,7 +644,7 @@ public class ProgramManagerView2Action extends ActionSupport {
 
         List<Integer> dependents = clientManager.getDependentsList(clientIdInt);
 
-        logger.debug("rejecting from queue: program_id={},clientId={}", LogSanitizer.sanitize(programId), LogSanitizer.sanitize(clientId));
+        logger.debug("rejecting from queue: program_id={},clientId={}", LogSafe.sanitize(programId), LogSafe.sanitize(clientId));
 
         ProgramQueue queue = this.programQueueManager.getActiveProgramQueue(programId, clientId);
 
@@ -665,7 +665,7 @@ public class ProgramManagerView2Action extends ActionSupport {
         }
         if (dependents != null) {
             for (Integer l : dependents) {
-                logger.debug("rejecting from queue: program_id={},clientId={}", LogSanitizer.sanitize(programId), l.intValue());
+                logger.debug("rejecting from queue: program_id={},clientId={}", LogSafe.sanitize(programId), l.intValue());
                 programQueueManager.rejectQueue(programId, l.toString(), notes, rejectionReason);
             }
         }

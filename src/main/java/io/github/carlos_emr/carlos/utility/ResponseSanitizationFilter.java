@@ -40,6 +40,8 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
@@ -49,9 +51,8 @@ import java.util.regex.Pattern;
  *
  * <p>When an error response (HTTP 4xx or 5xx) is detected that contains stack trace markers,
  * the body is replaced with a generic error page that includes only the HTTP status code and
- * a correlation ID. A sanitized excerpt (up to 200 characters) is logged server-side with the
- * same correlation ID so operators can diagnose issues without exposing sensitive information
- * to clients.</p>
+ * a correlation ID. Logs include status, route, and correlation ID, but never response-body
+ * excerpts because error pages can contain PHI even after control-character sanitization.</p>
  *
  * <h3>Detection</h3>
  * <p>Stack trace detection uses a {@link Pattern} that matches common Java stack trace markers:
@@ -114,6 +115,19 @@ public class ResponseSanitizationFilter implements Filter {
      */
     static final String DISPLAY_ERROR_PROPERTY = "DISPLAY_ERROR";
 
+    private static final Set<String> ENTITY_HEADERS_TO_DROP = Set.of(
+            "Accept-Ranges",
+            "Content-Disposition",
+            "Content-Encoding",
+            "Content-Language",
+            "Content-Location",
+            "Content-MD5",
+            "Content-Range",
+            "ETag",
+            "Last-Modified",
+            "Transfer-Encoding"
+    );
+
     /**
      * Maximum number of characters to buffer per response before switching to pass-through mode.
      * The buffered prefix is still inspected before passthrough so oversized error pages cannot
@@ -166,8 +180,8 @@ public class ResponseSanitizationFilter implements Filter {
      */
     @Override
     public void init(FilterConfig filterConfig) throws ServletException {
-        String propValue = CarlosProperties.getInstance().getProperty(ENABLED_PROPERTY, "").trim();
-        enabled = propValue.isEmpty() || Boolean.parseBoolean(propValue);
+        String propValue = CarlosProperties.getInstance().getProperty(ENABLED_PROPERTY, "");
+        enabled = parseEnabledProperty(propValue);
         if (!enabled && CarlosProperties.getInstance().isPropertyActive(DISPLAY_ERROR_PROPERTY)) {
             // Sanitization is already disabled via response.sanitization.enabled=false.
             // When DISPLAY_ERROR is also active the developer has opted into full error
@@ -179,6 +193,24 @@ public class ResponseSanitizationFilter implements Filter {
                     + "or any system with real patient data.");
         }
         LOGGER.info("ResponseSanitizationFilter initialized: enabled={}", enabled);
+    }
+
+    static boolean parseEnabledProperty(String propValue) {
+        if (propValue == null || propValue.isBlank()) {
+            return true;
+        }
+        String normalized = propValue.trim().toLowerCase(Locale.ROOT);
+        if ("true".equals(normalized) || "yes".equals(normalized) || "on".equals(normalized)
+                || "1".equals(normalized)) {
+            return true;
+        }
+        if ("false".equals(normalized) || "no".equals(normalized) || "off".equals(normalized)
+                || "0".equals(normalized)) {
+            return false;
+        }
+        LOGGER.warn("Unrecognized {} value '{}'; keeping response sanitization enabled",
+                ENABLED_PROPERTY, LogSafe.sanitize(propValue));
+        return true;
     }
 
     /** {@inheritDoc} */
@@ -221,7 +253,7 @@ public class ResponseSanitizationFilter implements Filter {
             // Always log for operational visibility and auditability, even when the response
             // is already committed, so failures are never silently swallowed.
             String correlationId = generateCorrelationId();
-            String requestUri = ((HttpServletRequest) request).getRequestURI();
+            String requestUri = LogSafe.sanitizeUri(((HttpServletRequest) request).getRequestURI());
             boolean committed = httpResponse.isCommitted();
             LOGGER.error(
                     "Uncaught exception escaped filter chain [uri={} correlationId={} committed={}]",
@@ -271,15 +303,13 @@ public class ResponseSanitizationFilter implements Filter {
         String capturedBody = wrapper.getCapturedContent();
 
         if (status >= 400 && containsStackTrace(capturedBody)) {
-            // Stack trace detected: log only a sanitized excerpt and send a sanitized replacement.
+            // Stack trace detected: log correlation details only and send a sanitized replacement.
             String correlationId = generateCorrelationId();
-            String sanitizedExcerpt = LogSanitizer.sanitize(capturedBody, 200);
             LOGGER.error("Stack trace detected in error response "
-                    + "[status={} uri={} correlationId={} excerpt={}]",
+                    + "[status={} uri={} correlationId={}]",
                     status,
-                    ((HttpServletRequest) request).getRequestURI(),
-                    correlationId,
-                    sanitizedExcerpt);
+                    LogSafe.sanitizeUri(((HttpServletRequest) request).getRequestURI()),
+                    correlationId);
             sendSanitizedError(httpResponse, status, correlationId);
         } else {
             // Safe response — write captured content through to the real response.
@@ -315,13 +345,10 @@ public class ResponseSanitizationFilter implements Filter {
      * Clears the response body buffer and writes a generic HTML error page containing only the
      * HTTP status code and the correlation ID.
      *
-     * <p>Uses {@link HttpServletResponse#resetBuffer()} rather than
-     * {@link HttpServletResponse#reset()} deliberately: {@code resetBuffer()} clears only
-     * the body buffer, leaving previously-set response headers intact. This preserves security
-     * headers ({@code X-Frame-Options}, {@code X-Content-Type-Options}, etc.) set by
-     * downstream filters such as {@code ResponseDefaultsFilter}, as well as session cookies.
-     * Calling {@code reset()} would wipe all headers, undermining the security posture of the
-     * rest of the filter chain.</p>
+     * <p>Uses {@link HttpServletResponse#resetBuffer()} deliberately so security/session headers
+     * survive, then removes entity headers that describe the original representation. Without that
+     * cleanup, a sanitized HTML page could inherit {@code Content-Disposition} or
+     * {@code Content-Encoding} from a failed PDF/download response.</p>
      *
      * @param response      HttpServletResponse the real (unwrapped) response
      * @param status        int the HTTP error status code (4xx or 5xx)
@@ -342,6 +369,7 @@ public class ResponseSanitizationFilter implements Filter {
                     correlationId, e.getMessage());
             return;
         }
+        dropEntityHeaders(response);
         response.setStatus(status);
         response.setContentType("text/html;charset=UTF-8");
         String body = buildSanitizedErrorPage(status, correlationId);
@@ -358,6 +386,12 @@ public class ResponseSanitizationFilter implements Filter {
                     + " [correlationId={}]: {}", correlationId, ex.getMessage());
             response.getOutputStream().write(bodyBytes);
             response.getOutputStream().flush();
+        }
+    }
+
+    private static void dropEntityHeaders(HttpServletResponse response) {
+        for (String header : ENTITY_HEADERS_TO_DROP) {
+            response.setHeader(header, null);
         }
     }
 
@@ -749,15 +783,14 @@ public class ResponseSanitizationFilter implements Filter {
             String capturedPrefix = buffer.toString();
             if (status >= 400) {
                 String correlationId = generateCorrelationId();
-                String sanitizedExcerpt = LogSanitizer.sanitize(capturedPrefix + pendingWrite, 200);
                 if (containsStackTrace(capturedPrefix) || containsStackTrace(pendingWrite)) {
                     LOGGER.error("Stack trace detected before large error response reached capture limit "
-                                    + "[status={} correlationId={} excerpt={}]",
-                            status, correlationId, sanitizedExcerpt);
+                                    + "[status={} correlationId={}]",
+                            status, correlationId);
                 } else {
                     LOGGER.warn("Large error response reached capture limit and was sanitized defensively "
-                                    + "[status={} correlationId={} excerpt={}]",
-                            status, correlationId, sanitizedExcerpt);
+                                    + "[status={} correlationId={}]",
+                            status, correlationId);
                 }
                 sendSanitizedError(realResponse, status, correlationId);
                 buffer.reset();

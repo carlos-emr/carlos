@@ -43,7 +43,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -130,7 +130,7 @@ public class DocumentDescriptionTemplate2Action extends ActionSupport {
         documentDescriptionTemplate.setProviderNo(providerNo);
         this.documentDescriptionTemplateDao.persist(documentDescriptionTemplate);
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        LogAction.addLog(loggedInInfo != null ? loggedInInfo.getLoggedInProviderNo() : null, LogConst.ADD, LogConst.CON_DOCUMENTDESCRIPTIONTEMPLATE, LogSanitizer.sanitize(providerNo), request.getRemoteAddr(), null, "[" + LogSanitizer.sanitize(docType) + "] " + LogSanitizer.sanitize(descriptionShortcut) + " | " + LogSanitizer.sanitize(description));
+        LogAction.addLog(loggedInInfo != null ? loggedInInfo.getLoggedInProviderNo() : null, LogConst.ADD, LogConst.CON_DOCUMENTDESCRIPTIONTEMPLATE, LogSafe.sanitize(providerNo), request.getRemoteAddr(), null, "[" + LogSafe.sanitize(docType) + "] " + LogSafe.sanitize(descriptionShortcut) + " | " + LogSafe.sanitize(description));
         return null;
     }
 
@@ -150,7 +150,7 @@ public class DocumentDescriptionTemplate2Action extends ActionSupport {
         documentDescriptionTemplate.setProviderNo(providerNo);
         this.documentDescriptionTemplateDao.merge(documentDescriptionTemplate);
         LoggedInInfo loggedInInfoUpdate = LoggedInInfo.getLoggedInInfoFromSession(request);
-        LogAction.addLog(loggedInInfoUpdate != null ? loggedInInfoUpdate.getLoggedInProviderNo() : null, LogConst.UPDATE, LogConst.CON_DOCUMENTDESCRIPTIONTEMPLATE, LogSanitizer.sanitize(providerNo), request.getRemoteAddr(), null, LogSanitizer.sanitize(ids) + " [" + LogSanitizer.sanitize(docType) + "] " + LogSanitizer.sanitize(descriptionShortcut) + " | " + LogSanitizer.sanitize(description));
+        LogAction.addLog(loggedInInfoUpdate != null ? loggedInInfoUpdate.getLoggedInProviderNo() : null, LogConst.UPDATE, LogConst.CON_DOCUMENTDESCRIPTIONTEMPLATE, LogSafe.sanitize(providerNo), request.getRemoteAddr(), null, LogSafe.sanitize(ids) + " [" + LogSafe.sanitize(docType) + "] " + LogSafe.sanitize(descriptionShortcut) + " | " + LogSafe.sanitize(description));
         return null;
     }
 
@@ -159,7 +159,7 @@ public class DocumentDescriptionTemplate2Action extends ActionSupport {
         Integer id = Integer.valueOf(ids);
         this.documentDescriptionTemplateDao.remove(id);
         LoggedInInfo loggedInInfoDelete = LoggedInInfo.getLoggedInInfoFromSession(request);
-        LogAction.addLog(loggedInInfoDelete != null ? loggedInInfoDelete.getLoggedInProviderNo() : null, LogConst.DELETE, LogConst.CON_DOCUMENTDESCRIPTIONTEMPLATE, LogSanitizer.sanitize(ids), request.getRemoteAddr());
+        LogAction.addLog(loggedInInfoDelete != null ? loggedInInfoDelete.getLoggedInProviderNo() : null, LogConst.DELETE, LogConst.CON_DOCUMENTDESCRIPTIONTEMPLATE, LogSafe.sanitize(ids), request.getRemoteAddr());
         return null;
     }
 

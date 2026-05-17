@@ -51,19 +51,19 @@ import org.owasp.encoder.Encode;
  * logger.error("Invalid document ID: " + docId);
  *
  * // After (safe — user input sanitized and parameterized):
- * logger.error("Invalid document ID: {}", LogSanitizer.sanitize(docId));
+ * logger.error("Invalid document ID: {}", LogSafe.sanitize(docId));
  *
  * // For longer values where truncation at 200 would lose diagnostics:
- * logger.warn("SQL: {}", LogSanitizer.sanitize(sqlStatement, 1000));
+ * logger.warn("SQL: {}", LogSafe.sanitize(sqlStatement, 1000));
  * </pre>
  *
  * <p><strong>Note:</strong> SLF4J/Log4j2 parameterized logging ({@code {}}) alone does NOT
  * prevent log injection — CRLF characters in parameter values are written to logs verbatim.
- * {@code LogSanitizer.sanitize()} is required to neutralize control characters.</p>
+ * {@code LogSafe.sanitize()} is required to neutralize control characters.</p>
  *
  * @since 2026-04-02
  */
-public final class LogSanitizer {
+public final class LogSafe {
 
     /** Default maximum number of characters for raw input before encoding. */
     static final int DEFAULT_MAX_LENGTH = 200;
@@ -96,7 +96,7 @@ public final class LogSanitizer {
      */
     static final int MAX_ENCODED_LENGTH = DEFAULT_MAX_LENGTH * ENCODING_EXPANSION_FACTOR;
 
-    private LogSanitizer() {
+    private LogSafe() {
         // utility class — no instances
     }
 

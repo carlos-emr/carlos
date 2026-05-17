@@ -23,7 +23,7 @@ package io.github.carlos_emr.carlos.login;
 
 import java.io.IOException;
 
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -104,9 +104,9 @@ public class RootEntryRedirectFilter extends HttpFilter {
             String routeName) throws IOException {
         LOGGER.info("Rejected {}: unsupported method={}, uri={}, remote={}",
                 routeName,
-                LogSanitizer.sanitize(request.getMethod()),
-                LogSanitizer.sanitize(requestUri),
-                LogSanitizer.sanitize(request.getRemoteAddr()));
+                LogSafe.sanitize(request.getMethod()),
+                LogSafe.sanitizeUri(requestUri),
+                LogSafe.sanitize(request.getRemoteAddr()));
         response.setHeader("Allow", "GET, HEAD");
         response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
     }

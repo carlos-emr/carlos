@@ -95,6 +95,42 @@ class ResponseSanitizationFilterUnitTest {
     // -------------------------------------------------------------------------
 
     @Nested
+    @DisplayName("enabled property parsing")
+    class EnabledPropertyParsing {
+
+        @Test
+        @DisplayName("should keep sanitization enabled when configured with truthy alias")
+        void shouldKeepSanitizationEnabled_whenConfiguredWithTruthyAlias() {
+            assertThat(ResponseSanitizationFilter.parseEnabledProperty("yes")).isTrue();
+            assertThat(ResponseSanitizationFilter.parseEnabledProperty("on")).isTrue();
+            assertThat(ResponseSanitizationFilter.parseEnabledProperty("1")).isTrue();
+        }
+
+        @Test
+        @DisplayName("should disable sanitization when configured with falsy alias")
+        void shouldDisableSanitization_whenConfiguredWithFalsyAlias() {
+            assertThat(ResponseSanitizationFilter.parseEnabledProperty("no")).isFalse();
+            assertThat(ResponseSanitizationFilter.parseEnabledProperty("off")).isFalse();
+            assertThat(ResponseSanitizationFilter.parseEnabledProperty("0")).isFalse();
+        }
+
+        @Test
+        @DisplayName("should warn and keep sanitization enabled when property is unrecognized")
+        void shouldWarnAndKeepSanitizationEnabled_whenPropertyIsUnrecognized() {
+            try (LogCapture capture = LogCapture.forLogger(ResponseSanitizationFilter.class)) {
+                assertThat(ResponseSanitizationFilter.parseEnabledProperty("ture\r\nfalse")).isTrue();
+
+                assertThat(capture.events()).anySatisfy(event -> {
+                    assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                    assertThat(event.getMessage().getFormattedMessage())
+                            .contains("Unrecognized response.sanitization.enabled value")
+                            .contains("\\r\\n");
+                });
+            }
+        }
+    }
+
+    @Nested
     @DisplayName("containsStackTrace()")
     class ContainsStackTrace {
 
@@ -450,6 +486,64 @@ class ResponseSanitizationFilterUnitTest {
             assertThat(sanitized).contains("Reference ID:");
             assertThat(response.getHeader("Content-Length"))
                     .isEqualTo(String.valueOf(response.getContentAsByteArray().length));
+        }
+
+        @Test
+        @DisplayName("should drop entity headers when replacing stack trace body")
+        void shouldDropEntityHeaders_whenReplacingStackTraceBody() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/Download/report.pdf");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(500);
+                httpRes.setContentType("text/html");
+                httpRes.setHeader("Content-Disposition", "attachment; filename=report.pdf");
+                httpRes.setHeader("Content-Encoding", "gzip");
+                httpRes.setHeader("ETag", "\"old\"");
+                httpRes.setHeader("X-Frame-Options", "SAMEORIGIN");
+                res.getWriter().write("java.lang.IllegalStateException: failed\n"
+                        + "\tat io.github.carlos_emr.carlos.ErrorPage.render(ErrorPage.java:42)");
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getStatus()).isEqualTo(500);
+            assertThat(response.getContentType()).isEqualTo("text/html;charset=UTF-8");
+            assertThat(response.getHeader("Content-Disposition")).isNull();
+            assertThat(response.getHeader("Content-Encoding")).isNull();
+            assertThat(response.getHeader("ETag")).isNull();
+            assertThat(response.getHeader("X-Frame-Options")).isEqualTo("SAMEORIGIN");
+            assertThat(response.getContentAsString()).contains("Reference ID:");
+        }
+
+        @Test
+        @DisplayName("should not log stack trace body when sanitizing error")
+        void shouldNotLogStackTraceBody_whenSanitizingError() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest(
+                    "GET", "/carlos/error.jsp;jsessionid=secret123");
+            request.setRequestURI("/carlos/error.jsp;jsessionid=secret123");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            String body = "java.lang.IllegalStateException: demographic_no=42\n"
+                    + "\tat io.github.carlos_emr.carlos.ErrorPage.render(ErrorPage.java:42)";
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(500);
+                httpRes.setContentType("text/html");
+                res.getWriter().write(body);
+            };
+
+            try (LogCapture capture = LogCapture.forLogger(ResponseSanitizationFilter.class)) {
+                filter.doFilter(request, response, chain);
+
+                String logText = capture.events().stream()
+                        .map(event -> event.getMessage().getFormattedMessage())
+                        .reduce("", (left, right) -> left + "\n" + right);
+                assertThat(logText)
+                        .doesNotContain("demographic_no")
+                        .doesNotContain("secret123")
+                        .doesNotContain("jsessionid");
+                assertThat(logText).contains("/carlos/error.jsp");
+            }
         }
 
         @Test

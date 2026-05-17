@@ -34,8 +34,8 @@ import static org.mockito.Mockito.when;
  * @since 2026-05-16
  */
 @Tag("unit")
-@DisplayName("AuthenticationRejectionHandler")
-class AuthenticationRejectionHandlerUnitTest {
+@DisplayName("UnauthenticatedRejectionResolver")
+class UnauthenticatedRejectionResolverUnitTest {
 
     @Test
     @DisplayName("should redirect browser page request when unauthenticated")
@@ -44,8 +44,8 @@ class AuthenticationRejectionHandlerUnitTest {
         request.addHeader("Accept", "text/html");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
-        try (LogCapture capture = LogCapture.forLogger(AuthenticationRejectionHandler.class)) {
-            AuthenticationRejectionHandler.rejectUnauthenticatedRequest(request, response);
+        try (LogCapture capture = LogCapture.forLogger(UnauthenticatedRejectionResolver.class)) {
+            UnauthenticatedRejectionResolver.rejectUnauthenticatedRequest(request, response);
 
             assertThat(response.getStatus()).isEqualTo(302);
             assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/logoutPage");
@@ -60,7 +60,7 @@ class AuthenticationRejectionHandlerUnitTest {
         request.addHeader("X-Requested-With", "XMLHttpRequest");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
-        AuthenticationRejectionHandler.rejectUnauthenticatedRequest(request, response);
+        UnauthenticatedRejectionResolver.rejectUnauthenticatedRequest(request, response);
 
         assertTextUnauthorized(response);
     }
@@ -73,8 +73,8 @@ class AuthenticationRejectionHandlerUnitTest {
         MockHttpServletResponse response = new MockHttpServletResponse();
         response.getOutputStream();
 
-        try (LogCapture capture = LogCapture.forLogger(AuthenticationRejectionHandler.class)) {
-            AuthenticationRejectionHandler.rejectUnauthenticatedRequest(request, response);
+        try (LogCapture capture = LogCapture.forLogger(UnauthenticatedRejectionResolver.class)) {
+            UnauthenticatedRejectionResolver.rejectUnauthenticatedRequest(request, response);
 
             assertTextUnauthorized(response);
             assertThat(capture.events()).anySatisfy(event -> {
@@ -96,7 +96,7 @@ class AuthenticationRejectionHandlerUnitTest {
         MockHttpServletResponse response = new MockHttpServletResponse();
         response.getOutputStream();
 
-        AuthenticationRejectionHandler.rejectUnauthenticatedRequest(request, response);
+        UnauthenticatedRejectionResolver.rejectUnauthenticatedRequest(request, response);
 
         assertJsonUnauthorized(response);
     }
@@ -112,7 +112,7 @@ class AuthenticationRejectionHandlerUnitTest {
         when(response.getWriter()).thenThrow(new IllegalStateException("writer already used"));
         when(response.getOutputStream()).thenReturn(failingOutputStream(writeFailure));
 
-        assertThatThrownBy(() -> AuthenticationRejectionHandler.rejectUnauthenticatedRequest(request, response))
+        assertThatThrownBy(() -> UnauthenticatedRejectionResolver.rejectUnauthenticatedRequest(request, response))
                 .isSameAs(writeFailure);
     }
 
@@ -123,8 +123,8 @@ class AuthenticationRejectionHandlerUnitTest {
         MockHttpServletRequest request = request(path);
         MockHttpServletResponse response = new MockHttpServletResponse();
 
-        try (LogCapture capture = LogCapture.forLogger(AuthenticationRejectionHandler.class)) {
-            AuthenticationRejectionHandler.rejectUnauthenticatedRequest(request, response);
+        try (LogCapture capture = LogCapture.forLogger(UnauthenticatedRejectionResolver.class)) {
+            UnauthenticatedRejectionResolver.rejectUnauthenticatedRequest(request, response);
 
             assertTextUnauthorized(response);
             assertSuccessfulRejectionLog(capture, "routeType=status-code");
@@ -138,9 +138,30 @@ class AuthenticationRejectionHandlerUnitTest {
         MockHttpServletRequest request = request(path + "/child");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
-        AuthenticationRejectionHandler.rejectUnauthenticatedRequest(request, response);
+        UnauthenticatedRejectionResolver.rejectUnauthenticatedRequest(request, response);
 
         assertTextUnauthorized(response);
+    }
+
+    @Test
+    @DisplayName("should scrub path parameters from rejection audit log")
+    void shouldScrubPathParameters_fromRejectionAuditLog() throws Exception {
+        MockHttpServletRequest request = request("/Download;jsessionid=secret-token/file.pdf");
+        request.setRequestURI("/carlos/Download;jsessionid=secret-token/file.pdf");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        try (LogCapture capture = LogCapture.forLogger(UnauthenticatedRejectionResolver.class)) {
+            UnauthenticatedRejectionResolver.rejectUnauthenticatedRequest(request, response);
+
+            assertTextUnauthorized(response);
+            String logText = capture.events().stream()
+                    .map(event -> event.getMessage().getFormattedMessage())
+                    .reduce("", (left, right) -> left + "\n" + right);
+            assertThat(logText)
+                    .contains("uri=/carlos/Download/file.pdf")
+                    .doesNotContain("jsessionid")
+                    .doesNotContain("secret-token");
+        }
     }
 
     @Test
@@ -149,7 +170,7 @@ class AuthenticationRejectionHandlerUnitTest {
         MockHttpServletRequest request = request("/Downloads");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
-        AuthenticationRejectionHandler.rejectUnauthenticatedRequest(request, response);
+        UnauthenticatedRejectionResolver.rejectUnauthenticatedRequest(request, response);
 
         assertThat(response.getStatus()).isEqualTo(302);
         assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/logoutPage");
@@ -163,7 +184,7 @@ class AuthenticationRejectionHandlerUnitTest {
         request.addHeader("Accept", "application/json");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
-        AuthenticationRejectionHandler.rejectUnauthenticatedRequest(request, response);
+        UnauthenticatedRejectionResolver.rejectUnauthenticatedRequest(request, response);
 
         assertJsonUnauthorized(response);
     }
@@ -175,7 +196,7 @@ class AuthenticationRejectionHandlerUnitTest {
         request.addHeader("Accept", "application/xml;q=0.9, application/json;q=0.8");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
-        AuthenticationRejectionHandler.rejectUnauthenticatedRequest(request, response);
+        UnauthenticatedRejectionResolver.rejectUnauthenticatedRequest(request, response);
 
         assertJsonUnauthorized(response);
     }
@@ -187,7 +208,7 @@ class AuthenticationRejectionHandlerUnitTest {
         request.addHeader("Accept", "application/problem+json");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
-        AuthenticationRejectionHandler.rejectUnauthenticatedRequest(request, response);
+        UnauthenticatedRejectionResolver.rejectUnauthenticatedRequest(request, response);
 
         assertTextUnauthorized(response);
     }
@@ -199,7 +220,7 @@ class AuthenticationRejectionHandlerUnitTest {
         request.addHeader("Accept", "text/html, application/json;q=0.9");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
-        AuthenticationRejectionHandler.rejectUnauthenticatedRequest(request, response);
+        UnauthenticatedRejectionResolver.rejectUnauthenticatedRequest(request, response);
 
         assertThat(response.getStatus()).isEqualTo(302);
         assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/logoutPage");
@@ -216,7 +237,7 @@ class AuthenticationRejectionHandlerUnitTest {
         request.addHeader("Accept", acceptHeader);
         MockHttpServletResponse response = new MockHttpServletResponse();
 
-        AuthenticationRejectionHandler.rejectUnauthenticatedRequest(request, response);
+        UnauthenticatedRejectionResolver.rejectUnauthenticatedRequest(request, response);
 
         assertThat(response.getStatus()).isEqualTo(401);
         assertThat(response.getRedirectedUrl()).isNull();
@@ -231,7 +252,7 @@ class AuthenticationRejectionHandlerUnitTest {
         request.addHeader("Accept", "*/*");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
-        AuthenticationRejectionHandler.rejectUnauthenticatedRequest(request, response);
+        UnauthenticatedRejectionResolver.rejectUnauthenticatedRequest(request, response);
 
         assertThat(response.getStatus()).isEqualTo(302);
         assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/logoutPage");
@@ -245,8 +266,8 @@ class AuthenticationRejectionHandlerUnitTest {
         MockHttpServletResponse response = new MockHttpServletResponse();
         response.setCommitted(true);
 
-        try (LogCapture capture = LogCapture.forLogger(AuthenticationRejectionHandler.class)) {
-            AuthenticationRejectionHandler.rejectUnauthenticatedRequest(request, response);
+        try (LogCapture capture = LogCapture.forLogger(UnauthenticatedRejectionResolver.class)) {
+            UnauthenticatedRejectionResolver.rejectUnauthenticatedRequest(request, response);
 
             assertThat(response.getStatus()).isEqualTo(200);
             assertThat(response.getContentAsString()).isEmpty();
@@ -263,7 +284,7 @@ class AuthenticationRejectionHandlerUnitTest {
     @Test
     @DisplayName("should keep generated content status-code paths immutable")
     void shouldKeepGeneratedContentStatusCodePaths_immutable() {
-        assertThatThrownBy(() -> AuthenticationRejectionHandler.STATUS_CODE_PATHS.add("/newRoute"))
+        assertThatThrownBy(() -> UnauthenticatedRejectionResolver.STATUS_CODE_PATHS.add("/newRoute"))
                 .isInstanceOf(UnsupportedOperationException.class);
     }
 
@@ -295,7 +316,7 @@ class AuthenticationRejectionHandlerUnitTest {
     }
 
     private static Stream<String> statusCodePaths() {
-        return AuthenticationRejectionHandler.STATUS_CODE_PATHS.stream();
+        return UnauthenticatedRejectionResolver.STATUS_CODE_PATHS.stream();
     }
 
     private static Stream<Arguments> structuredAcceptHeaders() {

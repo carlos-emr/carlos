@@ -13,7 +13,7 @@ import java.util.Locale;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import org.apache.logging.log4j.Logger;
@@ -30,7 +30,7 @@ import org.apache.logging.log4j.Logger;
  * {@code application/json} get a small JSON error body, while other status-code routes get plain
  * text so scripted clients do not parse a login page as data.</p>
  */
-public final class AuthenticationRejectionHandler {
+public final class UnauthenticatedRejectionResolver {
     private static final Logger LOGGER = MiscUtils.getLogger();
     private static final String LOGOUT_PATH = "/logoutPage";
     private static final String AJAX_HEADER = "X-Requested-With";
@@ -45,6 +45,8 @@ public final class AuthenticationRejectionHandler {
      */
     static final List<String> STATUS_CODE_PATHS = List.of(
             "/Download",
+            "/patientlistbyappt",
+            "/servlet/BackupDownload",
             "/servlet/OscarDownload",
             "/report/reportDownload",
             "/contentRenderingServlet",
@@ -55,7 +57,7 @@ public final class AuthenticationRejectionHandler {
             "/form/createcustomedpdf"
     );
 
-    private AuthenticationRejectionHandler() {
+    private UnauthenticatedRejectionResolver() {
         // Utility class.
     }
 
@@ -73,10 +75,10 @@ public final class AuthenticationRejectionHandler {
 
         boolean statusCodeRoute = isStatusCodeRoute(request);
         String routeType = statusCodeRoute ? "status-code" : "browser-page";
-        String method = LogSanitizer.sanitize(request.getMethod());
-        String uri = LogSanitizer.sanitize(normalizedRequestUri(request));
-        String remote = LogSanitizer.sanitize(request.getRemoteAddr());
-        String acceptHint = LogSanitizer.sanitize(request.getHeader("Accept"));
+        String method = LogSafe.sanitize(request.getMethod());
+        String uri = LogSafe.sanitize(normalizedRequestUri(request));
+        String remote = LogSafe.sanitize(request.getRemoteAddr());
+        String acceptHint = LogSafe.sanitize(request.getHeader("Accept"));
 
         if (response.isCommitted()) {
             LOGGER.warn(
@@ -147,9 +149,9 @@ public final class AuthenticationRejectionHandler {
             LOGGER.warn(
                     "Response writer unavailable while writing unauthenticated rejection body; "
                             + "falling back to output stream: method={}, uri={}, remote={}",
-                    LogSanitizer.sanitize(request.getMethod()),
-                    LogSanitizer.sanitize(normalizedRequestUri(request)),
-                    LogSanitizer.sanitize(request.getRemoteAddr()),
+                    LogSafe.sanitize(request.getMethod()),
+                    LogSafe.sanitize(normalizedRequestUri(request)),
+                    LogSafe.sanitize(request.getRemoteAddr()),
                     writerUnavailable);
             response.getOutputStream().write(body.getBytes(StandardCharsets.UTF_8));
         }

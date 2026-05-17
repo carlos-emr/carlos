@@ -3,6 +3,7 @@ package io.github.carlos_emr.carlos.commn.model;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import org.apache.struts2.ActionContext;
 import org.apache.struts2.ActionSupport;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
@@ -20,8 +21,15 @@ public class JSONAction extends ActionSupport {
 
     protected static final ObjectMapper objectMapper = new ObjectMapper();
 
-    protected HttpServletRequest request = ServletActionContext.getRequest();
-    protected HttpServletResponse response = ServletActionContext.getResponse();
+    protected HttpServletRequest request;
+    protected HttpServletResponse response;
+
+    protected JSONAction() {
+        if (ActionContext.getContext() != null) {
+            request = ServletActionContext.getRequest();
+            response = ServletActionContext.getResponse();
+        }
+    }
 
     protected void jsonResponse(ObjectNode jsonObject) {
         try (PrintWriter out = response.getWriter()) {

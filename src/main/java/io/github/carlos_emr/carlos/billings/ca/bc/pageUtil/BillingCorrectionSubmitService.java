@@ -40,7 +40,7 @@ import io.github.carlos_emr.carlos.commn.dao.RecycleBinDao;
 import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.commn.model.RecycleBin;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 /**
  * Transactional write side for BC billing corrections.
@@ -71,7 +71,7 @@ public class BillingCorrectionSubmitService {
         Billing b = billingDao.find(billingNo);
         if (b == null) {
             throw new IllegalStateException("BC billing correction rejected: billing record not found [billingNo="
-                    + LogSanitizer.sanitize(billingNoStr) + "]");
+                    + LogSafe.sanitize(billingNoStr) + "]");
         }
 
         GregorianCalendar now = new GregorianCalendar();

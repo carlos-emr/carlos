@@ -31,22 +31,22 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 /**
- * Unit tests for {@link LogSanitizer}.
+ * Unit tests for {@link LogSafe}.
  *
  * <p>Verifies log injection prevention, truncation behaviour, null safety, and the
- * {@link LogSanitizer#sanitizeObject(Object)} fallback for non-String inputs.
+ * {@link LogSafe#sanitizeObject(Object)} fallback for non-String inputs.
  *
- * <p>LogSanitizer is a pure utility with no dependencies beyond OWASP Encoder,
+ * <p>LogSafe is a pure utility with no dependencies beyond OWASP Encoder,
  * so these tests run standalone without Spring context or mocking.</p>
  *
- * @see LogSanitizer
+ * @see LogSafe
  * @since 2026-04-03
  */
 @Tag("unit")
 @Tag("fast")
 @Tag("security")
-@DisplayName("LogSanitizer")
-class LogSanitizerUnitTest {
+@DisplayName("LogSafe")
+class LogSafeUnitTest {
 
     @Nested
     @DisplayName("sanitize(String)")
@@ -55,40 +55,40 @@ class LogSanitizerUnitTest {
         @Test
         @DisplayName("should return literal 'null' string when input is null")
         void shouldReturnLiteralNull_whenInputIsNull() {
-            assertThat(LogSanitizer.sanitize((String) null)).isEqualTo("null");
+            assertThat(LogSafe.sanitize((String) null)).isEqualTo("null");
         }
 
         @Test
         @DisplayName("should return empty string when input is empty")
         void shouldReturnEmptyString_whenInputIsEmpty() {
-            assertThat(LogSanitizer.sanitize("")).isEmpty();
+            assertThat(LogSafe.sanitize("")).isEmpty();
         }
 
         @Test
         @DisplayName("should return original value when input contains only spaces")
         void shouldReturnSpaces_whenInputIsWhitespaceOnly() {
-            assertThat(LogSanitizer.sanitize("   ")).isEqualTo("   ");
+            assertThat(LogSafe.sanitize("   ")).isEqualTo("   ");
         }
 
         @Test
         @DisplayName("should pass through safe strings without modification")
         void shouldPassThroughSafeStrings_withoutModification() {
             String safe = "Hello, world! 123 test@example.com";
-            assertThat(LogSanitizer.sanitize(safe)).isEqualTo(safe);
+            assertThat(LogSafe.sanitize(safe)).isEqualTo(safe);
         }
 
         @Test
         @DisplayName("should not modify safe file path input")
         void shouldNotModifyFilePath_whenNoControlChars() {
             String path = "/var/oscar/eforms/template.pdf";
-            assertThat(LogSanitizer.sanitize(path)).isEqualTo(path);
+            assertThat(LogSafe.sanitize(path)).isEqualTo(path);
         }
 
         @Test
         @DisplayName("should escape CR and LF characters to prevent log injection")
         void shouldEscapeCrlfCharacters_whenInputContainsNewlines() {
             String malicious = "admin\r\nINFO: Fake log entry";
-            String sanitized = LogSanitizer.sanitize(malicious);
+            String sanitized = LogSafe.sanitize(malicious);
 
             assertThat(sanitized).doesNotContain("\r");
             assertThat(sanitized).doesNotContain("\n");
@@ -100,7 +100,7 @@ class LogSanitizerUnitTest {
         @DisplayName("should escape tab and null byte control characters")
         void shouldEscapeControlCharacters_whenInputContainsTabsAndNullBytes() {
             String input = "value\twith\0control";
-            String sanitized = LogSanitizer.sanitize(input);
+            String sanitized = LogSafe.sanitize(input);
 
             assertThat(sanitized).doesNotContain("\t");
             assertThat(sanitized).doesNotContain("\0");
@@ -109,8 +109,8 @@ class LogSanitizerUnitTest {
         @Test
         @DisplayName("should not truncate when input is exactly DEFAULT_MAX_LENGTH characters")
         void shouldNotTruncate_whenInputIsExactlyMaxLength() {
-            String exact = "a".repeat(LogSanitizer.DEFAULT_MAX_LENGTH);
-            String sanitized = LogSanitizer.sanitize(exact);
+            String exact = "a".repeat(LogSafe.DEFAULT_MAX_LENGTH);
+            String sanitized = LogSafe.sanitize(exact);
 
             assertThat(sanitized).isEqualTo(exact);
             assertThat(sanitized).doesNotEndWith("...");
@@ -119,25 +119,25 @@ class LogSanitizerUnitTest {
         @Test
         @DisplayName("should truncate with ellipsis when input exceeds DEFAULT_MAX_LENGTH")
         void shouldTruncateWithEllipsis_whenInputExceedsMaxLength() {
-            String tooLong = "a".repeat(LogSanitizer.DEFAULT_MAX_LENGTH + 1);
-            String sanitized = LogSanitizer.sanitize(tooLong);
+            String tooLong = "a".repeat(LogSafe.DEFAULT_MAX_LENGTH + 1);
+            String sanitized = LogSafe.sanitize(tooLong);
 
             assertThat(sanitized).endsWith("...");
             // The encoded part (all 'a' = no expansion) should be exactly DEFAULT_MAX_LENGTH
-            assertThat(sanitized).hasSize(LogSanitizer.DEFAULT_MAX_LENGTH + 3); // + "..."
+            assertThat(sanitized).hasSize(LogSafe.DEFAULT_MAX_LENGTH + 3); // + "..."
         }
 
         @Test
         @DisplayName("should bound encoded output length even when encoding expands input")
         void shouldBoundEncodedOutput_whenEncodingExpandsInput() {
             // 200 newlines: each \n encodes to 2-char sequence, so encoded output > DEFAULT_MAX_LENGTH
-            String adversarial = "\n".repeat(LogSanitizer.DEFAULT_MAX_LENGTH);
-            String sanitized = LogSanitizer.sanitize(adversarial);
+            String adversarial = "\n".repeat(LogSafe.DEFAULT_MAX_LENGTH);
+            String sanitized = LogSafe.sanitize(adversarial);
 
             // Encoded output should exceed DEFAULT_MAX_LENGTH (expansion is 2x)
             // but remain bounded by MAX_ENCODED_LENGTH
-            assertThat(sanitized.length()).isGreaterThan(LogSanitizer.DEFAULT_MAX_LENGTH);
-            assertThat(sanitized.length()).isLessThanOrEqualTo(LogSanitizer.MAX_ENCODED_LENGTH + 3);
+            assertThat(sanitized.length()).isGreaterThan(LogSafe.DEFAULT_MAX_LENGTH);
+            assertThat(sanitized.length()).isLessThanOrEqualTo(LogSafe.MAX_ENCODED_LENGTH + 3);
         }
 
         @Test
@@ -146,7 +146,7 @@ class LogSanitizerUnitTest {
             // 100 newlines: each \n encodes to \\n (2 chars) = 200 encoded chars
             // Post-encoding bound is 100 * 6 = 600, so 200 < 600 — no post-encoding truncation
             String manyNewlines = "\n".repeat(100);
-            String sanitized = LogSanitizer.sanitize(manyNewlines, 100);
+            String sanitized = LogSafe.sanitize(manyNewlines, 100);
 
             assertThat(sanitized.length()).isEqualTo(200);
             assertThat(sanitized).doesNotEndWith("...");
@@ -158,16 +158,16 @@ class LogSanitizerUnitTest {
             // Non-ASCII chars encoded as \\uXXXX expand up to 6x.
             // Feed 200 non-ASCII chars → raw input is truncated to 200, but encoding
             // could produce up to 200*6=1200 chars. The output must be capped.
-            String adversarial = "\u00e9".repeat(LogSanitizer.DEFAULT_MAX_LENGTH);
-            String result = LogSanitizer.sanitize(adversarial);
-            assertThat(result.length()).isLessThanOrEqualTo(LogSanitizer.MAX_ENCODED_LENGTH + 3);
+            String adversarial = "\u00e9".repeat(LogSafe.DEFAULT_MAX_LENGTH);
+            String result = LogSafe.sanitize(adversarial);
+            assertThat(result.length()).isLessThanOrEqualTo(LogSafe.MAX_ENCODED_LENGTH + 3);
         }
 
         @Test
         @DisplayName("should encode accented characters used in bilingual Canadian names")
         void shouldEncodeAccentedCharacters_whenInputContainsFrenchNames() {
             String french = "Ren\u00e9 B\u00e9langer";
-            String sanitized = LogSanitizer.sanitize(french);
+            String sanitized = LogSafe.sanitize(french);
 
             // Encode.forJava() encodes Latin-1 non-ASCII chars to octal escapes (e.g. \351)
             assertThat(sanitized).doesNotContain("\u00e9");
@@ -183,7 +183,7 @@ class LogSanitizerUnitTest {
         @DisplayName("should respect custom max length")
         void shouldRespectCustomMaxLength_whenProvided() {
             String input = "a".repeat(50);
-            String sanitized = LogSanitizer.sanitize(input, 10);
+            String sanitized = LogSafe.sanitize(input, 10);
 
             assertThat(sanitized).hasSize(13); // 10 + "..."
             assertThat(sanitized).endsWith("...");
@@ -194,7 +194,7 @@ class LogSanitizerUnitTest {
         void shouldAllowLongerValues_whenCustomLimitIsHigher() {
             // A long string that exceeds 200 but is under 1000
             String longValue = "x".repeat(500);
-            String sanitized = LogSanitizer.sanitize(longValue, 1000);
+            String sanitized = LogSafe.sanitize(longValue, 1000);
 
             // Should not be truncated at all since 500 < 1000
             assertThat(sanitized).hasSize(500);
@@ -205,7 +205,7 @@ class LogSanitizerUnitTest {
         @DisplayName("should truncate at custom limit when input exceeds it")
         void shouldTruncateAtCustomLimit_whenInputExceedsIt() {
             String longValue = "x".repeat(1500);
-            String sanitized = LogSanitizer.sanitize(longValue, 1000);
+            String sanitized = LogSafe.sanitize(longValue, 1000);
 
             assertThat(sanitized).endsWith("...");
             assertThat(sanitized).hasSize(1003); // 1000 + "..."
@@ -214,23 +214,23 @@ class LogSanitizerUnitTest {
         @Test
         @DisplayName("should fall back to default max length when maxLength is zero")
         void shouldFallBackToDefault_whenMaxLengthIsZero() {
-            String input = "a".repeat(LogSanitizer.DEFAULT_MAX_LENGTH + 50);
-            String sanitized = LogSanitizer.sanitize(input, 0);
+            String input = "a".repeat(LogSafe.DEFAULT_MAX_LENGTH + 50);
+            String sanitized = LogSafe.sanitize(input, 0);
 
             // Should use DEFAULT_MAX_LENGTH as fallback
             assertThat(sanitized).endsWith("...");
-            assertThat(sanitized).hasSize(LogSanitizer.DEFAULT_MAX_LENGTH + 3);
+            assertThat(sanitized).hasSize(LogSafe.DEFAULT_MAX_LENGTH + 3);
         }
 
         @Test
         @DisplayName("should fall back to default max length when maxLength is negative")
         void shouldFallBackToDefault_whenMaxLengthIsNegative() {
-            String input = "a".repeat(LogSanitizer.DEFAULT_MAX_LENGTH + 50);
-            String sanitized = LogSanitizer.sanitize(input, -1);
+            String input = "a".repeat(LogSafe.DEFAULT_MAX_LENGTH + 50);
+            String sanitized = LogSafe.sanitize(input, -1);
 
             // Should use DEFAULT_MAX_LENGTH as fallback, not throw
             assertThat(sanitized).endsWith("...");
-            assertThat(sanitized).hasSize(LogSanitizer.DEFAULT_MAX_LENGTH + 3);
+            assertThat(sanitized).hasSize(LogSafe.DEFAULT_MAX_LENGTH + 3);
         }
     }
 
@@ -241,7 +241,7 @@ class LogSanitizerUnitTest {
         @Test
         @DisplayName("should strip path parameters before log sanitizing URI")
         void shouldStripPathParameters_beforeLogSanitizingUri() {
-            String sanitized = LogSanitizer.sanitizeUri(
+            String sanitized = LogSafe.sanitizeUri(
                     "/carlos/provider/providercontrol;jsessionid=secret/session;p=1\r\nfake");
 
             assertThat(sanitized)
@@ -256,40 +256,40 @@ class LogSanitizerUnitTest {
         @Test
         @DisplayName("should return literal null when URI is null")
         void shouldReturnLiteralNull_whenUriIsNull() {
-            assertThat(LogSanitizer.sanitizeUri(null)).isEqualTo("null");
+            assertThat(LogSafe.sanitizeUri(null)).isEqualTo("null");
         }
 
         @Test
         @DisplayName("should preserve URI when no path parameters are present")
         void shouldPreserveUri_whenNoPathParametersArePresent() {
-            assertThat(LogSanitizer.sanitizeUri("/carlos/provider/providercontrol"))
+            assertThat(LogSafe.sanitizeUri("/carlos/provider/providercontrol"))
                     .isEqualTo("/carlos/provider/providercontrol");
         }
 
         @Test
         @DisplayName("should preserve empty URI")
         void shouldPreserveEmptyUri_whenUriIsEmpty() {
-            assertThat(LogSanitizer.sanitizeUri("")).isEmpty();
+            assertThat(LogSafe.sanitizeUri("")).isEmpty();
         }
 
         @Test
         @DisplayName("should strip trailing jsessionid path parameter")
         void shouldStripTrailingJsessionidPathParameter_whenNoSlashFollows() {
-            assertThat(LogSanitizer.sanitizeUri("/carlos/login;jsessionid=abc123"))
+            assertThat(LogSafe.sanitizeUri("/carlos/login;jsessionid=abc123"))
                     .isEqualTo("/carlos/login");
         }
 
         @Test
         @DisplayName("should strip multiple path parameters from each segment")
         void shouldStripMultiplePathParameters_fromEachUriSegment() {
-            assertThat(LogSanitizer.sanitizeUri("/carlos;one=1;two=2/provider;three=3/control"))
+            assertThat(LogSafe.sanitizeUri("/carlos;one=1;two=2/provider;three=3/control"))
                     .isEqualTo("/carlos/provider/control");
         }
 
         @Test
         @DisplayName("should preserve encoded semicolon because URI is not decoded")
         void shouldPreserveEncodedSemicolon_becauseUriIsNotDecoded() {
-            assertThat(LogSanitizer.sanitizeUri("/carlos/provider%3Bjsessionid=abc/control"))
+            assertThat(LogSafe.sanitizeUri("/carlos/provider%3Bjsessionid=abc/control"))
                     .isEqualTo("/carlos/provider%3Bjsessionid=abc/control");
         }
     }
@@ -301,14 +301,14 @@ class LogSanitizerUnitTest {
         @Test
         @DisplayName("should return literal 'null' when input object is null")
         void shouldReturnLiteralNull_whenObjectIsNull() {
-            assertThat(LogSanitizer.sanitizeObject(null)).isEqualTo("null");
+            assertThat(LogSafe.sanitizeObject(null)).isEqualTo("null");
         }
 
         @Test
         @DisplayName("should delegate to String overload for normal objects")
         void shouldDelegateToStringOverload_whenObjectInputProvided() {
             Integer number = 42;
-            assertThat(LogSanitizer.sanitizeObject(number)).isEqualTo("42");
+            assertThat(LogSafe.sanitizeObject(number)).isEqualTo("42");
         }
 
         @Test
@@ -320,7 +320,7 @@ class LogSanitizerUnitTest {
                     return "safe-value";
                 }
             };
-            assertThat(LogSanitizer.sanitizeObject(obj)).isEqualTo("safe-value");
+            assertThat(LogSafe.sanitizeObject(obj)).isEqualTo("safe-value");
         }
 
         @Test
@@ -332,7 +332,7 @@ class LogSanitizerUnitTest {
                     return "value\nwith\nnewlines";
                 }
             };
-            String result = LogSanitizer.sanitizeObject(obj);
+            String result = LogSafe.sanitizeObject(obj);
             assertThat(result).doesNotContain("\n");
         }
 
@@ -346,7 +346,7 @@ class LogSanitizerUnitTest {
                 }
             };
 
-            String sanitized = LogSanitizer.sanitizeObject(injectable);
+            String sanitized = LogSafe.sanitizeObject(injectable);
 
             assertThat(sanitized).doesNotContain("\r");
             assertThat(sanitized).doesNotContain("\n");
@@ -361,7 +361,7 @@ class LogSanitizerUnitTest {
                     throw new RuntimeException("toString() exploded");
                 }
             };
-            String result = LogSanitizer.sanitizeObject(obj);
+            String result = LogSafe.sanitizeObject(obj);
             assertThat(result).startsWith("[toString() failed:");
             assertThat(result).contains("RuntimeException");
         }
@@ -376,7 +376,7 @@ class LogSanitizerUnitTest {
                 }
             };
 
-            String sanitized = LogSanitizer.sanitizeObject(npe);
+            String sanitized = LogSafe.sanitizeObject(npe);
 
             assertThat(sanitized).contains("NullPointerException");
         }
@@ -391,7 +391,7 @@ class LogSanitizerUnitTest {
                     throw new StackOverflowError();
                 }
             };
-            String result = LogSanitizer.sanitizeObject(obj);
+            String result = LogSafe.sanitizeObject(obj);
             assertThat(result).startsWith("[toString() failed:");
             assertThat(result).contains("StackOverflowError");
         }
@@ -399,12 +399,12 @@ class LogSanitizerUnitTest {
         @Test
         @DisplayName("should sanitize Integer toString representation")
         void shouldSanitizeInteger_whenPassedAsObject() {
-            assertThat(LogSanitizer.sanitizeObject(42)).isEqualTo("42");
+            assertThat(LogSafe.sanitizeObject(42)).isEqualTo("42");
         }
     }
 
     /**
-     * Tests for {@link LogSanitizer#sanitizeForDisplay(String)} — the
+     * Tests for {@link LogSafe#sanitizeForDisplay(String)} — the
      * variant used in user-facing {@link io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException} messages.
      *
      * <p>Contract distinguishing it from {@code sanitize(...)}:
@@ -423,19 +423,19 @@ class LogSanitizerUnitTest {
         @Test
         @DisplayName("should return literal \"null\" when input is null")
         void shouldReturnNullLiteral_whenInputIsNull() {
-            assertThat(LogSanitizer.sanitizeForDisplay(null)).isEqualTo("null");
+            assertThat(LogSafe.sanitizeForDisplay(null)).isEqualTo("null");
         }
 
         @Test
         @DisplayName("should return empty string when input is empty")
         void shouldReturnEmpty_whenInputIsEmpty() {
-            assertThat(LogSanitizer.sanitizeForDisplay("")).isEmpty();
+            assertThat(LogSafe.sanitizeForDisplay("")).isEmpty();
         }
 
         @Test
         @DisplayName("should preserve printable ASCII unchanged")
         void shouldPreservePrintableAscii_unchanged() {
-            assertThat(LogSanitizer.sanitizeForDisplay("Bill #12345 rejected"))
+            assertThat(LogSafe.sanitizeForDisplay("Bill #12345 rejected"))
                     .isEqualTo("Bill #12345 rejected");
         }
 
@@ -445,14 +445,14 @@ class LogSanitizerUnitTest {
             // sanitize() would Java-escape these to \" and \\ — sanitizeForDisplay
             // explicitly does not, so the operator sees the literal characters
             // they typed.
-            assertThat(LogSanitizer.sanitizeForDisplay("foo \"bar\" \\baz"))
+            assertThat(LogSafe.sanitizeForDisplay("foo \"bar\" \\baz"))
                     .isEqualTo("foo \"bar\" \\baz");
         }
 
         @Test
         @DisplayName("should preserve non-ASCII characters as themselves")
         void shouldPreserveNonAscii_asThemselves() {
-            assertThat(LogSanitizer.sanitizeForDisplay("café résumé naïve 日本語"))
+            assertThat(LogSafe.sanitizeForDisplay("café résumé naïve 日本語"))
                     .isEqualTo("café résumé naïve 日本語");
         }
 
@@ -460,7 +460,7 @@ class LogSanitizerUnitTest {
         @DisplayName("should strip CRLF / NUL / other ASCII control characters")
         void shouldStripControlCharacters_fromInput() {
             String input = "before\r\nafter\u0000\u0001end";
-            assertThat(LogSanitizer.sanitizeForDisplay(input)).isEqualTo("beforeafterend");
+            assertThat(LogSafe.sanitizeForDisplay(input)).isEqualTo("beforeafterend");
         }
 
         @Test
@@ -469,8 +469,8 @@ class LogSanitizerUnitTest {
             // Build a 300-char ASCII payload; default truncation is
             // DEFAULT_MAX_LENGTH (200), then "..." is appended.
             String big = "A".repeat(300);
-            String out = LogSanitizer.sanitizeForDisplay(big);
-            assertThat(out).hasSize(LogSanitizer.DEFAULT_MAX_LENGTH + 3);
+            String out = LogSafe.sanitizeForDisplay(big);
+            assertThat(out).hasSize(LogSafe.DEFAULT_MAX_LENGTH + 3);
             assertThat(out).startsWith("AAA");
             assertThat(out).endsWith("...");
         }
@@ -478,8 +478,8 @@ class LogSanitizerUnitTest {
         @Test
         @DisplayName("should not truncate input at exactly default-length boundary")
         void shouldNotTruncate_whenInputAtBoundary() {
-            String exact = "A".repeat(LogSanitizer.DEFAULT_MAX_LENGTH);
-            assertThat(LogSanitizer.sanitizeForDisplay(exact)).isEqualTo(exact);
+            String exact = "A".repeat(LogSafe.DEFAULT_MAX_LENGTH);
+            assertThat(LogSafe.sanitizeForDisplay(exact)).isEqualTo(exact);
         }
     }
 }

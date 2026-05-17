@@ -54,7 +54,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewLoader;
 import org.apache.logging.log4j.Logger;
@@ -141,7 +141,7 @@ public class BillingOnMriViewModelAssembler {
             throw new BillingDataLoadException(
                     "Invalid OHIP archive year",
                     BillingDataLoadException.Phase.DATE_PARSE,
-                    Map.of("year", LogSanitizer.sanitize(selectedYear)));
+                    Map.of("year", LogSafe.sanitize(selectedYear)));
         }
 
         List<String> archiveYears = new ArrayList<>();
@@ -247,7 +247,7 @@ public class BillingOnMriViewModelAssembler {
                 String billCenterCode = pbc.getBillCenterCode();
                 if (billCenterCode == null || billCenterCode.isBlank()) {
                     LOGGER.warn("Billable provider is missing bill-center code; excluding providerNo={} from MRI bill-center map",
-                            LogSanitizer.sanitize(providerNo));
+                            LogSafe.sanitize(providerNo));
                     continue;
                 }
                 map.put(providerNo, billCenterCode);
@@ -306,7 +306,7 @@ public class BillingOnMriViewModelAssembler {
                 Integer diskId = parseDiskId(data.getId());
                 if (diskId == null) {
                     LOGGER.warn("BillingOnMri: dropping MRI row with invalid disk id [{}]",
-                            LogSanitizer.sanitize(data.getId()));
+                            LogSafe.sanitize(data.getId()));
                     continue;
                 }
                 rows.add(new BillingOnMriViewModel.MriRow(

@@ -15,7 +15,7 @@ package io.github.carlos_emr.carlos.login.gate;
 import java.io.IOException;
 
 import io.github.carlos_emr.carlos.login.Login2Action;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -48,9 +48,9 @@ public final class ViewForcePasswordReset2Action extends BaseLoginPageView2Actio
         String method = request.getMethod();
         if (!"GET".equalsIgnoreCase(method) && !"HEAD".equalsIgnoreCase(method)) {
             LOGGER.info("Rejected /forcepasswordreset: unsupported method={}, uri={}, remote={}",
-                    LogSanitizer.sanitize(method),
-                    LogSanitizer.sanitize(request.getRequestURI()),
-                    LogSanitizer.sanitize(request.getRemoteAddr()));
+                    LogSafe.sanitize(method),
+                    LogSafe.sanitizeUri(request.getRequestURI()),
+                    LogSafe.sanitize(request.getRemoteAddr()));
             response.setHeader("Allow", "GET, HEAD");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
@@ -59,7 +59,7 @@ public final class ViewForcePasswordReset2Action extends BaseLoginPageView2Actio
         HttpSession session = request.getSession(false);
         if (session == null) {
             LOGGER.info("Rejected /forcepasswordreset: missing session, remote={}",
-                    LogSanitizer.sanitize(request.getRemoteAddr()));
+                    LogSafe.sanitize(request.getRemoteAddr()));
             return redirectToExpiredSession(request);
         }
         Object tokenAttr = session.getAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR);
@@ -67,7 +67,7 @@ public final class ViewForcePasswordReset2Action extends BaseLoginPageView2Actio
             session.removeAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR);
             session.removeAttribute(Login2Action.FORCE_PASSWORD_RESET_ERROR_ATTR);
             LOGGER.info("Rejected /forcepasswordreset: missing or stale credential token, remote={}",
-                    LogSanitizer.sanitize(request.getRemoteAddr()));
+                    LogSafe.sanitize(request.getRemoteAddr()));
             return redirectToExpiredSession(request);
         }
 
@@ -98,7 +98,7 @@ public final class ViewForcePasswordReset2Action extends BaseLoginPageView2Actio
             response.sendRedirect(redirectUrl);
         } catch (IOException e) {
             LOGGER.warn("Unable to redirect expired forced-password-reset session: remote={}",
-                    LogSanitizer.sanitize(request.getRemoteAddr()), e);
+                    LogSafe.sanitize(request.getRemoteAddr()), e);
             if (!response.isCommitted()) {
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             } else {

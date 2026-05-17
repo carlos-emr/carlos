@@ -242,10 +242,10 @@ public final class LoginCheckLogin {
      * [6] = email
      * </pre>
      *
-     * <p>Failure (length == 1):
+     * <p>Failure:
      * <ul>
-     *   <li>["expired"] - Password has expired</li>
-     *   <li>[null] - Authentication failed (invalid credentials)</li>
+     *   <li>{@code ["expired"]} - Password has expired</li>
+     *   <li>{@code null} - Authentication failed (invalid credentials)</li>
      * </ul>
      *
      * @param user_name String the username (validated to alphanumeric format)

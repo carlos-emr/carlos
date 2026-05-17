@@ -22,8 +22,10 @@
 package io.github.carlos_emr.carlos.sec;
 
 import java.io.IOException;
+import java.util.Date;
 import java.util.stream.Stream;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
 
 import jakarta.servlet.ServletException;
@@ -37,11 +39,15 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for {@link LoginFilter#inListOfExemptions(String, String, String[])}.
@@ -158,7 +164,7 @@ class LoginFilterUnitTest {
         @DisplayName("should audit remote address after successful unauthenticated rejection")
         void shouldAuditRemoteAddress_afterSuccessfulUnauthenticatedRejection()
                 throws ServletException, IOException {
-            try (LogCapture capture = LogCapture.forLogger(AuthenticationRejectionHandler.class)) {
+            try (LogCapture capture = LogCapture.forLogger(UnauthenticatedRejectionResolver.class)) {
                 MockHttpServletRequest request = request("GET", CONTEXT_PATH + "/admin/api/status");
                 request.setRemoteAddr("198.51.100.27");
                 request.addHeader("Accept", "application/json");
@@ -182,7 +188,7 @@ class LoginFilterUnitTest {
         @DisplayName("should warn without writing when response is already committed")
         void shouldWarnWithoutWriting_whenResponseAlreadyCommitted()
                 throws ServletException, IOException {
-            try (LogCapture capture = LogCapture.forLogger(AuthenticationRejectionHandler.class)) {
+            try (LogCapture capture = LogCapture.forLogger(UnauthenticatedRejectionResolver.class)) {
                 MockHttpServletRequest request = request("GET", CONTEXT_PATH + "/admin/api/status");
                 request.addHeader("Accept", "application/json");
                 MockHttpServletResponse response = new MockHttpServletResponse();
@@ -273,6 +279,60 @@ class LoginFilterUnitTest {
             filter.doFilter(request, response, new MockFilterChain());
 
             assertThat(response.getRedirectedUrl()).isEqualTo(CONTEXT_PATH + "/logoutPage");
+        }
+    }
+
+    @Nested
+    @DisplayName("Inactivity timeout")
+    class InactivityTimeout {
+
+        @Test
+        @DisplayName("should fail closed when inactivity limit is malformed")
+        void shouldFailClosed_whenInactivityLimitIsMalformed()
+                throws ServletException, IOException {
+            MockHttpServletRequest request = authenticatedRequest();
+            request.getSession(false).setAttribute("last_request_time", new Date());
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            MockFilterChain chain = new MockFilterChain();
+
+            try (MockedStatic<CarlosProperties> propertiesStatic = mockStatic(CarlosProperties.class);
+                 LogCapture capture = LogCapture.forLogger(LoginFilter.class)) {
+                CarlosProperties properties = mock(CarlosProperties.class);
+                propertiesStatic.when(CarlosProperties::getInstance).thenReturn(properties);
+                when(properties.getProperty("INACTIVITY_LIMIT_MINS")).thenReturn("not-a-number");
+
+                filter.doFilter(request, response, chain);
+
+                assertThat(response.getRedirectedUrl()).isEqualTo(CONTEXT_PATH + "/logoutPage");
+                assertThat(chain.getRequest()).isNull();
+                assertThat(capture.events()).anySatisfy(event -> {
+                    assertThat(event.getLevel()).isEqualTo(Level.ERROR);
+                    assertThat(event.getMessage().getFormattedMessage())
+                            .contains("ERROR checking for last activity")
+                            .contains("not-a-number");
+                });
+            }
+        }
+
+        @Test
+        @DisplayName("should fail closed when last request time has wrong type")
+        void shouldFailClosed_whenLastRequestTimeHasWrongType()
+                throws ServletException, IOException {
+            MockHttpServletRequest request = authenticatedRequest();
+            request.getSession(false).setAttribute("last_request_time", "stale-string");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            MockFilterChain chain = new MockFilterChain();
+
+            try (MockedStatic<CarlosProperties> propertiesStatic = mockStatic(CarlosProperties.class)) {
+                CarlosProperties properties = mock(CarlosProperties.class);
+                propertiesStatic.when(CarlosProperties::getInstance).thenReturn(properties);
+                when(properties.getProperty("INACTIVITY_LIMIT_MINS")).thenReturn("60");
+
+                filter.doFilter(request, response, chain);
+
+                assertThat(response.getRedirectedUrl()).isEqualTo(CONTEXT_PATH + "/logoutPage");
+                assertThat(chain.getRequest()).isNull();
+            }
         }
     }
 
@@ -619,7 +679,13 @@ class LoginFilterUnitTest {
         return request;
     }
 
+    private static MockHttpServletRequest authenticatedRequest() {
+        MockHttpServletRequest request = request("GET", CONTEXT_PATH + "/provider/providercontrol");
+        request.getSession(true).setAttribute("user", "999998");
+        return request;
+    }
+
     private static Stream<String> statusCodePaths() {
-        return AuthenticationRejectionHandler.STATUS_CODE_PATHS.stream();
+        return UnauthenticatedRejectionResolver.STATUS_CODE_PATHS.stream();
     }
 }

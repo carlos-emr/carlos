@@ -33,7 +33,7 @@ import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.commn.model.RecycleBin;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -64,7 +64,7 @@ public class BillingCorrectionSubmissionService {
         Billing billing = billingDao.find(billingNo);
         if (billing == null) {
             throw new BillingValidationException("Billing correction rejected: billing record not found [billingNo="
-                    + LogSanitizer.sanitize(command.billingNo()) + "]");
+                    + LogSafe.sanitize(command.billingNo()) + "]");
         }
 
         GregorianCalendar now = new GregorianCalendar();
@@ -113,7 +113,7 @@ public class BillingCorrectionSubmissionService {
             return Integer.parseInt(billingNo);
         } catch (NumberFormatException e) {
             throw new BillingValidationException("Billing correction rejected: invalid billing number ["
-                    + LogSanitizer.sanitize(billingNo) + "]", e);
+                    + LogSafe.sanitize(billingNo) + "]", e);
         }
     }
 
