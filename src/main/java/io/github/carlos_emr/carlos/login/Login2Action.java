@@ -1115,7 +1115,7 @@ public final class Login2Action extends ActionSupport {
                         contextCaseMgmtUsers.add(providerNo);
                     }
                     ArrayList<String> contextSnapshot = new ArrayList<String>(contextCaseMgmtUsers);
-                    request.getSession().getServletContext().setAttribute("CaseMgmtUsers", contextSnapshot);
+                    request.getSession().getServletContext().setAttribute("CaseMgmtUsers", contextSnapshot); // nosemgrep: tainted-session-from-http-request -- context snapshot contains DAO/auth-derived provider numbers, not raw request values
                     sessionCaseMgmtUsers = new ArrayList<String>(contextSnapshot);
                 }
                 session.setAttribute("CaseMgmtUsers", sessionCaseMgmtUsers); // nosemgrep: tainted-session-from-http-request -- defensive copy of servlet-context provider-number list

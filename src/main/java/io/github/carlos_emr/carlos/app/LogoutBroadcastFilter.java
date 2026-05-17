@@ -478,7 +478,7 @@ public class LogoutBroadcastFilter implements Filter {
      * (e.g., from nested frames or multiple filter passes).
      *
      * <p>The context path and logout message are encoded with
-     * {@link Encode#forJavaScript(String)} to prevent XSS in JavaScript string literals.
+     * {@link SafeEncode#forJavaScript(String)} to prevent XSS in JavaScript string literals.
      *
      * @param contextPath String the servlet context path for URL construction
      * @param locale Locale the user's locale for the logout overlay message

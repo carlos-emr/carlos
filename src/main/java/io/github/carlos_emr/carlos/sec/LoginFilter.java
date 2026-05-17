@@ -398,13 +398,17 @@ public class LoginFilter implements Filter {
             } catch (Exception e) {
                 logger.error("ERROR checking for last activity. Failing closed. Limit Activity: {}",
                         LogSafe.sanitize(InActivityLimitInMins), e);
-                if (!httpResponse.isCommitted()) {
+                if (inListOfExemptions(requestURI, contextPath, EXEMPT_URLS_FOR_REQUEST_TIMEOUT_REDIRECT)) {
+                    logger.warn("Skipping inactivity failure redirect for timeout-redirect-exempt page: uri={}",
+                            LogSafe.sanitizeUri(httpRequest.getRequestURI()));
+                } else if (!httpResponse.isCommitted()) {
                     httpResponse.sendRedirect(contextPath + "/logoutPage");
+                    return;
                 } else {
                     logger.warn("Unable to redirect after inactivity check failure because response is already committed: uri={}",
                             LogSafe.sanitizeUri(httpRequest.getRequestURI()));
+                    return;
                 }
-                return;
             }
         }
 

@@ -126,10 +126,10 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
     @DisplayName("should include context path when building receipt redirect")
     void shouldIncludeContextPath_whenBuildingReceiptRedirect() {
         String redirectUrl = BillingSaveBilling2Action.receiptRedirectUrl(
-                "/carlos", List.of("101", "102"));
+                "/carlos", List.of("101", "102 303"));
 
         assertThat(redirectUrl)
-                .isEqualTo("/carlos/billing/CA/BC/billingView?billing_no=101&billing_no=102&receipt=yes");
+                .isEqualTo("/carlos/billing/CA/BC/billingView?billing_no=101&billing_no=102+303&receipt=yes");
     }
 
     @Test
@@ -411,6 +411,14 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should encode appointment number before direct response body")
+    void shouldEncodeAppointmentNumber_beforeDirectResponseBody() {
+        assertThat(BillingSaveBilling2Action.formatMalformedAppointmentMessage(
+                "Malformed appointment number \"{0}\".", "<script>alert(1)</script>"))
+                .isEqualTo("Malformed appointment number \"&lt;script&gt;alert(1)&lt;/script&gt;\".");
+    }
+
+    @Test
     @DisplayName("should warn when message pattern leaves placeholder unsubstituted")
     void shouldWarn_whenMessagePatternLeavesPlaceholderUnsubstituted() {
         try (LogCapture capture = LogCapture.forLogger(BillingSaveBilling2Action.class)) {
@@ -506,6 +514,15 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(BillingSaveBilling2Action.message(null,
                 "billing.billingSave.sessionExpired", "fallback value."))
                 .isEqualTo("Billing session expired.");
+    }
+
+    @Test
+    @DisplayName("should resolve localized malformed billing request message")
+    void shouldResolveLocalizedMalformedBillingRequestMessage_whenLocaleIsFrench() {
+        assertThat(BillingSaveBilling2Action.message(Locale.FRENCH,
+                "billing.billingSave.malformedBillingRequest", "fallback value."))
+                .isEqualTo("Demande de facturation non valide. Veuillez retourner "
+                        + "\u00e0 la facturation et r\u00e9essayer.");
     }
 
     @Test
@@ -626,6 +643,7 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
 
             assertThat(result).isEqualTo(ActionSupport.NONE);
             assertThat(response.getStatus()).isEqualTo(400);
+            assertThat(response.getHeader("X-Content-Type-Options")).isEqualTo("nosniff");
             assertThat(response.getContentAsString())
                     .isEqualTo("Malformed billing request. Please return to billing and retry.");
             verifyNoInteractions(billingmasterDAO, appointmentDao, appointmentArchiveDao);
@@ -655,6 +673,37 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
 
             assertThat(result).isEqualTo(ActionSupport.NONE);
             assertThat(response.getStatus()).isEqualTo(400);
+            assertThat(response.getHeader("X-Content-Type-Options")).isEqualTo("nosniff");
+            assertThat(response.getContentAsString())
+                    .isEqualTo("Malformed billing request. Please return to billing and retry.");
+            verifyNoInteractions(billingmasterDAO, appointmentDao, appointmentArchiveDao);
+        }
+    }
+
+    @Test
+    @DisplayName("should reject malformed price override before billing writes")
+    void shouldRejectMalformedPriceOverride_beforeBillingWrites() throws Exception {
+        request.setMethod("POST");
+        request.addParameter("dispPrice+00100", "not-a-price");
+        request.getSession().setAttribute("user", "100");
+        BillingSessionBean bean = populatedBillingSessionBean("123");
+        bean.getBillItem().add(new BillingBillingManager()
+                .new BillingItem("00100", "Office visit", "100.00", "100", 1));
+        request.getSession().setAttribute("billingSessionBean", bean);
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("100");
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class)) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_billing"), eq("w"), isNull()))
+                    .thenReturn(true);
+
+            String result = new BillingSaveBilling2Action().execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(400);
+            assertThat(response.getHeader("X-Content-Type-Options")).isEqualTo("nosniff");
             assertThat(response.getContentAsString())
                     .isEqualTo("Malformed billing request. Please return to billing and retry.");
             verifyNoInteractions(billingmasterDAO, appointmentDao, appointmentArchiveDao);

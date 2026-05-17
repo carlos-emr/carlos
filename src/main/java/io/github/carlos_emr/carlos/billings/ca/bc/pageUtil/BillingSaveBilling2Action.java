@@ -39,6 +39,8 @@ import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.RedirectValidationUtils;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.sec.UnauthenticatedRejectionResolver;
@@ -56,11 +58,14 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Locale;
+import java.util.Map;
 import java.util.MissingResourceException;
 import java.util.ResourceBundle;
 
@@ -71,10 +76,15 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
 public class BillingSaveBilling2Action extends ActionSupport {
     private static final String BILLING_SESSION_EXPIRED_KEY = "billing.billingSave.sessionExpired";
     private static final String BILLING_SESSION_EXPIRED_FALLBACK = "Billing session expired.";
+    private static final String MALFORMED_BILLING_REQUEST_KEY = "billing.billingSave.malformedBillingRequest";
+    private static final String MALFORMED_BILLING_REQUEST_FALLBACK =
+            "Malformed billing request. Please return to billing and retry.";
     private static final String MALFORMED_APPOINTMENT_NO_KEY = "billing.billingSave.malformedAppointmentNo";
     /** MessageFormat pattern consumed by {@link #formatMalformedAppointmentMessage(String, String)}. */
     private static final String MALFORMED_APPOINTMENT_NO_FALLBACK = "Malformed appointment number \"{0}\". "
             + "Please return to billing and re-select the appointment.";
+    private static final String X_CONTENT_TYPE_OPTIONS = "X-Content-Type-Options";
+    private static final String NOSNIFF = "nosniff";
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -121,9 +131,12 @@ public class BillingSaveBilling2Action extends ActionSupport {
         String dataCenterId = CarlosProperties.getInstance().getProperty("dataCenterId");
         String billingMasterId = "";
 
+        ArrayList<BillingBillingManager.BillingItem> billItem = bean.getBillItem();
+
         int appointmentNo;
         int paymentMethod;
         Integer wcbId = null;
+        Map<String, Double> priceOverrides;
         try {
             appointmentNo = parseOptionalAppointmentNo(bean.getApptNo());
         } catch (IllegalArgumentException malformedAppointmentNo) {
@@ -135,6 +148,7 @@ public class BillingSaveBilling2Action extends ActionSupport {
             if ("WCB".equals(bean.getBillingType())) {
                 wcbId = parseRequiredInteger(bean.getWcbId(), "WCB id");
             }
+            priceOverrides = parsePriceOverrides(request, billItem);
         } catch (IllegalArgumentException malformedBillingValue) {
             rejectMalformedBillingValue(request, response, malformedBillingValue);
             return NONE;
@@ -143,8 +157,6 @@ public class BillingSaveBilling2Action extends ActionSupport {
 
         char billingAccountStatus = getBillingAccountStatus(bean);
 
-        ArrayList<BillingBillingManager.BillingItem> billItem = bean.getBillItem();
-
         char paymentMode = (bean.getEncounter().equals("E") && !bean.getBillingType().equals("ICBC") && !bean.getBillingType().equals("Pri") && !bean.getBillingType().equals("WCB")) ? 'E' : '0';
 
         String billedAmount;
@@ -152,10 +164,11 @@ public class BillingSaveBilling2Action extends ActionSupport {
         for (BillingBillingManager.BillingItem bItem : billItem) {
 
             Billing billing = getBillingObj(bean, curDate, billingAccountStatus, appointmentNo);
-            if (request.getParameter("dispPrice+" + bItem.getServiceCode()) != null) {
-                String updatedPrice = request.getParameter("dispPrice+" + bItem.getServiceCode());
-                log.debug(bItem.getServiceCode() + "Original " + bItem.price + " updated price " + Double.parseDouble(updatedPrice));
-                bItem.price = Double.parseDouble(updatedPrice);
+            if (priceOverrides.containsKey(bItem.getServiceCode())) {
+                Double updatedPrice = priceOverrides.get(bItem.getServiceCode());
+                log.debug("{} Original {} updated price {}",
+                        LogSafe.sanitize(bItem.getServiceCode()), bItem.price, updatedPrice);
+                bItem.price = updatedPrice;
                 bItem.getLineTotal();
             }
 
@@ -206,7 +219,7 @@ public class BillingSaveBilling2Action extends ActionSupport {
             return "anotherBill";
         } else if ("Save & Print Receipt".equals(submit)) {
             String redirectUrl = receiptRedirectUrl(request.getContextPath(), billingIds);
-            response.sendRedirect(redirectUrl);
+            sendReceiptRedirect(response, redirectUrl);
             return NONE;
         }
 
@@ -254,8 +267,7 @@ public class BillingSaveBilling2Action extends ActionSupport {
                 LogSafe.sanitizeUri(request.getRequestURI()),
                 LogSafe.sanitize(request.getRemoteAddr()));
         response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
-        response.setContentType("text/plain;charset=UTF-8");
+        preparePlainTextRejection(response);
         writeBody(request, response,
                 message(request.getLocale(), BILLING_SESSION_EXPIRED_KEY, BILLING_SESSION_EXPIRED_FALLBACK));
     }
@@ -332,8 +344,7 @@ public class BillingSaveBilling2Action extends ActionSupport {
         String messagePattern = message(request.getLocale(),
                 MALFORMED_APPOINTMENT_NO_KEY, MALFORMED_APPOINTMENT_NO_FALLBACK);
         response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
-        response.setContentType("text/plain;charset=UTF-8");
+        preparePlainTextRejection(response);
         writeBody(request, response, formatMalformedAppointmentMessage(messagePattern, rawAppointmentNo));
     }
 
@@ -353,10 +364,11 @@ public class BillingSaveBilling2Action extends ActionSupport {
                 LogSafe.sanitize(malformedBillingValue.getMessage()),
                 malformedBillingValue);
         response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
-        response.setContentType("text/plain;charset=UTF-8");
+        preparePlainTextRejection(response);
         writeBody(request, response,
-                "Malformed billing request. Please return to billing and retry.");
+                message(request.getLocale(),
+                        MALFORMED_BILLING_REQUEST_KEY,
+                        MALFORMED_BILLING_REQUEST_FALLBACK));
     }
 
     /**
@@ -370,7 +382,8 @@ public class BillingSaveBilling2Action extends ActionSupport {
      * operator logs do not imply quote recovery was attempted.</p>
      */
     static String formatMalformedAppointmentMessage(String messagePattern, String rawAppointmentNo) {
-        String sanitizedAppointmentNo = LogSafe.sanitizeForDisplay(rawAppointmentNo);
+        String sanitizedAppointmentNo = SafeEncode.forHtmlContent(
+                LogSafe.sanitizeForDisplay(rawAppointmentNo));
         MessagePatternResult result = formatMessagePatternOnce(
                 messagePattern, sanitizedAppointmentNo, MALFORMED_APPOINTMENT_NO_FALLBACK);
         if (result.usedFallback()) {
@@ -490,6 +503,12 @@ public class BillingSaveBilling2Action extends ActionSupport {
         }
     }
 
+    private static void preparePlainTextRejection(HttpServletResponse response) {
+        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        response.setContentType("text/plain;charset=UTF-8");
+        response.setHeader(X_CONTENT_TYPE_OPTIONS, NOSNIFF);
+    }
+
     private record MessagePatternResult(String message, boolean usedFallback) {
     }
 
@@ -519,10 +538,22 @@ public class BillingSaveBilling2Action extends ActionSupport {
         StringBuilder redirectUrl = new StringBuilder(contextPath == null ? "" : contextPath);
         redirectUrl.append("/billing/CA/BC/billingView?");
         for (String billingId : billingIds) {
-            redirectUrl.append("billing_no=").append(billingId).append("&");
+            redirectUrl.append("billing_no=")
+                    .append(URLEncoder.encode(String.valueOf(billingId), StandardCharsets.UTF_8))
+                    .append("&");
         }
         redirectUrl.append("receipt=yes");
         return redirectUrl.toString();
+    }
+
+    private void sendReceiptRedirect(HttpServletResponse response, String redirectUrl) throws IOException {
+        if (!RedirectValidationUtils.isValidRelativeRedirect(redirectUrl)) {
+            log.error("Refused unsafe BC billing receipt redirect: redirectUrl={}",
+                    LogSafe.sanitize(redirectUrl));
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            return;
+        }
+        response.sendRedirect(redirectUrl);
     }
 
     /**
@@ -675,6 +706,36 @@ public class BillingSaveBilling2Action extends ActionSupport {
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException("malformed BC billing " + fieldName, e);
         }
+    }
+
+    private static Map<String, Double> parsePriceOverrides(
+            HttpServletRequest request,
+            Iterable<BillingBillingManager.BillingItem> billItems) {
+
+        Map<String, Double> priceOverrides = new HashMap<>();
+        if (billItems == null) {
+            return priceOverrides;
+        }
+        for (BillingBillingManager.BillingItem billItem : billItems) {
+            String serviceCode = billItem.getServiceCode();
+            String updatedPrice = request.getParameter("dispPrice+" + serviceCode);
+            if (updatedPrice == null) {
+                continue;
+            }
+            try {
+                double parsedPrice = Double.parseDouble(updatedPrice.trim());
+                if (!Double.isFinite(parsedPrice)) {
+                    throw new NumberFormatException("non-finite price");
+                }
+                priceOverrides.put(serviceCode, parsedPrice);
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException(
+                        "malformed BC billing display price for service code "
+                                + LogSafe.sanitizeForDisplay(serviceCode),
+                        e);
+            }
+        }
+        return priceOverrides;
     }
 
     /**

@@ -334,6 +334,35 @@ class LoginFilterUnitTest {
                 assertThat(chain.getRequest()).isNull();
             }
         }
+
+        @Test
+        @DisplayName("should not redirect loop when inactivity check fails on logout page")
+        void shouldNotRedirectLoop_whenInactivityCheckFailsOnLogoutPage()
+                throws ServletException, IOException {
+            MockHttpServletRequest request = request("GET", CONTEXT_PATH + "/logoutPage");
+            request.getSession(true).setAttribute("user", "999998");
+            request.getSession(false).setAttribute("last_request_time", "stale-string");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            MockFilterChain chain = new MockFilterChain();
+
+            try (MockedStatic<CarlosProperties> propertiesStatic = mockStatic(CarlosProperties.class);
+                 LogCapture capture = LogCapture.forLogger(LoginFilter.class)) {
+                CarlosProperties properties = mock(CarlosProperties.class);
+                propertiesStatic.when(CarlosProperties::getInstance).thenReturn(properties);
+                when(properties.getProperty("INACTIVITY_LIMIT_MINS")).thenReturn("60");
+
+                filter.doFilter(request, response, chain);
+
+                assertThat(response.getRedirectedUrl()).isNull();
+                assertThat(chain.getRequest()).isSameAs(request);
+                assertThat(capture.events()).anySatisfy(event -> {
+                    assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                    assertThat(event.getMessage().getFormattedMessage())
+                            .contains("Skipping inactivity failure redirect")
+                            .contains("/carlos/logoutPage");
+                });
+            }
+        }
     }
 
     @Nested

@@ -53,9 +53,11 @@ import io.github.carlos_emr.carlos.billing.CA.filters.CodeFilterManager;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnClaimLoader;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnLookupService;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
+import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -412,12 +414,27 @@ class BillingOnFormViewModelAssemblerUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldNotLogPatientOrProviderIdentifiers_whenDroolsRecommendationsFail() throws Exception {
-        String source = Files.readString(Path.of(
-                "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/assembler/BillingOnFormViewModelAssembler.java"));
+        request.setParameter("demographic_no", "12345");
+        request.setParameter("appointment_no", "0");
+        request.setParameter("service_date", "2026-04-24");
+        request.setParameter("billForm", "GP");
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
 
-        assertThat(source).doesNotContain("Drools billing-guidelines evaluation failed for demo={}");
-        assertThat(source).doesNotContain("LogSafe.sanitize(demoNo), userNo, e");
-        assertThat(source).doesNotContain("OutOfMemoryError-adjacent");
+        when(billingGuidelines.evaluateAndGetConsequences(any(), eq("12345"), eq("999998")))
+                .thenThrow(new RuntimeException("rules unavailable"));
+
+        try (LogCapture capture = LogCapture.forLogger(BillingOnFormViewModelAssembler.class)) {
+            assembler.assemble(request, loggedInInfo);
+
+            assertThat(capture.events()).anySatisfy(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.ERROR);
+                assertThat(event.getMessage().getFormattedMessage())
+                        .contains("Drools billing-guidelines evaluation failed");
+            });
+            assertThat(capture.messages())
+                    .noneMatch(message -> message.contains("12345"))
+                    .noneMatch(message -> message.contains("999998"));
+        }
     }
 
     @Test

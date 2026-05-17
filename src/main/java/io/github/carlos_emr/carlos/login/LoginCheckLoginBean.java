@@ -165,8 +165,8 @@ public final class LoginCheckLoginBean {
      * @param pin1 String the 4-digit provider PIN (may be null if PIN not required)
      * @param ip1 String the client IP address for LAN/WAN detection
      * @see #setUsername for username storage
-     * @see #setPassword for password whitespace normalization
-     * @see #setPin for PIN whitespace normalization
+     * @see #setPassword for legacy password space-to-backspace transformation
+     * @see #setPin for legacy PIN space-to-backspace transformation
      * @see #setIp for IP address storage
      */
     public void ini(String user_name, String password, String pin1, String ip1) {

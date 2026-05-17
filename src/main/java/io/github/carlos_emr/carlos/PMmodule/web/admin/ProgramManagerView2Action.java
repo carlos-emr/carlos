@@ -665,7 +665,7 @@ public class ProgramManagerView2Action extends ActionSupport {
         }
         if (dependents != null) {
             for (Integer l : dependents) {
-                logger.debug("rejecting from queue: program_id={},clientId={}", LogSafe.sanitize(programId), l.intValue());
+                logger.debug("rejecting from queue: program_id={},clientId={}", LogSafe.sanitize(programId), l);
                 programQueueManager.rejectQueue(programId, l.toString(), notes, rejectionReason);
             }
         }

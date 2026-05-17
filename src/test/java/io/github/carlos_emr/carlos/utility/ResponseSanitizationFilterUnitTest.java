@@ -251,7 +251,7 @@ class ResponseSanitizationFilterUnitTest {
 
         @Test
         @DisplayName("should pass through error response with stack trace unchanged")
-        void shouldPassThrough_errorWithStackTrace_whenDisabled() throws Exception {
+        void shouldPassThroughErrorWithStackTrace_whenDisabled() throws Exception {
             MockHttpServletRequest request = new MockHttpServletRequest();
             MockHttpServletResponse response = new MockHttpServletResponse();
             String stackTraceBody = "java.lang.NullPointerException\n"
@@ -301,7 +301,7 @@ class ResponseSanitizationFilterUnitTest {
 
         @Test
         @DisplayName("should pass through 404 response without stack trace unchanged")
-        void shouldPassThrough_404WithoutStackTrace() throws Exception {
+        void shouldPassThroughWithoutSanitization_whenStatusIs404() throws Exception {
             MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/missing.jsp");
             MockHttpServletResponse response = new MockHttpServletResponse();
             String body = "<html><body><h1>Not Found</h1></body></html>";
@@ -368,7 +368,7 @@ class ResponseSanitizationFilterUnitTest {
 
         @Test
         @DisplayName("should sanitize 500 response containing a stack trace")
-        void shouldSanitize_500ResponseWithStackTrace() throws Exception {
+        void shouldSanitizeStackTrace_whenResponseStatusIs500() throws Exception {
             MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/index");
             MockHttpServletResponse response = new MockHttpServletResponse();
             String stackTraceBody = "java.lang.NullPointerException\n"
@@ -398,7 +398,7 @@ class ResponseSanitizationFilterUnitTest {
 
         @Test
         @DisplayName("should sanitize 404 response containing a stack trace")
-        void shouldSanitize_404ResponseWithStackTrace() throws Exception {
+        void shouldSanitizeStackTrace_whenStatusIs404() throws Exception {
             MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/missing");
             MockHttpServletResponse response = new MockHttpServletResponse();
             String body = "org.springframework.web.servlet.NoHandlerFoundException\n"
@@ -760,7 +760,7 @@ class ResponseSanitizationFilterUnitTest {
 
         @Test
         @DisplayName("should still sanitize stack trace when only DISPLAY_ERROR is set")
-        void shouldStillSanitize_whenOnlyDisplayErrorIsSet_withoutDisablingSanitization()
+        void shouldStillSanitize_whenOnlyDisplayErrorIsSet()
                 throws Exception {
             MockHttpServletRequest request = new MockHttpServletRequest();
             MockHttpServletResponse response = new MockHttpServletResponse();
@@ -818,7 +818,7 @@ class ResponseSanitizationFilterUnitTest {
 
         @Test
         @DisplayName("should pass through stack trace unchanged when both properties are set")
-        void shouldPassThrough_stackTrace_whenBothPropertiesSet() throws Exception {
+        void shouldPassThroughStackTrace_whenBothPropertiesSet() throws Exception {
             MockHttpServletRequest request = new MockHttpServletRequest();
             MockHttpServletResponse response = new MockHttpServletResponse();
             String stackTraceBody = "java.lang.NullPointerException\n"

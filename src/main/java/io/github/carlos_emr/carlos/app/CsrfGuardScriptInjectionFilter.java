@@ -203,7 +203,7 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
 
         String captured = wrapper.getCapturedContent();
         LOGGER.debug("CsrfGuard: captured {} bytes for {} contentType={}",
-                captured != null ? captured.length() : 0, safeRequestUri, contentType);
+                captured.length(), safeRequestUri, contentType);
 
         // Idempotency: skip if the page already contains a <script src="...csrfguard..."> tag.
         // Regex is used rather than contains() to avoid false positives when the literal
