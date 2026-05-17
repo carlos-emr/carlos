@@ -81,7 +81,7 @@
     request.setAttribute("__bveMessage", __bveMessage);
 %>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="${pageContext.request.locale.language}">
 <head>
     <meta charset="UTF-8">
     <title>Billing — Submission Rejected</title>
