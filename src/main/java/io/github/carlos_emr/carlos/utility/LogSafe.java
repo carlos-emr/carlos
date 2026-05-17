@@ -134,15 +134,14 @@ public final class LogSafe {
         if (input == null) {
             return "null";
         }
-        if (maxLength < 1) {
-            maxLength = DEFAULT_MAX_LENGTH;
-        }
-        boolean truncated = input.length() > maxLength;
+        int effectiveMaxLength = maxLength < 1 ? DEFAULT_MAX_LENGTH : maxLength;
+        boolean truncated = input.length() > effectiveMaxLength;
+        String rawInput = input;
         if (truncated) {
-            input = input.substring(0, maxLength);
+            rawInput = rawInput.substring(0, effectiveMaxLength);
         }
-        String encoded = Encode.forJava(input);
-        int encodedLimit = maxLength * ENCODING_EXPANSION_FACTOR;
+        String encoded = Encode.forJava(rawInput);
+        int encodedLimit = effectiveMaxLength * ENCODING_EXPANSION_FACTOR;
         if (encoded.length() > encodedLimit) {
             encoded = encoded.substring(0, encodedLimit);
             truncated = true;

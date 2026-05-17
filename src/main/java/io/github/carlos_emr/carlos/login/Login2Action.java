@@ -1413,11 +1413,13 @@ public final class Login2Action extends ActionSupport {
     private void setUserInfoToSession(HttpServletRequest request, String userName, String password, String pin,
                                       String nextPage) {
         // Validate nextPage before caching to prevent open redirect (CWE-601 defense in depth)
-        if (!RedirectValidationUtils.isValidRelativeRedirect(nextPage)) {
-            if (nextPage != null) {
-                logger.warn("Rejected invalid nextPage before credential cache: {}", LogSafe.sanitize(nextPage));
+        String validatedNextPage = nextPage;
+        if (!RedirectValidationUtils.isValidRelativeRedirect(validatedNextPage)) {
+            if (validatedNextPage != null) {
+                logger.warn("Rejected invalid nextPage before credential cache: {}",
+                        LogSafe.sanitize(validatedNextPage));
             }
-            nextPage = null;
+            validatedNextPage = null;
         }
 
         // SECURITY: Do NOT place credential material (password hash, PIN) in the HTTP session.
@@ -1426,7 +1428,7 @@ public final class Login2Action extends ActionSupport {
         // server-side cache keyed by a cryptographically random opaque token, and store
         // only the opaque token in the session. See LoginCredentialCache for details.
         LoginCredentialCache.LoginCredentials credentials = new LoginCredentialCache.LoginCredentials(
-                userName, securityManager.encodePassword(password), pin, nextPage);
+                userName, securityManager.encodePassword(password), pin, validatedNextPage);
 
         // Invalidate any previously issued token on this session before minting a new one,
         // so that stale cache entries do not outlive the current login attempt.
