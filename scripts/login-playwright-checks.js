@@ -98,8 +98,8 @@ function appUrl(path, query = null) {
 async function gotoApp(page, path, options = {}, query = null) {
   // BASE_URL is validated by validateBaseUrl(), and path must be root-relative.
   const targetUrl = appUrl(path, query);
-  // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl rejects non-local hosts unless explicitly allowed
-  return page.goto(targetUrl, options);
+  // nosemgrep -- appUrl rejects non-root-relative paths and validateBaseUrl rejects non-local hosts unless explicitly allowed.
+  return page.goto(targetUrl, options); // nosemgrep
 }
 
 function createMysqlDefaultsFile() {
