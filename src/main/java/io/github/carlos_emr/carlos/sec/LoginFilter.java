@@ -75,7 +75,7 @@ import io.github.carlos_emr.CarlosProperties;
  * <ul>
  *   <li><b>EXEMPT_URLS:</b> URLs that don't require authentication (login page, public assets, web services)</li>
  *   <li><b>EXEMPT_URLS_FOR_REQUEST_TIMEOUT:</b> URLs that don't reset the inactivity timer (AJAX polling, etc.)</li>
- *   <li><b>EXEMPT_URLS_FOR_REQUEST_TIMEOUT_REDIRECT:</b> URLs exempt from timeout redirect (already on logout/login pages)</li>
+ *   <li><b>EXEMPT_URLS_FOR_REQUEST_TIMEOUT_REDIRECT:</b> unauthenticated public pages exempt from timeout redirect loops</li>
  * </ul>
  *
  * <p>Inactivity timeout behavior:
@@ -258,7 +258,9 @@ public class LoginFilter implements Filter {
      *
      * <p>If inactivity timeout is exceeded, users are normally redirected to
      * {@code /logoutPage}. However, if the user is already on one of these pages,
-     * the redirect is skipped to avoid infinite redirect loops.
+     * the redirect is skipped to avoid infinite redirect loops. Keep this list limited
+     * to unauthenticated public pages; adding authenticated pages would turn timeout
+     * checker failures into a fail-open path for protected content.
      */
     private static final String[] EXEMPT_URLS_FOR_REQUEST_TIMEOUT_REDIRECT = {
             "/logoutPage",
@@ -396,12 +398,14 @@ public class LoginFilter implements Filter {
                     session.setAttribute("last_request_time", thisRequestDate);
                 }
             } catch (Exception e) {
-                logger.error("ERROR checking for last activity. Failing closed. Limit Activity: {}",
-                        LogSafe.sanitize(InActivityLimitInMins), e);
                 if (inListOfExemptions(requestURI, contextPath, EXEMPT_URLS_FOR_REQUEST_TIMEOUT_REDIRECT)) {
-                    logger.warn("Skipping inactivity failure redirect for timeout-redirect-exempt page: uri={}",
-                            LogSafe.sanitizeUri(httpRequest.getRequestURI()));
+                    logger.warn("ERROR checking for last activity on timeout-redirect-exempt public page; "
+                                    + "skipping redirect to avoid loop. Limit Activity: {} uri={}",
+                            LogSafe.sanitize(InActivityLimitInMins),
+                            LogSafe.sanitizeUri(httpRequest.getRequestURI()), e);
                 } else if (!httpResponse.isCommitted()) {
+                    logger.error("ERROR checking for last activity. Failing closed. Limit Activity: {}",
+                            LogSafe.sanitize(InActivityLimitInMins), e);
                     httpResponse.sendRedirect(contextPath + "/logoutPage");
                     return;
                 } else {

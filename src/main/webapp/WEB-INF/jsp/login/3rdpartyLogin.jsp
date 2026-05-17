@@ -144,14 +144,15 @@
             const pin      = el("pin")?.value || "";
             const oauthToken = el("oauth_token")?.value || "";
 
-            const loginUrl = "${pageContext.request.contextPath}/login;jsessionid=${pageContext.session.id}";
+            // Authentication always rotates the session; rely on the new cookie instead of
+            // URL-rewriting the pre-authentication session id into follow-up OAuth requests.
+            const loginUrl = "${pageContext.request.contextPath}/login";
 
             const formData = new URLSearchParams();
             formData.set("username", username);
             formData.set("password", password);
             formData.set("pin", pin);
             formData.set("ajaxResponse", "true");
-            formData.set("invalidate_session", "false");
             formData.set("oauth_token", oauthToken);
 
             try {
@@ -278,7 +279,7 @@
                     </h5>
                     <h5>Permissions requested:</h5>
                     <form id="scopeForm" method="post"
-                        action="${carlos:forHtmlAttribute(oauthData.replyTo)};jsessionid=${pageContext.session.id}">
+                        action="${carlos:forHtmlAttribute(oauthData.replyTo)}">
                         <c:forEach var="perm" items="${oauthData.permissions}">
                             <div class="mb-3">
                             <div>

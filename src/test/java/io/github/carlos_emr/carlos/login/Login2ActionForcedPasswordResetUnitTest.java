@@ -568,7 +568,6 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
         originalSession.setAttribute("user", "already-authenticated");
 
         request.setParameter("forcedpasswordchange", "false");
-        request.setParameter("invalidate_session", "false");
         when(securityDao.findByUserName(USERNAME)).thenReturn(Collections.singletonList(security));
         when(providerDao.getProvider("999998")).thenReturn(activeProvider());
         when(mfaManager.isMfaRegistrationRequired(security.getId())).thenReturn(false);
@@ -1347,8 +1346,8 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should rotate existing session and preserve OAuth state")
-    void shouldRotateExistingSession_andPreserveOauthState() throws Exception {
+    @DisplayName("should rotate existing session and drop legacy OAuth state")
+    void shouldRotateExistingSession_andDropLegacyOauthState() throws Exception {
         Security security = forcedResetSecurity();
         security.setForcePasswordReset(Boolean.FALSE);
         MockHttpSession pendingSession = (MockHttpSession) request.getSession();
@@ -1367,7 +1366,7 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
             assertThat(result).isEqualTo(ActionSupport.NONE);
             assertThat(pendingSession.isInvalid()).isTrue();
             assertThat(request.getSession(false)).isNotSameAs(pendingSession);
-            assertThat(request.getSession(false).getAttribute("oauthState")).isEqualTo("keep-me");
+            assertThat(request.getSession(false).getAttribute("oauthState")).isNull();
             assertThat(request.getSession(false).getAttribute("user")).isEqualTo("999998");
             assertPendingMfaCleared();
         }
@@ -1649,6 +1648,52 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should continue login when forced reset cleanup has session state failure")
+    void shouldContinueLogin_whenForcedResetCleanupHasSessionStateFailure() throws Exception {
+        MockHttpSession cleanupFailingSession = new RemoveAttributeFailingSession();
+        request.setSession(cleanupFailingSession);
+        String token = cacheCredentials();
+        String newPassword = VALID_PASSWORD;
+        String encodedNewPassword = "encoded-new-password";
+        Security security = forcedResetSecurity();
+        Provider provider = activeProvider();
+
+        when(securityManager.matchesPassword(OLD_PASSWORD, ENCODED_OLD_PASSWORD)).thenReturn(true);
+        when(securityManager.encodePassword(newPassword)).thenReturn(encodedNewPassword);
+        when(securityDao.findByUserName(USERNAME)).thenReturn(Collections.singletonList(security));
+        when(providerDao.getProvider("999998")).thenReturn(provider);
+        when(providerManager.getProvider("999998")).thenReturn(provider);
+        when(providerPreferenceDao.find("999998")).thenReturn(new ProviderPreference());
+        when(providerDao.getFacilityIds("999998")).thenReturn(Collections.emptyList());
+        when(facilityDao.findAll(true)).thenReturn(Collections.emptyList());
+
+        try (LogCapture capture = LogCapture.forLogger(Login2Action.class);
+             MockedConstruction<LoginCheckLogin> mockedLoginChecks = mockConstruction(LoginCheckLogin.class,
+                (mock, context) -> {
+                    when(mock.auth(USERNAME, newPassword, "2026", request.getRemoteAddr()))
+                            .thenReturn(new String[]{"999998", "Test", "Provider", "", "doctor", "0"});
+                    when(mock.getSecurity()).thenReturn(security);
+                    when(mock.isBlock(anyString(), anyString())).thenReturn(false);
+                })) {
+            Login2Action action = newAction(OLD_PASSWORD, newPassword, newPassword);
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getRedirectedUrl()).contains("/provider/providercontrol");
+            assertThat(cleanupFailingSession.isInvalid()).isTrue();
+            assertThat(LoginCredentialCache.getInstance().peek(token)).isNull();
+            assertThat(request.getSession(false).getAttribute("user")).isEqualTo("999998");
+            assertThat(mockedLoginChecks.constructed()).hasSize(1);
+            assertThat(capture.events()).anySatisfy(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                assertThat(event.getMessage().getFormattedMessage())
+                        .contains("session cleanup failed with java.lang.IllegalStateException");
+            });
+        }
+    }
+
+    @Test
     @DisplayName("should count password character groups using configured character sets")
     void shouldCountPasswordCharacterGroups_withConfiguredCharacterSets() {
         assertThat(Login2Action.countPasswordGroups("lowercase", "abcdefghijklmnopqrstuvwxyz",
@@ -1731,6 +1776,13 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
         security.setPassword(ENCODED_OLD_PASSWORD);
         security.setForcePasswordReset(Boolean.TRUE);
         return security;
+    }
+
+    private static final class RemoveAttributeFailingSession extends MockHttpSession {
+        @Override
+        public void removeAttribute(String name) {
+            throw new IllegalStateException("cleanup failed");
+        }
     }
 
     private Provider activeProvider() {

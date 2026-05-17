@@ -77,6 +77,8 @@ class LoginJspMigrationRegressionTest {
             Path.of("src/main/webapp/WEB-INF/jsp/login/forcepasswordreset.jsp");
     private static final Path LOGIN_FAILED_JSP =
             Path.of("src/main/webapp/WEB-INF/jsp/login/loginfailed.jsp");
+    private static final Path THIRD_PARTY_LOGIN_JSP =
+            Path.of("src/main/webapp/WEB-INF/jsp/login/3rdpartyLogin.jsp");
     private static final Path MFA_HANDLER_JSP =
             Path.of("src/main/webapp/WEB-INF/jsp/mfa/mfa_handler.jsp");
     private static final Path LOGIN_FILTER =
@@ -254,6 +256,21 @@ class LoginJspMigrationRegressionTest {
                 .contains("<carlos:encode value=\"${requestScope.errMsg}\" context=\"html\"/>")
                 .doesNotContain("${requestScope.errMsg}</strong>")
                 .doesNotContain("<c:out");
+    }
+
+    @Test
+    @DisplayName("third party login should rely on rotated session cookie")
+    void shouldUseRotatedSessionCookie_forThirdPartyLogin() throws IOException {
+        String thirdPartyLoginJsp = Files.readString(THIRD_PARTY_LOGIN_JSP, StandardCharsets.UTF_8);
+
+        assertThat(thirdPartyLoginJsp)
+                .contains("const loginUrl = \"${pageContext.request.contextPath}/login\"")
+                .contains("action=\"${carlos:forHtmlAttribute(oauthData.replyTo)}\"")
+                .contains("Authentication always rotates the session")
+                .doesNotContain("invalidate_session")
+                .doesNotContain("/login;jsessionid=")
+                .doesNotContain("oauthData.replyTo)};jsessionid=")
+                .doesNotContain("pageContext.session.id");
     }
 
     @Test

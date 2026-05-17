@@ -719,7 +719,7 @@ public class BillingSaveBilling2Action extends ActionSupport {
         for (BillingBillingManager.BillingItem billItem : billItems) {
             String serviceCode = billItem.getServiceCode();
             String updatedPrice = request.getParameter("dispPrice+" + serviceCode);
-            if (updatedPrice == null) {
+            if (updatedPrice == null || updatedPrice.trim().isEmpty()) {
                 continue;
             }
             try {

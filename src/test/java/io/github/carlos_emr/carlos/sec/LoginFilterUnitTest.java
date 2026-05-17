@@ -358,8 +358,9 @@ class LoginFilterUnitTest {
                 assertThat(capture.events()).anySatisfy(event -> {
                     assertThat(event.getLevel()).isEqualTo(Level.WARN);
                     assertThat(event.getMessage().getFormattedMessage())
-                            .contains("Skipping inactivity failure redirect")
-                            .contains("/carlos/logoutPage");
+                            .contains("timeout-redirect-exempt public page")
+                            .contains("/carlos/logoutPage")
+                            .doesNotContain("Failing closed");
                 });
             }
         }

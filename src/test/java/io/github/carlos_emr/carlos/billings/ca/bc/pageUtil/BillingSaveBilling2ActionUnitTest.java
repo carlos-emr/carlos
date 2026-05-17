@@ -51,6 +51,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedConstruction;
@@ -707,6 +709,104 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(response.getContentAsString())
                     .isEqualTo("Malformed billing request. Please return to billing and retry.");
             verifyNoInteractions(billingmasterDAO, appointmentDao, appointmentArchiveDao);
+        }
+    }
+
+    @Test
+    @DisplayName("should reject malformed final price override before billing writes")
+    void shouldRejectMalformedFinalPriceOverride_beforeBillingWrites() throws Exception {
+        request.setMethod("POST");
+        request.addParameter("dispPrice+00100", "125.50");
+        request.addParameter("dispPrice+00101", " ");
+        request.addParameter("dispPrice+00102", "not-a-price");
+        request.getSession().setAttribute("user", "100");
+        BillingSessionBean bean = populatedBillingSessionBean("123");
+        BillingBillingManager manager = new BillingBillingManager();
+        bean.getBillItem().add(manager.new BillingItem("00100", "Office visit", "100.00", "100", 1));
+        bean.getBillItem().add(manager.new BillingItem("00101", "Follow-up", "50.00", "50", 1));
+        bean.getBillItem().add(manager.new BillingItem("00102", "Procedure", "75.00", "75", 1));
+        request.getSession().setAttribute("billingSessionBean", bean);
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("100");
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class)) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_billing"), eq("w"), isNull()))
+                    .thenReturn(true);
+
+            String result = new BillingSaveBilling2Action().execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(400);
+            verifyNoInteractions(billingmasterDAO, appointmentDao, appointmentArchiveDao);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"Infinity", "NaN"})
+    @DisplayName("should reject non-finite price override before billing writes")
+    void shouldRejectNonFinitePriceOverride_beforeBillingWrites(String priceOverride) throws Exception {
+        request.setMethod("POST");
+        request.addParameter("dispPrice+00100", priceOverride);
+        request.getSession().setAttribute("user", "100");
+        BillingSessionBean bean = populatedBillingSessionBean("123");
+        bean.getBillItem().add(new BillingBillingManager()
+                .new BillingItem("00100", "Office visit", "100.00", "100", 1));
+        request.getSession().setAttribute("billingSessionBean", bean);
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("100");
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class)) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_billing"), eq("w"), isNull()))
+                    .thenReturn(true);
+
+            String result = new BillingSaveBilling2Action().execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(400);
+            verifyNoInteractions(billingmasterDAO, appointmentDao, appointmentArchiveDao);
+        }
+    }
+
+    @Test
+    @DisplayName("should ignore blank price override when saving billing")
+    void shouldIgnoreBlankPriceOverride_whenSavingBilling() throws Exception {
+        request.setMethod("POST");
+        request.addParameter("dispPrice+00100", " ");
+        request.getSession().setAttribute("user", "100");
+        BillingSessionBean bean = populatedBillingSessionBean("123");
+        bean.getBillItem().add(new BillingBillingManager()
+                .new BillingItem("00100", "Office visit", "100.00", "100", 1));
+        request.getSession().setAttribute("billingSessionBean", bean);
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("100");
+        doAnswer(invocation -> {
+            Billing billing = invocation.getArgument(0);
+            ReflectionTestUtils.setField(billing, "id", 456);
+            return null;
+        }).when(billingmasterDAO).save(any(Billing.class));
+        doAnswer(invocation -> {
+            Billingmaster master = invocation.getArgument(0);
+            master.setBillingmasterNo(789);
+            return null;
+        }).when(billingmasterDAO).save(any(Billingmaster.class));
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
+             MockedConstruction<BillingHistoryDAO> ignored = mockConstruction(BillingHistoryDAO.class)) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_billing"), eq("w"), isNull()))
+                    .thenReturn(true);
+
+            String result = new BillingSaveBilling2Action().execute();
+
+            assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(response.getStatus()).isEqualTo(200);
+            verify(billingmasterDAO).save(any(Billing.class));
+            verify(billingmasterDAO).save(any(Billingmaster.class));
         }
     }
 

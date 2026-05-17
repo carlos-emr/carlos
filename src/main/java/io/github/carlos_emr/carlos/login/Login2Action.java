@@ -202,9 +202,6 @@ public final class Login2Action extends ActionSupport {
     /** Maximum invalid OTP submissions allowed before pending MFA state is cleared. */
     private static final int MAX_PENDING_MFA_ATTEMPTS = 5;
 
-    /** OAuth state that must survive authentication session rotation. */
-    private static final String OAUTH_STATE_SESSION_ATTR = "oauthState";
-
     /**
      * Pending-MFA copy of the authenticated security row.
      *
@@ -455,9 +452,9 @@ public final class Login2Action extends ActionSupport {
 
             try {
                 removeAttributesFromSession(request);
-            } catch (RuntimeException cleanupFailure) {
-                logger.warn("Forced password reset persisted, but session cleanup failed; continuing login flow",
-                        cleanupFailure);
+            } catch (IllegalStateException | UnsupportedOperationException cleanupFailure) {
+                logger.warn("Forced password reset persisted, but session cleanup failed with {}; continuing login flow",
+                        cleanupFailure.getClass().getName(), cleanupFailure);
             }
 
             // make sure this checking doesn't happen again
@@ -1043,15 +1040,10 @@ public final class Login2Action extends ActionSupport {
                                               boolean isMobileOptimized, String submitType,
                                               boolean ajaxResponse) throws IOException {
         HttpSession session = request.getSession(false);
-        Object oauthState = null;
         if (session != null) {
-            oauthState = session.getAttribute(OAUTH_STATE_SESSION_ATTR);
             session.invalidate();
         }
         session = request.getSession();
-        if (oauthState != null) {
-            session.setAttribute(OAUTH_STATE_SESSION_ATTR, oauthState); // nosemgrep: tainted-session-from-http-request -- allowlisted server-side OAuth state copied across auth session rotation
-        }
         session.setMaxInactiveInterval(7200);
 
         if (security != null) {
