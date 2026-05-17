@@ -44,6 +44,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
@@ -574,6 +575,29 @@ class ResponseSanitizationFilterUnitTest {
         }
 
         @Test
+        @DisplayName("should pass through oversized error response without stack trace markers")
+        void shouldPassThroughOversizedErrorResponse_whenNoStackTraceMarkersExist() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/error.jsp");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            String largeErrorBody = "<html><body>"
+                    + "A".repeat(ResponseSanitizationFilter.MAX_CAPTURE_CHARS + 1)
+                    + "</body></html>";
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(500);
+                httpRes.setContentType("text/html");
+                res.getWriter().write(largeErrorBody);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getStatus()).isEqualTo(500);
+            assertThat(response.getContentAsString()).isEqualTo(largeErrorBody);
+            assertThat(response.getContentAsString()).doesNotContain("Reference ID:");
+        }
+
+        @Test
         @DisplayName("should log discarded bytes after oversized error response is sanitized")
         void shouldLogDiscardedBytes_afterOversizedErrorResponseSanitized() throws Exception {
             MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/error.jsp");
@@ -627,10 +651,28 @@ class ResponseSanitizationFilterUnitTest {
                     assertThat(event.getLevel()).isEqualTo(Level.WARN);
                     assertThat(event.getMessage().getFormattedMessage())
                             .contains("Cannot send sanitized error")
-                            .contains("status=500")
-                            .contains("correlationId=");
+                            .contains("response already committed");
                 });
             }
+        }
+
+        @Test
+        @DisplayName("should throw when captured response cannot reset buffer before replay")
+        void shouldThrow_whenCapturedResponseCannotResetBufferBeforeReplay() {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/page.jsp");
+            MockHttpServletResponse response = new ResetBufferFailingResponse();
+            String body = "<html><body>ok</body></html>";
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(200);
+                httpRes.setContentType("text/html");
+                res.getWriter().write(body);
+            };
+
+            assertThatThrownBy(() -> filter.doFilter(request, response, chain))
+                    .isInstanceOf(IOException.class)
+                    .hasMessageContaining("Cannot reset buffer before replaying captured response");
         }
     }
 
@@ -852,6 +894,13 @@ class ResponseSanitizationFilterUnitTest {
 
             assertThat(response.getContentAsString()).contains("RuntimeException");
             assertThat(response.getContentAsString()).doesNotContain("Reference ID:");
+        }
+    }
+
+    private static class ResetBufferFailingResponse extends MockHttpServletResponse {
+        @Override
+        public void resetBuffer() {
+            throw new IllegalStateException("already committed");
         }
     }
 }

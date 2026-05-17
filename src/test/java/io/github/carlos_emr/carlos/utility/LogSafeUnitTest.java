@@ -287,10 +287,12 @@ class LogSafeUnitTest {
         }
 
         @Test
-        @DisplayName("should preserve encoded semicolon because URI is not decoded")
-        void shouldPreserveEncodedSemicolon_becauseUriIsNotDecoded() {
+        @DisplayName("should strip encoded semicolon path parameters")
+        void shouldStripEncodedSemicolonPathParameters_fromUri() {
             assertThat(LogSafe.sanitizeUri("/carlos/provider%3Bjsessionid=abc/control"))
-                    .isEqualTo("/carlos/provider%3Bjsessionid=abc/control");
+                    .isEqualTo("/carlos/provider/control");
+            assertThat(LogSafe.sanitizeUri("/carlos/provider%3bjsessionid=abc/control"))
+                    .isEqualTo("/carlos/provider/control");
         }
     }
 
@@ -461,6 +463,13 @@ class LogSafeUnitTest {
         void shouldStripControlCharacters_fromInput() {
             String input = "before\r\nafter\u0000\u0001end";
             assertThat(LogSafe.sanitizeForDisplay(input)).isEqualTo("beforeafterend");
+        }
+
+        @Test
+        @DisplayName("should strip JavaScript line separators from input")
+        void shouldStripJavascriptLineSeparators_fromInput() {
+            assertThat(LogSafe.sanitizeForDisplay("before\u2028after\u2029end"))
+                    .isEqualTo("beforeafterend");
         }
 
         @Test

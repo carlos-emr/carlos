@@ -37,6 +37,7 @@
 <%@ page import="io.github.carlos_emr.carlos.login.Login2Action" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>
 <h2>Please select which facility you would like to currently work in</h2>
 <%
     FacilityDao facilityDao = (FacilityDao) SpringUtils.getBean(FacilityDao.class);
@@ -60,8 +61,13 @@
             Facility facility = facilityDao.find(facilityId);
     %>
     <li>
-        <a href='?nextPage=<carlos:encode value='<%= safeNextPage %>' context="uriComponent"/>&<%=Login2Action.SELECTED_FACILITY_ID%>=<%=facility.getId()%>'><carlos:encode value='<%= facility.getName() %>' context="html"/>
-        </a></li>
+        <form method="post" action="${pageContext.request.contextPath}/select_facility">
+            <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
+            <input type="hidden" name="nextPage" value="<carlos:encode value='<%= safeNextPage %>' context="htmlAttribute"/>"/>
+            <input type="hidden" name="<%=Login2Action.SELECTED_FACILITY_ID%>" value="<%=facility.getId()%>"/>
+            <button type="submit"><carlos:encode value='<%= facility.getName() %>' context="html"/></button>
+        </form>
+    </li>
     <%
         }
     %>

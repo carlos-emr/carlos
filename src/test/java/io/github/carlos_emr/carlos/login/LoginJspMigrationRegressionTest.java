@@ -77,6 +77,8 @@ class LoginJspMigrationRegressionTest {
             Path.of("src/main/webapp/WEB-INF/jsp/login/forcepasswordreset.jsp");
     private static final Path LOGIN_FAILED_JSP =
             Path.of("src/main/webapp/WEB-INF/jsp/login/loginfailed.jsp");
+    private static final Path SELECT_FACILITY_JSP =
+            Path.of("src/main/webapp/WEB-INF/jsp/login/select_facility.jsp");
     private static final Path THIRD_PARTY_LOGIN_JSP =
             Path.of("src/main/webapp/WEB-INF/jsp/login/3rdpartyLogin.jsp");
     private static final Path MFA_HANDLER_JSP =
@@ -103,12 +105,28 @@ class LoginJspMigrationRegressionTest {
         assertThat(struts).contains("/WEB-INF/jsp/login/index.jsp");
         assertThat(struts).contains("/WEB-INF/jsp/error/errorpage.jsp");
         assertThat(struts).contains("/WEB-INF/jsp/common/closenreload.jsp");
+        assertThat(actionBlock(struts, "select_facility"))
+                .contains("io.github.carlos_emr.carlos.login.gate.SelectFacility2Action")
+                .contains("<result name=\"provider\" type=\"redirect\">/provider/providercontrol</result>");
         assertThat(actionBlock(struts, "login"))
                 .contains("<result name=\"error\">/WEB-INF/jsp/login/loginfailed.jsp</result>");
         assertThat(actionBlock(struts, "forcepasswordresetSubmit"))
                 .contains("<result name=\"error\">/WEB-INF/jsp/login/loginfailed.jsp</result>");
         assertThat(struts).doesNotContain("/WEB-INF/jsp/error/WEB-INF/jsp/error/");
         assertThat(struts).doesNotContain("/WEB-INF/jsp/common/WEB-INF/jsp/common/");
+    }
+
+    @Test
+    @DisplayName("facility selector should submit selection with CSRF token")
+    void facilitySelectorShouldSubmitSelection_withCsrfToken() throws IOException {
+        String selectFacilityJsp = Files.readString(SELECT_FACILITY_JSP, StandardCharsets.UTF_8);
+
+        assertThat(selectFacilityJsp)
+                .contains("method=\"post\"")
+                .contains("action=\"${pageContext.request.contextPath}/select_facility\"")
+                .contains("csrf:tokenname")
+                .contains("csrf:tokenvalue")
+                .doesNotContain("href='?nextPage=");
     }
 
     @Test

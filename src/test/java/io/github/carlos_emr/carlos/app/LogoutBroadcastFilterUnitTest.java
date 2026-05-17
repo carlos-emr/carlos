@@ -631,8 +631,10 @@ class LogoutBroadcastFilterUnitTest {
         MockHttpServletRequest request = authenticatedRequest("/provider/providercontrol");
         FlushFailingResponse response = new FlushFailingResponse();
 
-        FilterChain chain = (servletRequest, servletResponse) ->
-                servletResponse.setContentType("text/html;charset=UTF-8");
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.setContentType("text/html;charset=UTF-8");
+            servletResponse.setContentLength(42);
+        };
 
         try (LogCapture capture = LogCapture.forLogger(LogoutBroadcastFilter.class)) {
             filter.doFilter(request, response, chain);
@@ -644,6 +646,7 @@ class LogoutBroadcastFilterUnitTest {
                         .contains("uri=/carlos/provider/providercontrol");
                 assertThat(event.getThrown()).isInstanceOf(IOException.class);
             });
+            assertThat(response.getHeader("Content-Length")).isNull();
         }
     }
 

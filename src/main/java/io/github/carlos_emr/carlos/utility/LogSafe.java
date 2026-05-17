@@ -74,14 +74,14 @@ public final class LogSafe {
      * per BVE message.
      */
     private static final java.util.regex.Pattern CONTROL_CHARS =
-            java.util.regex.Pattern.compile("\\p{Cntrl}");
+            java.util.regex.Pattern.compile("[\\p{Cntrl}\\u2028\\u2029]");
 
     /**
      * Per-segment path parameters can carry bearer identifiers such as {@code ;jsessionid}.
      * They must be removed before request paths are written to operator logs.
      */
     private static final java.util.regex.Pattern PATH_PARAMETERS =
-            java.util.regex.Pattern.compile(";[^/]*");
+            java.util.regex.Pattern.compile("(?i)(?:;|%3b)[^/]*");
 
     /**
      * Post-encoding expansion factor. {@code Encode.forJava()} expands control characters
@@ -158,8 +158,9 @@ public final class LogSafe {
      * instead of {@link #sanitize(String)} directly.</p>
      *
      * <p>This helper is for request-URI paths such as {@code getRequestURI()}, not full URLs or
-     * query-bearing strings. It strips literal semicolon path parameters per path segment; encoded
-     * semicolons such as {@code %3B} are preserved because decoding is not performed here.</p>
+     * query-bearing strings. It strips literal semicolon path parameters per path segment and
+     * encoded semicolon parameters such as {@code %3Bjsessionid=...}; it does not fully URL-decode
+     * the remaining path.</p>
      *
      * @param requestUri raw request URI path; may be {@code null}
      * @return String URI with path parameters removed, then log-sanitized

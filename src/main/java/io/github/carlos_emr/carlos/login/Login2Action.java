@@ -443,6 +443,7 @@ public final class Login2Action extends ActionSupport {
                 persistNewPassword(userName, newPassword);
             } catch (RuntimeException e) {
                 logger.error("Forced password reset failed before password persistence completed", e);
+                auditForcedPasswordResetFailure(userName, "persistence_failure");
                 removeAttributesFromSession(request);
                 response.sendRedirect(loginFailedRedirectUrl(message("login.errorResetPersistence")));
                 return NONE;
@@ -479,45 +480,12 @@ public final class Login2Action extends ActionSupport {
 
             logger.debug("nextPage: {}", LogSafe.sanitize(nextPage));
             if (nextPage != null) {
-                if (!RedirectValidationUtils.isValidRelativeRedirect(nextPage)) {
-                    logger.warn("Rejected redirect URL: {}", LogSafe.sanitize(nextPage));
-                    response.sendRedirect(request.getContextPath() + "/loginfailed");
-                    return NONE;
-                } else {
-                    // set current facility - validate format and verify the authenticated user has access
-                    String facilityIdString = request.getParameter(SELECTED_FACILITY_ID);
-                    // Validate format: must be non-null positive integer (max 9 digits to stay within Integer range)
-                    if (facilityIdString == null || !facilityIdString.matches("\\d{1,9}")) {
-                        logger.warn("Invalid or missing facility ID in facility selection request");
-                        response.sendRedirect(request.getContextPath() + "/loginfailed");
-                        return NONE;
-                    }
-                    int facilityId = Integer.parseInt(facilityIdString);
-                    String username = (String) request.getSession().getAttribute("user");
-                    // Authorization check: verify the authenticated provider is permitted to access this facility (CWE-501)
-                    List<Integer> allowedFacilityIds = providerDao.getFacilityIds(username);
-                    if (!allowedFacilityIds.contains(facilityId)) {
-                        logger.warn("Provider {} attempted unauthorized facility selection: {}", LogSafe.sanitize(username), facilityId);
-                        response.sendRedirect(request.getContextPath() + "/loginfailed");
-                        return NONE;
-                    }
-                    Facility facility = facilityDao.find(facilityId);
-                    if (facility == null) {
-                        logger.warn("Selected facility not found: {}", facilityId);
-                        response.sendRedirect(request.getContextPath() + "/loginfailed");
-                        return NONE;
-                    }
-                    // facilityId validated via Integer.parseInt() and facilityDao.find() above
-                    request.getSession().setAttribute(SessionConstants.CURRENT_FACILITY, facility); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- facility entity is DAO-loaded after provider/facility authorization
-                    LogAction.addLog(username, LogConst.LOGIN, LogConst.CON_LOGIN, "facilityId=" + facilityId, ip);
-                    // FP for open-redirect scanners (CodeQL java/unvalidated-url-redirection #5909):
-                    // nextPage is validated by RedirectValidationUtils.isValidRelativeRedirect()
-                    // immediately above before entering this branch; it rejects absolute URIs,
-                    // protocol-relative URLs, backslash bypasses, control characters, and
-                    // path-traversal sequences — only safe relative paths reach here.
-                    response.sendRedirect(nextPage); // nosemgrep: javasecurity.S5146, java.lang.security.audit.servlets.unvalidated-redirect.unvalidated-redirect-java -- gated by RedirectValidationUtils.isValidRelativeRedirect() before entering this branch // lgtm[java/unvalidated-url-redirection]
-                    return NONE;
-                }
+                logger.warn("Rejected facility selection on CSRF-exempt login route: user={}, nextPage={}",
+                        LogSafe.sanitize(userName), LogSafe.sanitize(nextPage));
+                LogAction.addLog(userName, LogConst.LOGIN, LogConst.CON_LOGIN,
+                        "facility_selection_on_login_rejected", ip);
+                response.sendRedirect(loginFailedRedirectUrl(message("login.errorUnableToProcess")));
+                return NONE;
             }
 
             if (cl.isBlock(ip, userName)) {
@@ -553,6 +521,7 @@ public final class Login2Action extends ActionSupport {
         } catch (Exception e) {
             logger.error("Authentication provider failed during login: user={}, remote={}, ajax={}",
                     LogSafe.sanitize(userName), LogSafe.sanitize(ip), ajaxResponse, e);
+            recordAuthenticationExceptionFailure(cl, ip, userName);
             String unableToProcessMessage = message("login.errorUnableToProcess");
             String newURL = loginFailedRedirectUrl(unableToProcessMessage);
 
@@ -627,7 +596,8 @@ public final class Login2Action extends ActionSupport {
         // >> 6. Authentication Failure Handling
         // expired password
         else if (strAuth != null && strAuth.length == 1 && strAuth[0].equals("expired")) {
-            logger.warn("Expired password");
+            logger.warn("Expired password: user={}, remote={}",
+                    LogSafe.sanitize(userName), LogSafe.sanitize(ip));
             cl.updateLoginList(ip, userName);
             String expiredMessage = message("login.errorAccountExpired");
             String newURL = loginFailedRedirectUrl(expiredMessage);
@@ -961,9 +931,9 @@ public final class Login2Action extends ActionSupport {
      *
      * @return mutable provider-number list safe to store back into servlet context/session
      */
-    private ArrayList<String> caseManagementUsers() {
+    private List<String> caseManagementUsers() {
         Object caseMgmtUsersAttr = request.getSession().getServletContext().getAttribute("CaseMgmtUsers");
-        ArrayList<String> caseMgmtUsers = new ArrayList<String>();
+        List<String> caseMgmtUsers = new ArrayList<String>();
         if (caseMgmtUsersAttr instanceof List<?>) {
             for (Object providerNo : (List<?>) caseMgmtUsersAttr) {
                 if (providerNo instanceof String) {
@@ -1056,6 +1026,8 @@ public final class Login2Action extends ActionSupport {
         Properties pvar = CarlosProperties.getInstance();
 
         String providerNo = strAuth[0] != null ? strAuth[0].trim() : "";
+        // Session values stay as raw domain data. JSP, JSON, and redirect sinks must apply the
+        // correct context-specific encoding when these values are rendered.
         session.setAttribute("user", providerNo); // nosemgrep: tainted-session-from-http-request -- provider number is the authenticated LoginCheckLogin result
         session.setAttribute("userfirstname", strAuth[1] != null ? strAuth[1].trim() : ""); // nosemgrep: tainted-session-from-http-request -- display name comes from authenticated LoginCheckLogin result
         session.setAttribute("userlastname", strAuth[2] != null ? strAuth[2].trim() : ""); // nosemgrep: tainted-session-from-http-request -- display name comes from authenticated LoginCheckLogin result
@@ -1096,17 +1068,17 @@ public final class Login2Action extends ActionSupport {
 
             default_pmm = providerPreference.getDefaultCaisiPmm();
             if ("enabled".equals(providerPreference.getDefaultNewOscarCme())) {
-                ArrayList<String> sessionCaseMgmtUsers;
+                List<String> sessionCaseMgmtUsers;
                 // CaseMgmtUsers is servlet-context state shared by every CAISI session. Hold the
                 // context lock across read-modify-write so concurrent first logins do not lose a
                 // provider number, then store a session snapshot so later context changes cannot
                 // mutate this user's view.
                 synchronized (request.getSession().getServletContext()) {
-                    ArrayList<String> contextCaseMgmtUsers = caseManagementUsers();
+                    List<String> contextCaseMgmtUsers = caseManagementUsers();
                     if (!contextCaseMgmtUsers.contains(providerNo)) {
                         contextCaseMgmtUsers.add(providerNo);
                     }
-                    ArrayList<String> contextSnapshot = new ArrayList<String>(contextCaseMgmtUsers);
+                    List<String> contextSnapshot = new ArrayList<String>(contextCaseMgmtUsers);
                     request.getSession().getServletContext().setAttribute("CaseMgmtUsers", contextSnapshot); // nosemgrep: tainted-session-from-http-request -- context snapshot contains DAO/auth-derived provider numbers, not raw request values
                     sessionCaseMgmtUsers = new ArrayList<String>(contextSnapshot);
                 }
@@ -1527,6 +1499,19 @@ public final class Login2Action extends ActionSupport {
     }
 
     /**
+     * Counts authentication-provider exceptions as failed attempts so exception-triggering probes do
+     * not bypass the same lockout path as ordinary credential failures.
+     */
+    private void recordAuthenticationExceptionFailure(LoginCheckLogin cl, String ip, String userName) {
+        try {
+            cl.updateLoginList(ip, userName);
+        } catch (RuntimeException updateFailure) {
+            logger.warn("Unable to update login-failure counter after authentication exception: user={}, remote={}",
+                    LogSafe.sanitize(userName), LogSafe.sanitize(ip), updateFailure);
+        }
+    }
+
+    /**
      * Applies the server-side forced-reset password complexity policy.
      *
      * <p>The JSP performs the same checks for immediate user feedback, but browser JavaScript is
@@ -1618,10 +1603,18 @@ public final class Login2Action extends ActionSupport {
         }
 
         int groups = 0;
-        if (lower) groups++;
-        if (upper) groups++;
-        if (digit) groups++;
-        if (special) groups++;
+        if (lower) {
+            groups++;
+        }
+        if (upper) {
+            groups++;
+        }
+        if (digit) {
+            groups++;
+        }
+        if (special) {
+            groups++;
+        }
         return groups;
     }
 
@@ -1660,8 +1653,9 @@ public final class Login2Action extends ActionSupport {
 
         List<Security> results = securityDao.findByUserName(username);
         Security security = null;
-        if (results.size() > 0)
+        if (results.size() > 0) {
             security = results.get(0);
+        }
 
         return security;
     }

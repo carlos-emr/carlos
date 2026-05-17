@@ -56,6 +56,19 @@
 
 <%!
     CarlosProperties op = CarlosProperties.getInstance();
+
+    private int passwordPolicyInt(String key, int fallback) {
+        try {
+            return Integer.parseInt(op.getProperty(key, String.valueOf(fallback)).trim());
+        } catch (RuntimeException e) {
+            return fallback;
+        }
+    }
+%>
+
+<%
+    int passwordMinLength = passwordPolicyInt("password_min_length", 8);
+    int passwordMinGroups = passwordPolicyInt("password_min_groups", 3);
 %>
 
 <html>
@@ -93,8 +106,8 @@
 
             function validatePassword(pwd) {
 
-                var password_min_length = <%=op.getProperty("password_min_length")%>;
-                var password_min_groups = <%=op.getProperty("password_min_groups")%>;
+                var password_min_length = <%=passwordMinLength%>;
+                var password_min_groups = <%=passwordMinGroups%>;
                 var password_group_lower_chars = "<%=JavaScriptUtils.javaScriptEscape(op.getProperty("password_group_lower_chars"))%>";
                 var password_group_upper_chars = "<%=JavaScriptUtils.javaScriptEscape(op.getProperty("password_group_upper_chars"))%>";
                 var password_group_digits = "<%=JavaScriptUtils.javaScriptEscape(op.getProperty("password_group_digits"))%>";
@@ -202,13 +215,13 @@
                     <td width="50%" align="right"><font face="arial"><fmt:message key="provider.providerchangepassword.msgChooseNew"/> &nbsp; <b><fmt:message key="provider.providerchangepassword.formNewPassword"/>:</b></font></td>
                     <td><input type=password name="newPassword" value="" size=20
                                maxlength=32> <font size="-2">(<fmt:message key="provider.providerchangepassword.msgAtLeast"/>
-                        <%=op.getProperty("password_min_length")%> <fmt:message key="provider.providerchangepassword.msgSymbols"/>)</font></td>
+                        <%=passwordMinLength%> <fmt:message key="provider.providerchangepassword.msgSymbols"/>)</font></td>
                 </tr>
                 <tr>
                     <td width="50%" align="right"><font face="arial"><fmt:message key="provider.providerchangepassword.msgConfirm"/> &nbsp; <b><fmt:message key="provider.providerchangepassword.formNewPassword"/>:</b></font></td>
                     <td><input type=password name="confirmPassword" value="" size=20
                                maxlength=32> <font size="-2">(<fmt:message key="provider.providerchangepassword.msgAtLeast"/>
-                        <%=op.getProperty("password_min_length")%> <fmt:message key="provider.providerchangepassword.msgSymbols"/>)</font></td>
+                        <%=passwordMinLength%> <fmt:message key="provider.providerchangepassword.msgSymbols"/>)</font></td>
                 </tr>
             </table>
         </center>

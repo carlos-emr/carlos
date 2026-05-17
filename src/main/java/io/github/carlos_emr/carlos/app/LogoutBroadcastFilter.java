@@ -221,12 +221,12 @@ public class LogoutBroadcastFilter implements Filter {
         } catch (IOException e) {
             logger.error("Skipping logout broadcast script injection because the script could not be written: uri={}",
                     safeRequestUri, e);
-            delegatingResponse.applyDeferredContentLength();
+            delegatingResponse.discardDeferredContentLength();
             return;
         } catch (IllegalStateException e) {
             logger.error("Skipping logout broadcast script injection because the response writer was unavailable and the output stream write failed: uri={}",
                     safeRequestUri, e);
-            delegatingResponse.applyDeferredContentLength();
+            delegatingResponse.discardDeferredContentLength();
             return;
         }
     }
@@ -901,6 +901,16 @@ public class LogoutBroadcastFilter implements Filter {
             } else {
                 super.setContentLength(deferredContentLength);
             }
+            clearDeferredContentLength();
+        }
+
+        /**
+         * Drops any downstream Content-Length once script injection has started but failed.
+         *
+         * <p>At that point the response may contain headers and zero or more script bytes beyond the
+         * original body, so replaying the original length can truncate the client response.</p>
+         */
+        void discardDeferredContentLength() {
             clearDeferredContentLength();
         }
 

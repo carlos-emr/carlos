@@ -43,8 +43,12 @@
         <action name="location" class="io.github.carlos_emr.carlos.login.gate.ViewAuthenticatedPage2Action">
             <result name="success">/WEB-INF/jsp/login/location.jsp</result>
         </action>
-        <action name="select_facility" class="io.github.carlos_emr.carlos.login.gate.ViewAuthenticatedPage2Action">
+        <action name="select_facility" class="io.github.carlos_emr.carlos.login.gate.SelectFacility2Action">
             <result name="success">/WEB-INF/jsp/login/select_facility.jsp</result>
+            <result name="provider" type="redirect">/provider/providercontrol</result>
+            <result name="caisiPMM">/PMmodule/ProviderInfo</result>
+            <result name="programLocation">/WEB-INF/jsp/login/location.jsp</result>
+            <result name="failure">/WEB-INF/jsp/error/failure.jsp</result>
         </action>
         <action name="securityError" class="io.github.carlos_emr.carlos.login.gate.ViewPublicPage2Action">
             <result name="success">/WEB-INF/jsp/error/securityError.jsp</result>

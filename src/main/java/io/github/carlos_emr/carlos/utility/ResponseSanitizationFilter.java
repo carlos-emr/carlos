@@ -360,14 +360,14 @@ public class ResponseSanitizationFilter implements Filter {
         if (response.isCommitted()) {
             LOGGER.warn("Cannot send sanitized error — response already committed "
                     + "[status={} correlationId={}]", status, correlationId);
-            return;
+            throw new IOException("Cannot send sanitized error after response commit");
         }
         try {
             response.resetBuffer();
         } catch (IllegalStateException e) {
-            LOGGER.warn("Cannot reset buffer for sanitized error [correlationId={}]: {}",
-                    correlationId, e.getMessage());
-            return;
+            LOGGER.error("Cannot reset buffer for sanitized error [correlationId={}]",
+                    correlationId, e);
+            throw new IOException("Cannot reset buffer for sanitized error", e);
         }
         dropEntityHeaders(response);
         response.setStatus(status);
@@ -375,22 +375,15 @@ public class ResponseSanitizationFilter implements Filter {
         String body = buildSanitizedErrorPage(status, correlationId);
         byte[] bodyBytes = body.getBytes(StandardCharsets.UTF_8);
         response.setContentLength(bodyBytes.length);
-        try {
-            PrintWriter writer = response.getWriter();
-            writer.write(body);
-            writer.flush();
-        } catch (IllegalStateException ex) {
-            // Response is in output-stream mode (e.g. a binary download threw mid-write).
-            // Fall back to byte stream so the sanitized error page still reaches the client.
-            LOGGER.debug("sendSanitizedError: getWriter() failed (stream mode active)"
-                    + " [correlationId={}]: {}", correlationId, ex.getMessage());
-            response.getOutputStream().write(bodyBytes);
-            response.getOutputStream().flush();
-        }
+        response.getOutputStream().write(bodyBytes);
+        response.getOutputStream().flush();
     }
 
     private static void dropEntityHeaders(HttpServletResponse response) {
         for (String header : ENTITY_HEADERS_TO_DROP) {
+            // Tomcat 11 removes a response header when setHeader(name, null) is used. Servlet
+            // does not expose a portable removeHeader API, and Tomcat 11 is the supported runtime
+            // for this deployment.
             response.setHeader(header, null);
         }
     }
@@ -432,8 +425,9 @@ public class ResponseSanitizationFilter implements Filter {
         try {
             response.resetBuffer();
         } catch (IllegalStateException e) {
-            LOGGER.debug("writeToResponse: cannot resetBuffer — response already committed: {}",
-                    e.getMessage());
+            LOGGER.warn("writeToResponse: cannot resetBuffer before replaying captured response",
+                    e);
+            throw new IOException("Cannot reset buffer before replaying captured response", e);
         }
         try {
             PrintWriter out = response.getWriter();
@@ -781,17 +775,12 @@ public class ResponseSanitizationFilter implements Filter {
             }
             int status = realResponse.getStatus();
             String capturedPrefix = buffer.toString();
-            if (status >= 400) {
+            if (status >= 400
+                    && (containsStackTrace(capturedPrefix) || containsStackTrace(pendingWrite))) {
                 String correlationId = generateCorrelationId();
-                if (containsStackTrace(capturedPrefix) || containsStackTrace(pendingWrite)) {
-                    LOGGER.error("Stack trace detected before large error response reached capture limit "
-                                    + "[status={} correlationId={}]",
-                            status, correlationId);
-                } else {
-                    LOGGER.warn("Large error response reached capture limit and was sanitized defensively "
-                                    + "[status={} correlationId={}]",
-                            status, correlationId);
-                }
+                LOGGER.error("Stack trace detected before large error response reached capture limit "
+                                + "[status={} correlationId={}]",
+                        status, correlationId);
                 sendSanitizedError(realResponse, status, correlationId);
                 buffer.reset();
                 limitExceeded = true;
@@ -801,7 +790,7 @@ public class ResponseSanitizationFilter implements Filter {
             }
             limitExceeded = true;
             LOGGER.debug("ResponseSanitizationFilter: capture limit exceeded ({} chars)"
-                    + " — switching to passthrough mode", maxChars);
+                    + " — switching to passthrough mode [status={}]", maxChars, status);
             passthroughWriter = realResponse.getWriter();
             char[] captured = capturedPrefix.toCharArray();
             if (captured.length > 0) {

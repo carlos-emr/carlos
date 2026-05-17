@@ -483,6 +483,8 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
                 assertThat(event.getMessage().getFormattedMessage())
                         .contains("Forced password reset failed before password persistence completed");
             });
+            logActionMock.verify(() -> LogAction.addLog(USERNAME, "login",
+                    "forced_password_reset_failed", "persistence_failure"));
         }
     }
 
@@ -1667,6 +1669,56 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
                     .contains("\"success\":false")
                     .contains("\"error\":\"Invalid credentials.\"");
             assertThat(mockedLoginChecks.constructed()).hasSize(1);
+        }
+    }
+
+    @Test
+    @DisplayName("should count failed login when authentication provider throws")
+    void shouldCountFailedLogin_whenAuthenticationProviderThrows() throws Exception {
+        request.setParameter("forcedpasswordchange", "false");
+        String password = VALID_PASSWORD;
+
+        try (MockedConstruction<LoginCheckLogin> mockedLoginChecks = mockConstruction(LoginCheckLogin.class,
+                (mock, context) -> {
+                    when(mock.isBlock(request.getRemoteAddr(), USERNAME)).thenReturn(false);
+                    when(mock.auth(USERNAME, password, "2026", request.getRemoteAddr()))
+                            .thenThrow(new RuntimeException("auth backend down"));
+                })) {
+            Login2Action action = newAction(null, null, null);
+            action.setUsername(USERNAME);
+            action.setPassword(password);
+            action.setPin("2026");
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getRedirectedUrl()).contains("/loginfailed");
+            verify(mockedLoginChecks.constructed().get(0)).updateLoginList(request.getRemoteAddr(), USERNAME);
+        }
+    }
+
+    @Test
+    @DisplayName("should reject facility selection on login route")
+    void shouldRejectFacilitySelection_onLoginRoute() throws Exception {
+        request.setParameter("forcedpasswordchange", "false");
+        request.addParameter("nextPage", "provider");
+        request.addParameter(Login2Action.SELECTED_FACILITY_ID, "10");
+        String password = VALID_PASSWORD;
+
+        try (MockedConstruction<LoginCheckLogin> mockedLoginChecks = mockConstruction(LoginCheckLogin.class)) {
+            Login2Action action = newAction(null, null, null);
+            action.setUsername(USERNAME);
+            action.setPassword(password);
+            action.setPin("2026");
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getRedirectedUrl()).contains("/loginfailed");
+            assertThat(mockedLoginChecks.constructed()).hasSize(1);
+            verify(providerDao, never()).getFacilityIds(org.mockito.ArgumentMatchers.anyString());
+            logActionMock.verify(() -> LogAction.addLog(USERNAME, "log in", "login",
+                    "facility_selection_on_login_rejected", request.getRemoteAddr()));
         }
     }
 

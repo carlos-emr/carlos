@@ -26,6 +26,7 @@ import jakarta.servlet.DispatcherType;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.FilterConfig;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import org.apache.logging.log4j.Level;
@@ -40,6 +41,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -333,6 +335,24 @@ class CsrfGuardScriptInjectionFilterUnitTest {
         assertThat(response.getContentAsString()).isEqualTo(body);
     }
 
+    @Test
+    @DisplayName("should throw when reset buffer fails before writing adjusted response")
+    void shouldThrow_whenResetBufferFailsBeforeWritingAdjustedResponse() {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/provider/providercontrol");
+        request.setContextPath("/carlos");
+        MockHttpServletResponse response = new ResetBufferFailingResponse();
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.setContentType("text/html;charset=UTF-8");
+            servletResponse.getWriter()
+                    .write("<html><head><title>Provider</title></head><body></body></html>");
+        };
+
+        assertThatThrownBy(() -> withEnabledCsrfGuard(() -> filter.doFilter(request, response, chain)))
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining("Cannot reset buffer before writing CSRF-adjusted response");
+    }
+
     private void withEnabledCsrfGuard(Executable executable) throws Exception {
         CsrfGuard csrfGuard = mock(CsrfGuard.class);
         when(csrfGuard.isEnabled()).thenReturn(true);
@@ -373,5 +393,12 @@ class CsrfGuardScriptInjectionFilterUnitTest {
             index += needle.length();
         }
         return count;
+    }
+
+    private static class ResetBufferFailingResponse extends MockHttpServletResponse {
+        @Override
+        public void resetBuffer() {
+            throw new IllegalStateException("already committed");
+        }
     }
 }

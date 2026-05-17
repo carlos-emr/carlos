@@ -69,7 +69,7 @@ public abstract class SecurityTokenManager {
             if (!managerName.startsWith(ALLOWED_PACKAGE_PREFIX)) {
                 MiscUtils.getLogger().error("Rejected token manager class outside allowed package: {}",
                         LogSafe.sanitize(managerName));
-                return null;
+                throw new IllegalStateException("Configured token manager is outside the allowed package");
             }
             try {
                 instance = (SecurityTokenManager) Class.forName(managerName) // nosemgrep: unsafe-reflection -- managerName is validated against ALLOWED_PACKAGE_PREFIX above
@@ -77,6 +77,7 @@ public abstract class SecurityTokenManager {
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Unable to load token manager: {}",
                         LogSafe.sanitize(managerName), e);
+                throw new IllegalStateException("Unable to load configured token manager", e);
             }
         }
 

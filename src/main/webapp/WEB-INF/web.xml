@@ -122,7 +122,9 @@
     <!-- CSRFGuard, CsrfGuardScriptInjectionFilter, and LogoutBroadcastFilter MUST be ordered
          before Struts execution. Once Struts executes an action, later filters in the chain do
          not run for that request. Placing these filters here ensures:
-           1. CSRFGuard validates tokens on all Struts action POST requests
+          1. CSRFGuard validates tokens on all Struts action POST requests. This mapping
+             intentionally omits dispatcher elements, so Jakarta/Tomcat applies the default
+             REQUEST dispatcher only; JSP FORWARD script injection is handled by the next filter.
            2. CsrfGuardScriptInjectionFilter is mapped for FORWARD dispatches to JSPs so
               csrfguard.js is injected at the JSP render layer without double-wrapping
               Struts REQUEST responses. Re-adding REQUEST dispatch here can cause Struts/JSP

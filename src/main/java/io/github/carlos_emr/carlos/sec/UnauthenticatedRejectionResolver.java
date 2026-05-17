@@ -13,6 +13,8 @@ import java.util.Locale;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
@@ -89,6 +91,7 @@ public final class UnauthenticatedRejectionResolver {
                     routeType,
                     remote,
                     acceptHint);
+            auditCommittedRejection(routeType, request.getRemoteAddr());
             return;
         }
 
@@ -105,6 +108,16 @@ public final class UnauthenticatedRejectionResolver {
                 routeType,
                 remote,
                 acceptHint);
+    }
+
+    private static void auditCommittedRejection(String routeType, String remoteAddr) {
+        try {
+            LogAction.addLog("", LogConst.LOGIN, LogConst.CON_LOGIN,
+                    "unauthenticated_rejection_committed:" + routeType, remoteAddr);
+        } catch (RuntimeException e) {
+            LOGGER.warn("Unable to audit committed unauthenticated rejection: routeType={}",
+                    LogSafe.sanitize(routeType), e);
+        }
     }
 
     /**

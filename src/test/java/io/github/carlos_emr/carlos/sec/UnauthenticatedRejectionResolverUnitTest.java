@@ -6,6 +6,8 @@
 package io.github.carlos_emr.carlos.sec;
 
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.log.LogAction;
 
 import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.DisplayName;
@@ -35,7 +37,7 @@ import static org.mockito.Mockito.when;
  */
 @Tag("unit")
 @DisplayName("UnauthenticatedRejectionResolver")
-class UnauthenticatedRejectionResolverUnitTest {
+class UnauthenticatedRejectionResolverUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should redirect browser page request when unauthenticated")
@@ -271,6 +273,8 @@ class UnauthenticatedRejectionResolverUnitTest {
 
             assertThat(response.getStatus()).isEqualTo(200);
             assertThat(response.getContentAsString()).isEmpty();
+            logActionMock.verify(() -> LogAction.addLog("", "log in", "login",
+                    "unauthenticated_rejection_committed:status-code", request.getRemoteAddr()));
             assertThat(capture.events()).anySatisfy(event -> {
                 assertThat(event.getLevel()).isEqualTo(Level.WARN);
                 assertThat(event.getMessage().getFormattedMessage())
