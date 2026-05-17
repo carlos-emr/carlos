@@ -25,6 +25,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * @since 2026-05-13
  */
 
 package io.github.carlos_emr.carlos.billings.ca.bc.quickbilling;
@@ -39,13 +40,13 @@ import jakarta.servlet.http.HttpServletResponse;
 
 
 /**
- * @author Dennis Warren
  * Company Colcamex Resources
  * Date Jun 4, 2012
  * Revised Jun 6, 2012
  * Comment
  * One action here: save the collection of bills from the
  * session form bean.
+ * @since 2026-05-13
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;

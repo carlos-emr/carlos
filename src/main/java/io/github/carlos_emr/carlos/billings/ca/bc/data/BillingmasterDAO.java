@@ -25,6 +25,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * @since 2026-05-13
  */
 
 package io.github.carlos_emr.carlos.billings.ca.bc.data;
@@ -50,7 +51,7 @@ import io.github.carlos_emr.carlos.entities.WCB;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 /**
- * @author jay
+ * @since 2026-05-13
  */
 @Repository
 @SuppressWarnings("unchecked")
@@ -172,7 +173,6 @@ public class BillingmasterDAO {
 
     /**
      * Sets the specified billing unit for the billing master with the specified number.
-     *
      * @param billingUnit Billing unit to be set on the billing master
      * @param billingNo   Number of the billing master to be updated
      * @return Returns the total number of rows affected by the operation

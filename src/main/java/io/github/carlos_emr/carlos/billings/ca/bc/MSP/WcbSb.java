@@ -24,6 +24,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * @since 2026-05-13
  */
 
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
@@ -43,10 +44,10 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 /**
- * @author Jef King
  * For The Oscar McMaster Project
  * Developed By Andromedia
  * www.andromedia.ca
+ * @since 2026-05-13
  */
 public class WcbSb {
     private static Logger logger = MiscUtils.getLogger();

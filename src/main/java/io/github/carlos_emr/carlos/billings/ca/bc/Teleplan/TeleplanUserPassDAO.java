@@ -25,6 +25,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * @since 2026-05-13
  */
 
 
@@ -41,8 +42,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * Deals with storing the teleplan sequence #
- *
- * @author jay
+ * @since 2026-05-13
  */
 public class TeleplanUserPassDAO {
     static Logger log = MiscUtils.getLogger();

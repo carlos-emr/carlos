@@ -38,9 +38,8 @@ import java.util.Enumeration;
 
 /**
  * Represents a Bill in the BC Billing module
- *
- * @author not attributable
  * @version 1.0
+ * @since 2026-05-13
  * @todo This class should be renamed since it represents any type of bill(ICBC,WCB,Private)
  * Furthermore, it is based on the MSPReconcile.Bill inner class which wasn't written to the Java Bean standard
  * (public accessors/modifiers and private members). Therefore, for backwards compatibility the members of this class are public.
@@ -395,7 +394,6 @@ public class MSPBill {
     /**
      * Returns an int value representing the date range of a bill's age in days
      * since its initial service date
-     *
      * @return int
      */
     public String getServiceDateRange() {
@@ -508,7 +506,6 @@ public class MSPBill {
 
     /**
      * Returns a concatenated string of explanation codes for a specific bill
-     *
      * @return String
      */
     public String getExpString() {
@@ -521,7 +518,6 @@ public class MSPBill {
 
     /**
      * Returns a formatted summary of the explanation code for a specific rejected bill
-     *
      * @return String
      * @todo This really ought to go into a presentation class
      */

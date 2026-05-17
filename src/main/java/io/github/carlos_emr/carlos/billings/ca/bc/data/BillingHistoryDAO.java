@@ -48,9 +48,8 @@ import io.github.carlos_emr.carlos.util.SqlUtils;
 /**
  * BillingHistoryDAO is responsible for providing database CRUD operations
  * on the BillHistory Object
- *
- * @author not attributable
  * @version 1.0
+ * @since 2026-05-13
  */
 public class BillingHistoryDAO {
 
@@ -61,7 +60,6 @@ public class BillingHistoryDAO {
 
     /**
      * Retrieves a List of BillHistory instances according to the specified billingMaster number
-     *
      * @param billingMasterNo - The String billingMaster Number
      * @return List - The List of BillHistory instances
      */
@@ -91,7 +89,6 @@ public class BillingHistoryDAO {
 
     /**
      * Returns a List of BillHistory instances according to the specified billing number
-     *
      * @param billingNo - The String billingNo Number
      * @return List - The List of BillHistory instances
      */
@@ -128,7 +125,6 @@ public class BillingHistoryDAO {
 
     /**
      * Saves a new new billing history instance, associated with the specified billingMaster Number
-     *
      * @param billMasterNo String - The BillingMaster record that the archive is associated with
      */
     public void createBillingHistoryArchive(String billMasterNo) {
@@ -143,7 +139,6 @@ public class BillingHistoryDAO {
     /**
      * Returns a BillHistoryItem representing the current state of a BillingMaster record.
      * Returns null if no record exists for the supplied billingMaster number
-     *
      * @param billMasterNo String
      * @return BillHistoryItem
      */
@@ -172,7 +167,6 @@ public class BillingHistoryDAO {
 
     /**
      * Saves a new new billing history instance, associated with the specified billing number
-     *
      * @param billingNo String - The billing number which will be used to determine the underlying billingMaster numbers
      */
     public void createBillingHistoryArchiveByBillNo(String billingNo) {
@@ -189,7 +183,6 @@ public class BillingHistoryDAO {
 
     /**
      * Creates a history archive initiialized with the supplied parameters
-     *
      * @param billingMasterNo int
      * @param amount          double
      * @param paymentType     int

@@ -24,6 +24,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * @since 2026-05-13
  */
 
 
@@ -60,13 +61,14 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
 /*
- * @author Jef King
  * For The Oscar McMaster Project
  * Developed By Andromedia
  * www.andromedia.ca
+ * @since 2026-05-13
  */
 /*
  * Created on Mar 10, 2004
+ * @since 2026-05-13
  */
 
 import org.apache.struts2.ActionSupport;

@@ -25,6 +25,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * @since 2026-05-13
  */
 
 package io.github.carlos_emr.carlos.billings.ca.bc.data;
@@ -45,8 +46,7 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 /**
  * Provides CRUD operations for BillingPrivateTransactions and legacy
  * {@link PrivateBillTransaction} classes.
- *
- * @author Joel Legris
+ * @since 2026-05-13
  */
 @Repository
 public class PrivateBillTransactionsDAO extends AbstractDaoImpl<BillingPrivateTransactions> {

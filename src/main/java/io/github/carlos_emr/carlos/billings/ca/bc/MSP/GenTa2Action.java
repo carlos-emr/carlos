@@ -25,6 +25,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * @since 2026-05-13
  */
 
 
@@ -62,7 +63,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.CarlosProperties;
 
 /**
- * @author jay
+ * @since 2026-05-13
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -423,7 +424,6 @@ public class GenTa2Action extends ActionSupport {
                  *     two records are added to teleplanS21, one with a status of D ( the one from the C12 records ) and the other with N
                  *3.File with C12 records at the bottom.
                  *     one record with a status of N
-                 *
                  */
             } else if (header.equals("C12")) {
                 C12 c12 = new C12(nextline);

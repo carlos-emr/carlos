@@ -25,6 +25,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * @since 2026-05-13
  */
 
 package io.github.carlos_emr.carlos.billings.ca.bc.quickbilling;
@@ -47,7 +48,6 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData.BillingVisit;
 
 /**
- * @author Dennis Warren
  * Company Colcamex Resources
  * Date Jun 4, 2012
  * Revised Jun 6, 2012
@@ -56,6 +56,7 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData.BillingVi
  * 1. get display
  * 2. add entry to bean
  * 3. remove entry from bean
+ * @since 2026-05-13
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;

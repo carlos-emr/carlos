@@ -20,12 +20,9 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
- *
- * @author Dennis Warren
  * Company Colcamex Resources
  * Date Jun 4, 2012
  * Filename QuickBillingBCHandler.java
- * @author Dennis Warren
  * Company Colcamex Resources
  * Date Jun 4, 2012
  * Filename QuickBillingBCHandler.java
@@ -34,13 +31,14 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * @since 2026-05-13
  */
 
 /**
- * @author Dennis Warren
  * Company Colcamex Resources
  * Date Jun 4, 2012
  * Filename QuickBillingBCHandler.java
+ * @since 2026-05-13
  */
 package io.github.carlos_emr.carlos.billings.ca.bc.quickbilling;
 
@@ -74,10 +72,9 @@ import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
 
 
 /**
- * @author Dennis Warren
  * @Revised Jun 4, 2012
  * @Comment
- *
+ * @since 2026-05-13
  */
 public class QuickBillingBCHandler {
 
@@ -156,7 +153,6 @@ public class QuickBillingBCHandler {
 
 
     /**
-     *
      * @return Provider Data Access Object
      */
     public ProviderDataDao getProviderDao() {
@@ -164,7 +160,6 @@ public class QuickBillingBCHandler {
     }
 
     /**
-     *
      * @return Oscar Properties Object
      */
     public Properties getCarlosProperties() {
@@ -208,7 +203,6 @@ public class QuickBillingBCHandler {
      * Header consists of a providers, service location, and service date and
      * is the header for a group of individual patients with the header data
      * in commons.
-     *
      */
     public void setHeader(ObjectNode billingEntry) {
 
@@ -409,7 +403,6 @@ public class QuickBillingBCHandler {
 
     /**
      * Triggers existing class: BillingSaveBillingAction to recursively save the bills array list.
-     *
      * @return true if bills were saved successfully
      */
     public boolean saveBills() {
@@ -510,7 +503,6 @@ public class QuickBillingBCHandler {
 
     /**
      * Again method borrowed from BillingSaveBillingAction.
-     *
      * @param billingid
      * @param billingAccountStatus
      * @param dataCenterId

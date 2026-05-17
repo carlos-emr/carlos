@@ -25,6 +25,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * @since 2026-05-13
  */
 
 
@@ -39,8 +40,7 @@ package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
  * | sequence_no      | int(10) | YES  |     | NULL    |                |
  * | billingmaster_no | int(10) | YES  |     | NULL    |                |
  * +------------------+---------+------+-----+---------+----------------+
- *
- * @author jay
+ * @since 2026-05-13
  */
 public class TeleplanLog {
     private int logNo;

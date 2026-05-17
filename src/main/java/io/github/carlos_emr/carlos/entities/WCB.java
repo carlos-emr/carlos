@@ -25,6 +25,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * @since 2026-05-13
  */
 
 
@@ -46,7 +47,7 @@ import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
 /**
- * @author jaygallagher
+ * @since 2026-05-13
  */
 @Entity
 @Table(name = "wcb")
@@ -747,7 +748,6 @@ public class WCB {
     }
 
     /*
-     * 
     Form 
     Field         MSP  MSP
     Label  REC #  REC  SEQ     Data Element Name      MAND   Wcb Specific   Should be check with bill

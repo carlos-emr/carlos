@@ -25,6 +25,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * @since 2026-05-13
  */
 
 
@@ -38,8 +39,7 @@ import java.util.Date;
 
 /**
  * Used to consolidate the teleplan submission html into one place.
- *
- * @author jay
+ * @since 2026-05-13
  */
 public class HtmlTeleplanHelper {
 

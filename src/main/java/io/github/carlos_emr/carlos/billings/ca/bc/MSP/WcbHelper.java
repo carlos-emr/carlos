@@ -25,6 +25,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * @since 2026-05-13
  */
 
 
@@ -38,7 +39,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 /**
- * @author Jay Gallagher
+ * @since 2026-05-13
  */
 public class WcbHelper {
 
@@ -118,7 +119,6 @@ public class WcbHelper {
 
     /**
      * Getter for property empList.
-     *
      * @return Value of property empList.
      */
     public java.util.ArrayList getEmpList() {
@@ -127,7 +127,6 @@ public class WcbHelper {
 
     /**
      * Setter for property empList.
-     *
      * @param empList New value of property empList.
      */
     public void setEmpList(java.util.ArrayList empList) {
@@ -136,7 +135,6 @@ public class WcbHelper {
 
     /**
      * Getter for property claimList.
-     *
      * @return Value of property claimList.
      */
     public java.util.ArrayList getClaimList() {
@@ -145,7 +143,6 @@ public class WcbHelper {
 
     /**
      * Setter for property claimList.
-     *
      * @param claimList New value of property claimList.
      */
     public void setClaimList(java.util.ArrayList claimList) {
