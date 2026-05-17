@@ -553,6 +553,7 @@ public class BillingSaveBilling2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             return;
         }
+        // nosemgrep: java.lang.security.audit.unvalidated-redirect.unvalidated-redirect -- redirectUrl is generated server-side by receiptRedirectUrl(...), URL-encodes billing_no values, and is accepted only after RedirectValidationUtils.isValidRelativeRedirect(...)
         response.sendRedirect(redirectUrl);
     }
 
