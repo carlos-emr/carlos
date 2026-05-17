@@ -77,6 +77,8 @@ class LoginJspMigrationRegressionTest {
             Path.of("src/main/webapp/WEB-INF/jsp/login/forcepasswordreset.jsp");
     private static final Path LOGIN_FAILED_JSP =
             Path.of("src/main/webapp/WEB-INF/jsp/login/loginfailed.jsp");
+    private static final Path MFA_HANDLER_JSP =
+            Path.of("src/main/webapp/WEB-INF/jsp/mfa/mfa_handler.jsp");
     private static final Path LOGIN_FILTER =
             Path.of("src/main/java/io/github/carlos_emr/carlos/sec/LoginFilter.java");
 
@@ -240,6 +242,18 @@ class LoginJspMigrationRegressionTest {
                 .contains("value=\"${errormsg}\"")
                 .doesNotContain("<%= errormsg %>")
                 .doesNotContain("owasp.encoder.jakarta.advanced");
+    }
+
+    @Test
+    @DisplayName("MFA handler should encode request error message with CARLOS encoder tag")
+    void shouldEncodeRequestErrorMessage_withCarlosEncoderTag() throws IOException {
+        String mfaHandlerJsp = Files.readString(MFA_HANDLER_JSP, StandardCharsets.UTF_8);
+
+        assertThat(mfaHandlerJsp)
+                .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
+                .contains("<carlos:encode value=\"${requestScope.errMsg}\" context=\"html\"/>")
+                .doesNotContain("${requestScope.errMsg}</strong>")
+                .doesNotContain("<c:out");
     }
 
     @Test

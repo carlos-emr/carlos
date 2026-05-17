@@ -15,17 +15,24 @@
  * Defaults are for the local devcontainer:
  *   node scripts/login-playwright-checks.js
  *
+ * Required environment:
+ *   TEST_PASSWORD=<dev password> TEST_PIN=<dev pin>
+ *   MYSQL_PASSWORD=<dev db password>
+ *   TEST_PASSWORD_HASH='<known hash for TEST_PASSWORD>'
+ *
  * Optional environment:
  *   BASE_URL=http://127.0.0.1:8080/carlos
  *   CHROME_PATH=/path/to/chrome-or-chromium
- *   TEST_USER=carlosdoc TEST_PASSWORD=<dev password> TEST_PIN=<dev pin>
- *   TEST_PASSWORD_HASH='<known hash for TEST_PASSWORD>'
- *   MYSQL_HOST=db MYSQL_USER=root MYSQL_PASSWORD=<dev db password> MYSQL_DATABASE=oscar
+ *   TEST_USER=carlosdoc
+ *   MYSQL_HOST=db MYSQL_USER=root MYSQL_DATABASE=oscar
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
 const { chromium, request } = require('playwright');
 const { execFileSync } = require('child_process');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const appPath = baseUrl.pathname.replace(/\/$/, '') || '';
@@ -43,6 +50,7 @@ const resetPasswordValid = ['Carlos', '2026', '!Valid'].join('');
 const resetPasswordLegacy = ['Carlos', '2026', '!Legacy'].join('');
 
 let baselineHash = process.env.TEST_PASSWORD_HASH || null;
+const mysqlDefaults = createMysqlDefaultsFile();
 
 const original = {};
 const results = [];
@@ -93,11 +101,27 @@ async function gotoApp(page, path, options = {}, query = null) {
   return page.goto(appUrl(path, query), options);
 }
 
+function createMysqlDefaultsFile() {
+  if (/[\r\n]/.test(mysqlPassword)) {
+    throw new Error('MYSQL_PASSWORD must not contain newline characters');
+  }
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-login-mysql-'));
+  const file = path.join(dir, 'client.cnf');
+  fs.writeFileSync(file, `[client]\npassword=${mysqlPassword}\n`, { mode: 0o600 });
+  return { dir, file };
+}
+
+function cleanupMysqlDefaultsFile() {
+  if (mysqlDefaults && mysqlDefaults.dir) {
+    fs.rmSync(mysqlDefaults.dir, { recursive: true, force: true });
+  }
+}
+
 function sql(query) {
   return execFileSync('mysql', [
+    `--defaults-extra-file=${mysqlDefaults.file}`,
     '-h', mysqlHost,
     '-u', mysqlUser,
-    `-p${mysqlPassword}`,
     mysqlDatabase,
     '-N',
     '-B',
@@ -477,8 +501,12 @@ async function expectSchedulePage(page, label) {
     });
   } finally {
     await browser.close().catch(() => {});
-    restoreOriginal();
-    console.log(`Restored ${testUser} security row`);
+    try {
+      restoreOriginal();
+      console.log(`Restored ${testUser} security row`);
+    } finally {
+      cleanupMysqlDefaultsFile();
+    }
     console.log(`Completed ${results.length} Playwright checks, ${failures.length} failures`);
     if (failures.length) {
       for (const failure of failures) {
@@ -493,6 +521,8 @@ async function expectSchedulePage(page, label) {
     restoreOriginal();
   } catch (restoreError) {
     console.error(`Restore failed: ${restoreError.stack || restoreError}`);
+  } finally {
+    cleanupMysqlDefaultsFile();
   }
   process.exit(1);
 });

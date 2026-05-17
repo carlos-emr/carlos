@@ -22,7 +22,6 @@
 package io.github.carlos_emr.carlos.sec;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.stream.Stream;
 
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
@@ -93,6 +92,8 @@ class LoginFilterUnitTest {
 
             assertThat(response.getStatus()).isEqualTo(401);
             assertThat(response.getRedirectedUrl()).isNull();
+            assertThat(response.getContentType()).isEqualTo("text/plain;charset=UTF-8");
+            assertThat(response.getContentAsString()).isEqualTo("Unauthorized");
         }
 
         @Test
@@ -107,6 +108,8 @@ class LoginFilterUnitTest {
 
             assertThat(response.getStatus()).isEqualTo(401);
             assertThat(response.getRedirectedUrl()).isNull();
+            assertThat(response.getContentType()).isEqualTo("application/json;charset=UTF-8");
+            assertThat(response.getContentAsString()).isEqualTo("{\"error\":\"unauthorized\"}");
         }
 
         @ParameterizedTest
@@ -121,6 +124,8 @@ class LoginFilterUnitTest {
 
             assertThat(response.getStatus()).isEqualTo(401);
             assertThat(response.getRedirectedUrl()).isNull();
+            assertThat(response.getContentType()).isEqualTo("text/plain;charset=UTF-8");
+            assertThat(response.getContentAsString()).isEqualTo("Unauthorized");
         }
 
         @Test
@@ -211,6 +216,23 @@ class LoginFilterUnitTest {
             filter.doFilter(request, response, chain);
 
             assertThat(chain.getRequest()).isSameAs(request);
+            assertThat(response.getRedirectedUrl()).isNull();
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"/forcepasswordreset", "/forcepasswordresetSubmit"})
+        @DisplayName("should pass forced reset entrypoints when unauthenticated")
+        void shouldPassForcedResetEntrypoints_whenUnauthenticated(String path)
+                throws ServletException, IOException {
+            String method = path.endsWith("Submit") ? "POST" : "GET";
+            MockHttpServletRequest request = request(method, CONTEXT_PATH + path);
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            MockFilterChain chain = new MockFilterChain();
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(chain.getRequest()).isSameAs(request);
+            assertThat(response.getStatus()).isEqualTo(200);
             assertThat(response.getRedirectedUrl()).isNull();
         }
 
@@ -598,6 +620,6 @@ class LoginFilterUnitTest {
     }
 
     private static Stream<String> statusCodePaths() {
-        return Arrays.stream(AuthenticationRejectionHandler.STATUS_CODE_PATHS);
+        return AuthenticationRejectionHandler.STATUS_CODE_PATHS.stream();
     }
 }

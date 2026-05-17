@@ -77,6 +77,13 @@ public final class LogSanitizer {
             java.util.regex.Pattern.compile("\\p{Cntrl}");
 
     /**
+     * Per-segment path parameters can carry bearer identifiers such as {@code ;jsessionid}.
+     * They must be removed before request paths are written to operator logs.
+     */
+    private static final java.util.regex.Pattern PATH_PARAMETERS =
+            java.util.regex.Pattern.compile(";[^/]*");
+
+    /**
      * Post-encoding expansion factor. {@code Encode.forJava()} expands control characters
      * (e.g. {@code \n} → {@code \\n}), with a worst-case expansion of 6x for non-ASCII
      * characters encoded as Unicode escape sequences (one character → six output characters).
@@ -141,6 +148,28 @@ public final class LogSanitizer {
             truncated = true;
         }
         return truncated ? encoded + "..." : encoded;
+    }
+
+    /**
+     * Sanitizes a request URI for logging after removing path parameters.
+     *
+     * <p>Servlet containers may expose URL-rewritten session ids in
+     * {@code HttpServletRequest.getRequestURI()} as {@code ;jsessionid=...}. Log escaping alone
+     * would still leak that bearer token, so callers that log request paths should use this helper
+     * instead of {@link #sanitize(String)} directly.</p>
+     *
+     * <p>This helper is for request-URI paths such as {@code getRequestURI()}, not full URLs or
+     * query-bearing strings. It strips literal semicolon path parameters per path segment; encoded
+     * semicolons such as {@code %3B} are preserved because decoding is not performed here.</p>
+     *
+     * @param requestUri raw request URI path; may be {@code null}
+     * @return String URI with path parameters removed, then log-sanitized
+     */
+    public static String sanitizeUri(String requestUri) {
+        if (requestUri == null) {
+            return "null";
+        }
+        return sanitize(PATH_PARAMETERS.matcher(requestUri).replaceAll(""));
     }
 
     /**

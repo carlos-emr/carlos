@@ -235,6 +235,66 @@ class LogSanitizerUnitTest {
     }
 
     @Nested
+    @DisplayName("sanitizeUri(String)")
+    class SanitizeUri {
+
+        @Test
+        @DisplayName("should strip path parameters before log sanitizing URI")
+        void shouldStripPathParameters_beforeLogSanitizingUri() {
+            String sanitized = LogSanitizer.sanitizeUri(
+                    "/carlos/provider/providercontrol;jsessionid=secret/session;p=1\r\nfake");
+
+            assertThat(sanitized)
+                    .contains("/carlos/provider/providercontrol/session")
+                    .doesNotContain("jsessionid")
+                    .doesNotContain("secret")
+                    .doesNotContain(";p=1")
+                    .doesNotContain("\r")
+                    .doesNotContain("\n");
+        }
+
+        @Test
+        @DisplayName("should return literal null when URI is null")
+        void shouldReturnLiteralNull_whenUriIsNull() {
+            assertThat(LogSanitizer.sanitizeUri(null)).isEqualTo("null");
+        }
+
+        @Test
+        @DisplayName("should preserve URI when no path parameters are present")
+        void shouldPreserveUri_whenNoPathParametersArePresent() {
+            assertThat(LogSanitizer.sanitizeUri("/carlos/provider/providercontrol"))
+                    .isEqualTo("/carlos/provider/providercontrol");
+        }
+
+        @Test
+        @DisplayName("should preserve empty URI")
+        void shouldPreserveEmptyUri_whenUriIsEmpty() {
+            assertThat(LogSanitizer.sanitizeUri("")).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should strip trailing jsessionid path parameter")
+        void shouldStripTrailingJsessionidPathParameter_whenNoSlashFollows() {
+            assertThat(LogSanitizer.sanitizeUri("/carlos/login;jsessionid=abc123"))
+                    .isEqualTo("/carlos/login");
+        }
+
+        @Test
+        @DisplayName("should strip multiple path parameters from each segment")
+        void shouldStripMultiplePathParameters_fromEachUriSegment() {
+            assertThat(LogSanitizer.sanitizeUri("/carlos;one=1;two=2/provider;three=3/control"))
+                    .isEqualTo("/carlos/provider/control");
+        }
+
+        @Test
+        @DisplayName("should preserve encoded semicolon because URI is not decoded")
+        void shouldPreserveEncodedSemicolon_becauseUriIsNotDecoded() {
+            assertThat(LogSanitizer.sanitizeUri("/carlos/provider%3Bjsessionid=abc/control"))
+                    .isEqualTo("/carlos/provider%3Bjsessionid=abc/control");
+        }
+    }
+
+    @Nested
     @DisplayName("sanitizeObject(Object)")
     class SanitizeObject {
 

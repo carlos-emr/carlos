@@ -134,6 +134,7 @@ public class LoginFilter implements Filter {
      * without an authenticated session. This includes:
      * <ul>
      *   <li>Login/logout pages ({@code /index}, {@code /logoutPage}, {@code /login})</li>
+     *   <li>Forced password-reset entrypoints ({@code /forcepasswordreset}, {@code /forcepasswordresetSubmit})</li>
      *   <li>Public static resources (images, CSS, JavaScript, fonts)</li>
      *   <li>Lab upload endpoints (for external lab system integration)</li>
      *   <li>PDF generation servlets (for external document generation)</li>

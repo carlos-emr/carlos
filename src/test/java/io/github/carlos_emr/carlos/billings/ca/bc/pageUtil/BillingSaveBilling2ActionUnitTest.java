@@ -22,15 +22,18 @@
 package io.github.carlos_emr.carlos.billings.ca.bc.pageUtil;
 
 import java.util.List;
+import java.util.Locale;
 
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import jakarta.servlet.http.HttpServletRequest;
+import org.apache.logging.log4j.Level;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.AfterEach;
@@ -51,9 +54,18 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+/**
+ * Unit coverage for BC billing-save request guards and direct-response failure contracts.
+ *
+ * <p>The action writes billing records, appointment updates, and archive rows, so these tests pin
+ * the pre-write rejection paths that keep malformed or unauthenticated requests from mutating
+ * billing state.</p>
+ */
 @DisplayName("BillingSaveBilling2Action")
 @Tag("unit")
 @Tag("billing")
@@ -167,17 +179,113 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
 
             assertThat(result).isEqualTo(ActionSupport.NONE);
             assertThat(response.getStatus()).isEqualTo(400);
-            assertThat(response.getErrorMessage()).isEqualTo("Billing session expired");
+            assertThat(response.getErrorMessage()).isEqualTo("Billing session expired.");
             verifyNoInteractions(billingmasterDAO, appointmentDao, appointmentArchiveDao);
         }
     }
 
     @Test
-    @DisplayName("should skip appointment update when appointment number is malformed")
-    void shouldSkipAppointmentUpdate_whenAppointmentNumberIsMalformed() throws Exception {
+    @DisplayName("should reject malformed appointment number before billing writes")
+    void shouldRejectMalformedAppointmentNumber_beforeBillingWrites() throws Exception {
         request.setMethod("POST");
         request.getSession().setAttribute("user", "100");
-        request.getSession().setAttribute("billingSessionBean", minimalBillingSessionBean("not-a-number"));
+        BillingSessionBean bean = minimalBillingSessionBean("bad\r\nvalue");
+        bean.getBillItem().add(mock(BillingBillingManager.BillingItem.class));
+        request.getSession().setAttribute("billingSessionBean", bean);
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("100");
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class)) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_billing"), eq("w"), isNull()))
+                    .thenReturn(true);
+
+            String result = new BillingSaveBilling2Action().execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(400);
+            assertThat(response.getContentType()).isEqualTo("text/plain;charset=UTF-8");
+            assertThat(response.getContentAsString()).isEqualTo("Malformed appointment number \"badvalue\". "
+                    + "Please return to billing and re-select the appointment.");
+            assertThat(bean.getApptNo()).isEqualTo("bad\r\nvalue");
+            verifyNoInteractions(appointmentDao, appointmentArchiveDao, billingmasterDAO);
+        }
+    }
+
+    @Test
+    @DisplayName("should reject malformed appointment number after output stream obtained")
+    void shouldRejectMalformedAppointmentNumber_whenOutputStreamWasAlreadyObtained() throws Exception {
+        request.setMethod("POST");
+        request.getSession().setAttribute("user", "100");
+        BillingSessionBean bean = minimalBillingSessionBean("bad-value");
+        bean.getBillItem().add(mock(BillingBillingManager.BillingItem.class));
+        request.getSession().setAttribute("billingSessionBean", bean);
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("100");
+        response.getOutputStream();
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class)) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_billing"), eq("w"), isNull()))
+                    .thenReturn(true);
+
+            String result = new BillingSaveBilling2Action().execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(400);
+            assertThat(response.getContentType()).isEqualTo("text/plain;charset=UTF-8");
+            assertThat(response.getContentAsString()).isEqualTo("Malformed appointment number \"bad-value\". "
+                    + "Please return to billing and re-select the appointment.");
+            verifyNoInteractions(appointmentDao, appointmentArchiveDao, billingmasterDAO);
+        }
+    }
+
+    @Test
+    @DisplayName("should localize malformed appointment number when request locale is French")
+    void shouldLocalizeMalformedAppointmentNumber_whenRequestLocaleIsFrench() throws Exception {
+        request.setMethod("POST");
+        request.addPreferredLocale(Locale.FRENCH);
+        request.getSession().setAttribute("user", "100");
+        BillingSessionBean bean = minimalBillingSessionBean("not-a-number");
+        bean.getBillItem().add(mock(BillingBillingManager.BillingItem.class));
+        request.getSession().setAttribute("billingSessionBean", bean);
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("100");
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class)) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_billing"), eq("w"), isNull()))
+                    .thenReturn(true);
+
+            String result = new BillingSaveBilling2Action().execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(400);
+            assertThat(response.getContentType()).isEqualTo("text/plain;charset=UTF-8");
+            assertThat(response.getContentAsString()).isEqualTo("Num\u00e9ro de rendez-vous non valide "
+                    + "\"not-a-number\". Veuillez retourner \u00e0 la facturation et s\u00e9lectionner "
+                    + "de nouveau le rendez-vous.");
+            verifyNoInteractions(appointmentDao, appointmentArchiveDao, billingmasterDAO);
+        }
+    }
+
+    @Test
+    @DisplayName("should substitute appointment number when translated pattern has apostrophe")
+    void shouldSubstituteAppointmentNumber_whenTranslatedPatternHasApostrophe() {
+        assertThat(BillingSaveBilling2Action.formatMessagePattern(
+                "L'identifiant de rendez-vous \"{0}\" est invalide.", "abc123"))
+                .isEqualTo("L'identifiant de rendez-vous \"abc123\" est invalide.");
+    }
+
+    @Test
+    @DisplayName("should treat null literal appointment number as unlinked billing")
+    void shouldTreatNullLiteralAppointmentNumber_asUnlinkedBilling() throws Exception {
+        request.setMethod("POST");
+        request.getSession().setAttribute("user", "100");
+        request.getSession().setAttribute("billingSessionBean", minimalBillingSessionBean("NuLl"));
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("100");
 
@@ -190,10 +298,49 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
             String result = new BillingSaveBilling2Action().execute();
 
             assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-            BillingSessionBean bean = (BillingSessionBean) request.getSession()
-                    .getAttribute("billingSessionBean");
-            assertThat(bean.getApptNo()).isEqualTo("0");
             verifyNoInteractions(appointmentDao, appointmentArchiveDao, billingmasterDAO);
+        }
+    }
+
+    @Test
+    @DisplayName("should use English fallback when billing message key is missing")
+    void shouldUseEnglishFallback_whenBillingMessageKeyIsMissing() {
+        try (LogCapture capture = LogCapture.forLogger(BillingSaveBilling2Action.class)) {
+            assertThat(BillingSaveBilling2Action.message(Locale.ENGLISH,
+                    "billing.billingSave.missingRoundSevenKey", "fallback value."))
+                    .isEqualTo("fallback value.");
+            assertThat(capture.events()).anySatisfy(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                assertThat(event.getMessage().getFormattedMessage())
+                        .contains("Missing billing save resource bundle key")
+                        .contains("billing.billingSave.missingRoundSevenKey");
+            });
+        }
+    }
+
+    @Test
+    @DisplayName("should skip appointment archive when numeric appointment is not found")
+    void shouldSkipAppointmentArchive_whenNumericAppointmentIsNotFound() throws Exception {
+        request.setMethod("POST");
+        request.getSession().setAttribute("user", "100");
+        request.getSession().setAttribute("billingSessionBean", minimalBillingSessionBean("123"));
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("100");
+        when(appointmentDao.find(123)).thenReturn(null);
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class)) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_billing"), eq("w"), isNull()))
+                    .thenReturn(true);
+
+            String result = new BillingSaveBilling2Action().execute();
+
+            assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+            verify(appointmentDao).find(123);
+            verify(appointmentArchiveDao, never()).archiveAppointment(any());
+            verify(appointmentDao, never()).merge(any());
+            verifyNoInteractions(billingmasterDAO);
         }
     }
 

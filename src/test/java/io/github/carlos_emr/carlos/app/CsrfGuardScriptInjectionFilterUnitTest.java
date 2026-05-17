@@ -132,13 +132,23 @@ class CsrfGuardScriptInjectionFilterUnitTest {
     void shouldFailClosed_whenCsrfGuardCannotInitialize() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/provider/providercontrol");
         request.setContextPath("/carlos");
+        request.setRequestURI("/carlos/provider/providercontrol;jsessionid=secret-session");
         MockHttpServletResponse response = new MockHttpServletResponse();
         FilterChain chain = mock(FilterChain.class);
 
-        try (MockedStatic<CsrfGuard> csrfGuardMock = mockStatic(CsrfGuard.class)) {
+        try (MockedStatic<CsrfGuard> csrfGuardMock = mockStatic(CsrfGuard.class);
+             LogCapture capture = LogCapture.forLogger(CsrfGuardScriptInjectionFilter.class)) {
             csrfGuardMock.when(CsrfGuard::getInstance).thenThrow(new IllegalStateException("csrf unavailable"));
 
             filter.doFilter(request, response, chain);
+
+            assertThat(capture.events()).anySatisfy(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.ERROR);
+                assertThat(event.getMessage().getFormattedMessage())
+                        .contains("uri=/carlos/provider/providercontrol")
+                        .doesNotContain("jsessionid")
+                        .doesNotContain("secret-session");
+            });
         }
 
         assertThat(response.getStatus()).isEqualTo(503);
@@ -299,6 +309,7 @@ class CsrfGuardScriptInjectionFilterUnitTest {
     void shouldWarn_whenNonHtmlContentTypeContainsFullHtml() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/clinical/JsonEndpoint");
         request.setContextPath("/carlos");
+        request.setRequestURI("/carlos/clinical/JsonEndpoint;jsessionid=secret-session");
         MockHttpServletResponse response = new MockHttpServletResponse();
         String body = "<!DOCTYPE html><html><head><title>Wrong type</title></head><body></body></html>";
 
@@ -314,7 +325,9 @@ class CsrfGuardScriptInjectionFilterUnitTest {
                 assertThat(event.getLevel()).isEqualTo(Level.WARN);
                 assertThat(event.getMessage().getFormattedMessage())
                         .contains("non-HTML Content-Type")
-                        .contains("/clinical/JsonEndpoint");
+                        .contains("/carlos/clinical/JsonEndpoint")
+                        .doesNotContain("jsessionid")
+                        .doesNotContain("secret-session");
             });
         }
         assertThat(response.getContentAsString()).isEqualTo(body);

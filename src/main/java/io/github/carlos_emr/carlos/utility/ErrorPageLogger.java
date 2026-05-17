@@ -135,8 +135,8 @@ public final class ErrorPageLogger {
                     "errorpage.jsp captured exception (method={}, uri={}, status={})",
                     method, uri, status, t);
         } catch (Throwable suppressed) { // NOSONAR — error page must never throw
-            // Last-ditch: best-effort write to System.err so a logging-config
-            // failure doesn't leave operations entirely blind.
+            // Last-ditch: log only the exception class. Calling toString() can expose PHI from
+            // exception messages when the normal logging pipeline has already failed.
             try {
                 String suppressedSummary = suppressed.getClass().getName();
                 System.err.println("ErrorPageLogger: suppressed exception during error logging (" + suppressedSummary + ")");

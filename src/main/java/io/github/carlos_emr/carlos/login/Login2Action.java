@@ -189,6 +189,14 @@ public final class Login2Action extends ActionSupport {
      * session, so MFA state must use distinct attributes that grant no application access.</p>
      */
     public static final String PENDING_MFA_AUTH_ATTR = "pendingMfaAuthentication";
+
+    /**
+     * Pending-MFA copy of the authenticated security row.
+     *
+     * <p>This attribute is stored before the normal authenticated session exists. The
+     * {@link Security} entity must remain serializable so session passivation or clustered session
+     * replication can safely carry the pending challenge state until OTP validation completes.</p>
+     */
     private static final String PENDING_MFA_SECURITY_ATTR = "pendingMfaSecurity";
     private static final String PENDING_MFA_AUTH_RESULT_ATTR = "pendingMfaAuthResult";
 
@@ -289,7 +297,7 @@ public final class Login2Action extends ActionSupport {
      * @throws IOException if I/O error occurs during redirect or response writing
      * @see LoginCheckLogin#auth for authentication logic
      * @see MfaManager#getQRCodeImageData for MFA QR code generation
-     * @see #completeAuthenticatedLogin for MFA continuation logic
+     * @see #validateMfaAndCompleteLogin for MFA continuation logic
      */
     public String execute() throws ServletException, IOException {
 
@@ -477,7 +485,7 @@ public final class Login2Action extends ActionSupport {
                         return NONE;
                     }
                     // facilityId validated via Integer.parseInt() and facilityDao.find() above
-                    request.getSession().setAttribute(SessionConstants.CURRENT_FACILITY, facility); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+                    request.getSession().setAttribute(SessionConstants.CURRENT_FACILITY, facility); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- facility entity is DAO-loaded after provider/facility authorization
                     LogAction.addLog(username, LogConst.LOGIN, LogConst.CON_LOGIN, "facilityId=" + facilityId, ip);
                     // FP for open-redirect scanners (CodeQL java/unvalidated-url-redirection #5909):
                     // nextPage is validated by RedirectValidationUtils.isValidRelativeRedirect()
@@ -621,7 +629,7 @@ public final class Login2Action extends ActionSupport {
                 ObjectNode json = objectMapper.createObjectNode();
                 json.put("success", false);
                 response.setContentType("application/json");
-                json.put("error", "Invalid Credentials");
+                json.put("error", message("login.errorInvalidCredentials"));
                 response.getWriter().write(json.toString());
                 return null;
             }
@@ -656,16 +664,16 @@ public final class Login2Action extends ActionSupport {
         }
         session = request.getSession();
         session.setMaxInactiveInterval(300);
-        session.setAttribute(PENDING_MFA_AUTH_ATTR, Boolean.TRUE); // nosemgrep: tainted-session-from-http-request
-        session.setAttribute(PENDING_MFA_SECURITY_ATTR, security); // nosemgrep: tainted-session-from-http-request
-        session.setAttribute(PENDING_MFA_AUTH_RESULT_ATTR, strAuth); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute(PENDING_MFA_AUTH_ATTR, Boolean.TRUE); // nosemgrep: tainted-session-from-http-request -- server-generated MFA challenge marker
+        session.setAttribute(PENDING_MFA_SECURITY_ATTR, security); // nosemgrep: tainted-session-from-http-request -- Security entity loaded from DAO after password/PIN authentication
+        session.setAttribute(PENDING_MFA_AUTH_RESULT_ATTR, strAuth); // nosemgrep: tainted-session-from-http-request -- authentication result returned by LoginCheckLogin after credential validation
 
         try {
             if (this.mfaManager.isMfaRegistrationRequired(security.getId())) {
                 Object mfaSecret = session.getAttribute("mfaSecret");
                 if (mfaSecret == null) {
                     mfaSecret = MfaManager.generateMfaSecret();
-                    session.setAttribute("mfaSecret", mfaSecret); // nosemgrep: tainted-session-from-http-request
+                    session.setAttribute("mfaSecret", mfaSecret); // nosemgrep: tainted-session-from-http-request -- server-generated MFA registration secret staged only until OTP confirmation
                 }
                 request.setAttribute("mfaRegistrationRequired", true);
                 request.setAttribute("qrData", this.mfaManager.getQRCodeImageData(security.getId(), mfaSecret.toString()));
@@ -674,6 +682,8 @@ public final class Login2Action extends ActionSupport {
             clearPendingMfaSession(session);
             session.invalidate();
             if (e instanceof SecurityException || e instanceof NullPointerException) {
+                // Authorization failures and impossible null-state defects must keep their normal
+                // error handling. Only expected MFA setup failures become user-facing login errors.
                 throw e;
             }
             logger.error("Unable to prepare MFA registration: providerNo={}, securityId={}, remote={}",
@@ -850,7 +860,9 @@ public final class Login2Action extends ActionSupport {
      * Removes all pre-authentication MFA state from the session.
      *
      * <p>The staged login object and authentication result represent a successful password/PIN check
-     * and must be cleared before any fatal MFA failure returns control to Struts.</p>
+     * and must be cleared before any fatal MFA failure returns control to Struts. During MFA
+     * registration this also removes the staged {@code mfaSecret}, which is sensitive material and
+     * must not survive a failed or abandoned challenge.</p>
      *
      * @param session session containing pending-MFA state
      */
@@ -885,13 +897,78 @@ public final class Login2Action extends ActionSupport {
     }
 
     /**
+     * Returns the servlet-context CAISI user list, tolerating a missing startup attribute.
+     *
+     * <p>Older startup paths are expected to seed {@code CaseMgmtUsers}, but login must not fail if
+     * that context attribute is absent after a partial startup or test container bootstrap. Mixed
+     * legacy lists are copied defensively: only provider-number {@link String} entries are retained,
+     * and only the class name for non-String entries is logged at DEBUG, never the value itself.
+     * A non-list context value is logged at WARN because it means shared CAISI state was seeded with
+     * an incompatible type and will be rebuilt.</p>
+     *
+     * @return mutable provider-number list safe to store back into servlet context/session
+     */
+    private ArrayList<String> caseManagementUsers() {
+        Object caseMgmtUsersAttr = request.getSession().getServletContext().getAttribute("CaseMgmtUsers");
+        ArrayList<String> caseMgmtUsers = new ArrayList<String>();
+        if (caseMgmtUsersAttr instanceof List<?>) {
+            for (Object providerNo : (List<?>) caseMgmtUsersAttr) {
+                if (providerNo instanceof String) {
+                    caseMgmtUsers.add((String) providerNo);
+                } else {
+                    logger.debug("Ignoring non-String CaseMgmtUsers entry during login session setup: type={}",
+                            providerNo == null ? "null" : LogSanitizer.sanitize(providerNo.getClass().getName()));
+                }
+            }
+        } else if (caseMgmtUsersAttr != null) {
+            logger.warn("CaseMgmtUsers context attribute is not a List: type={}",
+                    LogSanitizer.sanitize(caseMgmtUsersAttr.getClass().getName()));
+        }
+        return caseMgmtUsers;
+    }
+
+    /**
+     * Starts the BC alert timer when configured without blocking successful login.
+     *
+     * <p>BC alert polling is a post-login convenience subsystem. Malformed polling frequency or
+     * missing alert-code configuration should be operator-visible in logs, but should not prevent
+     * a user who has already authenticated from reaching the application.</p>
+     *
+     * @param properties CARLOS runtime properties
+     */
+    private void startBcAlertTimerIfConfigured(Properties properties) {
+        if (!"BC".equals(properties.getProperty("billregion"))) {
+            return;
+        }
+
+        String alertFreq = properties.getProperty("ALERT_POLL_FREQUENCY");
+        if (alertFreq == null || alertFreq.trim().isEmpty()) {
+            return;
+        }
+
+        String configuredAlerts = CarlosProperties.getInstance().getProperty("CDM_ALERTS");
+        if (configuredAlerts == null || configuredAlerts.trim().isEmpty()) {
+            logger.warn("Skipping BC alert timer setup because CDM_ALERTS is not configured");
+            return;
+        }
+
+        try {
+            Long longFreq = Long.valueOf(alertFreq);
+            AlertTimer.getInstance(configuredAlerts.split(","), longFreq.longValue());
+        } catch (NumberFormatException e) {
+            logger.warn("Skipping BC alert timer setup because ALERT_POLL_FREQUENCY is invalid: value={}",
+                    LogSanitizer.sanitize(alertFreq), e);
+        }
+    }
+
+    /**
      * Completes session setup after password/PIN authentication and any required MFA have succeeded.
      *
      * <p>This is the only path that creates the canonical authenticated session marker
      * ({@code user}). Callers must complete forced password reset and MFA checks before invoking it,
      * because {@link io.github.carlos_emr.carlos.sec.LoginFilter} treats that marker as logged-in
      * state. If the provider row cannot be loaded after authentication, the new session is
-     * invalidated and the method returns {@code failure} rather than leaving a partial session.</p>
+     * invalidated and the method returns {@code error} rather than leaving a partial session.</p>
      *
      * @param security authenticated security row
      * @param strAuth authentication result fields returned by {@link LoginCheckLogin#auth}
@@ -899,7 +976,7 @@ public final class Login2Action extends ActionSupport {
      * @param isMobileOptimized whether mobile session flags should be applied
      * @param submitType mobile/full-site submit mode
      * @param ajaxResponse whether to write the final provider JSON response directly
-     * @return Struts result name, {@link #NONE} after redirect, {@code failure}, or null for AJAX
+     * @return Struts result name, {@link #NONE} after redirect, {@code error}, or null for AJAX
      * @throws IOException if redirecting or writing the response fails
      */
     private String completeAuthenticatedLogin(Security security, String[] strAuth, String ip,
@@ -927,17 +1004,17 @@ public final class Login2Action extends ActionSupport {
         Properties pvar = CarlosProperties.getInstance();
 
         String providerNo = strAuth[0] != null ? strAuth[0].trim() : "";
-        session.setAttribute("user", providerNo); // nosemgrep: tainted-session-from-http-request
-        session.setAttribute("userfirstname", strAuth[1] != null ? strAuth[1].trim() : ""); // nosemgrep: tainted-session-from-http-request
-        session.setAttribute("userlastname", strAuth[2] != null ? strAuth[2].trim() : ""); // nosemgrep: tainted-session-from-http-request
-        session.setAttribute("userrole", strAuth[4] != null ? strAuth[4].trim() : ""); // nosemgrep: tainted-session-from-http-request
-        session.setAttribute("oscar_context_path", request.getContextPath()); // nosemgrep: tainted-session-from-http-request
-        session.setAttribute("expired_days", strAuth[5] != null ? strAuth[5].trim() : ""); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("user", providerNo); // nosemgrep: tainted-session-from-http-request -- provider number is the authenticated LoginCheckLogin result
+        session.setAttribute("userfirstname", strAuth[1] != null ? strAuth[1].trim() : ""); // nosemgrep: tainted-session-from-http-request -- display name comes from authenticated LoginCheckLogin result
+        session.setAttribute("userlastname", strAuth[2] != null ? strAuth[2].trim() : ""); // nosemgrep: tainted-session-from-http-request -- display name comes from authenticated LoginCheckLogin result
+        session.setAttribute("userrole", strAuth[4] != null ? strAuth[4].trim() : ""); // nosemgrep: tainted-session-from-http-request -- role comes from authenticated LoginCheckLogin result
+        session.setAttribute("oscar_context_path", request.getContextPath()); // nosemgrep: tainted-session-from-http-request -- servlet context path is container-provided routing state
+        session.setAttribute("expired_days", strAuth[5] != null ? strAuth[5].trim() : ""); // nosemgrep: tainted-session-from-http-request -- password-expiry metadata comes from authenticated LoginCheckLogin result
         if (isMobileOptimized) {
             if ("Full".equalsIgnoreCase(submitType)) {
-                session.setAttribute("fullSite", "true"); // nosemgrep: tainted-session-from-http-request
+                session.setAttribute("fullSite", "true"); // nosemgrep: tainted-session-from-http-request -- constant session mode marker selected by validated mobile flow
             } else {
-                session.setAttribute("mobileOptimized", "true"); // nosemgrep: tainted-session-from-http-request
+                session.setAttribute("mobileOptimized", "true"); // nosemgrep: tainted-session-from-http-request -- constant session mode marker selected by validated mobile flow
             }
         }
 
@@ -948,7 +1025,7 @@ public final class Login2Action extends ActionSupport {
             providerPreference = new ProviderPreference();
         }
 
-        session.setAttribute(SessionConstants.LOGGED_IN_PROVIDER_PREFERENCE, providerPreference); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute(SessionConstants.LOGGED_IN_PROVIDER_PREFERENCE, providerPreference); // nosemgrep: tainted-session-from-http-request -- provider preferences are DAO-loaded server-side state
 
         if (IsPropertiesOn.isCaisiEnable()) {
             String tklerProviderNo;
@@ -958,26 +1035,32 @@ public final class Login2Action extends ActionSupport {
             } else {
                 tklerProviderNo = prop.getValue();
             }
-            session.setAttribute("tklerProviderNo", tklerProviderNo); // nosemgrep: tainted-session-from-http-request
+            session.setAttribute("tklerProviderNo", tklerProviderNo); // nosemgrep: tainted-session-from-http-request -- tickler provider comes from DAO-loaded provider preference
 
-            session.setAttribute("newticklerwarningwindow", providerPreference.getNewTicklerWarningWindow()); // nosemgrep: tainted-session-from-http-request
-            session.setAttribute("default_pmm", providerPreference.getDefaultCaisiPmm()); // nosemgrep: tainted-session-from-http-request
-            session.setAttribute("caisiBillingPreferenceNotDelete", // nosemgrep: tainted-session-from-http-request
+            session.setAttribute("newticklerwarningwindow", providerPreference.getNewTicklerWarningWindow()); // nosemgrep: tainted-session-from-http-request -- CAISI value comes from DAO-loaded provider preference
+            session.setAttribute("default_pmm", providerPreference.getDefaultCaisiPmm()); // nosemgrep: tainted-session-from-http-request -- CAISI value comes from DAO-loaded provider preference
+            session.setAttribute("caisiBillingPreferenceNotDelete", // nosemgrep: tainted-session-from-http-request -- CAISI billing preference is DAO-loaded server-side state
                     String.valueOf(providerPreference.getDefaultDoNotDeleteBilling()));
 
             default_pmm = providerPreference.getDefaultCaisiPmm();
-            @SuppressWarnings("unchecked")
-            ArrayList<String> newDocArr = (ArrayList<String>) request.getSession().getServletContext()
-                    .getAttribute("CaseMgmtUsers");
             if ("enabled".equals(providerPreference.getDefaultNewOscarCme())) {
-                newDocArr.add(providerNo);
-                session.setAttribute("CaseMgmtUsers", newDocArr); // nosemgrep: tainted-session-from-http-request
+                ArrayList<String> sessionCaseMgmtUsers;
+                synchronized (request.getSession().getServletContext()) {
+                    ArrayList<String> contextCaseMgmtUsers = caseManagementUsers();
+                    if (!contextCaseMgmtUsers.contains(providerNo)) {
+                        contextCaseMgmtUsers.add(providerNo);
+                    }
+                    ArrayList<String> contextSnapshot = new ArrayList<String>(contextCaseMgmtUsers);
+                    request.getSession().getServletContext().setAttribute("CaseMgmtUsers", contextSnapshot);
+                    sessionCaseMgmtUsers = new ArrayList<String>(contextSnapshot);
+                }
+                session.setAttribute("CaseMgmtUsers", sessionCaseMgmtUsers); // nosemgrep: tainted-session-from-http-request -- defensive copy of servlet-context provider-number list
             }
         }
-        session.setAttribute("starthour", providerPreference.getStartHour().toString()); // nosemgrep: tainted-session-from-http-request
-        session.setAttribute("endhour", providerPreference.getEndHour().toString()); // nosemgrep: tainted-session-from-http-request
-        session.setAttribute("everymin", providerPreference.getEveryMin().toString()); // nosemgrep: tainted-session-from-http-request
-        session.setAttribute("groupno", providerPreference.getMyGroupNo()); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("starthour", providerPreference.getStartHour().toString()); // nosemgrep: tainted-session-from-http-request -- schedule preference is DAO-loaded server-side state
+        session.setAttribute("endhour", providerPreference.getEndHour().toString()); // nosemgrep: tainted-session-from-http-request -- schedule preference is DAO-loaded server-side state
+        session.setAttribute("everymin", providerPreference.getEveryMin().toString()); // nosemgrep: tainted-session-from-http-request -- schedule preference is DAO-loaded server-side state
+        session.setAttribute("groupno", providerPreference.getMyGroupNo()); // nosemgrep: tainted-session-from-http-request -- group preference is DAO-loaded server-side state
 
         String where = "provider";
 
@@ -990,19 +1073,7 @@ public final class Login2Action extends ActionSupport {
             where = "programLocation";
         }
 
-        if (pvar.getProperty("billregion").equals("BC")) {
-            String alertFreq = pvar.getProperty("ALERT_POLL_FREQUENCY");
-            if (alertFreq != null) {
-                try {
-                    Long longFreq = Long.valueOf(alertFreq);
-                    String[] alertCodes = CarlosProperties.getInstance().getProperty("CDM_ALERTS").split(",");
-                    AlertTimer.getInstance(alertCodes, longFreq.longValue());
-                } catch (NumberFormatException e) {
-                    logger.warn("Skipping BC alert timer setup because ALERT_POLL_FREQUENCY is invalid: value={}",
-                            LogSanitizer.sanitize(alertFreq), e);
-                }
-            }
-        }
+        startBcAlertTimerIfConfigured(pvar);
 
         String username = (String) session.getAttribute("user");
         Provider provider = providerManager.getProvider(username);
@@ -1012,9 +1083,9 @@ public final class Login2Action extends ActionSupport {
             session.invalidate();
             return loginFailureResult(message("login.errorUnableToProcess"));
         }
-        session.setAttribute("provider", provider); // nosemgrep: tainted-session-from-http-request
-        session.setAttribute(SessionConstants.LOGGED_IN_PROVIDER, provider); // nosemgrep: tainted-session-from-http-request
-        session.setAttribute(SessionConstants.LOGGED_IN_SECURITY, security); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("provider", provider); // nosemgrep: tainted-session-from-http-request -- provider entity is DAO-loaded after successful authentication
+        session.setAttribute(SessionConstants.LOGGED_IN_PROVIDER, provider); // nosemgrep: tainted-session-from-http-request -- provider entity is DAO-loaded after successful authentication
+        session.setAttribute(SessionConstants.LOGGED_IN_SECURITY, security); // nosemgrep: tainted-session-from-http-request -- security entity is DAO-loaded after successful authentication
 
         List<Integer> facilityIds = providerDao.getFacilityIds(provider.getProviderNo());
         if (facilityIds.size() > 1) {
@@ -1025,7 +1096,7 @@ public final class Login2Action extends ActionSupport {
             return NONE;
         } else if (facilityIds.size() == 1) {
             Facility facility = facilityDao.find(facilityIds.get(0));
-            request.getSession().setAttribute("currentFacility", facility); // nosemgrep: tainted-session-from-http-request
+            request.getSession().setAttribute("currentFacility", facility); // nosemgrep: tainted-session-from-http-request -- facility entity is DAO-loaded by authorized facility id
             LogAction.addLog(strAuth[0], LogConst.LOGIN, LogConst.CON_LOGIN, "facilityId=" + facilityIds.get(0),
                     ip);
         } else {
@@ -1035,7 +1106,7 @@ public final class Login2Action extends ActionSupport {
                 int first_id = fac.getId();
                 providerDao.addProviderToFacility(providerNo, first_id);
                 Facility facility = facilityDao.find(first_id);
-                request.getSession().setAttribute("currentFacility", facility); // nosemgrep: tainted-session-from-http-request
+                request.getSession().setAttribute("currentFacility", facility); // nosemgrep: tainted-session-from-http-request -- fallback facility entity is DAO-loaded from active facility list
                 LogAction.addLog(strAuth[0], LogConst.LOGIN, LogConst.CON_LOGIN, "facilityId=" + first_id, ip);
             }
         }
@@ -1064,11 +1135,10 @@ public final class Login2Action extends ActionSupport {
 
         if (ajaxResponse) {
             logger.debug("rendering ajax response");
-            Provider prov = providerDao.getProvider((String) request.getSession().getAttribute("user"));
             ObjectNode json = objectMapper.createObjectNode();
             json.put("success", true);
-            json.put("providerName", SafeEncode.forJavaScript(prov.getFormattedName()));
-            json.put("providerNo", prov.getProviderNo());
+            json.put("providerName", SafeEncode.forJavaScript(provider.getFormattedName()));
+            json.put("providerNo", provider.getProviderNo());
             response.setContentType("application/json");
             response.getWriter().write(json.toString());
             return null;
@@ -1152,8 +1222,8 @@ public final class Login2Action extends ActionSupport {
 
     /**
      * Looks up a localized message from the CARLOS EMR oscarResources bundle
-     * using the current request locale, falling back to English when a locale
-     * bundle is missing the requested key.
+     * using the current request locale, then falling back to English, then to a hardcoded generic
+     * message if even the English bundle is missing the requested key.
      *
      * @param request servlet request carrying the active locale
      * @param key resource bundle key to resolve
@@ -1245,7 +1315,7 @@ public final class Login2Action extends ActionSupport {
 
     /**
      * Stores user authentication information in a short-lived server-side cache for the
-     * forced password reset and MFA flows, and records only an opaque one-time token in
+     * forced password reset and MFA flows, and records only an opaque cache token in
      * the session.
      *
      * <p>During multi-step login (MFA verification or forced password reset), the user's
@@ -1297,7 +1367,7 @@ public final class Login2Action extends ActionSupport {
         // SECURITY: Do NOT place credential material (password hash, PIN) in the HTTP session.
         // Sessions can be serialized to disk, replicated across nodes, dumped for debugging,
         // or read by any session-aware code. Instead, stash credentials in a short-lived
-        // server-side cache keyed by a cryptographically random one-time token, and store
+        // server-side cache keyed by a cryptographically random opaque token, and store
         // only the opaque token in the session. See LoginCredentialCache for details.
         LoginCredentialCache.LoginCredentials credentials = new LoginCredentialCache.LoginCredentials(
                 userName, securityManager.encodePassword(password), pin, nextPage);
@@ -1312,7 +1382,7 @@ public final class Login2Action extends ActionSupport {
 
         String token = LoginCredentialCache.getInstance().store(credentials);
         // Use an opaque random token, not user-controlled; no credential material in session
-        session.setAttribute(LOGIN_CREDENTIALS_TOKEN_ATTR, token); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute(LOGIN_CREDENTIALS_TOKEN_ATTR, token); // nosemgrep: tainted-session-from-http-request -- opaque server-generated cache token, not raw credentials
     }
 
     /**
@@ -1684,11 +1754,6 @@ public final class Login2Action extends ActionSupport {
         this.pin = pin;
     }
 
-    /**
-     * Gets the property name for user property operations.
-     *
-     * @return String the property name (legacy field, usage unclear)
-     */
     public String getPropname() {
         return propname;
     }

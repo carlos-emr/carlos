@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.app;
 
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import org.owasp.csrfguard.CsrfGuard;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -126,6 +127,7 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
 
         HttpServletRequest httpRequest = (HttpServletRequest) request;
         HttpServletResponse httpResponse = (HttpServletResponse) response;
+        String safeRequestUri = LogSanitizer.sanitizeUri(httpRequest.getRequestURI());
 
         // Skip AJAX requests on REQUEST dispatch only (not FORWARD).
         // On FORWARD dispatch, the CaptureResponseWrapper is needed to prevent
@@ -145,7 +147,7 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         } catch (Exception e) {
             LOGGER.error("CsrfGuard.getInstance() failed — failing closed so HTML is not "
                     + "served without CSRF script injection (method={} uri={})",
-                    httpRequest.getMethod(), httpRequest.getRequestURI(), e);
+                    LogSanitizer.sanitize(httpRequest.getMethod()), safeRequestUri, e);
             httpResponse.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
             return;
         }
@@ -155,17 +157,17 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             return;
         }
 
-        CaptureResponseWrapper wrapper = new CaptureResponseWrapper(httpResponse, httpRequest.getRequestURI());
-        LOGGER.debug("CsrfGuard: wrapping request {}", httpRequest.getRequestURI());
+        CaptureResponseWrapper wrapper = new CaptureResponseWrapper(httpResponse, safeRequestUri);
+        LOGGER.debug("CsrfGuard: wrapping request {}", safeRequestUri);
         chain.doFilter(request, wrapper);
         LOGGER.debug("CsrfGuard: chain completed for {} committed={} writer={} stream={}",
-                httpRequest.getRequestURI(), wrapper.isResponseCommitted(),
+                safeRequestUri, wrapper.isResponseCommitted(),
                 wrapper.isUsingWriter(), wrapper.isUsingOutputStream());
 
         // If the response was committed by sendRedirect() or sendError(), the status and
         // headers have already been sent to the client — no post-processing is possible
         if (wrapper.isResponseCommitted()) {
-            LOGGER.debug("CsrfGuard: response committed for {}", httpRequest.getRequestURI());
+            LOGGER.debug("CsrfGuard: response committed for {}", safeRequestUri);
             return;
         }
 
@@ -173,7 +175,7 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         // client via the real response's output stream — no capture occurred and no injection
         // is possible
         if (wrapper.isUsingOutputStream()) {
-            LOGGER.debug("CsrfGuard: output stream used for {}", httpRequest.getRequestURI());
+            LOGGER.debug("CsrfGuard: output stream used for {}", safeRequestUri);
             return;
         }
 
@@ -182,13 +184,13 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             LOGGER.debug("CsrfGuard script injection skipped — getWriter() was never called "
                     + "(usingOutputStream={}, committed={}, uri={})",
                     wrapper.isUsingOutputStream(), wrapper.isResponseCommitted(),
-                    httpRequest.getRequestURI());
+                    safeRequestUri);
             return;
         }
 
         if (wrapper.isWriterPassthrough()) {
             LOGGER.debug("CsrfGuard: writer passthrough for {} contentType={}",
-                    httpRequest.getRequestURI(), wrapper.getContentType());
+                    safeRequestUri, wrapper.getContentType());
             return;
         }
 
@@ -201,7 +203,7 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
 
         String captured = wrapper.getCapturedContent();
         LOGGER.debug("CsrfGuard: captured {} bytes for {} contentType={}",
-                captured != null ? captured.length() : 0, httpRequest.getRequestURI(), contentType);
+                captured != null ? captured.length() : 0, safeRequestUri, contentType);
 
         // Idempotency: skip if the page already contains a <script src="...csrfguard..."> tag.
         // Regex is used rather than contains() to avoid false positives when the literal

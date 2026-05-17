@@ -159,6 +159,18 @@ public class PrintHRMReport2Action extends ActionSupport {
         return NONE;
     }
 
+    /**
+     * Resolves and validates the configured HRM document directory before PDF temp files are
+     * created.
+     *
+     * <p>This is a filesystem safety gate for direct-response PDF generation. Callers must fail
+     * before streaming when the configured path is blank, syntactically invalid, or does not point
+     * to an existing directory.</p>
+     *
+     * @param configuredDocumentDir raw {@code DOCUMENT_DIR} {@link CarlosProperties} configuration value
+     * @return normalized absolute document directory
+     * @throws IOException when the value is blank, invalid, or not an existing directory
+     */
     static Path validatedDocumentDirectory(String configuredDocumentDir) throws IOException {
         if (configuredDocumentDir == null || configuredDocumentDir.trim().isEmpty()) {
             throw new IOException("DOCUMENT_DIR is not configured for HRM PDF generation");

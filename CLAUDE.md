@@ -93,8 +93,11 @@ For login/password-reset work, keep documentation aligned with these invariants:
 - Retryable reset validation errors may keep the token live; terminal password changes consume it.
 - `scripts/login-playwright-checks.js` is the reference browser/direct-POST regression check for
   login, failed login, forced reset, CSRF rejection, and provider schedule rendering. It requires
-  `TEST_PASSWORD_HASH` so the script can seed a known-good dev password before mutating the test
-  user's security row.
+  exactly these environment variables: `TEST_PASSWORD`, `TEST_PIN`, `MYSQL_PASSWORD`, and
+  `TEST_PASSWORD_HASH`. The script uses them to seed a known-good dev password before mutating the
+  test user's security row. Run it with
+  `npm run test:login-playwright` against a disposable local/dev database; it is a manual reference
+  check unless the active CI job has already started Tomcat and the dev database.
 
 **What counts as PHI vs. internal identifiers:**
 - **PHI** (treat as sensitive): HIN/health card number, patient name, DOB, address, phone, diagnosis text, clinical notes, lab values, medication details — anything that identifies a real person or their care.

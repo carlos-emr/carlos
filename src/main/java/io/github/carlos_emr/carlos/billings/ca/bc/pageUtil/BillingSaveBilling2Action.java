@@ -56,14 +56,25 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.Locale;
+import java.util.MissingResourceException;
+import java.util.ResourceBundle;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class BillingSaveBilling2Action extends ActionSupport {
+    private static final String BILLING_SESSION_EXPIRED_KEY = "billing.billingSave.sessionExpired";
+    private static final String BILLING_SESSION_EXPIRED_FALLBACK = "Billing session expired.";
+    private static final String MALFORMED_APPOINTMENT_NO_KEY = "billing.billingSave.malformedAppointmentNo";
+    private static final String MALFORMED_APPOINTMENT_NO_FALLBACK = "Malformed appointment number \"{0}\". "
+            + "Please return to billing and re-select the appointment.";
+
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     private static Logger log = MiscUtils.getLogger();
@@ -101,7 +112,7 @@ public class BillingSaveBilling2Action extends ActionSupport {
 
         bean.setCreator(loggedInInfo.getLoggedInProviderNo());
 
-        MiscUtils.getLogger().debug("appointment_no---: " + bean.getApptNo());
+        MiscUtils.getLogger().debug("appointment_no---: {}", LogSanitizer.sanitize(bean.getApptNo()));
 
         Date curDate = new Date();
         String billingid = "";
@@ -109,8 +120,14 @@ public class BillingSaveBilling2Action extends ActionSupport {
         String dataCenterId = CarlosProperties.getInstance().getProperty("dataCenterId");
         String billingMasterId = "";
 
-        normalizeAppointmentNo(bean);
-        updateAppointmentStatus(bean);
+        int appointmentNo;
+        try {
+            appointmentNo = parseOptionalAppointmentNo(bean.getApptNo());
+        } catch (IllegalArgumentException malformedAppointmentNo) {
+            rejectMalformedAppointmentNo(request, response, bean.getApptNo(), malformedAppointmentNo);
+            return NONE;
+        }
+        updateAppointmentStatus(bean, appointmentNo);
 
         char billingAccountStatus = getBillingAccountStatus(bean);
 
@@ -122,7 +139,7 @@ public class BillingSaveBilling2Action extends ActionSupport {
 
         for (BillingBillingManager.BillingItem bItem : billItem) {
 
-            Billing billing = getBillingObj(bean, curDate, billingAccountStatus);
+            Billing billing = getBillingObj(bean, curDate, billingAccountStatus, appointmentNo);
             if (request.getParameter("dispPrice+" + bItem.getServiceCode()) != null) {
                 String updatedPrice = request.getParameter("dispPrice+" + bItem.getServiceCode());
                 log.debug(bItem.getServiceCode() + "Original " + bItem.price + " updated price " + Double.parseDouble(updatedPrice));
@@ -140,7 +157,8 @@ public class BillingSaveBilling2Action extends ActionSupport {
                 billedAmount = bItem.getDispLineTotal();
             }
 
-            Billingmaster billingmaster = saveBill(billingid, "" + billingAccountStatus, dataCenterId, billedAmount, "" + paymentMode, bean, bItem); //billItem.get(i));
+            Billingmaster billingmaster = saveBill(billingid, "" + billingAccountStatus, dataCenterId,
+                    billedAmount, "" + paymentMode, bean, bItem, appointmentNo); //billItem.get(i));
 
             String WCBid = request.getParameter("WCBid");
             MiscUtils.getLogger().debug("WCB:" + WCBid);
@@ -197,6 +215,12 @@ public class BillingSaveBilling2Action extends ActionSupport {
         return SUCCESS;
     }
 
+    /**
+     * Returns the logged-in billing user without creating a new session.
+     *
+     * <p>BC billing save is a mutator, so missing session or missing {@code user} must be rejected
+     * before any privilege checks or DAO writes occur.</p>
+     */
     private LoggedInInfo authenticatedBillingUser(HttpServletRequest request) {
         HttpSession session = request.getSession(false);
         if (session == null || session.getAttribute("user") == null) {
@@ -205,6 +229,9 @@ public class BillingSaveBilling2Action extends ActionSupport {
         return LoggedInInfo.getLoggedInInfoFromSession(request);
     }
 
+    /**
+     * Reads the staged BC billing session bean without assuming the session is still valid.
+     */
     private BillingSessionBean billingSessionBean(HttpServletRequest request) {
         HttpSession session = request.getSession(false);
         if (session == null) {
@@ -216,15 +243,98 @@ public class BillingSaveBilling2Action extends ActionSupport {
                 : null;
     }
 
+    /**
+     * Sends a bad-request response for expired or replayed billing submits.
+     */
     private void rejectExpiredBillingSession(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
         log.warn("Rejected BC billing save because billingSessionBean is missing: method={}, uri={}, remote={}",
                 LogSanitizer.sanitize(request.getMethod()),
-                LogSanitizer.sanitize(request.getRequestURI()),
+                LogSanitizer.sanitizeUri(request.getRequestURI()),
                 LogSanitizer.sanitize(request.getRemoteAddr()));
-        response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Billing session expired");
+        response.sendError(HttpServletResponse.SC_BAD_REQUEST,
+                message(request.getLocale(), BILLING_SESSION_EXPIRED_KEY, BILLING_SESSION_EXPIRED_FALLBACK));
     }
 
+    /**
+     * Resolves short direct-response messages from the same resource bundle used by the billing JSPs.
+     *
+     * <p>The English fallback is deliberately local to this action: a missing key should not turn an
+     * expired billing session into a server error. Callers that feed the result to
+     * {@link MessageFormat} must remember that single quotes are escape characters in translated
+     * patterns.</p>
+     */
+    // Package-private so direct-response fallback behavior can be pinned without servlet plumbing.
+    static String message(Locale locale, String key, String fallback) {
+        ResourceBundle bundle;
+        try {
+            bundle = ResourceBundle.getBundle("oscarResources", locale);
+        } catch (MissingResourceException e) {
+            log.warn("Missing billing save resource bundle: locale={}",
+                    LogSanitizer.sanitize(String.valueOf(locale)));
+            return fallback;
+        }
+        try {
+            return bundle.getString(key);
+        } catch (MissingResourceException e) {
+            log.warn("Missing billing save resource bundle key: key={}, locale={}",
+                    LogSanitizer.sanitize(key), LogSanitizer.sanitize(String.valueOf(locale)));
+            return fallback;
+        }
+    }
+
+    /**
+     * Rejects non-empty appointment numbers that cannot be parsed before any billing writes occur.
+     *
+     * <p>Dropping malformed values to appointment {@code 0} would silently save an unlinked bill.
+     * A direct bad-request response keeps the operator-visible contract clear and avoids mutating
+     * billing state when the appointment linkage is ambiguous. This writes the localized body
+     * explicitly instead of using {@code sendError}, because the container error page would otherwise
+     * replace the response body.</p>
+     */
+    private void rejectMalformedAppointmentNo(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            String rawAppointmentNo,
+            IllegalArgumentException malformedAppointmentNo) throws IOException {
+
+        log.warn("Rejected BC billing save because appointment number is malformed: "
+                        + "method={}, uri={}, remote={}, apptNo={}",
+                LogSanitizer.sanitize(request.getMethod()),
+                LogSanitizer.sanitizeUri(request.getRequestURI()),
+                LogSanitizer.sanitize(request.getRemoteAddr()),
+                LogSanitizer.sanitize(rawAppointmentNo),
+                malformedAppointmentNo);
+        String messagePattern = message(request.getLocale(),
+                MALFORMED_APPOINTMENT_NO_KEY, MALFORMED_APPOINTMENT_NO_FALLBACK);
+        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        response.setContentType("text/plain;charset=UTF-8");
+        writeBody(response, formatMessagePattern(messagePattern, rawAppointmentNo));
+    }
+
+    static String formatMessagePattern(String messagePattern, String rawAppointmentNo) {
+        String sanitizedAppointmentNo = LogSanitizer.sanitizeForDisplay(rawAppointmentNo);
+        String formatted = MessageFormat.format(messagePattern, sanitizedAppointmentNo);
+        if (formatted.contains("{0}")) {
+            log.warn("Billing save message pattern left appointment placeholder unsubstituted; "
+                    + "retrying with escaped single quotes");
+            formatted = MessageFormat.format(messagePattern.replace("'", "''"), sanitizedAppointmentNo);
+        }
+        return formatted;
+    }
+
+    private void writeBody(HttpServletResponse response, String body) throws IOException {
+        try {
+            response.getWriter().write(body);
+        } catch (IllegalStateException writerUnavailable) {
+            response.getOutputStream().write(body.getBytes(StandardCharsets.UTF_8));
+        }
+    }
+
+    /**
+     * Delegates unauthenticated billing-save rejection to the shared login policy.
+     */
     private void rejectUnauthenticatedBillingSave(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
         try {
@@ -232,7 +342,7 @@ public class BillingSaveBilling2Action extends ActionSupport {
         } catch (IOException e) {
             log.warn("Unable to reject unauthenticated BC billing save request: method={}, uri={}, remote={}",
                     LogSanitizer.sanitize(request.getMethod()),
-                    LogSanitizer.sanitize(request.getRequestURI()),
+                    LogSanitizer.sanitizeUri(request.getRequestURI()),
                     LogSanitizer.sanitize(request.getRemoteAddr()),
                     e);
             if (!response.isCommitted()) {
@@ -243,6 +353,7 @@ public class BillingSaveBilling2Action extends ActionSupport {
         }
     }
 
+    // Package-private so the legacy receipt redirect shape can be tested without saving bills.
     static String receiptRedirectUrl(String contextPath, Iterable<String> billingIds) {
         StringBuilder redirectUrl = new StringBuilder(contextPath == null ? "" : contextPath);
         redirectUrl.append("/billing/CA/BC/billingView?");
@@ -253,24 +364,13 @@ public class BillingSaveBilling2Action extends ActionSupport {
         return redirectUrl.toString();
     }
 
-    private void normalizeAppointmentNo(BillingSessionBean bean) {
-        String rawApptNo = bean.getApptNo();
-        String trimmedApptNo = rawApptNo == null ? "" : rawApptNo.trim();
-        if (trimmedApptNo.isEmpty() || trimmedApptNo.equalsIgnoreCase("null")) {
-            bean.setApptNo("0");
-            return;
-        }
-        try {
-            bean.setApptNo(String.valueOf(Integer.parseInt(trimmedApptNo)));
-        } catch (NumberFormatException e) {
-            log.warn("BC billing save ignored malformed appointment number: apptNo={}",
-                    LogSanitizer.sanitize(rawApptNo), e);
-            bean.setApptNo("0");
-        }
-    }
-
-    private void updateAppointmentStatus(BillingSessionBean bean) {
-        int apptNo = parseOptionalAppointmentNo(bean.getApptNo());
+    /**
+     * Updates the linked appointment after the request-level appointment number has been parsed.
+     *
+     * <p>The caller parses once before any persistence so malformed non-empty appointment numbers
+     * reject the request instead of silently saving a bill detached from its appointment.</p>
+     */
+    private void updateAppointmentStatus(BillingSessionBean bean, int apptNo) {
         if (apptNo == 0) {
             return;
         }
@@ -292,15 +392,13 @@ public class BillingSaveBilling2Action extends ActionSupport {
         appointmentDao.merge(appt);
     }
 
-    private Billing getBillingObj(final BillingSessionBean bean, final Date curDate, final char billingAccountStatus) {
-
-        int apptNo = parseOptionalAppointmentNo(bean.getApptNo());
-
+    private Billing getBillingObj(final BillingSessionBean bean, final Date curDate,
+                                  final char billingAccountStatus, final int appointmentNo) {
 
         Billing bill = new Billing();
         bill.setDemographicNo(Integer.parseInt(bean.getPatientNo()));
         bill.setProviderNo(bean.getBillingProvider());
-        bill.setAppointmentNo(apptNo);
+        bill.setAppointmentNo(appointmentNo);
         bill.setDemographicName(bean.getPatientName());
         bill.setHin(bean.getPatientPHN());
         bill.setUpdateDate(curDate);
@@ -377,16 +475,25 @@ public class BillingSaveBilling2Action extends ActionSupport {
         }
     }
 
+    /**
+     * Parses the optional BC appointment number.
+     *
+     * <p>Blank and legacy literal {@code "null"} mean no linked appointment. Any other malformed
+     * value is rejected by the caller before billing rows are saved, so data entry mistakes are not
+     * hidden as appointment {@code 0}.</p>
+     *
+     * @param raw raw appointment number from the billing session bean
+     * @return parsed appointment number, or {@code 0} when the request has no appointment link
+     * @throws IllegalArgumentException when a non-empty appointment value is not numeric
+     */
     private static int parseOptionalAppointmentNo(String raw) {
-        if (raw == null || raw.trim().isEmpty()) {
+        if (raw == null || raw.trim().isEmpty() || raw.trim().equalsIgnoreCase("null")) {
             return 0;
         }
         try {
             return Integer.parseInt(raw.trim());
         } catch (NumberFormatException e) {
-            log.warn("BC billing save treated malformed appointment number as no appointment: apptNo={}",
-                    LogSanitizer.sanitize(raw), e);
-            return 0;
+            throw new IllegalArgumentException("malformed BC billing appointment number", e);
         }
     }
 
@@ -398,11 +505,16 @@ public class BillingSaveBilling2Action extends ActionSupport {
         dao.createBillingHistoryArchive(billingMasterNo);
     }
 
-    private Billingmaster saveBill(String billingid, String billingAccountStatus, String dataCenterId, String billedAmount, String paymentMode, BillingSessionBean bean, BillingBillingManager.BillingItem billItem) {
-        return saveBill(billingid, billingAccountStatus, dataCenterId, billedAmount, paymentMode, bean, "" + billItem.getUnit(), "" + billItem.getServiceCode());
+    private Billingmaster saveBill(String billingid, String billingAccountStatus, String dataCenterId,
+                                   String billedAmount, String paymentMode, BillingSessionBean bean,
+                                   BillingBillingManager.BillingItem billItem, int appointmentNo) {
+        return saveBill(billingid, billingAccountStatus, dataCenterId, billedAmount, paymentMode,
+                bean, "" + billItem.getUnit(), "" + billItem.getServiceCode(), appointmentNo);
     }
 
-    private Billingmaster saveBill(String billingid, String billingAccountStatus, String dataCenterId, String billedAmount, String paymentMode, BillingSessionBean bean, String billingUnit, String serviceCode) {
+    private Billingmaster saveBill(String billingid, String billingAccountStatus, String dataCenterId,
+                                   String billedAmount, String paymentMode, BillingSessionBean bean,
+                                   String billingUnit, String serviceCode, int appointmentNo) {
         Billingmaster bill = new Billingmaster();
 
         String timeCall = bean.getTimeCall();
@@ -427,7 +539,7 @@ public class BillingSaveBilling2Action extends ActionSupport {
         bill.setCreatedate(new Date());
         bill.setBillingstatus(billingAccountStatus);
         bill.setDemographicNo(Integer.parseInt(bean.getPatientNo()));
-        bill.setAppointmentNo(Integer.parseInt(bean.getApptNo()));
+        bill.setAppointmentNo(appointmentNo);
         bill.setClaimcode("C02");
         bill.setDatacenter(dataCenterId);
         bill.setPayeeNo(bean.getBillingGroupNo());

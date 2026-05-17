@@ -202,8 +202,16 @@ public class LogoutBroadcastFilter implements Filter {
         }
         if (delegatingResponse.isHtmlInjectionBufferUnavailable()) {
             logger.warn("Skipping logout broadcast script injection because the HTML response buffer "
-                    + "could not be enlarged before body content was written: uri={}, sessionId={}",
-                    safeRequestUri, sanitizedSessionId(httpRequest));
+                    + "could not be enlarged before body content was written: uri={}",
+                    safeRequestUri);
+            delegatingResponse.applyDeferredContentLength();
+            return;
+        }
+
+        if (delegatingResponse.isResponseOutputStreamObtained()) {
+            logger.warn("Skipping logout broadcast script injection because response used "
+                    + "ServletOutputStream: uri={}, contentType={}",
+                    safeRequestUri, LogSanitizer.sanitize(contentType));
             delegatingResponse.applyDeferredContentLength();
             return;
         }
@@ -211,13 +219,13 @@ public class LogoutBroadcastFilter implements Filter {
         try {
             appendScript(delegatingResponse, httpRequest.getContextPath(), httpRequest.getLocale());
         } catch (IOException e) {
-            logger.error("Skipping logout broadcast script injection because the script could not be written: uri={}, sessionId={}",
-                    safeRequestUri, sanitizedSessionId(httpRequest), e);
+            logger.error("Skipping logout broadcast script injection because the script could not be written: uri={}",
+                    safeRequestUri, e);
             delegatingResponse.applyDeferredContentLength();
             return;
         } catch (IllegalStateException e) {
-            logger.error("Skipping logout broadcast script injection because the response writer was unavailable and the output stream write failed: uri={}, sessionId={}",
-                    safeRequestUri, sanitizedSessionId(httpRequest), e);
+            logger.error("Skipping logout broadcast script injection because the response writer was unavailable and the output stream write failed: uri={}",
+                    safeRequestUri, e);
             delegatingResponse.applyDeferredContentLength();
             return;
         }
@@ -230,21 +238,7 @@ public class LogoutBroadcastFilter implements Filter {
      * @return sanitized URI suitable for operator logs
      */
     private String sanitizedRequestUri(HttpServletRequest request) {
-        return LogSanitizer.sanitize(request.getRequestURI());
-    }
-
-    /**
-     * Returns a log-safe session identifier without creating a session.
-     *
-     * <p>The session id helps correlate failed append attempts with server logs while avoiding raw
-     * identifier exposure.</p>
-     *
-     * @param request current HTTP request
-     * @return sanitized session id, or {@code <none>} when no session exists
-     */
-    private String sanitizedSessionId(HttpServletRequest request) {
-        HttpSession session = request.getSession(false);
-        return session == null ? "<none>" : LogSanitizer.sanitize(session.getId());
+        return LogSanitizer.sanitizeUri(request.getRequestURI());
     }
 
     /**
@@ -405,9 +399,7 @@ public class LogoutBroadcastFilter implements Filter {
 
         String script = buildScript(contextPath, locale);
 
-        if (delegatingResponse.isResponseOutputStreamObtained()) {
-            writeScriptToOutputStream(delegatingResponse, script);
-        } else if (delegatingResponse.isResponseWriterObtained()) {
+        if (delegatingResponse.isResponseWriterObtained()) {
             writeScriptToWriter(delegatingResponse, script);
         } else {
             writeScriptWithBestAvailableOutput(delegatingResponse, script);
@@ -443,8 +435,9 @@ public class LogoutBroadcastFilter implements Filter {
     /**
      * Writes the injected script using the best available output mechanism.
      *
-     * <p>This method prefers the writer path for standard HTML rendering and falls back
-     * to the output stream when the writer is unavailable due to mixed response state.
+     * <p>This method prefers the writer path for standard HTML rendering and falls back to the
+     * output stream only when the writer cannot be obtained during injection. Responses that used
+     * the output stream during normal rendering are skipped before this method is called.
      *
      * @param delegatingResponse DelegatingServletResponse the wrapped response
      * @param script String the script content to append
@@ -455,7 +448,7 @@ public class LogoutBroadcastFilter implements Filter {
         try {
             writeScriptToWriter(delegatingResponse, script);
         } catch (IllegalStateException e) {
-            logger.info("Response writer unavailable during logout script injection; retrying with output stream.", e);
+            logger.warn("Response writer unavailable during logout script injection; retrying with output stream.", e);
             writeScriptToOutputStream(delegatingResponse, script);
         }
     }
@@ -656,7 +649,9 @@ public class LogoutBroadcastFilter implements Filter {
          * binary streams, and other wrapped-but-not-injected responses.
          *
          * @param response HttpServletResponse the HTTP response to wrap
-         * @param requestUriForLog sanitized request URI for buffer diagnostics
+         * @param requestUriForLog sanitized request URI captured at filter entry for buffer
+         *                         diagnostics; do not call {@code request.getRequestURI()} from
+         *                         later log sites because forwards can mutate request attributes
          */
         public DelegatingServletResponse(HttpServletResponse response, String requestUriForLog) {
             super(response);
@@ -667,11 +662,11 @@ public class LogoutBroadcastFilter implements Filter {
          * Returns the raw servlet output stream and marks the stream path as obtained.
          *
          * <p>Unlike {@link #getWriter()}, the returned stream is <em>not</em> wrapped
-         * with a delegating proxy. This is intentional: HTML JSP responses always use the
-         * Writer path ({@code getWriter()} and {@code getOutputStream()} are mutually
-         * exclusive per the Servlet spec). The OutputStream path is tracked for the rare
-         * case of non-JSP HTML generators; Tomcat's response lifecycle prevents premature
-         * stream closure during filter chain execution in practice.
+         * with a delegating proxy. Content-Length is replayed before the stream is handed out
+         * because stream responses can commit before the filter chain returns. Script injection is
+         * skipped for stream responses; only writer-backed HTML is safe to append after rendering.
+         * This path intentionally does not configure the HTML append buffer because the outer
+         * filter excludes stream-backed responses from injection.
          *
          * @return ServletOutputStream the raw servlet output stream
          * @throws IOException if the output stream cannot be obtained from the underlying response
@@ -679,7 +674,7 @@ public class LogoutBroadcastFilter implements Filter {
         @Override
         public ServletOutputStream getOutputStream() throws IOException {
             responseOutputStreamObtained = true;
-            configureHtmlInjectionBufferIfNeeded();
+            applyDeferredContentLength();
             return super.getOutputStream();
         }
 
@@ -734,8 +729,8 @@ public class LogoutBroadcastFilter implements Filter {
         /**
          * Returns whether downstream code obtained the servlet output stream during chain execution.
          *
-         * <p>Used by {@link LogoutBroadcastFilter#appendScript} to determine which output
-         * channel to use when writing the injected script.
+         * <p>The outer filter uses this as a passthrough signal. Stream-backed responses can commit
+         * before chain return, so they keep their original body and never receive appended script.
          *
          * @return boolean true if {@link #getOutputStream()} was called
          */
@@ -893,7 +888,9 @@ public class LogoutBroadcastFilter implements Filter {
          *
          * <p>If script injection occurs, the original length is intentionally discarded because the
          * body is longer. If downstream code calls {@link #reset()} or {@link #resetBuffer()}, the
-         * deferred value is cleared so reset error responses cannot inherit stale lengths.</p>
+         * deferred value is cleared so reset error responses cannot inherit stale lengths. A
+         * successful replay also clears the deferred state so later stream access cannot apply the
+         * same length twice.</p>
          */
         void applyDeferredContentLength() {
             if (!contentLengthDeferred || isCommitted()) {
@@ -904,6 +901,7 @@ public class LogoutBroadcastFilter implements Filter {
             } else {
                 super.setContentLength(deferredContentLength);
             }
+            clearDeferredContentLength();
         }
 
         /**

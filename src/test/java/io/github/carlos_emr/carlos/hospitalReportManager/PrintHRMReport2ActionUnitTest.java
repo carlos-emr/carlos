@@ -218,6 +218,41 @@ class PrintHRMReport2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should reject blank document directory before creating temp files")
+    void shouldRejectBlankDocumentDirectory_beforeCreatingTempFiles() {
+        assertThatThrownBy(() -> PrintHRMReport2Action.validatedDocumentDirectory(" "))
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining("DOCUMENT_DIR is not configured");
+    }
+
+    @Test
+    @DisplayName("should reject invalid document directory path before creating temp files")
+    void shouldRejectInvalidDocumentDirectoryPath_beforeCreatingTempFiles() {
+        assertThatThrownBy(() -> PrintHRMReport2Action.validatedDocumentDirectory("bad\u0000path"))
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining("DOCUMENT_DIR is not a valid path");
+    }
+
+    @Test
+    @DisplayName("should reject file configured as document directory before creating temp files")
+    void shouldRejectFileConfiguredAsDocumentDirectory_beforeCreatingTempFiles() throws IOException {
+        Path notDirectory = Files.createFile(tempDir.resolve("document-dir-file"));
+
+        assertThatThrownBy(() -> PrintHRMReport2Action.validatedDocumentDirectory(notDirectory.toString()))
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining("DOCUMENT_DIR is not an existing directory");
+    }
+
+    @Test
+    @DisplayName("should return normalized absolute document directory")
+    void shouldReturnNormalizedAbsoluteDocumentDirectory_whenDirectoryExists() throws IOException {
+        Path configuredDirectory = Files.createDirectory(tempDir.resolve("document-dir"));
+
+        assertThat(PrintHRMReport2Action.validatedDocumentDirectory(configuredDirectory.toString()))
+                .isEqualTo(configuredDirectory.toAbsolutePath().normalize());
+    }
+
+    @Test
     @DisplayName("should delete all temp files when multiple HRM reports are streamed")
     void shouldDeleteAllTempFiles_whenMultipleHrmReportsAreStreamed() throws Exception {
         request.addParameter("hrmReportId", "101", "102");

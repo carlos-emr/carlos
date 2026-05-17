@@ -29,6 +29,7 @@ import jakarta.servlet.WriteListener;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.FilterConfig;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletResponseWrapper;
 import jakarta.servlet.http.HttpSession;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -216,19 +217,23 @@ class LogoutBroadcastFilterUnitTest {
         FilterConfig config = mock(FilterConfig.class);
         when(config.getInitParameter("exclusions")).thenReturn("/customSkip");
         LogoutBroadcastFilter customFilter = new LogoutBroadcastFilter();
-        customFilter.init(config);
-        MockHttpServletRequest request = authenticatedRequest("/customSkip/child");
-        TrackingMockHttpServletResponse response = new TrackingMockHttpServletResponse();
+        try {
+            customFilter.init(config);
+            MockHttpServletRequest request = authenticatedRequest("/customSkip/child");
+            TrackingMockHttpServletResponse response = new TrackingMockHttpServletResponse();
 
-        FilterChain chain = (servletRequest, servletResponse) -> {
-            servletResponse.setContentType("text/html;charset=UTF-8");
-            servletResponse.getWriter().write("<html><body>excluded</body></html>");
-        };
+            FilterChain chain = (servletRequest, servletResponse) -> {
+                servletResponse.setContentType("text/html;charset=UTF-8");
+                servletResponse.getWriter().write("<html><body>excluded</body></html>");
+            };
 
-        customFilter.doFilter(request, response, chain);
+            customFilter.doFilter(request, response, chain);
 
-        assertThat(response.getContentAsString()).isEqualTo("<html><body>excluded</body></html>");
-        assertThat(response.getSetBufferSizeCallCount()).isZero();
+            assertThat(response.getContentAsString()).isEqualTo("<html><body>excluded</body></html>");
+            assertThat(response.getSetBufferSizeCallCount()).isZero();
+        } finally {
+            customFilter.destroy();
+        }
     }
 
     @Test
@@ -424,7 +429,7 @@ class LogoutBroadcastFilterUnitTest {
                 assertThat(event.getMessage().getFormattedMessage())
                         .contains("HTML response buffer could not be enlarged")
                         .contains("uri=/carlos/provider/providercontrol")
-                        .contains("sessionId=");
+                        .doesNotContain("sessionId=");
             });
         }
     }
@@ -511,26 +516,59 @@ class LogoutBroadcastFilterUnitTest {
     }
 
     @Test
-    @DisplayName("should append logout script when response uses output stream")
-    void shouldAppendLogoutScript_whenResponseUsesOutputStream() throws Exception {
+    @DisplayName("should skip logout script and preserve content length when response uses output stream")
+    void shouldSkipLogoutScriptAndPreserveContentLength_whenResponseUsesOutputStream() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/provider/providercontrol");
         request.setContextPath("/carlos");
         HttpSession session = request.getSession(true);
         session.setAttribute("user", "123");
 
         MockHttpServletResponse response = new MockHttpServletResponse();
+        byte[] body = "<html><body>stream</body></html>".getBytes(StandardCharsets.UTF_8);
 
         FilterChain chain = (servletRequest, servletResponse) -> {
             servletResponse.setContentType("text/html;charset=UTF-8");
-            servletResponse.getOutputStream().write("<html><body>stream</body></html>".getBytes(StandardCharsets.UTF_8));
+            servletResponse.setContentLength(body.length);
+            servletResponse.getOutputStream().write(body);
             servletResponse.flushBuffer();
+        };
+
+        try (LogCapture capture = LogCapture.forLogger(LogoutBroadcastFilter.class)) {
+            filter.doFilter(request, response, chain);
+
+            String content = response.getContentAsString();
+            assertThat(content).contains("<html><body>stream</body></html>");
+            assertThat(content).doesNotContain("window.__carlosLogoutActive=true;");
+            assertThat(response.getHeader("Content-Length")).isEqualTo(String.valueOf(body.length));
+            assertThat(capture.events()).anySatisfy(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                assertThat(event.getMessage().getFormattedMessage())
+                        .contains("response used ServletOutputStream")
+                        .contains("uri=/provider/providercontrol")
+                        .contains("contentType=text/html;charset=UTF-8");
+            });
+        }
+    }
+
+    @Test
+    @DisplayName("should replay deferred content length only once when output stream is used")
+    void shouldReplayDeferredContentLengthOnlyOnce_whenOutputStreamIsUsed() throws Exception {
+        MockHttpServletRequest request = authenticatedRequest("/provider/providercontrol");
+        TrackingMockHttpServletResponse response = new TrackingMockHttpServletResponse();
+        byte[] body = "<html><body>stream</body></html>".getBytes(StandardCharsets.UTF_8);
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.setContentType("text/html;charset=UTF-8");
+            servletResponse.setContentLength(body.length);
+            servletResponse.getOutputStream().write(body);
         };
 
         filter.doFilter(request, response, chain);
 
-        String content = response.getContentAsString();
-        assertThat(content).contains("<html><body>stream</body></html>");
-        assertThat(content).contains("window.__carlosLogoutActive=true;");
+        assertThat(response.getContentAsByteArray()).isEqualTo(body);
+        assertThat(response.getHeader("Content-Length")).isEqualTo(String.valueOf(body.length));
+        assertThat(response.getSetContentLengthCallCount()).isOne();
+        assertThat(response.getSetContentLengthLongCallCount()).isZero();
     }
 
     @Test
@@ -546,25 +584,55 @@ class LogoutBroadcastFilterUnitTest {
         FilterChain chain = (servletRequest, servletResponse) ->
                 servletResponse.setContentType("text/html;charset=UTF-8");
 
-        filter.doFilter(request, response, chain);
+        try (LogCapture capture = LogCapture.forLogger(LogoutBroadcastFilter.class)) {
+            filter.doFilter(request, response, chain);
 
-        String content = response.getBodyAsString();
-        assertThat(content).contains("window.__carlosLogoutActive=true;");
+            String content = response.getBodyAsString();
+            assertThat(content).contains("window.__carlosLogoutActive=true;");
+            assertThat(capture.events()).anySatisfy(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                assertThat(event.getMessage().getFormattedMessage())
+                        .contains("Response writer unavailable during logout script injection");
+                assertThat(event.getThrown()).isInstanceOf(IllegalStateException.class);
+            });
+        }
     }
 
     @Test
-    @DisplayName("should log error when script append flush fails")
-    void shouldLogError_whenScriptAppendFlushFails() throws Exception {
+    @DisplayName("should strip path parameters from buffer unavailable diagnostics")
+    void shouldStripPathParameters_fromBufferUnavailableDiagnostics() throws Exception {
         MockHttpServletRequest request = authenticatedRequest("/provider/providercontrol");
         request.setRequestURI("/carlos/provider/providercontrol;jsessionid=abc123");
-        OutputStreamAppendFailingResponse response = new OutputStreamAppendFailingResponse();
+        LateBufferFailingResponse response = new LateBufferFailingResponse();
 
         FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.getWriter().write("<html><body>schedule</body></html>");
             servletResponse.setContentType("text/html;charset=UTF-8");
-            servletResponse.getOutputStream().write("<html><body>schedule</body></html>"
-                    .getBytes(StandardCharsets.UTF_8));
-            response.failWrites();
         };
+
+        try (LogCapture capture = LogCapture.forLogger(LogoutBroadcastFilter.class)) {
+            filter.doFilter(request, response, chain);
+
+            assertThat(capture.events()).anySatisfy(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                assertThat(event.getMessage().getFormattedMessage())
+                        .contains("HTML response buffer could not be enlarged")
+                        .contains("uri=/carlos/provider/providercontrol")
+                        .doesNotContain("jsessionid")
+                        .doesNotContain("abc123")
+                        .doesNotContain("sessionId=");
+            });
+        }
+    }
+
+    @Test
+    @DisplayName("should log error when script writer flush fails")
+    void shouldLogError_whenScriptWriterFlushFails() throws Exception {
+        MockHttpServletRequest request = authenticatedRequest("/provider/providercontrol");
+        FlushFailingResponse response = new FlushFailingResponse();
+
+        FilterChain chain = (servletRequest, servletResponse) ->
+                servletResponse.setContentType("text/html;charset=UTF-8");
 
         try (LogCapture capture = LogCapture.forLogger(LogoutBroadcastFilter.class)) {
             filter.doFilter(request, response, chain);
@@ -572,8 +640,9 @@ class LogoutBroadcastFilterUnitTest {
             assertThat(capture.events()).anySatisfy(event -> {
                 assertThat(event.getLevel()).isEqualTo(Level.ERROR);
                 assertThat(event.getMessage().getFormattedMessage())
-                        .contains("Skipping logout broadcast script injection")
+                        .contains("script could not be written")
                         .contains("uri=/carlos/provider/providercontrol");
+                assertThat(event.getThrown()).isInstanceOf(IOException.class);
             });
         }
     }
@@ -687,31 +756,14 @@ class LogoutBroadcastFilterUnitTest {
 
         private int setBufferSizeCallCount;
         private Integer lastRequestedBufferSize;
+        private int setContentLengthCallCount;
+        private int setContentLengthLongCallCount;
 
         @Override
         public void setBufferSize(int size) {
             setBufferSizeCallCount++;
             lastRequestedBufferSize = size;
             super.setBufferSize(size);
-        }
-
-        int getSetBufferSizeCallCount() {
-            return setBufferSizeCallCount;
-        }
-
-        Integer getLastRequestedBufferSize() {
-            return lastRequestedBufferSize;
-        }
-    }
-
-    private static class CommittedContentLengthTrackingResponse extends TrackingMockHttpServletResponse {
-
-        private int setContentLengthCallCount;
-        private int setContentLengthLongCallCount;
-
-        @Override
-        public boolean isCommitted() {
-            return true;
         }
 
         @Override
@@ -726,6 +778,14 @@ class LogoutBroadcastFilterUnitTest {
             super.setContentLengthLong(len);
         }
 
+        int getSetBufferSizeCallCount() {
+            return setBufferSizeCallCount;
+        }
+
+        Integer getLastRequestedBufferSize() {
+            return lastRequestedBufferSize;
+        }
+
         int getSetContentLengthCallCount() {
             return setContentLengthCallCount;
         }
@@ -735,10 +795,29 @@ class LogoutBroadcastFilterUnitTest {
         }
     }
 
+    private static class CommittedContentLengthTrackingResponse extends TrackingMockHttpServletResponse {
+
+        @Override
+        public boolean isCommitted() {
+            return true;
+        }
+    }
+
     private static class LateBufferFailingResponse extends MockHttpServletResponse {
         @Override
         public void setBufferSize(int size) {
             throw new IllegalStateException("body already written");
+        }
+    }
+
+    private static class FlushFailingResponse extends HttpServletResponseWrapper {
+        FlushFailingResponse() {
+            super(new MockHttpServletResponse());
+        }
+
+        @Override
+        public void flushBuffer() throws IOException {
+            throw new IOException("flush failed");
         }
     }
 
@@ -754,35 +833,4 @@ class LogoutBroadcastFilterUnitTest {
         }
     }
 
-    private static class OutputStreamAppendFailingResponse extends MockHttpServletResponse {
-
-        private boolean failWrites;
-
-        private final ServletOutputStream outputStream = new ServletOutputStream() {
-            @Override
-            public boolean isReady() {
-                return true;
-            }
-
-            @Override
-            public void setWriteListener(WriteListener writeListener) {
-            }
-
-            @Override
-            public void write(int b) throws IOException {
-                if (failWrites) {
-                    throw new IOException("append failed");
-                }
-            }
-        };
-
-        @Override
-        public ServletOutputStream getOutputStream() {
-            return outputStream;
-        }
-
-        void failWrites() {
-            failWrites = true;
-        }
-    }
 }

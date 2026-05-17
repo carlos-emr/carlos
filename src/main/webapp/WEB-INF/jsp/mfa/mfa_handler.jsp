@@ -40,6 +40,7 @@
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -73,7 +74,7 @@
                     <c:choose>
                         <c:when test="${not empty requestScope.errMsg}">
                             <div class="alert alert-danger" role="alert">
-                                <strong>${requestScope.errMsg}</strong>
+                                <strong><carlos:encode value="${requestScope.errMsg}" context="html"/></strong>
                             </div>
                         </c:when>
                         <c:when test="${requestScope.mfaRegistrationRequired eq true}">

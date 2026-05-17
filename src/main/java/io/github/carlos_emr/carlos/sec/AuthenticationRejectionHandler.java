@@ -6,6 +6,8 @@
 package io.github.carlos_emr.carlos.sec;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Locale;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -22,6 +24,11 @@ import org.apache.logging.log4j.Logger;
  * <p>{@link LoginFilter} is the canonical authentication gate, but migrated Struts actions keep
  * lightweight session checks as defence-in-depth. Keeping the response decision here prevents
  * those fallback checks from drifting into route-specific redirect/status-code choices.</p>
+ *
+ * <p>Browser page requests receive the legacy login redirect. AJAX and structured/download routes
+ * receive direct {@code 401} responses: callers whose {@code Accept} header includes
+ * {@code application/json} get a small JSON error body, while other status-code routes get plain
+ * text so scripted clients do not parse a login page as data.</p>
  */
 public final class AuthenticationRejectionHandler {
     private static final Logger LOGGER = MiscUtils.getLogger();
@@ -29,7 +36,7 @@ public final class AuthenticationRejectionHandler {
     private static final String AJAX_HEADER = "X-Requested-With";
     private static final String AJAX_VALUE = "XMLHttpRequest";
 
-    static final String[] STATUS_CODE_PATHS = {
+    static final List<String> STATUS_CODE_PATHS = List.of(
             "/Download",
             "/servlet/OscarDownload",
             "/report/reportDownload",
@@ -39,7 +46,7 @@ public final class AuthenticationRejectionHandler {
             "/eform/createcustomedpdf",
             "/form/createpdf",
             "/form/createcustomedpdf"
-    };
+    );
 
     private AuthenticationRejectionHandler() {
         // Utility class.
@@ -50,7 +57,8 @@ public final class AuthenticationRejectionHandler {
      *
      * <p>Interactive browser pages are redirected to the legacy logout page so users land on the
      * normal login-recovery path. AJAX, API-like, and download routes receive a status code instead
-     * of login HTML.</p>
+     * of login HTML. JSON-preferring status routes receive {@code application/json}; other
+     * status-code routes receive {@code text/plain}.</p>
      */
     public static void rejectUnauthenticatedRequest(
             HttpServletRequest request,
@@ -76,7 +84,7 @@ public final class AuthenticationRejectionHandler {
         }
 
         if (statusCodeRoute) {
-            response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+            writeStatusCodeRejection(request, response);
         } else {
             response.sendRedirect(request.getContextPath() + LOGOUT_PATH);
         }
@@ -88,6 +96,39 @@ public final class AuthenticationRejectionHandler {
                 routeType,
                 remote,
                 acceptHint);
+    }
+
+    /**
+     * Writes the direct {@code 401} rejection body for AJAX, API-like, and generated-content paths.
+     *
+     * <p>The status-code route decision is separate from body format. XML, PDF, and download
+     * callers still get a status code, but only callers whose {@code Accept} header mentions JSON
+     * receive a JSON body. This deliberately uses {@link HttpServletResponse#setStatus(int)} plus
+     * an explicit body instead of {@code sendError}; the container error-page mechanism would
+     * otherwise replace the JSON/text contract with login or error-page HTML. The body writer also
+     * tolerates upstream filters that already obtained the servlet output stream.</p>
+     */
+    private static void writeStatusCodeRejection(
+            HttpServletRequest request,
+            HttpServletResponse response) throws IOException {
+
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        if (prefersJsonResponse(request)) {
+            response.setContentType("application/json;charset=UTF-8");
+            writeBody(response, "{\"error\":\"unauthorized\"}");
+            return;
+        }
+        response.setContentType("text/plain;charset=UTF-8");
+        writeBody(response, "Unauthorized");
+    }
+
+    private static void writeBody(HttpServletResponse response, String body) throws IOException {
+        try {
+            response.getWriter().write(body);
+        } catch (IllegalStateException writerUnavailable) {
+            response.getOutputStream().write(body.getBytes(StandardCharsets.UTF_8));
+        }
     }
 
     static boolean isStatusCodeRoute(HttpServletRequest request) {
@@ -120,6 +161,17 @@ public final class AuthenticationRejectionHandler {
                 || lowerAccept.contains("application/javascript")
                 || lowerAccept.contains("application/pdf")
                 || lowerAccept.contains("application/octet-stream");
+    }
+
+    /**
+     * Returns whether the caller explicitly accepts JSON for direct authentication failures.
+     *
+     * <p>Uses substring matching to support normal multi-value {@code Accept} headers such as
+     * {@code application/xml, application/json;q=0.8}.</p>
+     */
+    private static boolean prefersJsonResponse(HttpServletRequest request) {
+        String accept = request.getHeader("Accept");
+        return accept != null && accept.toLowerCase(Locale.ROOT).contains("application/json");
     }
 
     private static boolean isDownloadOrGeneratedContentPath(HttpServletRequest request) {

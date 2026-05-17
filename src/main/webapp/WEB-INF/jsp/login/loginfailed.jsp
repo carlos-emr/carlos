@@ -28,8 +28,6 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     // In-action security failures pass a request attribute; legacy redirects still pass errormsg
@@ -48,8 +46,6 @@
         <title>Login Failure</title>
     </head>
     <body>
-    <!--h2>OSCAR has encountered the following fatal error:</h2>
-      <hr-->
     <p><carlos:encode value="${errormsg}" context="html"/>
     <p>Please correct and try again.
     </body>
