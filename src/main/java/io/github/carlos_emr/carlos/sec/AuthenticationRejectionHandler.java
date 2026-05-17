@@ -36,6 +36,12 @@ public final class AuthenticationRejectionHandler {
     private static final String AJAX_HEADER = "X-Requested-With";
     private static final String AJAX_VALUE = "XMLHttpRequest";
 
+    /**
+     * Paths whose unauthenticated responses are consumed by scripts, downloads, or generated
+     * content clients. The unmodifiable list returned by {@link List#of()} keeps the manifest
+     * immutable so tests and future migrations cannot accidentally alter the process-wide rejection
+     * contract.
+     */
     static final List<String> STATUS_CODE_PATHS = List.of(
             "/Download",
             "/servlet/OscarDownload",
@@ -116,17 +122,28 @@ public final class AuthenticationRejectionHandler {
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
         if (prefersJsonResponse(request)) {
             response.setContentType("application/json;charset=UTF-8");
-            writeBody(response, "{\"error\":\"unauthorized\"}");
+            writeBody(request, response, "{\"error\":\"unauthorized\"}");
             return;
         }
         response.setContentType("text/plain;charset=UTF-8");
-        writeBody(response, "Unauthorized");
+        writeBody(request, response, "Unauthorized");
     }
 
-    private static void writeBody(HttpServletResponse response, String body) throws IOException {
+    private static void writeBody(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            String body) throws IOException {
+
         try {
             response.getWriter().write(body);
         } catch (IllegalStateException writerUnavailable) {
+            LOGGER.warn(
+                    "Response writer unavailable while writing unauthenticated rejection body; "
+                            + "falling back to output stream: method={}, uri={}, remote={}",
+                    LogSanitizer.sanitize(request.getMethod()),
+                    LogSanitizer.sanitize(normalizedRequestUri(request)),
+                    LogSanitizer.sanitize(request.getRemoteAddr()),
+                    writerUnavailable);
             response.getOutputStream().write(body.getBytes(StandardCharsets.UTF_8));
         }
     }
@@ -167,7 +184,10 @@ public final class AuthenticationRejectionHandler {
      * Returns whether the caller explicitly accepts JSON for direct authentication failures.
      *
      * <p>Uses substring matching to support normal multi-value {@code Accept} headers such as
-     * {@code application/xml, application/json;q=0.8}.</p>
+     * {@code application/xml, application/json;q=0.8}. This intentionally does not parse
+     * {@code q=} weights: any explicit JSON token is treated as a JSON-capable client. The match is
+     * broad enough for common structured variants such as {@code application/problem+json}; callers
+     * sending unrelated JSON-like tokens should not rely on content negotiation here.</p>
      */
     private static boolean prefersJsonResponse(HttpServletRequest request) {
         String accept = request.getHeader("Accept");

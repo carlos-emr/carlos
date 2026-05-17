@@ -104,6 +104,8 @@ public class ViewBillingOnMri2Action extends ActionSupport {
         try {
             model = billingONMRIAssembler.assemble(request, loggedInInfo);
         } catch (SecurityException | BillingDataLoadException e) {
+            // Preserve security failures and already-classified load failures so Struts and the
+            // error page keep their established audit and user-facing contracts.
             throw e;
         } catch (RuntimeException e) {
             throw new BillingDataLoadException("Failed to load OHIP report view model", e);

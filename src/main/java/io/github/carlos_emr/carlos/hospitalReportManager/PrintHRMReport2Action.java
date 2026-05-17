@@ -130,7 +130,8 @@ public class PrintHRMReport2Action extends ActionSupport {
                 // Once PDF bytes are committed, a follow-up error page would corrupt the stream;
                 // log the partial-response condition and let the direct-response action end.
                 logger.error("Could not generate or stream HRM PDF response after response commit; "
-                        + "client may receive a partial PDF: responseCommitted=true", e);
+                        + "client may receive headers and zero or more partial PDF bytes: "
+                        + "responseCommitted=true", e);
                 return NONE;
             }
             logger.error("Could not generate or stream HRM PDF response before commit", e);

@@ -72,6 +72,7 @@ public class BillingSaveBilling2Action extends ActionSupport {
     private static final String BILLING_SESSION_EXPIRED_KEY = "billing.billingSave.sessionExpired";
     private static final String BILLING_SESSION_EXPIRED_FALLBACK = "Billing session expired.";
     private static final String MALFORMED_APPOINTMENT_NO_KEY = "billing.billingSave.malformedAppointmentNo";
+    /** MessageFormat pattern; keep appointment number placeholder as {@code {0}}. */
     private static final String MALFORMED_APPOINTMENT_NO_FALLBACK = "Malformed appointment number \"{0}\". "
             + "Please return to billing and re-select the appointment.";
 
@@ -183,24 +184,10 @@ public class BillingSaveBilling2Action extends ActionSupport {
         }
 
         if (bean.getBillingType().equals("WCB")) {
-
-            // HOW TO DO THIS PART
-            /* Need to link the id of a WCB for with a bill
-                -Continue to put it in the WCB form ?   + no data structure change - not sure how will it work.
-                On submission how would this work??  for each bill submission that would look for it's id in the wcb table?
-                The problem is that it's not really logical but it would work.  Not every form would have a billing.
-
-
-                -Add a field to Billingmaster?   + data structure change + data migration + initial reaction
-                Data conversion wouldn't be that big of a deal though.  because everything else would be coming over too.
-                Most logical
-
-                -Add a separate table ?       + data structure change + data migration + 2nd initial reacion
-
-             */
+            // Legacy WCB billing still records the WCB id on each Billingmaster row above. Keep
+            // this branch as the existing operational marker until WCB linkage is redesigned as a
+            // dedicated model/migration rather than an inline billing-save concern.
             MiscUtils.getLogger().debug("WCB BILL!!");
-
-
         }
 
 
@@ -245,6 +232,9 @@ public class BillingSaveBilling2Action extends ActionSupport {
 
     /**
      * Sends a bad-request response for expired or replayed billing submits.
+     *
+     * <p>The response body is written directly instead of using {@code sendError}; otherwise the
+     * servlet error-page mapping replaces the localized operator guidance.</p>
      */
     private void rejectExpiredBillingSession(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
@@ -252,34 +242,53 @@ public class BillingSaveBilling2Action extends ActionSupport {
                 LogSanitizer.sanitize(request.getMethod()),
                 LogSanitizer.sanitizeUri(request.getRequestURI()),
                 LogSanitizer.sanitize(request.getRemoteAddr()));
-        response.sendError(HttpServletResponse.SC_BAD_REQUEST,
+        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        response.setContentType("text/plain;charset=UTF-8");
+        writeBody(request, response,
                 message(request.getLocale(), BILLING_SESSION_EXPIRED_KEY, BILLING_SESSION_EXPIRED_FALLBACK));
     }
 
     /**
      * Resolves short direct-response messages from the same resource bundle used by the billing JSPs.
      *
-     * <p>The English fallback is deliberately local to this action: a missing key should not turn an
-     * expired billing session into a server error. Callers that feed the result to
-     * {@link MessageFormat} must remember that single quotes are escape characters in translated
-     * patterns.</p>
+     * <p>Resolution mirrors the login action: preferred locale, then English, then the supplied
+     * hardcoded fallback. A missing key should not turn a rejected billing submit into a server
+     * error. Callers that feed the result to {@link MessageFormat} must remember that single quotes
+     * are escape characters in translated patterns.</p>
      */
     // Package-private so direct-response fallback behavior can be pinned without servlet plumbing.
     static String message(Locale locale, String key, String fallback) {
+        String localized = messageFromBundle(locale, key);
+        if (localized != null) {
+            return localized;
+        }
+
+        if (locale == null || !Locale.ENGLISH.getLanguage().equals(locale.getLanguage())) {
+            String english = messageFromBundle(Locale.ENGLISH, key);
+            if (english != null) {
+                return english;
+            }
+        }
+        return fallback;
+    }
+
+    private static String messageFromBundle(Locale locale, String key) {
         ResourceBundle bundle;
         try {
             bundle = ResourceBundle.getBundle("oscarResources", locale);
         } catch (MissingResourceException e) {
             log.warn("Missing billing save resource bundle: locale={}",
                     LogSanitizer.sanitize(String.valueOf(locale)));
-            return fallback;
+            return null;
         }
+
         try {
             return bundle.getString(key);
         } catch (MissingResourceException e) {
             log.warn("Missing billing save resource bundle key: key={}, locale={}",
                     LogSanitizer.sanitize(key), LogSanitizer.sanitize(String.valueOf(locale)));
-            return fallback;
+            return null;
         }
     }
 
@@ -310,24 +319,93 @@ public class BillingSaveBilling2Action extends ActionSupport {
         response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
         response.setContentType("text/plain;charset=UTF-8");
-        writeBody(response, formatMessagePattern(messagePattern, rawAppointmentNo));
+        writeBody(request, response, formatMessagePattern(messagePattern, rawAppointmentNo));
     }
 
     static String formatMessagePattern(String messagePattern, String rawAppointmentNo) {
         String sanitizedAppointmentNo = LogSanitizer.sanitizeForDisplay(rawAppointmentNo);
-        String formatted = MessageFormat.format(messagePattern, sanitizedAppointmentNo);
-        if (formatted.contains("{0}")) {
+        String formatted = formatMessagePatternOnce(messagePattern, sanitizedAppointmentNo);
+        if (containsUnsubstitutedAppointmentPlaceholder(formatted, sanitizedAppointmentNo)) {
+            if (!hasUnescapedSingleQuote(messagePattern)) {
+                log.warn("Billing save message pattern left appointment placeholder unsubstituted: "
+                        + "pattern={}", LogSanitizer.sanitize(messagePattern));
+                return formatted;
+            }
             log.warn("Billing save message pattern left appointment placeholder unsubstituted; "
                     + "retrying with escaped single quotes");
-            formatted = MessageFormat.format(messagePattern.replace("'", "''"), sanitizedAppointmentNo);
+            formatted = formatMessagePatternOnce(
+                    escapeUnescapedSingleQuotes(messagePattern), sanitizedAppointmentNo);
+            if (containsUnsubstitutedAppointmentPlaceholder(formatted, sanitizedAppointmentNo)) {
+                log.warn("Billing save message pattern still left appointment placeholder "
+                        + "unsubstituted after quote recovery: pattern={}",
+                        LogSanitizer.sanitize(messagePattern));
+            }
         }
         return formatted;
     }
 
-    private void writeBody(HttpServletResponse response, String body) throws IOException {
+    private static String formatMessagePatternOnce(String messagePattern, String sanitizedAppointmentNo) {
+        try {
+            return MessageFormat.format(messagePattern, sanitizedAppointmentNo);
+        } catch (IllegalArgumentException e) {
+            log.warn("Billing save message pattern is invalid; using hardcoded fallback: pattern={}",
+                    LogSanitizer.sanitize(messagePattern), e);
+            return MALFORMED_APPOINTMENT_NO_FALLBACK.replace("{0}", sanitizedAppointmentNo);
+        }
+    }
+
+    private static boolean containsUnsubstitutedAppointmentPlaceholder(
+            String formatted,
+            String sanitizedAppointmentNo) {
+
+        if (!formatted.contains("{0}")) {
+            return false;
+        }
+        if (sanitizedAppointmentNo == null || sanitizedAppointmentNo.isEmpty()) {
+            return true;
+        }
+        return formatted.replace(sanitizedAppointmentNo, "").contains("{0}");
+    }
+
+    private static boolean hasUnescapedSingleQuote(String messagePattern) {
+        for (int i = 0; i < messagePattern.length(); i++) {
+            if (messagePattern.charAt(i) == '\'') {
+                if (i + 1 < messagePattern.length() && messagePattern.charAt(i + 1) == '\'') {
+                    i++;
+                    continue;
+                }
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static String escapeUnescapedSingleQuotes(String messagePattern) {
+        StringBuilder escaped = new StringBuilder(messagePattern.length());
+        for (int i = 0; i < messagePattern.length(); i++) {
+            char current = messagePattern.charAt(i);
+            if (current != '\'') {
+                escaped.append(current);
+                continue;
+            }
+            escaped.append("''");
+            if (i + 1 < messagePattern.length() && messagePattern.charAt(i + 1) == '\'') {
+                i++;
+            }
+        }
+        return escaped.toString();
+    }
+
+    private void writeBody(HttpServletRequest request, HttpServletResponse response, String body) throws IOException {
         try {
             response.getWriter().write(body);
         } catch (IllegalStateException writerUnavailable) {
+            log.warn("Response writer unavailable while writing BC billing rejection body; "
+                            + "falling back to output stream: method={}, uri={}, remote={}",
+                    LogSanitizer.sanitize(request.getMethod()),
+                    LogSanitizer.sanitizeUri(request.getRequestURI()),
+                    LogSanitizer.sanitize(request.getRemoteAddr()),
+                    writerUnavailable);
             response.getOutputStream().write(body.getBytes(StandardCharsets.UTF_8));
         }
     }

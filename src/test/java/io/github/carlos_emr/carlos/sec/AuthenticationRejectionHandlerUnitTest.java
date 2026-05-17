@@ -17,9 +17,16 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.WriteListener;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Focused tests for the shared unauthenticated rejection response contract.
@@ -66,9 +73,18 @@ class AuthenticationRejectionHandlerUnitTest {
         MockHttpServletResponse response = new MockHttpServletResponse();
         response.getOutputStream();
 
-        AuthenticationRejectionHandler.rejectUnauthenticatedRequest(request, response);
+        try (LogCapture capture = LogCapture.forLogger(AuthenticationRejectionHandler.class)) {
+            AuthenticationRejectionHandler.rejectUnauthenticatedRequest(request, response);
 
-        assertTextUnauthorized(response);
+            assertTextUnauthorized(response);
+            assertThat(capture.events()).anySatisfy(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                assertThat(event.getMessage().getFormattedMessage())
+                        .contains("Response writer unavailable")
+                        .contains("falling back to output stream")
+                        .contains("uri=/carlos/billing/CA/ON/ViewSearchRefDocAjax");
+            });
+        }
     }
 
     @Test
@@ -83,6 +99,21 @@ class AuthenticationRejectionHandlerUnitTest {
         AuthenticationRejectionHandler.rejectUnauthenticatedRequest(request, response);
 
         assertJsonUnauthorized(response);
+    }
+
+    @Test
+    @DisplayName("should propagate body write IOException after output stream fallback")
+    void shouldPropagateBodyWriteIOException_afterOutputStreamFallback() throws Exception {
+        MockHttpServletRequest request = request("/billing/CA/ON/ViewSearchRefDocAjax");
+        request.addHeader("X-Requested-With", "XMLHttpRequest");
+        IOException writeFailure = new IOException("client disconnected");
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        when(response.isCommitted()).thenReturn(false);
+        when(response.getWriter()).thenThrow(new IllegalStateException("writer already used"));
+        when(response.getOutputStream()).thenReturn(failingOutputStream(writeFailure));
+
+        assertThatThrownBy(() -> AuthenticationRejectionHandler.rejectUnauthenticatedRequest(request, response))
+                .isSameAs(writeFailure);
     }
 
     @ParameterizedTest
@@ -217,12 +248,38 @@ class AuthenticationRejectionHandlerUnitTest {
         }
     }
 
+    @Test
+    @DisplayName("should keep generated content status-code paths immutable")
+    void shouldKeepGeneratedContentStatusCodePaths_immutable() {
+        assertThatThrownBy(() -> AuthenticationRejectionHandler.STATUS_CODE_PATHS.add("/newRoute"))
+                .isInstanceOf(UnsupportedOperationException.class);
+    }
+
     private static MockHttpServletRequest request(String path) {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", path);
         request.setContextPath("/carlos");
         request.setRequestURI("/carlos" + path);
         request.setRemoteAddr("127.0.0.1");
         return request;
+    }
+
+    private static ServletOutputStream failingOutputStream(IOException failure) {
+        return new ServletOutputStream() {
+            @Override
+            public void write(int b) throws IOException {
+                throw failure;
+            }
+
+            @Override
+            public boolean isReady() {
+                return true;
+            }
+
+            @Override
+            public void setWriteListener(WriteListener writeListener) {
+                // Not used by synchronous unit tests.
+            }
+        };
     }
 
     private static Stream<String> statusCodePaths() {

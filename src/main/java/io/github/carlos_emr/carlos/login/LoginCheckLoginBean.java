@@ -107,7 +107,13 @@ public final class LoginCheckLoginBean {
     /** Logger instance for authentication events and errors */
     private static final Logger logger = MiscUtils.getLogger();
 
-    /** Log message prefix for authentication-related log entries */
+    /**
+     * Legacy authentication grep anchor shared with {@link Login2Action}.
+     *
+     * <p>Operational log searches still use this distinctive prefix to identify credential
+     * decisions emitted by the older login bean. Keep the token stable unless log dashboards and
+     * runbooks are migrated at the same time.</p>
+     */
     private static final String LOG_PRE = "Login!@#$: ";
 
     /** Security manager for password encoding, validation, and hash migration */

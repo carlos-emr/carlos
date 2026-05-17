@@ -71,6 +71,7 @@ import java.security.InvalidKeyException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -953,13 +954,11 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
                 assertThat(sessionCaseMgmtUsers)
                         .asList()
                         .containsExactly("999998", "777777");
-                assertThat(contextCaseMgmtUsers).isInstanceOf(ArrayList.class);
-                assertThat(sessionCaseMgmtUsers).isInstanceOf(ArrayList.class);
                 assertThat(sessionCaseMgmtUsers).isNotSameAs(contextCaseMgmtUsers);
-                ((ArrayList<String>) contextCaseMgmtUsers).add("888888");
+                ((List<String>) contextCaseMgmtUsers).add("888888");
                 assertThat(sessionCaseMgmtUsers).asList().containsExactly("999998", "777777");
                 assertThat(capture.events()).anySatisfy(event -> {
-                    assertThat(event.getLevel()).isEqualTo(Level.DEBUG);
+                    assertThat(event.getLevel()).isEqualTo(Level.WARN);
                     assertThat(event.getMessage().getFormattedMessage())
                             .contains("Ignoring non-String CaseMgmtUsers entry")
                             .contains("java.lang.Integer");

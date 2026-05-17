@@ -156,7 +156,13 @@ public final class Login2Action extends ActionSupport {
     /** Logger instance for authentication events and errors */
     private static final Logger logger = MiscUtils.getLogger();
 
-    /** Log message prefix for authentication-related log entries */
+    /**
+     * Legacy authentication grep anchor shared with {@link LoginCheckLoginBean}.
+     *
+     * <p>Operational log searches still use this distinctive prefix to separate credential
+     * decisions from general login controller flow. Keep the token stable unless log dashboards
+     * and runbooks are migrated at the same time.</p>
+     */
     private static final String LOG_PRE = "Login!@#$: ";
     private static final int DEFAULT_PASSWORD_MIN_LENGTH = 8;
     private static final int DEFAULT_PASSWORD_MIN_GROUPS = 3;
@@ -198,6 +204,15 @@ public final class Login2Action extends ActionSupport {
      * replication can safely carry the pending challenge state until OTP validation completes.</p>
      */
     private static final String PENDING_MFA_SECURITY_ATTR = "pendingMfaSecurity";
+
+    /**
+     * Pending-MFA copy of the {@link LoginCheckLogin#auth} result.
+     *
+     * <p>The array shape is the legacy successful-authentication contract:
+     * [providerNo, firstName, lastName, profession, roles, expiredDays, email]. It is staged only
+     * until OTP validation completes, then copied into the canonical authenticated session by
+     * {@link #completeAuthenticatedLogin}.</p>
+     */
     private static final String PENDING_MFA_AUTH_RESULT_ATTR = "pendingMfaAuthResult";
 
     /** Spring-managed service for provider data access and management */
@@ -656,6 +671,8 @@ public final class Login2Action extends ActionSupport {
      * @param ip remote address used for audit logging
      * @return {@code mfaHandler} when the challenge view is ready, or {@code error} when
      *         registration setup cannot safely continue
+     * @throws SecurityException when MFA setup reports an authorization failure
+     * @throws NullPointerException when a programmer defect leaves required MFA state null
      */
     private String beginPendingMfaChallenge(String[] strAuth, Security security, String ip) {
         HttpSession session = request.getSession(false);
@@ -831,7 +848,8 @@ public final class Login2Action extends ActionSupport {
      * replay window.</p>
      *
      * @param mfaSecret Base32-encoded MFA secret
-     * @param submittedCode user-submitted six-digit TOTP code
+     * @param submittedCode user-submitted TOTP code; length validation is performed by the TOTP
+     *        comparison rather than this helper
      * @return true when the submitted code matches the current, previous, or next time step
      * @throws InvalidKeyException when the Base32 secret is null, empty, malformed, or cannot
      *         create a valid TOTP key
@@ -902,7 +920,7 @@ public final class Login2Action extends ActionSupport {
      * <p>Older startup paths are expected to seed {@code CaseMgmtUsers}, but login must not fail if
      * that context attribute is absent after a partial startup or test container bootstrap. Mixed
      * legacy lists are copied defensively: only provider-number {@link String} entries are retained,
-     * and only the class name for non-String entries is logged at DEBUG, never the value itself.
+     * and only the class name for non-String entries is logged at WARN, never the value itself.
      * A non-list context value is logged at WARN because it means shared CAISI state was seeded with
      * an incompatible type and will be rebuilt.</p>
      *
@@ -916,7 +934,7 @@ public final class Login2Action extends ActionSupport {
                 if (providerNo instanceof String) {
                     caseMgmtUsers.add((String) providerNo);
                 } else {
-                    logger.debug("Ignoring non-String CaseMgmtUsers entry during login session setup: type={}",
+                    logger.warn("Ignoring non-String CaseMgmtUsers entry during login session setup: type={}",
                             providerNo == null ? "null" : LogSanitizer.sanitize(providerNo.getClass().getName()));
                 }
             }
@@ -958,6 +976,8 @@ public final class Login2Action extends ActionSupport {
         } catch (NumberFormatException e) {
             logger.warn("Skipping BC alert timer setup because ALERT_POLL_FREQUENCY is invalid: value={}",
                     LogSanitizer.sanitize(alertFreq), e);
+        } catch (RuntimeException e) {
+            logger.warn("Skipping BC alert timer setup because AlertTimer startup failed", e);
         }
     }
 
@@ -1045,6 +1065,10 @@ public final class Login2Action extends ActionSupport {
             default_pmm = providerPreference.getDefaultCaisiPmm();
             if ("enabled".equals(providerPreference.getDefaultNewOscarCme())) {
                 ArrayList<String> sessionCaseMgmtUsers;
+                // CaseMgmtUsers is servlet-context state shared by every CAISI session. Hold the
+                // context lock across read-modify-write so concurrent first logins do not lose a
+                // provider number, then store a session snapshot so later context changes cannot
+                // mutate this user's view.
                 synchronized (request.getSession().getServletContext()) {
                     ArrayList<String> contextCaseMgmtUsers = caseManagementUsers();
                     if (!contextCaseMgmtUsers.contains(providerNo)) {
