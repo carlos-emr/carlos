@@ -26,6 +26,10 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.Properties;
 import java.util.ResourceBundle;
@@ -51,6 +55,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 @Tag("i18n")
 class OscarResourcesBundleParseTest {
 
+    private static final Path RESOURCE_DIR = Path.of("src/main/resources");
     private static final String[] LOCALES = {"en", "fr", "es", "pt_BR", "pl"};
     private static final String[] LOGIN_ERROR_KEYS = {
             "login.errorApplicationError",
@@ -109,6 +114,45 @@ class OscarResourcesBundleParseTest {
                         .as("oscarResources_%s.properties should define %s", locale, key)
                         .isNotBlank();
             }
+        }
+    }
+
+    @Test
+    @DisplayName("should define every English key in every shipped locale bundle")
+    void shouldDefineEnglishKeys_inEveryLocale() throws Exception {
+        Properties english = loadBundle("en");
+        for (String locale : LOCALES) {
+            Properties bundle = loadBundle(locale);
+
+            assertThat(bundle.stringPropertyNames())
+                    .as("oscarResources_%s.properties should define every key from English", locale)
+                    .containsAll(english.stringPropertyNames());
+        }
+    }
+
+    @Test
+    @DisplayName("should keep properties source files ASCII-only")
+    void shouldKeepPropertiesSourceFiles_asciiOnly() throws Exception {
+        for (String locale : LOCALES) {
+            Path bundlePath = RESOURCE_DIR.resolve("oscarResources_" + locale + ".properties");
+            byte[] bytes = Files.readAllBytes(bundlePath);
+            List<String> nonAsciiBytes = new ArrayList<>();
+            int line = 1;
+            for (byte value : bytes) {
+                int unsigned = Byte.toUnsignedInt(value);
+                if (unsigned == '\n') {
+                    line++;
+                    continue;
+                }
+                if (unsigned > 0x7F) {
+                    nonAsciiBytes.add(String.format(Locale.ROOT, "line %d byte 0x%02X", line, unsigned));
+                }
+            }
+
+            assertThat(nonAsciiBytes)
+                    .as("%s must use \\uXXXX escapes so Properties.load(InputStream) decodes consistently",
+                            bundlePath)
+                    .isEmpty();
         }
     }
 

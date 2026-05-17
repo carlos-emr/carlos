@@ -45,8 +45,6 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.service.ProviderManager;
 import io.github.carlos_emr.carlos.PMmodule.web.utils.UserRoleUtils;
-import io.github.carlos_emr.carlos.decisionSupport.service.DSService;
-import io.github.carlos_emr.carlos.managers.AppManager;
 import io.github.carlos_emr.carlos.managers.MfaManager;
 import io.github.carlos_emr.carlos.managers.SecurityManager;
 import io.github.carlos_emr.carlos.managers.UserSessionManager;
@@ -126,7 +124,6 @@ import java.util.regex.Pattern;
  *   <li>Security operations ({@link SecurityManager})</li>
  *   <li>MFA operations ({@link MfaManager})</li>
  *   <li>Session tracking ({@link UserSessionManager})</li>
- *   <li>Decision support ({@link DSService})</li>
  * </ul>
  *
  * @see LoginCheckLogin for authentication business logic
@@ -224,9 +221,6 @@ public final class Login2Action extends ActionSupport {
     /** Spring-managed service for provider data access and management */
     private final ProviderManager providerManager = SpringUtils.getBean(ProviderManager.class);
 
-    /** Spring-managed service for application-level operations */
-    private final AppManager appManager = SpringUtils.getBean(AppManager.class);
-
     /** DAO for facility data access */
     private final FacilityDao facilityDao = SpringUtils.getBean(FacilityDao.class);
 
@@ -238,9 +232,6 @@ public final class Login2Action extends ActionSupport {
 
     /** DAO for user property data access */
     private final UserPropertyDAO propDao = SpringUtils.getBean(UserPropertyDAO.class);
-
-    /** Decision support service for clinical decision support features */
-    private final DSService dsService = SpringUtils.getBean(DSService.class);
 
     /** DAO for OAuth service request token management */
     private final ServiceRequestTokenDao serviceRequestTokenDao = SpringUtils.getBean(ServiceRequestTokenDao.class);

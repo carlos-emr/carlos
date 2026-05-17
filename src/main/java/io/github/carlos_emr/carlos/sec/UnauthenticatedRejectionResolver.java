@@ -17,6 +17,7 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.RequestNegotiation;
 
 import org.apache.logging.log4j.Logger;
 
@@ -35,8 +36,6 @@ import org.apache.logging.log4j.Logger;
 public final class UnauthenticatedRejectionResolver {
     private static final Logger LOGGER = MiscUtils.getLogger();
     private static final String LOGOUT_PATH = "/logoutPage";
-    private static final String AJAX_HEADER = "X-Requested-With";
-    private static final String AJAX_VALUE = "XMLHttpRequest";
 
     /**
      * Paths whose unauthenticated responses are consumed by scripts, downloads, or generated
@@ -114,7 +113,7 @@ public final class UnauthenticatedRejectionResolver {
         try {
             LogAction.addLog("", LogConst.LOGIN, LogConst.CON_LOGIN,
                     "unauthenticated_rejection_committed:" + routeType, remoteAddr);
-        } catch (RuntimeException e) {
+        } catch (RuntimeException | LinkageError e) {
             LOGGER.warn("Unable to audit committed unauthenticated rejection: routeType={}",
                     LogSafe.sanitize(routeType), e);
         }
@@ -136,7 +135,7 @@ public final class UnauthenticatedRejectionResolver {
 
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
-        if (prefersJsonResponse(request)) {
+        if (RequestNegotiation.acceptsJson(request)) {
             response.setContentType("application/json;charset=UTF-8");
             writeBody(request, response, "{\"error\":\"unauthorized\"}");
             return;
@@ -171,13 +170,9 @@ public final class UnauthenticatedRejectionResolver {
     }
 
     static boolean isStatusCodeRoute(HttpServletRequest request) {
-        return isAjaxRequest(request)
+        return RequestNegotiation.isAjax(request)
                 || prefersStructuredResponse(request)
                 || isDownloadOrGeneratedContentPath(request);
-    }
-
-    private static boolean isAjaxRequest(HttpServletRequest request) {
-        return AJAX_VALUE.equalsIgnoreCase(request.getHeader(AJAX_HEADER));
     }
 
     private static boolean prefersStructuredResponse(HttpServletRequest request) {
@@ -200,21 +195,6 @@ public final class UnauthenticatedRejectionResolver {
                 || lowerAccept.contains("application/javascript")
                 || lowerAccept.contains("application/pdf")
                 || lowerAccept.contains("application/octet-stream");
-    }
-
-    /**
-     * Returns whether the caller explicitly accepts JSON for direct authentication failures.
-     *
-     * <p>Uses substring matching to support normal multi-value {@code Accept} headers such as
-     * {@code application/xml, application/json;q=0.8}. This intentionally does not parse
-     * {@code q=} weights: any explicit literal {@code application/json} token is treated as a
-     * JSON-capable client. Structured suffixes such as {@code application/problem+json},
-     * {@code application/ld+json}, and {@code application/vnd.api+json} do not match this legacy
-     * check unless they also include a separate {@code application/json} value.</p>
-     */
-    private static boolean prefersJsonResponse(HttpServletRequest request) {
-        String accept = request.getHeader("Accept");
-        return accept != null && accept.toLowerCase(Locale.ROOT).contains("application/json");
     }
 
     private static boolean isDownloadOrGeneratedContentPath(HttpServletRequest request) {

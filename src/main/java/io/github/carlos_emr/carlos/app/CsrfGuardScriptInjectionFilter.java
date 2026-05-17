@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.app;
 
 import io.github.carlos_emr.carlos.utility.LogSafe;
+import io.github.carlos_emr.carlos.utility.RequestNegotiation;
 import org.owasp.csrfguard.CsrfGuard;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,7 +41,6 @@ import java.io.CharArrayWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Writer;
-import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
@@ -84,9 +84,6 @@ import java.util.regex.Pattern;
 public class CsrfGuardScriptInjectionFilter implements Filter {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CsrfGuardScriptInjectionFilter.class);
-
-    private static final String AJAX_HEADER_NAME = "X-Requested-With";
-    private static final String AJAX_HEADER_VALUE = "XMLHttpRequest";
 
     /**
      * Matches a {@code <script src="...csrfguard...">} tag (case-insensitive).
@@ -133,8 +130,7 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         // On FORWARD dispatch, the CaptureResponseWrapper is needed to prevent
         // Tomcat 11 from truncating large JSP responses (> 8KB) during forward.
         if (httpRequest.getDispatcherType() == jakarta.servlet.DispatcherType.REQUEST) {
-            String requestedWith = httpRequest.getHeader(AJAX_HEADER_NAME);
-            if (AJAX_HEADER_VALUE.equalsIgnoreCase(requestedWith)) {
+            if (RequestNegotiation.isAjax(httpRequest)) {
                 chain.doFilter(request, response);
                 return;
             }
@@ -195,7 +191,7 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         }
 
         String contentType = wrapper.getContentType();
-        if (!isHtmlContentType(contentType)) {
+        if (!RequestNegotiation.isHtmlContentType(contentType)) {
             // Not HTML — write captured content through without modification
             writeToResponse(httpResponse, wrapper.getCapturedContent());
             return;
@@ -302,13 +298,6 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             response.getOutputStream().write(bytes); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- trusted CSRF framework content
             response.getOutputStream().flush();
         }
-    }
-
-    /**
-     * Returns whether the supplied Content-Type represents an HTML response.
-     */
-    private static boolean isHtmlContentType(String contentType) {
-        return contentType != null && contentType.toLowerCase(Locale.ROOT).startsWith("text/html");
     }
 
     @Override
@@ -501,7 +490,7 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
          */
         private boolean isKnownNonHtmlContentType() {
             String contentType = getContentType();
-            return contentType != null && !isHtmlContentType(contentType);
+            return contentType != null && !RequestNegotiation.isHtmlContentType(contentType);
         }
 
         /**

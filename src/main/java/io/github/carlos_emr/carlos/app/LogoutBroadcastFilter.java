@@ -49,6 +49,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.RequestNegotiation;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 
 /**
@@ -109,8 +110,6 @@ public class LogoutBroadcastFilter implements Filter {
 
     private static final Logger logger = MiscUtils.getLogger();
 
-    private static final String HTTP_HEADER_VALUE_AJAX_REQUESTED_WITH = "XMLHttpRequest";
-    private static final String HTTP_HEADER_NAME_AJAX_REQUESTED_WITH = "X-Requested-With";
     private static final int HTML_INJECTION_BUFFER_SIZE_BYTES = 1024 * 1024;
 
     /** Default inactivity limit in minutes when INACTIVITY_LIMIT_MINS is not configured. */
@@ -196,7 +195,7 @@ public class LogoutBroadcastFilter implements Filter {
 
         // Only inject for HTML responses
         String contentType = delegatingResponse.getContentType();
-        if (contentType == null || !contentType.toLowerCase(Locale.ROOT).startsWith("text/html")) {
+        if (!RequestNegotiation.isHtmlContentType(contentType)) {
             delegatingResponse.applyDeferredContentLength();
             return;
         }
@@ -253,7 +252,7 @@ public class LogoutBroadcastFilter implements Filter {
      * @return true when the response should be wrapped for possible script injection
      */
     private boolean isResponseWrappingCandidate(HttpServletRequest request) {
-        if (isExcluded(request) || isStaticAssetPath(request) || isAjaxRequest(request)) {
+        if (isExcluded(request) || isStaticAssetPath(request) || RequestNegotiation.isAjax(request)) {
             return false;
         }
 
@@ -274,17 +273,6 @@ public class LogoutBroadcastFilter implements Filter {
             return false;
         }
         return servletPath.startsWith("/library/") || servletPath.startsWith("/share/");
-    }
-
-    /**
-     * Identifies XMLHttpRequest-style calls where injecting HTML script would corrupt the payload.
-     *
-     * @param request current HTTP request
-     * @return true when the request declares {@code X-Requested-With: XMLHttpRequest}
-     */
-    private boolean isAjaxRequest(HttpServletRequest request) {
-        String requestedWith = request.getHeader(HTTP_HEADER_NAME_AJAX_REQUESTED_WITH);
-        return requestedWith != null && HTTP_HEADER_VALUE_AJAX_REQUESTED_WITH.equalsIgnoreCase(requestedWith);
     }
 
     /**
@@ -973,7 +961,7 @@ public class LogoutBroadcastFilter implements Filter {
             }
 
             String contentType = getContentType();
-            if (contentType == null || !contentType.toLowerCase(Locale.ROOT).startsWith("text/html")) {
+            if (!RequestNegotiation.isHtmlContentType(contentType)) {
                 return;
             }
 

@@ -6,6 +6,11 @@
 package io.github.carlos_emr.carlos.sec;
 
 import io.github.carlos_emr.CarlosProperties;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -29,7 +34,7 @@ class SecurityTokenManagerUnitTest {
     @BeforeEach
     void setUp() {
         originalTokenManager = CarlosProperties.getInstance().getProperty("sec.token.manager");
-        SecurityTokenManager.instance = null;
+        SecurityTokenManager.resetForTesting();
     }
 
     @AfterEach
@@ -39,7 +44,7 @@ class SecurityTokenManagerUnitTest {
         } else {
             CarlosProperties.getInstance().setProperty("sec.token.manager", originalTokenManager);
         }
-        SecurityTokenManager.instance = null;
+        SecurityTokenManager.resetForTesting();
     }
 
     @Test
@@ -69,5 +74,34 @@ class SecurityTokenManagerUnitTest {
         assertThatThrownBy(SecurityTokenManager::getInstance)
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Unable to load configured token manager");
+    }
+
+    @Test
+    @DisplayName("should return same configured manager after initialization")
+    void shouldReturnSameManager_whenConfiguredManagerAlreadyInitialized() {
+        CarlosProperties.getInstance().setProperty("sec.token.manager",
+                ConfiguredTokenManager.class.getName());
+
+        SecurityTokenManager first = SecurityTokenManager.getInstance();
+        SecurityTokenManager second = SecurityTokenManager.getInstance();
+
+        assertThat(first)
+                .isInstanceOf(ConfiguredTokenManager.class)
+                .isSameAs(second);
+    }
+
+    public static final class ConfiguredTokenManager extends SecurityTokenManager {
+        @Override
+        public void requestToken(HttpServletRequest request, HttpServletResponse response,
+                FilterChain chain) throws IOException, ServletException {
+            chain.doFilter(request, response);
+        }
+
+        @Override
+        public boolean handleToken(HttpServletRequest request, HttpServletResponse response,
+                FilterChain chain) throws IOException, ServletException {
+            chain.doFilter(request, response);
+            return true;
+        }
     }
 }

@@ -34,8 +34,8 @@ import java.io.IOException;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
-import jakarta.servlet.ServletRequest;
-import jakarta.servlet.ServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -45,7 +45,7 @@ import io.github.carlos_emr.CarlosProperties;
 
 public abstract class SecurityTokenManager {
 
-    static SecurityTokenManager instance = null;
+    private static SecurityTokenManager instance = null;
 
     /**
      * Allowed package prefix for SecurityTokenManager implementation class loading.
@@ -58,7 +58,7 @@ public abstract class SecurityTokenManager {
      */
     private static final String ALLOWED_PACKAGE_PREFIX = ReflectionConstants.CARLOS_PACKAGE_PREFIX;
 
-    public static SecurityTokenManager getInstance() {
+    public static synchronized SecurityTokenManager getInstance() {
         if (instance != null) {
             return instance;
         }
@@ -84,6 +84,10 @@ public abstract class SecurityTokenManager {
         return instance;
     }
 
+    static synchronized void resetForTesting() {
+        instance = null;
+    }
+
     /**
      * Set the "token" attribute in the request if successful.
      *
@@ -93,7 +97,7 @@ public abstract class SecurityTokenManager {
      * @throws IOException
      * @throws ServletException
      */
-    public abstract void requestToken(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException;
+    public abstract void requestToken(HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws IOException, ServletException;
 
     /**
      * Check token, do the login if successful.
@@ -104,6 +108,6 @@ public abstract class SecurityTokenManager {
      * @throws IOException
      * @throws ServletException
      */
-    public abstract boolean handleToken(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException;
+    public abstract boolean handleToken(HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws IOException, ServletException;
 
 }
