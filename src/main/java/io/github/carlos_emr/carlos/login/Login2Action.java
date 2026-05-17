@@ -164,12 +164,12 @@ public final class Login2Action extends ActionSupport {
      * and runbooks are migrated at the same time.</p>
      */
     private static final String LOG_PRE = "Login!@#$: ";
-    private static final int DEFAULT_PASSWORD_MIN_LENGTH = 8;
-    private static final int DEFAULT_PASSWORD_MIN_GROUPS = 3;
-    private static final String DEFAULT_PASSWORD_LOWER_CHARS = "abcdefghijklmnopqrstuvwxyz";
-    private static final String DEFAULT_PASSWORD_UPPER_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    private static final String DEFAULT_PASSWORD_DIGIT_CHARS = "0123456789";
-    private static final String DEFAULT_PASSWORD_SPECIAL_CHARS = "! @#$%^&*()_+|~-=`{}[]\\:\";'<>?,./";
+    private static final int DEFAULT_POLICY_MIN_LENGTH = 8;
+    private static final int DEFAULT_POLICY_MIN_GROUPS = 3;
+    private static final String DEFAULT_POLICY_LOWER_CHARS = "abcdefghijklmnopqrstuvwxyz";
+    private static final String DEFAULT_POLICY_UPPER_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    private static final String DEFAULT_POLICY_DIGIT_CHARS = "0123456789";
+    private static final String DEFAULT_POLICY_SPECIAL_CHARS = "! @#$%^&*()_+|~-=`{}[]\\:\";'<>?,./";
 
     /**
      * Session attribute name holding an opaque random token that references credential
@@ -1540,19 +1540,19 @@ public final class Login2Action extends ActionSupport {
             return PasswordPolicyResult.valid();
         }
 
-        int minLength = intProperty(properties, "password_min_length", DEFAULT_PASSWORD_MIN_LENGTH);
+        int minLength = intProperty(properties, "password_min_length", DEFAULT_POLICY_MIN_LENGTH);
         if (newPassword == null || newPassword.length() < minLength) {
             return PasswordPolicyResult.invalid(message("password.policy.violation.msgPasswordLengthError") + " "
                     + minLength + " " + message("password.policy.violation.msgSymbols"),
                     "password_policy_min_length");
         }
 
-        int minGroups = intProperty(properties, "password_min_groups", DEFAULT_PASSWORD_MIN_GROUPS);
+        int minGroups = intProperty(properties, "password_min_groups", DEFAULT_POLICY_MIN_GROUPS);
         int groupsUsed = countPasswordGroups(newPassword,
-                properties.getProperty("password_group_lower_chars", DEFAULT_PASSWORD_LOWER_CHARS),
-                properties.getProperty("password_group_upper_chars", DEFAULT_PASSWORD_UPPER_CHARS),
-                properties.getProperty("password_group_digits", DEFAULT_PASSWORD_DIGIT_CHARS),
-                properties.getProperty("password_group_special", DEFAULT_PASSWORD_SPECIAL_CHARS));
+                properties.getProperty("password_group_lower_chars", DEFAULT_POLICY_LOWER_CHARS),
+                properties.getProperty("password_group_upper_chars", DEFAULT_POLICY_UPPER_CHARS),
+                properties.getProperty("password_group_digits", DEFAULT_POLICY_DIGIT_CHARS),
+                properties.getProperty("password_group_special", DEFAULT_POLICY_SPECIAL_CHARS));
         if (groupsUsed < minGroups) {
             return PasswordPolicyResult.invalid(message("password.policy.violation.msgPasswordStrengthError") + " "
                     + minGroups + " " + message("password.policy.violation.msgPasswordGroups"),
