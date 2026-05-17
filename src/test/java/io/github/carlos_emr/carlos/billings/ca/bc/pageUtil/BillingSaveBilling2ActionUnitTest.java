@@ -413,11 +413,11 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should encode appointment number before direct response body")
-    void shouldEncodeAppointmentNumber_beforeDirectResponseBody() {
+    @DisplayName("should preserve plain text appointment number before direct response body")
+    void shouldPreservePlainTextAppointmentNumber_beforeDirectResponseBody() {
         assertThat(BillingSaveBilling2Action.formatMalformedAppointmentMessage(
                 "Malformed appointment number \"{0}\".", "<script>alert(1)</script>"))
-                .isEqualTo("Malformed appointment number \"&lt;script&gt;alert(1)&lt;/script&gt;\".");
+                .isEqualTo("Malformed appointment number \"<script>alert(1)</script>\".");
     }
 
     @Test

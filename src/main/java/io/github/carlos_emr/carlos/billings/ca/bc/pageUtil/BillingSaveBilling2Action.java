@@ -40,7 +40,6 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.RedirectValidationUtils;
-import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.sec.UnauthenticatedRejectionResolver;
@@ -382,8 +381,7 @@ public class BillingSaveBilling2Action extends ActionSupport {
      * operator logs do not imply quote recovery was attempted.</p>
      */
     static String formatMalformedAppointmentMessage(String messagePattern, String rawAppointmentNo) {
-        String sanitizedAppointmentNo = SafeEncode.forHtmlContent(
-                LogSafe.sanitizeForDisplay(rawAppointmentNo));
+        String sanitizedAppointmentNo = LogSafe.sanitizeForDisplay(rawAppointmentNo);
         MessagePatternResult result = formatMessagePatternOnce(
                 messagePattern, sanitizedAppointmentNo, MALFORMED_APPOINTMENT_NO_FALLBACK);
         if (result.usedFallback()) {
