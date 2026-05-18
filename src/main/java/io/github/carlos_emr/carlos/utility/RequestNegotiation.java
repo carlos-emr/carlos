@@ -13,9 +13,10 @@ import java.util.Locale;
  *
  * <p>These checks intentionally preserve the legacy CARLOS contracts: AJAX means the
  * {@code X-Requested-With: XMLHttpRequest} convention, HTML means a {@code text/html}
- * content type prefix, and JSON preference means the literal {@code application/json}
- * media type appears in {@code Accept}. More sophisticated media-type parsing belongs in
- * callers only when they are deliberately changing those contracts.</p>
+ * content type prefix, and JSON preference means either {@code application/json} or a
+ * structured {@code +json} media type appears in {@code Accept}. More sophisticated
+ * content negotiation belongs in callers only when they are deliberately changing those
+ * contracts.</p>
  *
  * @since 2026-05-17
  */
@@ -40,9 +41,18 @@ public final class RequestNegotiation {
                 && contentType.toLowerCase(Locale.ROOT).startsWith(HTML_CONTENT_TYPE);
     }
 
-    /** Detects requests that explicitly include the literal {@code application/json} media type. */
+    /** Detects JSON media ranges, including structured suffixes such as {@code problem+json}. */
     public static boolean acceptsJson(HttpServletRequest request) {
         String accept = request == null ? null : request.getHeader("Accept");
-        return accept != null && accept.toLowerCase(Locale.ROOT).contains(JSON_ACCEPT);
+        if (accept == null || accept.isBlank()) {
+            return false;
+        }
+        for (String mediaRange : accept.toLowerCase(Locale.ROOT).split(",")) {
+            String mediaType = mediaRange.split(";", 2)[0].trim();
+            if (JSON_ACCEPT.equals(mediaType) || mediaType.endsWith("+json")) {
+                return true;
+            }
+        }
+        return false;
     }
 }

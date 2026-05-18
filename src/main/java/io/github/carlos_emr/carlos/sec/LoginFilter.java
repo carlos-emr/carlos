@@ -440,6 +440,12 @@ public class LoginFilter implements Filter {
                 } else if (!httpResponse.isCommitted()) {
                     logger.error("ERROR checking for last activity. Failing closed. Limit Activity: {}",
                             LogSafe.sanitize(InActivityLimitInMins), e);
+                    try {
+                        session.invalidate();
+                    } catch (IllegalStateException invalidateFailure) {
+                        logger.warn("Unable to invalidate session after inactivity check failure: uri={}",
+                                LogSafe.sanitizeUri(httpRequest.getRequestURI()), invalidateFailure);
+                    }
                     httpResponse.sendRedirect(contextPath + "/logoutPage");
                     return;
                 } else {

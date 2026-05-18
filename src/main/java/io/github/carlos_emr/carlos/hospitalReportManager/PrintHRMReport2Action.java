@@ -91,6 +91,11 @@ public class PrintHRMReport2Action extends ActionSupport {
                     }
                 }
             }
+            if (hrmIds.isEmpty()) {
+                logger.warn("Rejected HRM PDF request without hrmReportId values");
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing HRM report id");
+                return NONE;
+            }
 
             response.setContentType("application/pdf");  //octet-stream
             response.setHeader("Content-Disposition", "attachment; filename=\"HRMReport_"

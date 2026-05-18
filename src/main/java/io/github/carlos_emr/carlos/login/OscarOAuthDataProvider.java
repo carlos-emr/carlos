@@ -203,12 +203,19 @@ public class OscarOAuthDataProvider {
     }
 
     public String finalizeAuthorization(RequestToken requestToken) throws OAuth1Exception {
+        return finalizeAuthorization(requestToken, null);
+    }
+
+    public String finalizeAuthorization(RequestToken requestToken, String providerNo) throws OAuth1Exception {
         logger.debug("finalizeAuthorization() called");
         // RequestToken requestToken = data.getToken(); - now passing the token directly. 
         requestToken.setVerifier(UUID.randomUUID().toString());
         ServiceRequestToken srt = serviceRequestTokenDao.findByTokenId(requestToken.getTokenKey());
         if (srt != null) {
             srt.setVerifier(requestToken.getVerifier());
+            if (providerNo != null && !providerNo.isBlank()) {
+                srt.setProviderNo(providerNo);
+            }
             serviceRequestTokenDao.merge(srt);
         }
         return requestToken.getVerifier();

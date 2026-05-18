@@ -63,6 +63,7 @@ import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
+import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
@@ -364,6 +365,14 @@ public final class Login2Action extends ActionSupport {
         boolean forcedPasswordChangeRequest = request.getParameter("forcedpasswordchange") != null
                 && request.getParameter("forcedpasswordchange").equalsIgnoreCase("true")
                 && (this.oldPassword != null || this.newPassword != null || this.confirmPassword != null);
+        if (forcedPasswordChangeRequest && !isForcedPasswordResetSubmitPath(request)) {
+            logger.warn("Rejected forced password reset payload on non-reset route: uri={}, remote={}",
+                    LogSafe.sanitizeUri(request.getRequestURI()), LogSafe.sanitize(ip));
+            LogAction.addLog("", LogConst.LOGIN, LogConst.CON_LOGIN,
+                    "forced_password_reset_wrong_route", ip);
+            response.sendRedirect(loginFailedRedirectUrl(message("login.errorUnableToProcess")));
+            return NONE;
+        }
 
         if (!forcedPasswordChangeRequest && this.code != null && !this.code.isEmpty()) {
             return validateMfaAndCompleteLogin(ip, isMobileOptimized, submitType, ajaxResponse);
@@ -414,7 +423,8 @@ public final class Login2Action extends ActionSupport {
             String confirmPassword = this.getConfirmPassword();
             String oldPassword = this.getOldPassword();
 
-            if (!oldPasswordMatches(oldPassword, password)) {
+            boolean oldPasswordMatched = oldPasswordMatches(oldPassword, password);
+            if (!oldPasswordMatched) {
                 int failedAttempts = incrementForcedResetOldPasswordAttempts();
                 if (failedAttempts >= MAX_FORCE_PASSWORD_RESET_OLD_PASSWORD_ATTEMPTS) {
                     auditForcedPasswordResetFailure(userName, "old_password_mismatch_limit");
@@ -428,7 +438,8 @@ public final class Login2Action extends ActionSupport {
                 clearForcedResetOldPasswordAttempts();
             }
 
-            String errorStr = errorHandling(userName, password, newPassword, confirmPassword, oldPassword);
+            String errorStr = errorHandling(userName, newPassword, confirmPassword, oldPassword,
+                    oldPasswordMatched);
 
             // Retryable validation failures keep the token; terminal submits consume it.
             if (errorStr != null && !errorStr.isEmpty()) {
@@ -485,6 +496,8 @@ public final class Login2Action extends ActionSupport {
 
             // make sure this checking doesn't happen again
             forcedpasswordchange = false;
+            // Re-authentication below intentionally uses the cached username/PIN plus the new
+            // password; the reset form never accepts fresh username/PIN request parameters.
 
         } else {
             // Standard login attempt.
@@ -915,9 +928,17 @@ public final class Login2Action extends ActionSupport {
         java.time.Instant now = java.time.Instant.now();
         java.time.Duration timeStep = totpGenerator.getTimeStep();
 
-        return totpGenerator.generateOneTimePasswordString(key, now).equals(submittedCode)
-                || totpGenerator.generateOneTimePasswordString(key, now.minus(timeStep)).equals(submittedCode)
-                || totpGenerator.generateOneTimePasswordString(key, now.plus(timeStep)).equals(submittedCode);
+        return constantTimeEquals(totpGenerator.generateOneTimePasswordString(key, now), submittedCode)
+                || constantTimeEquals(totpGenerator.generateOneTimePasswordString(key, now.minus(timeStep)), submittedCode)
+                || constantTimeEquals(totpGenerator.generateOneTimePasswordString(key, now.plus(timeStep)), submittedCode);
+    }
+
+    private static boolean constantTimeEquals(String expected, String actual) {
+        if (expected == null || actual == null) {
+            return false;
+        }
+        return MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8),
+                actual.getBytes(StandardCharsets.UTF_8));
     }
 
     /**
@@ -1199,6 +1220,11 @@ public final class Login2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInUserFilter.generateLoggedInInfoFromSession(request);
         LoggedInInfo.setLoggedInInfoIntoSession(session, loggedInInfo);
 
+        String oauthBindingResult = bindOauthTokenForAuthenticatedSession(provider, ajaxResponse, where, providerNo, ip);
+        if (oauthBindingResult != null) {
+            return oauthBindingResult;
+        }
+
         if (UserRoleUtils.hasRole(request, "Patient Intake")) {
             return "patientIntake";
         }
@@ -1208,24 +1234,29 @@ public final class Login2Action extends ActionSupport {
             return NONE;
         }
 
-        String oauthToken = request.getParameter("oauth_token");
-        if (oauthToken != null) {
-            String proNo = (String) request.getSession().getAttribute("user");
-            if (!isValidOauthTokenId(oauthToken)) {
-                logger.warn("Rejected malformed oauth_token during login completion: providerNo={}, remote={}",
-                        LogSafe.sanitize(proNo), LogSafe.sanitize(ip));
-                LogAction.addLog(proNo, LogConst.LOGIN, LogConst.CON_LOGIN, "invalid_oauth_token", ip);
-                return buildPostAuthenticationResponse(provider, ajaxResponse, where);
-            }
-            logger.debug("checking oauth_token");
-            ServiceRequestToken srt = serviceRequestTokenDao.findByTokenId(oauthToken);
-            if (srt != null) {
-                srt.setProviderNo(proNo);
-                serviceRequestTokenDao.merge(srt);
-            }
-        }
-
         return buildPostAuthenticationResponse(provider, ajaxResponse, where);
+    }
+
+    private String bindOauthTokenForAuthenticatedSession(Provider provider, boolean ajaxResponse,
+                                                        String where, String providerNo, String ip)
+            throws IOException {
+        String oauthToken = request.getParameter("oauth_token");
+        if (oauthToken == null) {
+            return null;
+        }
+        if (!isValidOauthTokenId(oauthToken)) {
+            logger.warn("Rejected malformed oauth_token during login completion: providerNo={}, remote={}",
+                    LogSafe.sanitize(providerNo), LogSafe.sanitize(ip));
+            LogAction.addLog(providerNo, LogConst.LOGIN, LogConst.CON_LOGIN, "invalid_oauth_token", ip);
+            return buildPostAuthenticationResponse(provider, ajaxResponse, where);
+        }
+        logger.debug("checking oauth_token");
+        ServiceRequestToken srt = serviceRequestTokenDao.findByTokenId(oauthToken);
+        if (srt != null) {
+            srt.setProviderNo(providerNo);
+            serviceRequestTokenDao.merge(srt);
+        }
+        return null;
     }
 
     private String buildPostAuthenticationResponse(Provider provider, boolean ajaxResponse, String where)
@@ -1525,18 +1556,18 @@ public final class Login2Action extends ActionSupport {
      * visible to operators without recording password material.
      *
      * @param userName provider login name used only for PHI-safe audit context
-     * @param oldEncodedPassword String password hash staged from the successful login
      * @param newPassword String the new password entered by the user
      * @param confirmPassword String the confirmation of the new password
      * @param oldPassword String the old password entered by the user for verification
+     * @param oldPasswordMatched true when the staged old-password check already passed
      * @return String empty string if validation passes, or an error message if validation fails
      * @see SecurityManager#matchesPassword for password comparison logic
      */
-    private String errorHandling(String userName, String oldEncodedPassword, String newPassword, String confirmPassword,
-                                 String oldPassword) {
+    private String errorHandling(String userName, String newPassword, String confirmPassword,
+                                 String oldPassword, boolean oldPasswordMatched) {
 
         // Verify old password matches the password from the staged successful login.
-        if (!oldPasswordMatches(oldPassword, oldEncodedPassword)) {
+        if (!oldPasswordMatched) {
             return rejectForcedPasswordReset(userName, "old_password_mismatch",
                     "provider.providerchangepassword.errorOldPasswordMismatch");
         }
@@ -1579,6 +1610,18 @@ public final class Login2Action extends ActionSupport {
         return oldPassword != null
                 && oldEncodedPassword != null
                 && this.securityManager.matchesPassword(oldPassword, oldEncodedPassword);
+    }
+
+    private static boolean isForcedPasswordResetSubmitPath(HttpServletRequest request) {
+        String uri = request.getRequestURI();
+        if (uri == null) {
+            return false;
+        }
+        String contextPath = request.getContextPath();
+        String path = contextPath != null && !contextPath.isEmpty() && uri.startsWith(contextPath)
+                ? uri.substring(contextPath.length())
+                : uri;
+        return "/forcepasswordresetSubmit".equals(path);
     }
 
     private int incrementForcedResetOldPasswordAttempts() {

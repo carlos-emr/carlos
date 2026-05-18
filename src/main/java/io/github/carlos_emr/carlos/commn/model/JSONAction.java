@@ -32,6 +32,9 @@ public class JSONAction extends ActionSupport {
     }
 
     protected void jsonResponse(ObjectNode jsonObject) {
+        if (!hasResponseContext()) {
+            return;
+        }
         try (PrintWriter out = response.getWriter()) {
             response.setContentType(CONTENT_TYPE);
             response.setCharacterEncoding(ENCODING);
@@ -43,6 +46,9 @@ public class JSONAction extends ActionSupport {
     }
 
     protected void jsonResponse(String jsonString) {
+        if (!hasResponseContext()) {
+            return;
+        }
         try (PrintWriter out = response.getWriter()) {
             response.setContentType(CONTENT_TYPE);
             response.setCharacterEncoding(ENCODING);
@@ -59,7 +65,18 @@ public class JSONAction extends ActionSupport {
         jsonResponse(jsonObject);
     }
 
+    private boolean hasResponseContext() {
+        if (response != null) {
+            return true;
+        }
+        logger.warn("Cannot create JSON response without an active servlet response context");
+        return false;
+    }
+
     protected void errorResponse(String name, String value) {
+        if (!hasResponseContext()) {
+            return;
+        }
         response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         jsonResponse(name, value);
     }

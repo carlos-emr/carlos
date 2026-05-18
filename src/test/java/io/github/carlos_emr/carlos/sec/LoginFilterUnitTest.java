@@ -27,6 +27,7 @@ import java.util.stream.Stream;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
 import jakarta.servlet.ServletException;
 
@@ -43,6 +44,7 @@ import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.mock.web.MockHttpSession;
 
 import io.github.carlos_emr.carlos.utility.SessionConstants;
 
@@ -62,7 +64,7 @@ import static org.mockito.Mockito.when;
 @Tag("unit")
 @Tag("security")
 @DisplayName("LoginFilter URL exemption matching")
-class LoginFilterUnitTest {
+class LoginFilterUnitTest extends CarlosUnitTestBase {
 
     private static final String CONTEXT_PATH = "/carlos";
     private LoginFilter filter;
@@ -328,7 +330,8 @@ class LoginFilterUnitTest {
         void shouldFailClosed_whenInactivityLimitIsMalformed()
                 throws ServletException, IOException {
             MockHttpServletRequest request = authenticatedRequest();
-            request.getSession(false).setAttribute("last_request_time", new Date());
+            MockHttpSession session = (MockHttpSession) request.getSession(false);
+            session.setAttribute("last_request_time", new Date());
             MockHttpServletResponse response = new MockHttpServletResponse();
             MockFilterChain chain = new MockFilterChain();
 
@@ -342,6 +345,7 @@ class LoginFilterUnitTest {
 
                 assertThat(response.getRedirectedUrl()).isEqualTo(CONTEXT_PATH + "/logoutPage");
                 assertThat(chain.getRequest()).isNull();
+                assertThat(session.isInvalid()).isTrue();
                 assertThat(capture.events()).anySatisfy(event -> {
                     assertThat(event.getLevel()).isEqualTo(Level.ERROR);
                     assertThat(event.getMessage().getFormattedMessage())
@@ -356,7 +360,8 @@ class LoginFilterUnitTest {
         void shouldFailClosed_whenLastRequestTimeHasWrongType()
                 throws ServletException, IOException {
             MockHttpServletRequest request = authenticatedRequest();
-            request.getSession(false).setAttribute("last_request_time", "stale-string");
+            MockHttpSession session = (MockHttpSession) request.getSession(false);
+            session.setAttribute("last_request_time", "stale-string");
             MockHttpServletResponse response = new MockHttpServletResponse();
             MockFilterChain chain = new MockFilterChain();
 
@@ -369,6 +374,7 @@ class LoginFilterUnitTest {
 
                 assertThat(response.getRedirectedUrl()).isEqualTo(CONTEXT_PATH + "/logoutPage");
                 assertThat(chain.getRequest()).isNull();
+                assertThat(session.isInvalid()).isTrue();
             }
         }
 

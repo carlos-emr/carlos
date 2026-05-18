@@ -37,6 +37,7 @@ import io.github.carlos_emr.carlos.commn.model.ServiceRequestToken;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.decisionSupport.service.DSService;
 import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.AppManager;
 import io.github.carlos_emr.carlos.managers.MfaManager;
 import io.github.carlos_emr.carlos.managers.SecurityManager;
@@ -161,6 +162,7 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
         response = new MockHttpServletResponse();
         request.setMethod("POST");
         request.setContextPath("/carlos");
+        request.setRequestURI("/carlos/forcepasswordresetSubmit");
         request.addHeader("user-agent", "Mozilla/5.0");
         request.addHeader("Accept", "text/html");
         request.addParameter("forcedpasswordchange", "true");
@@ -290,6 +292,24 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
                 CarlosProperties.getInstance().setProperty("mandatory_password_reset", originalMandatoryReset);
             }
         }
+    }
+
+    @Test
+    @DisplayName("should reject forced reset payload on login route")
+    void shouldRejectForcedResetPayload_whenPostedToLoginRoute() throws Exception {
+        cacheCredentials();
+        request.setRequestURI("/carlos/login");
+        Login2Action action = newAction(OLD_PASSWORD, VALID_PASSWORD, VALID_PASSWORD);
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getRedirectedUrl()).contains("/loginfailed");
+        assertThat(decodedRedirect()).contains(Login2Action.message(request, "login.errorUnableToProcess"));
+        verify(securityManager, never()).matchesPassword(anyString(), anyString());
+        verify(securityDao, never()).saveEntity(org.mockito.ArgumentMatchers.any());
+        logActionMock.verify(() -> LogAction.addLog("", LogConst.LOGIN, LogConst.CON_LOGIN,
+                "forced_password_reset_wrong_route", request.getRemoteAddr()));
     }
 
     @Test

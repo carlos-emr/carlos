@@ -160,7 +160,9 @@ class PrintHRMReport2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should return none when HRM PDF is streamed")
     void shouldReturnNone_whenHrmPdfIsStreamed() throws Exception {
-        try (MockedStatic<ConcatPDF> concatPdfMock = mockStatic(ConcatPDF.class)) {
+        stageSingleHrmReport();
+        try (MockedConstruction<HRMPDFCreator> ignored = mockConstruction(HRMPDFCreator.class);
+                MockedStatic<ConcatPDF> concatPdfMock = mockStatic(ConcatPDF.class)) {
             concatPdfMock.when(() -> ConcatPDF.concat(any(ArrayList.class), any(OutputStream.class)))
                     .thenAnswer(invocation -> {
                         ((OutputStream) invocation.getArgument(1)).write(PDF_BYTES);
@@ -182,12 +184,16 @@ class PrintHRMReport2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should return none when response stream cannot be opened")
     void shouldReturnNone_whenResponseStreamCannotBeOpened() throws Exception {
+        stageSingleHrmReport();
         HttpServletResponse failingResponse = mock(HttpServletResponse.class);
         when(failingResponse.isCommitted()).thenReturn(false);
         doThrow(new IOException("stream unavailable")).when(failingResponse).getOutputStream();
         servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(failingResponse);
 
-        String result = new PrintHRMReport2Action().execute();
+        String result;
+        try (MockedConstruction<HRMPDFCreator> ignored = mockConstruction(HRMPDFCreator.class)) {
+            result = new PrintHRMReport2Action().execute();
+        }
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         verify(failingResponse).resetBuffer();
@@ -205,6 +211,18 @@ class PrintHRMReport2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(400);
         assertThat(response.getErrorMessage()).isEqualTo("Invalid HRM report id");
+    }
+
+    @Test
+    @DisplayName("should reject request when HRM report id is missing")
+    void shouldRejectRequest_whenHrmReportIdIsMissing() throws Exception {
+        String result = new PrintHRMReport2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(response.getErrorMessage()).isEqualTo("Missing HRM report id");
+        assertThat(response.getContentType()).isNull();
+        assertThat(response.getHeader("Content-Disposition")).isNull();
     }
 
     @Test
@@ -282,7 +300,9 @@ class PrintHRMReport2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should send error when PDF merge throws runtime exception")
     void shouldSendError_whenPdfMergeThrowsRuntimeException() throws Exception {
-        try (MockedStatic<ConcatPDF> concatPdfMock = mockStatic(ConcatPDF.class)) {
+        stageSingleHrmReport();
+        try (MockedConstruction<HRMPDFCreator> ignored = mockConstruction(HRMPDFCreator.class);
+                MockedStatic<ConcatPDF> concatPdfMock = mockStatic(ConcatPDF.class)) {
             concatPdfMock.when(() -> ConcatPDF.concat(any(ArrayList.class), any(OutputStream.class)))
                     .thenThrow(new RuntimeException("merge failed"));
 
@@ -297,10 +317,12 @@ class PrintHRMReport2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should log committed response when PDF merge fails after commit")
     void shouldLogCommittedResponse_whenPdfMergeFailsAfterCommit() throws Exception {
+        stageSingleHrmReport();
         CommittedMockHttpServletResponse committedResponse = new CommittedMockHttpServletResponse();
         servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(committedResponse);
 
-        try (MockedStatic<ConcatPDF> concatPdfMock = mockStatic(ConcatPDF.class);
+        try (MockedConstruction<HRMPDFCreator> ignored = mockConstruction(HRMPDFCreator.class);
+                MockedStatic<ConcatPDF> concatPdfMock = mockStatic(ConcatPDF.class);
                 LogCapture capture = LogCapture.forLogger(PrintHRMReport2Action.class)) {
             concatPdfMock.when(() -> ConcatPDF.concat(any(ArrayList.class), any(OutputStream.class)))
                     .thenThrow(new RuntimeException("merge failed after commit"));
@@ -341,6 +363,12 @@ class PrintHRMReport2ActionUnitTest extends CarlosUnitTestBase {
         demographic.setLastName(lastName);
         demographic.setFirstName(firstName);
         return demographic;
+    }
+
+    private void stageSingleHrmReport() {
+        request.addParameter("hrmReportId", "101");
+        when(hrmDocumentToDemographicDao.findByHrmDocumentId(101)).thenReturn(List.of(hrmMapping(1)));
+        when(demographicDao.getDemographicById(1)).thenReturn(demographic("Alpha", "One"));
     }
 
     private Optional<Element> findAction(Document document, String actionName) {

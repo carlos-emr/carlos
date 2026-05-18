@@ -285,6 +285,19 @@ public class ResponseSanitizationFilter implements Filter {
 
         if (wrapper.isUsingOutputStream()) {
             if (wrapper.isOutputStreamPassthrough()) {
+                int status = wrapper.getStatus();
+                if (status >= 400) {
+                    String correlationId = generateCorrelationId();
+                    LOGGER.error("Late output-stream error response bypassed capture; "
+                                    + "replacing buffered body [status={} uri={} correlationId={} committed={}]",
+                            status,
+                            LogSafe.sanitizeUri(((HttpServletRequest) request).getRequestURI()),
+                            correlationId,
+                            httpResponse.isCommitted());
+                    if (!httpResponse.isCommitted()) {
+                        sendSanitizedError(httpResponse, status, correlationId);
+                    }
+                }
                 return;
             }
             if (wrapper.isOutputCaptureLimitExceeded()) {

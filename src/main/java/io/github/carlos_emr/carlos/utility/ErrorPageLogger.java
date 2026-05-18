@@ -93,15 +93,15 @@ public final class ErrorPageLogger {
             Object uri = sanitizeUri(request != null
                     ? request.getAttribute("jakarta.servlet.error.request_uri")
                     : null);
-            Object status = request != null
+            Object status = sanitizeForLog(request != null
                     ? request.getAttribute("jakarta.servlet.error.status_code")
-                    : null;
+                    : null);
             // For HttpServletRequest, also attempt to log the original request
             // method when available — useful for distinguishing GET vs POST
             // failures on the same URI.
-            Object method = (request instanceof HttpServletRequest)
+            Object method = sanitizeForLog((request instanceof HttpServletRequest)
                     ? ((HttpServletRequest) request).getMethod()
-                    : null;
+                    : null);
 
             if (t == null) {
                 // No exception is available. This happens when sendError() is called
@@ -117,6 +117,7 @@ public final class ErrorPageLogger {
                 Object message = request != null
                         ? request.getAttribute("jakarta.servlet.error.message")
                         : null;
+                Object safeMessage = sanitizeForLog(message);
                 if (status != null || uri != null || message != null) {
                     String sanitizationProp = CarlosProperties.getInstance().getProperty(ResponseSanitizationFilter.ENABLED_PROPERTY, "").trim();
                     boolean sanitizationEnabled = sanitizationProp.isEmpty() || Boolean.parseBoolean(sanitizationProp);
@@ -126,7 +127,7 @@ public final class ErrorPageLogger {
                             + "(method={}, uri={}, status={}, message={}) "
                             + "— sendError() was called without propagating the exception",
                             method, uri, status,
-                            displayError ? message : (message != null ? "[present — set DISPLAY_ERROR=true, response.sanitization.enabled=false to log]" : null));
+                            displayError ? safeMessage : (message != null ? "[present — set DISPLAY_ERROR=true, response.sanitization.enabled=false to log]" : null));
                 }
                 return;
             }
@@ -153,17 +154,17 @@ public final class ErrorPageLogger {
      */
     private static Object sanitizeUri(Object rawUri) {
         if (!(rawUri instanceof String)) {
-            return rawUri;
+            return sanitizeForLog(rawUri);
         }
         String s = (String) rawUri;
         int q = s.indexOf('?');
         if (q >= 0) {
             s = s.substring(0, q);
         }
-        int sc = s.indexOf(';');
-        if (sc >= 0) {
-            s = s.substring(0, sc);
-        }
-        return s;
+        return LogSafe.sanitizeUri(s);
+    }
+
+    private static Object sanitizeForLog(Object raw) {
+        return raw == null ? null : LogSafe.sanitize(String.valueOf(raw));
     }
 }

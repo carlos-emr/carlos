@@ -136,6 +136,26 @@ class ErrorPageLoggerUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldSanitizeMethodAndMessage_whenNoExceptionButDisplayMessageIsLogged() {
+        MockHttpServletRequest req = new MockHttpServletRequest();
+        req.setAttribute("jakarta.servlet.error.status_code", 500);
+        req.setAttribute("jakarta.servlet.error.request_uri", "/carlos/error%3Bjsessionid=SECRET");
+        req.setAttribute("jakarta.servlet.error.message", "constraint failed\r\ndemographic_no=42");
+        req.setMethod("POST\r\nInjected");
+
+        ErrorPageLogger.logIfPresent(null, req);
+
+        assertThat(logCapture.events()).hasSize(1);
+        String msg = logCapture.events().get(0).getMessage().getFormattedMessage();
+        assertThat(msg)
+                .contains("method=POST\\r\\nInjected")
+                .contains("uri=/carlos/error")
+                .doesNotContain("SECRET")
+                .doesNotContain("\r")
+                .doesNotContain("\n");
+    }
+
+    @Test
     void shouldWarnWithPartialAttributes_whenOnlyStatusPresent() {
         // Minimal case: only status_code is set (sendError(sc) variant, no message).
         MockHttpServletRequest req = new MockHttpServletRequest();

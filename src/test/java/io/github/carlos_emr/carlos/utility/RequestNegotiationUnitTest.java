@@ -40,11 +40,11 @@ class RequestNegotiationUnitTest {
     }
 
     @Test
-    @DisplayName("should not detect JSON when only structured suffix is present")
-    void shouldNotDetectJson_whenOnlyStructuredSuffixIsPresent() {
+    @DisplayName("should detect JSON when structured suffix is present")
+    void shouldDetectJson_whenStructuredSuffixIsPresent() {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.addHeader("Accept", "application/problem+json");
 
-        assertThat(RequestNegotiation.acceptsJson(request)).isFalse();
+        assertThat(RequestNegotiation.acceptsJson(request)).isTrue();
     }
 }

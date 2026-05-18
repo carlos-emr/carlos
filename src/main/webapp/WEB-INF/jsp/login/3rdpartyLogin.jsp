@@ -35,7 +35,6 @@
 <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="io.github.carlos_emr.carlos.login.OAuthSessionMerger" %>
 <%@ page import="java.util.*" %>
 <%@ page import="jakarta.servlet.http.*" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
@@ -66,13 +65,6 @@
 
     boolean loggedIn = (session.getAttribute("user") != null) && (loggedInInfo != null);
 
-    // Try to merge only if we think we're logged in
-    if (loggedIn) {
-        boolean didMerge = OAuthSessionMerger.mergeSession(request);
-        if (!didMerge) {
-            loggedIn = false;
-        }
-    }
     request.setAttribute("loggedIn", loggedIn);
 
     String providerName = "";

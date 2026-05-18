@@ -43,9 +43,12 @@ import jakarta.servlet.http.Part;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.LogSafe;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * Servlet for handling document file uploads with path validation and security.
@@ -85,6 +88,20 @@ public class DocumentUploadServlet extends HttpServlet {
      * @throws ServletException if a servlet error occurs
      */
     public void service(HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return;
+        }
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Login required");
+            return;
+        }
+        if (!hasUploadPrivilege(loggedInInfo)) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, "Upload privilege required");
+            return;
+        }
+
         String foldername = "", fileheader = "", forwardTo = "";
         forwardTo = CarlosProperties.getInstance().getProperty("RA_FORWORD");
         foldername = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
@@ -181,5 +198,10 @@ public class DocumentUploadServlet extends HttpServlet {
         documentBean.setFilename(fileheader);
         RequestDispatcher dispatch = getServletContext().getRequestDispatcher(forwardTo);
         dispatch.forward(request, response);
+    }
+
+    private boolean hasUploadPrivilege(LoggedInInfo loggedInInfo) {
+        SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+        return securityInfoManager.hasPrivilege(loggedInInfo, "_admin.billing", "w", null);
     }
 }

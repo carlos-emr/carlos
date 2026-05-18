@@ -139,7 +139,8 @@ public final class LogSafe {
             rawInput = rawInput.substring(0, effectiveMaxLength);
         }
         String encoded = Encode.forJava(rawInput);
-        int encodedLimit = effectiveMaxLength * ENCODING_EXPANSION_FACTOR;
+        int encodedLimit = (int) Math.min(Integer.MAX_VALUE,
+                (long) effectiveMaxLength * ENCODING_EXPANSION_FACTOR);
         if (encoded.length() > encodedLimit) {
             encoded = encoded.substring(0, encodedLimit);
             truncated = true;

@@ -204,15 +204,15 @@ class UnauthenticatedRejectionResolverUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should write text status response when generated content accepts problem JSON")
-    void shouldWriteTextStatusResponse_whenGeneratedContentAcceptsProblemJson() throws Exception {
+    @DisplayName("should write JSON status response when generated content accepts problem JSON")
+    void shouldWriteJsonStatusResponse_whenGeneratedContentAcceptsProblemJson() throws Exception {
         MockHttpServletRequest request = request("/Download");
         request.addHeader("Accept", "application/problem+json");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         UnauthenticatedRejectionResolver.rejectUnauthenticatedRequest(request, response);
 
-        assertTextUnauthorized(response);
+        assertJsonUnauthorized(response);
     }
 
     @Test
@@ -281,6 +281,25 @@ class UnauthenticatedRejectionResolverUnitTest extends CarlosUnitTestBase {
                         .contains("response is already committed")
                         .contains("routeType=status-code")
                         .contains("acceptHint=application/json");
+            });
+        }
+    }
+
+    @Test
+    @DisplayName("should strip encoded path parameters from rejection logs")
+    void shouldStripEncodedPathParameters_fromRejectionLogs() throws Exception {
+        MockHttpServletRequest request = request("/provider%3Bjsessionid=SECRET/providercontrol");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        try (LogCapture capture = LogCapture.forLogger(UnauthenticatedRejectionResolver.class)) {
+            UnauthenticatedRejectionResolver.rejectUnauthenticatedRequest(request, response);
+
+            assertThat(response.getStatus()).isEqualTo(302);
+            assertThat(capture.events()).anySatisfy(event -> {
+                assertThat(event.getMessage().getFormattedMessage())
+                        .contains("uri=/carlos/provider/providercontrol")
+                        .doesNotContain("SECRET")
+                        .doesNotContain("%3Bjsessionid");
             });
         }
     }

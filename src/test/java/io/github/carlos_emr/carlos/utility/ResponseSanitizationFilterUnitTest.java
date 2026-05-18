@@ -488,6 +488,28 @@ class ResponseSanitizationFilterUnitTest {
         }
 
         @Test
+        @DisplayName("should sanitize late error after output stream was opened")
+        void shouldSanitizeLateError_whenOutputStreamOpenedBeforeStatusChange() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/error.jsp");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            FilterChain chain = (req, res) -> {
+                res.getOutputStream().write(("java.lang.IllegalStateException: failed\n"
+                        + "\tat io.github.carlos_emr.carlos.ErrorPage.render(ErrorPage.java:42)")
+                        .getBytes(StandardCharsets.UTF_8));
+                ((HttpServletResponse) res).setStatus(500);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getStatus()).isEqualTo(500);
+            assertThat(response.getContentType()).isEqualTo("text/html;charset=UTF-8");
+            assertThat(response.getContentAsString()).contains("Reference ID:");
+            assertThat(response.getContentAsString()).doesNotContain("IllegalStateException");
+            assertThat(response.getContentAsString()).doesNotContain("io.github.carlos_emr");
+        }
+
+        @Test
         @DisplayName("should pass through successful PDF output stream")
         void shouldPassThroughSuccessfulPdf_whenWrittenThroughOutputStream() throws Exception {
             MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/Download/report.pdf");

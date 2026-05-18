@@ -78,7 +78,7 @@ public final class UnauthenticatedRejectionResolver {
         boolean statusCodeRoute = isStatusCodeRoute(request);
         String routeType = statusCodeRoute ? "status-code" : "browser-page";
         String method = LogSafe.sanitize(request.getMethod());
-        String uri = LogSafe.sanitize(normalizedRequestUri(request));
+        String uri = LogSafe.sanitizeUri(normalizedRequestUri(request));
         String remote = LogSafe.sanitize(request.getRemoteAddr());
         String acceptHint = LogSafe.sanitize(request.getHeader("Accept"));
 
@@ -190,7 +190,7 @@ public final class UnauthenticatedRejectionResolver {
 
         // Accept: */* is deliberately treated as ambiguous browser-style traffic. Callers that
         // need a 401 should send an explicit structured media type or the AJAX header.
-        return lowerAccept.contains("application/json")
+        return RequestNegotiation.acceptsJson(request)
                 || lowerAccept.contains("application/xml")
                 || lowerAccept.contains("text/xml")
                 || lowerAccept.contains("text/javascript")

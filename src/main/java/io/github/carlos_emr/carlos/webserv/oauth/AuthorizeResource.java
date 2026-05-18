@@ -9,7 +9,8 @@
  *
  * Responsibilities:
  *   • GET  /ws/oauth/authorize: Display consent UI (3rdpartyLogin.jsp),
- *     pre-populated with client and requested scopes.
+ *     pre-populated with client and requested scopes, and stage a
+ *     one-time server-side authorization nonce.
  *   • POST /ws/oauth/authorize: Handle approval, finalize authorization
  *     with the provider, and redirect the user agent back to the client
  *     with oauth_token and oauth_verifier.
@@ -22,7 +23,8 @@
  *   model and JSP-based consent UI.
  *
  * Notes:
- *   • Requires an authenticated user session (via "user" attribute).
+ *   • Requires an authenticated user session (via "user" attribute) before
+ *     POST approval can bind the request token to a provider.
  *   • Does not log or expose verifier/token values beyond what’s required
  *     by the protocol.
  *   • Responds with 400/401 for missing tokens, invalid request tokens,
@@ -35,12 +37,14 @@ import jakarta.inject.Inject;
 import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.*;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import io.github.carlos_emr.carlos.login.OscarOAuthDataProvider;
@@ -49,13 +53,16 @@ import io.github.carlos_emr.carlos.login.OAuthData; // model used by 3rdpartyLog
 @Produces(MediaType.TEXT_HTML)
 public class AuthorizeResource {
 
+    private static final String AUTHORIZATION_NONCE_PREFIX = "oauth.authorize.nonce.";
+
     @Context private HttpServletRequest  request;
     @Context private HttpServletResponse response;
 
     @Inject  private OscarOAuthDataProvider provider;
 
     private String getLoggedInProviderNo() {
-        Object u = request.getSession().getAttribute("user");
+        HttpSession session = request.getSession(false);
+        Object u = session == null ? null : session.getAttribute("user");
         return u != null ? u.toString() : null;
     }
 
@@ -79,6 +86,7 @@ public class AuthorizeResource {
         OAuthData od = new OAuthData();
         od.setOauthToken(tokenId);
         od.setReplyTo(request.getContextPath() + "/ws/oauth/authorize");
+        od.setAuthenticityToken(stageAuthorizationNonce(tokenId));
         if (c != null) {
             od.setApplicationName(c.getName());
             od.setApplicationURI(c.getUri());
@@ -101,7 +109,9 @@ public class AuthorizeResource {
     @POST
     @Path("/authorize")
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
-    public Response approve(@FormParam("oauth_token") String tokenId) {
+    public Response approve(@FormParam("oauth_token") String tokenId,
+                            @FormParam("session_authenticity_token") String submittedNonce,
+                            @FormParam("oauthDecision") String oauthDecision) {
         if (tokenId == null || tokenId.isEmpty()) {
             return Response.status(400).entity("missing oauth_token").type(MediaType.TEXT_PLAIN).build();
         }
@@ -110,14 +120,19 @@ public class AuthorizeResource {
         if (rt == null) {
             return Response.status(400).entity("invalid_request_token").type(MediaType.TEXT_PLAIN).build();
         }
+        if (!"allow".equals(oauthDecision)) {
+            return Response.status(403).entity("authorization_denied").type(MediaType.TEXT_PLAIN).build();
+        }
+        if (!consumeAuthorizationNonce(tokenId, submittedNonce)) {
+            return Response.status(403).entity("invalid_authorization_nonce").type(MediaType.TEXT_PLAIN).build();
+        }
 
         String providerNo = getLoggedInProviderNo();
         if (providerNo == null || providerNo.isEmpty()) {
             return Response.status(401).entity("login_required").type(MediaType.TEXT_PLAIN).build();
         }
 
-        // Let the provider set & persist the verifier + providerNo
-        String verifier = provider.finalizeAuthorization(rt);
+        String verifier = provider.finalizeAuthorization(rt, providerNo);
 
         // nosemgrep: open-redirect -- callback comes from the server-persisted request token
         // (set during /initiate by OscarRequestTokenService), not from user input in this POST.
@@ -133,4 +148,25 @@ public class AuthorizeResource {
     }
 
     private static String enc(String v) { return URLEncoder.encode(v, StandardCharsets.UTF_8); }
+
+    private String stageAuthorizationNonce(String tokenId) {
+        String nonce = UUID.randomUUID().toString();
+        request.getSession().setAttribute(nonceAttribute(tokenId), nonce);
+        return nonce;
+    }
+
+    private boolean consumeAuthorizationNonce(String tokenId, String submittedNonce) {
+        HttpSession session = request.getSession(false);
+        if (session == null || submittedNonce == null || submittedNonce.isBlank()) {
+            return false;
+        }
+        String attribute = nonceAttribute(tokenId);
+        Object expected = session.getAttribute(attribute);
+        session.removeAttribute(attribute);
+        return submittedNonce.equals(expected);
+    }
+
+    private static String nonceAttribute(String tokenId) {
+        return AUTHORIZATION_NONCE_PREFIX + tokenId;
+    }
 }
