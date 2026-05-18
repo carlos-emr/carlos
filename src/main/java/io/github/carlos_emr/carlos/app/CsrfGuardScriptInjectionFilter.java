@@ -194,7 +194,7 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         String contentType = wrapper.getContentType();
         if (!RequestNegotiation.isHtmlContentType(contentType)) {
             // Not HTML — write captured content through without modification
-            writeToResponse(httpResponse, wrapper.getCapturedContent());
+            writeToResponse(httpResponse, wrapper.getCapturedContent(), safeRequestUri);
             return;
         }
 
@@ -206,14 +206,14 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         // Regex is used rather than contains() to avoid false positives when the literal
         // string "/csrfguard" appears in JavaScript code, comments, or user-generated content.
         if (CSRFGUARD_SCRIPT_PATTERN.matcher(captured).find()) {
-            writeToResponse(httpResponse, captured);
+            writeToResponse(httpResponse, captured, safeRequestUri);
             return;
         }
 
         String scriptTag = "<script src=\"" + httpRequest.getContextPath() + "/csrfguard\"></script>";
         String modified = injectScript(captured, scriptTag);
 
-        writeToResponse(httpResponse, modified);
+        writeToResponse(httpResponse, modified, safeRequestUri);
     }
 
     /**
@@ -269,7 +269,8 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
      * on the underlying response. Calling {@code getOutputStream()} after
      * {@code getWriter()} throws {@code IllegalStateException}.</p>
      */
-    private void writeToResponse(HttpServletResponse response, String content) throws IOException {
+    private void writeToResponse(HttpServletResponse response, String content, String safeRequestUri)
+            throws IOException {
         // Clear only the response body buffer, preserving status code, headers, and cookies
         // set by downstream components. resetBuffer() is safer than reset() which would
         // wipe Set-Cookie, security headers, CSP, and non-200 status codes.
@@ -293,6 +294,9 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         } catch (IllegalStateException e) {
             // getWriter() failed because getOutputStream() was already called. This fallback
             // writes the exact byte array, so Content-Length is safe here.
+            LOGGER.warn("CsrfGuard: response writer unavailable while writing adjusted content; "
+                            + "falling back to output stream: uri={}, contentType={}, committed={}",
+                    safeRequestUri, response.getContentType(), response.isCommitted(), e);
             byte[] bytes = content.getBytes(encoding);
             response.setContentLength(bytes.length);
             response.getOutputStream().write(bytes); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- trusted CSRF framework content

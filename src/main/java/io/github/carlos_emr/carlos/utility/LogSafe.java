@@ -60,8 +60,6 @@ import org.owasp.encoder.Encode;
  * <p><strong>Note:</strong> SLF4J/Log4j2 parameterized logging ({@code {}}) alone does NOT
  * prevent log injection — CRLF characters in parameter values are written to logs verbatim.
  * {@code LogSafe.sanitize()} is required to neutralize control characters.</p>
- *
- * @since 2026-04-04
  */
 public final class LogSafe {
 

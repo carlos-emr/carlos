@@ -19,9 +19,33 @@ public final class PendingMfaChallenges {
     public static final String PROVIDER_NO_ATTR = "pendingMfaProviderNo";
     public static final String TOKEN_ATTR = "pendingMfaChallengeToken";
     public static final String ATTEMPTS_ATTR = "pendingMfaFailedAttempts";
+    public static final String LEGACY_REGISTRATION_SECRET_ATTR = "mfaSecret";
 
     private PendingMfaChallenges() {
         // Utility holder for the pending-MFA session contract.
+    }
+
+    /**
+     * Stages the complete pending-MFA session marker set after the sensitive payload has been
+     * stored in {@link PendingMfaChallengeCache}. Callers should use this instead of setting the
+     * attributes individually so partial marker state does not survive refactors.
+     */
+    public static void stage(HttpSession session, String providerNo, String token, int attempts) {
+        session.setAttribute(AUTH_ATTR, Boolean.TRUE); // nosemgrep: tainted-session-from-http-request -- server-generated MFA challenge marker
+        session.setAttribute(PROVIDER_NO_ATTR, providerNo); // nosemgrep: tainted-session-from-http-request -- authenticated LoginCheckLogin provider number for audit context
+        session.setAttribute(TOKEN_ATTR, token); // nosemgrep: tainted-session-from-http-request -- opaque server-generated cache token, not raw MFA state
+        session.setAttribute(ATTEMPTS_ATTR, attempts); // nosemgrep: tainted-session-from-http-request -- server-controlled MFA retry counter
+    }
+
+    /**
+     * Returns the opaque pending-MFA token only when the session attribute has the expected type.
+     */
+    public static String getToken(HttpSession session) {
+        if (session == null) {
+            return null;
+        }
+        Object tokenAttr = session.getAttribute(TOKEN_ATTR);
+        return tokenAttr instanceof String ? (String) tokenAttr : null;
     }
 
     /**
@@ -42,6 +66,6 @@ public final class PendingMfaChallenges {
         session.removeAttribute(PROVIDER_NO_ATTR);
         session.removeAttribute(TOKEN_ATTR);
         session.removeAttribute(ATTEMPTS_ATTR);
-        session.removeAttribute("mfaSecret");
+        session.removeAttribute(LEGACY_REGISTRATION_SECRET_ATTR);
     }
 }

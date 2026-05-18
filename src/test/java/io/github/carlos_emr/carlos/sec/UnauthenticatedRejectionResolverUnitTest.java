@@ -310,10 +310,11 @@ class UnauthenticatedRejectionResolverUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should keep generated content status-code paths immutable")
-    void shouldKeepGeneratedContentStatusCodePaths_immutable() {
-        assertThatThrownBy(() -> UnauthenticatedRejectionResolver.STATUS_CODE_PATHS.add("/newRoute"))
-                .isInstanceOf(UnsupportedOperationException.class);
+    @DisplayName("should match status-code path children only on path boundary")
+    void shouldMatchStatusCodePathChildren_onPathBoundary() {
+        assertThat(UnauthenticatedRejectionResolver.matchesStatusCodePath("/Download")).isTrue();
+        assertThat(UnauthenticatedRejectionResolver.matchesStatusCodePath("/Download/file.pdf")).isTrue();
+        assertThat(UnauthenticatedRejectionResolver.matchesStatusCodePath("/Downloads")).isFalse();
     }
 
     private static MockHttpServletRequest request(String path) {
@@ -344,7 +345,7 @@ class UnauthenticatedRejectionResolverUnitTest extends CarlosUnitTestBase {
     }
 
     private static Stream<String> statusCodePaths() {
-        return UnauthenticatedRejectionResolver.STATUS_CODE_PATHS.stream();
+        return UnauthenticatedRejectionResolver.statusCodePathsForTesting();
     }
 
     private static Stream<Arguments> structuredAcceptHeaders() {

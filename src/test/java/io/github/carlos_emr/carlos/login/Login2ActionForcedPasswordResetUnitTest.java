@@ -1483,6 +1483,36 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should reject malformed oauth token without lookup")
+    void shouldRejectMalformedOauthToken_withoutLookup() throws Exception {
+        String originalUseProgramLocation = CarlosProperties.getInstance().getProperty("useProgramLocation");
+        Security security = forcedResetSecurity();
+        security.setForcePasswordReset(Boolean.FALSE);
+        request.setParameter("oauth_token", "bad token <script>");
+        stagePendingMfa(security);
+        stubSuccessfulProviderLogin();
+        when(mfaManager.getMfaSecret(security)).thenReturn("JBSWY3DPEHPK3PXP");
+
+        try {
+            CarlosProperties.getInstance().setProperty("useProgramLocation", "true");
+            try (MockedConstruction<TimeBasedOneTimePasswordGenerator> ignored = mockTotpReturning("123456")) {
+                Login2Action action = newAction(null, null, null);
+                action.setCode("123456");
+
+                String result = action.execute();
+
+                assertThat(result).isEqualTo("programLocation");
+                verify(serviceRequestTokenDao, never()).findByTokenId(anyString());
+                verify(serviceRequestTokenDao, never()).merge(any());
+                logActionMock.verify(() -> LogAction.addLog("999998", "log in", "login",
+                        "invalid_oauth_token", request.getRemoteAddr()));
+            }
+        } finally {
+            restoreProperty("useProgramLocation", originalUseProgramLocation);
+        }
+    }
+
+    @Test
     @DisplayName("should write AJAX JSON when login completes with ajax response")
     void shouldWriteAjaxJson_whenLoginCompletesWithAjaxResponse() throws Exception {
         String originalUseProgramLocation = CarlosProperties.getInstance().getProperty("useProgramLocation");
@@ -1963,8 +1993,8 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should persist valid forced reset password and clear reset token")
-    void shouldPersistValidForcedResetPassword_andClearResetToken() throws Exception {
+    @DisplayName("should persist valid forced reset password when MFA code parameter is also present")
+    void shouldPersistValidForcedResetPassword_whenMfaCodeParameterAlsoPresent() throws Exception {
         String token = cacheCredentials();
         String newPassword = VALID_PASSWORD;
         String encodedNewPassword = "encoded-new-password";
@@ -1992,6 +2022,7 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
                 })) {
             credentialCacheMock.when(LoginCredentialCache::getInstance).thenReturn(credentialCacheSpy);
             Login2Action action = newAction(OLD_PASSWORD, newPassword, newPassword);
+            action.setCode("123456");
 
             String result = action.execute();
 
@@ -2111,10 +2142,7 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
         String token = PendingMfaChallengeCache.getInstance().store(
                 new PendingMfaChallengeCache.PendingMfaChallenge(
                         securityNo, providerNo, strAuth, registrationSecret));
-        request.getSession().setAttribute(Login2Action.PENDING_MFA_AUTH_ATTR, Boolean.TRUE);
-        request.getSession().setAttribute(PENDING_MFA_PROVIDER_NO_ATTR, providerNo);
-        request.getSession().setAttribute(PENDING_MFA_TOKEN_ATTR, token);
-        request.getSession().setAttribute(PENDING_MFA_ATTEMPTS_ATTR, 0);
+        PendingMfaChallenges.stage(request.getSession(), providerNo, token, 0);
         pendingMfaTokens.add(token);
         return token;
     }

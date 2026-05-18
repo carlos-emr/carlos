@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Locale;
+import java.util.stream.Stream;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -44,7 +45,7 @@ public final class UnauthenticatedRejectionResolver {
      * {@code List.of(...)} contents are unmodifiable, and the unit test pins the exact route
      * set so future migrations cannot accidentally change the rejection contract.
      */
-    static final List<String> STATUS_CODE_PATHS = List.of(
+    private static final List<String> STATUS_CODE_PATHS = List.of(
             "/Download",
             "/patientlistbyappt",
             "/servlet/BackupDownload",
@@ -198,13 +199,20 @@ public final class UnauthenticatedRejectionResolver {
     }
 
     private static boolean isDownloadOrGeneratedContentPath(HttpServletRequest request) {
-        String path = normalizedPathWithinContext(request);
+        return matchesStatusCodePath(normalizedPathWithinContext(request));
+    }
+
+    static boolean matchesStatusCodePath(String path) {
         for (String statusCodePath : STATUS_CODE_PATHS) {
             if (path.equals(statusCodePath) || path.startsWith(statusCodePath + "/")) {
                 return true;
             }
         }
         return false;
+    }
+
+    static Stream<String> statusCodePathsForTesting() {
+        return STATUS_CODE_PATHS.stream();
     }
 
     private static String normalizedPathWithinContext(HttpServletRequest request) {

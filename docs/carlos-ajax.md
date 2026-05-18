@@ -154,9 +154,9 @@ For POST requests, it also sets:
 script injection uses it only if remapped to top-level `REQUEST` dispatches:
 - `PrivacyStatementAppendingFilter` — skips privacy statement injection for AJAX
 - `UnauthenticatedRejectionResolver` — returns a direct `401` for AJAX instead of login-page HTML
-- `CsrfGuardScriptInjectionFilter` — skips CSRF `<script>` injection for AJAX only if
-  REQUEST dispatch mapping is re-enabled; the deployed FORWARD-only mapping injects at JSP render
-  time
+- `CsrfGuardScriptInjectionFilter` — runs on JSP `FORWARD` dispatches in production, so it does
+  not classify top-level AJAX requests; it only uses the AJAX skip branch if the filter is
+  deliberately remapped to `REQUEST`
 - `LogoutBroadcastFilter` — skips logout broadcast for AJAX
 
 Without this header, AJAX responses can be corrupted with appended HTML or receive browser-style

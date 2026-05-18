@@ -173,6 +173,8 @@ public final class Login2Action extends ActionSupport {
     private static final String DEFAULT_POLICY_DIGIT_CHARS = "0123456789";
     /** Default for {@code password_group_special} when the property is absent. */
     private static final String DEFAULT_POLICY_SPECIAL_CHARS = "! @#$%^&*()_+|~-=`{}[]\\:\";'<>?,./";
+    private static final Pattern OAUTH_TOKEN_ID_PATTERN =
+            Pattern.compile("[A-Za-z0-9._~\\-]{1,200}");
 
     /**
      * Session attribute name holding an opaque random token that references credential
@@ -348,23 +350,22 @@ public final class Login2Action extends ActionSupport {
 
         LoginCheckLogin cl;
 
-        // Determine if this is MFA code validation flow vs. initial authentication
-        boolean isMfaVerifyFlow = (this.code != null && !this.code.isEmpty());
-        
-        if (isMfaVerifyFlow) {
-            return validateMfaAndCompleteLogin(ip, isMobileOptimized, submitType, ajaxResponse);
-        }
-        
         cl = new LoginCheckLogin();
         String userName = "";
         String password = "";
         String pin = "";
         String nextPage = "";
         boolean forcedpasswordchange = true;
+        boolean forcedPasswordChangeRequest = request.getParameter("forcedpasswordchange") != null
+                && request.getParameter("forcedpasswordchange").equalsIgnoreCase("true")
+                && (this.oldPassword != null || this.newPassword != null || this.confirmPassword != null);
+
+        if (!forcedPasswordChangeRequest && this.code != null && !this.code.isEmpty()) {
+            return validateMfaAndCompleteLogin(ip, isMobileOptimized, submitType, ajaxResponse);
+        }
 
         // Forced password reset submit path.
-        if (request.getParameter("forcedpasswordchange") != null
-                && request.getParameter("forcedpasswordchange").equalsIgnoreCase("true")) {
+        if (forcedPasswordChangeRequest) {
             // Credentials remain server-side; the session carries only the opaque cache token.
             HttpSession pendingResetSession = request.getSession(false);
             Object credsTokenAttr = pendingResetSession == null
@@ -681,10 +682,7 @@ public final class Login2Action extends ActionSupport {
                 new PendingMfaChallengeCache.PendingMfaChallenge(
                         security.getSecurityNo(), security.getProviderNo(), strAuth, registrationSecret);
         String challengeToken = PendingMfaChallengeCache.getInstance().store(challenge);
-        session.setAttribute(PENDING_MFA_AUTH_ATTR, Boolean.TRUE); // nosemgrep: tainted-session-from-http-request -- server-generated MFA challenge marker
-        session.setAttribute(PENDING_MFA_PROVIDER_NO_ATTR, security.getProviderNo()); // nosemgrep: tainted-session-from-http-request -- provider number is authenticated LoginCheckLogin output used only for audit context
-        session.setAttribute(PENDING_MFA_TOKEN_ATTR, challengeToken); // nosemgrep: tainted-session-from-http-request -- opaque server-generated cache token, not raw MFA state
-        session.setAttribute(PENDING_MFA_ATTEMPTS_ATTR, 0); // nosemgrep: tainted-session-from-http-request -- server-controlled MFA retry counter
+        PendingMfaChallenges.stage(session, security.getProviderNo(), challengeToken, 0);
         request.setAttribute("securityId", String.valueOf(security.getSecurityNo()));
         return "mfaHandler";
     }
@@ -718,7 +716,7 @@ public final class Login2Action extends ActionSupport {
             return NONE;
         }
 
-        String challengeToken = (String) session.getAttribute(PENDING_MFA_TOKEN_ATTR);
+        String challengeToken = PendingMfaChallenges.getToken(session);
         String pendingProviderNo = (String) session.getAttribute(PENDING_MFA_PROVIDER_NO_ATTR);
         PendingMfaChallengeCache.PendingMfaChallenge challenge =
                 PendingMfaChallengeCache.getInstance().peek(challengeToken);
@@ -1189,15 +1187,28 @@ public final class Login2Action extends ActionSupport {
             return NONE;
         }
 
-        if (request.getParameter("oauth_token") != null) {
-            logger.debug("checking oauth_token");
+        String oauthToken = request.getParameter("oauth_token");
+        if (oauthToken != null) {
             String proNo = (String) request.getSession().getAttribute("user");
-            ServiceRequestToken srt = serviceRequestTokenDao.findByTokenId(request.getParameter("oauth_token"));
+            if (!isValidOauthTokenId(oauthToken)) {
+                logger.warn("Rejected malformed oauth_token during login completion: providerNo={}, remote={}",
+                        LogSafe.sanitize(proNo), LogSafe.sanitize(ip));
+                LogAction.addLog(proNo, LogConst.LOGIN, LogConst.CON_LOGIN, "invalid_oauth_token", ip);
+                return buildPostAuthenticationResponse(provider, ajaxResponse, where);
+            }
+            logger.debug("checking oauth_token");
+            ServiceRequestToken srt = serviceRequestTokenDao.findByTokenId(oauthToken);
             if (srt != null) {
                 srt.setProviderNo(proNo);
                 serviceRequestTokenDao.merge(srt);
             }
         }
+
+        return buildPostAuthenticationResponse(provider, ajaxResponse, where);
+    }
+
+    private String buildPostAuthenticationResponse(Provider provider, boolean ajaxResponse, String where)
+            throws IOException {
 
         if (ajaxResponse) {
             logger.debug("rendering ajax response");
@@ -1212,6 +1223,10 @@ public final class Login2Action extends ActionSupport {
 
         logger.debug("rendering standard response : {}", where);
         return where;
+    }
+
+    private static boolean isValidOauthTokenId(String token) {
+        return token != null && OAUTH_TOKEN_ID_PATTERN.matcher(token).matches();
     }
 
     /**

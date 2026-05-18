@@ -178,6 +178,38 @@ class CsrfGuardScriptInjectionFilterUnitTest {
     }
 
     @Test
+    @DisplayName("should warn when writer fallback uses output stream")
+    void shouldWarn_whenWriterFallbackUsesOutputStream() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/provider/providercontrol");
+        request.setContextPath("/carlos");
+        request.setRequestURI("/carlos/provider/providercontrol;jsessionid=secret-session");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        response.getOutputStream();
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.setContentType("text/html;charset=UTF-8");
+            servletResponse.getWriter()
+                    .write("<html><head><title>Provider</title></head><body></body></html>");
+        };
+
+        try (LogCapture capture = LogCapture.forLogger(CsrfGuardScriptInjectionFilter.class)) {
+            withEnabledCsrfGuard(() -> filter.doFilter(request, response, chain));
+
+            assertThat(response.getContentAsString()).contains("/carlos/csrfguard");
+            assertThat(capture.events()).anySatisfy(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                assertThat(event.getMessage().getFormattedMessage())
+                        .contains("falling back to output stream")
+                        .contains("uri=/carlos/provider/providercontrol")
+                        .contains("contentType=text/html;charset=UTF-8")
+                        .contains("committed=false")
+                        .doesNotContain("jsessionid")
+                        .doesNotContain("secret-session");
+            });
+        }
+    }
+
+    @Test
     @DisplayName("should pass through output-stream responses")
     void shouldPassThrough_whenResponseUsesOutputStream() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/OscarChartPrint");

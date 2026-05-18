@@ -47,6 +47,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SessionConstants;
@@ -353,6 +355,10 @@ public class LoginFilter implements Filter {
             if (request.getParameter("token") != null || request.getAttribute("token") != null) {
                 boolean success = stm.handleToken(httpRequest, httpResponse, chain);
                 if (!success) {
+                    logger.warn("Rejected token authentication request: uri={}, remote={}",
+                            LogSafe.sanitize(normalizeUri(requestURI)),
+                            LogSafe.sanitize(httpRequest.getRemoteAddr()));
+                    auditRejectedTokenAuthentication(httpRequest.getRemoteAddr());
                     return;
                 }
             }
@@ -536,6 +542,15 @@ public class LoginFilter implements Filter {
         }
 
         return normalized.toString();
+    }
+
+    private static void auditRejectedTokenAuthentication(String remoteAddr) {
+        try {
+            LogAction.addLog("", LogConst.LOGIN, LogConst.CON_LOGIN,
+                    "token_authentication_rejected", remoteAddr);
+        } catch (RuntimeException | LinkageError e) {
+            logger.warn("Unable to audit rejected token authentication", e);
+        }
     }
 
     private static boolean isContextRootRequest(String requestURI, String contextPath) {

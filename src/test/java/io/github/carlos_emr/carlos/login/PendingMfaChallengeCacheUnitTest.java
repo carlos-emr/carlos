@@ -8,6 +8,7 @@ package io.github.carlos_emr.carlos.login;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.springframework.mock.web.MockHttpSession;
 
 import java.util.Arrays;
 import java.util.List;
@@ -19,6 +20,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Unit coverage for the opaque pending-MFA challenge cache.
@@ -62,6 +64,28 @@ class PendingMfaChallengeCacheUnitTest {
         first[0] = "mutated";
 
         assertThat(challenge.authResult()).containsExactly("999998", "Test");
+    }
+
+    @Test
+    @DisplayName("should reject empty authentication result")
+    void shouldRejectEmptyAuthenticationResult_whenChallengeIsCreated() {
+        assertThatThrownBy(() -> new PendingMfaChallengeCache.PendingMfaChallenge(
+                12345, "999998", new String[0], null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("authResult must not be empty");
+    }
+
+    @Test
+    @DisplayName("should stage pending challenge session attributes together")
+    void shouldStagePendingChallengeSessionAttributes_together() {
+        MockHttpSession session = new MockHttpSession();
+
+        PendingMfaChallenges.stage(session, "999998", "opaque-token", 2);
+
+        assertThat(session.getAttribute(PendingMfaChallenges.AUTH_ATTR)).isEqualTo(Boolean.TRUE);
+        assertThat(session.getAttribute(PendingMfaChallenges.PROVIDER_NO_ATTR)).isEqualTo("999998");
+        assertThat(PendingMfaChallenges.getToken(session)).isEqualTo("opaque-token");
+        assertThat(session.getAttribute(PendingMfaChallenges.ATTEMPTS_ATTR)).isEqualTo(2);
     }
 
     @Test

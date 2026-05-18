@@ -41,9 +41,9 @@ completed successfully.
 
 **Injection is skipped when:**
 - Content-Type is not `text/html`
-- The request is AJAX (`X-Requested-With: XMLHttpRequest`) on `REQUEST` dispatch if that
-  dispatcher mapping is re-enabled; the deployed `FORWARD`-only mapping does not see the
-  top-level AJAX request.
+- The filter is explicitly remapped to top-level `REQUEST` dispatch and the request is AJAX
+  (`X-Requested-With: XMLHttpRequest`). The deployed `FORWARD`-only mapping does not see
+  top-level AJAX requests; it runs only while JSP views are rendered.
 - CSRFGuard is disabled
 - The response already contains a `/csrfguard` script reference (idempotency)
 - The response used `getOutputStream()` instead of `getWriter()`

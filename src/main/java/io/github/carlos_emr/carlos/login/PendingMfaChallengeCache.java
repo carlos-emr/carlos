@@ -103,35 +103,22 @@ final class PendingMfaChallengeCache {
      * legacy {@link LoginCheckLogin#auth} success contract. The optional registration secret is
      * present only while the user is proving ownership of a newly generated MFA seed.</p>
      */
-    static final class PendingMfaChallenge {
-        private final Integer securityNo;
-        private final String providerNo;
-        private final String[] authResult;
-        private final String registrationSecret;
+    static record PendingMfaChallenge(Integer securityNo, String providerNo, String[] authResult,
+                                      String registrationSecret) {
 
-        PendingMfaChallenge(Integer securityNo, String providerNo, String[] authResult,
-                            String registrationSecret) {
-            this.securityNo = Objects.requireNonNull(securityNo, "securityNo must not be null");
-            this.providerNo = Objects.requireNonNull(providerNo, "providerNo must not be null");
-            this.authResult = Arrays.copyOf(
-                    Objects.requireNonNull(authResult, "authResult must not be null"), authResult.length);
-            this.registrationSecret = registrationSecret;
+        PendingMfaChallenge {
+            Objects.requireNonNull(securityNo, "securityNo must not be null");
+            Objects.requireNonNull(providerNo, "providerNo must not be null");
+            Objects.requireNonNull(authResult, "authResult must not be null");
+            if (authResult.length == 0) {
+                throw new IllegalArgumentException("authResult must not be empty");
+            }
+            authResult = Arrays.copyOf(authResult, authResult.length);
         }
 
-        Integer securityNo() {
-            return securityNo;
-        }
-
-        String providerNo() {
-            return providerNo;
-        }
-
-        String[] authResult() {
+        @Override
+        public String[] authResult() {
             return Arrays.copyOf(authResult, authResult.length);
-        }
-
-        String registrationSecret() {
-            return registrationSecret;
         }
     }
 }

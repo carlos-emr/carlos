@@ -74,7 +74,7 @@ public abstract class SecurityTokenManager {
             try {
                 instance = (SecurityTokenManager) Class.forName(managerName) // nosemgrep: unsafe-reflection -- managerName is validated against ALLOWED_PACKAGE_PREFIX above
                         .getDeclaredConstructor().newInstance();
-            } catch (Exception e) {
+            } catch (ReflectiveOperationException | ClassCastException | LinkageError e) {
                 MiscUtils.getLogger().error("Unable to load token manager: {}",
                         LogSafe.sanitize(managerName), e);
                 throw new IllegalStateException("Unable to load configured token manager", e);

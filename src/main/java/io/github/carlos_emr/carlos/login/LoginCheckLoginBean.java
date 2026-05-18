@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.login;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.Date;
 import java.util.List;
 
@@ -263,9 +265,11 @@ public final class LoginCheckLoginBean {
         boolean auth = false;
 
         userpassword = security.getPassword();
-        // Legacy password (< 20 chars): plain-text comparison
+        // Legacy password (< 20 chars): compare without prefix-length timing leakage.
         if (userpassword.length() < 20) {
-            auth = password.equals(userpassword);
+            auth = MessageDigest.isEqual(
+                    password.getBytes(StandardCharsets.UTF_8),
+                    userpassword.getBytes(StandardCharsets.UTF_8));
             // Migrate legacy password to BCrypt on successful authentication
             if (auth) {
                 boolean isPasswordUpgraded = this.securityManager.upgradeSavePasswordHash(this.password, this.security);

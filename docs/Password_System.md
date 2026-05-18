@@ -171,9 +171,11 @@ done
 Password policies can be configured in `carlos.properties`:
 
 ```properties
-# Previous passwords to check (prevent reuse); shipped default is 0
+# Password-history policy uses the legacy password.* namespace.
+# Previous passwords to check (prevent reuse); shipped default is 0.
 password.pastPasswordsToNotUse=0
 
+# Forced-reset routing and complexity use legacy underscore-separated keys.
 # Server-side forced password reset gate (enabled by default).
 # Accepted true values are true/yes/on/1; unrecognized values fail secure as enabled.
 mandatory_password_reset=true

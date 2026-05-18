@@ -227,6 +227,41 @@ class LoginFilterUnitTest {
             assertThat(response.getRedirectedUrl()).isNull();
         }
 
+        @Test
+        @DisplayName("should audit rejected token authentication")
+        void shouldAuditRejectedTokenAuthentication_whenTokenManagerRejects()
+                throws ServletException, IOException {
+            String originalTokenManager = CarlosProperties.getInstance().getProperty("sec.token.manager");
+            try (LogCapture capture = LogCapture.forLogger(LoginFilter.class)) {
+                CarlosProperties.getInstance().setProperty("sec.token.manager",
+                        RejectingTokenManager.class.getName());
+                SecurityTokenManager.resetForTesting();
+                MockHttpServletRequest request = request("GET", CONTEXT_PATH + "/ws/service");
+                request.setRemoteAddr("198.51.100.42");
+                request.addParameter("token", "bad-token");
+                MockHttpServletResponse response = new MockHttpServletResponse();
+                MockFilterChain chain = new MockFilterChain();
+
+                filter.doFilter(request, response, chain);
+
+                assertThat(chain.getRequest()).isNull();
+                assertThat(capture.events()).anySatisfy(event -> {
+                    assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                    assertThat(event.getMessage().getFormattedMessage())
+                            .contains("Rejected token authentication request")
+                            .contains("uri=/carlos/ws/service")
+                            .contains("remote=198.51.100.42");
+                });
+            } finally {
+                if (originalTokenManager == null) {
+                    CarlosProperties.getInstance().remove("sec.token.manager");
+                } else {
+                    CarlosProperties.getInstance().setProperty("sec.token.manager", originalTokenManager);
+                }
+                SecurityTokenManager.resetForTesting();
+            }
+        }
+
         @ParameterizedTest
         @ValueSource(strings = {"/forcepasswordreset", "/forcepasswordresetSubmit"})
         @DisplayName("should pass forced reset entrypoints when unauthenticated")
@@ -411,7 +446,7 @@ class LoginFilterUnitTest {
 
         @Test
         @DisplayName("should match exact exempt URL")
-        void shouldMatchExactExemptUrl() {
+        void shouldMatchExactExemptUrl_whenPathEqualsEntry() {
             String[] exemptUrls = {"/login"};
             assertThat(filter.inListOfExemptions(
                     CONTEXT_PATH + "/login", CONTEXT_PATH, exemptUrls)).isTrue();
@@ -427,7 +462,7 @@ class LoginFilterUnitTest {
 
         @Test
         @DisplayName("should not match unrelated URL")
-        void shouldNotMatchUnrelatedUrl() {
+        void shouldNotMatchUnrelatedUrl_whenDifferentPath() {
             String[] exemptUrls = {"/login"};
             assertThat(filter.inListOfExemptions(
                     CONTEXT_PATH + "/admin/settings", CONTEXT_PATH, exemptUrls)).isFalse();
@@ -448,7 +483,7 @@ class LoginFilterUnitTest {
 
         @Test
         @DisplayName("should match exact directory URL")
-        void shouldMatchExactDirectoryUrl() {
+        void shouldMatchExactDirectoryUrl_whenDirectoryEntryRequested() {
             String[] exemptUrls = {"/ws/"};
             assertThat(filter.inListOfExemptions(
                     CONTEXT_PATH + "/ws/", CONTEXT_PATH, exemptUrls)).isTrue();
@@ -493,7 +528,7 @@ class LoginFilterUnitTest {
 
         @Test
         @DisplayName("should match images/Oscar.ico exactly")
-        void shouldMatchImagePathExactly() {
+        void shouldMatchImagePathExactly_whenImageEntryRequested() {
             String[] exemptUrls = {"/images/Oscar.ico"};
             assertThat(filter.inListOfExemptions(
                     CONTEXT_PATH + "/images/Oscar.ico", CONTEXT_PATH, exemptUrls)).isTrue();
@@ -509,7 +544,7 @@ class LoginFilterUnitTest {
 
         @Test
         @DisplayName("should match js/bootstrap exactly")
-        void shouldMatchJsBootstrapExactly() {
+        void shouldMatchJsBootstrapExactly_whenBootstrapEntryRequested() {
             String[] exemptUrls = {"/js/bootstrap"};
             assertThat(filter.inListOfExemptions(
                     CONTEXT_PATH + "/js/bootstrap", CONTEXT_PATH, exemptUrls)).isTrue();
@@ -681,7 +716,7 @@ class LoginFilterUnitTest {
 
         @Test
         @DisplayName("should strip path parameters")
-        void shouldStripPathParameters() {
+        void shouldStripPathParameters_whenSessionIdPresent() {
             assertThat(LoginFilter.normalizeUri("/carlos/login;jsessionid=abc"))
                     .isEqualTo("/carlos/login");
         }
@@ -695,47 +730,47 @@ class LoginFilterUnitTest {
 
         @Test
         @DisplayName("should collapse repeated slashes")
-        void shouldCollapseRepeatedSlashes() {
+        void shouldCollapseRepeatedSlashes_whenUriHasDuplicateSeparators() {
             assertThat(LoginFilter.normalizeUri("//carlos///login"))
                     .isEqualTo("/carlos/login");
         }
 
         @Test
         @DisplayName("should resolve dot-dot segments")
-        void shouldResolveDotDotSegments() {
+        void shouldResolveDotDotSegments_whenUriContainsParentReference() {
             assertThat(LoginFilter.normalizeUri("/carlos/ws/../admin/secret"))
                     .isEqualTo("/carlos/admin/secret");
         }
 
         @Test
         @DisplayName("should resolve single dot segments")
-        void shouldResolveSingleDotSegments() {
+        void shouldResolveSingleDotSegments_whenUriContainsCurrentReference() {
             assertThat(LoginFilter.normalizeUri("/carlos/./login"))
                     .isEqualTo("/carlos/login");
         }
 
         @Test
         @DisplayName("should preserve trailing slash")
-        void shouldPreserveTrailingSlash() {
+        void shouldPreserveTrailingSlash_whenUriEndsWithSlash() {
             assertThat(LoginFilter.normalizeUri("/carlos/ws/"))
                     .isEqualTo("/carlos/ws/");
         }
 
         @Test
         @DisplayName("should handle null input")
-        void shouldHandleNullInput() {
+        void shouldHandleNullInput_whenUriIsNull() {
             assertThat(LoginFilter.normalizeUri(null)).isNull();
         }
 
         @Test
         @DisplayName("should handle empty input")
-        void shouldHandleEmptyInput() {
+        void shouldHandleEmptyInput_whenUriIsEmpty() {
             assertThat(LoginFilter.normalizeUri("")).isEmpty();
         }
 
         @Test
         @DisplayName("should handle combined normalization")
-        void shouldHandleCombinedNormalization() {
+        void shouldHandleCombinedNormalization_whenUriHasMultipleUnsafeSegments() {
             assertThat(LoginFilter.normalizeUri("//carlos/./ws/../admin///secret;jsessionid=x"))
                     .isEqualTo("/carlos/admin/secret");
         }
@@ -755,6 +790,20 @@ class LoginFilterUnitTest {
     }
 
     private static Stream<String> statusCodePaths() {
-        return UnauthenticatedRejectionResolver.STATUS_CODE_PATHS.stream();
+        return UnauthenticatedRejectionResolver.statusCodePathsForTesting();
+    }
+
+    public static final class RejectingTokenManager extends SecurityTokenManager {
+        @Override
+        public void requestToken(jakarta.servlet.http.HttpServletRequest request,
+                jakarta.servlet.http.HttpServletResponse response, jakarta.servlet.FilterChain chain) {
+            throw new UnsupportedOperationException("not used");
+        }
+
+        @Override
+        public boolean handleToken(jakarta.servlet.http.HttpServletRequest request,
+                jakarta.servlet.http.HttpServletResponse response, jakarta.servlet.FilterChain chain) {
+            return false;
+        }
     }
 }
