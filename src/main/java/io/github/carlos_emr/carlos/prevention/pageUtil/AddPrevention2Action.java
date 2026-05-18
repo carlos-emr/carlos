@@ -63,7 +63,6 @@ import io.github.carlos_emr.carlos.prevention.PreventionData;
 import io.github.carlos_emr.carlos.prevention.PreventionDisplayConfig;
 
 /**
- * @author Jay Gallagher
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;

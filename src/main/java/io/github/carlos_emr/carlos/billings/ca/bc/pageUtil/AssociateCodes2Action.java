@@ -42,7 +42,6 @@ import jakarta.servlet.http.HttpServletResponse;
  *
  * <p>Company: </p>
  *
- * @author not attributable
  * @version 1.0
  */
 import org.apache.struts2.ActionSupport;

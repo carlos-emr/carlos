@@ -75,7 +75,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 /**
- * @author Ronnie
+  * @since 2026-05-13
  */
 public class Util {
     static private final Logger logger = MiscUtils.getLogger();

@@ -42,7 +42,6 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 /**
- * @author Jay Gallagher
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;

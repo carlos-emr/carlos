@@ -49,8 +49,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  *
  * <p>Company: </p>
  *
- * @author Joel Legris for Mcmaster University
  * @version 1.0
+  * @since 2026-05-13
  */
 public class BillingAssociationPersistence {
 

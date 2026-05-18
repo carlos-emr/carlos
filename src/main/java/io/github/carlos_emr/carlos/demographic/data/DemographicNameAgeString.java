@@ -38,7 +38,7 @@ import java.util.Map;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 /**
- * @author Jay Gallagher
+  * @since 2026-05-13
  */
 public class DemographicNameAgeString {
 

@@ -46,7 +46,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 
 /**
- * @author jaygallagher
+  * @since 2026-05-13
  */
 public class WCBTeleplanSubmission {
     private static Logger log = MiscUtils.getLogger();

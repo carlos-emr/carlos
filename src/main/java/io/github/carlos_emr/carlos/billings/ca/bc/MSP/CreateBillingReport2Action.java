@@ -30,7 +30,6 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.PayRefSummary;
  * <p>Copyright: Copyright (c) 2005</p>
  * <p>Company: </p>
  *
- * @author Joel Legris
  * @version 1.0
  */
 import org.apache.struts2.ActionSupport;

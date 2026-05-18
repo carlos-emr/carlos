@@ -57,7 +57,6 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
  * - Save and Close.
  * - Print ( this is just an hl7 print right now)
  *
- * @author jaygallagher
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;

@@ -41,7 +41,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
 /**
- * @author Ronnie Cheng
+  * @since 2026-05-13
  */
 public class PGPEncrypt {
     String bin;

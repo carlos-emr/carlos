@@ -45,7 +45,6 @@ import org.apache.commons.io.FilenameUtils;
 import org.apache.logging.log4j.Logger;
 
 /**
- * @author jay
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;

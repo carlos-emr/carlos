@@ -45,7 +45,6 @@ import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.demographic.data.DemographicRelationship;
 
 /**
- * @author jay
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;

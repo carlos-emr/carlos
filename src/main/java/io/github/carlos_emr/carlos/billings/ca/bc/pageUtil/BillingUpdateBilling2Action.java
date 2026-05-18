@@ -51,7 +51,6 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.BillRecipient;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingNote;
 
 /**
- * @author root
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;

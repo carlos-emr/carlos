@@ -60,7 +60,6 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
 /*
- * @author Jef King
  * For The Oscar McMaster Project
  * Developed By Andromedia
  * www.andromedia.ca

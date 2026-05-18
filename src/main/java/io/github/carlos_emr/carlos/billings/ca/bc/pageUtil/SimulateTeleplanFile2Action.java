@@ -48,7 +48,6 @@ import java.util.List;
 /**
  * Action Simulates a MSP teleplan file but doesn't commit any of the data.
  *
- * @author jay
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;

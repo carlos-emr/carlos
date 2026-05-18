@@ -41,8 +41,8 @@ import java.util.List;
  *
  * <p>Company: </p>
  *
- * @author Joel Legris for Mcmaster University
  * @version 1.0
+  * @since 2026-05-13
  */
 public class ServiceCodeAssociation {
     private List dxCodes = new ArrayList();

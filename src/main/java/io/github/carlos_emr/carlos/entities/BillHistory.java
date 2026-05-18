@@ -36,8 +36,8 @@ import io.github.carlos_emr.carlos.util.UtilMisc;
 /**
  * BillHistory  represents an archive of a modification event on a specific line(BillingMaster Record) of a Bill
  *
- * @author Joel Legris
  * @version 1.0
+  * @since 2026-05-13
  */
 public class BillHistory {
 

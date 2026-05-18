@@ -59,7 +59,6 @@ import io.github.carlos_emr.carlos.report.pageUtil.RptDemographicReport2Form;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 /**
- * @author Jay Gallagher
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;

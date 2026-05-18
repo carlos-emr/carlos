@@ -57,7 +57,6 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
  * <p>Description: Coordinates data retrieval and configuration parameters for rendering either</p>
  * <p>a new or existing WCB form
  *
- * @author Joel Legris
  * @version 1.0
  */
 import org.apache.struts2.ActionSupport;

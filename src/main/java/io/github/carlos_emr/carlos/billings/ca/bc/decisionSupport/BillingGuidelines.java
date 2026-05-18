@@ -55,7 +55,7 @@ import io.github.carlos_emr.CarlosProperties;
  * Class used to Manage BillingGuidelines.
  * Temporary and will be refactored to include the other billing systems. And probably more of a centralized rule repository.
  *
- * @author jay
+  * @since 2026-05-13
  */
 public class BillingGuidelines {
 

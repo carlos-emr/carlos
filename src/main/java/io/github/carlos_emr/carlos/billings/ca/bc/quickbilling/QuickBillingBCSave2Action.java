@@ -39,7 +39,6 @@ import jakarta.servlet.http.HttpServletResponse;
 
 
 /**
- * @author Dennis Warren
  * Company Colcamex Resources
  * Date Jun 4, 2012
  * Revised Jun 6, 2012

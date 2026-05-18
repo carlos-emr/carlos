@@ -40,7 +40,7 @@ package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
  * | billingmaster_no | int(10) | YES  |     | NULL    |                |
  * +------------------+---------+------+-----+---------+----------------+
  *
- * @author jay
+  * @since 2026-05-13
  */
 public class TeleplanLog {
     private int logNo;

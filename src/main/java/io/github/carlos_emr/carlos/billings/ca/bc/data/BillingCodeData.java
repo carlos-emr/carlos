@@ -40,7 +40,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.SqlUtils;
 
 /**
- * @author root
+  * @since 2026-05-13
  */
 public final class BillingCodeData implements Comparable {
     /**

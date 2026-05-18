@@ -62,7 +62,6 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.CarlosProperties;
 
 /**
- * @author jay
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;

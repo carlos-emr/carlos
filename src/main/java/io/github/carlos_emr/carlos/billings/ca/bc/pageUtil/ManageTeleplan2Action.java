@@ -68,7 +68,6 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingCodeData;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 /**
- * @author jay
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;

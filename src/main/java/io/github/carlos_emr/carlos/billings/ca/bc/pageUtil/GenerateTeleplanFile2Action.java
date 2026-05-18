@@ -55,7 +55,6 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
  * Goals
  * + Take file generation logic out of jsp page
  *
- * @author jay
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
