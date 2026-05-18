@@ -187,6 +187,7 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         if (wrapper.isWriterPassthrough()) {
             LOGGER.debug("CsrfGuard: writer passthrough for {} contentType={}",
                     safeRequestUri, wrapper.getContentType());
+            wrapper.flushPassthroughWriter();
             return;
         }
 
@@ -518,6 +519,17 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
                 writer.flush();
             }
             return captureWriter != null ? captureWriter.toString() : "";
+        }
+
+        /**
+         * Completes non-HTML writer passthrough responses before returning from the FORWARD
+         * filter. JSP writers can hold up to the servlet buffer size; without this explicit
+         * flush, JavaScript and JSON forwards may reach the browser with only the first buffer.
+         */
+        void flushPassthroughWriter() {
+            if (writer != null) {
+                writer.flush();
+            }
         }
 
         /**

@@ -189,21 +189,21 @@ public class LogoutBroadcastFilter implements Filter {
 
         HttpSession session = httpRequest.getSession(false);
         if (session == null || session.getAttribute("user") == null) {
-            delegatingResponse.applyDeferredContentLength();
+            delegatingResponse.completeWithoutInjection();
             return;
         }
 
         // Only inject for HTML responses
         String contentType = delegatingResponse.getContentType();
         if (!RequestNegotiation.isHtmlContentType(contentType)) {
-            delegatingResponse.applyDeferredContentLength();
+            delegatingResponse.completeWithoutInjection();
             return;
         }
         if (delegatingResponse.isHtmlInjectionBufferUnavailable()) {
             logger.warn("Skipping logout broadcast script injection because the HTML response buffer "
                     + "could not be enlarged before body content was written: uri={}",
                     safeRequestUri);
-            delegatingResponse.applyDeferredContentLength();
+            delegatingResponse.completeWithoutInjection();
             return;
         }
 
@@ -211,7 +211,7 @@ public class LogoutBroadcastFilter implements Filter {
             logger.warn("Skipping logout broadcast script injection because response used "
                     + "ServletOutputStream: uri={}, contentType={}",
                     safeRequestUri, LogSafe.sanitize(contentType));
-            delegatingResponse.applyDeferredContentLength();
+            delegatingResponse.completeWithoutInjection();
             return;
         }
 
@@ -222,11 +222,13 @@ public class LogoutBroadcastFilter implements Filter {
             logger.error("Skipping logout broadcast script injection because the script could not be written: uri={}",
                     safeRequestUri, e);
             delegatingResponse.discardDeferredContentLength();
+            delegatingResponse.flushDelegatingWriter();
             return;
         } catch (IllegalStateException e) {
             logger.error("Skipping logout broadcast script injection because the response writer was unavailable and the output stream write failed: uri={}",
                     safeRequestUri, e);
             delegatingResponse.discardDeferredContentLength();
+            delegatingResponse.flushDelegatingWriter();
             return;
         }
     }
@@ -417,7 +419,9 @@ public class LogoutBroadcastFilter implements Filter {
      */
     private void writeScriptToWriter(DelegatingServletResponse delegatingResponse, String script)
             throws IOException {
-        delegatingResponse.getWriter().print(script);
+        PrintWriter writer = delegatingResponse.getWriter();
+        writer.print(script);
+        writer.flush();
         delegatingResponse.flushBuffer();
     }
 
@@ -851,6 +855,19 @@ public class LogoutBroadcastFilter implements Filter {
         }
 
         /**
+         * Finishes a wrapped response when the filter decides not to append a script.
+         *
+         * <p>{@link DelegatingWriter#close()} is intentionally suppressed so JSP rendering can
+         * return to this filter for possible script injection. Non-HTML writer responses still
+         * need an explicit flush before the filter exits; otherwise JavaScript and JSON responses
+         * can remain partially buffered and reach the browser truncated.</p>
+         */
+        void completeWithoutInjection() {
+            applyDeferredContentLength();
+            flushDelegatingWriter();
+        }
+
+        /**
          * Drops any downstream Content-Length once script injection touches the response.
          *
          * <p>At that point the body length no longer matches the original downstream length, so
@@ -858,6 +875,12 @@ public class LogoutBroadcastFilter implements Filter {
          */
         void discardDeferredContentLength() {
             clearDeferredContentLength();
+        }
+
+        void flushDelegatingWriter() {
+            if (writer != null) {
+                writer.flush();
+            }
         }
 
         /**

@@ -28,6 +28,7 @@ import jakarta.servlet.FilterConfig;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.BeforeEach;
@@ -285,6 +286,27 @@ class CsrfGuardScriptInjectionFilterUnitTest {
     }
 
     @Test
+    @DisplayName("should flush non-HTML passthrough writer response")
+    void shouldFlushNonHtmlPassthroughWriterResponse_whenContentTypePrecedesWriter() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET",
+                "/WEB-INF/jsp/provider/schedulePage.js.jsp");
+        request.setContextPath("/carlos");
+        request.setDispatcherType(DispatcherType.FORWARD);
+        BufferingWriterResponse response = new BufferingWriterResponse();
+        String body = "function schedulePage() { return 'ready'; }\n";
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.setContentType("application/javascript;charset=UTF-8");
+            servletResponse.getWriter().write(body);
+        };
+
+        withEnabledCsrfGuard(() -> filter.doFilter(request, response, chain));
+
+        assertThat(response.getContentAsString()).isEqualTo(body);
+        assertThat(response.getContentAsString()).doesNotContain("/csrfguard");
+    }
+
+    @Test
     @DisplayName("should pass through non-HTML writer responses when content type follows writer")
     void shouldPassThrough_whenNonHtmlContentTypeFollowsWriter() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/clinical/JsonEndpoint");
@@ -420,6 +442,42 @@ class CsrfGuardScriptInjectionFilterUnitTest {
         @Override
         public void resetBuffer() {
             throw new IllegalStateException("already committed");
+        }
+    }
+
+    private static class BufferingWriterResponse extends MockHttpServletResponse {
+
+        private final StringBuilder pending = new StringBuilder();
+        private final StringBuilder flushed = new StringBuilder();
+        private PrintWriter bufferingWriter;
+
+        @Override
+        public PrintWriter getWriter() {
+            if (bufferingWriter == null) {
+                bufferingWriter = new PrintWriter(new Writer() {
+                    @Override
+                    public void write(char[] cbuf, int off, int len) {
+                        pending.append(cbuf, off, len);
+                    }
+
+                    @Override
+                    public void flush() {
+                        flushed.append(pending);
+                        pending.setLength(0);
+                    }
+
+                    @Override
+                    public void close() {
+                        flush();
+                    }
+                });
+            }
+            return bufferingWriter;
+        }
+
+        @Override
+        public String getContentAsString() {
+            return flushed.toString();
         }
     }
 }

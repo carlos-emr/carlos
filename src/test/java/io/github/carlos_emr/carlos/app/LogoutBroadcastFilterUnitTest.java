@@ -34,6 +34,7 @@ import jakarta.servlet.http.HttpSession;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.AfterEach;
@@ -327,6 +328,47 @@ class LogoutBroadcastFilterUnitTest {
         assertThat(response.getHeader("Content-Length"))
                 .isEqualTo(String.valueOf(body.getBytes(StandardCharsets.UTF_8).length));
         assertThat(response.getSetBufferSizeCallCount()).isZero();
+    }
+
+    @Test
+    @DisplayName("should flush non-HTML writer response when injection is skipped")
+    void shouldFlushNonHtmlWriterResponse_whenInjectionIsSkipped() throws Exception {
+        MockHttpServletRequest request = authenticatedRequest("/provider/ViewSchedulePageJs");
+        BufferingWriterResponse response = new BufferingWriterResponse();
+        String body = "function openSchedule() { return 'ready'; }\n";
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.setContentType("application/javascript;charset=UTF-8");
+            servletResponse.setContentLength(body.getBytes(StandardCharsets.UTF_8).length);
+            servletResponse.getWriter().write(body);
+        };
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(response.getContentAsString()).isEqualTo(body);
+        assertThat(response.getHeader("Content-Length"))
+                .isEqualTo(String.valueOf(body.getBytes(StandardCharsets.UTF_8).length));
+        assertThat(response.getContentAsString()).doesNotContain("window.__carlosLogoutActive=true;");
+        assertThat(response.getSetBufferSizeCallCount()).isZero();
+    }
+
+    @Test
+    @DisplayName("should flush writer when logout script is appended")
+    void shouldFlushWriter_whenLogoutScriptIsAppended() throws Exception {
+        MockHttpServletRequest request = authenticatedRequest("/provider/providercontrol");
+        BufferingWriterResponse response = new BufferingWriterResponse();
+        String body = "<html><body>schedule</body></html>";
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.setContentType("text/html;charset=UTF-8");
+            servletResponse.getWriter().write(body);
+        };
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(response.getContentAsString()).contains(body);
+        assertThat(response.getContentAsString()).contains("window.__carlosLogoutActive=true;");
+        assertThat(response.getLastRequestedBufferSize()).isEqualTo(HTML_INJECTION_BUFFER_SIZE_BYTES);
     }
 
     @Test
@@ -825,6 +867,48 @@ class LogoutBroadcastFilterUnitTest {
 
         int getSetContentLengthLongCallCount() {
             return setContentLengthLongCallCount;
+        }
+    }
+
+    private static class BufferingWriterResponse extends TrackingMockHttpServletResponse {
+
+        private final StringBuilder pending = new StringBuilder();
+        private final StringBuilder flushed = new StringBuilder();
+        private PrintWriter bufferingWriter;
+
+        @Override
+        public PrintWriter getWriter() {
+            if (bufferingWriter == null) {
+                bufferingWriter = new PrintWriter(new Writer() {
+                    @Override
+                    public void write(char[] cbuf, int off, int len) {
+                        pending.append(cbuf, off, len);
+                    }
+
+                    @Override
+                    public void flush() {
+                        flushed.append(pending);
+                        pending.setLength(0);
+                    }
+
+                    @Override
+                    public void close() {
+                        flush();
+                    }
+                });
+            }
+            return bufferingWriter;
+        }
+
+        @Override
+        public void flushBuffer() {
+            // Servlet containers do not guarantee that flushBuffer() flushes an already-obtained
+            // PrintWriter. The filter must flush the delegating writer explicitly.
+        }
+
+        @Override
+        public String getContentAsString() {
+            return flushed.toString();
         }
     }
 
