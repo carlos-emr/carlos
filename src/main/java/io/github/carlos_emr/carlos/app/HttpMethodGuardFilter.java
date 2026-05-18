@@ -587,13 +587,13 @@ public class HttpMethodGuardFilter implements Filter {
 
         // Strip path parameters segment-by-segment; truncating at the first semicolon can hide
         // later mutator action names from the guard while Tomcat still routes the full path.
-        path = path.replaceAll(";[^/]*", "");
+        String normalizedPath = path.replaceAll(";[^/]*", "");
 
         // Collapse consecutive slashes (e.g., //admin///mutator.jsp)
-        path = path.replaceAll("/+", "/");
+        normalizedPath = normalizedPath.replaceAll("/+", "/");
 
         // Resolve . and .. segments
-        String[] segments = path.split("/");
+        String[] segments = normalizedPath.split("/");
         java.util.Deque<String> stack = new java.util.ArrayDeque<>();
         for (String seg : segments) {
             if (seg.isEmpty() || ".".equals(seg)) {
