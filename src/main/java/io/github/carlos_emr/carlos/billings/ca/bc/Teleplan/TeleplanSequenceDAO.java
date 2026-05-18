@@ -41,7 +41,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 /**
  * Deals with storing the teleplan sequence #
  *
-  * @since 2026-05-13
+ * @since 2026-05-13
  */
 public class TeleplanSequenceDAO {
     static Logger log = MiscUtils.getLogger();

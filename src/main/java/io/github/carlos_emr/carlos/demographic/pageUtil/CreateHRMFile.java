@@ -86,7 +86,7 @@ import cdshrm.TransactionInformationDocument.TransactionInformation;
 import io.github.carlos_emr.CarlosProperties;
 
 /**
-  * @since 2026-05-13
+ * @since 2026-05-13
  */
 public class CreateHRMFile {
 
@@ -124,6 +124,7 @@ public class CreateHRMFile {
         MiscUtils.getLogger().debug("saved HRM file: " + filepath);
     }
 
+    @SuppressWarnings("checkstyle:MethodLength")
     static private void writeDemographics(DemographicsDocument.Demographics demo, Demographics HRMdemo) {
         //Names
         cdsDt.PersonNameStandard personName = demo.getNames();

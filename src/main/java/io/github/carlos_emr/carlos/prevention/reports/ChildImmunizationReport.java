@@ -55,7 +55,7 @@ import io.github.carlos_emr.carlos.prevention.pageUtil.PreventionReportDisplay;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 /**
-  * @since 2026-05-13
+ * @since 2026-05-13
  */
 public class ChildImmunizationReport implements PreventionReport {
 

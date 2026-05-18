@@ -57,7 +57,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.log.LogAction;
 
 /**
-  * @since 2026-05-13
+ * @since 2026-05-13
  */
 public class DemographicMerged {
 

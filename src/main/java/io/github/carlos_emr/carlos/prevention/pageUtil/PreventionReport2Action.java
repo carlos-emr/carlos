@@ -58,8 +58,6 @@ import io.github.carlos_emr.carlos.report.data.RptDemographicQueryLoader;
 import io.github.carlos_emr.carlos.report.pageUtil.RptDemographicReport2Form;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
-/**
- */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;

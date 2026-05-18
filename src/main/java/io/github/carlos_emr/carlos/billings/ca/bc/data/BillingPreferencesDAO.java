@@ -40,7 +40,7 @@ import org.springframework.stereotype.Repository;
  * Responsible for CRUD operation a user Billing Module Preferences
  *
  * @version 1.0
-  * @since 2026-05-13
+ * @since 2026-05-13
  */
 @Repository
 public class BillingPreferencesDAO extends AbstractDaoImpl<BillingPreference> {

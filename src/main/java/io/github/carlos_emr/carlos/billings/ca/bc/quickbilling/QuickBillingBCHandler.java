@@ -74,7 +74,7 @@ import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
  * @Revised Jun 4, 2012
  * @Comment
  *
-  * @since 2026-05-13
+ * @since 2026-05-13
  */
 public class QuickBillingBCHandler {
 

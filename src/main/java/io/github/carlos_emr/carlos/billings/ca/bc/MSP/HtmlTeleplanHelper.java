@@ -39,7 +39,7 @@ import java.util.Date;
 /**
  * Used to consolidate the teleplan submission html into one place.
  *
-  * @since 2026-05-13
+ * @since 2026-05-13
  */
 public class HtmlTeleplanHelper {
 
@@ -67,6 +67,7 @@ public class HtmlTeleplanHelper {
         try {
             dateStr = new SimpleDateFormat("yyyyMMdd").format(new Date());
         } catch (Exception e) {
+            // Ignore exception for simple date format
         }
         StringBuilder htmlContentHeader = new StringBuilder();
         htmlContentHeader.append("<tr> \n");

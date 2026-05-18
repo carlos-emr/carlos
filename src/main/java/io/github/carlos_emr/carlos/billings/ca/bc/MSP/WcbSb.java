@@ -46,7 +46,7 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
  * For The Oscar McMaster Project
  * Developed By Andromedia
  * www.andromedia.ca
-  * @since 2026-05-13
+ * @since 2026-05-13
  */
 public class WcbSb {
     private static Logger logger = MiscUtils.getLogger();

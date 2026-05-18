@@ -62,7 +62,7 @@ import io.github.carlos_emr.carlos.utility.XmlUtils;
 
 
 /**
-  * @since 2026-05-13
+ * @since 2026-05-13
  */
 public class ReadHRMFile {
     private List<ReportsReceived> reportsReceived = null;

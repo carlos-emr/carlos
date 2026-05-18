@@ -36,8 +36,6 @@ import java.util.Hashtable;
 
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
-/**
- */
 public interface PreventionReport {
     public Hashtable runReport(LoggedInInfo loggedInInfo, ArrayList<ArrayList<String>> list, Date asofDate);
 }

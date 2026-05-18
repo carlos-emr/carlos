@@ -41,7 +41,7 @@ import java.util.*;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 /**
-  * @since 2026-05-13
+ * @since 2026-05-13
  */
 public class DemographicRelationship {
 

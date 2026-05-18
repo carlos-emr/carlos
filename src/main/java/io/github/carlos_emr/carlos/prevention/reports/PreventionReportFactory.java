@@ -31,7 +31,7 @@
 package io.github.carlos_emr.carlos.prevention.reports;
 
 /**
-  * @since 2026-05-13
+ * @since 2026-05-13
  */
 public class PreventionReportFactory {
 

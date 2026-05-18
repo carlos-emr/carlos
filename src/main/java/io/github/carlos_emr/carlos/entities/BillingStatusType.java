@@ -35,7 +35,7 @@ package io.github.carlos_emr.carlos.entities;
  * <p>Description: Represents a bill status type as defined by MSP</p>
  *
  * @version 1.0
-  * @since 2026-05-13
+ * @since 2026-05-13
  */
 public class BillingStatusType {
 

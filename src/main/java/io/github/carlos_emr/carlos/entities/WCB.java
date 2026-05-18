@@ -45,8 +45,6 @@ import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 
 import io.github.carlos_emr.carlos.util.StringUtils;
 
-/**
- */
 @Entity
 @Table(name = "wcb")
 public class WCB {

@@ -46,7 +46,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
-  * @since 2026-05-13
+ * @since 2026-05-13
  */
 public class Prevention {
     private static Logger log = MiscUtils.getLogger();
