@@ -35,7 +35,7 @@
  *
  * <p><strong>Features:</strong></p>
  * <ul>
- *   <li>Multi-provider support (Middleware relay, SRFax direct API)</li>
+ *   <li>Multi-provider support (Middleware relay, SRFax direct API, RingCentral direct API)</li>
  *   <li>Real-time scheduler health status polling</li>
  *   <li>Encrypted credential storage with auto-migration from legacy plain text</li>
  *   <li>Provider-specific field visibility (middleware vs SRFax)</li>
@@ -79,6 +79,7 @@
 <%@ page import="io.github.carlos_emr.carlos.managers.FaxManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.fax.provider.SRFaxProviderClient" %>
+<%@ page import="io.github.carlos_emr.carlos.fax.ringcentral.RingCentralApiConnector" %>
 <%@ page import="io.github.carlos_emr.carlos.fax.admin.ConfigureFax2Action" %>
 
 <%
@@ -260,16 +261,38 @@
             if (providerType === "MIDDLEWARE") {
                 $("#middlewareFields").show();
                 $("#srfaxUrlInfo").hide();
+                $("#ringCentralFields").hide();
+                $("#providerCredentials").show();
                 $("#faxServiceUser").prop("required", true);
                 $("#faxServicePasswd").prop("required", true);
                 $("#faxUrl").prop("required", true);
-            } else {
+                $("#faxUser").prop("required", true);
+                $("#faxPasswd").prop("required", true);
+                $(".ringcentral-required").prop("required", false);
+            } else if (providerType === "SRFAX") {
                 $("#middlewareFields").hide();
                 $("#srfaxUrlInfo").show();
+                $("#ringCentralFields").hide();
+                $("#providerCredentials").show();
                 $("#faxServiceUser").prop("required", false);
                 $("#faxServicePasswd").prop("required", false);
                 $("#faxUrl").prop("required", false);
                 $("#faxUrl").val("");
+                $("#faxUser").prop("required", true);
+                $("#faxPasswd").prop("required", true);
+                $(".ringcentral-required").prop("required", false);
+            } else {
+                $("#middlewareFields").hide();
+                $("#srfaxUrlInfo").hide();
+                $("#ringCentralFields").show();
+                $("#providerCredentials").hide();
+                $("#faxServiceUser").prop("required", false);
+                $("#faxServicePasswd").prop("required", false);
+                $("#faxUrl").prop("required", false);
+                $("#faxUrl").val("");
+                $("#faxUser").prop("required", false);
+                $("#faxPasswd").prop("required", false);
+                $(".ringcentral-required").prop("required", true);
             }
         }
 
@@ -456,22 +479,29 @@
                             String senderEmail = faxCfg != null ? faxCfg.getSenderEmail() : "";
                             String accountName = faxCfg != null ? faxCfg.getAccountName() : "";
                             Integer queueId = (faxCfg != null && faxCfg.getQueue() != null && faxCfg.getQueue() > 0) ? faxCfg.getQueue() : defaultQueueId;
-                            FaxConfig.ProviderType providerType = faxCfg != null ? faxCfg.getProviderType() : FaxConfig.ProviderType.MIDDLEWARE;
-                            boolean isActive = faxCfg != null && faxCfg.isActive();
-                            boolean isDownload = faxCfg != null && faxCfg.isDownload();
-                            String faxUrl = faxCfg != null ? faxCfg.getUrl() : "";
-                            String siteUser = faxCfg != null ? faxCfg.getSiteUser() : "";
-                            String sitePasswd = faxCfg != null ? ConfigureFax2Action.maskPasswordForDisplay(faxCfg.getPasswd()) : "";
-                        %>
+                             FaxConfig.ProviderType providerType = faxCfg != null ? faxCfg.getProviderType() : FaxConfig.ProviderType.MIDDLEWARE;
+                             boolean isActive = faxCfg != null && faxCfg.isActive();
+                             boolean isDownload = faxCfg != null && faxCfg.isDownload();
+                             String faxUrl = faxCfg != null ? faxCfg.getUrl() : "";
+                             String siteUser = faxCfg != null ? faxCfg.getSiteUser() : "";
+                             String sitePasswd = faxCfg != null ? ConfigureFax2Action.maskPasswordForDisplay(faxCfg.getPasswd()) : "";
+                             String rcClientId = faxCfg != null ? faxCfg.getRingCentralClientId() : "";
+                             String rcClientSecret = faxCfg != null ? ConfigureFax2Action.maskPasswordForDisplay(faxCfg.getRingCentralClientSecret()) : "";
+                             String rcJwtToken = faxCfg != null ? ConfigureFax2Action.maskPasswordForDisplay(faxCfg.getRingCentralJwtToken()) : "";
+                             String rcAccountId = faxCfg != null ? faxCfg.getRingCentralAccountId() : "";
+                             String rcExtensionId = faxCfg != null ? faxCfg.getRingCentralExtensionId() : "";
+                             String ringCentralApiUrl = RingCentralApiConnector.resolveRingCentralApiUrl();
+                         %>
 
                         <!-- Provider Type Selection -->
                         <div class="row">
                             <div class="col-md-6">
                                 <label for="providerType"><fmt:message key="admin.configureFax.faxProvider"/></label>
                                 <select class="form-select" id="providerType" name="providerType">
-                                    <option value="MIDDLEWARE" <%=providerType == FaxConfig.ProviderType.MIDDLEWARE ? "selected" : ""%>><fmt:message key="admin.configureFax.provider.middlewareRelay"/></option>
-                                    <option value="SRFAX" <%=providerType == FaxConfig.ProviderType.SRFAX ? "selected" : ""%>><fmt:message key="admin.configureFax.provider.srfaxDirectApi"/></option>
-                                </select>
+                                     <option value="MIDDLEWARE" <%=providerType == FaxConfig.ProviderType.MIDDLEWARE ? "selected" : ""%>><fmt:message key="admin.configureFax.provider.middlewareRelay"/></option>
+                                     <option value="SRFAX" <%=providerType == FaxConfig.ProviderType.SRFAX ? "selected" : ""%>><fmt:message key="admin.configureFax.provider.srfaxDirectApi"/></option>
+                                     <option value="RINGCENTRAL" <%=providerType == FaxConfig.ProviderType.RINGCENTRAL ? "selected" : ""%>><fmt:message key="admin.configureFax.provider.ringcentralDirectApi"/></option>
+                                 </select>
                                 <small class="fax-muted"><i class="fas fa-info-circle"></i> <fmt:message key="admin.configureFax.chooseConnection"/></small>
                             </div>
                         </div>
@@ -522,22 +552,70 @@
                             </div>
                         </div>
 
-                        <!-- SRFax Account Credentials (always shown) -->
-                        <div class="row">
+                        <!-- RingCentral API Credentials (shown only for RingCentral provider) -->
+                        <div id="ringCentralFields" style="display:none;">
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <h6 style="color: #0d6efd; margin-top: 12px; margin-bottom: 8px;"><fmt:message key="admin.configureFax.ringcentralApiEndpoint"/></h6>
+                                     <label><i class="fas fa-link"></i> <fmt:message key="admin.configureFax.apiUrl"/></label>
+                                     <input class="form-control" type="text" readonly
+                                            value="<carlos:encode value='<%= ringCentralApiUrl %>' context="htmlAttribute"/>"
+                                            style="background: #f3f4f6; color: #6b7280; cursor: not-allowed;"/>
+                                    <small class="fax-muted"><i class="fas fa-lock"></i> <fmt:message key="admin.configureFax.ringcentralEndpointHelp"/></small>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label for="ringCentralClientId"><fmt:message key="admin.configureFax.ringcentralClientId"/></label>
+                                    <input class="form-control ringcentral-required" type="text" id="ringCentralClientId" name="ringCentralClientId"
+                                           value="<carlos:encode value='<%= rcClientId %>' context="htmlAttribute"/>"/>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="ringCentralClientSecret"><fmt:message key="admin.configureFax.ringcentralClientSecret"/></label>
+                                    <input class="form-control ringcentral-required" type="password" id="ringCentralClientSecret" name="ringCentralClientSecret"
+                                           value="<carlos:encode value='<%= rcClientSecret %>' context="htmlAttribute"/>"/>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <label for="ringCentralJwtToken"><fmt:message key="admin.configureFax.ringcentralJwtToken"/></label>
+                                    <input class="form-control ringcentral-required" type="password" id="ringCentralJwtToken" name="ringCentralJwtToken"
+                                           value="<carlos:encode value='<%= rcJwtToken %>' context="htmlAttribute"/>"/>
+                                    <small class="fax-muted"><fmt:message key="admin.configureFax.ringcentralJwtHelp"/></small>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label for="ringCentralAccountId"><fmt:message key="admin.configureFax.ringcentralAccountId"/></label>
+                                    <input class="form-control" type="text" id="ringCentralAccountId" name="ringCentralAccountId"
+                                           placeholder="~"
+                                           value="<carlos:encode value='<%= rcAccountId %>' context="htmlAttribute"/>"/>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="ringCentralExtensionId"><fmt:message key="admin.configureFax.ringcentralExtensionId"/></label>
+                                    <input class="form-control" type="text" id="ringCentralExtensionId" name="ringCentralExtensionId"
+                                           placeholder="~"
+                                           value="<carlos:encode value='<%= rcExtensionId %>' context="htmlAttribute"/>"/>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Provider Account Credentials (shared between MIDDLEWARE and SRFAX; hidden for RINGCENTRAL) -->
+                        <div id="providerCredentials" class="row">
                             <div class="col-md-12">
-                                <h6 style="color: #0d6efd; margin-top: 12px; margin-bottom: 8px;"><fmt:message key="admin.configureFax.srfaxAccountCredentials"/></h6>
+                                <h6 style="color: #0d6efd; margin-top: 12px; margin-bottom: 8px;"><fmt:message key="admin.configureFax.providerAccountCredentials"/></h6>
                                 <small class="fax-muted" style="display: block; margin-bottom: 12px;">
-                                    <i class="fas fa-info-circle"></i> <fmt:message key="admin.configureFax.srfaxAccountCredentialsHelp"/>
+                                    <i class="fas fa-info-circle"></i> <fmt:message key="admin.configureFax.providerAccountCredentialsHelp"/>
                                 </small>
                             </div>
                             <div class="col-md-6">
-                                <label for="faxUser"><fmt:message key="admin.configureFax.srfaxUsername"/></label>
+                                <label for="faxUser"><fmt:message key="admin.configureFax.providerUsername"/></label>
                                 <input class="form-control" type="text" id="faxUser" name="faxUser"
                                        value="<carlos:encode value='<%= faxUser %>' context="htmlAttribute"/>"/>
                                 <input type="hidden" id="id" name="id" value="<carlos:encode value='<%= configId %>' context="htmlAttribute"/>"/>
                             </div>
                             <div class="col-md-6">
-                                <label for="faxPasswd"><fmt:message key="admin.configureFax.srfaxPassword"/></label>
+                                <label for="faxPasswd"><fmt:message key="admin.configureFax.providerPassword"/></label>
                                 <input class="form-control" type="password" id="faxPasswd" name="faxPassword"
                                        value="<carlos:encode value='<%= faxPassword %>' context="htmlAttribute"/>"/>
                             </div>

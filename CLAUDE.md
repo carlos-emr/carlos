@@ -42,10 +42,10 @@
 
 ## Fax Provider Feature Context (AI + Dev)
 
-- Provider-specific fax transport is now selected by `FaxConfig.providerType` (`MIDDLEWARE` or `SRFAX`).
+- Provider-specific fax transport is now selected by `FaxConfig.providerType` (`MIDDLEWARE`, `SRFAX`, or `RINGCENTRAL`).
 - Admin configuration path is the existing UI: **Administration > Faxes > Configure Fax**.
 - Fax configuration requires `_admin.fax` write rights; scheduler controls use `_admin.fax.restart`.
-- SRFax duplicate prevention policy is unread/read flag based (unread-only pull + mark-as-read), not remote delete.
+- SRFax and RingCentral duplicate prevention policy is unread/read flag based (unread-only pull + mark-as-read), not remote delete.
 - See `docs/fax-provider-configuration-and-ux.md` for implementation and operational details.
 
 ## Essential Commands
@@ -982,6 +982,8 @@ Labels are reserved for cross-cutting attributes that can apply alongside any is
 ## Commit Standards & Quick Reference
 
 **Commit Format**: [Conventional Commits](https://www.conventionalcommits.org/) - `feat:`, `fix:`, `chore:`, `update:`
+
+**DCO Sign-off**: Every human-authored commit MUST include a `Signed-off-by:` trailer per the [Developer Certificate of Origin](https://developercertificate.org/). Use `git commit -s` (or `--signoff`); to retrofit a branch, use `git rebase --exec "git log -1 --format=%B | grep -q '^Signed-off-by:' || git commit --amend --no-edit --signoff" <ancestor>`. The DCO workflow (`.github/workflows/dco-check.yml`) verifies every PR commit and **exempts known automation accounts**: `claude[bot]`, `copilot-swe-agent[bot]`, `coderabbitai[bot]`, `github-actions[bot]`, `dependabot[bot]`, `google-labs-jules[bot]`. AI-assisted commits authored by a human keep both the human's `Signed-off-by:` and the `Co-Authored-By: Claude Opus ...` trailer. As a fallback when retrofitting is impractical, the PR author or any OWNER/MEMBER/COLLABORATOR/CONTRIBUTOR can post the exact phrase `Confirming DCO sign off for all commits` to pass the check; this confirmation is invalidated by any subsequent commit.
 
 **Key Files**:
 - `CLAUDE.md` - AI context (this file)

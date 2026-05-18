@@ -131,8 +131,12 @@ public class FaxImporter {
      * Set to true only when {@link #initialize()} succeeds. Polling and all import
      * operations are skipped when false so a misconfigured fax service never prevents
      * the rest of CARLOS EMR from starting or functioning.
+     *
+     * <p>Volatile so the {@code @PostConstruct} write from the Spring init thread is visible
+     * to subsequent reads from the scheduler thread that calls {@link #poll()} — without
+     * this, the JIT could legally cache the field as {@code false} and skip every poll.</p>
      */
-    private boolean initialized = false;
+    private volatile boolean initialized = false;
 
     /**
      * Guards against repeated "not initialized" log warnings on every poll cycle.
@@ -201,6 +205,16 @@ public class FaxImporter {
      */
     public boolean isInitialized() {
         return initialized;
+    }
+
+    /**
+     * Test-only seam for poll() orchestration tests that cannot invoke the real
+     * {@link #initialize()} hook (it requires a configured {@code DOCUMENT_DIR} resolved at
+     * class-load time and a writable filesystem directory). Production code paths must rely
+     * on {@code @PostConstruct}; tests in this package use this method instead of reflection.
+     */
+    void markInitializedForTest() {
+        this.initialized = true;
     }
 
     /**
@@ -291,12 +305,35 @@ public class FaxImporter {
                     }
 
                     // Phase 2: Content is safe locally - mark as read on provider.
-                    // If this fails, the fax may be re-downloaded on next poll.
-                    // The file already exists in incoming dir so dedup is handled by filename uniqueness.
+                    // The remote message stays unread on failure, so the next poll WILL re-download
+                    // it. The provider message id is embedded in the filename via DownloadReference,
+                    // but generateUniqueFilename prepends a fresh timestamp+counter on every poll —
+                    // so a re-download produces a NEW file in incoming/ and importFromIncoming would
+                    // create a duplicate EDoc. Abort Phase 3 here, delete the quarantined file, and
+                    // mark the FaxJob ERROR so the operator sees the failure. Next poll re-fetches
+                    // the still-unread message cleanly.
                     try {
                         providerClient.markFaxAsRead(faxConfig, receivedFax);
                     } catch (FaxProviderException e) {
-                        log.warn("Failed to mark fax as read on provider - may re-download on next poll", e);
+                        log.error("Failed to mark fax as read on provider - aborting EMR import to prevent "
+                                + "duplicate when next poll re-downloads the still-unread message", e);
+                        try {
+                            Files.deleteIfExists(incomingFile);
+                        } catch (IOException deleteFailure) {
+                            log.error("Failed to delete quarantined fax {} after mark-as-read failure - "
+                                    + "manual cleanup required to avoid duplicate import on retry",
+                                    incomingFile, deleteFailure);
+                        }
+                        receivedFax.setStatus(FaxJob.STATUS.ERROR);
+                        receivedFax.setStatusString("Mark-as-read failed on provider; quarantined file removed. "
+                                + "Next poll will re-attempt the full download/ack/import flow.");
+                        // The retry on the next poll will create a SECOND FaxJob audit row when
+                        // it re-discovers the same unread message. The audit log treats each poll
+                        // independently so duplicate audit rows for the same providerMessageId
+                        // are expected by design — operators reviewing the log should pair them
+                        // by providerMessageId / file_name when triaging mark-as-read failures.
+                        saveFaxJob(new FaxJob(receivedFax));
+                        continue;
                     }
 
                     // Phase 3: Import from incoming directory into EMR
@@ -306,29 +343,31 @@ public class FaxImporter {
                     if (edoc != null) {
                         fileName = edoc.getFileName();
 
-                        // Route to provider inbox
-                        try {
-                            int docId = Integer.parseInt(edoc.getDocId());
-                            providerRouting(docId);
-                        } catch (NumberFormatException e) {
-                            log.error("Invalid document ID: {} - document saved but routing failed",
-                                    edoc.getDocId(), e);
-                            receivedFax.setStatus(FaxJob.STATUS.ERROR);
-                            receivedFax.setStatusString("Imported but routing failed - manual assignment required");
-                            // Fall through to deleteFax - content is imported, routing is a separate concern
-                        } catch (RuntimeException e) {
-                            log.error("Provider routing failed for doc_no={} - document exists but not in provider inbox",
-                                    edoc.getDocId(), e);
-                            receivedFax.setStatus(FaxJob.STATUS.ERROR);
-                            receivedFax.setStatusString("IMPORTED BUT ROUTING FAILED - NEEDS MANUAL ASSIGNMENT");
-                            // Fall through to deleteFax
-                        }
+                        // Route to provider inbox. The EDoc + queue link from importFromIncoming
+                        // already persisted, so a routing failure here leaves the document visible
+                        // in the document review queue but absent from the provider UNCLAIMED
+                        // inbox. routeWithRetry attempts one in-process retry to absorb transient
+                        // database errors; on persistent failure it sets the FaxJob to ERROR with
+                        // a greppable marker so monitoring can alert and operators can locate the
+                        // affected docs via the FaxJob audit log.
+                        routeWithRetry(edoc, receivedFax);
 
-                        // Acknowledge remote fax per provider policy
+                        // Acknowledge remote fax per provider policy. For RingCentral / SRFax this
+                        // is a no-op (per docs/fax-provider-configuration-and-ux.md duplicate
+                        // prevention is the unread/read flag); the catch below covers any future
+                        // provider that does have a remote-delete step.
                         try {
                             providerClient.deleteFax(faxConfig, receivedFax);
                         } catch (FaxProviderException e) {
                             log.error("Failed to delete remote fax - duplicate may occur on next poll", e);
+                            // Surface the ack failure on the FaxJob status so the operator sees the
+                            // duplicate-warning signal without scanning logs. Do NOT overwrite an
+                            // earlier error (e.g. routing failure); only annotate clean success.
+                            if (receivedFax.getStatus() != FaxJob.STATUS.ERROR) {
+                                receivedFax.setStatus(FaxJob.STATUS.ERROR);
+                                receivedFax.setStatusString(
+                                        "Imported, but provider acknowledge failed - duplicate may appear next poll");
+                            }
                         }
                     } else {
                         // Import failed but file is safe in incoming directory for retry
@@ -582,6 +621,12 @@ public class FaxImporter {
                         try {
                             retryFax.setStamp(new Date(Files.getLastModifiedTime(pdfFile).toMillis()));
                         } catch (IOException e) {
+                            // Falling back to "now" loses the actual receipt timestamp on the
+                            // FaxJob audit row. Acceptable on this retry path because the pending
+                            // file's mtime is itself an approximation of receipt, but log so a
+                            // chronic permission failure on incoming/ becomes visible.
+                            log.warn("Cannot read mtime for retry fax {} - using current time as stamp: {}",
+                                    pdfFile.getFileName(), e.getMessage());
                             retryFax.setStamp(new Date());
                         }
 
@@ -655,9 +700,15 @@ public class FaxImporter {
                             entry.put("sizeBytes", Files.size(pdfFile));
                             entry.put("lastModifiedMs", Files.getLastModifiedTime(pdfFile).toMillis());
                         } catch (IOException e) {
-                            log.debug("Cannot read file metadata for pending fax {}: {}", pdfFile.getFileName(), e.getMessage());
+                            // Bumped from DEBUG to WARN: a permission/disk-IO error here makes
+                            // every pending fax look like 0 bytes / epoch-1970 in the admin UI,
+                            // which is silently misleading. Surface a typed error field so the UI
+                            // can render "metadata unavailable" rather than fake zeros.
+                            log.warn("Cannot read file metadata for pending fax {}: {}",
+                                    pdfFile.getFileName(), e.getMessage());
                             entry.put("sizeBytes", 0L);
                             entry.put("lastModifiedMs", 0L);
+                            entry.put("metadataError", e.getMessage());
                         }
                         pending.add(entry);
                     }
@@ -790,6 +841,45 @@ public class FaxImporter {
         ProviderLabRoutingModel providerLabRouting = new ProviderLabRoutingModel();
         providerLabRouting.setLabNo(labNo);
         providerRouting(providerLabRouting);
+    }
+
+    /**
+     * Routes a freshly-imported fax with one in-process retry to absorb transient DB failures.
+     *
+     * <p>On definitive failure the receivedFax is marked ERROR with the
+     * {@code FAX_ROUTING_FAILED} marker — monitoring alerts can grep this string from the FaxJob
+     * audit log to flag faxes that landed in the document table but never reached any provider's
+     * UNCLAIMED inbox. The EDoc + queue link from {@code importFromIncoming} already persisted,
+     * so the document is recoverable via manual assignment in the document admin UI.</p>
+     */
+    private void routeWithRetry(EDoc edoc, FaxJob receivedFax) {
+        int docId;
+        try {
+            docId = Integer.parseInt(edoc.getDocId());
+        } catch (NumberFormatException e) {
+            log.error("FAX_ROUTING_FAILED docId={} - non-numeric document id, cannot route to UNCLAIMED inbox",
+                    edoc.getDocId(), e);
+            receivedFax.setStatus(FaxJob.STATUS.ERROR);
+            receivedFax.setStatusString("Imported but routing failed (non-numeric doc id) - manual assignment required");
+            return;
+        }
+        try {
+            providerRouting(docId);
+            return;
+        } catch (RuntimeException firstAttempt) {
+            log.warn("Provider routing attempt 1 failed for docId={} - retrying once", docId, firstAttempt);
+            try {
+                providerRouting(docId);
+                return;
+            } catch (RuntimeException retryAttempt) {
+                log.error("FAX_ROUTING_FAILED docId={} - both attempts failed; document is in EMR + review queue "
+                        + "but absent from provider UNCLAIMED inbox. Manual assignment required.",
+                        docId, retryAttempt);
+                receivedFax.setStatus(FaxJob.STATUS.ERROR);
+                receivedFax.setStatusString("IMPORTED BUT ROUTING FAILED (FAX_ROUTING_FAILED docId="
+                        + docId + ") - needs manual assignment");
+            }
+        }
     }
 
     /**

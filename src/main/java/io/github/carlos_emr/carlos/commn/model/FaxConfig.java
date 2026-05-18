@@ -27,6 +27,7 @@ package io.github.carlos_emr.carlos.commn.model;
 
 import io.github.carlos_emr.carlos.utility.EncryptionUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 
 import io.github.carlos_emr.carlos.commn.model.converter.FaxConfigProviderTypeConverter;
@@ -35,19 +36,23 @@ import jakarta.persistence.*;
 /**
  * JPA entity representing fax gateway account configuration.
  *
- * <p>Supports multiple fax provider types (MIDDLEWARE, SRFAX) with encrypted credential storage.
+ * <p>Supports multiple fax provider types (MIDDLEWARE, SRFAX, RINGCENTRAL) with encrypted credential storage.
  * Each configuration defines connection parameters, authentication credentials, inbox routing,
  * and active/download flags for scheduler control.</p>
  *
- * <p><strong>Security:</strong> Password fields (passwd, faxPasswd) are automatically encrypted
- * on write and decrypted on read using {@link io.github.carlos_emr.carlos.utility.EncryptionUtils}.
- * Legacy unencrypted passwords are returned as-is on read; re-encryption occurs only
- * when the password is explicitly re-saved through the admin UI.</p>
+ * <p><strong>Security:</strong> Credential fields ({@code passwd}, {@code faxPasswd},
+ * {@code ringCentralClientSecret}, {@code ringCentralJwtToken}) are automatically encrypted on
+ * write and decrypted on read using {@link io.github.carlos_emr.carlos.utility.EncryptionUtils}.
+ * Legacy unencrypted values are returned as-is on read; re-encryption occurs only when the
+ * value is explicitly re-saved through the admin UI. Any new credential field added to this
+ * entity MUST route through {@link #encryptField}/{@link #decryptField} — the JavaBean accessor
+ * pattern in this class is the only at-rest protection for these secrets.</p>
  *
  * <p><strong>Provider Types:</strong></p>
  * <ul>
  *   <li><strong>MIDDLEWARE:</strong> Relay server intermediary (faxws) - requires url, siteUser, passwd</li>
  *   <li><strong>SRFAX:</strong> Direct SRFax API integration - uses default endpoint (overridable via srfax.api.url property), requires faxUser, faxPasswd</li>
+ *   <li><strong>RINGCENTRAL:</strong> Direct RingCentral API integration - requires OAuth client/JWT credentials</li>
  * </ul>
  *
  * @see io.github.carlos_emr.carlos.fax.provider.FaxProviderClient
@@ -60,7 +65,8 @@ public class FaxConfig extends AbstractModel<Integer> {
 
     public enum ProviderType {
         MIDDLEWARE,
-        SRFAX
+        SRFAX,
+        RINGCENTRAL
     }
 
     private static final long serialVersionUID = 1L;
@@ -70,7 +76,13 @@ public class FaxConfig extends AbstractModel<Integer> {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer Id;
 
-    /** Middleware relay server base URL (MIDDLEWARE only; not used by SRFAX) */
+    /**
+     * Middleware relay server base URL. Only meaningful for the MIDDLEWARE provider; for SRFAX
+     * and RINGCENTRAL the column stores a fixed informational default written by
+     * {@code ConfigureFax2Action}, and the provider clients ignore the column entirely —
+     * the live API origin is resolved at runtime from {@code carlos.properties}
+     * ({@code srfax.api.url}, {@code ringcentral.api.url}, {@code ringcentral.api.sandbox.url}).
+     */
     private String url = "";
     /** Middleware site-level username for Basic Auth (MIDDLEWARE only) */
     private String siteUser = "";
@@ -105,6 +117,23 @@ public class FaxConfig extends AbstractModel<Integer> {
     @Convert(converter = FaxConfigProviderTypeConverter.class)
     @Column(name = "providerType")
     private ProviderType providerType = ProviderType.MIDDLEWARE;
+
+    @Column(name = "rc_client_id", length = 128)
+    private String ringCentralClientId = "";
+
+    @Lob
+    @Column(name = "rc_client_secret")
+    private String ringCentralClientSecret = "";
+
+    @Lob
+    @Column(name = "rc_jwt_token")
+    private String ringCentralJwtToken = "";
+
+    @Column(name = "rc_account_id", length = 64)
+    private String ringCentralAccountId = "";
+
+    @Column(name = "rc_extension_id", length = 64)
+    private String ringCentralExtensionId = "";
 
     @Override
     public Integer getId() {
@@ -293,6 +322,46 @@ public class FaxConfig extends AbstractModel<Integer> {
         this.providerType = (providerType != null) ? providerType : ProviderType.MIDDLEWARE;
     }
 
+    public String getRingCentralClientId() {
+        return ringCentralClientId;
+    }
+
+    public void setRingCentralClientId(String ringCentralClientId) {
+        this.ringCentralClientId = ringCentralClientId;
+    }
+
+    public String getRingCentralClientSecret() {
+        return decryptField(ringCentralClientSecret, "RingCentral client secret");
+    }
+
+    public void setRingCentralClientSecret(String ringCentralClientSecret) {
+        this.ringCentralClientSecret = encryptField(ringCentralClientSecret, "RingCentral client secret");
+    }
+
+    public String getRingCentralJwtToken() {
+        return decryptField(ringCentralJwtToken, "RingCentral JWT token");
+    }
+
+    public void setRingCentralJwtToken(String ringCentralJwtToken) {
+        this.ringCentralJwtToken = encryptField(ringCentralJwtToken, "RingCentral JWT token");
+    }
+
+    public String getRingCentralAccountId() {
+        return ringCentralAccountId;
+    }
+
+    public void setRingCentralAccountId(String ringCentralAccountId) {
+        this.ringCentralAccountId = ringCentralAccountId;
+    }
+
+    public String getRingCentralExtensionId() {
+        return ringCentralExtensionId;
+    }
+
+    public void setRingCentralExtensionId(String ringCentralExtensionId) {
+        this.ringCentralExtensionId = ringCentralExtensionId;
+    }
+
 
     /**
      * Sets the active state.
@@ -331,5 +400,92 @@ public class FaxConfig extends AbstractModel<Integer> {
 
     public void setDownload(boolean download) {
         this.download = download;
+    }
+
+    /**
+     * Validates that provider-specific required fields are populated before persisting.
+     *
+     * <p>Lazy validation in the various provider clients catches missing credentials at
+     * fax-send time. This pre-persist hook surfaces the same problem at admin-save time so an
+     * inconsistent row never reaches the database. Each provider variant declares the minimum
+     * required fields here; the runtime client may still re-check these (and additional
+     * provider-specific fields such as MIDDLEWARE's {@code faxUser}/{@code faxPasswd}) during
+     * actual send/receive operations.</p>
+     */
+    @PrePersist
+    @PreUpdate
+    void assertProviderInvariants() {
+        ProviderType current = getProviderType();
+        // Clear non-applicable provider fields BEFORE validating required ones. Without this,
+        // switching providers (e.g. MIDDLEWARE → RINGCENTRAL) leaves the row carrying stale
+        // encrypted credential blobs from the previous provider. The credentials remain
+        // encrypted at rest (see decryptField) so leakage risk is bounded, but data hygiene
+        // and audit clarity favor clearing them eagerly.
+        clearForeignProviderFields(current);
+        switch (current) {
+            case MIDDLEWARE -> {
+                requireField(url, "url", current);
+                requireField(siteUser, "siteUser", current);
+                requireField(passwd, "passwd", current);
+            }
+            case SRFAX -> {
+                requireField(faxUser, "faxUser", current);
+                requireField(faxPasswd, "faxPasswd", current);
+            }
+            case RINGCENTRAL -> {
+                requireField(ringCentralClientId, "ringCentralClientId", current);
+                requireField(ringCentralClientSecret, "ringCentralClientSecret", current);
+                requireField(ringCentralJwtToken, "ringCentralJwtToken", current);
+            }
+            // Defensive: a Java switch statement does not enforce enum exhaustiveness, so a
+            // future ProviderType addition would silently bypass validation without this
+            // branch. Falling through to throw makes the gap visible at runtime.
+            default -> throw new IllegalStateException(
+                    "Unknown FaxConfig.providerType: " + current);
+        }
+    }
+
+    private void clearForeignProviderFields(ProviderType current) {
+        // faxUser / faxPasswd are shared between MIDDLEWARE and SRFAX (see field JavaDoc); only
+        // RINGCENTRAL has no use for them. url / siteUser / passwd are MIDDLEWARE-only. The
+        // RingCentral fields are RINGCENTRAL-only. Clear strictly the foreign blobs so the row
+        // never carries credentials from a previous provider after a switch.
+        switch (current) {
+            case MIDDLEWARE -> {
+                ringCentralClientId = "";
+                ringCentralClientSecret = "";
+                ringCentralJwtToken = "";
+                ringCentralAccountId = "";
+                ringCentralExtensionId = "";
+            }
+            case SRFAX -> {
+                url = "";
+                siteUser = "";
+                passwd = "";
+                ringCentralClientId = "";
+                ringCentralClientSecret = "";
+                ringCentralJwtToken = "";
+                ringCentralAccountId = "";
+                ringCentralExtensionId = "";
+            }
+            case RINGCENTRAL -> {
+                url = "";
+                siteUser = "";
+                passwd = "";
+                faxUser = "";
+                faxPasswd = "";
+            }
+            // Unknown providers fall through to the validator's default branch which throws.
+            default -> { /* no-op; caught and rejected by assertProviderInvariants's default */ }
+        }
+    }
+
+    private static void requireField(String value, String fieldName, ProviderType providerType) {
+        // isBlank rather than isEmpty so whitespace-only values (e.g. an admin pasting a stray
+        // space) cannot satisfy the invariant. Matches the UI-side StringUtils.isBlank checks.
+        if (StringUtils.isBlank(value)) {
+            throw new IllegalStateException(
+                    "FaxConfig with providerType=" + providerType + " requires " + fieldName);
+        }
     }
 }

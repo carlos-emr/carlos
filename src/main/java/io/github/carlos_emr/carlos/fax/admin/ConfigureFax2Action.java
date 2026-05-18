@@ -33,6 +33,7 @@ import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.commn.dao.FaxConfigDao;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.fax.provider.SRFaxProviderClient;
+import io.github.carlos_emr.carlos.fax.ringcentral.RingCentralApiConnector;
 import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -42,19 +43,38 @@ import io.github.carlos_emr.carlos.form.JSONUtil;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import io.github.carlos_emr.carlos.fax.core.FaxImporter;
 
 /**
- * Admin action for fax configuration and scheduler controls.
+ * Admin entrypoint for fax server / per-account configuration and scheduler controls. All
+ * responses are JSON; this action does not forward to a JSP view.
  *
- * <p>This action is intentionally backed by established Struts endpoints used by
- * the pre-existing fax admin JSP UX. Configuration writes are restricted to
- * `_admin.fax` write privilege.</p>
+ * <p><strong>Dispatch.</strong> {@link #execute()} reads the {@code method} request parameter
+ * and routes to one of:
+ * <ul>
+ *   <li>{@code configure} (mutator, POST-only) — persists fax server + per-account rows from the
+ *       admin form. Auto-starts the scheduler if any active row exists.</li>
+ *   <li>{@code restartFaxScheduler} (mutator, POST-only) — restarts the scheduler thread.</li>
+ *   <li>{@code getFaxSchedularStatus} (read, any verb) — returns the scheduler health payload.</li>
+ *   <li>{@code getPendingIncomingFaxes} (read, any verb) — returns files in the incoming
+ *       directory that haven't been imported yet.</li>
+ * </ul>
+ *
+ * <p><strong>Privilege split.</strong> {@code configure} requires {@code _admin.fax} write;
+ * {@code restartFaxScheduler} and {@code getFaxSchedularStatus} require
+ * {@code _admin.fax.restart}; {@code getPendingIncomingFaxes} requires {@code _admin.fax} read.
+ *
+ * <p><strong>Mutator GET/HEAD rejection.</strong> Mutator branches return HTTP 405 before any
+ * DAO/manager/scheduler call when the request method is not POST — see
+ * {@code MutatorActionGetRejectionContractTest} for the contract.
  */
 public class ConfigureFax2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -70,6 +90,11 @@ public class ConfigureFax2Action extends ActionSupport {
 
     /**
      * Dispatches request methods for configure/scheduler endpoints.
+     *
+     * <p>Mutator methods ({@code configure}, {@code restartFaxScheduler}) require POST.
+     * Read-only methods ({@code getFaxSchedularStatus}, {@code getPendingIncomingFaxes}) accept
+     * any verb. The POST gate runs BEFORE any mutation dependency (DAO, manager, scheduler) is
+     * touched — see {@code MutatorActionGetRejectionContractTest} for the contract.</p>
      */
     public String execute() {
         String method = request.getParameter("method");
@@ -78,20 +103,45 @@ public class ConfigureFax2Action extends ActionSupport {
             getFaxSchedularStatus();
             return null;
         } else if ("restartFaxScheduler".equals(method)) {
+            if (rejectIfNotPost()) {
+                return null;
+            }
             restartFaxScheduler();
             return null;
         } else if ("getPendingIncomingFaxes".equals(method)) {
             getPendingIncomingFaxes();
             return null;
         } else if ("configure".equals(method)) {
+            if (rejectIfNotPost()) {
+                return null;
+            }
             return configure();
         }
 
-        // Default case: action called without a method parameter
-        // Since the JSP is accessed directly, this should probably never happen
-        // But just in case, we can return back to the page and log a warning
+        // Default case: action called without a method parameter — log for diagnostics
+        // and return null to drop the response (no view forward, no mutation).
         MiscUtils.getLogger().warn("ConfigureFax2Action called without a method parameter.");
         return null;
+    }
+
+    /**
+     * Returns {@code true} when the request method is not POST and a 405 has been sent. Mutator
+     * branches MUST return immediately when this returns true so no DAO/manager/scheduler call
+     * executes. The check is duplicated per-branch (rather than a single top-level guard) because
+     * read-only methods on this dispatcher legitimately accept GET.
+     */
+    private boolean rejectIfNotPost() {
+        if ("POST".equalsIgnoreCase(request.getMethod())) {
+            return false;
+        }
+        try {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        } catch (IOException e) {
+            // Response may already be committed (broken pipe, client abort). The gate already
+            // prevented the mutation by short-circuiting; log for observability.
+            MiscUtils.getLogger().warn("Failed to send 405 on non-POST fax admin request", e);
+        }
+        return true;
     }
 
     /**
@@ -112,9 +162,18 @@ public class ConfigureFax2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_admin.fax)");
         }
 
+        // Hoist secret arrays out of the try so the finally can zero them regardless of which
+        // catch fires. applyRingCentralFields zeroes individual entries after they are persisted,
+        // but a validation throw earlier in the loop would leave un-processed entries holding
+        // plaintext secret references. This belt-and-suspenders pass keeps the secret-input
+        // lifetime bounded to this method invocation.
+        String[] rcClientSecrets = null;
+        String[] rcJwtTokens = null;
+        String[] faxPasswds = null;
         try {
             FaxConfigDao faxConfigDao = SpringUtils.getBean(FaxConfigDao.class);
             List<FaxConfig> savedFaxConfigList = faxConfigDao.findAll(null, null);
+            Map<Integer, FaxConfig> savedFaxConfigsById = indexById(savedFaxConfigList);
             List<FaxConfig> faxConfigList = new ArrayList<FaxConfig>();
 
             String faxUrl = request.getParameter("faxUrl");
@@ -123,7 +182,7 @@ public class ConfigureFax2Action extends ActionSupport {
 
             String[] faxConfigIds = request.getParameterValues("id");
             String[] faxUsers = request.getParameterValues("faxUser");
-            String[] faxPasswds = request.getParameterValues("faxPassword");
+            faxPasswds = request.getParameterValues("faxPassword");
             String[] inboxQueues = request.getParameterValues("inboxQueue");
             String[] activeState = request.getParameterValues("activeState");
             String[] faxNumbers = request.getParameterValues("faxNumber");
@@ -131,9 +190,13 @@ public class ConfigureFax2Action extends ActionSupport {
             String[] accountNames = request.getParameterValues("accountName");
             String[] downloadState = request.getParameterValues("downloadState");
             String[] providerTypes = request.getParameterValues("providerType");
+            String[] rcClientIds = request.getParameterValues("ringCentralClientId");
+            rcClientSecrets = request.getParameterValues("ringCentralClientSecret");
+            rcJwtTokens = request.getParameterValues("ringCentralJwtToken");
+            String[] rcAccountIds = request.getParameterValues("ringCentralAccountId");
+            String[] rcExtensionIds = request.getParameterValues("ringCentralExtensionId");
 
             Integer id;
-            int savedidx;
             FaxConfig faxConfig;
             FaxConfig savedFaxConfig;
 
@@ -142,10 +205,8 @@ public class ConfigureFax2Action extends ActionSupport {
                     faxConfigDao.remove(sfaxConfig.getId());
                 }
             } else {
-                // Validate all required arrays have consistent lengths
                 int expectedLength = faxConfigIds.length;
-                if (faxUsers == null || faxUsers.length < expectedLength
-                        || faxNumbers == null || faxNumbers.length < expectedLength
+                if (faxNumbers == null || faxNumbers.length < expectedLength
                         || senderEmails == null || senderEmails.length < expectedLength
                         || accountNames == null || accountNames.length < expectedLength
                         || inboxQueues == null || inboxQueues.length < expectedLength
@@ -166,19 +227,18 @@ public class ConfigureFax2Action extends ActionSupport {
                         throw new IllegalArgumentException("Invalid configuration ID for account row " + (idx + 1) + ".");
                     }
                     FaxConfig.ProviderType providerType = resolveProviderType(providerTypes, idx, id);
-                    validateConfigRow(providerType, faxUrl, siteUser, sitePasswd, faxUsers, faxPasswds, faxNumbers, senderEmails, inboxQueues, idx, id);
+                    savedFaxConfig = findSavedConfig(savedFaxConfigsById, id);
+                    validateConfigRow(providerType, faxUrl, siteUser, sitePasswd, faxUsers, faxPasswds, faxNumbers,
+                            senderEmails, inboxQueues, rcClientIds, rcClientSecrets, rcJwtTokens, idx, savedFaxConfig);
 
-                    // SRFax always uses the fixed API URL; middleware uses the user-provided URL
+                    // Direct providers always use fixed API URLs; middleware uses the user-provided URL.
                     String resolvedFaxUrl = providerType == FaxConfig.ProviderType.SRFAX
                             ? SRFaxProviderClient.DEFAULT_SRFAX_API_URL
+                            : providerType == FaxConfig.ProviderType.RINGCENTRAL
+                            ? RingCentralApiConnector.DEFAULT_RINGCENTRAL_API_URL
                             : faxUrl;
 
-                    faxConfig = new FaxConfig();
-                    faxConfig.setId(id);
-
-                    savedidx = savedFaxConfigList.indexOf(faxConfig);
-                    if (savedidx > -1) {
-                        savedFaxConfig = savedFaxConfigList.get(savedidx);
+                    if (savedFaxConfig != null) {
                         savedFaxConfig.setUrl(resolvedFaxUrl);
                         savedFaxConfig.setSiteUser(siteUser);
 
@@ -186,12 +246,11 @@ public class ConfigureFax2Action extends ActionSupport {
                             savedFaxConfig.setPasswd(sitePasswd.trim());
                         }
 
-                        savedFaxConfig.setFaxUser(faxUsers[idx]);
+                        savedFaxConfig.setFaxUser(valueAt(faxUsers, idx));
 
                         if (faxPasswds != null && idx < faxPasswds.length && faxPasswds[idx] != null && !isPasswordUnchanged(faxPasswds[idx])) {
                             savedFaxConfig.setFaxPasswd(faxPasswds[idx].trim());
                         }
-                        // Clear per-row fax password after use (covers both updated and sentinel cases)
                         if (faxPasswds != null && idx < faxPasswds.length) {
                             faxPasswds[idx] = null;
                         }
@@ -207,8 +266,11 @@ public class ConfigureFax2Action extends ActionSupport {
                         savedFaxConfig.setActive(Boolean.parseBoolean(activeState[idx]));
                         savedFaxConfig.setDownload(Boolean.parseBoolean(downloadState[idx]));
                         savedFaxConfig.setProviderType(providerType);
+                        applyRingCentralFields(savedFaxConfig, providerType, rcClientIds, rcClientSecrets, rcJwtTokens,
+                                rcAccountIds, rcExtensionIds, idx);
                         faxConfigList.add(savedFaxConfig);
                     } else {
+                        faxConfig = new FaxConfig();
                         faxConfig.setId(null);
                         faxConfig.setSiteUser(siteUser);
 
@@ -217,12 +279,11 @@ public class ConfigureFax2Action extends ActionSupport {
                         }
 
                         faxConfig.setUrl(resolvedFaxUrl);
-                        faxConfig.setFaxUser(faxUsers[idx]);
+                        faxConfig.setFaxUser(valueAt(faxUsers, idx));
 
                         if (faxPasswds != null && idx < faxPasswds.length && faxPasswds[idx] != null && !isPasswordUnchanged(faxPasswds[idx])) {
                             faxConfig.setFaxPasswd(faxPasswds[idx].trim());
                         }
-                        // Clear per-row fax password after use (covers both updated and sentinel cases)
                         if (faxPasswds != null && idx < faxPasswds.length) {
                             faxPasswds[idx] = null;
                         }
@@ -238,6 +299,8 @@ public class ConfigureFax2Action extends ActionSupport {
                         faxConfig.setActive(Boolean.parseBoolean(activeState[idx]));
                         faxConfig.setDownload(Boolean.parseBoolean(downloadState[idx]));
                         faxConfig.setProviderType(providerType);
+                        applyRingCentralFields(faxConfig, providerType, rcClientIds, rcClientSecrets, rcJwtTokens,
+                                rcAccountIds, rcExtensionIds, idx);
                         faxConfigList.add(faxConfig);
                     }
                 }
@@ -254,18 +317,24 @@ public class ConfigureFax2Action extends ActionSupport {
             }
 
             /*
-             * Ensure that the fax server information remains intact
-             * whenever all the gateway accounts are wiped out.
+             * Ensure that the fax server information remains intact whenever all the gateway
+             * accounts are wiped out — but only when the admin actually supplied middleware
+             * fields. The MIDDLEWARE @PrePersist invariant requires url/siteUser/passwd; saving
+             * a placeholder with blanks would now (correctly) throw at the JPA boundary. A
+             * RINGCENTRAL-only or SRFAX-only deployment legitimately has no middleware fields
+             * to preserve, so we skip the synthetic save in that case.
              */
             int auditList = faxConfigDao.getCountAll();
-            if (auditList == 0) {
+            if (auditList == 0
+                    && StringUtils.isNotBlank(faxUrl)
+                    && StringUtils.isNotBlank(siteUser)
+                    && sitePasswd != null
+                    && !isPasswordUnchanged(sitePasswd)
+                    && StringUtils.isNotBlank(sitePasswd)) {
                 faxConfig = new FaxConfig();
                 faxConfig.setUrl(faxUrl);
                 faxConfig.setSiteUser(siteUser);
-
-                if (sitePasswd != null && !isPasswordUnchanged(sitePasswd)) {
-                    faxConfig.setPasswd(sitePasswd.trim());
-                }
+                faxConfig.setPasswd(sitePasswd.trim());
                 faxConfig.setProviderType(FaxConfig.ProviderType.MIDDLEWARE);
                 faxConfigDao.saveEntity(faxConfig);
             }
@@ -284,33 +353,76 @@ public class ConfigureFax2Action extends ActionSupport {
                     faxManager.startFaxSchedulerIfNotRunning(loggedInInfo);
                 }
             } catch (Exception e) {
-                MiscUtils.getLogger().error("Failed to auto-start fax scheduler after config save", e);
-                jsonObject.put("message", "Configuration saved, but fax scheduler failed to start. "
-                        + "Use the Restart button to start it manually.");
+                String correlationId = newCorrelationId();
+                MiscUtils.getLogger().error("Failed to auto-start fax scheduler after config save (correlationId={})",
+                        correlationId, e);
+                // The config DID save — keep success=true so the UI shows the persistence as
+                // green. Surface the partial-failure via a separate "warning" field so the UI can
+                // render an amber annotation distinct from a red "save failed" toast.
+                jsonObject.put("warning", "Configuration saved, but fax scheduler failed to start. "
+                        + "Use the Restart button to start it manually. (Reference: " + correlationId + ")");
             }
         } catch (IllegalArgumentException ex) {
-            // Validation errors - safe to expose message
+            // Validation errors - the message is operator-facing (already sanitized by callers)
+            // and gets the correlation id appended so support tickets can be matched to log lines.
+            String correlationId = newCorrelationId();
             jsonObject = objectMapper.createObjectNode();
             jsonObject.put("success", false);
-            jsonObject.put("message", ex.getMessage() == null ? DEFAULT_ERROR_MESSAGE : ex.getMessage());
-            MiscUtils.getLogger().error("Fax configuration validation failed: {}", ex.getMessage(), ex);
+            String body = ex.getMessage() == null ? DEFAULT_ERROR_MESSAGE : ex.getMessage();
+            jsonObject.put("message", body + " (Reference: " + correlationId + ")");
+            MiscUtils.getLogger().error("Fax configuration validation failed (correlationId={}): {}",
+                    correlationId, ex.getMessage(), ex);
         } catch (jakarta.persistence.PersistenceException ex) {
-            // Database errors - do not leak details
+            // Database errors - generic message to avoid leaking schema details, but the
+            // correlation id lets support reach the stack trace.
+            String correlationId = newCorrelationId();
             jsonObject = objectMapper.createObjectNode();
             jsonObject.put("success", false);
-            jsonObject.put("message", DEFAULT_ERROR_MESSAGE);
-            MiscUtils.getLogger().error("Database error saving fax configuration", ex);
+            jsonObject.put("message", DEFAULT_ERROR_MESSAGE + " (Reference: " + correlationId + ")");
+            MiscUtils.getLogger().error("Database error saving fax configuration (correlationId={})",
+                    correlationId, ex);
         } catch (Exception ex) {
-            // System errors - do not leak details
+            // System errors - generic message + correlation id so admins can quote it.
+            String correlationId = newCorrelationId();
             jsonObject = objectMapper.createObjectNode();
             jsonObject.put("success", false);
-            jsonObject.put("message", DEFAULT_ERROR_MESSAGE);
-            MiscUtils.getLogger().error("COULD NOT SAVE FAX CONFIGURATION", ex);
+            jsonObject.put("message", DEFAULT_ERROR_MESSAGE + " (Reference: " + correlationId + ")");
+            MiscUtils.getLogger().error("COULD NOT SAVE FAX CONFIGURATION (correlationId={})",
+                    correlationId, ex);
+        } finally {
+            zeroSecretArray(rcClientSecrets);
+            zeroSecretArray(rcJwtTokens);
+            zeroSecretArray(faxPasswds);
         }
 
         MiscUtils.getLogger().debug("Fax configuration response: success={}", jsonObject.get("success"));
         JSONUtil.jsonResponse(response, jsonObject);
         return null;
+    }
+
+    /**
+     * Best-effort clearing of plaintext secret references held in a request-parameter array. The
+     * Strings themselves remain on the JVM heap until GC reclaims them, but dropping the array
+     * references shortens the window during which a heap dump from this servlet thread would
+     * surface plaintext credentials.
+     */
+    private static void zeroSecretArray(String[] secrets) {
+        if (secrets == null) {
+            return;
+        }
+        for (int i = 0; i < secrets.length; i++) {
+            secrets[i] = null;
+        }
+    }
+
+    /**
+     * Generates a short opaque correlation id (8 hex chars) for pairing operator-facing error
+     * messages with the corresponding server log entry. Truncating UUIDs to 8 chars keeps the
+     * id quote-able in a UI message and a support ticket while still being unique enough at
+     * the per-failure scale of an admin save.
+     */
+    private static String newCorrelationId() {
+        return UUID.randomUUID().toString().substring(0, 8);
     }
 
     /**
@@ -321,7 +433,7 @@ public class ConfigureFax2Action extends ActionSupport {
      * @param password the submitted password string from the request
      * @return true if the value is the placeholder mask, false if it is a real credential update
      */
-    private boolean isPasswordUnchanged(String password) {
+    static boolean isPasswordUnchanged(String password) {
         return PASSWORD_MASK_SENTINEL.equals(password);
     }
 
@@ -340,41 +452,45 @@ public class ConfigureFax2Action extends ActionSupport {
     }
 
     /**
-     * Resolves provider type selection from request arrays with safe middleware fallback.
+     * Resolves provider type selection from request arrays.
      *
-     * <p><strong>Backward Compatibility:</strong> Middleware is the legacy default provider.
-     * This method falls back to MIDDLEWARE when providerTypes array is missing or the value
-     * at the given index is null. Throws {@link IllegalArgumentException} for invalid provider
-     * type names. This ensures existing fax configurations continue working after the provider
-     * abstraction refactor without requiring manual updates.</p>
+     * <p>If the form submission omits the {@code providerType} parameter entirely (so
+     * {@code providerTypes} is null), every row defaults to MIDDLEWARE for backward
+     * compatibility with form templates that predate the provider-routing field.</p>
      *
-     * <p>The fallback prevents configuration errors when:
-     * <ul>
-     *   <li>Legacy configurations are loaded (no providerType field)</li>
-     *   <li>UI form submissions omit provider type selection</li>
-     * </ul>
-     * </p>
+     * <p>If {@code providerTypes} is non-null but the value at {@code idx} is null/missing,
+     * that's a per-row form bug — silently defaulting to MIDDLEWARE would clear any RingCentral
+     * or SRFax credentials on the row via {@link #applyRingCentralFields}. Throw so the
+     * operator sees the misrouted submission.</p>
      *
-     * @param providerTypes provider type request values (may be null for legacy configs)
-     * @param idx row index currently being processed
-     * @param faxConfigId persisted identifier for logging context
-     * @return resolved provider type, defaulting to {@link FaxConfig.ProviderType#MIDDLEWARE} when absent
-     * @throws IllegalArgumentException if the provider type value is present but not a valid enum constant
+     * @throws IllegalArgumentException if the provider type value is present but not a valid
+     *         enum constant, or if the per-row value is missing while other rows supplied one
      */
     private FaxConfig.ProviderType resolveProviderType(String[] providerTypes, int idx, Integer faxConfigId) {
-        // Default to MIDDLEWARE only if provider type is not specified (null or missing)
-        if (providerTypes == null || idx >= providerTypes.length || providerTypes[idx] == null) {
-            MiscUtils.getLogger().info("Provider type not specified for fax config id {}. Using default MIDDLEWARE.", faxConfigId);
+        if (providerTypes == null) {
+            // Form omitted the providerType parameter entirely — fall back to MIDDLEWARE for
+            // every row. Preserves backward compatibility with form templates that predate the
+            // provider-routing field.
+            MiscUtils.getLogger().info("Provider type field absent from form. "
+                    + "Treating fax config id {} as MIDDLEWARE.", faxConfigId);
             return FaxConfig.ProviderType.MIDDLEWARE;
         }
+        if (idx >= providerTypes.length || providerTypes[idx] == null) {
+            // The form submitted some providerType values but missed this row. Treat as a form
+            // error rather than silently switching the row to MIDDLEWARE — that path would wipe
+            // any stored RingCentral/SRFax credentials.
+            MiscUtils.getLogger().error("Provider type missing for row idx={} (fax config id {}) "
+                    + "while other rows submitted values - treating as form error",
+                    idx, faxConfigId);
+            throw new IllegalArgumentException("Provider type is required for account row " + (idx + 1)
+                    + ". Reload the page and try again.");
+        }
 
-        // Validate and parse provider type - throw exception for invalid values to notify user
         try {
             return FaxConfig.ProviderType.valueOf(providerTypes[idx]);
         } catch (IllegalArgumentException ex) {
-            // Sanitize user input before including in error message to prevent XSS
             String sanitizedInput = providerTypes[idx].replaceAll("[^a-zA-Z0-9_]", "");
-            String errorMsg = String.format("Invalid provider type '%s' for fax config id %d. Valid values are: MIDDLEWARE, SRFAX",
+            String errorMsg = String.format("Invalid provider type '%s' for fax config id %d. Valid values are: MIDDLEWARE, SRFAX, RINGCENTRAL",
                     sanitizedInput, faxConfigId);
             MiscUtils.getLogger().error("Invalid provider type for fax config id {}: {}", faxConfigId, providerTypes[idx], ex);
             throw new IllegalArgumentException(errorMsg);
@@ -393,28 +509,30 @@ public class ConfigureFax2Action extends ActionSupport {
      * @param faxNumbers per-row sender fax numbers
      * @param senderEmails per-row sender emails
      * @param inboxQueues per-row inbox queue identifiers
+     * @param rcClientIds per-row RingCentral OAuth client identifiers
+     * @param rcClientSecrets per-row RingCentral OAuth client secrets
+     * @param rcJwtTokens per-row RingCentral JWT tokens
      * @param idx row index currently being processed
-     * @param faxConfigId persisted identifier used to distinguish new vs existing rows
+     * @param savedFaxConfig existing persisted configuration for this row, or null for new rows
      * @throws IllegalArgumentException when required values are missing or malformed
      */
-    private void validateConfigRow(FaxConfig.ProviderType providerType, String faxUrl, String siteUser, String sitePasswd,
-                                   String[] faxUsers, String[] faxPasswds, String[] faxNumbers, String[] senderEmails,
-                                   String[] inboxQueues, int idx, Integer faxConfigId) {
-        // Middleware mode requires URL and credentials; SRFax mode can use default URL
-        if (providerType == FaxConfig.ProviderType.MIDDLEWARE) {
-            if (StringUtils.isBlank(faxUrl)) {
-                throw new IllegalArgumentException("Middleware relay URL is required for Middleware mode.");
-            }
-            if (StringUtils.isBlank(siteUser)) {
-                throw new IllegalArgumentException("Middleware server username is required for Middleware mode.");
-            }
-            // For new middleware configs, site password is required for Basic auth
-            boolean isNewConfig = faxConfigId == null || faxConfigId <= 0;
-            if (isNewConfig && StringUtils.isBlank(sitePasswd)) {
-                throw new IllegalArgumentException("Middleware site password is required for new Middleware accounts.");
-            }
+    static void validateConfigRow(FaxConfig.ProviderType providerType, String faxUrl, String siteUser, String sitePasswd,
+                                    String[] faxUsers, String[] faxPasswds, String[] faxNumbers, String[] senderEmails,
+                                    String[] inboxQueues, String[] rcClientIds, String[] rcClientSecrets,
+                                    String[] rcJwtTokens, int idx, FaxConfig savedFaxConfig) {
+        validateCommonRowFields(providerType, faxUsers, faxNumbers, senderEmails, inboxQueues, idx);
+        switch (providerType) {
+            case MIDDLEWARE -> validateMiddlewareRow(faxUrl, siteUser, sitePasswd, idx, savedFaxConfig);
+            case SRFAX -> validateSrfaxRow(faxPasswds, idx, savedFaxConfig);
+            case RINGCENTRAL -> validateRingCentralRow(rcClientIds, rcClientSecrets, rcJwtTokens, idx, savedFaxConfig);
+            default -> throw new IllegalArgumentException("Unsupported provider type: " + providerType);
         }
-        if (faxUsers == null || idx >= faxUsers.length || StringUtils.isBlank(faxUsers[idx])) {
+    }
+
+    private static void validateCommonRowFields(FaxConfig.ProviderType providerType, String[] faxUsers,
+            String[] faxNumbers, String[] senderEmails, String[] inboxQueues, int idx) {
+        if (providerType != FaxConfig.ProviderType.RINGCENTRAL
+                && (faxUsers == null || idx >= faxUsers.length || StringUtils.isBlank(faxUsers[idx]))) {
             throw new IllegalArgumentException("Fax user is required for account row " + (idx + 1) + ".");
         }
         if (faxNumbers == null || idx >= faxNumbers.length || StringUtils.isBlank(faxNumbers[idx])) {
@@ -426,25 +544,178 @@ public class ConfigureFax2Action extends ActionSupport {
         if (inboxQueues == null || idx >= inboxQueues.length || StringUtils.isBlank(inboxQueues[idx])) {
             throw new IllegalArgumentException("Inbox queue is required for account row " + (idx + 1) + ".");
         }
-
         try {
             Integer.parseInt(inboxQueues[idx]);
         } catch (NumberFormatException ex) {
             throw new IllegalArgumentException("Inbox queue must be a numeric value for account row " + (idx + 1) + ".");
         }
-
         // Basic format check to give immediate, actionable feedback in admin UX.
         if (!senderEmails[idx].contains("@")) {
             throw new IllegalArgumentException("Sender email must be valid for account row " + (idx + 1) + ".");
         }
+    }
 
-        if (providerType == FaxConfig.ProviderType.SRFAX) {
-            boolean missingPassword = faxPasswds == null || idx >= faxPasswds.length || StringUtils.isBlank(faxPasswds[idx]);
-            boolean isNewConfigRow = faxConfigId == null || faxConfigId <= 0;
-            if (isNewConfigRow && missingPassword) {
-                throw new IllegalArgumentException("SRFax password is required for new SRFax account row " + (idx + 1) + ".");
+    private static void validateMiddlewareRow(String faxUrl, String siteUser, String sitePasswd, int idx,
+            FaxConfig savedFaxConfig) {
+        if (StringUtils.isBlank(faxUrl)) {
+            throw new IllegalArgumentException("Middleware relay URL is required for Middleware mode.");
+        }
+        if (StringUtils.isBlank(siteUser)) {
+            throw new IllegalArgumentException("Middleware server username is required for Middleware mode.");
+        }
+        // Site password contract: required on create. On update, the form may submit either the
+        // mask sentinel (preserve stored value) or a real new value. Treating a blank update as
+        // "clear the password" would let admins silently land an invalid row that the entity-level
+        // @PrePersist check would reject with only a generic "save failed" UI error.
+        boolean isNewConfig = savedFaxConfig == null;
+        if (isNewConfig && StringUtils.isBlank(sitePasswd)) {
+            throw new IllegalArgumentException("Middleware site password is required for new Middleware accounts.");
+        }
+        if (!isNewConfig && sitePasswd != null && !isPasswordUnchanged(sitePasswd) && StringUtils.isBlank(sitePasswd)) {
+            throw new IllegalArgumentException("Middleware site password cannot be cleared. Submit the masked value to keep the existing password, or enter a new one.");
+        }
+    }
+
+    private static void validateSrfaxRow(String[] faxPasswds, int idx, FaxConfig savedFaxConfig) {
+        boolean isNewConfigRow = savedFaxConfig == null;
+        boolean missingPassword = faxPasswds == null || idx >= faxPasswds.length || StringUtils.isBlank(faxPasswds[idx]);
+        if (isNewConfigRow && missingPassword) {
+            throw new IllegalArgumentException("SRFax password is required for new SRFax account row " + (idx + 1) + ".");
+        }
+        // Same blank-on-update guard as Middleware: don't let admins inadvertently clear the
+        // stored password — the entity-level invariant would reject the save with a generic
+        // error. Submitting the mask sentinel signals "preserve stored value".
+        if (!isNewConfigRow && faxPasswds != null && idx < faxPasswds.length
+                && faxPasswds[idx] != null && !isPasswordUnchanged(faxPasswds[idx])
+                && StringUtils.isBlank(faxPasswds[idx])) {
+            throw new IllegalArgumentException("SRFax password cannot be cleared for row " + (idx + 1)
+                    + ". Submit the masked value to keep the existing password, or enter a new one.");
+        }
+    }
+
+    private static void validateRingCentralRow(String[] rcClientIds, String[] rcClientSecrets,
+            String[] rcJwtTokens, int idx, FaxConfig savedFaxConfig) {
+        boolean isNewConfigRow = savedFaxConfig == null;
+        if (rcClientIds == null || idx >= rcClientIds.length || StringUtils.isBlank(rcClientIds[idx])) {
+            throw new IllegalArgumentException("RingCentral client ID is required for account row " + (idx + 1) + ".");
+        }
+        boolean clientIdChanged = isRingCentralClientIdChanged(rcClientIds, idx, savedFaxConfig);
+        validateRingCentralSecretField(rcClientSecrets, idx, isNewConfigRow, clientIdChanged,
+                "RingCentral client secret");
+        validateRingCentralSecretField(rcJwtTokens, idx, isNewConfigRow, clientIdChanged,
+                "RingCentral JWT token");
+    }
+
+    /**
+     * Enforces the same submit/sentinel/blank semantics for RingCentral secret fields:
+     * required on create or when the client ID rotates, otherwise the operator must submit the
+     * mask sentinel to keep the stored value or a non-blank new value to replace it. A blank
+     * submission on an existing row would silently overwrite the encrypted secret with "" and
+     * surface only as a generic save failure when @PrePersist later rejects the row.
+     */
+    private static void validateRingCentralSecretField(String[] values, int idx, boolean isNewConfigRow,
+            boolean clientIdChanged, String fieldLabel) {
+        boolean missing = values == null || idx >= values.length || StringUtils.isBlank(values[idx]);
+        boolean unchanged = !missing && isPasswordUnchanged(values[idx]);
+        // New rows must supply real credentials, never the mask sentinel — there's nothing
+        // stored to "preserve". Without this check, a new row would persist the literal
+        // "**********" string and only fail at @PrePersist with an opaque error.
+        if (isNewConfigRow && (missing || unchanged)) {
+            throw new IllegalArgumentException(fieldLabel
+                    + " is required when creating a RingCentral account for row " + (idx + 1) + ".");
+        }
+        // Client-ID rotation invalidates any stored secret/JWT pair, so the operator must enter
+        // fresh values; the mask sentinel is meaningless because the stored value can no longer
+        // be trusted.
+        if (clientIdChanged && (missing || unchanged)) {
+            throw new IllegalArgumentException(fieldLabel
+                    + " is required when changing the client ID for row " + (idx + 1) + ".");
+        }
+        // Update path: a blank submission that isn't the mask sentinel would clear the stored
+        // value and break auth on the next call. Force the operator to choose explicitly.
+        if (!isNewConfigRow && !clientIdChanged && values != null && idx < values.length
+                && values[idx] != null && !isPasswordUnchanged(values[idx])
+                && StringUtils.isBlank(values[idx])) {
+            throw new IllegalArgumentException(fieldLabel + " cannot be cleared for row " + (idx + 1)
+                    + ". Submit the masked value to keep the existing credential, or enter a new one.");
+        }
+    }
+
+    private Map<Integer, FaxConfig> indexById(List<FaxConfig> savedFaxConfigList) {
+        Map<Integer, FaxConfig> configsById = new HashMap<>();
+        for (FaxConfig savedFaxConfig : savedFaxConfigList) {
+            if (savedFaxConfig.getId() != null) {
+                configsById.put(savedFaxConfig.getId(), savedFaxConfig);
             }
         }
+        return configsById;
+    }
+
+    private FaxConfig findSavedConfig(Map<Integer, FaxConfig> savedFaxConfigsById, Integer id) {
+        if (id == null) {
+            return null;
+        }
+        return savedFaxConfigsById.get(id);
+    }
+
+    static boolean isRingCentralClientIdChanged(String[] rcClientIds, int idx, FaxConfig savedFaxConfig) {
+        return savedFaxConfig != null
+                && !StringUtils.equals(StringUtils.trimToEmpty(valueAt(rcClientIds, idx)),
+                        StringUtils.trimToEmpty(savedFaxConfig.getRingCentralClientId()));
+    }
+
+    /**
+     * Applies RingCentral-specific account fields and clears secret request arrays after use.
+     *
+     * <p>The submitted secret/JWT array entries are set to null after processing as a best-effort
+     * reduction of plaintext credential lifetime in memory. Servlet request parameters are Strings,
+     * so they cannot be zeroed like char arrays and remain subject to garbage collection.</p>
+     */
+    static void applyRingCentralFields(FaxConfig faxConfig, FaxConfig.ProviderType providerType, String[] rcClientIds, String[] rcClientSecrets,
+            String[] rcJwtTokens, String[] rcAccountIds, String[] rcExtensionIds, int idx) {
+        if (providerType != FaxConfig.ProviderType.RINGCENTRAL) {
+            boolean hadCredentials = StringUtils.isNotBlank(faxConfig.getRingCentralClientId());
+            faxConfig.setRingCentralClientId("");
+            faxConfig.setRingCentralClientSecret("");
+            faxConfig.setRingCentralJwtToken("");
+            faxConfig.setRingCentralAccountId("");
+            faxConfig.setRingCentralExtensionId("");
+            if (hadCredentials) {
+                // Credential clears can be unintentional (admin toggling provider for a quick test);
+                // log so the audit trail shows when stored OAuth credentials were wiped. faxConfig
+                // id is an internal surrogate, not PHI.
+                MiscUtils.getLogger().info(
+                        "Cleared RingCentral credentials for FaxConfig id={} due to provider switch to {}",
+                        faxConfig.getId(), providerType);
+            }
+            clearRingCentralSecretInputs(rcClientSecrets, rcJwtTokens, idx);
+            return;
+        }
+        faxConfig.setRingCentralClientId(valueAt(rcClientIds, idx));
+        faxConfig.setRingCentralAccountId(valueAt(rcAccountIds, idx));
+        faxConfig.setRingCentralExtensionId(valueAt(rcExtensionIds, idx));
+        String clientSecret = valueAt(rcClientSecrets, idx);
+        if (clientSecret != null && !isPasswordUnchanged(clientSecret)) {
+            faxConfig.setRingCentralClientSecret(clientSecret.trim());
+        }
+        String jwtToken = valueAt(rcJwtTokens, idx);
+        if (jwtToken != null && !isPasswordUnchanged(jwtToken)) {
+            faxConfig.setRingCentralJwtToken(jwtToken.trim());
+        }
+        clearRingCentralSecretInputs(rcClientSecrets, rcJwtTokens, idx);
+    }
+
+    private static void clearRingCentralSecretInputs(String[] rcClientSecrets, String[] rcJwtTokens, int idx) {
+        if (rcClientSecrets != null && idx < rcClientSecrets.length) {
+            rcClientSecrets[idx] = null;
+        }
+        if (rcJwtTokens != null && idx < rcJwtTokens.length) {
+            rcJwtTokens[idx] = null;
+        }
+    }
+
+    private static String valueAt(String[] values, int idx) {
+        return values != null && idx < values.length ? values[idx] : "";
     }
 
     /**

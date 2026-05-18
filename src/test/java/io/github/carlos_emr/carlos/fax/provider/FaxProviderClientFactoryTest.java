@@ -69,16 +69,17 @@ class FaxProviderClientFactoryTest extends CarlosUnitTestBase {
         // Given
         FaxProviderClient middlewareClient = new TestClient(FaxConfig.ProviderType.MIDDLEWARE);
         FaxProviderClient srfaxClient = new TestClient(FaxConfig.ProviderType.SRFAX);
-        FaxProviderClientFactory factory = new FaxProviderClientFactory(Arrays.asList(middlewareClient, srfaxClient));
+        FaxProviderClient ringCentralClient = new TestClient(FaxConfig.ProviderType.RINGCENTRAL);
+        FaxProviderClientFactory factory = new FaxProviderClientFactory(Arrays.asList(middlewareClient, srfaxClient, ringCentralClient));
 
         FaxConfig faxConfig = new FaxConfig();
-        faxConfig.setProviderType(FaxConfig.ProviderType.SRFAX);
+        faxConfig.setProviderType(FaxConfig.ProviderType.RINGCENTRAL);
 
         // When
         FaxProviderClient result = factory.getClient(faxConfig);
 
         // Then
-        assertThat(result).isSameAs(srfaxClient);
+        assertThat(result).isSameAs(ringCentralClient);
     }
 
     @Test
