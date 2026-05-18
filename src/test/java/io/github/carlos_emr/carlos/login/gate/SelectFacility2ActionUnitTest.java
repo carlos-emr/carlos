@@ -153,6 +153,7 @@ class SelectFacility2ActionUnitTest extends CarlosUnitTestBase {
         facility.setId(10);
         request.addParameter(Login2Action.SELECTED_FACILITY_ID, "10");
         request.addParameter("nextPage", "provider");
+        request.getSession(false).setAttribute(SessionConstants.PENDING_FACILITY_SELECTION, Boolean.TRUE);
         when(providerDao.getFacilityIds("999998")).thenReturn(List.of(10, 11));
         when(facilityDao.find(10)).thenReturn(facility);
 
@@ -161,6 +162,7 @@ class SelectFacility2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(result).isEqualTo("provider");
         assertThat(request.getSession(false).getAttribute(SessionConstants.CURRENT_FACILITY))
                 .isSameAs(facility);
+        assertThat(request.getSession(false).getAttribute(SessionConstants.PENDING_FACILITY_SELECTION)).isNull();
         assertThat(LoggedInInfo.getLoggedInInfoFromSession(request.getSession(false))).isNotNull();
         logActionMock.verify(() -> LogAction.addLog("999998", "log in", "login",
                 "facilityId=10", request.getRemoteAddr()));

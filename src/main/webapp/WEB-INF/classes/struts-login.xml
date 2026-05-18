@@ -84,6 +84,15 @@
             <result name="programLocation">/WEB-INF/jsp/login/location.jsp</result>
             <result name="mfaHandler">/WEB-INF/jsp/mfa/mfa_handler.jsp</result>
         </action>
+        <action name="mfa/loginMfa" class="io.github.carlos_emr.carlos.login.Login2Action">
+            <result name="provider" type="redirect">/provider/providercontrol</result>
+            <result name="failure">/WEB-INF/jsp/login/logout.jsp</result>
+            <result name="error">/WEB-INF/jsp/login/loginfailed.jsp</result>
+            <result name="caisiPMM">/PMmodule/ProviderInfo</result>
+            <result name="forcepasswordreset">/WEB-INF/jsp/login/forcepasswordreset.jsp</result>
+            <result name="programLocation">/WEB-INF/jsp/login/location.jsp</result>
+            <result name="mfaHandler">/WEB-INF/jsp/mfa/mfa_handler.jsp</result>
+        </action>
         <action name="securityRecord/mfa" class="io.github.carlos_emr.carlos.security.MfaActions2Action"/>
 
         <action name="admin/uploadEntryText" class="io.github.carlos_emr.carlos.login.UploadLoginText2Action">

@@ -49,6 +49,7 @@ import jakarta.servlet.http.HttpSession;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SessionConstants;
 
 import io.github.carlos_emr.CarlosProperties;
 
@@ -416,6 +417,14 @@ public class LoginFilter implements Filter {
             }
         }
 
+        if (requiresFacilitySelection(session) && !isFacilitySelectionAllowed(requestURI, contextPath)) {
+            logger.warn("Rejected authenticated route before facility selection: uri={}, user={}",
+                    LogSafe.sanitizeUri(httpRequest.getRequestURI()),
+                    LogSafe.sanitize(String.valueOf(session.getAttribute("user"))));
+            httpResponse.sendRedirect(contextPath + "/select_facility");
+            return;
+        }
+
 
         // Continue filter chain processing
         logger.debug("LoginFilter chainning");
@@ -535,6 +544,21 @@ public class LoginFilter implements Filter {
         }
 
         return requestURI.equals(contextPath) || requestURI.equals(contextPath + "/");
+    }
+
+    private boolean requiresFacilitySelection(HttpSession session) {
+        return session != null
+                && session.getAttribute("user") != null
+                && Boolean.TRUE.equals(session.getAttribute(SessionConstants.PENDING_FACILITY_SELECTION));
+    }
+
+    private boolean isFacilitySelectionAllowed(String requestURI, String contextPath) {
+        String normalizedUri = normalizeUri(requestURI);
+        String selectFacilityPath = contextPath + "/select_facility";
+        return normalizedUri.equals(selectFacilityPath)
+                || normalizedUri.equals(contextPath + "/logout")
+                || normalizedUri.equals(contextPath + "/logoutPage")
+                || inListOfExemptions(normalizedUri, contextPath, EXEMPT_URLS);
     }
 
     /**

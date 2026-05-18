@@ -146,11 +146,11 @@ public final class Login2Action extends ActionSupport {
      * and must select which facility context to work in. The selected facility ID
      * is passed as a request parameter using this key.
      *
-     * @see #execute() for facility selection logic
+     * @see io.github.carlos_emr.carlos.login.gate.SelectFacility2Action for the CSRF-protected
+     *      facility selection POST flow
      */
     public static final String SELECTED_FACILITY_ID = "selectedFacilityId";
 
-    /** Logger instance for authentication events and errors */
     private static final Logger logger = MiscUtils.getLogger();
 
     /**
@@ -161,11 +161,17 @@ public final class Login2Action extends ActionSupport {
      * and runbooks are migrated at the same time.</p>
      */
     private static final String LOG_PRE = "Login!@#$: ";
+    /** Default for {@code password_min_length} when the property is absent or malformed. */
     private static final int DEFAULT_POLICY_MIN_LENGTH = 8;
+    /** Default for {@code password_min_groups} when the property is absent or malformed. */
     private static final int DEFAULT_POLICY_MIN_GROUPS = 3;
+    /** Default for {@code password_group_lower_chars} when the property is absent. */
     private static final String DEFAULT_POLICY_LOWER_CHARS = "abcdefghijklmnopqrstuvwxyz";
+    /** Default for {@code password_group_upper_chars} when the property is absent. */
     private static final String DEFAULT_POLICY_UPPER_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    /** Default for {@code password_group_digits} when the property is absent. */
     private static final String DEFAULT_POLICY_DIGIT_CHARS = "0123456789";
+    /** Default for {@code password_group_special} when the property is absent. */
     private static final String DEFAULT_POLICY_SPECIAL_CHARS = "! @#$%^&*()_+|~-=`{}[]\\:\";'<>?,./";
 
     /**
@@ -311,10 +317,10 @@ public final class Login2Action extends ActionSupport {
      */
     public String execute() throws ServletException, IOException {
 
-        // >> 1. Initial Checks and Mobile Detection
-        // SECURITY: Reject GET requests to prevent credential exposure in URLs/logs
         if (!"POST".equals(request.getMethod())) {
-            MiscUtils.getLogger().error("Someone is trying to login with a GET request.", new Exception());
+            MiscUtils.getLogger().info("Rejected non-POST login request: method={}, remote={}, uri={}",
+                    LogSafe.sanitize(request.getMethod()), LogSafe.sanitize(request.getRemoteAddr()),
+                    LogSafe.sanitizeUri(request.getRequestURI()));
             String newURL = loginFailedRedirectUrl(message("login.errorApplicationError"));
             response.sendRedirect(newURL);
             return NONE;
@@ -356,15 +362,10 @@ public final class Login2Action extends ActionSupport {
         String nextPage = "";
         boolean forcedpasswordchange = true;
 
-        // >> 2. Forced Password Change Handling
+        // Forced password reset submit path.
         if (request.getParameter("forcedpasswordchange") != null
                 && request.getParameter("forcedpasswordchange").equalsIgnoreCase("true")) {
-            // Coming back from force password change. Credentials are held in the
-            // server-side LoginCredentialCache, referenced by an opaque token in the
-            // session (the credentials themselves are NEVER placed in the session).
-            // Retryable validation failures use peek() so the user can correct the
-            // form. Once all validation passes, consume() below makes the terminal
-            // submit single-use before the password is persisted.
+            // Credentials remain server-side; the session carries only the opaque cache token.
             HttpSession pendingResetSession = request.getSession(false);
             Object credsTokenAttr = pendingResetSession == null
                     ? null
@@ -372,9 +373,7 @@ public final class Login2Action extends ActionSupport {
             String credsToken = credsTokenAttr instanceof String ? (String) credsTokenAttr : null;
             LoginCredentialCache.LoginCredentials cached = LoginCredentialCache.getInstance().peek(credsToken);
             if (cached == null) {
-                // Token missing or expired (>5 min, or already consumed). Treat as a
-                // session-timeout and send the user back to the login screen rather than
-                // proceeding with empty credentials.
+                // Expired, missing, or consumed token means no staged credentials remain.
                 logger.info("Forced password reset submitted without valid credential-cache token; redirecting to login");
                 removeAttributesFromSession(request);
                 response.sendRedirect(loginFailedRedirectUrl(message("provider.providerchangepassword.errorSessionExpired")));
@@ -397,7 +396,7 @@ public final class Login2Action extends ActionSupport {
                 pin = "";
             }
             nextPage = cached.getNextPage();
-            // Validate nextPage retrieved from cache to prevent open redirect (CWE-601 defense in depth)
+            // Validate cached nextPage as defense in depth against open redirects.
             if (!RedirectValidationUtils.isValidRelativeRedirect(nextPage)) {
                 if (nextPage != null) {
                     logger.warn("Rejected invalid nextPage from credential cache: {}", LogSafe.sanitize(nextPage));
@@ -411,9 +410,7 @@ public final class Login2Action extends ActionSupport {
 
             String errorStr = errorHandling(userName, password, newPassword, confirmPassword, oldPassword);
 
-            // Keep the token alive only for retryable validation failures. This preserves
-            // normal form correction while still allowing the success path to consume the
-            // token atomically before persistence.
+            // Retryable validation failures keep the token; terminal submits consume it.
             if (errorStr != null && !errorStr.isEmpty()) {
                 return redirectForcePasswordResetRetry(errorStr);
             }
@@ -432,8 +429,13 @@ public final class Login2Action extends ActionSupport {
                 persistNewPassword(userName, newPassword);
             } catch (RuntimeException e) {
                 logger.error("Forced password reset failed before password persistence completed", e);
-                auditForcedPasswordResetFailure(userName, "persistence_failure");
-                removeAttributesFromSession(request);
+                try {
+                    auditForcedPasswordResetFailure(userName, "persistence_failure");
+                    removeAttributesFromSession(request);
+                } catch (RuntimeException secondary) {
+                    logger.error("Unable to cleanly report forced password reset persistence failure: user={}",
+                            LogSafe.sanitize(userName), secondary);
+                }
                 response.sendRedirect(loginFailedRedirectUrl(message("login.errorResetPersistence")));
                 return NONE;
             }
@@ -445,13 +447,23 @@ public final class Login2Action extends ActionSupport {
             } catch (IllegalStateException | UnsupportedOperationException cleanupFailure) {
                 logger.warn("Forced password reset persisted, but session cleanup failed with {}; continuing login flow",
                         cleanupFailure.getClass().getName(), cleanupFailure);
+                try {
+                    auditForcedPasswordResetCompletion(userName, "cleanup_failure_relogin");
+                } catch (RuntimeException auditFailure) {
+                    logger.error("Unable to audit forced password reset cleanup failure: user={}",
+                            LogSafe.sanitize(userName), auditFailure);
+                }
+                HttpSession session = request.getSession(false);
+                if (session != null) {
+                    session.invalidate();
+                }
             }
 
             // make sure this checking doesn't happen again
             forcedpasswordchange = false;
 
         } else {
-            // >> 3. Standard Login Attempt
+            // Standard login attempt.
             userName = this.getUsername();
 
             // Username is only letters and numbers
@@ -468,7 +480,8 @@ public final class Login2Action extends ActionSupport {
             nextPage = request.getParameter("nextPage");
 
             logger.debug("nextPage: {}", LogSafe.sanitize(nextPage));
-            if (nextPage != null) {
+            // Empty hidden nextPage fields are absent; facility choices post to /select_facility.
+            if (nextPage != null && !nextPage.isEmpty()) {
                 logger.warn("Rejected facility selection on CSRF-exempt login route: user={}, nextPage={}",
                         LogSafe.sanitize(userName), LogSafe.sanitize(nextPage));
                 LogAction.addLog(userName, LogConst.LOGIN, LogConst.CON_LOGIN,
@@ -479,8 +492,6 @@ public final class Login2Action extends ActionSupport {
 
             if (cl.isBlock(ip, userName)) {
                 logger.info("{} Blocked: {}", LOG_PRE, LogSafe.sanitize(userName));
-                // return mapping.findForward(where); //go to block page
-                // change to block page
                 String lockedMessage = message("login.errorAccountLocked");
                 String newURL = loginFailedRedirectUrl(lockedMessage);
 
@@ -500,10 +511,7 @@ public final class Login2Action extends ActionSupport {
             logger.debug("ip was not blocked: {}", LogSafe.sanitize(ip));
         }
 
-        // >> 4. Authentication
-        /*
-         * THIS IS THE GATEWAY.
-         */
+        // Credential provider authentication boundary.
         String[] strAuth;
         try {
             strAuth = cl.auth(userName, password, pin, ip);
@@ -529,7 +537,7 @@ public final class Login2Action extends ActionSupport {
         
         logger.debug("strAuth : {}", LogSafe.sanitize(Arrays.toString(strAuth)));
         
-        // >> 5. Successful Login Handling
+        // Successful login handling.
         if (strAuth != null && strAuth.length != 1) { // login successfully
 
             // is the providers record inactive?
@@ -582,7 +590,7 @@ public final class Login2Action extends ActionSupport {
             return completeAuthenticatedLogin(security, strAuth, ip, isMobileOptimized, submitType, ajaxResponse);
 
         }
-        // >> 6. Authentication Failure Handling
+        // Authentication failure handling.
         // expired password
         else if (strAuth != null && strAuth.length == 1 && strAuth[0].equals("expired")) {
             logger.warn("Expired password: user={}, remote={}",
@@ -748,8 +756,9 @@ public final class Login2Action extends ActionSupport {
             return NONE;
         }
 
+        boolean registrationChallenge = challenge.registrationSecret() != null;
         String mfaSecret;
-        if (this.mfaRegistrationFlow) {
+        if (registrationChallenge) {
             mfaSecret = challenge.registrationSecret();
             if (mfaSecret == null || mfaSecret.isEmpty()) {
                 logger.warn("Rejected MFA registration submit without a staged secret: providerNo={}, securityId={}, remote={}",
@@ -800,7 +809,7 @@ public final class Login2Action extends ActionSupport {
                 clearPendingMfaSession(session);
                 return loginFailureResult(message("login.errorUnableToProcess"));
             }
-            if (this.mfaRegistrationFlow) {
+            if (registrationChallenge) {
                 request.setAttribute("mfaRegistrationRequired", true);
                 request.setAttribute("qrData", this.mfaManager.getQRCodeImageData(security.getId(), mfaSecret));
             }
@@ -819,12 +828,13 @@ public final class Login2Action extends ActionSupport {
             return NONE;
         }
         strAuth = terminalChallenge.authResult();
-        if (this.mfaRegistrationFlow) {
+        registrationChallenge = terminalChallenge.registrationSecret() != null;
+        if (registrationChallenge) {
             mfaSecret = terminalChallenge.registrationSecret();
         }
 
         LogAction.addLog(security.getProviderNo(), "login", "mfa_success", "mfa", ip);
-        if (this.mfaRegistrationFlow) {
+        if (registrationChallenge) {
             try {
                 this.mfaManager.saveMfaSecret(buildLoggedInInfoForPendingMfa(session, strAuth, security), security, mfaSecret);
             } catch (Exception e) {
@@ -992,6 +1002,7 @@ public final class Login2Action extends ActionSupport {
 
         String alertFreq = properties.getProperty("ALERT_POLL_FREQUENCY");
         if (alertFreq == null || alertFreq.trim().isEmpty()) {
+            logger.info("Skipping BC alert timer setup because ALERT_POLL_FREQUENCY is not configured");
             return;
         }
 
@@ -1129,11 +1140,10 @@ public final class Login2Action extends ActionSupport {
 
         startBcAlertTimerIfConfigured(pvar);
 
-        String username = (String) session.getAttribute("user");
-        Provider provider = providerManager.getProvider(username);
+        Provider provider = providerManager.getProvider(providerNo);
         if (provider == null) {
             logger.error("Authenticated login could not load provider record: providerNo={}, remote={}",
-                    LogSafe.sanitize(username), LogSafe.sanitize(ip));
+                    LogSafe.sanitize(providerNo), LogSafe.sanitize(ip));
             session.invalidate();
             return loginFailureResult(message("login.errorUnableToProcess"));
         }
@@ -1143,6 +1153,7 @@ public final class Login2Action extends ActionSupport {
 
         List<Integer> facilityIds = providerDao.getFacilityIds(provider.getProviderNo());
         if (facilityIds.size() > 1) {
+            session.setAttribute(SessionConstants.PENDING_FACILITY_SELECTION, Boolean.TRUE);
             String facilityPath = "/select_facility?nextPage=";
             String newURL = request.getContextPath() + facilityPath + SafeEncode.forUriComponent(where);
 
@@ -1151,6 +1162,7 @@ public final class Login2Action extends ActionSupport {
         } else if (facilityIds.size() == 1) {
             Facility facility = facilityDao.find(facilityIds.get(0));
             request.getSession().setAttribute("currentFacility", facility); // nosemgrep: tainted-session-from-http-request -- facility entity is DAO-loaded by authorized facility id
+            session.removeAttribute(SessionConstants.PENDING_FACILITY_SELECTION);
             LogAction.addLog(strAuth[0], LogConst.LOGIN, LogConst.CON_LOGIN, "facilityId=" + facilityIds.get(0),
                     ip);
         } else {
@@ -1161,6 +1173,7 @@ public final class Login2Action extends ActionSupport {
                 providerDao.addProviderToFacility(providerNo, first_id);
                 Facility facility = facilityDao.find(first_id);
                 request.getSession().setAttribute("currentFacility", facility); // nosemgrep: tainted-session-from-http-request -- fallback facility entity is DAO-loaded from active facility list
+                session.removeAttribute(SessionConstants.PENDING_FACILITY_SELECTION);
                 LogAction.addLog(strAuth[0], LogConst.LOGIN, LogConst.CON_LOGIN, "facilityId=" + first_id, ip);
             }
         }
@@ -1279,19 +1292,23 @@ public final class Login2Action extends ActionSupport {
      * using the current request locale, then falling back to English, then to a hardcoded generic
      * message if even the English bundle is missing the requested key.
      *
+     * <p>A null request is tolerated for static helper call sites and uses English directly.</p>
+     *
      * @param request servlet request carrying the active locale
      * @param key resource bundle key to resolve
      * @return localized resource bundle message
      */
     public static String message(HttpServletRequest request, String key) {
+        Locale locale = request == null ? Locale.ENGLISH : request.getLocale();
         try {
-            return ResourceBundle.getBundle("oscarResources", request.getLocale()).getString(key);
+            return ResourceBundle.getBundle("oscarResources", locale).getString(key);
         } catch (MissingResourceException e) {
-            logger.warn("Missing localized message for key: {}", key);
+            logger.warn("Missing localized message: bundle=oscarResources locale={} key={}", locale, key);
             try {
                 return ResourceBundle.getBundle("oscarResources", Locale.ENGLISH).getString(key);
             } catch (MissingResourceException fallbackException) {
-                logger.warn("Missing default message for key: {}", key);
+                logger.error("Missing default message: bundle=oscarResources locale={} key={}",
+                        Locale.ENGLISH, key, fallbackException);
                 return "Unable to process your request. Please try again.";
             }
         }
@@ -1428,11 +1445,16 @@ public final class Login2Action extends ActionSupport {
 
         // Invalidate any previously issued token on this session before minting a new one,
         // so that stale cache entries do not outlive the current login attempt.
-        HttpSession session = request.getSession();
-        Object existingToken = session.getAttribute(LOGIN_CREDENTIALS_TOKEN_ATTR);
+        HttpSession session = request.getSession(false);
+        Object existingToken = session == null ? null : session.getAttribute(LOGIN_CREDENTIALS_TOKEN_ATTR);
         if (existingToken instanceof String) {
             LoginCredentialCache.getInstance().invalidate((String) existingToken);
         }
+        if (session != null) {
+            session.invalidate();
+        }
+        session = request.getSession();
+        session.setMaxInactiveInterval(300);
 
         String token = LoginCredentialCache.getInstance().store(credentials);
         // Use an opaque random token, not user-controlled; no credential material in session
@@ -1520,6 +1542,18 @@ public final class Login2Action extends ActionSupport {
         logger.info("Forced password reset rejected: user={}, reason={}",
                 LogSafe.sanitize(userName), auditReason);
         LogAction.addLog(userName, "login", "forced_password_reset_failed", auditReason);
+    }
+
+    /**
+     * Records forced password-reset completion events that need a forensic marker.
+     *
+     * @param userName provider login name associated with the staged reset attempt
+     * @param auditReason stable symbolic completion condition
+     */
+    private void auditForcedPasswordResetCompletion(String userName, String auditReason) {
+        logger.info("Forced password reset completed with follow-up action: user={}, reason={}",
+                LogSafe.sanitize(userName), auditReason);
+        LogAction.addLog(userName, "login", "forced_password_reset_completed", auditReason);
     }
 
     /**
@@ -1692,15 +1726,6 @@ public final class Login2Action extends ActionSupport {
      * caller has already validated the old password, confirmation match, reuse rule, complexity
      * policy, CSRF token, and credential-cache token. Do not call this helper directly from a new
      * endpoint without preserving those gates.
-     *
-     * <p>Steps performed:
-     * <ol>
-     *   <li>Retrieve the user's Security record via {@link #getSecurity}</li>
-     *   <li>Encode the new password using {@link SecurityManager#encodePassword}</li>
-     *   <li>Update the password field in the Security record</li>
-     *   <li>Clear the forcePasswordReset flag</li>
-     *   <li>Persist changes to the database</li>
-     * </ol>
      *
      * @param userName String the username of the account to update
      * @param newPassword String the new plain-text password (will be encoded before storage)
@@ -1933,21 +1958,21 @@ public final class Login2Action extends ActionSupport {
     }
 
     /**
-     * Checks if this is an MFA registration flow.
+     * Returns the request's MFA registration hint.
      *
-     * @return boolean true if registering MFA for first time, false if validating existing MFA
+     * @return request hint only; server-side challenge state decides registration behavior
      */
     public boolean isMfaRegistrationFlow() {
         return mfaRegistrationFlow;
     }
 
     /**
-     * Sets whether this is an MFA registration flow.
+     * Sets the request's MFA registration hint.
      *
-     * <p>Struts2 automatically calls this method to populate the mfaRegistrationFlow field
-     * from the "mfaRegistrationFlow" request parameter.
+     * <p>Struts2 populates this from the form, but validation derives registration mode from the
+     * server-side pending challenge so clients cannot choose the security branch.</p>
      *
-     * @param mfaRegistrationFlow boolean true for MFA registration, false for standard MFA validation
+     * @param mfaRegistrationFlow boolean request hint from the MFA form
      */
     @StrutsParameter
     public void setMfaRegistrationFlow(boolean mfaRegistrationFlow) {

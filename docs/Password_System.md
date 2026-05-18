@@ -73,7 +73,7 @@ VALUES (129, 'legacy_user', '-51-282443-97-5-9410489-60-1021-45-127-12435464-32'
 ### Password Validation Flow
 
 ```java
-// Authentication process
+// Illustrative authentication process. See SecurityManager.java for the live implementation.
 public boolean validatePassword(CharSequence rawPassword, Security security) {
     boolean isValid = this.matchesPassword(rawPassword, security.getPassword());
     
@@ -171,12 +171,19 @@ done
 Password policies can be configured in `carlos.properties`:
 
 ```properties
-# Previous passwords to check (prevent reuse)
-password.pastPasswordsToNotUse=5
+# Previous passwords to check (prevent reuse); shipped default is 0
+password.pastPasswordsToNotUse=0
 
-# Password expiration (if enabled)
-password.forcePasswordReset=true
-password.expirationDays=90
+# Server-side forced password reset gate (enabled by default)
+mandatory_password_reset=true
+
+# Forced-reset complexity policy
+password_min_length = 8
+password_min_groups = 3
+password_group_lower_chars = abcdefghijklmnopqrstuvwxyz
+password_group_upper_chars = ABCDEFGHIJKLMNOPQRSTUVWXYZ
+password_group_digits = 0123456789
+password_group_special = \! @\#$%^&*()_+|~-\=\\`{}[]\:";'<>?,./
 ```
 
 ## Default Credentials

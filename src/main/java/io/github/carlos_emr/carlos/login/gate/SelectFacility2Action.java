@@ -37,8 +37,7 @@ import org.apache.struts2.ServletActionContext;
  * Authenticated facility-selection endpoint for providers who belong to multiple facilities.
  *
  * <p>GET/HEAD renders the selector view. POST applies the selected facility after CSRFGuard has
- * validated the request token. Facility selection used to be handled by the CSRF-exempt login
- * endpoint; keeping the state change here avoids a silent cross-facility context switch.</p>
+ * validated the request token, keeping facility changes out of CSRF-exempt login handling.</p>
  *
  * @since 2026-05-17
  */
@@ -114,6 +113,7 @@ public final class SelectFacility2Action extends BaseLoginPageView2Action {
         }
 
         session.setAttribute(SessionConstants.CURRENT_FACILITY, facility); // nosemgrep: tainted-session-from-http-request -- facility entity is DAO-loaded after provider/facility authorization
+        session.removeAttribute(SessionConstants.PENDING_FACILITY_SELECTION);
         LoggedInInfo loggedInInfo = LoggedInUserFilter.generateLoggedInInfoFromSession(request);
         LoggedInInfo.setLoggedInInfoIntoSession(session, loggedInInfo);
         LogAction.addLog(providerNo, LogConst.LOGIN, LogConst.CON_LOGIN,

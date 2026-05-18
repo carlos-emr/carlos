@@ -9,6 +9,12 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -84,6 +90,37 @@ class PendingMfaChallengeCacheUnitTest {
             assertThat(cache.consume(token)).isNull();
             assertThat(cache.peek(token)).isNull();
         } finally {
+            cache.invalidate(token);
+        }
+    }
+
+    @Test
+    @DisplayName("should consume pending challenge once across concurrent submitters")
+    void shouldConsumePendingChallenge_onceAcrossConcurrentSubmitters() throws Exception {
+        PendingMfaChallengeCache cache = PendingMfaChallengeCache.getInstance();
+        String token = cache.store(challenge());
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        CountDownLatch start = new CountDownLatch(1);
+
+        try {
+            Future<PendingMfaChallengeCache.PendingMfaChallenge> first = executor.submit(() -> {
+                start.await();
+                return cache.consume(token);
+            });
+            Future<PendingMfaChallengeCache.PendingMfaChallenge> second = executor.submit(() -> {
+                start.await();
+                return cache.consume(token);
+            });
+
+            start.countDown();
+
+            List<PendingMfaChallengeCache.PendingMfaChallenge> results = Arrays.asList(
+                    first.get(5, TimeUnit.SECONDS),
+                    second.get(5, TimeUnit.SECONDS));
+            assertThat(results).filteredOn(result -> result != null).hasSize(1);
+            assertThat(cache.peek(token)).isNull();
+        } finally {
+            executor.shutdownNow();
             cache.invalidate(token);
         }
     }

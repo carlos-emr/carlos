@@ -284,15 +284,14 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             encoding = "UTF-8";
         }
         try {
-            // Use getWriter() for text responses. Content-Length is not set here — the byte
-            // count from content.getBytes(encoding) may differ from what the writer sends if
-            // the response encoding changes, causing client-side truncation from a mismatched
-            // header. The container computes the correct length via chunked transfer encoding.
+            // Use getWriter() for text responses. Content-Length is not set here because
+            // the byte count from content.getBytes(encoding) may differ from what the writer
+            // sends if the response encoding changes. The container should own the final length.
             response.getWriter().write(content); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer, java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss, java.servlets.security.servletresponse-writer-xss-deepsemgrep.servletresponse-writer-xss-deepsemgrep -- trusted CSRF framework content
             response.getWriter().flush();
         } catch (IllegalStateException e) {
-            // getWriter() failed because getOutputStream() was already called — use byte stream.
-            // Content-Length is safe here since we write the exact same bytes array.
+            // getWriter() failed because getOutputStream() was already called. This fallback
+            // writes the exact byte array, so Content-Length is safe here.
             byte[] bytes = content.getBytes(encoding);
             response.setContentLength(bytes.length);
             response.getOutputStream().write(bytes); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- trusted CSRF framework content
@@ -398,6 +397,42 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             }
             // Mode not yet determined — defer until getOutputStream() or getWriter() is called
             deferredContentLengthLong = len;
+        }
+
+        @Override
+        public void setHeader(String name, String value) {
+            if (isContentLengthHeader(name)) {
+                deferContentLengthHeader(value);
+                return;
+            }
+            super.setHeader(name, value);
+        }
+
+        @Override
+        public void addHeader(String name, String value) {
+            if (isContentLengthHeader(name)) {
+                deferContentLengthHeader(value);
+                return;
+            }
+            super.addHeader(name, value);
+        }
+
+        @Override
+        public void setIntHeader(String name, int value) {
+            if (isContentLengthHeader(name)) {
+                setContentLength(value);
+                return;
+            }
+            super.setIntHeader(name, value);
+        }
+
+        @Override
+        public void addIntHeader(String name, int value) {
+            if (isContentLengthHeader(name)) {
+                setContentLength(value);
+                return;
+            }
+            super.addIntHeader(name, value);
         }
 
         @Override
@@ -560,6 +595,19 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
                 super.setContentLengthLong(deferredContentLengthLong);
                 deferredContentLengthLong = null;
             }
+        }
+
+        private void deferContentLengthHeader(String value) {
+            try {
+                setContentLengthLong(Long.parseLong(value));
+            } catch (NumberFormatException e) {
+                LOGGER.warn("Ignoring malformed Content-Length header value during CSRF capture: uri={}, value={}",
+                        requestUri, LogSafe.sanitize(value), e);
+            }
+        }
+
+        private boolean isContentLengthHeader(String name) {
+            return "Content-Length".equalsIgnoreCase(name);
         }
 
         /**

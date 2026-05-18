@@ -50,7 +50,7 @@ CARLOS has three independent session timeout mechanisms:
 - Location: `src/main/java/io/github/carlos_emr/carlos/app/LogoutBroadcastFilter.java`
 - Servlet filter registered in `web.xml` before Struts execution
 - Injects ~1KB inline JavaScript into all authenticated HTML responses
-- Exclusions configured via init-param (excludes `/logoutPage` to prevent self-listening)
+- Exclusions configured via init-param (excludes `/logoutPage` to prevent self-listening and `/status/SessionHeartbeat` so timeout polling stays lightweight)
 - Fast-passes static assets, AJAX requests, and anonymous public pages before wrapping
 - Configures the 1 MB append buffer lazily only after a wrapped response is marked `text/html`
 - Wraps `POST /login` and `POST /forcepasswordresetSubmit` before Struts so the first

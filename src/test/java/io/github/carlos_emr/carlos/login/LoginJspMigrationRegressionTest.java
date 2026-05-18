@@ -83,6 +83,8 @@ class LoginJspMigrationRegressionTest {
             Path.of("src/main/webapp/WEB-INF/jsp/login/3rdpartyLogin.jsp");
     private static final Path MFA_HANDLER_JSP =
             Path.of("src/main/webapp/WEB-INF/jsp/mfa/mfa_handler.jsp");
+    private static final Path MFA_OTP_HANDLER_JSP =
+            Path.of("src/main/webapp/WEB-INF/jsp/mfa/mfa_otp_handler.jsp");
     private static final Path LOGIN_FILTER =
             Path.of("src/main/java/io/github/carlos_emr/carlos/sec/LoginFilter.java");
 
@@ -96,6 +98,7 @@ class LoginJspMigrationRegressionTest {
         assertThat(struts).contains("<action name=\"loginfailed\"");
         assertThat(struts).contains("<action name=\"forcepasswordreset\"");
         assertThat(struts).contains("<action name=\"forcepasswordresetSubmit\"");
+        assertThat(struts).contains("<action name=\"mfa/loginMfa\"");
         assertThat(struts).contains("<action name=\"location\"");
         assertThat(struts).contains("<action name=\"select_facility\"");
         assertThat(struts).contains("<action name=\"securityError\"");
@@ -114,6 +117,23 @@ class LoginJspMigrationRegressionTest {
                 .contains("<result name=\"error\">/WEB-INF/jsp/login/loginfailed.jsp</result>");
         assertThat(struts).doesNotContain("/WEB-INF/jsp/error/WEB-INF/jsp/error/");
         assertThat(struts).doesNotContain("/WEB-INF/jsp/common/WEB-INF/jsp/common/");
+    }
+
+    @Test
+    @DisplayName("MFA submit route should be mapped and CSRF protected")
+    void shouldMapAndProtectMfaSubmitRoute_whenOtpFormPosts() throws IOException {
+        String struts = Files.readString(STRUTS_LOGIN_XML, StandardCharsets.UTF_8);
+        String mfaOtpJsp = Files.readString(MFA_OTP_HANDLER_JSP, StandardCharsets.UTF_8);
+
+        assertThat(struts)
+                .contains("<action name=\"mfa/loginMfa\" class=\"io.github.carlos_emr.carlos.login.Login2Action\">")
+                .contains("<result name=\"mfaHandler\">/WEB-INF/jsp/mfa/mfa_handler.jsp</result>");
+        assertThat(mfaOtpJsp)
+                .contains("action=\"<%= request.getContextPath() %>/mfa/loginMfa\"")
+                .contains("<%@ taglib prefix=\"csrf\"")
+                .contains("name=\"<csrf:tokenname/>\"")
+                .contains("value=\"<csrf:tokenvalue/>\"")
+                .doesNotContain("owasp.encoder.jakarta.advanced");
     }
 
     @Test
@@ -348,7 +368,7 @@ class LoginJspMigrationRegressionTest {
                 .doesNotContain("Your new password, is the same");
         assertThat(countOccurrences(loginAction, "removeAttributesFromSession(request);"))
                 .isGreaterThanOrEqualTo(3);
-        assertThat(countOccurrences(loginAction, "session.removeAttribute(\"userName\")")).isOne();
+        assertThat(loginAction).doesNotContain("session.removeAttribute(\"userName\")");
         assertThat(forcePasswordResetJsp)
                 .contains("action=\"${pageContext.request.contextPath}/forcepasswordresetSubmit\"")
                 .contains("csrf:tokenname")

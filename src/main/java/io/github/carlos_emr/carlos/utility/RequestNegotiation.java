@@ -29,24 +29,18 @@ public final class RequestNegotiation {
         // Utility class.
     }
 
-    /**
-     * @return true when the request uses the conventional CARLOS AJAX marker
-     */
+    /** Detects CARLOS AJAX requests by the conventional {@code X-Requested-With} marker. */
     public static boolean isAjax(HttpServletRequest request) {
         return request != null && AJAX_VALUE.equalsIgnoreCase(request.getHeader(AJAX_HEADER));
     }
 
-    /**
-     * @return true when the response content type is HTML
-     */
+    /** Detects HTML response content types by prefix so charset parameters are accepted. */
     public static boolean isHtmlContentType(String contentType) {
         return contentType != null
                 && contentType.toLowerCase(Locale.ROOT).startsWith(HTML_CONTENT_TYPE);
     }
 
-    /**
-     * @return true when the request explicitly includes the literal JSON media type
-     */
+    /** Detects requests that explicitly include the literal {@code application/json} media type. */
     public static boolean acceptsJson(HttpServletRequest request) {
         String accept = request == null ? null : request.getHeader("Accept");
         return accept != null && accept.toLowerCase(Locale.ROOT).contains(JSON_ACCEPT);

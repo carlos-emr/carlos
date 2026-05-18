@@ -19,7 +19,8 @@ explicitly.
 
 ## Filter Chain Architecture
 
-Four components work together (two custom filters and one servlet registered in `web.xml`, plus one request wrapper instantiated internally by the filter):
+Four components work together: two custom filters and one servlet registered in `web.xml`,
+plus one request wrapper instantiated internally by the validation filter.
 
 ### 1. `CsrfGuardScriptInjectionFilter` (mapped to `/*` for JSP forwards)
 

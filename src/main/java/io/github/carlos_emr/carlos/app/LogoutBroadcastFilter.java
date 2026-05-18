@@ -216,6 +216,7 @@ public class LogoutBroadcastFilter implements Filter {
         }
 
         try {
+            delegatingResponse.discardDeferredContentLength();
             appendScript(delegatingResponse, httpRequest.getContextPath(), httpRequest.getLocale());
         } catch (IOException e) {
             logger.error("Skipping logout broadcast script injection because the script could not be written: uri={}",
@@ -581,15 +582,11 @@ public class LogoutBroadcastFilter implements Filter {
         /**
          * Allows flushes to reach Tomcat while the filter chain executes.
          *
-         * <p>Tomcat 11 forwards depend on normal writer flushing. Commit deferral comes from the
-         * response wrapper's large buffer in the common JSP path; this writer only suppresses
-         * {@link #close()} so the appended script can still be written.</p>
+         * <p>Tomcat 11 forwards depend on normal writer flushing; this writer suppresses only
+         * {@link #close()} so the filter can append after the chain returns.</p>
          */
         @Override
         public void flush() {
-            // Allow flush - Tomcat 11 requires this for Struts RequestDispatcher.forward()
-            // to deliver content. Only close() is suppressed to keep the writer open
-            // for script appending.
             super.flush();
         }
 
@@ -729,20 +726,13 @@ public class LogoutBroadcastFilter implements Filter {
         /**
          * Allows the servlet container to flush its buffer.
          *
-         * <p>Earlier versions suppressed this call, but Tomcat 11 forwards require the normal
-         * flush path. When the response has already been marked as HTML before body bytes are
-         * written, the lazily configured append buffer gives {@link LogoutBroadcastFilter#appendScript}
-         * room to append the script before commit. Non-HTML responses and late HTML markings use the
-         * container's normal buffer behavior. If the container rejects late buffer enlargement,
-         * {@link #isHtmlInjectionBufferUnavailable()} signals the outer filter to skip injection.</p>
+         * <p>Tomcat 11 forwards require the normal flush path. Script append safety comes from the
+         * lazily configured HTML buffer when content type is known before body bytes are written.</p>
          *
          * @throws IOException if the wrapped response cannot flush
          */
         @Override
         public void flushBuffer() throws IOException {
-            // Allow flushing - Tomcat 11 requires this for RequestDispatcher.forward().
-            // Script append safety comes from the lazy HTML buffer when it was configured
-            // before downstream code wrote the body.
             super.flushBuffer();
         }
 
@@ -777,11 +767,6 @@ public class LogoutBroadcastFilter implements Filter {
             super.resetBuffer();
         }
 
-        /**
-         * Defers integer Content-Length until the filter knows whether it will append a script.
-         *
-         * @param len downstream response length in bytes
-         */
         @Override
         public void setContentLength(int len) {
             contentLengthDeferred = true;
@@ -789,11 +774,6 @@ public class LogoutBroadcastFilter implements Filter {
             deferredContentLengthIsLong = false;
         }
 
-        /**
-         * Defers long Content-Length until the filter knows whether it will append a script.
-         *
-         * @param len downstream response length in bytes
-         */
         @Override
         public void setContentLengthLong(long len) {
             contentLengthDeferred = true;
@@ -801,13 +781,6 @@ public class LogoutBroadcastFilter implements Filter {
             deferredContentLengthIsLong = true;
         }
 
-        /**
-         * Defers Content-Length headers and routes Content-Type through {@link #setContentType},
-         * including the lazy HTML-buffer configuration performed there.
-         *
-         * @param name header name
-         * @param value header value
-         */
         @Override
         public void setHeader(String name, String value) {
             if (isContentTypeHeader(name)) {
@@ -821,13 +794,6 @@ public class LogoutBroadcastFilter implements Filter {
             super.setHeader(name, value);
         }
 
-        /**
-         * Defers added Content-Length headers and routes Content-Type through {@link #setContentType},
-         * including the lazy HTML-buffer configuration performed there.
-         *
-         * @param name header name
-         * @param value header value
-         */
         @Override
         public void addHeader(String name, String value) {
             if (isContentTypeHeader(name)) {
@@ -841,12 +807,6 @@ public class LogoutBroadcastFilter implements Filter {
             super.addHeader(name, value);
         }
 
-        /**
-         * Defers integer Content-Length headers while passing through other integer headers.
-         *
-         * @param name header name
-         * @param value integer header value
-         */
         @Override
         public void setIntHeader(String name, int value) {
             if (isContentLengthHeader(name)) {
@@ -856,12 +816,6 @@ public class LogoutBroadcastFilter implements Filter {
             super.setIntHeader(name, value);
         }
 
-        /**
-         * Defers added integer Content-Length headers while passing through other integer headers.
-         *
-         * @param name header name
-         * @param value integer header value
-         */
         @Override
         public void addIntHeader(String name, int value) {
             if (isContentLengthHeader(name)) {
@@ -893,10 +847,10 @@ public class LogoutBroadcastFilter implements Filter {
         }
 
         /**
-         * Drops any downstream Content-Length once script injection has started but failed.
+         * Drops any downstream Content-Length once script injection touches the response.
          *
-         * <p>At that point the response may contain headers and zero or more script bytes beyond the
-         * original body, so replaying the original length can truncate the client response.</p>
+         * <p>At that point the body length no longer matches the original downstream length, so
+         * replaying it can truncate the client response on success or failure.</p>
          */
         void discardDeferredContentLength() {
             clearDeferredContentLength();

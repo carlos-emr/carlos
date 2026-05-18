@@ -61,7 +61,7 @@ import org.owasp.encoder.Encode;
  * prevent log injection — CRLF characters in parameter values are written to logs verbatim.
  * {@code LogSafe.sanitize()} is required to neutralize control characters.</p>
  *
- * @since 2026-04-02
+ * @since 2026-04-04
  */
 public final class LogSafe {
 
@@ -71,7 +71,7 @@ public final class LogSafe {
     /**
      * Precompiled control-character pattern reused by every
      * {@link #sanitizeForDisplay(String)} call so the regex isn't recompiled
-     * per BVE message.
+     * per billing validation error message.
      */
     private static final java.util.regex.Pattern CONTROL_CHARS =
             java.util.regex.Pattern.compile("[\\p{Cntrl}\\u2028\\u2029]");

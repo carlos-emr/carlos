@@ -775,11 +775,10 @@ public class ResponseSanitizationFilter implements Filter {
             }
             int status = realResponse.getStatus();
             String capturedPrefix = buffer.toString();
-            if (status >= 400
-                    && (containsStackTrace(capturedPrefix) || containsStackTrace(pendingWrite))) {
+            if (status >= 400) {
                 String correlationId = generateCorrelationId();
-                LOGGER.error("Stack trace detected before large error response reached capture limit "
-                                + "[status={} correlationId={}]",
+                LOGGER.error("Large error response exceeded sanitization capture limit; replacing body "
+                                + "to avoid leaking late stack traces [status={} correlationId={}]",
                         status, correlationId);
                 sendSanitizedError(realResponse, status, correlationId);
                 buffer.reset();

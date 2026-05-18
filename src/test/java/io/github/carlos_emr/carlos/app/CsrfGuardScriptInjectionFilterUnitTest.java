@@ -307,6 +307,27 @@ class CsrfGuardScriptInjectionFilterUnitTest {
     }
 
     @Test
+    @DisplayName("should drop stale content length header when injecting script")
+    void shouldDropStaleContentLengthHeader_whenInjectingScript() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/provider/providercontrol");
+        request.setContextPath("/carlos");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        String body = "<html><head><title>Provider</title></head><body></body></html>";
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            ((HttpServletResponse) servletResponse).setHeader("Content-Length",
+                    String.valueOf(body.getBytes(StandardCharsets.UTF_8).length));
+            servletResponse.setContentType("text/html;charset=UTF-8");
+            servletResponse.getWriter().write(body);
+        };
+
+        withEnabledCsrfGuard(() -> filter.doFilter(request, response, chain));
+
+        assertThat(response.getContentAsString()).contains("/carlos/csrfguard");
+        assertThat(response.getHeader("Content-Length")).isNull();
+    }
+
+    @Test
     @DisplayName("should warn when non HTML content type contains full HTML")
     void shouldWarn_whenNonHtmlContentTypeContainsFullHtml() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/clinical/JsonEndpoint");

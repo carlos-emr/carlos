@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.managers.SecurityManager;
 import io.github.carlos_emr.carlos.managers.UserSessionManager;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.utility.SessionConstants;
 import io.github.carlos_emr.carlos.util.AlertTimer;
 
 import com.eatthepath.otp.TimeBasedOneTimePasswordGenerator;
@@ -301,6 +302,8 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getRedirectedUrl()).contains("/loginfailed");
+        assertThat(decodedRedirect()).contains(Login2Action.message(request,
+                "provider.providerchangepassword.errorSessionExpired"));
         assertThat(request.getSession(false).getAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR)).isNull();
         verify(securityDao, never()).saveEntity(org.mockito.ArgumentMatchers.any());
     }
@@ -814,20 +817,26 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should clear pending MFA session when registration secret is missing")
-    void shouldClearPendingMfaSession_whenRegistrationSecretIsMissing() throws Exception {
+    @DisplayName("should ignore request registration flag when challenge has no registration secret")
+    void shouldIgnoreRequestRegistrationFlag_whenChallengeHasNoRegistrationSecret() throws Exception {
         Security security = forcedResetSecurity();
         security.setForcePasswordReset(Boolean.FALSE);
         stagePendingMfa(security);
-        Login2Action action = newAction(null, null, null);
-        action.setCode("123456");
-        action.setMfaRegistrationFlow(true);
+        when(mfaManager.getMfaSecret(security)).thenReturn("JBSWY3DPEHPK3PXP");
 
-        String result = action.execute();
+        try (MockedConstruction<TimeBasedOneTimePasswordGenerator> ignored = mockTotpReturning("000000")) {
+            Login2Action action = newAction(null, null, null);
+            action.setCode("123456");
+            action.setMfaRegistrationFlow(true);
 
-        assertThat(result).isEqualTo(ActionSupport.NONE);
-        assertThat(response.getRedirectedUrl()).contains("/loginfailed");
-        assertPendingMfaCleared();
+            String result = action.execute();
+
+            assertThat(result).isEqualTo("mfaHandler");
+            assertThat(request.getAttribute("mfaRegistrationRequired")).isNull();
+            assertThat(response.getRedirectedUrl()).isNull();
+            assertThat(request.getSession(false).getAttribute(PENDING_MFA_TOKEN_ATTR)).isInstanceOf(String.class);
+            verify(mfaManager, never()).getQRCodeImageData(any(), anyString());
+        }
     }
 
     @Test
@@ -1001,6 +1010,8 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
 
             assertThat(result).isEqualTo(ActionSupport.NONE);
             assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/select_facility?nextPage=provider");
+            assertThat(request.getSession(false).getAttribute(SessionConstants.PENDING_FACILITY_SELECTION))
+                    .isEqualTo(Boolean.TRUE);
             assertPendingMfaCleared();
         }
     }
@@ -1025,6 +1036,7 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
             logActionMock.verify(() -> LogAction.addLog("999998", "log in", "login", "facilityId=10",
                     request.getRemoteAddr()));
             assertThat(response.getRedirectedUrl()).contains("/provider/providercontrol");
+            assertThat(request.getSession(false).getAttribute(SessionConstants.PENDING_FACILITY_SELECTION)).isNull();
             assertPendingMfaCleared();
         }
     }
@@ -1051,6 +1063,7 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
             assertThat(result).isEqualTo(ActionSupport.NONE);
             verify(providerDao).addProviderToFacility("999998", 42);
             assertThat(request.getSession(false).getAttribute("currentFacility")).isSameAs(fallbackFacility);
+            assertThat(request.getSession(false).getAttribute(SessionConstants.PENDING_FACILITY_SELECTION)).isNull();
             assertThat(response.getRedirectedUrl()).contains("/provider/providercontrol");
             logActionMock.verify(() -> LogAction.addLog("999998", "log in", "login", "facilityId=42",
                     request.getRemoteAddr()));
@@ -1707,6 +1720,7 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should invalidate previous credential token when staging forced reset credentials")
     void shouldInvalidatePreviousCredentialToken_whenStagingForcedResetCredentials() {
+        MockHttpSession originalSession = (MockHttpSession) request.getSession(false);
         String oldToken = LoginCredentialCache.getInstance().store(
                 new LoginCredentialCache.LoginCredentials(USERNAME, "old-hash", "2026", null));
         request.getSession().setAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR, oldToken);
@@ -1718,6 +1732,9 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
 
         String newToken = (String) request.getSession(false)
                 .getAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR);
+        assertThat(originalSession.isInvalid()).isTrue();
+        assertThat(request.getSession(false)).isNotSameAs(originalSession);
+        assertThat(request.getSession(false).getMaxInactiveInterval()).isEqualTo(300);
         assertThat(newToken).isNotEqualTo(oldToken);
         assertThat(LoginCredentialCache.getInstance().peek(oldToken)).isNull();
         assertThat(LoginCredentialCache.getInstance().peek(newToken)).isNotNull();
@@ -1732,9 +1749,10 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
                     .isEqualTo("Unable to process your request. Please try again.");
             assertThat(capture.events()).filteredOn(event -> event.getLevel().equals(Level.WARN))
                     .extracting(event -> event.getMessage().getFormattedMessage())
-                    .contains(
-                            "Missing localized message for key: login.missing.test.key",
-                            "Missing default message for key: login.missing.test.key");
+                    .contains("Missing localized message: bundle=oscarResources locale=en key=login.missing.test.key");
+            assertThat(capture.events()).filteredOn(event -> event.getLevel().equals(Level.ERROR))
+                    .extracting(event -> event.getMessage().getFormattedMessage())
+                    .contains("Missing default message: bundle=oscarResources locale=en key=login.missing.test.key");
         }
     }
 
@@ -1814,6 +1832,36 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
             verify(providerDao, never()).getFacilityIds(org.mockito.ArgumentMatchers.anyString());
             logActionMock.verify(() -> LogAction.addLog(USERNAME, "log in", "login",
                     "facility_selection_on_login_rejected", request.getRemoteAddr()));
+        }
+    }
+
+    @Test
+    @DisplayName("should allow empty next page on login route")
+    void shouldAllowEmptyNextPage_onLoginRoute() throws Exception {
+        request.setParameter("forcedpasswordchange", "false");
+        request.addParameter("nextPage", "");
+        String password = VALID_PASSWORD;
+        Security security = forcedResetSecurity();
+        security.setForcePasswordReset(Boolean.FALSE);
+        stubSuccessfulProviderLogin();
+        when(securityDao.findByUserName(USERNAME)).thenReturn(Collections.singletonList(security));
+
+        try (MockedConstruction<LoginCheckLogin> mockedLoginChecks = mockConstruction(LoginCheckLogin.class,
+                (mock, context) -> {
+                    when(mock.isBlock(request.getRemoteAddr(), USERNAME)).thenReturn(false);
+                    when(mock.auth(USERNAME, password, "2026", request.getRemoteAddr())).thenReturn(STR_AUTH);
+                })) {
+            Login2Action action = newAction(null, null, null);
+            action.setUsername(USERNAME);
+            action.setPassword(password);
+            action.setPin("2026");
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getRedirectedUrl()).contains("/provider/providercontrol");
+            assertThat(mockedLoginChecks.constructed()).hasSize(1);
+            verify(providerDao).getFacilityIds("999998");
         }
     }
 
@@ -1911,6 +1959,8 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
                 assertThat(event.getMessage().getFormattedMessage())
                         .contains("session cleanup failed with java.lang.IllegalStateException");
             });
+            logActionMock.verify(() -> LogAction.addLog(USERNAME, "login",
+                    "forced_password_reset_completed", "cleanup_failure_relogin"));
         }
     }
 

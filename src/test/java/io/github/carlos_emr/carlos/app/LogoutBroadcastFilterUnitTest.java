@@ -149,18 +149,22 @@ class LogoutBroadcastFilterUnitTest {
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/login");
         request.setContextPath("/carlos");
         TrackingMockHttpServletResponse response = new TrackingMockHttpServletResponse();
+        String body = "<html><body>schedule</body></html>";
 
         FilterChain chain = (servletRequest, servletResponse) -> {
             ((MockHttpServletRequest) servletRequest).getSession(true).setAttribute("user", "123");
+            PrintWriter writer = servletResponse.getWriter();
             servletResponse.setContentType("text/html;charset=UTF-8");
-            servletResponse.getWriter().write("<html><body>schedule</body></html>");
+            servletResponse.setContentLength(body.getBytes(StandardCharsets.UTF_8).length);
+            writer.write(body);
         };
 
         filter.doFilter(request, response, chain);
 
         String content = response.getContentAsString();
-        assertThat(content).contains("<html><body>schedule</body></html>");
+        assertThat(content).contains(body);
         assertThat(content).contains("window.__carlosLogoutActive=true;");
+        assertThat(response.getHeader("Content-Length")).isNull();
         assertThat(response.getLastRequestedBufferSize()).isEqualTo(HTML_INJECTION_BUFFER_SIZE_BYTES);
     }
 
@@ -276,6 +280,29 @@ class LogoutBroadcastFilterUnitTest {
 
         assertThat(response.getContentAsString()).contains("<html><body>ajax</body></html>");
         assertThat(response.getContentAsString()).doesNotContain("window.__carlosLogoutActive=true;");
+        assertThat(response.getSetBufferSizeCallCount()).isZero();
+    }
+
+    @Test
+    @DisplayName("should preserve AJAX login failure content length without wrapping")
+    void shouldPreserveAjaxLoginFailureContentLength_withoutWrapping() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/login");
+        request.setContextPath("/carlos");
+        request.addHeader("X-Requested-With", "XMLHttpRequest");
+        TrackingMockHttpServletResponse response = new TrackingMockHttpServletResponse();
+        String body = "{\"success\":false,\"error\":\"Invalid credentials.\"}";
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.setContentType("application/json;charset=UTF-8");
+            servletResponse.setContentLength(body.getBytes(StandardCharsets.UTF_8).length);
+            servletResponse.getWriter().write(body);
+        };
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(response.getContentAsString()).isEqualTo(body);
+        assertThat(response.getHeader("Content-Length"))
+                .isEqualTo(String.valueOf(body.getBytes(StandardCharsets.UTF_8).length));
         assertThat(response.getSetBufferSizeCallCount()).isZero();
     }
 
@@ -581,14 +608,17 @@ class LogoutBroadcastFilterUnitTest {
 
         MockResponseWithUnavailableWriter response = new MockResponseWithUnavailableWriter();
 
-        FilterChain chain = (servletRequest, servletResponse) ->
-                servletResponse.setContentType("text/html;charset=UTF-8");
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.setContentType("text/html;charset=UTF-8");
+            servletResponse.setContentLength(1);
+        };
 
         try (LogCapture capture = LogCapture.forLogger(LogoutBroadcastFilter.class)) {
             filter.doFilter(request, response, chain);
 
             String content = response.getBodyAsString();
             assertThat(content).contains("window.__carlosLogoutActive=true;");
+            assertThat(response.getHeader("Content-Length")).isNull();
             assertThat(capture.events()).anySatisfy(event -> {
                 assertThat(event.getLevel()).isEqualTo(Level.WARN);
                 assertThat(event.getMessage().getFormattedMessage())

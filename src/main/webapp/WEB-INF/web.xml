@@ -298,8 +298,9 @@
     <filter-name>ResponseOverrideFilter</filter-name>
     <url-pattern>/*</url-pattern>
   </filter-mapping>
-  <!-- Restores allowlisted clean section-home URLs, such as /administration,
-       after LoginFilter has enforced the normal authenticated-session behavior. -->
+  <!-- Restores allowlisted clean section-home URLs, such as /administration.
+       This mapping intentionally runs later in the chain; LoginFilter remains the
+       canonical authenticated-session gate for protected routes before Struts runs. -->
   <filter-mapping>
     <filter-name>SectionRootCompatibilityFilter</filter-name>
     <url-pattern>/*</url-pattern>

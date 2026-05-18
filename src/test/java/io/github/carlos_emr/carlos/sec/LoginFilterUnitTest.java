@@ -44,6 +44,8 @@ import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
+import io.github.carlos_emr.carlos.utility.SessionConstants;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -363,6 +365,43 @@ class LoginFilterUnitTest {
                             .doesNotContain("Failing closed");
                 });
             }
+        }
+    }
+
+    @Nested
+    @DisplayName("Facility selection boundary")
+    class FacilitySelectionBoundary {
+
+        @Test
+        @DisplayName("should redirect protected route when facility selection pending")
+        void shouldRedirectProtectedRoute_whenFacilitySelectionPending()
+                throws ServletException, IOException {
+            MockHttpServletRequest request = authenticatedRequest();
+            request.setRequestURI(CONTEXT_PATH + "/provider/providercontrol");
+            request.getSession(false).setAttribute(SessionConstants.PENDING_FACILITY_SELECTION, Boolean.TRUE);
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            MockFilterChain chain = new MockFilterChain();
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getRedirectedUrl()).isEqualTo(CONTEXT_PATH + "/select_facility");
+            assertThat(chain.getRequest()).isNull();
+        }
+
+        @Test
+        @DisplayName("should pass select facility route when facility selection pending")
+        void shouldPassSelectFacilityRoute_whenFacilitySelectionPending()
+                throws ServletException, IOException {
+            MockHttpServletRequest request = authenticatedRequest();
+            request.setRequestURI(CONTEXT_PATH + "/select_facility");
+            request.getSession(false).setAttribute(SessionConstants.PENDING_FACILITY_SELECTION, Boolean.TRUE);
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            MockFilterChain chain = new MockFilterChain();
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getRedirectedUrl()).isNull();
+            assertThat(chain.getRequest()).isSameAs(request);
         }
     }
 

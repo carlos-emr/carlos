@@ -575,8 +575,8 @@ class ResponseSanitizationFilterUnitTest {
         }
 
         @Test
-        @DisplayName("should pass through oversized error response without stack trace markers")
-        void shouldPassThroughOversizedErrorResponse_whenNoStackTraceMarkersExist() throws Exception {
+        @DisplayName("should sanitize oversized error response even without stack trace markers")
+        void shouldSanitizeOversizedErrorResponse_whenNoStackTraceMarkersExist() throws Exception {
             MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/error.jsp");
             MockHttpServletResponse response = new MockHttpServletResponse();
             String largeErrorBody = "<html><body>"
@@ -593,8 +593,8 @@ class ResponseSanitizationFilterUnitTest {
             filter.doFilter(request, response, chain);
 
             assertThat(response.getStatus()).isEqualTo(500);
-            assertThat(response.getContentAsString()).isEqualTo(largeErrorBody);
-            assertThat(response.getContentAsString()).doesNotContain("Reference ID:");
+            assertThat(response.getContentAsString()).contains("Reference ID:");
+            assertThat(response.getContentAsString()).doesNotContain(largeErrorBody);
         }
 
         @Test
