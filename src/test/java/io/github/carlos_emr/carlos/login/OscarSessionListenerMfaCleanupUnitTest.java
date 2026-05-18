@@ -19,6 +19,7 @@ import org.springframework.mock.web.MockHttpSession;
 import java.util.Collections;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -55,6 +56,16 @@ class OscarSessionListenerMfaCleanupUnitTest extends CarlosUnitTestBase {
         } finally {
             PendingMfaChallengeCache.getInstance().invalidate(token);
         }
+    }
+
+    @Test
+    @DisplayName("should not throw when session has no pending MFA token")
+    void shouldNotThrow_whenSessionHasNoToken() {
+        MockHttpSession session = new MockHttpSession();
+        when(casemgmtNoteLockDao.findBySession(session.getId())).thenReturn(Collections.emptyList());
+
+        assertThatCode(() -> new OscarSessionListener().sessionDestroyed(new HttpSessionEvent(session)))
+                .doesNotThrowAnyException();
     }
 
     private static PendingMfaChallengeCache.PendingMfaChallenge challenge() {
