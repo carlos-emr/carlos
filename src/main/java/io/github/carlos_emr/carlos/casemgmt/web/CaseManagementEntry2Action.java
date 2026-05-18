@@ -384,7 +384,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             }
 
             note.setNote(tmpsavenote.getNote());
-            logger.debug("Setting note to " + note.getNote());
+            logger.debug("Restored temp note id={} noteLength={}",
+                    LogSafe.sanitize(String.valueOf(note.getId())),
+                    note.getNote() == null ? 0 : note.getNote().length());
 
         }
         // get an existing non-temp note?
@@ -433,7 +435,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         // put the new/retrieved not in the form object for rendering on page
         cform.setCaseNote(note);
-        logger.debug("note in cform " + cform.getCaseNote_note());
+        logger.debug("Loaded note into form id={} noteLength={}",
+                LogSafe.sanitize(String.valueOf(note.getId())),
+                cform.getCaseNote_note() == null ? 0 : cform.getCaseNote_note().length());
         /* set issue checked list */
 
         // get issues for current demographic, based on providers rights
@@ -499,7 +503,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         session.setAttribute("casemgmtNoteLock" + demono, casemgmtNoteLock); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
 
         String frmName = "caseManagementEntryForm" + demono;
-        logger.debug("note in cform " + cform.getCaseNote_note());
+        logger.debug("Stored note form id={} noteLength={}",
+                LogSafe.sanitize(String.valueOf(note.getId())),
+                cform.getCaseNote_note() == null ? 0 : cform.getCaseNote_note().length());
         mySessionMap.put(frmName, cform);
 
         String fwd, finalFwd = null;

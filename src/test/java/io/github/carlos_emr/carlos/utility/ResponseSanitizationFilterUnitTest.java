@@ -42,6 +42,7 @@ import jakarta.servlet.FilterConfig;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -460,6 +461,73 @@ class ResponseSanitizationFilterUnitTest {
             filter.doFilter(request, response, chain);
 
             assertThat(response.getContentType()).contains("text/html");
+        }
+
+        @Test
+        @DisplayName("should sanitize text error written through output stream")
+        void shouldSanitizeTextError_whenWrittenThroughOutputStream() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/error.jsp");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(500);
+                httpRes.setContentType("text/plain;charset=UTF-8");
+                res.getOutputStream().write(("java.lang.IllegalStateException: failed\n"
+                        + "\tat io.github.carlos_emr.carlos.ErrorPage.render(ErrorPage.java:42)")
+                        .getBytes(StandardCharsets.UTF_8));
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getStatus()).isEqualTo(500);
+            assertThat(response.getContentType()).isEqualTo("text/html;charset=UTF-8");
+            assertThat(response.getContentAsString()).contains("Reference ID:");
+            assertThat(response.getContentAsString()).doesNotContain("IllegalStateException");
+            assertThat(response.getContentAsString()).doesNotContain("io.github.carlos_emr");
+        }
+
+        @Test
+        @DisplayName("should pass through successful PDF output stream")
+        void shouldPassThroughSuccessfulPdf_whenWrittenThroughOutputStream() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/Download/report.pdf");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            byte[] pdfBytes = "%PDF-1.7\nbody".getBytes(StandardCharsets.UTF_8);
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(200);
+                httpRes.setContentType("application/pdf");
+                res.getOutputStream().write(pdfBytes);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(response.getContentType()).isEqualTo("application/pdf");
+            assertThat(response.getContentAsByteArray()).isEqualTo(pdfBytes);
+        }
+
+        @Test
+        @DisplayName("should pass through successful HTML output stream")
+        void shouldPassThroughSuccessfulHtml_whenWrittenThroughOutputStream() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/index");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            byte[] htmlBytes = "<html><body><input id=\"username\"></body></html>"
+                    .getBytes(StandardCharsets.UTF_8);
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(200);
+                httpRes.setContentType("text/html;charset=UTF-8");
+                res.getOutputStream().write(htmlBytes);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(response.getContentType()).isEqualTo("text/html;charset=UTF-8");
+            assertThat(response.getContentAsByteArray()).isEqualTo(htmlBytes);
         }
 
         @Test

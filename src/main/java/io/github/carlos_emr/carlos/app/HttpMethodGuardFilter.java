@@ -515,6 +515,10 @@ public class HttpMethodGuardFilter implements Filter {
         }
         int lastSlash = path.lastIndexOf('/');
         String actionName = lastSlash >= 0 ? path.substring(lastSlash + 1) : path;
+        int pathParameterIndex = actionName.indexOf(';');
+        if (pathParameterIndex >= 0) {
+            actionName = actionName.substring(0, pathParameterIndex);
+        }
         if (actionName.isEmpty() || actionName.contains(".")) {
             return null;
         }
@@ -581,12 +585,9 @@ public class HttpMethodGuardFilter implements Filter {
             return path;
         }
 
-        // Strip path parameters (;jsessionid=...) which could be used to
-        // obscure the real path from pattern matching
-        int semiIdx = path.indexOf(';');
-        if (semiIdx >= 0) {
-            path = path.substring(0, semiIdx);
-        }
+        // Strip path parameters segment-by-segment; truncating at the first semicolon can hide
+        // later mutator action names from the guard while Tomcat still routes the full path.
+        path = path.replaceAll(";[^/]*", "");
 
         // Collapse consecutive slashes (e.g., //admin///mutator.jsp)
         path = path.replaceAll("/+", "/");

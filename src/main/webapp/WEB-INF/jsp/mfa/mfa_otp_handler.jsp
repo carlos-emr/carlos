@@ -31,7 +31,7 @@
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib prefix="csrf" uri="http://www.owasp.org/index.php/Category:OWASP_CSRFGuard_Project/Owasp.CsrfGuard.tld" %>
+<%@ taglib prefix="csrf" uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 

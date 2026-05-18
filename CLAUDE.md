@@ -107,7 +107,11 @@ For login/password-reset work, keep documentation aligned with these invariants:
 
 **What counts as PHI vs. internal identifiers:**
 - **PHI** (treat as sensitive): HIN/health card number, patient name, DOB, address, phone, diagnosis text, clinical notes, lab values, medication details — anything that identifies a real person or their care.
-- **NOT PHI** (safe in logs and operator-facing error context): `demographic_no` / `demoNo`, appointment IDs, billing IDs, provider numbers, internal surrogate keys. These are internal indexes scoped to this CARLOS instance — they do not identify a person outside the system and have no meaning without DB access (which is already gated by `SecurityInfoManager`). Including them in error context, exception payloads, and log messages is encouraged because they make incidents debuggable.
+- **PHI-correlating operational identifiers**: `demographic_no` / `demoNo`, appointment IDs, billing IDs, provider numbers, claim/WCB IDs, and internal surrogate keys. These are not clinical text, but they can join directly back to patient or billing records inside CARLOS. Log them only when necessary for operations, sanitize them with `LogSafe`, avoid pairing them with clinical context, and never place them in browser-visible exception messages unless the endpoint explicitly requires that identifier for an authorized user workflow.
+
+### Response-Rewriting Filter Safety
+
+Response-rewriting filters are security controls and UI-critical infrastructure. Recent fixes showed that broad buffering, stale `Content-Length` replay, and blanket wrapper changes can silently break login pages, static assets, and first-render post-login screens. Keep fixes targeted by route/status/content type, preserve binary/static passthrough, and add regression coverage before changing buffer limits, dispatcher mappings, `Content-Length` handling, or writer/output-stream fallback behavior. After touching `ResponseSanitizationFilter`, `CsrfGuardScriptInjectionFilter`, `LogoutBroadcastFilter`, or `LoginFilter`, run the focused unit tests and the Playwright login/reset script against Tomcat.
 
 ### OWASP Encoding — XSS Prevention
 

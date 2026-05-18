@@ -199,6 +199,33 @@ public class LoginFilter implements Filter {
 		"/status/SessionHeartbeat"
     };
 
+    private static final String[] PENDING_FACILITY_SELECTION_URLS = {
+            "/select_facility",
+            "/logout",
+            "/logoutPage",
+            "/images/Oscar.ico",
+            "/images/Logo.png",
+            "/images/favicon.ico",
+            "/images/OSCAR-LOGO.gif",
+            "/images/cloud-bg.svg",
+            "/library/bootstrap/5.3.8/css/bootstrap.min.css",
+            "/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js",
+            "/library/jquery/jquery-3.7.1.min.js",
+            "/library/jquery/jquery-compat.js",
+            "/library/jquery/jquery-ui-1.14.2.min.css",
+            "/share/css/global.css",
+            "/share/css/searchBox.css",
+            "/share/css/transitions.css",
+            "/share/javascript/carlos-ajax.js",
+            "/share/javascript/Oscar.js",
+            "/css/bootstrap",
+            "/css/fontawesome-all.min.css",
+            "/css/Roboto.css",
+            "/css/font/Roboto",
+            "/csrfguard",
+            "/status/SessionHeartbeat"
+    };
+
     /**
      * URLs exempt from inactivity timeout timer reset.
      *
@@ -400,7 +427,7 @@ public class LoginFilter implements Filter {
                 }
 
                 if (!inListOfExemptions(requestURI, contextPath, EXEMPT_URLS_FOR_REQUEST_TIMEOUT)) {
-                    logger.debug("reseting timer list uri " + httpRequest.getRequestURI());
+                    logger.debug("reseting timer list uri {}", LogSafe.sanitizeUri(httpRequest.getRequestURI()));
                     // nosemgrep: tainted-session-from-http-request -- thisRequestDate is a server-generated Date object (new Date()), not user input
                     session.setAttribute("last_request_time", thisRequestDate);
                 }
@@ -569,11 +596,7 @@ public class LoginFilter implements Filter {
 
     private boolean isFacilitySelectionAllowed(String requestURI, String contextPath) {
         String normalizedUri = normalizeUri(requestURI);
-        String selectFacilityPath = contextPath + "/select_facility";
-        return normalizedUri.equals(selectFacilityPath)
-                || normalizedUri.equals(contextPath + "/logout")
-                || normalizedUri.equals(contextPath + "/logoutPage")
-                || inListOfExemptions(normalizedUri, contextPath, EXEMPT_URLS);
+        return inListOfExemptions(normalizedUri, contextPath, PENDING_FACILITY_SELECTION_URLS);
     }
 
     /**

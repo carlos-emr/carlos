@@ -68,6 +68,16 @@ public class DocumentDescriptionTemplate2Action extends ActionSupport {
         }
 
         String method = request.getParameter("method");
+        if (isMutatingMethod(method) && !"POST".equalsIgnoreCase(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            try {
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED,
+                        "GET requests are not allowed on this endpoint. Use POST.");
+            } catch (IOException e) {
+                throw new IllegalStateException("Unable to reject document-description mutation", e);
+            }
+            return NONE;
+        }
         if ("getDocumentDescriptionFromDocType".equals(method)) {
             return getDocumentDescriptionFromDocType();
         } else if ("getDocumentDescriptionFromId".equals(method)) {
@@ -82,6 +92,13 @@ public class DocumentDescriptionTemplate2Action extends ActionSupport {
             return saveDocumentDescriptionTemplatePreference();
         } 
         return SUCCESS;
+    }
+
+    private static boolean isMutatingMethod(String method) {
+        return "addDocumentDescription".equals(method)
+                || "updateDocumentDescription".equals(method)
+                || "deleteDocumentDescription".equals(method)
+                || "saveDocumentDescriptionTemplatePreference".equals(method);
     }
 
     public String getDocumentDescriptionFromDocType() {

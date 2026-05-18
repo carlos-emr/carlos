@@ -136,6 +136,7 @@ public final class UnauthenticatedRejectionResolver {
 
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        response.setHeader("X-Content-Type-Options", "nosniff");
         if (RequestNegotiation.acceptsJson(request)) {
             response.setContentType("application/json;charset=UTF-8");
             writeBody(request, response, "{\"error\":\"unauthorized\"}");

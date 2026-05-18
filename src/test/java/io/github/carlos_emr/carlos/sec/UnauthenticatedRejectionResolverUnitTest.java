@@ -364,6 +364,7 @@ class UnauthenticatedRejectionResolverUnitTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(401);
         assertThat(response.getRedirectedUrl()).isNull();
         assertThat(response.getContentType()).isEqualTo("application/json;charset=UTF-8");
+        assertThat(response.getHeader("X-Content-Type-Options")).isEqualTo("nosniff");
         assertThat(response.getContentAsString()).isEqualTo("{\"error\":\"unauthorized\"}");
     }
 
@@ -371,6 +372,7 @@ class UnauthenticatedRejectionResolverUnitTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(401);
         assertThat(response.getRedirectedUrl()).isNull();
         assertThat(response.getContentType()).isEqualTo("text/plain;charset=UTF-8");
+        assertThat(response.getHeader("X-Content-Type-Options")).isEqualTo("nosniff");
         assertThat(response.getContentAsString()).isEqualTo("Unauthorized");
     }
 

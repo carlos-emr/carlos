@@ -130,9 +130,10 @@ class LoginJspMigrationRegressionTest {
                 .contains("<result name=\"mfaHandler\">/WEB-INF/jsp/mfa/mfa_handler.jsp</result>");
         assertThat(mfaOtpJsp)
                 .contains("action=\"<%= request.getContextPath() %>/mfa/loginMfa\"")
-                .contains("<%@ taglib prefix=\"csrf\"")
+                .contains("<%@ taglib prefix=\"csrf\" uri=\"https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld\" %>")
                 .contains("name=\"<csrf:tokenname/>\"")
                 .contains("value=\"<csrf:tokenvalue/>\"")
+                .doesNotContain("http://www.owasp.org/index.php/Category:OWASP_CSRFGuard_Project/Owasp.CsrfGuard.tld")
                 .doesNotContain("owasp.encoder.jakarta.advanced");
     }
 

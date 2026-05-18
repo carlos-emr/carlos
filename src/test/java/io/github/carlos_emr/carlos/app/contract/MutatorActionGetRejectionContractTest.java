@@ -198,6 +198,8 @@ class MutatorActionGetRejectionContractTest {
         "io.github.carlos_emr.carlos.billings.ca.on.web.MoveMohFiles2Action",
         // Messenger admin: rejects GET on form-save method invocations.
         "io.github.carlos_emr.carlos.messenger.config.pageUtil.MsgMessengerAdmin2Action",
+        // Provider document descriptions: read methods permit GET; write methods are POST-only.
+        "io.github.carlos_emr.carlos.provider.web.DocumentDescriptionTemplate2Action",
         // Schedule: all below reject GET on Save/Delete/mutation-intent params.
         "io.github.carlos_emr.carlos.schedule.web.ScheduleCreateDate2Action",
         "io.github.carlos_emr.carlos.schedule.web.ScheduleEditTemplate2Action",
@@ -273,7 +275,8 @@ class MutatorActionGetRejectionContractTest {
         "io.github.carlos_emr.carlos.billings.ca.on.web.BillingDocumentErrorReportUpload2Action",
         "io.github.carlos_emr.carlos.billings.ca.on.web.MoveMohFiles2Action",
         "io.github.carlos_emr.carlos.billings.ca.on.web.ScheduleOfBenefitsUpload2Action",
-        "io.github.carlos_emr.carlos.login.gate.SelectFacility2Action"
+        "io.github.carlos_emr.carlos.login.gate.SelectFacility2Action",
+        "io.github.carlos_emr.carlos.provider.web.DocumentDescriptionTemplate2Action"
     );
 
     @ParameterizedTest(name = "{0} rejects GET and HEAD without side-effects")

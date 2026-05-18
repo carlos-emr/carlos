@@ -438,6 +438,51 @@ class LoginFilterUnitTest {
             assertThat(response.getRedirectedUrl()).isNull();
             assertThat(chain.getRequest()).isSameAs(request);
         }
+
+        @ParameterizedTest
+        @ValueSource(strings = {
+                "/login",
+                "/forcepasswordresetSubmit",
+                "/mfa/loginMfa",
+                "/ws/rs/status",
+                "/Download/report.pdf"
+        })
+        @DisplayName("should redirect broad public exemptions when facility selection pending")
+        void shouldRedirectBroadPublicExemptions_whenFacilitySelectionPending(String path)
+                throws ServletException, IOException {
+            MockHttpServletRequest request = authenticatedRequest();
+            request.setRequestURI(CONTEXT_PATH + path);
+            request.getSession(false).setAttribute(SessionConstants.PENDING_FACILITY_SELECTION, Boolean.TRUE);
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            MockFilterChain chain = new MockFilterChain();
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getRedirectedUrl()).isEqualTo(CONTEXT_PATH + "/select_facility");
+            assertThat(chain.getRequest()).isNull();
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {
+                "/library/bootstrap/5.3.8/css/bootstrap.min.css",
+                "/share/css/global.css",
+                "/csrfguard",
+                "/status/SessionHeartbeat"
+        })
+        @DisplayName("should pass required support routes when facility selection pending")
+        void shouldPassSupportRoutes_whenFacilitySelectionPending(String path)
+                throws ServletException, IOException {
+            MockHttpServletRequest request = authenticatedRequest();
+            request.setRequestURI(CONTEXT_PATH + path);
+            request.getSession(false).setAttribute(SessionConstants.PENDING_FACILITY_SELECTION, Boolean.TRUE);
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            MockFilterChain chain = new MockFilterChain();
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getRedirectedUrl()).isNull();
+            assertThat(chain.getRequest()).isSameAs(request);
+        }
     }
 
     @Nested

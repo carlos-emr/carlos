@@ -327,6 +327,30 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should expire credential token when old password retries are exhausted")
+    void shouldExpireCredentialToken_whenOldPasswordRetriesAreExhausted() throws Exception {
+        String token = cacheCredentials();
+        when(securityManager.matchesPassword(WRONG_OLD_PASSWORD, ENCODED_OLD_PASSWORD)).thenReturn(false);
+
+        String result = null;
+        for (int attempt = 0; attempt < 5; attempt++) {
+            response = new MockHttpServletResponse();
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+            Login2Action action = newAction(WRONG_OLD_PASSWORD, VALID_PASSWORD, VALID_PASSWORD);
+
+            result = action.execute();
+        }
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getRedirectedUrl()).contains("/loginfailed");
+        assertThat(LoginCredentialCache.getInstance().peek(token)).isNull();
+        assertThat(request.getSession(false).getAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR)).isNull();
+        logActionMock.verify(() -> LogAction.addLog(USERNAME, "login", "forced_password_reset_failed",
+                "old_password_mismatch_limit"));
+        verify(securityDao, never()).saveEntity(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
     @DisplayName("should keep credential token when password confirmation mismatches")
     void shouldKeepCredentialToken_whenPasswordConfirmationMismatches() throws Exception {
         String token = cacheCredentials();

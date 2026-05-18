@@ -35,6 +35,7 @@ import jakarta.servlet.ServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpServletResponseWrapper;
+import java.io.ByteArrayOutputStream;
 import java.io.CharArrayWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -61,8 +62,9 @@ import java.util.regex.Pattern;
  * the CARLOS application itself.</p>
  *
  * <h3>Scope</h3>
- * <p>Captures responses written via {@link PrintWriter} (text content). Binary responses
- * written via {@link ServletOutputStream} pass through unmodified. Responses committed
+ * <p>Captures responses written via {@link PrintWriter} (text content). Output-stream error
+ * responses are buffered up to the same cap because some legacy actions write text errors through
+ * {@link ServletOutputStream}; clearly binary successful responses still pass through. Responses committed
  * by {@code sendError()} or {@code sendRedirect()} before the chain returns also pass through —
  * those trigger Tomcat's error-page mechanism which forwards to
  * {@code /WEB-INF/jsp/error/errorpage.jsp}.</p>
@@ -129,7 +131,7 @@ public class ResponseSanitizationFilter implements Filter {
     );
 
     /**
-     * Maximum number of characters to buffer per response before switching to pass-through mode.
+     * Maximum number of characters/bytes to buffer per response before switching to pass-through mode.
      * The buffered prefix is still inspected before passthrough so oversized error pages cannot
      * leak a stack trace before normal page content.
      */
@@ -281,8 +283,27 @@ public class ResponseSanitizationFilter implements Filter {
             return;
         }
 
-        // Binary content (getOutputStream) — stack traces do not appear in binary responses.
         if (wrapper.isUsingOutputStream()) {
+            if (wrapper.isOutputStreamPassthrough()) {
+                return;
+            }
+            if (wrapper.isOutputCaptureLimitExceeded()) {
+                return;
+            }
+            int status = wrapper.getStatus();
+            byte[] capturedBytes = wrapper.getCapturedOutput();
+            String capturedBody = new String(capturedBytes, StandardCharsets.UTF_8);
+            if (status >= 400 && containsStackTrace(capturedBody)) {
+                String correlationId = generateCorrelationId();
+                LOGGER.error("Stack trace detected in output-stream error response "
+                                + "[status={} uri={} correlationId={}]",
+                        status,
+                        LogSafe.sanitizeUri(((HttpServletRequest) request).getRequestURI()),
+                        correlationId);
+                sendSanitizedError(httpResponse, status, correlationId);
+            } else {
+                writeBytesToResponse(httpResponse, capturedBytes);
+            }
             return;
         }
 
@@ -447,14 +468,32 @@ public class ResponseSanitizationFilter implements Filter {
         }
     }
 
+    private static void writeBytesToResponse(HttpServletResponse response, byte[] content)
+            throws IOException {
+        if (content == null || content.length == 0) {
+            return;
+        }
+        try {
+            response.resetBuffer();
+        } catch (IllegalStateException e) {
+            LOGGER.warn("writeBytesToResponse: cannot resetBuffer before replaying captured response",
+                    e);
+            throw new IOException("Cannot reset buffer before replaying captured response", e);
+        }
+        response.setContentLength(content.length);
+        response.getOutputStream().write(content);
+        response.getOutputStream().flush();
+    }
+
     /**
      * Response wrapper that captures {@link PrintWriter} output into a {@link CharArrayWriter}
-     * while passing {@link ServletOutputStream} calls through to the real response unchanged.
+     * while keeping successful {@link ServletOutputStream} responses on the real response.
      *
      * <p>This dual-mode design ensures:
      * <ul>
-     *   <li>Binary responses (PDFs, images, downloads) are never buffered or corrupted.</li>
-     *   <li>Text responses (HTML error pages) are fully captured for inspection.</li>
+     *   <li>Successful binary and HTML output-stream responses are never buffered or replayed.</li>
+     *   <li>Error responses written through a writer, and error output streams opened after a
+     *       4xx/5xx status, are captured for inspection.</li>
      *   <li>Buffer flushing is suppressed during capture to prevent the response being committed
      *       before the outer filter can replace the body.</li>
      * </ul>
@@ -467,9 +506,11 @@ public class ResponseSanitizationFilter implements Filter {
     private static class CapturingResponseWrapper extends HttpServletResponseWrapper {
 
         private CapturingSwitchingWriter switchingWriter;
+        private CapturingSwitchingServletOutputStream switchingOutputStream;
         private PrintWriter writer;
         private boolean usingWriter;
         private boolean usingOutputStream;
+        private boolean outputStreamPassthrough;
         private boolean committed;
 
         /**
@@ -506,9 +547,11 @@ public class ResponseSanitizationFilter implements Filter {
         }
 
         /**
-         * Passes the output stream through to the real response (binary passthrough path).
+         * Returns a capturing output stream only after the response has entered an error status.
+         * Successful output-stream responses stay pass-through so JSPs and streamed content cannot
+         * be replayed after Tomcat has already committed their headers.
          *
-         * @return ServletOutputStream the real response output stream
+         * @return ServletOutputStream the capturing or real response output stream
          * @throws IllegalStateException if {@link #getWriter()} was already called
          * @throws IOException           if an I/O error occurs
          */
@@ -516,10 +559,18 @@ public class ResponseSanitizationFilter implements Filter {
         public ServletOutputStream getOutputStream() throws IOException {
             if (usingWriter) {
                 throw new IllegalStateException(
-                        "getWriter() has already been called on this response");
+                    "getWriter() has already been called on this response");
             }
             usingOutputStream = true;
-            return super.getOutputStream();
+            if (outputStreamPassthrough || getStatus() < 400) {
+                outputStreamPassthrough = true;
+                return super.getOutputStream();
+            }
+            if (switchingOutputStream == null) {
+                switchingOutputStream = new CapturingSwitchingServletOutputStream(
+                        (HttpServletResponse) getResponse(), MAX_CAPTURE_CHARS);
+            }
+            return switchingOutputStream;
         }
 
         /**
@@ -571,8 +622,11 @@ public class ResponseSanitizationFilter implements Filter {
         @Override
         public void flushBuffer() throws IOException {
             if (usingOutputStream) {
-                // Binary passthrough — flush as normal to support streaming downloads.
-                super.flushBuffer();
+                if (outputStreamPassthrough) {
+                    super.flushBuffer();
+                } else if (switchingOutputStream != null) {
+                    switchingOutputStream.flush();
+                }
                 return;
             }
             // Writer capture path — suppress to prevent premature commitment.
@@ -587,7 +641,7 @@ public class ResponseSanitizationFilter implements Filter {
          */
         @Override
         public boolean isCommitted() {
-            if (usingWriter && !committed) {
+            if ((usingWriter || (usingOutputStream && !outputStreamPassthrough)) && !committed) {
                 return false;
             }
             return committed || super.isCommitted();
@@ -616,7 +670,7 @@ public class ResponseSanitizationFilter implements Filter {
         /**
          * Returns {@code true} if the response was written via {@link #getOutputStream()}.
          *
-         * @return boolean {@code true} if output-stream passthrough mode is active
+         * @return boolean {@code true} if output-stream mode is active
          */
         public boolean isUsingOutputStream() {
             return usingOutputStream;
@@ -634,6 +688,22 @@ public class ResponseSanitizationFilter implements Filter {
             return switchingWriter != null && switchingWriter.isLimitExceeded();
         }
 
+        public boolean isOutputCaptureLimitExceeded() {
+            return switchingOutputStream != null && switchingOutputStream.isLimitExceeded();
+        }
+
+        public boolean isOutputStreamPassthrough() {
+            return outputStreamPassthrough;
+        }
+
+        public byte[] getCapturedOutput() throws IOException {
+            if (switchingOutputStream != null) {
+                switchingOutputStream.flush();
+                return switchingOutputStream.getCaptured();
+            }
+            return new byte[0];
+        }
+
         /**
          * Returns the content captured so far from the in-memory writer.
          * Flushes the writer before returning to ensure all buffered content is included.
@@ -646,6 +716,120 @@ public class ResponseSanitizationFilter implements Filter {
                 writer.flush();
             }
             return switchingWriter != null ? switchingWriter.getCaptured() : "";
+        }
+
+    }
+
+    /**
+     * Captures output-stream bodies until the response proves it needs passthrough or sanitization.
+     */
+    private static class CapturingSwitchingServletOutputStream extends ServletOutputStream {
+
+        private final ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        private final HttpServletResponse realResponse;
+        private final int maxBytes;
+        private ServletOutputStream passthroughStream;
+        private boolean limitExceeded;
+        private boolean discardingTaintedOutput;
+        private long discardedByteCount;
+        private boolean discardLogged;
+
+        CapturingSwitchingServletOutputStream(HttpServletResponse realResponse, int maxBytes) {
+            this.realResponse = realResponse;
+            this.maxBytes = maxBytes;
+        }
+
+        @Override
+        public void write(int b) throws IOException {
+            if (!limitExceeded && buffer.size() + 1 > maxBytes) {
+                switchToPassthrough();
+            }
+            if (limitExceeded) {
+                if (discardingTaintedOutput) {
+                    discardedByteCount++;
+                } else {
+                    passthroughStream.write(b);
+                }
+            } else {
+                buffer.write(b);
+            }
+        }
+
+        @Override
+        public void write(byte[] b, int off, int len) throws IOException {
+            if (!limitExceeded && buffer.size() + len > maxBytes) {
+                switchToPassthrough();
+            }
+            if (limitExceeded) {
+                if (discardingTaintedOutput) {
+                    discardedByteCount += len;
+                } else {
+                    passthroughStream.write(b, off, len);
+                }
+            } else {
+                buffer.write(b, off, len);
+            }
+        }
+
+        @Override
+        public void flush() throws IOException {
+            if (limitExceeded && !discardingTaintedOutput && passthroughStream != null) {
+                passthroughStream.flush();
+            }
+            logDiscardedBytesIfNeeded();
+        }
+
+        @Override
+        public boolean isReady() {
+            return passthroughStream == null || passthroughStream.isReady();
+        }
+
+        @Override
+        public void setWriteListener(jakarta.servlet.WriteListener writeListener) {
+            if (passthroughStream != null) {
+                passthroughStream.setWriteListener(writeListener);
+            }
+        }
+
+        boolean isLimitExceeded() {
+            return limitExceeded;
+        }
+
+        byte[] getCaptured() {
+            return limitExceeded ? new byte[0] : buffer.toByteArray();
+        }
+
+        private void switchToPassthrough() throws IOException {
+            if (limitExceeded) {
+                return;
+            }
+            int status = realResponse.getStatus();
+            if (status >= 400) {
+                String correlationId = generateCorrelationId();
+                LOGGER.error("Large output-stream error response exceeded sanitization capture limit; "
+                                + "replacing body to avoid leaking stack traces [status={} correlationId={}]",
+                        status, correlationId);
+                sendSanitizedError(realResponse, status, correlationId);
+                buffer.reset();
+                limitExceeded = true;
+                discardingTaintedOutput = true;
+                return;
+            }
+            limitExceeded = true;
+            passthroughStream = realResponse.getOutputStream();
+            byte[] captured = buffer.toByteArray();
+            if (captured.length > 0) {
+                passthroughStream.write(captured);
+            }
+            buffer.reset();
+        }
+
+        private void logDiscardedBytesIfNeeded() {
+            if (discardingTaintedOutput && discardedByteCount > 0 && !discardLogged) {
+                LOGGER.debug("ResponseSanitizationFilter: discarded {} bytes after sanitized "
+                        + "large output-stream error response", discardedByteCount);
+                discardLogged = true;
+            }
         }
     }
 

@@ -122,7 +122,7 @@ public class BillingSaveBilling2Action extends ActionSupport {
 
         bean.setCreator(loggedInInfo.getLoggedInProviderNo());
 
-        MiscUtils.getLogger().debug("appointment_no---: {}", LogSafe.sanitize(bean.getApptNo()));
+        MiscUtils.getLogger().debug("BC billing appointment link present={}", bean.getApptNo() != null);
 
         Date curDate = new Date();
         String billingid = "";
@@ -165,8 +165,8 @@ public class BillingSaveBilling2Action extends ActionSupport {
             Billing billing = getBillingObj(bean, curDate, billingAccountStatus, appointmentNo);
             if (priceOverrides.containsKey(bItem.getServiceCode())) {
                 Double updatedPrice = priceOverrides.get(bItem.getServiceCode());
-                log.debug("{} Original {} updated price {}",
-                        LogSafe.sanitize(bItem.getServiceCode()), bItem.price, updatedPrice);
+                log.debug("Applying BC billing price override for serviceCode={}",
+                        LogSafe.sanitize(bItem.getServiceCode()));
                 bItem.price = updatedPrice;
                 bItem.getLineTotal();
             }
@@ -184,8 +184,6 @@ public class BillingSaveBilling2Action extends ActionSupport {
             Billingmaster billingmaster = saveBill(billingid, "" + billingAccountStatus, dataCenterId,
                     billedAmount, "" + paymentMode, bean, bItem, appointmentNo, paymentMethod); //billItem.get(i));
 
-            String WCBid = request.getParameter("WCBid");
-            MiscUtils.getLogger().debug("WCB:" + WCBid);
             if (bean.getBillingType().equals("WCB")) {
                 billingmaster.setWcbId(wcbId);
             }
@@ -210,7 +208,7 @@ public class BillingSaveBilling2Action extends ActionSupport {
             // Legacy WCB billing still records the WCB id on each Billingmaster row above. Keep
             // this branch as the existing operational marker until WCB linkage is redesigned as a
             // dedicated model/migration rather than an inline billing-save concern.
-            MiscUtils.getLogger().debug("WCB BILL!!");
+            MiscUtils.getLogger().debug("BC billing save includes WCB linkage");
         }
 
 
@@ -568,14 +566,12 @@ public class BillingSaveBilling2Action extends ActionSupport {
 
         Appointment appt = appointmentDao.find(apptNo);
         if (appt == null) {
-            log.warn("BC billing save could not update appointment because apptNo={} was not found",
-                    LogSafe.sanitize(bean.getApptNo()));
+            log.warn("BC billing save could not update linked appointment because it was not found");
             return;
         }
 
         String billStatus = new ApptStatusData().billStatus(appt.getStatus());
-        log.debug("appointment_no: " + bean.getApptNo());
-        log.debug("BillStatus:" + billStatus);
+        log.debug("BC billing save updating linked appointment status");
 
         appointmentArchiveDao.archiveAppointment(appt);
         appt.setStatus(billStatus);
@@ -621,7 +617,6 @@ public class BillingSaveBilling2Action extends ActionSupport {
 
     public String convertDate8Char(String s) {
         String sdate = "00000000", syear = "", smonth = "", sday = "";
-        log.debug("s=" + s);
         if (s != null) {
 
             if (s.indexOf("-") != -1) {
@@ -638,13 +633,11 @@ public class BillingSaveBilling2Action extends ActionSupport {
                     sday = "0" + sday;
                 }
 
-                log.debug("Year" + syear + " Month" + smonth + " Day" + sday);
                 sdate = syear + smonth + sday;
 
             } else {
                 sdate = s;
             }
-            log.debug("sdate:" + sdate);
         } else {
             sdate = "00000000";
 
@@ -776,8 +769,6 @@ public class BillingSaveBilling2Action extends ActionSupport {
             endTime = endTime.replace(":", "");
         }
 
-        log.debug("Time Call: " + timeCall + " Start Time: " + startTime + " End Time: " + endTime);
-
         bill.setBillingNo(Integer.parseInt(billingid));
         bill.setCreatedate(new Date());
         bill.setBillingstatus(billingAccountStatus);
@@ -853,7 +844,7 @@ public class BillingSaveBilling2Action extends ActionSupport {
             bill.setBirthDate("00000000");
 
         }
-        log.debug("Bill " + bill.getBillingCode() + " " + bill.getBillAmount());
+        log.debug("Prepared BC billing row for serviceCode={}", LogSafe.sanitize(bill.getBillingCode()));
         return bill;
     }
 

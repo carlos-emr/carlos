@@ -90,7 +90,6 @@ public final class BillingUpdateBilling2Action
         recip.setProvince(this.getRecipientProvince());
         recip.setPostal(this.getRecipientPostal());
         recip.setBillingNoString(this.getBillingNo());
-        log.debug("Name of recip " + recip.getName());
         MSPReconcile msprec = new MSPReconcile();
         BillingViewBean bean = new BillingViewBean();
         bean.updateBill(this.getBillingNo(), request.getParameter("billingProvider"));

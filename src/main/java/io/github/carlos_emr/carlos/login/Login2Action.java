@@ -192,6 +192,11 @@ public final class Login2Action extends ActionSupport {
      */
     public static final String FORCE_PASSWORD_RESET_ERROR_ATTR = "forcePasswordResetError";
 
+    private static final String FORCE_PASSWORD_RESET_OLD_PASSWORD_ATTEMPTS_ATTR =
+            "forcePasswordResetOldPasswordAttempts";
+
+    private static final int MAX_FORCE_PASSWORD_RESET_OLD_PASSWORD_ATTEMPTS = 5;
+
     /**
      * Session marker for the short-lived MFA challenge state.
      *
@@ -408,6 +413,20 @@ public final class Login2Action extends ActionSupport {
             String newPassword = this.getNewPassword();
             String confirmPassword = this.getConfirmPassword();
             String oldPassword = this.getOldPassword();
+
+            if (!oldPasswordMatches(oldPassword, password)) {
+                int failedAttempts = incrementForcedResetOldPasswordAttempts();
+                if (failedAttempts >= MAX_FORCE_PASSWORD_RESET_OLD_PASSWORD_ATTEMPTS) {
+                    auditForcedPasswordResetFailure(userName, "old_password_mismatch_limit");
+                    LoginCredentialCache.getInstance().invalidate(credsToken);
+                    removeAttributesFromSession(request);
+                    response.sendRedirect(loginFailedRedirectUrl(message(
+                            "provider.providerchangepassword.errorSessionExpired")));
+                    return NONE;
+                }
+            } else {
+                clearForcedResetOldPasswordAttempts();
+            }
 
             String errorStr = errorHandling(userName, password, newPassword, confirmPassword, oldPassword);
 
@@ -922,11 +941,13 @@ public final class Login2Action extends ActionSupport {
      * WAF rate limiter, which may run in detect-only mode in development or legacy deployments.</p>
      */
     private int incrementPendingMfaAttempts(HttpSession session) {
-        Object attemptsAttr = session.getAttribute(PENDING_MFA_ATTEMPTS_ATTR);
-        int attempts = attemptsAttr instanceof Number ? ((Number) attemptsAttr).intValue() : 0;
-        attempts++;
-        session.setAttribute(PENDING_MFA_ATTEMPTS_ATTR, attempts);
-        return attempts;
+        synchronized (session) {
+            Object attemptsAttr = session.getAttribute(PENDING_MFA_ATTEMPTS_ATTR);
+            int attempts = attemptsAttr instanceof Number ? ((Number) attemptsAttr).intValue() : 0;
+            attempts++;
+            session.setAttribute(PENDING_MFA_ATTEMPTS_ATTR, attempts);
+            return attempts;
+        }
     }
 
     /**
@@ -1515,8 +1536,7 @@ public final class Login2Action extends ActionSupport {
                                  String oldPassword) {
 
         // Verify old password matches the password from the staged successful login.
-        if (oldPassword == null || oldEncodedPassword == null
-                || !this.securityManager.matchesPassword(oldPassword, oldEncodedPassword)) {
+        if (!oldPasswordMatches(oldPassword, oldEncodedPassword)) {
             return rejectForcedPasswordReset(userName, "old_password_mismatch",
                     "provider.providerchangepassword.errorOldPasswordMismatch");
         }
@@ -1553,6 +1573,37 @@ public final class Login2Action extends ActionSupport {
     private String rejectForcedPasswordReset(String userName, String auditReason, String messageKey) {
         auditForcedPasswordResetFailure(userName, auditReason);
         return message(messageKey);
+    }
+
+    private boolean oldPasswordMatches(String oldPassword, String oldEncodedPassword) {
+        return oldPassword != null
+                && oldEncodedPassword != null
+                && this.securityManager.matchesPassword(oldPassword, oldEncodedPassword);
+    }
+
+    private int incrementForcedResetOldPasswordAttempts() {
+        HttpSession session = request.getSession(false);
+        if (session == null) {
+            return MAX_FORCE_PASSWORD_RESET_OLD_PASSWORD_ATTEMPTS;
+        }
+        synchronized (session) {
+            Object attemptsAttr = session.getAttribute(FORCE_PASSWORD_RESET_OLD_PASSWORD_ATTEMPTS_ATTR);
+            int attempts = attemptsAttr instanceof Number ? ((Number) attemptsAttr).intValue() : 0;
+            attempts++;
+            session.setAttribute(FORCE_PASSWORD_RESET_OLD_PASSWORD_ATTEMPTS_ATTR, attempts);
+            return attempts;
+        }
+    }
+
+    private void clearForcedResetOldPasswordAttempts() {
+        HttpSession session = request.getSession(false);
+        if (session != null) {
+            try {
+                session.removeAttribute(FORCE_PASSWORD_RESET_OLD_PASSWORD_ATTEMPTS_ATTR);
+            } catch (IllegalStateException | UnsupportedOperationException e) {
+                logger.warn("Unable to clear forced-reset old-password retry counter", e);
+            }
+        }
     }
 
     /**
