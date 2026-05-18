@@ -31,7 +31,9 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -94,6 +96,43 @@ class SelectFacility2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should redirect unauthenticated POST to logout page")
+    void shouldRedirectUnauthenticatedPost_toLogoutPage() throws Exception {
+        request.getSession(false).removeAttribute("user");
+
+        String result = action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/logoutPage");
+        verifyNoInteractions(providerDao, facilityDao);
+    }
+
+    @Test
+    @DisplayName("should reject missing selected facility without DAO lookup")
+    void shouldRejectMissingSelectedFacility_withoutDaoLookup() throws Exception {
+        request.addParameter("nextPage", "provider");
+
+        String result = action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/loginfailed");
+        verifyNoInteractions(providerDao, facilityDao);
+    }
+
+    @Test
+    @DisplayName("should reject malformed selected facility without DAO lookup")
+    void shouldRejectMalformedSelectedFacility_withoutDaoLookup() throws Exception {
+        request.addParameter(Login2Action.SELECTED_FACILITY_ID, "abc");
+        request.addParameter("nextPage", "provider");
+
+        String result = action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/loginfailed");
+        verifyNoInteractions(providerDao, facilityDao);
+    }
+
+    @Test
     @DisplayName("should set current facility and return next result")
     void shouldSetCurrentFacilityAndReturnNextResult_whenSelectionIsAuthorized() throws Exception {
         Facility facility = new Facility();
@@ -124,7 +163,38 @@ class SelectFacility2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/loginfailed");
-        verify(facilityDao, org.mockito.Mockito.never()).find(99);
+        verify(facilityDao, never()).find(99);
+    }
+
+    @Test
+    @DisplayName("should reject missing facility record")
+    void shouldRejectMissingFacilityRecord_whenAuthorizedFacilityNoLongerExists() throws Exception {
+        request.addParameter(Login2Action.SELECTED_FACILITY_ID, "10");
+        request.addParameter("nextPage", "provider");
+        when(providerDao.getFacilityIds("999998")).thenReturn(List.of(10, 11));
+        when(facilityDao.find(10)).thenReturn(null);
+
+        String result = action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/loginfailed");
+    }
+
+    @Test
+    @DisplayName("should fall back to provider when next page is invalid")
+    void shouldFallBackToProvider_whenNextPageIsInvalid() throws Exception {
+        Facility facility = new Facility();
+        facility.setId(10);
+        request.addParameter(Login2Action.SELECTED_FACILITY_ID, "10");
+        request.addParameter("nextPage", "https://evil.example");
+        when(providerDao.getFacilityIds("999998")).thenReturn(List.of(10, 11));
+        when(facilityDao.find(10)).thenReturn(facility);
+
+        String result = action().execute();
+
+        assertThat(result).isEqualTo("provider");
+        assertThat(request.getSession(false).getAttribute(SessionConstants.CURRENT_FACILITY))
+                .isSameAs(facility);
     }
 
     private SelectFacility2Action action() {

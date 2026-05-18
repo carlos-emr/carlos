@@ -286,6 +286,30 @@ class UnauthenticatedRejectionResolverUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should swallow committed response audit failure")
+    void shouldSwallowCommittedResponseAuditFailure_whenAuditLoggerFails() throws Exception {
+        MockHttpServletRequest request = request("/admin/api/status");
+        request.addHeader("Accept", "application/json");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        response.setCommitted(true);
+        logActionMock.when(() -> LogAction.addLog("", "log in", "login",
+                        "unauthenticated_rejection_committed:status-code", request.getRemoteAddr()))
+                .thenThrow(new RuntimeException("audit unavailable"));
+
+        try (LogCapture capture = LogCapture.forLogger(UnauthenticatedRejectionResolver.class)) {
+            UnauthenticatedRejectionResolver.rejectUnauthenticatedRequest(request, response);
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(capture.events()).anySatisfy(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                assertThat(event.getMessage().getFormattedMessage())
+                        .contains("Unable to audit committed unauthenticated rejection")
+                        .contains("routeType=status-code");
+            });
+        }
+    }
+
+    @Test
     @DisplayName("should keep generated content status-code paths immutable")
     void shouldKeepGeneratedContentStatusCodePaths_immutable() {
         assertThatThrownBy(() -> UnauthenticatedRejectionResolver.STATUS_CODE_PATHS.add("/newRoute"))

@@ -154,7 +154,7 @@ public final class Login2Action extends ActionSupport {
     private static final Logger logger = MiscUtils.getLogger();
 
     /**
-     * Legacy authentication grep anchor shared with {@link LoginCheckLoginBean}.
+     * Legacy authentication grep anchor mirroring the same literal in {@link LoginCheckLoginBean}.
      *
      * <p>Operational log searches still use this distinctive prefix to separate credential
      * decisions from general login controller flow. Keep the token stable unless log dashboards
@@ -200,23 +200,21 @@ public final class Login2Action extends ActionSupport {
     private static final int MAX_PENDING_MFA_ATTEMPTS = 5;
 
     /**
-     * Pending-MFA copy of the authenticated security row.
+     * Session key for the provider number associated with the pending MFA challenge.
      *
-     * <p>This attribute is stored before the normal authenticated session exists. The
-     * {@link Security} entity must remain serializable so session passivation or clustered session
-     * replication can safely carry the pending challenge state until OTP validation completes.</p>
+     * <p>This is useful for audit context when a cache entry expires. It is not sufficient to
+     * complete login; the opaque cache token must still resolve to server-side pending state.</p>
      */
-    private static final String PENDING_MFA_SECURITY_ATTR = "pendingMfaSecurity";
+    private static final String PENDING_MFA_PROVIDER_NO_ATTR = "pendingMfaProviderNo";
 
     /**
-     * Pending-MFA copy of the {@link LoginCheckLogin#auth} result.
+     * Session key for the opaque pending-MFA cache token.
      *
-     * <p>The array shape is the legacy successful-authentication contract:
-     * [providerNo, firstName, lastName, profession, roles, expiredDays, email]. It is staged only
-     * until OTP validation completes, then copied into the canonical authenticated session by
-     * {@link #completeAuthenticatedLogin}.</p>
+     * <p>The token references {@link PendingMfaChallengeCache}; the session must never store the
+     * full {@link Security} entity, the {@link LoginCheckLogin#auth} result, or an MFA registration
+     * secret while OTP validation is still pending.</p>
      */
-    private static final String PENDING_MFA_AUTH_RESULT_ATTR = "pendingMfaAuthResult";
+    private static final String PENDING_MFA_TOKEN_ATTR = "pendingMfaChallengeToken";
 
     /** Spring-managed service for provider data access and management */
     private final ProviderManager providerManager = SpringUtils.getBean(ProviderManager.class);
@@ -632,8 +630,9 @@ public final class Login2Action extends ActionSupport {
     /**
      * Starts an MFA challenge without granting an authenticated application session.
      *
-     * <p>Only pending-MFA attributes are stored here. The canonical {@code user} session
-     * attribute is set by {@link #completeAuthenticatedLogin} after the OTP validates.</p>
+     * <p>The HTTP session receives only a marker, provider number, retry counter, and opaque cache
+     * token. The canonical {@code user} session attribute is set by
+     * {@link #completeAuthenticatedLogin} after the OTP validates.</p>
      *
      * @param strAuth authentication result fields returned by {@link LoginCheckLogin#auth}
      * @param security security row for the authenticated provider
@@ -650,20 +649,12 @@ public final class Login2Action extends ActionSupport {
         }
         session = request.getSession();
         session.setMaxInactiveInterval(300);
-        session.setAttribute(PENDING_MFA_AUTH_ATTR, Boolean.TRUE); // nosemgrep: tainted-session-from-http-request -- server-generated MFA challenge marker
-        session.setAttribute(PENDING_MFA_SECURITY_ATTR, security); // nosemgrep: tainted-session-from-http-request -- Security entity loaded from DAO after password/PIN authentication
-        session.setAttribute(PENDING_MFA_AUTH_RESULT_ATTR, strAuth); // nosemgrep: tainted-session-from-http-request -- authentication result returned by LoginCheckLogin after credential validation
-        session.setAttribute(PENDING_MFA_ATTEMPTS_ATTR, 0); // nosemgrep: tainted-session-from-http-request -- server-controlled MFA retry counter
-
+        String registrationSecret = null;
         try {
             if (this.mfaManager.isMfaRegistrationRequired(security.getId())) {
-                Object mfaSecret = session.getAttribute("mfaSecret");
-                if (mfaSecret == null) {
-                    mfaSecret = MfaManager.generateMfaSecret();
-                    session.setAttribute("mfaSecret", mfaSecret); // nosemgrep: tainted-session-from-http-request -- server-generated MFA registration secret staged only until OTP confirmation
-                }
+                registrationSecret = MfaManager.generateMfaSecret();
                 request.setAttribute("mfaRegistrationRequired", true);
-                request.setAttribute("qrData", this.mfaManager.getQRCodeImageData(security.getId(), mfaSecret.toString()));
+                request.setAttribute("qrData", this.mfaManager.getQRCodeImageData(security.getId(), registrationSecret));
             }
         } catch (RuntimeException e) {
             clearPendingMfaSession(session);
@@ -681,6 +672,14 @@ public final class Login2Action extends ActionSupport {
             return loginFailureResult(message("login.errorUnableToProcess"));
         }
 
+        PendingMfaChallengeCache.PendingMfaChallenge challenge =
+                new PendingMfaChallengeCache.PendingMfaChallenge(
+                        security.getSecurityNo(), security.getProviderNo(), strAuth, registrationSecret);
+        String challengeToken = PendingMfaChallengeCache.getInstance().store(challenge);
+        session.setAttribute(PENDING_MFA_AUTH_ATTR, Boolean.TRUE); // nosemgrep: tainted-session-from-http-request -- server-generated MFA challenge marker
+        session.setAttribute(PENDING_MFA_PROVIDER_NO_ATTR, security.getProviderNo()); // nosemgrep: tainted-session-from-http-request -- provider number is authenticated LoginCheckLogin output used only for audit context
+        session.setAttribute(PENDING_MFA_TOKEN_ATTR, challengeToken); // nosemgrep: tainted-session-from-http-request -- opaque server-generated cache token, not raw MFA state
+        session.setAttribute(PENDING_MFA_ATTEMPTS_ATTR, 0); // nosemgrep: tainted-session-from-http-request -- server-controlled MFA retry counter
         request.setAttribute("securityId", String.valueOf(security.getSecurityNo()));
         return "mfaHandler";
     }
@@ -690,9 +689,9 @@ public final class Login2Action extends ActionSupport {
      *
      * <p>The pending-MFA session is the boundary between password/PIN success and an authenticated
      * application session. Fatal validation failures clear that pending state so the staged
-     * serializable security row and authentication result cannot survive after a corrupted secret,
-     * missing security record, or broken TOTP key. Retryable user-code failures intentionally keep
-     * the pending state so the user can enter a new OTP.</p>
+     * opaque cache token cannot survive after a corrupted secret, missing security record, or
+     * broken TOTP key. Retryable user-code failures intentionally keep the pending state so the
+     * user can enter a new OTP.</p>
      *
      * @param ip remote address used for logging and final login audit
      * @param isMobileOptimized whether mobile session flags should be applied after success
@@ -714,21 +713,45 @@ public final class Login2Action extends ActionSupport {
             return NONE;
         }
 
-        String[] strAuth = (String[]) session.getAttribute(PENDING_MFA_AUTH_RESULT_ATTR);
-        Object securityAttr = session.getAttribute(PENDING_MFA_SECURITY_ATTR);
-        if (!(securityAttr instanceof Security)) {
-            logger.error("Rejected MFA verification because pending challenge has no security record: remote={}",
+        String challengeToken = (String) session.getAttribute(PENDING_MFA_TOKEN_ATTR);
+        String pendingProviderNo = (String) session.getAttribute(PENDING_MFA_PROVIDER_NO_ATTR);
+        PendingMfaChallengeCache.PendingMfaChallenge challenge =
+                PendingMfaChallengeCache.getInstance().peek(challengeToken);
+        if (challenge == null) {
+            logger.info("Rejected MFA verification because pending challenge token was missing or expired: providerNo={}, remote={}",
+                    LogSafe.sanitize(pendingProviderNo), LogSafe.sanitize(ip));
+            clearPendingMfaSession(session);
+            response.sendRedirect(loginFailedRedirectUrl(message("provider.providerchangepassword.errorSessionExpired")));
+            return NONE;
+        }
+
+        String[] strAuth = challenge.authResult();
+        Security security;
+        try {
+            security = securityDao.find(challenge.securityNo());
+        } catch (RuntimeException e) {
+            logger.error("Unable to load security record for pending MFA challenge: providerNo={}, securityId={}, remote={}",
+                    LogSafe.sanitize(challenge.providerNo()),
+                    LogSafe.sanitize(String.valueOf(challenge.securityNo())),
+                    LogSafe.sanitize(ip),
+                    e);
+            clearPendingMfaSession(session);
+            return loginFailureResult(message("login.errorUnableToProcess"));
+        }
+        if (security == null) {
+            logger.error("Rejected MFA verification because pending challenge has no security record: providerNo={}, securityId={}, remote={}",
+                    LogSafe.sanitize(challenge.providerNo()),
+                    LogSafe.sanitize(String.valueOf(challenge.securityNo())),
                     LogSafe.sanitize(ip));
             clearPendingMfaSession(session);
             response.sendRedirect(loginFailedRedirectUrl(message("login.errorSecurityRecordMissing")));
             return NONE;
         }
-        Security security = (Security) securityAttr;
 
         String mfaSecret;
         if (this.mfaRegistrationFlow) {
-            Object mfaSecretAttr = session.getAttribute("mfaSecret");
-            if (!(mfaSecretAttr instanceof String)) {
+            mfaSecret = challenge.registrationSecret();
+            if (mfaSecret == null || mfaSecret.isEmpty()) {
                 logger.warn("Rejected MFA registration submit without a staged secret: providerNo={}, securityId={}, remote={}",
                         LogSafe.sanitize(security.getProviderNo()),
                         LogSafe.sanitize(String.valueOf(security.getSecurityNo())),
@@ -737,7 +760,6 @@ public final class Login2Action extends ActionSupport {
                 response.sendRedirect(loginFailedRedirectUrl(message("provider.providerchangepassword.errorSessionExpired")));
                 return NONE;
             }
-            mfaSecret = (String) mfaSecretAttr;
         } else {
             try {
                 mfaSecret = this.mfaManager.getMfaSecret(security);
@@ -810,15 +832,18 @@ public final class Login2Action extends ActionSupport {
      * Returns whether the session contains all state required to validate a pending MFA challenge.
      *
      * <p>Every attribute is required and type-checked. Missing or wrong-typed state is treated as an
-     * expired challenge rather than reconstructing login state from request parameters.</p>
+     * expired challenge rather than reconstructing login state from request parameters. The method
+     * deliberately checks only session markers; the cache token is resolved separately so the
+     * caller can log a clearer expired-token reason.</p>
      *
      * @param session candidate HTTP session
-     * @return true when the session contains the pending-MFA marker and auth result
+     * @return true when the session contains the pending-MFA marker and opaque token
      */
     private boolean hasPendingMfaSession(HttpSession session) {
         return session != null
                 && Boolean.TRUE.equals(session.getAttribute(PENDING_MFA_AUTH_ATTR))
-                && session.getAttribute(PENDING_MFA_AUTH_RESULT_ATTR) instanceof String[];
+                && session.getAttribute(PENDING_MFA_PROVIDER_NO_ATTR) instanceof String
+                && session.getAttribute(PENDING_MFA_TOKEN_ATTR) instanceof String;
     }
 
     /**
@@ -858,17 +883,21 @@ public final class Login2Action extends ActionSupport {
     /**
      * Removes all pre-authentication MFA state from the session.
      *
-     * <p>The staged login object and authentication result represent a successful password/PIN check
-     * and must be cleared before any fatal MFA failure returns control to Struts. During MFA
-     * registration this also removes the staged {@code mfaSecret}, which is sensitive material and
-     * must not survive a failed or abandoned challenge.</p>
+     * <p>The pending-MFA cache payload represents a successful password/PIN check and must be
+     * invalidated before any fatal MFA failure returns control to Struts. During MFA registration
+     * this also removes the cached registration secret, which is sensitive material and must not
+     * survive a failed or abandoned challenge.</p>
      *
      * @param session session containing pending-MFA state
      */
     private void clearPendingMfaSession(HttpSession session) {
+        Object tokenAttr = session.getAttribute(PENDING_MFA_TOKEN_ATTR);
+        if (tokenAttr instanceof String) {
+            PendingMfaChallengeCache.getInstance().invalidate((String) tokenAttr);
+        }
         session.removeAttribute(PENDING_MFA_AUTH_ATTR);
-        session.removeAttribute(PENDING_MFA_SECURITY_ATTR);
-        session.removeAttribute(PENDING_MFA_AUTH_RESULT_ATTR);
+        session.removeAttribute(PENDING_MFA_PROVIDER_NO_ATTR);
+        session.removeAttribute(PENDING_MFA_TOKEN_ATTR);
         session.removeAttribute(PENDING_MFA_ATTEMPTS_ATTR);
         session.removeAttribute("mfaSecret");
     }
@@ -1287,7 +1316,8 @@ public final class Login2Action extends ActionSupport {
      * Routes fatal in-action login failures to the login failure view with a request-scoped message.
      *
      * <p>Do not use the {@code failure} result for these paths: the Struts mapping sends that result
-     * to the logout broadcast page, which intentionally does not render login error details.</p>
+     * to {@code /WEB-INF/jsp/login/logout.jsp}, which intentionally does not render login error
+     * details. The {@code error} result maps to {@code /WEB-INF/jsp/login/loginfailed.jsp}.</p>
      *
      * @param errorMessage localized, display-safe error message
      * @return {@code error} so Struts renders {@code loginfailed.jsp}

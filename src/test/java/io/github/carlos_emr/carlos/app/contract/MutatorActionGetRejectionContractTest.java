@@ -190,6 +190,10 @@ class MutatorActionGetRejectionContractTest {
         "io.github.carlos_emr.carlos.decision.gate.ViewDecision2Action",
         // HRM: rejects GET when statement param is present.
         "io.github.carlos_emr.carlos.hospitalReportManager.HRMStatementModify2Action",
+        // Ontario billing: dual-purpose pages reject GET only when mutation-intent params exist.
+        "io.github.carlos_emr.carlos.billings.ca.on.web.BatchBill2Action",
+        "io.github.carlos_emr.carlos.billings.ca.on.web.BillingDocumentErrorReportUpload2Action",
+        "io.github.carlos_emr.carlos.billings.ca.on.web.MoveMohFiles2Action",
         // Messenger admin: rejects GET on form-save method invocations.
         "io.github.carlos_emr.carlos.messenger.config.pageUtil.MsgMessengerAdmin2Action",
         // Schedule: all below reject GET on Save/Delete/mutation-intent params.
@@ -219,6 +223,7 @@ class MutatorActionGetRejectionContractTest {
         // Read-scope gates — permit GET, only 405 truly unsupported methods.
         "io.github.carlos_emr.carlos.appointment.gate.ViewAppointment2Action",
         "io.github.carlos_emr.carlos.appointment.gate.ViewAppointmentWrite2Action",
+        "io.github.carlos_emr.carlos.login.gate.SelectFacility2Action",
         "io.github.carlos_emr.carlos.report.gate.ViewReport2Action"
     );
 
@@ -262,7 +267,12 @@ class MutatorActionGetRejectionContractTest {
      */
     private static final Set<String> IN_SCOPE_EXPLICIT_CLASSES = Set.of(
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSaveBilling2Action",
-        "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingUpdateBilling2Action"
+        "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingUpdateBilling2Action",
+        "io.github.carlos_emr.carlos.billings.ca.on.web.BatchBill2Action",
+        "io.github.carlos_emr.carlos.billings.ca.on.web.BillingDocumentErrorReportUpload2Action",
+        "io.github.carlos_emr.carlos.billings.ca.on.web.MoveMohFiles2Action",
+        "io.github.carlos_emr.carlos.billings.ca.on.web.ScheduleOfBenefitsUpload2Action",
+        "io.github.carlos_emr.carlos.login.gate.SelectFacility2Action"
     );
 
     @ParameterizedTest(name = "{0} rejects GET and HEAD without side-effects")

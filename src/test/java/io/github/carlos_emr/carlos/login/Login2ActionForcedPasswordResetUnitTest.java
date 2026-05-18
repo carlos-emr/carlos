@@ -66,7 +66,6 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import java.io.Serializable;
 import java.net.URLDecoder;
 import java.security.InvalidKeyException;
 import java.nio.charset.StandardCharsets;
@@ -114,8 +113,8 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
     private static final String VALID_PASSWORD = fixturePassword("valid");
     private static final String OTHER_PASSWORD = fixturePassword("other");
     private static final String WRONG_OLD_PASSWORD = String.join("-", "wrong", "old", "password");
-    private static final String PENDING_MFA_SECURITY_ATTR = "pendingMfaSecurity";
-    private static final String PENDING_MFA_AUTH_RESULT_ATTR = "pendingMfaAuthResult";
+    private static final String PENDING_MFA_PROVIDER_NO_ATTR = "pendingMfaProviderNo";
+    private static final String PENDING_MFA_TOKEN_ATTR = "pendingMfaChallengeToken";
     private static final String PENDING_MFA_ATTEMPTS_ATTR = "pendingMfaFailedAttempts";
     private static final String[] STR_AUTH = {"999998", "Test", "Provider", "", "doctor", "0"};
 
@@ -127,6 +126,7 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
     private AutoCloseable mockitoCloseable;
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
+    private final List<String> pendingMfaTokens = new ArrayList<>();
 
     @Mock private ProviderManager providerManager;
     @Mock private AppManager appManager;
@@ -173,6 +173,20 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
 
     @AfterEach
     void tearDown() throws Exception {
+        if (request != null) {
+            try {
+                if (request.getSession(false) != null) {
+                    Object tokenAttr = request.getSession(false).getAttribute(PENDING_MFA_TOKEN_ATTR);
+                    if (tokenAttr instanceof String) {
+                        PendingMfaChallengeCache.getInstance().invalidate((String) tokenAttr);
+                    }
+                }
+            } catch (IllegalStateException ignored) {
+                // Session was invalidated by the action under test.
+            }
+        }
+        pendingMfaTokens.forEach(token -> PendingMfaChallengeCache.getInstance().invalidate(token));
+        pendingMfaTokens.clear();
         if (servletActionContextMock != null) {
             servletActionContextMock.close();
         }
@@ -668,9 +682,14 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
             assertThat(originalSession.isInvalid()).isTrue();
             assertThat(request.getSession().getAttribute("user")).isNull();
             assertThat(request.getSession().getAttribute(Login2Action.PENDING_MFA_AUTH_ATTR)).isEqualTo(Boolean.TRUE);
-            assertThat(request.getSession().getAttribute(PENDING_MFA_SECURITY_ATTR))
-                    .isSameAs(security)
-                    .isInstanceOf(Serializable.class);
+            assertThat(request.getSession().getAttribute(PENDING_MFA_PROVIDER_NO_ATTR)).isEqualTo("999998");
+            Object challengeToken = request.getSession().getAttribute(PENDING_MFA_TOKEN_ATTR);
+            assertThat(challengeToken).isInstanceOf(String.class);
+            pendingMfaTokens.add((String) challengeToken);
+            assertThat(PendingMfaChallengeCache.getInstance().peek((String) challengeToken)).isNotNull();
+            assertThat(request.getSession().getAttribute("pendingMfaSecurity")).isNull();
+            assertThat(request.getSession().getAttribute("pendingMfaAuthResult")).isNull();
+            assertThat(request.getSession().getAttribute("mfaSecret")).isNull();
             assertThat(request.getSession().getAttribute("pendingMfaLoginCheck")).isNull();
             assertThat(mockedLoginChecks.constructed()).hasSize(1);
         }
@@ -713,7 +732,7 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should clear pending MFA session when security record is missing")
     void shouldClearPendingMfaSession_whenSecurityRecordIsMissing() throws Exception {
-        stagePendingMfa(null);
+        stagePendingMfaChallenge(12345, "999998", STR_AUTH, null);
         Login2Action action = newAction(null, null, null);
         action.setCode("123456");
 
@@ -721,6 +740,40 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getRedirectedUrl()).contains("/loginfailed");
+        assertPendingMfaCleared();
+    }
+
+    @Test
+    @DisplayName("should clear pending MFA session when challenge token is expired")
+    void shouldClearPendingMfaSession_whenChallengeTokenIsExpired() throws Exception {
+        request.getSession().setAttribute(Login2Action.PENDING_MFA_AUTH_ATTR, Boolean.TRUE);
+        request.getSession().setAttribute(PENDING_MFA_PROVIDER_NO_ATTR, "999998");
+        request.getSession().setAttribute(PENDING_MFA_TOKEN_ATTR, "missing-token");
+        request.getSession().setAttribute(PENDING_MFA_ATTEMPTS_ATTR, 2);
+        Login2Action action = newAction(null, null, null);
+        action.setCode("123456");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getRedirectedUrl()).contains("/loginfailed");
+        assertPendingMfaCleared();
+    }
+
+    @Test
+    @DisplayName("should clear pending MFA session when security lookup fails")
+    void shouldClearPendingMfaSession_whenSecurityLookupFails() throws Exception {
+        Security security = forcedResetSecurity();
+        security.setForcePasswordReset(Boolean.FALSE);
+        stagePendingMfa(security);
+        when(securityDao.find(security.getSecurityNo())).thenThrow(new IllegalStateException("db unavailable"));
+        Login2Action action = newAction(null, null, null);
+        action.setCode("123456");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo("error");
+        assertThat(request.getAttribute("errormsg")).isNotNull();
         assertPendingMfaCleared();
     }
 
@@ -742,12 +795,11 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should clear pending MFA session when registration secret is not a string")
-    void shouldClearPendingMfaSession_whenRegistrationSecretIsNotAString() throws Exception {
+    @DisplayName("should clear pending MFA session when registration secret is missing")
+    void shouldClearPendingMfaSession_whenRegistrationSecretIsMissing() throws Exception {
         Security security = forcedResetSecurity();
         security.setForcePasswordReset(Boolean.FALSE);
         stagePendingMfa(security);
-        request.getSession(false).setAttribute("mfaSecret", 42);
         Login2Action action = newAction(null, null, null);
         action.setCode("123456");
         action.setMfaRegistrationFlow(true);
@@ -859,8 +911,7 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
     void shouldRegenerateQrData_whenMfaRegistrationCodeIsInvalid() throws Exception {
         Security security = forcedResetSecurity();
         security.setForcePasswordReset(Boolean.FALSE);
-        stagePendingMfa(security);
-        request.getSession(false).setAttribute("mfaSecret", "JBSWY3DPEHPK3PXP");
+        stagePendingMfa(security, STR_AUTH, "JBSWY3DPEHPK3PXP");
         when(mfaManager.getQRCodeImageData(security.getId(), "JBSWY3DPEHPK3PXP")).thenReturn("qr-data");
 
         try (MockedConstruction<TimeBasedOneTimePasswordGenerator> ignored =
@@ -1453,8 +1504,7 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
     void shouldClearPendingMfaSession_whenMfaRegistrationSaveFails() throws Exception {
         Security security = forcedResetSecurity();
         security.setForcePasswordReset(Boolean.FALSE);
-        stagePendingMfa(security);
-        request.getSession(false).setAttribute("mfaSecret", "JBSWY3DPEHPK3PXP");
+        stagePendingMfa(security, STR_AUTH, "JBSWY3DPEHPK3PXP");
         Login2Action action = newAction(null, null, null);
         action.setCode("123456");
         action.setMfaRegistrationFlow(true);
@@ -1480,8 +1530,7 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
     void shouldSaveRegistrationSecretAndCompleteLogin_whenMfaRegistrationCodeIsValid() throws Exception {
         Security security = forcedResetSecurity();
         security.setForcePasswordReset(Boolean.FALSE);
-        stagePendingMfa(security);
-        request.getSession(false).setAttribute("mfaSecret", "JBSWY3DPEHPK3PXP");
+        stagePendingMfa(security, STR_AUTH, "JBSWY3DPEHPK3PXP");
         stubSuccessfulProviderLogin();
         Login2Action action = newAction(null, null, null);
         action.setCode("123456");
@@ -1627,6 +1676,26 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
                 .getAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR);
         assertThat(LoginCredentialCache.getInstance().peek(token).getNextPage()).isNull();
         LoginCredentialCache.getInstance().invalidate(token);
+    }
+
+    @Test
+    @DisplayName("should invalidate previous credential token when staging forced reset credentials")
+    void shouldInvalidatePreviousCredentialToken_whenStagingForcedResetCredentials() {
+        String oldToken = LoginCredentialCache.getInstance().store(
+                new LoginCredentialCache.LoginCredentials(USERNAME, "old-hash", "2026", null));
+        request.getSession().setAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR, oldToken);
+        when(securityManager.encodePassword(VALID_PASSWORD)).thenReturn(ENCODED_OLD_PASSWORD);
+        Login2Action action = newAction(null, null, null);
+
+        ReflectionTestUtils.invokeMethod(action, "setUserInfoToSession", request, USERNAME,
+                VALID_PASSWORD, "2026", "/provider/providercontrol.jsp");
+
+        String newToken = (String) request.getSession(false)
+                .getAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR);
+        assertThat(newToken).isNotEqualTo(oldToken);
+        assertThat(LoginCredentialCache.getInstance().peek(oldToken)).isNull();
+        assertThat(LoginCredentialCache.getInstance().peek(newToken)).isNotNull();
+        LoginCredentialCache.getInstance().invalidate(newToken);
     }
 
     @Test
@@ -1843,21 +1912,36 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
     }
 
     private void stagePendingMfa(Security security) {
-        stagePendingMfa(security, STR_AUTH);
+        stagePendingMfa(security, STR_AUTH, null);
     }
 
     private void stagePendingMfa(Security security, String[] strAuth) {
+        stagePendingMfa(security, strAuth, null);
+    }
+
+    private void stagePendingMfa(Security security, String[] strAuth, String registrationSecret) {
+        stagePendingMfaChallenge(security.getSecurityNo(), security.getProviderNo(),
+                strAuth, registrationSecret);
+        when(securityDao.find(security.getSecurityNo())).thenReturn(security);
+    }
+
+    private String stagePendingMfaChallenge(Integer securityNo, String providerNo, String[] strAuth,
+                                            String registrationSecret) {
+        String token = PendingMfaChallengeCache.getInstance().store(
+                new PendingMfaChallengeCache.PendingMfaChallenge(
+                        securityNo, providerNo, strAuth, registrationSecret));
         request.getSession().setAttribute(Login2Action.PENDING_MFA_AUTH_ATTR, Boolean.TRUE);
-        if (security != null) {
-            request.getSession().setAttribute(PENDING_MFA_SECURITY_ATTR, security);
-        }
-        request.getSession().setAttribute(PENDING_MFA_AUTH_RESULT_ATTR, strAuth);
+        request.getSession().setAttribute(PENDING_MFA_PROVIDER_NO_ATTR, providerNo);
+        request.getSession().setAttribute(PENDING_MFA_TOKEN_ATTR, token);
+        request.getSession().setAttribute(PENDING_MFA_ATTEMPTS_ATTR, 0);
+        pendingMfaTokens.add(token);
+        return token;
     }
 
     private void assertPendingMfaCleared() {
         assertThat(request.getSession(false).getAttribute(Login2Action.PENDING_MFA_AUTH_ATTR)).isNull();
-        assertThat(request.getSession(false).getAttribute(PENDING_MFA_SECURITY_ATTR)).isNull();
-        assertThat(request.getSession(false).getAttribute(PENDING_MFA_AUTH_RESULT_ATTR)).isNull();
+        assertThat(request.getSession(false).getAttribute(PENDING_MFA_PROVIDER_NO_ATTR)).isNull();
+        assertThat(request.getSession(false).getAttribute(PENDING_MFA_TOKEN_ATTR)).isNull();
         assertThat(request.getSession(false).getAttribute(PENDING_MFA_ATTEMPTS_ATTR)).isNull();
         assertThat(request.getSession(false).getAttribute("mfaSecret")).isNull();
     }

@@ -15,7 +15,7 @@
 
 Replacing `Ajax.Request` / `Ajax.Updater` with raw `fetch()` is error-prone because:
 
-1. **Server-side header dependencies** — Two deployed Java servlet filters check for the `X-Requested-With: XMLHttpRequest` header, and CSRF script injection uses it only if the filter is remapped to top-level `REQUEST` dispatch. Omitting it can corrupt AJAX responses with injected HTML or change authentication-rejection handling.
+1. **Server-side header dependencies** — Several deployed server paths check for the `X-Requested-With: XMLHttpRequest` header. The privacy-statement and logout-broadcast filters use it to avoid appending page chrome to AJAX fragments, authentication rejection uses it for direct `401` responses, and CSRF script injection uses it only if that filter is ever remapped to top-level `REQUEST` dispatch. Omitting it can corrupt AJAX responses with injected HTML or change authentication-rejection handling.
 2. **Content-Type contract** — Server actions expect `application/x-www-form-urlencoded` for POST data. `fetch()` does not set this by default.
 3. **Callback ordering** — Prototype fires callbacks in a specific sequence (`onSuccess` → DOM update → script execution → `onComplete`). Breaking this order breaks dependent code.
 4. **Script execution** — Modern `innerHTML` does NOT execute `<script>` tags. Some AJAX responses contain inline scripts that must run.
@@ -150,15 +150,17 @@ For POST requests, it also sets:
 }
 ```
 
-**Why**: Two deployed server-side Java filters check `X-Requested-With`, and a third uses it only
-if CSRF script injection is remapped to top-level `REQUEST` dispatches:
+**Why**: Deployed server-side Java code checks `X-Requested-With` in several places, while CSRF
+script injection uses it only if remapped to top-level `REQUEST` dispatches:
 - `PrivacyStatementAppendingFilter` — skips privacy statement injection for AJAX
+- `UnauthenticatedRejectionResolver` — returns a direct `401` for AJAX instead of login-page HTML
 - `CsrfGuardScriptInjectionFilter` — skips CSRF `<script>` injection for AJAX only if
   REQUEST dispatch mapping is re-enabled; the deployed FORWARD-only mapping injects at JSP render
   time
 - `LogoutBroadcastFilter` — skips logout broadcast for AJAX
 
-Without this header, AJAX responses will be corrupted with appended HTML.
+Without this header, AJAX responses can be corrupted with appended HTML or receive browser-style
+login redirects instead of direct unauthenticated status responses.
 
 ### CSRF Token Injection (CRITICAL)
 
