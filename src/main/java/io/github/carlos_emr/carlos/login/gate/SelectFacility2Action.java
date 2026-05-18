@@ -37,7 +37,10 @@ import org.apache.struts2.ServletActionContext;
  * Authenticated facility-selection endpoint for providers who belong to multiple facilities.
  *
  * <p>GET/HEAD renders the selector view. POST applies the selected facility after CSRFGuard has
- * validated the request token, keeping facility changes out of CSRF-exempt login handling.</p>
+ * validated the request token, keeping facility changes out of CSRF-exempt login handling. Retryable
+ * form mistakes stay on this endpoint; authorization or data-integrity failures end the staged
+ * login session so {@link io.github.carlos_emr.carlos.sec.LoginFilter}'s pending-facility gate
+ * cannot loop indefinitely.</p>
  *
  * @since 2026-05-17
  */
@@ -94,7 +97,16 @@ public final class SelectFacility2Action extends BaseLoginPageView2Action {
         if (facilityIdString == null || !facilityIdString.matches("\\d{1,9}")) {
             LOGGER.warn("Rejected /select_facility: invalid facility id for provider={}, remote={}",
                     LogSafe.sanitize(providerNo), LogSafe.sanitize(request.getRemoteAddr()));
-            return redirectToLoginFailed(request, response);
+            return redirectToFacilitySelection(request, response);
+        }
+
+        String nextResult = request.getParameter("nextPage");
+        if (nextResult != null && !nextResult.isEmpty() && !ALLOWED_NEXT_RESULTS.contains(nextResult)) {
+            // Validate navigation intent before mutating facility state; invalid values are retryable.
+            LOGGER.warn("Rejected /select_facility nextPage before facility mutation: provider={}, nextPage={}, remote={}",
+                    LogSafe.sanitize(providerNo), LogSafe.sanitize(nextResult),
+                    LogSafe.sanitize(request.getRemoteAddr()));
+            return redirectToFacilitySelection(request, response);
         }
 
         int facilityId = Integer.parseInt(facilityIdString);
@@ -102,14 +114,14 @@ public final class SelectFacility2Action extends BaseLoginPageView2Action {
         if (allowedFacilityIds == null || !allowedFacilityIds.contains(facilityId)) {
             LOGGER.warn("Rejected /select_facility: unauthorized facility provider={}, facilityId={}, remote={}",
                     LogSafe.sanitize(providerNo), facilityId, LogSafe.sanitize(request.getRemoteAddr()));
-            return redirectToLoginFailed(request, response);
+            return redirectToLogoutAfterInvalidating(session, request, response);
         }
 
         Facility facility = facilityDao.find(facilityId);
         if (facility == null) {
             LOGGER.warn("Rejected /select_facility: missing facility provider={}, facilityId={}, remote={}",
                     LogSafe.sanitize(providerNo), facilityId, LogSafe.sanitize(request.getRemoteAddr()));
-            return redirectToLoginFailed(request, response);
+            return redirectToLogoutAfterInvalidating(session, request, response);
         }
 
         session.setAttribute(SessionConstants.CURRENT_FACILITY, facility); // nosemgrep: tainted-session-from-http-request -- facility entity is DAO-loaded after provider/facility authorization
@@ -119,11 +131,7 @@ public final class SelectFacility2Action extends BaseLoginPageView2Action {
         LogAction.addLog(providerNo, LogConst.LOGIN, LogConst.CON_LOGIN,
                 "facilityId=" + facilityId, request.getRemoteAddr());
 
-        String nextResult = request.getParameter("nextPage");
-        if (nextResult == null || !ALLOWED_NEXT_RESULTS.contains(nextResult)) {
-            LOGGER.warn("Rejected /select_facility nextPage: provider={}, nextPage={}, remote={}",
-                    LogSafe.sanitize(providerNo), LogSafe.sanitize(nextResult),
-                    LogSafe.sanitize(request.getRemoteAddr()));
+        if (nextResult == null || nextResult.isEmpty()) {
             return "provider";
         }
         return nextResult;
@@ -134,9 +142,16 @@ public final class SelectFacility2Action extends BaseLoginPageView2Action {
         return "user";
     }
 
-    private String redirectToLoginFailed(HttpServletRequest request, HttpServletResponse response)
+    private String redirectToFacilitySelection(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
-        response.sendRedirect(request.getContextPath() + "/loginfailed");
+        response.sendRedirect(request.getContextPath() + "/select_facility");
+        return NONE;
+    }
+
+    private String redirectToLogoutAfterInvalidating(HttpSession session, HttpServletRequest request,
+                                                     HttpServletResponse response) throws IOException {
+        session.invalidate();
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
         return NONE;
     }
 }

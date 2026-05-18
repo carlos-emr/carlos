@@ -839,8 +839,12 @@ public class LogoutBroadcastFilter implements Filter {
                 return;
             }
             if (deferredContentLengthIsLong) {
+                logger.debug("Replaying deferred Content-Length for non-injected response: uri={}, length={}",
+                        requestUriForLog, deferredContentLengthLong);
                 super.setContentLengthLong(deferredContentLengthLong);
             } else {
+                logger.debug("Replaying deferred Content-Length for non-injected response: uri={}, length={}",
+                        requestUriForLog, deferredContentLength);
                 super.setContentLength(deferredContentLength);
             }
             clearDeferredContentLength();

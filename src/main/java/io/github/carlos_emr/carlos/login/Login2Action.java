@@ -445,8 +445,10 @@ public final class Login2Action extends ActionSupport {
             try {
                 removeAttributesFromSession(request);
             } catch (IllegalStateException | UnsupportedOperationException cleanupFailure) {
-                logger.warn("Forced password reset persisted, but session cleanup failed with {}; continuing login flow",
+                logger.warn("Forced password reset persisted, but session cleanup failed with {}; ending current login flow",
                         cleanupFailure.getClass().getName(), cleanupFailure);
+                // The password is already changed; re-authenticating in a damaged session can mislead
+                // users into retrying the old password and tripping lockout counters.
                 try {
                     auditForcedPasswordResetCompletion(userName, "cleanup_failure_relogin");
                 } catch (RuntimeException auditFailure) {
@@ -457,6 +459,8 @@ public final class Login2Action extends ActionSupport {
                 if (session != null) {
                     session.invalidate();
                 }
+                response.sendRedirect(loginFailedRedirectUrl(message("login.passwordUpdatedLoginAgain")));
+                return NONE;
             }
 
             // make sure this checking doesn't happen again
@@ -647,8 +651,6 @@ public final class Login2Action extends ActionSupport {
      * @param ip remote address used for audit logging
      * @return {@code mfaHandler} when the challenge view is ready, or {@code error} when
      *         registration setup cannot safely continue
-     * @throws SecurityException when MFA setup reports an authorization failure
-     * @throws NullPointerException when a programmer defect leaves required MFA state null
      */
     private String beginPendingMfaChallenge(String[] strAuth, Security security, String ip) {
         HttpSession session = request.getSession(false);
@@ -665,18 +667,13 @@ public final class Login2Action extends ActionSupport {
                 request.setAttribute("qrData", this.mfaManager.getQRCodeImageData(security.getId(), registrationSecret));
             }
         } catch (RuntimeException e) {
-            clearPendingMfaSession(session);
             session.invalidate();
-            if (e instanceof SecurityException || e instanceof NullPointerException) {
-                // Authorization failures and impossible null-state defects must keep their normal
-                // error handling. Only expected MFA setup failures become user-facing login errors.
-                throw e;
-            }
             logger.error("Unable to prepare MFA registration: providerNo={}, securityId={}, remote={}",
                     LogSafe.sanitize(security.getProviderNo()),
                     LogSafe.sanitize(String.valueOf(security.getSecurityNo())),
                     LogSafe.sanitize(ip),
                     e);
+            LogAction.addLog(security.getProviderNo(), "login", "mfa_failed", "mfa_setup_failure", ip);
             return loginFailureResult(message("login.errorUnableToProcess"));
         }
 
@@ -833,7 +830,6 @@ public final class Login2Action extends ActionSupport {
             mfaSecret = terminalChallenge.registrationSecret();
         }
 
-        LogAction.addLog(security.getProviderNo(), "login", "mfa_success", "mfa", ip);
         if (registrationChallenge) {
             try {
                 this.mfaManager.saveMfaSecret(buildLoggedInInfoForPendingMfa(session, strAuth, security), security, mfaSecret);
@@ -843,12 +839,15 @@ public final class Login2Action extends ActionSupport {
                         LogSafe.sanitize(String.valueOf(security.getSecurityNo())),
                         LogSafe.sanitize(ip),
                         e);
+                LogAction.addLog(security.getProviderNo(), "login", "mfa_failed", "mfa_registration_persist", ip);
                 clearPendingMfaSession(session);
-                return loginFailureResult(message("login.errorUnableToProcess"));
+                return loginFailureResult(message("login.errorMfaRegistrationPersistence"));
             }
         }
 
-        clearPendingMfaSession(session);
+        // Success audit follows registration persistence so operators do not see a false success row
+        // when the OTP was correct but the new secret could not be stored.
+        LogAction.addLog(security.getProviderNo(), "login", "mfa_success", "mfa", ip);
         return completeAuthenticatedLogin(security, strAuth, ip, isMobileOptimized, submitType, ajaxResponse);
     }
 
@@ -1245,13 +1244,26 @@ public final class Login2Action extends ActionSupport {
      * {@code getBooleanProperty(key, "true")} helper only checks whether the configured value is
      * active and therefore returns false for missing positive-valued keys.</p>
      *
-     * @return true when {@code mandatory_password_reset} is missing or set to true/yes/on
+     * @return true when {@code mandatory_password_reset} is missing, set to true/yes/on/1, or
+     *         contains an unrecognized value; false only for explicit false/no/off/0
      */
     private boolean isMandatoryPasswordResetEnabled() {
         String value = CarlosProperties.getInstance().getProperty("mandatory_password_reset", "true");
-        return value != null && ("true".equalsIgnoreCase(value.trim())
-                || "yes".equalsIgnoreCase(value.trim())
-                || "on".equalsIgnoreCase(value.trim()));
+        if (value == null || value.trim().isEmpty()) {
+            return true;
+        }
+        String normalized = value.trim().toLowerCase(Locale.ROOT);
+        if ("true".equals(normalized) || "yes".equals(normalized)
+                || "on".equals(normalized) || "1".equals(normalized)) {
+            return true;
+        }
+        if ("false".equals(normalized) || "no".equals(normalized)
+                || "off".equals(normalized) || "0".equals(normalized)) {
+            return false;
+        }
+        logger.warn("Unrecognized mandatory_password_reset value {}; defaulting to enabled",
+                LogSafe.sanitize(value));
+        return true;
     }
 
     /**

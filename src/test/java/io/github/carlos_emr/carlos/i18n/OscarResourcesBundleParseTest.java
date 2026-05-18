@@ -66,7 +66,9 @@ class OscarResourcesBundleParseTest {
             "login.errorAccountExpired",
             "login.errorInvalidCredentials",
             "login.errorResetStaging",
-            "login.errorResetPersistence"
+            "login.errorResetPersistence",
+            "login.passwordUpdatedLoginAgain",
+            "login.errorMfaRegistrationPersistence"
     };
 
     @Test

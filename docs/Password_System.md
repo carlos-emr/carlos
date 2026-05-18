@@ -174,7 +174,8 @@ Password policies can be configured in `carlos.properties`:
 # Previous passwords to check (prevent reuse); shipped default is 0
 password.pastPasswordsToNotUse=0
 
-# Server-side forced password reset gate (enabled by default)
+# Server-side forced password reset gate (enabled by default).
+# Accepted true values are true/yes/on/1; unrecognized values fail secure as enabled.
 mandatory_password_reset=true
 
 # Forced-reset complexity policy

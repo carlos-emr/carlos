@@ -83,8 +83,10 @@ gh pr create                 # GitHub pull request creation
 When asked for a documentation-only pass, change only comments, Javadocs, Markdown, or other
 non-executable documentation text. Do not hide behavior changes in comment sweeps: no route
 mappings, constants, selectors, assertions, imports, SQL, config values, or executable statements.
-Senior-maintainer comments should explain security boundaries, legacy constraints, invariants,
-and why a surprising pattern exists; avoid line-by-line narration that restates the code.
+Inline comments are expected when they help a future maintainer understand intent, context, or
+risk. Senior-maintainer comments should explain security boundaries, legacy constraints,
+invariants, and why a surprising pattern exists; avoid line-by-line narration that restates the
+code.
 
 For login/password-reset work, keep documentation aligned with these invariants:
 - Server-side validation is authoritative; browser password policy checks are only user feedback.

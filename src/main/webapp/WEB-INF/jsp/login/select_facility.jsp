@@ -46,7 +46,7 @@
     Provider provider = (Provider) session.getAttribute("provider");
     List<Integer> facilityIds = providerDao.getFacilityIds(provider.getProviderNo());
 
-    // Validate nextPage to prevent open redirect (CWE-601): allowlist of valid Struts2 result identifiers
+    // Empty nextPage means the action should use its provider default; non-empty values are allowlisted.
     java.util.Set<String> allowedNextPages = java.util.Set.of("provider", "caisiPMM", "programLocation", "failure");
     String rawNextPage = request.getParameter("nextPage");
     String safeNextPage = (rawNextPage != null && allowedNextPages.contains(rawNextPage)) ? rawNextPage : "";

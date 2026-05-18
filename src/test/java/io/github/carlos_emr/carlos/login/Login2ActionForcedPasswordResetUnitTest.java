@@ -77,7 +77,6 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
@@ -577,8 +576,8 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should propagate security exception when MFA registration setup is unauthorized")
-    void shouldPropagateSecurityException_whenMfaRegistrationSetupUnauthorized() throws Exception {
+    @DisplayName("should return error when MFA registration setup is unauthorized")
+    void shouldReturnError_whenMfaRegistrationSetupUnauthorized() throws Exception {
         String password = VALID_PASSWORD;
         Security security = forcedResetSecurity();
         security.setForcePasswordReset(Boolean.FALSE);
@@ -604,18 +603,20 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
             action.setPassword(password);
             action.setPin("2026");
 
-            assertThatThrownBy(action::execute)
-                    .isInstanceOf(SecurityException.class)
-                    .hasMessageContaining("(_security)");
+            String result = action.execute();
+
+            assertThat(result).isEqualTo("error");
             assertThat(request.getSession(false)).isNull();
-            assertThat(request.getAttribute("errormsg")).isNull();
+            assertThat(request.getAttribute("errormsg")).isNotNull();
             assertThat(mockedLoginChecks.constructed()).hasSize(1);
+            logActionMock.verify(() -> LogAction.addLog("999998", "login", "mfa_failed",
+                    "mfa_setup_failure", request.getRemoteAddr()));
         }
     }
 
     @Test
-    @DisplayName("should propagate null state exception when MFA registration setup is invalid")
-    void shouldPropagateNullStateException_whenMfaRegistrationSetupIsInvalid() throws Exception {
+    @DisplayName("should return error when MFA registration setup has invalid state")
+    void shouldReturnError_whenMfaRegistrationSetupHasInvalidState() throws Exception {
         String password = VALID_PASSWORD;
         Security security = forcedResetSecurity();
         security.setForcePasswordReset(Boolean.FALSE);
@@ -641,12 +642,14 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
             action.setPassword(password);
             action.setPin("2026");
 
-            assertThatThrownBy(action::execute)
-                    .isInstanceOf(NullPointerException.class)
-                    .hasMessageContaining("mfa manager null state");
+            String result = action.execute();
+
+            assertThat(result).isEqualTo("error");
             assertThat(request.getSession(false)).isNull();
-            assertThat(request.getAttribute("errormsg")).isNull();
+            assertThat(request.getAttribute("errormsg")).isNotNull();
             assertThat(mockedLoginChecks.constructed()).hasSize(1);
+            logActionMock.verify(() -> LogAction.addLog("999998", "login", "mfa_failed",
+                    "mfa_setup_failure", request.getRemoteAddr()));
         }
     }
 
@@ -1559,6 +1562,10 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
             assertThat(result).isEqualTo("error");
             assertThat(request.getAttribute("errormsg")).isNotNull();
             assertPendingMfaCleared();
+            logActionMock.verify(() -> LogAction.addLog("999998", "login", "mfa_failed",
+                    "mfa_registration_persist", request.getRemoteAddr()));
+            logActionMock.verify(() -> LogAction.addLog("999998", "login", "mfa_success", "mfa",
+                    request.getRemoteAddr()), never());
         }
     }
 
@@ -1651,6 +1658,96 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
             assertThat(request.getSession(false).getAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR))
                     .isInstanceOf(String.class);
             assertThat(mockedLoginChecks.constructed()).hasSize(1);
+        } finally {
+            if (originalMandatoryReset == null) {
+                CarlosProperties.getInstance().remove("mandatory_password_reset");
+            } else {
+                CarlosProperties.getInstance().setProperty("mandatory_password_reset", originalMandatoryReset);
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("should stage forced reset when mandatory reset property uses numeric true")
+    void shouldStageForcedReset_whenMandatoryResetPropertyUsesNumericTrue() throws Exception {
+        String originalMandatoryReset = CarlosProperties.getInstance().getProperty("mandatory_password_reset");
+        String password = VALID_PASSWORD;
+        Security security = forcedResetSecurity();
+        Provider provider = activeProvider();
+
+        request.setParameter("forcedpasswordchange", "false");
+        CarlosProperties.getInstance().setProperty("mandatory_password_reset", "1");
+        when(securityManager.encodePassword(password)).thenReturn(ENCODED_OLD_PASSWORD);
+        when(securityDao.findByUserName(USERNAME)).thenReturn(Collections.singletonList(security));
+        when(providerDao.getProvider("999998")).thenReturn(provider);
+
+        try (MockedConstruction<LoginCheckLogin> mockedLoginChecks = mockConstruction(LoginCheckLogin.class,
+                (mock, context) -> {
+                    when(mock.auth(USERNAME, password, "2026", request.getRemoteAddr()))
+                            .thenReturn(STR_AUTH);
+                    when(mock.getSecurity()).thenReturn(security);
+                    when(mock.isBlock(anyString(), anyString())).thenReturn(false);
+                })) {
+            Login2Action action = newAction(null, null, null);
+            action.setUsername(USERNAME);
+            action.setPassword(password);
+            action.setPin("2026");
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/forcepasswordreset");
+            assertThat(request.getSession(false).getAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR))
+                    .isInstanceOf(String.class);
+            assertThat(mockedLoginChecks.constructed()).hasSize(1);
+        } finally {
+            if (originalMandatoryReset == null) {
+                CarlosProperties.getInstance().remove("mandatory_password_reset");
+            } else {
+                CarlosProperties.getInstance().setProperty("mandatory_password_reset", originalMandatoryReset);
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("should stage forced reset when mandatory reset property is unrecognized")
+    void shouldStageForcedReset_whenMandatoryResetPropertyIsUnrecognized() throws Exception {
+        String originalMandatoryReset = CarlosProperties.getInstance().getProperty("mandatory_password_reset");
+        String password = VALID_PASSWORD;
+        Security security = forcedResetSecurity();
+        Provider provider = activeProvider();
+
+        request.setParameter("forcedpasswordchange", "false");
+        CarlosProperties.getInstance().setProperty("mandatory_password_reset", "ture");
+        when(securityManager.encodePassword(password)).thenReturn(ENCODED_OLD_PASSWORD);
+        when(securityDao.findByUserName(USERNAME)).thenReturn(Collections.singletonList(security));
+        when(providerDao.getProvider("999998")).thenReturn(provider);
+
+        try (LogCapture capture = LogCapture.forLogger(Login2Action.class);
+             MockedConstruction<LoginCheckLogin> mockedLoginChecks = mockConstruction(LoginCheckLogin.class,
+                (mock, context) -> {
+                    when(mock.auth(USERNAME, password, "2026", request.getRemoteAddr()))
+                            .thenReturn(STR_AUTH);
+                    when(mock.getSecurity()).thenReturn(security);
+                    when(mock.isBlock(anyString(), anyString())).thenReturn(false);
+                })) {
+            Login2Action action = newAction(null, null, null);
+            action.setUsername(USERNAME);
+            action.setPassword(password);
+            action.setPin("2026");
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/forcepasswordreset");
+            assertThat(request.getSession(false).getAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR))
+                    .isInstanceOf(String.class);
+            assertThat(mockedLoginChecks.constructed()).hasSize(1);
+            assertThat(capture.events()).anySatisfy(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                assertThat(event.getMessage().getFormattedMessage())
+                        .contains("Unrecognized mandatory_password_reset value");
+            });
         } finally {
             if (originalMandatoryReset == null) {
                 CarlosProperties.getInstance().remove("mandatory_password_reset");
@@ -1917,8 +2014,8 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should continue login when forced reset cleanup has session state failure")
-    void shouldContinueLogin_whenForcedResetCleanupHasSessionStateFailure() throws Exception {
+    @DisplayName("should end login when forced reset cleanup has session state failure")
+    void shouldEndLogin_whenForcedResetCleanupHasSessionStateFailure() throws Exception {
         MockHttpSession cleanupFailingSession = new RemoveAttributeFailingSession();
         request.setSession(cleanupFailingSession);
         String token = cacheCredentials();
@@ -1949,15 +2046,19 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
             String result = action.execute();
 
             assertThat(result).isEqualTo(ActionSupport.NONE);
-            assertThat(response.getRedirectedUrl()).contains("/provider/providercontrol");
+            assertThat(response.getRedirectedUrl()).contains("/loginfailed");
+            assertThat(decodedRedirect()).contains("Password updated. Please log in again.");
             assertThat(cleanupFailingSession.isInvalid()).isTrue();
             assertThat(LoginCredentialCache.getInstance().peek(token)).isNull();
-            assertThat(request.getSession(false).getAttribute("user")).isEqualTo("999998");
+            assertThat(request.getSession(false)).isNull();
             assertThat(mockedLoginChecks.constructed()).hasSize(1);
+            verify(mockedLoginChecks.constructed().get(0), never())
+                    .auth(anyString(), anyString(), anyString(), anyString());
             assertThat(capture.events()).anySatisfy(event -> {
                 assertThat(event.getLevel()).isEqualTo(Level.WARN);
                 assertThat(event.getMessage().getFormattedMessage())
-                        .contains("session cleanup failed with java.lang.IllegalStateException");
+                        .contains("session cleanup failed with java.lang.IllegalStateException")
+                        .contains("ending current login flow");
             });
             logActionMock.verify(() -> LogAction.addLog(USERNAME, "login",
                     "forced_password_reset_completed", "cleanup_failure_relogin"));
