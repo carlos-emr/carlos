@@ -98,6 +98,10 @@ For login/password-reset work, keep documentation aligned with these invariants:
   test user's security row. Run it with
   `npm run test:login-playwright` against a disposable local/dev database; it is a manual reference
   check unless the active CI job has already started Tomcat and the dev database.
+  Devcontainer-only defaults are `TEST_USER=carlosdoc`, `TEST_PASSWORD=carlos2026`, and
+  `TEST_PIN=2026`; these are not production defaults. Use the dev database password from
+  `.devcontainer/development/config/shared/local.env` and the seeded `carlosdoc` hash from
+  `database/mysql/oscardata.sql` for `TEST_PASSWORD_HASH`.
 
 **What counts as PHI vs. internal identifiers:**
 - **PHI** (treat as sensitive): HIN/health card number, patient name, DOB, address, phone, diagnosis text, clinical notes, lab values, medication details — anything that identifies a real person or their care.
