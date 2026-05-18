@@ -38,6 +38,7 @@ import java.util.Enumeration;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Properties;
+import java.util.Set;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -74,6 +75,20 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class ManageTeleplan2Action extends ActionSupport {
+    private static final Set<String> POST_ONLY_METHODS = Set.of(
+            "setUserName",
+            "updateBillingCodes",
+            "updateteleplanICDCodesList",
+            "updateExplanatoryCodesList",
+            "commitUpdateBillingCodes",
+            "getSequenceNumber",
+            "setSequenceNumber",
+            "sendFile",
+            "remit",
+            "setPass",
+            "changePass",
+            "checkElig");
+
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -89,13 +104,19 @@ public class ManageTeleplan2Action extends ActionSupport {
     }
 
     public String execute() throws Exception {
+        String method = request.getParameter("method");
+        if (method != null && POST_ONLY_METHODS.contains(method) && !"POST".equalsIgnoreCase(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
         //log.debug("UNSPECIFIED ACTION!");
-        String method = request.getParameter("method");
         if ("setUserName".equals(method)) {
             return setUserName();
         } else if ("updateBillingCodes".equals(method)) {

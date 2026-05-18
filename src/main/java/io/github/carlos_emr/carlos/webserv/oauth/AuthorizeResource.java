@@ -44,7 +44,6 @@ import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 import io.github.carlos_emr.carlos.login.OscarOAuthDataProvider;
@@ -52,8 +51,6 @@ import io.github.carlos_emr.carlos.login.OAuthData; // model used by 3rdpartyLog
 
 @Produces(MediaType.TEXT_HTML)
 public class AuthorizeResource {
-
-    private static final String AUTHORIZATION_NONCE_PREFIX = "oauth.authorize.nonce.";
 
     @Context private HttpServletRequest  request;
     @Context private HttpServletResponse response;
@@ -86,7 +83,7 @@ public class AuthorizeResource {
         OAuthData od = new OAuthData();
         od.setOauthToken(tokenId);
         od.setReplyTo(request.getContextPath() + "/ws/oauth/authorize");
-        od.setAuthenticityToken(stageAuthorizationNonce(tokenId));
+        od.setAuthenticityToken(OAuthAuthorizationSessionState.stageNonce(request.getSession(), tokenId));
         if (c != null) {
             od.setApplicationName(c.getName());
             od.setApplicationURI(c.getUri());
@@ -123,7 +120,7 @@ public class AuthorizeResource {
         if (!"allow".equals(oauthDecision)) {
             return Response.status(403).entity("authorization_denied").type(MediaType.TEXT_PLAIN).build();
         }
-        if (!consumeAuthorizationNonce(tokenId, submittedNonce)) {
+        if (!OAuthAuthorizationSessionState.consumeNonce(request.getSession(false), tokenId, submittedNonce)) {
             return Response.status(403).entity("invalid_authorization_nonce").type(MediaType.TEXT_PLAIN).build();
         }
 
@@ -149,24 +146,4 @@ public class AuthorizeResource {
 
     private static String enc(String v) { return URLEncoder.encode(v, StandardCharsets.UTF_8); }
 
-    private String stageAuthorizationNonce(String tokenId) {
-        String nonce = UUID.randomUUID().toString();
-        request.getSession().setAttribute(nonceAttribute(tokenId), nonce);
-        return nonce;
-    }
-
-    private boolean consumeAuthorizationNonce(String tokenId, String submittedNonce) {
-        HttpSession session = request.getSession(false);
-        if (session == null || submittedNonce == null || submittedNonce.isBlank()) {
-            return false;
-        }
-        String attribute = nonceAttribute(tokenId);
-        Object expected = session.getAttribute(attribute);
-        session.removeAttribute(attribute);
-        return submittedNonce.equals(expected);
-    }
-
-    private static String nonceAttribute(String tokenId) {
-        return AUTHORIZATION_NONCE_PREFIX + tokenId;
-    }
 }

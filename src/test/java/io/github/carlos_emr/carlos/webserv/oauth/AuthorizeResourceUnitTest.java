@@ -10,9 +10,12 @@ import io.github.carlos_emr.carlos.login.OscarOAuthDataProvider;
 
 import jakarta.ws.rs.core.Response;
 
+import java.util.Map;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -85,6 +88,37 @@ class AuthorizeResourceUnitTest {
         assertThat(result.getStatus()).isEqualTo(200);
         assertThat(result.getEntity()).isEqualTo("oauth_verifier=verifier-123");
         assertThat(request.getSession().getAttribute("oauth.authorize.nonce.request-token")).isNull();
+        verify(provider).finalizeAuthorization(token, "999");
+    }
+
+    @Test
+    @DisplayName("should preserve nonce when consent login rotates session")
+    void shouldPreserveNonce_whenConsentLoginRotatesSession() throws Exception {
+        OscarOAuthDataProvider provider = mock(OscarOAuthDataProvider.class);
+        RequestToken token = requestToken("request-token");
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/ws/oauth/authorize");
+        request.setContextPath("/carlos");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        when(provider.getRequestToken("request-token")).thenReturn(token);
+        when(provider.finalizeAuthorization(token, "999")).thenReturn("verifier-123");
+        AuthorizeResource resource = resource(request, response, provider);
+
+        resource.showConsent("request-token");
+        OAuthData data = (OAuthData) request.getAttribute("oauthData");
+        MockHttpSession oldSession = (MockHttpSession) request.getSession(false);
+        Map<String, String> nonces = OAuthAuthorizationSessionState.snapshotNonces(oldSession);
+        oldSession.invalidate();
+        MockHttpSession rotatedSession = new MockHttpSession();
+        rotatedSession.setAttribute("user", "999");
+        OAuthAuthorizationSessionState.restoreNonces(rotatedSession, nonces);
+        request.setSession(rotatedSession);
+        request.setMethod("POST");
+
+        Response result = resource.approve("request-token", data.getAuthenticityToken(), "allow");
+
+        assertThat(result.getStatus()).isEqualTo(200);
+        assertThat(result.getEntity()).isEqualTo("oauth_verifier=verifier-123");
+        assertThat(rotatedSession.getAttribute("oauth.authorize.nonce.request-token")).isNull();
         verify(provider).finalizeAuthorization(token, "999");
     }
 

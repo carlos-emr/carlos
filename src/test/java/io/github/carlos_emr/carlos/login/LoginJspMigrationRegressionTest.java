@@ -262,7 +262,8 @@ class LoginJspMigrationRegressionTest {
         assertThat(providerControl)
                 .contains("{\"day\", \"/WEB-INF/jsp/provider/appointmentprovideradminday.jsp\"}")
                 .contains("{\"month\", \"/WEB-INF/jsp/provider/appointmentprovideradminmonth.jsp\"}")
-                .contains("Providercontrol is itself")
+                .contains("ProviderAppointmentReadGate.hasAccess")
+                .contains("keep the shared appointment gate above")
                 .doesNotContain("out.clearBuffer()")
                 .doesNotContain("{\"day\", \"/provider/ViewAppointmentAdminDay\"}")
                 .doesNotContain("{\"month\", \"/provider/ViewAppointmentAdminMonth\"}");

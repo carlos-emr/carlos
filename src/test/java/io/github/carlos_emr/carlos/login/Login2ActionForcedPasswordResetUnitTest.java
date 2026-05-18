@@ -1587,12 +1587,13 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should rotate existing session and drop legacy OAuth state")
-    void shouldRotateExistingSession_andDropLegacyOauthState() throws Exception {
+    @DisplayName("should rotate existing session and preserve only OAuth consent nonce")
+    void shouldRotateExistingSession_andPreserveOnlyOauthConsentNonce() throws Exception {
         Security security = forcedResetSecurity();
         security.setForcePasswordReset(Boolean.FALSE);
         MockHttpSession pendingSession = (MockHttpSession) request.getSession();
         pendingSession.setAttribute("oauthState", "keep-me");
+        pendingSession.setAttribute("oauth.authorize.nonce.oauth-123", "nonce-123");
         request.setParameter("invalidate_session", "false");
         stagePendingMfa(security);
         stubSuccessfulProviderLogin();
@@ -1608,6 +1609,8 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
             assertThat(pendingSession.isInvalid()).isTrue();
             assertThat(request.getSession(false)).isNotSameAs(pendingSession);
             assertThat(request.getSession(false).getAttribute("oauthState")).isNull();
+            assertThat(request.getSession(false).getAttribute("oauth.authorize.nonce.oauth-123"))
+                    .isEqualTo("nonce-123");
             assertThat(request.getSession(false).getAttribute("user")).isEqualTo("999998");
             assertPendingMfaCleared();
         }

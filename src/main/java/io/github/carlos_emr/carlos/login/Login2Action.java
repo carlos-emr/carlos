@@ -54,6 +54,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.util.AlertTimer;
+import io.github.carlos_emr.carlos.webserv.oauth.OAuthAuthorizationSessionState;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -71,6 +72,7 @@ import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.MissingResourceException;
 import java.util.Objects;
 import java.util.Properties;
@@ -1086,10 +1088,13 @@ public final class Login2Action extends ActionSupport {
                                               boolean isMobileOptimized, String submitType,
                                               boolean ajaxResponse) throws IOException {
         HttpSession session = request.getSession(false);
+        Map<String, String> oauthAuthorizationNonces =
+                OAuthAuthorizationSessionState.snapshotNonces(session);
         if (session != null) {
             session.invalidate();
         }
         session = request.getSession();
+        OAuthAuthorizationSessionState.restoreNonces(session, oauthAuthorizationNonces);
         session.setMaxInactiveInterval(7200);
 
         if (security != null) {

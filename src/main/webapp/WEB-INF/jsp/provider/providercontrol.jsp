@@ -43,7 +43,10 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.web.utils.UserRoleUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
+<%@ page import="io.github.carlos_emr.carlos.providers.gate.ProviderAppointmentReadGate" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="java.util.*,java.net.*, io.github.carlos_emr.carlos.util.*"
          errorPage="/WEB-INF/jsp/error/errorpage.jsp" buffer="64kb" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
@@ -73,6 +76,14 @@
 
     if (roleName$.indexOf("Vaccine Provider") != -1) {
         response.sendRedirect(request.getContextPath() + "/provider/ViewVaccineProvider");
+        return;
+    }
+
+    SecurityInfoManager providerControlSecurityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    LoggedInInfo providerControlLoggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+    if (!ProviderAppointmentReadGate.hasAccess(providerControlSecurityInfoManager, providerControlLoggedInInfo)) {
+        MiscUtils.getLogger().error("missing appointment read privilege? logging user out");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
         return;
     }
 %>
@@ -183,11 +194,8 @@
     // get operation name from request
     String operation = requestParamDict.getDef("displaymode", "");
 
-    // Include the target view. The day/month schedule views are included as
-    // WEB-INF JSPs because Struts action includes produce an empty response
-    // under the response-buffering filter chain. Providercontrol is itself
-    // routed through the provider gate, and the schedule JSPs keep their
-    // existing in-page security checks.
+    // Day/month stay as WEB-INF JSP includes because Struts action includes render empty
+    // under the response-buffering filter chain; keep the shared appointment gate above.
     String includeTarget = opToFileDict.getDef(operation, "");
     request.getRequestDispatcher(includeTarget).include(request, response);
 %>
