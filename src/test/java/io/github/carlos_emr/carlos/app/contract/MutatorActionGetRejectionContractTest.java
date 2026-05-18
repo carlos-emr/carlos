@@ -190,6 +190,8 @@ class MutatorActionGetRejectionContractTest {
         "io.github.carlos_emr.carlos.decision.gate.ViewDecision2Action",
         // HRM: rejects GET when statement param is present.
         "io.github.carlos_emr.carlos.hospitalReportManager.HRMStatementModify2Action",
+        // Login gate: GET renders the selector, but selectedFacilityId is mutation intent.
+        "io.github.carlos_emr.carlos.login.gate.SelectFacility2Action",
         // Ontario billing: dual-purpose pages reject GET only when mutation-intent params exist.
         "io.github.carlos_emr.carlos.billings.ca.on.web.BatchBill2Action",
         "io.github.carlos_emr.carlos.billings.ca.on.web.BillingDocumentErrorReportUpload2Action",
@@ -223,7 +225,6 @@ class MutatorActionGetRejectionContractTest {
         // Read-scope gates — permit GET, only 405 truly unsupported methods.
         "io.github.carlos_emr.carlos.appointment.gate.ViewAppointment2Action",
         "io.github.carlos_emr.carlos.appointment.gate.ViewAppointmentWrite2Action",
-        "io.github.carlos_emr.carlos.login.gate.SelectFacility2Action",
         "io.github.carlos_emr.carlos.report.gate.ViewReport2Action"
     );
 

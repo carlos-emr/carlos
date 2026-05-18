@@ -84,6 +84,20 @@ class SelectFacility2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should reject GET when selected facility is present")
+    void shouldRejectGet_whenSelectedFacilityIsPresent() throws Exception {
+        request.setMethod("GET");
+        request.addParameter(Login2Action.SELECTED_FACILITY_ID, "10");
+
+        String result = action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        assertThat(response.getHeader("Allow")).isEqualTo("POST");
+        verifyNoInteractions(providerDao, facilityDao);
+    }
+
+    @Test
     @DisplayName("should reject unsupported method")
     void shouldRejectUnsupportedMethod_whenNotGetHeadOrPost() throws Exception {
         request.setMethod("DELETE");

@@ -191,10 +191,10 @@ public final class Login2Action extends ActionSupport {
      * MFA code has been validated. LoginFilter treats {@code user} as an authenticated
      * session, so MFA state must use distinct attributes that grant no application access.</p>
      */
-    public static final String PENDING_MFA_AUTH_ATTR = "pendingMfaAuthentication";
+    public static final String PENDING_MFA_AUTH_ATTR = PendingMfaChallenges.AUTH_ATTR;
 
     /** Session key for counting retryable MFA code failures inside one pending challenge. */
-    private static final String PENDING_MFA_ATTEMPTS_ATTR = "pendingMfaFailedAttempts";
+    private static final String PENDING_MFA_ATTEMPTS_ATTR = PendingMfaChallenges.ATTEMPTS_ATTR;
 
     /** Maximum invalid OTP submissions allowed before pending MFA state is cleared. */
     private static final int MAX_PENDING_MFA_ATTEMPTS = 5;
@@ -205,7 +205,7 @@ public final class Login2Action extends ActionSupport {
      * <p>This is useful for audit context when a cache entry expires. It is not sufficient to
      * complete login; the opaque cache token must still resolve to server-side pending state.</p>
      */
-    private static final String PENDING_MFA_PROVIDER_NO_ATTR = "pendingMfaProviderNo";
+    private static final String PENDING_MFA_PROVIDER_NO_ATTR = PendingMfaChallenges.PROVIDER_NO_ATTR;
 
     /**
      * Session key for the opaque pending-MFA cache token.
@@ -214,7 +214,7 @@ public final class Login2Action extends ActionSupport {
      * full {@link Security} entity, the {@link LoginCheckLogin#auth} result, or an MFA registration
      * secret while OTP validation is still pending.</p>
      */
-    private static final String PENDING_MFA_TOKEN_ATTR = "pendingMfaChallengeToken";
+    private static final String PENDING_MFA_TOKEN_ATTR = PendingMfaChallenges.TOKEN_ATTR;
 
     /** Spring-managed service for provider data access and management */
     private final ProviderManager providerManager = SpringUtils.getBean(ProviderManager.class);
@@ -809,6 +809,20 @@ public final class Login2Action extends ActionSupport {
             return "mfaHandler";
         }
 
+        PendingMfaChallengeCache.PendingMfaChallenge terminalChallenge =
+                PendingMfaChallengeCache.getInstance().consume(challengeToken);
+        if (terminalChallenge == null) {
+            logger.info("Rejected MFA verification because pending challenge token was already consumed: providerNo={}, remote={}",
+                    LogSafe.sanitize(pendingProviderNo), LogSafe.sanitize(ip));
+            clearPendingMfaSession(session);
+            response.sendRedirect(loginFailedRedirectUrl(message("provider.providerchangepassword.errorSessionExpired")));
+            return NONE;
+        }
+        strAuth = terminalChallenge.authResult();
+        if (this.mfaRegistrationFlow) {
+            mfaSecret = terminalChallenge.registrationSecret();
+        }
+
         LogAction.addLog(security.getProviderNo(), "login", "mfa_success", "mfa", ip);
         if (this.mfaRegistrationFlow) {
             try {
@@ -891,15 +905,7 @@ public final class Login2Action extends ActionSupport {
      * @param session session containing pending-MFA state
      */
     private void clearPendingMfaSession(HttpSession session) {
-        Object tokenAttr = session.getAttribute(PENDING_MFA_TOKEN_ATTR);
-        if (tokenAttr instanceof String) {
-            PendingMfaChallengeCache.getInstance().invalidate((String) tokenAttr);
-        }
-        session.removeAttribute(PENDING_MFA_AUTH_ATTR);
-        session.removeAttribute(PENDING_MFA_PROVIDER_NO_ATTR);
-        session.removeAttribute(PENDING_MFA_TOKEN_ATTR);
-        session.removeAttribute(PENDING_MFA_ATTEMPTS_ATTR);
-        session.removeAttribute("mfaSecret");
+        PendingMfaChallenges.clearFromSession(session);
     }
 
     /**
@@ -1341,9 +1347,8 @@ public final class Login2Action extends ActionSupport {
      * <p>The session attribute removed is the opaque credential-cache token (see
      * {@link LoginCredentialCache}); if it is present the corresponding cache entry is
      * also invalidated so that credential material cannot outlive the login attempt.
-     * The retry-display attribute {@link #FORCE_PASSWORD_RESET_ERROR_ATTR} is cleared along with
-     * older flow attributes such as {@code userName} and {@code nextPage}, so stale state from
-     * pre-cache login paths cannot influence a later attempt.
+     * The retry-display attribute {@link #FORCE_PASSWORD_RESET_ERROR_ATTR} is cleared at the same
+     * time so stale retry messages cannot influence a later attempt.
      *
      * @param request HttpServletRequest containing the session to clean
      */
@@ -1358,8 +1363,6 @@ public final class Login2Action extends ActionSupport {
         }
         session.removeAttribute(LOGIN_CREDENTIALS_TOKEN_ATTR);
         session.removeAttribute(FORCE_PASSWORD_RESET_ERROR_ATTR);
-        session.removeAttribute("userName");
-        session.removeAttribute("nextPage");
     }
 
     /**

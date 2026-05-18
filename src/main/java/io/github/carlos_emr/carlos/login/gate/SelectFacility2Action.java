@@ -67,6 +67,13 @@ public final class SelectFacility2Action extends BaseLoginPageView2Action {
         String method = request.getMethod();
 
         if ("GET".equalsIgnoreCase(method) || "HEAD".equalsIgnoreCase(method)) {
+            if (request.getParameter(Login2Action.SELECTED_FACILITY_ID) != null) {
+                LOGGER.warn("Rejected /select_facility: GET/HEAD mutation intent, remote={}",
+                        LogSafe.sanitize(request.getRemoteAddr()));
+                response.setHeader("Allow", "POST");
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+                return NONE;
+            }
             return super.execute();
         }
         if (!"POST".equalsIgnoreCase(method)) {

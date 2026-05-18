@@ -9,6 +9,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -62,8 +65,55 @@ class PendingMfaChallengeCacheUnitTest {
 
         assertThat(cache.peek(null)).isNull();
         assertThat(cache.peek("")).isNull();
+        assertThat(cache.consume(null)).isNull();
+        assertThat(cache.consume("")).isNull();
 
         cache.invalidate(null);
         cache.invalidate("");
+    }
+
+    @Test
+    @DisplayName("should consume pending challenge once")
+    void shouldConsumePendingChallenge_once() {
+        PendingMfaChallengeCache cache = PendingMfaChallengeCache.getInstance();
+        PendingMfaChallengeCache.PendingMfaChallenge challenge = challenge();
+        String token = cache.store(challenge);
+
+        try {
+            assertThat(cache.consume(token)).isNotNull();
+            assertThat(cache.consume(token)).isNull();
+            assertThat(cache.peek(token)).isNull();
+        } finally {
+            cache.invalidate(token);
+        }
+    }
+
+    @Test
+    @DisplayName("should return null for unknown token")
+    void shouldReturnNull_forUnknownToken() {
+        PendingMfaChallengeCache cache = PendingMfaChallengeCache.getInstance();
+
+        assertThat(cache.peek("unknown-token")).isNull();
+        assertThat(cache.consume("unknown-token")).isNull();
+    }
+
+    @Test
+    @DisplayName("should expire challenge after write TTL")
+    void shouldExpireChallenge_afterWriteTtl() {
+        AtomicLong nanos = new AtomicLong();
+        PendingMfaChallengeCache cache = new PendingMfaChallengeCache(nanos::get);
+        String token = cache.store(challenge());
+
+        assertThat(cache.peek(token)).isNotNull();
+
+        nanos.addAndGet(TimeUnit.MINUTES.toNanos(5));
+
+        assertThat(cache.peek(token)).isNull();
+        assertThat(cache.consume(token)).isNull();
+    }
+
+    private static PendingMfaChallengeCache.PendingMfaChallenge challenge() {
+        return new PendingMfaChallengeCache.PendingMfaChallenge(
+                12345, "999998", new String[]{"999998", "Test"}, "secret");
     }
 }

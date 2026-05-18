@@ -7,6 +7,7 @@ package io.github.carlos_emr.carlos.login;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.Ticker;
 
 import java.security.SecureRandom;
 import java.time.Duration;
@@ -38,9 +39,14 @@ final class PendingMfaChallengeCache {
     private final SecureRandom secureRandom = new SecureRandom();
 
     private PendingMfaChallengeCache() {
+        this(Ticker.systemTicker());
+    }
+
+    PendingMfaChallengeCache(Ticker ticker) {
         this.cache = Caffeine.newBuilder()
                 .expireAfterWrite(TTL)
                 .maximumSize(MAX_SIZE)
+                .ticker(Objects.requireNonNull(ticker, "ticker must not be null"))
                 .build();
     }
 
@@ -60,6 +66,16 @@ final class PendingMfaChallengeCache {
             return null;
         }
         return cache.getIfPresent(token);
+    }
+
+    PendingMfaChallenge consume(String token) {
+        if (token == null || token.isEmpty()) {
+            return null;
+        }
+        // Atomically remove and return the challenge so only one concurrent valid OTP submit can
+        // complete login. getIfPresent + invalidate would allow two threads to observe the same
+        // challenge before either removes it.
+        return cache.asMap().remove(token);
     }
 
     void invalidate(String token) {
