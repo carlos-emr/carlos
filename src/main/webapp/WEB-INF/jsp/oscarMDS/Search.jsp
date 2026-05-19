@@ -33,7 +33,12 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
+<%
+    String encodedProviderNo = SafeEncode.forJavaScript(
+            SafeEncode.forUriComponent(StringUtils.noNull(request.getParameter("providerNo"))));
+%>
 
 <!DOCTYPE html>
 <html>
@@ -59,8 +64,7 @@
                 return false;
             }
 
-            <c:set var="__enc_1"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("providerNo")) %>' context="uriComponent"/></c:set>
-            var url = "<%=request.getContextPath()%>/documentManager/inboxManage?method=prepareForIndexPage&providerNo=<carlos:encode value='${__enc_1}' context="javaScript"/>";
+            var url = "<%=request.getContextPath()%>/documentManager/inboxManage?method=prepareForIndexPage&providerNo=<%= encodedProviderNo %>";
             if ($("#provfind").val().trim() != "") {
                 url += "&searchProviderNo=" + $("#provfind").val().trim();
             } else {
