@@ -76,9 +76,15 @@ class CarlosMethodSecurityTest extends CarlosUnitTestBase {
 
     @AfterEach
     void tearDown() throws Exception {
-        if (loggedInInfoMock != null) loggedInInfoMock.close();
-        if (servletActionContextMock != null) servletActionContextMock.close();
-        if (mocks != null) mocks.close();
+        if (loggedInInfoMock != null) {
+            loggedInInfoMock.close();
+        }
+        if (servletActionContextMock != null) {
+            servletActionContextMock.close();
+        }
+        if (mocks != null) {
+            mocks.close();
+        }
     }
 
     @Test

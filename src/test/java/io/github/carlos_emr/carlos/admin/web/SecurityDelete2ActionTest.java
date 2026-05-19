@@ -44,8 +44,15 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.spring.StrutsSpringObjectFactory;
-import org.junit.jupiter.api.*;
-import org.mockito.*;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
+import org.mockito.MockedStatic;
+import org.mockito.MockitoAnnotations;
 import org.springframework.aop.support.AopUtils;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
@@ -59,9 +66,20 @@ import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
 
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for {@link SecurityDelete2Action} covering privilege checks,
@@ -108,9 +126,15 @@ class SecurityDelete2ActionTest extends CarlosUnitTestBase {
 
     @AfterEach
     void tearDown() throws Exception {
-        if (loggedInInfoMock != null) loggedInInfoMock.close();
-        if (servletActionContextMock != null) servletActionContextMock.close();
-        if (mocks != null) mocks.close();
+        if (loggedInInfoMock != null) {
+            loggedInInfoMock.close();
+        }
+        if (servletActionContextMock != null) {
+            servletActionContextMock.close();
+        }
+        if (mocks != null) {
+            mocks.close();
+        }
     }
 
     private SecurityDelete2Action createActionWithPrivilege() {
@@ -285,7 +309,7 @@ class SecurityDelete2ActionTest extends CarlosUnitTestBase {
             dbf.setXIncludeAware(false);
             dbf.setExpandEntityReferences(false);
             DocumentBuilder db = dbf.newDocumentBuilder();
-            db.setEntityResolver((publicId, systemId) -> new InputSource(new StringReader("")));
+            db.setEntityResolver((_publicId, _systemId) -> new InputSource(new StringReader("")));
 
             try (InputStream in = Files.newInputStream(resolveProjectPath(STRUTS_CONFIG))) {
                 return db.parse(in);
