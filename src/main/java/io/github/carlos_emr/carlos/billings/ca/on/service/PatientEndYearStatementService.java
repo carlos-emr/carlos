@@ -216,9 +216,9 @@ public class PatientEndYearStatementService {
     /**
      * Render the end-year-statement Jasper PDF for the given (already
      * aggregated) summary directly to {@code out}. Owns the JDBC connection
-     * lifecycle: pulls the per-thread connection only inside this method
-     * and lets it return to the {@code DbConnectionFilter} pool when the
-     * filter chain unwinds.
+     * lifecycle: obtains the report connection only inside this method
+     * and releases it through the legacy Spring-managed JDBC boundary when the
+     * report has been filled.
      *
      * @param fromDateParam ISO date string echoed into the report header
      * @param toDateParam   ISO date string echoed into the report header
@@ -228,9 +228,7 @@ public class PatientEndYearStatementService {
     // JasperReports needs a raw java.sql.Connection to execute the report's
     // embedded SQL queries; routing through the JPA EntityManager would
     // require rewriting the report engine's data source, not just the
-    // connection acquisition. This is the only correct caller of the
-    // deprecated thread-local connection in billings/ca/on/.
-    @SuppressWarnings("removal")
+    // connection acquisition.
     public void writePdfTo(OutputStream out, PatientEndYearStatementSummary summary,
                            String fromDateParam, String toDateParam) {
         OscarDocumentCreator osc = new OscarDocumentCreator();
@@ -238,16 +236,14 @@ public class PatientEndYearStatementService {
 
         InputStream reportStream = osc.getDocumentStream(JASPER_REPORT_PATH);
         try {
-            Connection dbConn;
-            try {
-                dbConn = LegacyJdbcQuery.getConnection();
+            try (Connection dbConn = LegacyJdbcQuery.getConnection()) {
+                if (dbConn == null) {
+                    throw new Failure(Reason.DATABASE_ERROR);
+                }
+                osc.fillDocumentStream(reportParams, out, "pdf", reportStream, dbConn);
             } catch (SQLException ex) {
                 throw new Failure(Reason.DATABASE_ERROR, ex);
             }
-            if (dbConn == null) {
-                throw new Failure(Reason.DATABASE_ERROR);
-            }
-            osc.fillDocumentStream(reportParams, out, "pdf", reportStream, dbConn);
         } finally {
             org.apache.commons.io.IOUtils.closeQuietly(reportStream);
         }

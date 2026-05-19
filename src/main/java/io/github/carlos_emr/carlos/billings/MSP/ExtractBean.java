@@ -46,10 +46,19 @@ import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 import java.util.Properties;
+import java.util.regex.Pattern;
 
 
 public class ExtractBean extends Object implements Serializable {
+    private static final Pattern SAFE_DATE_RANGE_CONDITION = Pattern.compile(
+            "\\s*and\\s+\\(?\\s*(?:to_days\\s*\\(\\s*)?(billing_date|service_date)(?:\\s*\\))?\\s*(>=|<=|=|>|<)\\s*(?:to_days\\s*\\(\\s*)?'(\\d{4}-\\d{2}-\\d{2})'\\s*\\)?\\s*\\)?",
+            Pattern.CASE_INSENSITIVE);
     private static Logger logger = MiscUtils.getLogger();
     private LogTeleplanTxDao logTeleplanTxDao = SpringUtils.getBean(LogTeleplanTxDao.class);
     private BillingDao billingDao = SpringUtils.getBean(BillingDao.class);
@@ -150,14 +159,22 @@ public class ExtractBean extends Object implements Serializable {
             // htmlContentHeader = htmlContentHeader + "<tr><td class='bodytext'>ACCT NO</td><td class='bodytext'>NAME</td><td class='bodytext'>HEALTH #</td><td class='bodytext'>BILLDATE</td><td class='bodytext'>CODE</td><td align='right' class='bodytext'>BILLED</td><td align='right' class='bodytext'>DX</td><td align='right' class='bodytext'>Comment</td></tr>";
             // htmlValue = htmlContentHeader;
             value = batchHeader;
-            dbExtract dbExt = new dbExtract();
             MiscUtils.getLogger().debug("1st billing query d");
 
-            dbExt.openConnection();
-            query = "select * from billing where provider_ohip_no='" + providerNo + "' and (status='O' or status='W') " + dateRange;
-            MiscUtils.getLogger().debug("1st billing query " + query);
-            ResultSet rs = dbExt.executeQuery(query);
-            if (rs != null) {
+            BillingDateFilter dateFilter;
+            try {
+                dateFilter = parseDateRangeFragment(dateRange);
+            } catch (IllegalArgumentException e) {
+                reportDateRangeError(e);
+                return;
+            }
+
+            try (dbExtract dbExt = new dbExtract()) {
+                dbExt.openConnection();
+                query = "select * from billing where provider_ohip_no=? and (status='O' or status='W') "
+                        + dateFilter.sql();
+                MiscUtils.getLogger().debug("1st billing query " + query);
+                ResultSet rs = dbExt.executeQuery(query, dateFilter.withLeading(providerNo));
                 while (rs.next()) {
                     patientCount = patientCount + 1;
                     invNo = rs.getString("billing_no");
@@ -254,18 +271,13 @@ public class ExtractBean extends Object implements Serializable {
 
 
                     invCount = 0;
-                    // Validate numeric: dbExtract only supports Statement (not PreparedStatement),
-                    // so parameterized queries are not possible. Ensure invNo contains only digits
-                    // before concatenation, while preserving the original value to avoid changing
-                    // invoice semantics such as leading zeros.
-                    // TODO: Refactor dbExtract to support PreparedStatement for full parameterization.
                     if (invNo == null || !invNo.matches("^[0-9]+$")) {
                         logger.warn("Skipping billing record due to invalid invoice number: {}", invNo);
                         continue;
                     }
-                    query2 = "select * from billingmaster where billing_no=" + invNo + " and billingstatus='O'";
+                    query2 = "select * from billingmaster where billing_no=? and billingstatus='O'";
 
-                    ResultSet rs2 = dbExt.executeQuery2(query2);
+                    ResultSet rs2 = dbExt.executeQuery2(query2, invNo);
                     while (rs2.next()) {
                         recordCount = recordCount + 1;
 
@@ -334,6 +346,59 @@ public class ExtractBean extends Object implements Serializable {
             MiscUtils.getLogger().error("Error", e);
         }
 
+    }
+
+    private void reportDateRangeError(IllegalArgumentException e) {
+        String message = "Unsupported billing date range filter. Report was not generated.";
+        MiscUtils.getLogger().warn(message, e);
+        errorMsg = message;
+        htmlCode = "<html><body><p>" + message + "</p></body></html>";
+        htmlValue = htmlCode;
+        value = "";
+    }
+
+    static BillingDateFilter parseDateRangeFragment(String fragment) {
+        if (fragment == null || fragment.trim().isEmpty()) {
+            return new BillingDateFilter("", List.of());
+        }
+        StringBuilder sql = new StringBuilder();
+        ArrayList<String> params = new ArrayList<String>();
+        int position = 0;
+        while (position < fragment.length()) {
+            var matcher = SAFE_DATE_RANGE_CONDITION.matcher(fragment);
+            matcher.region(position, fragment.length());
+            if (!matcher.lookingAt()) {
+                if (fragment.substring(position).trim().isEmpty()) {
+                    break;
+                }
+                throw new IllegalArgumentException("Unsupported billing date range filter");
+            }
+            String column = matcher.group(1).toLowerCase(Locale.ROOT);
+            String operator = matcher.group(2);
+            sql.append(" and to_days(").append(column).append(") ").append(operator).append(" to_days(?)");
+            params.add(parseIsoDate(matcher.group(3)));
+            position = matcher.end();
+        }
+        return new BillingDateFilter(sql.toString(), List.copyOf(params));
+    }
+
+    private static String parseIsoDate(String date) {
+        try {
+            return LocalDate.parse(date).toString();
+        } catch (DateTimeParseException e) {
+            throw new IllegalArgumentException("Unsupported billing date range filter", e);
+        }
+    }
+
+    record BillingDateFilter(String sql, List<String> params) {
+        Object[] withLeading(Object value) {
+            Object[] allParams = new Object[params.size() + 1];
+            allParams[0] = value;
+            for (int i = 0; i < params.size(); i++) {
+                allParams[i + 1] = params.get(i);
+            }
+            return allParams;
+        }
     }
 
 

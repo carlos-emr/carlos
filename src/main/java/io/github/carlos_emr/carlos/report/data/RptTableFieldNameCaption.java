@@ -69,29 +69,19 @@ public class RptTableFieldNameCaption {
     public boolean insertOrUpdateRecord() {
         boolean ret = false;
         String sql = "select id from reportTableFieldCaption where table_name = ? and name = ?";
-        Connection conn = null;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        try {
-            conn = LegacyJdbcQuery.getConnection();
-            ps = conn.prepareStatement(sql);
+        try (Connection conn = LegacyJdbcQuery.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, table_name);
             ps.setString(2, name);
-            rs = ps.executeQuery();
-            if (rs.next()) {
-                ret = insertRecord();
-            } else {
-                ret = updateRecord();
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    ret = updateRecord();
+                } else {
+                    ret = insertRecord();
+                }
             }
         } catch (SQLException e) {
             logger.error("insertOrUpdateRecord() error", e);
-        } finally {
-            if (rs != null) {
-                try { rs.close(); } catch (SQLException e) { logger.error("Error closing ResultSet", e); }
-            }
-            if (ps != null) {
-                try { ps.close(); } catch (SQLException e) { logger.error("Error closing PreparedStatement", e); }
-            }
         }
         return ret;
     }
@@ -137,26 +127,16 @@ public class RptTableFieldNameCaption {
     public Properties getNameCaptionProp(String tableName) {
         Properties ret = new Properties();
         String sql = "select name, caption from reportTableFieldCaption where table_name = ?";
-        Connection conn = null;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        try {
-            conn = LegacyJdbcQuery.getConnection();
-            ps = conn.prepareStatement(sql);
+        try (Connection conn = LegacyJdbcQuery.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, tableName);
-            rs = ps.executeQuery();
-            while (rs.next()) {
-                ret.setProperty(DBHelp.getString(rs, "name"), DBHelp.getString(rs, "caption"));
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    ret.setProperty(DBHelp.getString(rs, "name"), DBHelp.getString(rs, "caption"));
+                }
             }
         } catch (SQLException e) {
             logger.error("getNameCaptionProp() error", e);
-        } finally {
-            if (rs != null) {
-                try { rs.close(); } catch (SQLException e) { logger.error("Error closing ResultSet", e); }
-            }
-            if (ps != null) {
-                try { ps.close(); } catch (SQLException e) { logger.error("Error closing PreparedStatement", e); }
-            }
         }
         return ret;
     }
@@ -188,26 +168,15 @@ public class RptTableFieldNameCaption {
 
         // nosemgrep: formatted-sql-string -- tableName is validated against the encounterForm whitelist above
         String sql = "select * from " + tableName + " limit 1";
-        Connection conn = null;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        try {
-            conn = LegacyJdbcQuery.getConnection();
-            ps = conn.prepareStatement(sql);
-            rs = ps.executeQuery(); // nosemgrep: formatted-sql-string — uses PreparedStatement; tableName from internal report config
+        try (Connection conn = LegacyJdbcQuery.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) { // nosemgrep: formatted-sql-string -- uses PreparedStatement; tableName from internal report config
             ResultSetMetaData md = rs.getMetaData();
             for (int i = 1; i <= md.getColumnCount(); i++) {
                 ret.add(md.getColumnName(i));
             }
         } catch (SQLException e) {
             logger.error("getMetaNameList() error for table: " + tableName, e);
-        } finally {
-            if (rs != null) {
-                try { rs.close(); } catch (SQLException e) { logger.error("Error closing ResultSet", e); }
-            }
-            if (ps != null) {
-                try { ps.close(); } catch (SQLException e) { logger.error("Error closing PreparedStatement", e); }
-            }
         }
         return ret;
     }

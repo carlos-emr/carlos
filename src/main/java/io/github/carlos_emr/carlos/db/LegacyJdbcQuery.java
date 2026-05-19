@@ -78,12 +78,12 @@ public final class LegacyJdbcQuery {
         return releasingConnection(DataSourceUtils.getConnection(dataSource), dataSource);
     }
 
-    public static ResultSet getPreparedResultSet(String sql, boolean updatable, Object... params) throws SQLException { // nosemgrep: formatted-sql-string -- parameterized query boundary; params are bound below
+    public static ResultSet getPreparedResultSet(String sql, boolean updatable, Object... params) throws SQLException { // nosemgrep: formatted-sql-string -- legacy SQL shape is owned by callers; values are bound below
         DataSource dataSource = dataSource();
         Connection connection = DataSourceUtils.getConnection(dataSource);
         PreparedStatement ps = null;
         try {
-            ps = connection.prepareStatement(sql, ResultSet.TYPE_SCROLL_SENSITIVE, // codeql[java/sql-injection] -- legacy boundary; params bound via bindParams
+            ps = connection.prepareStatement(sql, ResultSet.TYPE_SCROLL_SENSITIVE,
                     updatable ? ResultSet.CONCUR_UPDATABLE : ResultSet.CONCUR_READ_ONLY);
             bindParams(ps, params);
             ResultSet rs = ps.executeQuery(); // NOSONAR javasecurity:S3649 -- parameterized query boundary
@@ -97,19 +97,19 @@ public final class LegacyJdbcQuery {
 
     public static void procExecute(String procName, String[] params) throws SQLException {
         validateProcName(procName);
-        String sql = "{call " + procName;
+        StringBuilder sql = new StringBuilder("{call ").append(procName);
         if (params != null && params.length > 0) {
             StringBuilder prms = new StringBuilder();
             for (int i = 0; i < params.length; i++) {
                 prms.append("?,");
             }
-            sql += "(" + prms.substring(0, prms.length() - 1) + ")";
+            sql.append("(").append(prms.substring(0, prms.length() - 1)).append(")");
         }
-        sql += "}";
+        sql.append("}");
 
         DataSource dataSource = dataSource();
         Connection connection = DataSourceUtils.getConnection(dataSource);
-        try (CallableStatement stmt = connection.prepareCall(sql)) {
+        try (CallableStatement stmt = connection.prepareCall(sql.toString())) {
             if (params != null) {
                 for (int i = 0; i < params.length; i++) {
                     stmt.setString(i + 1, params[i]);
@@ -161,7 +161,7 @@ public final class LegacyJdbcQuery {
         Statement stmt = null;
         try {
             stmt = connection.createStatement();
-            ResultSet rs = stmt.executeQuery(preparedSQL); // codeql[java/sql-injection] -- admin-only dynamic SQL; validated by validateSafeSelectQuery
+            ResultSet rs = stmt.executeQuery(preparedSQL);
             return StatementClosingResultSet.wrap(rs, stmt, connection, dataSource);
         } catch (SQLException | RuntimeException e) {
             closeStatement(stmt);
@@ -200,7 +200,7 @@ public final class LegacyJdbcQuery {
         }
 
         String normalized = sql.trim().toLowerCase(Locale.ROOT);
-        if (!normalized.startsWith("select")) {
+        if (!startsWithSqlWord(normalized, "select")) {
             throw new SQLException("Only SELECT statements are allowed");
         }
 
@@ -217,7 +217,7 @@ public final class LegacyJdbcQuery {
         }
 
         String[] blockedWords = {"insert", "update", "delete", "drop", "alter", "create", "truncate",
-                "grant", "revoke", "exec", "execute"};
+                "grant", "revoke", "exec", "execute", "call", "merge", "commit", "rollback"};
         for (String word : blockedWords) {
             if (containsSqlWord(normalized, word)) {
                 throw new SQLException("Unsafe SQL detected: prohibited keyword");
@@ -279,6 +279,7 @@ public final class LegacyJdbcQuery {
     }
 
     private static PreparedStatement releasingPreparedStatement(PreparedStatement delegate, Connection connection, DataSource dataSource) {
+        AtomicBoolean released = new AtomicBoolean(false);
         InvocationHandler handler = new InvocationHandler() {
             @Override
             public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
@@ -288,7 +289,9 @@ public final class LegacyJdbcQuery {
                     } catch (InvocationTargetException e) {
                         throw e.getCause();
                     } finally {
-                        DataSourceUtils.releaseConnection(connection, dataSource);
+                        if (released.compareAndSet(false, true)) {
+                            DataSourceUtils.releaseConnection(connection, dataSource);
+                        }
                     }
                 }
                 try {
@@ -357,6 +360,11 @@ public final class LegacyJdbcQuery {
             index = sql.indexOf(word, index + 1);
         }
         return false;
+    }
+
+    private static boolean startsWithSqlWord(String sql, String word) {
+        return sql.startsWith(word)
+                && (sql.length() == word.length() || !isSqlIdentifierPart(sql.charAt(word.length())));
     }
 
     private static boolean isSqlIdentifierPart(char c) {
