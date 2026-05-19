@@ -112,7 +112,7 @@ public class ClinicNbrManage2Action extends ActionSupport {
             json.put("nbr", valNew);
             json.put("nbrDesc", desc);
             if (valNew == null || valNew.isEmpty()) {
-                error = "Add Failure: Cannot add NRB with empty value.";
+                error = "Add Failure: Cannot add NBR with empty value.";
             } else {
                 int j = clinicNbrDao.addEntry(valNew, desc);
                 if (j == 0) {
