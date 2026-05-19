@@ -24,7 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class JspJavaScriptEncodingRegressionTest {
 
     @Test
-    void shouldEncodeSessionValues_forJavaScriptStrings() throws Exception {
+    void shouldEncodeSessionValues_inJavaScriptStrings() throws Exception {
         String sentJsp = readJsp("mcedt/mailbox/sent.jsp");
         String autoDownloadJsp = readJsp("mcedt/mailbox/autoDownload.jsp");
 
@@ -37,7 +37,7 @@ class JspJavaScriptEncodingRegressionTest {
     }
 
     @Test
-    void shouldEncodeInlineHandlers_forJavaScriptAttributeContext() throws Exception {
+    void shouldEncodeInlineHandlers_inJavaScriptAttributeContext() throws Exception {
         String chartNotesJsp = readJsp("casemgmt/ChartNotesAjax.jsp");
         String multiPageJsp = readJsp("documentManager/MultiPageDocDisplay.jsp");
         String documentReportJsp = readJsp("documentManager/documentReport.jsp");
@@ -59,7 +59,7 @@ class JspJavaScriptEncodingRegressionTest {
     }
 
     @Test
-    void shouldEncodeInnerHtmlAssignments_forJavaScriptStrings() throws Exception {
+    void shouldEncodeInnerHtmlAssignments_inJavaScriptStrings() throws Exception {
         String viewScriptJsp = readJsp("rx/ViewScript2.jsp");
 
         assertThat(viewScriptJsp)
@@ -68,7 +68,7 @@ class JspJavaScriptEncodingRegressionTest {
     }
 
     @Test
-    void shouldEncodeBillingServiceCalls_forJavaScriptAttributeContext() throws Exception {
+    void shouldEncodeBillingServiceCalls_inJavaScriptAttributeContext() throws Exception {
         String billingBcJsp = readJsp("billing/CA/BC/billingBC.jsp");
 
         assertThat(billingBcJsp)
@@ -81,7 +81,7 @@ class JspJavaScriptEncodingRegressionTest {
     }
 
     @Test
-    void shouldEncodeMeasurementGroupNames_forHtmlBodyContext() throws Exception {
+    void shouldEncodeMeasurementGroupNames_inHtmlBodyContext() throws Exception {
         String addGroupJsp = readJsp("encounter/oscarMeasurements/AddMeasurementGroup.jsp");
         String editGroupJsp = readJsp("encounter/oscarMeasurements/EditMeasurementGroup.jsp");
 
