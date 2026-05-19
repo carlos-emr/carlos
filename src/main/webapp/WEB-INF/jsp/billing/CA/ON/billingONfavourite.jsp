@@ -299,15 +299,13 @@
     jQuery(document).ready(function () {
         var ctx = '${carlos:forJavaScript(ctx)}';
 
-        function escHtml(s) {
-            return jQuery('<div>').text(s || '').html();
-        }
-
         function renderCodeItem(ul, item) {
             var li    = jQuery('<li>').addClass('ui-menu-item');
             var inner = jQuery('<div>').addClass('billing-ac-item');
-            inner.html('<strong>' + escHtml(item.code) + '</strong> – ' +
-                       escHtml(item.description || item.label || ''));
+            inner.append(
+                jQuery('<strong>').text(item.code || ''),
+                document.createTextNode(' – ' + (item.description || item.label || ''))
+            );
             li.append(inner).appendTo(ul);
             return li;
         }
