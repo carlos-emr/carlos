@@ -131,22 +131,30 @@ public class PrivacyStatementAppendingFilter implements Filter {
             DelegatingServletResponse delegatingServletResponse = new DelegatingServletResponse(httpResponse);
             chain.doFilter(request, delegatingServletResponse);
 
-            if (isConfidentialityNotePrinted)
+            if (isConfidentialityNotePrinted) {
+                delegatingServletResponse.completeWithoutStatement();
                 return;
+            }
 
             // ignore this stuff for non-html responses and AJAX queries
             String contentType = delegatingServletResponse.getContentType();
-            if (contentType == null)
+            if (contentType == null) {
+                delegatingServletResponse.completeWithoutStatement();
                 return;
+            }
             boolean isHtmlResponse = contentType.toLowerCase().startsWith("text/html");
-            if (!isHtmlResponse)
+            if (!isHtmlResponse) {
+                delegatingServletResponse.completeWithoutStatement();
                 return;
+            }
 
             // don't append for AJAX queries as well
             String requestedWithHeader = httpRequest.getHeader(HTTP_HEADER_NAME_AJAX_REQUESTED_WITH);
             boolean isAjaxRequest = requestedWithHeader != null && HTTP_HEADER_VALUE_AJAX_REQUESTED_WITH.equalsIgnoreCase(requestedWithHeader);
-            if (isAjaxRequest)
+            if (isAjaxRequest) {
+                delegatingServletResponse.completeWithoutStatement();
                 return;
+            }
 
             printConfidentialityStatement(response, delegatingServletResponse);
         } finally {
@@ -156,7 +164,7 @@ public class PrivacyStatementAppendingFilter implements Filter {
     }
 
     private boolean isExcluded(HttpServletRequest request) {
-        String servletPath = request.getServletPath();
+        String servletPath = getContextRelativePath(request);
         if (servletPath == null) {
             return false;
         }
@@ -173,6 +181,19 @@ public class PrivacyStatementAppendingFilter implements Filter {
 
     private String normalizeServletPath(String servletPath) {
         return servletPath.toLowerCase().trim();
+    }
+
+    private String getContextRelativePath(HttpServletRequest request) {
+        String servletPath = request.getServletPath();
+        if (servletPath == null || servletPath.trim().isEmpty()) {
+            servletPath = request.getRequestURI();
+            String contextPath = request.getContextPath();
+            if (servletPath != null && contextPath != null && !contextPath.isEmpty()
+                    && servletPath.startsWith(contextPath)) {
+                servletPath = servletPath.substring(contextPath.length());
+            }
+        }
+        return servletPath;
     }
 
     private boolean matchesExcludedPath(String servletPath, String exclusion) {
@@ -241,6 +262,10 @@ public class PrivacyStatementAppendingFilter implements Filter {
             // avoid
         }
 
+        private void flushDelegate() {
+            super.flush();
+        }
+
         @Override
         public void close() {
             // avoid
@@ -289,6 +314,12 @@ public class PrivacyStatementAppendingFilter implements Filter {
 
         public boolean isResponseOutputStreamObtained() {
             return responseOutputStreamObtained;
+        }
+
+        public void completeWithoutStatement() {
+            if (writer != null) {
+                writer.flushDelegate();
+            }
         }
 
         @Override

@@ -21,15 +21,19 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
+import java.io.IOException;
+
 import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOnMriViewModelAssembler;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingDataLoadException;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnMriViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import org.apache.logging.log4j.Level;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.AfterEach;
@@ -55,6 +59,11 @@ import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for {@link ViewBillingOnMri2Action}.
+ *
+ * <p>The missing-session case intentionally follows the shared browser-page rejection policy before
+ * privilege checks run. That keeps login/session regressions separate from billing privilege
+ * failures when this view is reached through Struts, while avoiding a noisy server-side security
+ * exception for simple session loss.</p>
  *
  * @since 2026-05-10
  */
@@ -118,28 +127,73 @@ class ViewBillingOnMri2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should return success when assembler succeeds")
     void shouldReturnSuccess_whenAssemblerSucceeds() throws Exception {
         assertThat(newAction().execute()).isEqualTo(ActionSupport.SUCCESS);
     }
 
     @Test
+    @DisplayName("should expose model as request attribute")
     void shouldExposeModel_asRequestAttribute() throws Exception {
         newAction().execute();
         assertThat(mockRequest.getAttribute("mriModel")).isSameAs(STUB_MODEL);
     }
 
     @Test
-    void shouldThrowSecurityException_whenSessionMissing() {
+    @DisplayName("should redirect to logout page when session is missing")
+    void shouldRedirectToLogoutPage_whenSessionMissing() throws Exception {
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(null);
 
-        assertThatThrownBy(newAction()::execute)
-                .isInstanceOf(SecurityException.class)
-                .hasMessageContaining("_billing");
+        assertThat(newAction().execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getRedirectedUrl()).isEqualTo("/logoutPage");
         verify(mockSecurityInfoManager, never()).hasPrivilege(any(), any(), any(), any());
     }
 
     @Test
+    @DisplayName("should return none when unauthenticated rejection redirect fails")
+    void shouldReturnNone_whenUnauthenticatedRejectionRedirectFails() throws Exception {
+        loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                .thenReturn(null);
+        RedirectFailingResponse failingResponse = new RedirectFailingResponse();
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(failingResponse);
+
+        try (LogCapture capture = LogCapture.forLogger(ViewBillingOnMri2Action.class)) {
+            assertThat(newAction().execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(failingResponse.getStatus()).isEqualTo(500);
+
+            assertThat(capture.events()).anySatisfy(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                assertThat(event.getMessage().getFormattedMessage())
+                        .contains("Unable to reject unauthenticated billing MRI request");
+            });
+        }
+        verify(mockSecurityInfoManager, never()).hasPrivilege(any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("should return none when unauthenticated rejection fails after commit")
+    void shouldReturnNone_whenUnauthenticatedRejectionFailsAfterCommit() throws Exception {
+        loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                .thenReturn(null);
+        CommittedRedirectFailingResponse failingResponse = new CommittedRedirectFailingResponse();
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(failingResponse);
+
+        try (LogCapture capture = LogCapture.forLogger(ViewBillingOnMri2Action.class)) {
+            assertThat(newAction().execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(failingResponse.getStatus()).isEqualTo(200);
+
+            assertThat(capture.events()).anySatisfy(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.ERROR);
+                assertThat(event.getMessage().getFormattedMessage())
+                        .contains("after response commit");
+            });
+        }
+        verify(mockSecurityInfoManager, never()).hasPrivilege(any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("should throw security exception when lacks billing read privilege")
     void shouldThrowSecurityException_whenLacksBillingReadPrivilege() {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("r"), isNull()))
                 .thenReturn(false);
@@ -150,6 +204,7 @@ class ViewBillingOnMri2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should wrap runtime exception as billing data load exception")
     void shouldWrapRuntimeException_asBillingDataLoadException() {
         RuntimeException cause = new NullPointerException("null bill center");
         when(mockAssembler.assemble(any(), any())).thenThrow(cause);
@@ -161,11 +216,27 @@ class ViewBillingOnMri2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should rethrow billing data load exception unchanged")
     void shouldRethrowBillingDataLoadException_unchanged() {
         BillingDataLoadException original = new BillingDataLoadException("disk error");
         when(mockAssembler.assemble(any(), any())).thenThrow(original);
 
         assertThatThrownBy(newAction()::execute)
                 .isSameAs(original);
+    }
+
+    private static final class RedirectFailingResponse extends MockHttpServletResponse {
+        @Override
+        public void sendRedirect(String url) throws IOException {
+            throw new IOException("redirect failed");
+        }
+    }
+
+    private static final class CommittedRedirectFailingResponse extends MockHttpServletResponse {
+        @Override
+        public void sendRedirect(String url) throws IOException {
+            setCommitted(true);
+            throw new IOException("redirect failed after commit");
+        }
     }
 }

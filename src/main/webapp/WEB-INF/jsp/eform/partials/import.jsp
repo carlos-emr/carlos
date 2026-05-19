@@ -32,6 +32,7 @@
 <html>
 <%@ page import="io.github.carlos_emr.carlos.eform.data.*, io.github.carlos_emr.carlos.eform.*, java.util.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
@@ -68,7 +69,7 @@
     </div>
 
     <script>
-        window.top.location.href = "<%=request.getContextPath()%>/administration/?show=Forms";
+        window.top.location.href = "<%=request.getContextPath()%>/administration?show=Forms";
     </script>
 
 </c:if>
@@ -88,14 +89,14 @@
     <div class="action-errors">
         <ul>
             <% for (String error : actionErrors) { %>
-                <li><%= error %></li>
+                <li><carlos:encode value='<%= error %>' context="html"/></li>
             <% } %>
         </ul>
     </div>
 <% } %>
         <ul>
             <%for (String importError : importErrors) {%>
-            <li class="text-danger"><%=importError%>
+            <li class="text-danger"><carlos:encode value='<%= importError %>' context="html"/>
             </li>
             <%}%>
         </ul>

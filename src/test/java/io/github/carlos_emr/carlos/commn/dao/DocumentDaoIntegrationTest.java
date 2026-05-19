@@ -226,7 +226,7 @@ public class DocumentDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @DisplayName("should return maximum document number")
-        void shouldReturnMaxDocumentNo() {
+        void shouldReturnMaxDocumentNo_whenDocumentsExist() {
             // Given
             Document doc1 = createAndPersist("lab", PROVIDER_NO, 'A');
             Document doc2 = createAndPersist("consult", PROVIDER_NO, 'A');
@@ -794,7 +794,7 @@ public class DocumentDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @DisplayName("should respect items limit")
-        void shouldRespectLimit() {
+        void shouldRespectLimit_whenMoreRowsAvailable() {
             // Given
             createDocumentWithCtl("lab", PROVIDER_NO, 'A', DEMO_ID);
             createDocumentWithCtl("consult", PROVIDER_NO, 'A', DEMO_ID);

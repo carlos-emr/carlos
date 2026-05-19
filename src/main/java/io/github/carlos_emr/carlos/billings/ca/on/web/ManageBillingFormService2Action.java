@@ -29,7 +29,7 @@ import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingFormConfigurationService;
 import io.github.carlos_emr.carlos.commn.model.CtlBillingService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -105,7 +105,7 @@ public class ManageBillingFormService2Action extends ActionSupport {
                     } catch (NumberFormatException e) {
                         MiscUtils.getLogger().warn(
                                 "Invalid serviceOrder value [{}] for group{}_service{} — aborting save",
-                                LogSanitizer.sanitize(orderStr), j, i, e);
+                                LogSafe.sanitize(orderStr), j, i, e);
                         orderParseFailures.add("group" + j + "_service" + i + "=" + orderStr);
                         continue;
                     }
@@ -136,7 +136,7 @@ public class ManageBillingFormService2Action extends ActionSupport {
             billingFormConfigurationService.replaceServiceCodes(typeid, replacement);
         } catch (Exception e) {
             MiscUtils.getLogger().error("Failed to replace service codes for typeid={} — transaction rolled back",
-                    LogSanitizer.sanitize(typeid), e);
+                    LogSafe.sanitize(typeid), e);
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Failed to update service codes");
             return NONE;
         }

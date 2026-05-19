@@ -28,7 +28,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.commn.dao.DxresearchDAO;
 import io.github.carlos_emr.carlos.commn.model.Dxresearch;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 /**
  * Optional clinical write triggered from {@code billing/CA/ON/ViewBillingONReview}:
@@ -93,7 +93,7 @@ public class BillingOnReviewDiagPersister {
         if (dxCodeAdd.isEmpty()) {
             MiscUtils.getLogger().error(
                     "addToPatientDx requested without a dx code for demographic_no={}",
-                    LogSanitizer.sanitize(demoNo));
+                    LogSafe.sanitize(demoNo));
             throw new BillingValidationException(
                     "Add-to-patient-dx requested but no diagnostic code was supplied — "
                     + "no record was saved.");
@@ -105,10 +105,10 @@ public class BillingOnReviewDiagPersister {
         } catch (NumberFormatException nfe) {
             MiscUtils.getLogger().error(
                     "addToPatientDx requested with non-numeric demographic_no={}",
-                    LogSanitizer.sanitize(demoNo));
+                    LogSafe.sanitize(demoNo));
             throw new BillingValidationException(
                     "addToPatientDx requested with non-numeric demographic_no: "
-                    + LogSanitizer.sanitizeForDisplay(demoNo), nfe);
+                    + LogSafe.sanitizeForDisplay(demoNo), nfe);
         }
         Date now = new Date();
         Dxresearch dx = new Dxresearch(
@@ -130,17 +130,17 @@ public class BillingOnReviewDiagPersister {
             // write — the operator needs to know it was rejected.
             MiscUtils.getLogger().error(
                     "addToPatientDx: data-integrity violation persisting dx {} for demographic_no={}",
-                    LogSanitizer.sanitize(dxCodeAdd),
-                    LogSanitizer.sanitize(demoNo), dive);
+                    LogSafe.sanitize(dxCodeAdd),
+                    LogSafe.sanitize(demoNo), dive);
             throw new BillingValidationException(
-                    "Could not save dx (" + LogSanitizer.sanitizeForDisplay(dxCodeAdd)
+                    "Could not save dx (" + LogSafe.sanitizeForDisplay(dxCodeAdd)
                     + ") for the patient: it may already be in the registry.", dive);
         } catch (org.hibernate.NonUniqueObjectException nuoe) {
             MiscUtils.getLogger().error(
                     "addToPatientDx: NonUniqueObjectException for dx {}",
-                    LogSanitizer.sanitize(dxCodeAdd), nuoe);
+                    LogSafe.sanitize(dxCodeAdd), nuoe);
             throw new BillingValidationException(
-                    "Could not save dx (" + LogSanitizer.sanitizeForDisplay(dxCodeAdd)
+                    "Could not save dx (" + LogSafe.sanitizeForDisplay(dxCodeAdd)
                     + ") for the patient: a session conflict occurred. Please reload the chart and retry.", nuoe);
         } catch (SecurityException sec) {
             throw sec;
@@ -152,9 +152,9 @@ public class BillingOnReviewDiagPersister {
             // operator gets the friendly "retry" message.
             MiscUtils.getLogger().error(
                     "addToPatientDx: unexpected save failure for dx {}",
-                    LogSanitizer.sanitize(dxCodeAdd), rtEx);
+                    LogSafe.sanitize(dxCodeAdd), rtEx);
             throw new BillingValidationException(
-                    "Could not save dx (" + LogSanitizer.sanitizeForDisplay(dxCodeAdd)
+                    "Could not save dx (" + LogSafe.sanitizeForDisplay(dxCodeAdd)
                     + ") for the patient — please retry, then contact support if the problem persists.", rtEx);
         }
     }

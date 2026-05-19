@@ -54,7 +54,7 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 /**
  * @author wrighd
@@ -78,7 +78,7 @@ public class PrintLabs2Action extends ActionSupport {
 
         String segmentID = request.getParameter("segmentID");
         if (segmentID == null || !segmentID.matches("\\d+")) {
-            logger.warn("PrintLabs2Action called with invalid segmentID: {}", LogSanitizer.sanitize(segmentID)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            logger.warn("PrintLabs2Action called with invalid segmentID: {}", LogSafe.sanitize(segmentID)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             return "error";
         }
 
@@ -109,7 +109,7 @@ public class PrintLabs2Action extends ActionSupport {
                 } finally {
                     if (f.exists() && !f.delete()) {
                         f.deleteOnExit();
-                        logger.warn("Failed to delete temporary lab report PDF at path [{}] for segmentID [{}]; scheduled deletion on JVM exit", LogSanitizer.sanitize(f.getAbsolutePath()), segmentID);
+                        logger.warn("Failed to delete temporary lab report PDF at path [{}] for segmentID [{}]; scheduled deletion on JVM exit", LogSafe.sanitize(f.getAbsolutePath()), segmentID);
                     }
                 }
             }

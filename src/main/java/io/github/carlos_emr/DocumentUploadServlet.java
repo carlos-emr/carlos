@@ -43,9 +43,12 @@ import jakarta.servlet.http.Part;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * Servlet for handling document file uploads with path validation and security.
@@ -85,6 +88,20 @@ public class DocumentUploadServlet extends HttpServlet {
      * @throws ServletException if a servlet error occurs
      */
     public void service(HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return;
+        }
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Login required");
+            return;
+        }
+        if (!hasUploadPrivilege(loggedInInfo)) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, "Upload privilege required");
+            return;
+        }
+
         String foldername = "", fileheader = "", forwardTo = "";
         forwardTo = CarlosProperties.getInstance().getProperty("RA_FORWORD");
         foldername = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
@@ -102,7 +119,7 @@ public class DocumentUploadServlet extends HttpServlet {
             // Validate and sanitize the filename to prevent path traversal
             String sanitizedFilename = FilenameUtils.getName(providedFilename);
             if (sanitizedFilename == null || sanitizedFilename.isEmpty()) {
-                MiscUtils.getLogger().error("Invalid filename provided: {}", LogSanitizer.sanitize(providedFilename)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                MiscUtils.getLogger().error("Invalid filename provided: {}", LogSafe.sanitize(providedFilename)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 return;
             }
 
@@ -122,13 +139,13 @@ public class DocumentUploadServlet extends HttpServlet {
                         providedFile = PathValidationUtils.validatePath(sanitizedFilename, archiveDir);
                     }
                 } catch (SecurityException e) {
-                    MiscUtils.getLogger().error("File does not reside in a valid path: {}", LogSanitizer.sanitize(providedFilename), e);
+                    MiscUtils.getLogger().error("File does not reside in a valid path: {}", LogSafe.sanitize(providedFilename), e);
                     return;
                 }
 
                 // Verify the file exists before copying
                 if (!providedFile.exists()) {
-                    MiscUtils.getLogger().error("File not found: {}", LogSanitizer.sanitize(sanitizedFilename)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                    MiscUtils.getLogger().error("File not found: {}", LogSafe.sanitize(sanitizedFilename)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                     return;
                 }
 
@@ -136,7 +153,7 @@ public class DocumentUploadServlet extends HttpServlet {
                 fileheader = sanitizedFilename;
 
             } catch (IOException e) {
-                MiscUtils.getLogger().error("Error processing file: {}", LogSanitizer.sanitize(sanitizedFilename), e);
+                MiscUtils.getLogger().error("Error processing file: {}", LogSafe.sanitize(sanitizedFilename), e);
                 return;
             }
         } else {
@@ -164,10 +181,10 @@ public class DocumentUploadServlet extends HttpServlet {
                             FileUtils.copyFileToDirectory(savedFile, inboxDir);
                         }
                     } catch (SecurityException e) {
-                        MiscUtils.getLogger().error("Invalid uploaded filename: {}", LogSanitizer.sanitize(submittedFilename), e);
+                        MiscUtils.getLogger().error("Invalid uploaded filename: {}", LogSafe.sanitize(submittedFilename), e);
                         continue;
                     } catch (IOException e) {
-                        MiscUtils.getLogger().error("Error processing file: {}", LogSanitizer.sanitize(submittedFilename), e);
+                        MiscUtils.getLogger().error("Error processing file: {}", LogSafe.sanitize(submittedFilename), e);
                         continue;
                     }
                 }
@@ -181,5 +198,10 @@ public class DocumentUploadServlet extends HttpServlet {
         documentBean.setFilename(fileheader);
         RequestDispatcher dispatch = getServletContext().getRequestDispatcher(forwardTo);
         dispatch.forward(request, response);
+    }
+
+    private boolean hasUploadPrivilege(LoggedInInfo loggedInInfo) {
+        SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+        return securityInfoManager.hasPrivilege(loggedInInfo, "_admin.billing", "w", null);
     }
 }

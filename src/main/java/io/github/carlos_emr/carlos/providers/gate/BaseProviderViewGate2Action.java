@@ -12,13 +12,20 @@
  */
 package io.github.carlos_emr.carlos.providers.gate;
 
+import java.io.IOException;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.sec.UnauthenticatedRejectionResolver;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
@@ -32,6 +39,11 @@ import org.apache.struts2.ServletActionContext;
  * Configure behavior via {@link #getSecurityObject()},
  * {@link #getAccessRight()}, and {@link #requirePost()}.
  *
+ * <p>Unauthenticated requests are rejected before {@link LoggedInInfo} is loaded. The servlet
+ * {@code LoginFilter} is the canonical gate, but this class keeps the same check as
+ * defence-in-depth so direct action invocation and future filter-order changes cannot surface as
+ * server errors or JSP execution.
+ *
  * <p>Provider-module convention: {@code _appointment r} is the default
  * provider-area entry privilege and is used for most view gates regardless of
  * topical relevance (encounter history, vaccine registry, signature edit,
@@ -43,9 +55,17 @@ import org.apache.struts2.ServletActionContext;
  * @since 2026-04-13
  */
 public abstract class BaseProviderViewGate2Action extends ActionSupport {
+    private static final Logger LOGGER = MiscUtils.getLogger();
 
-    private final SecurityInfoManager securityInfoManager =
-            SpringUtils.getBean(SecurityInfoManager.class);
+    private final SecurityInfoManager securityInfoManager;
+
+    protected BaseProviderViewGate2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class));
+    }
+
+    protected BaseProviderViewGate2Action(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
+    }
 
     /** Security object name (e.g. {@code "_appointment"}, {@code "_admin"}). */
     protected abstract String getSecurityObject();
@@ -53,7 +73,12 @@ public abstract class BaseProviderViewGate2Action extends ActionSupport {
     /** Access right ({@code "r"} or {@code "w"}). */
     protected abstract String getAccessRight();
 
-    /** Subclasses override to require POST-only access. */
+    /**
+     * Indicates that a gated action is a mutating endpoint and should reject non-POST methods.
+     *
+     * <p>Provider view gates default to GET-friendly behavior. Override only for endpoints whose
+     * Struts result performs a state change or whose legacy route was POST-only.</p>
+     */
     protected boolean requirePost() {
         return false;
     }
@@ -65,6 +90,32 @@ public abstract class BaseProviderViewGate2Action extends ActionSupport {
 
         if (requirePost() && !"POST".equalsIgnoreCase(request.getMethod())) {
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
+        HttpSession session = request.getSession(false);
+        if (session == null || session.getAttribute("user") == null) {
+            try {
+                UnauthenticatedRejectionResolver.rejectUnauthenticatedRequest(request, response);
+            } catch (IOException e) {
+                LOGGER.warn(
+                        "Unable to reject unauthenticated provider request: method={}, uri={}, remote={}",
+                        LogSafe.sanitize(request.getMethod()),
+                        LogSafe.sanitizeUri(request.getRequestURI()),
+                        LogSafe.sanitize(request.getRemoteAddr()),
+                        e);
+                if (!response.isCommitted()) {
+                    response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                } else {
+                    LOGGER.error(
+                            "Unable to reject unauthenticated provider request after response commit: "
+                                    + "method={}, uri={}, remote={}",
+                            LogSafe.sanitize(request.getMethod()),
+                            LogSafe.sanitizeUri(request.getRequestURI()),
+                            LogSafe.sanitize(request.getRemoteAddr()),
+                            e);
+                }
+            }
             return NONE;
         }
 

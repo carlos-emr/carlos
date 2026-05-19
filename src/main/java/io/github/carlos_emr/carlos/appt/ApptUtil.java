@@ -33,7 +33,7 @@ import java.util.regex.Pattern;
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.commn.model.Site;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -68,7 +68,7 @@ public class ApptUtil {
             return value;
         }
         if (!pattern.matcher(value).matches()) {
-            logger.warn("Rejected invalid {} at trust boundary: {}", fieldName, LogSanitizer.sanitize(value));
+            logger.warn("Rejected invalid {} at trust boundary: {}", fieldName, LogSafe.sanitize(value));
             return null;
         }
         return value;
@@ -102,12 +102,12 @@ public class ApptUtil {
         // Validate numeric ID fields at trust boundary (CWE-501)
         String demoNoParam = request.getParameter("demographic_no");
         if (demoNoParam != null && !demoNoParam.isEmpty() && !demoNoParam.matches("\\d+")) {
-            logger.warn("Invalid non-numeric demographic_no: {}", LogSanitizer.sanitize(demoNoParam));
+            logger.warn("Invalid non-numeric demographic_no: {}", LogSafe.sanitize(demoNoParam));
             return;
         }
         String chartNo = request.getParameter("chart_no");
         if (chartNo != null && !chartNo.isEmpty() && !chartNo.matches("\\d+")) {
-            logger.warn("Invalid non-numeric chart_no: {}", LogSanitizer.sanitize(chartNo));
+            logger.warn("Invalid non-numeric chart_no: {}", LogSafe.sanitize(chartNo));
             return;
         }
 

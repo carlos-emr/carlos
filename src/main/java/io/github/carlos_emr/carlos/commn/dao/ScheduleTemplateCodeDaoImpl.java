@@ -31,28 +31,62 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import jakarta.persistence.Query;
 
+import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 import io.github.carlos_emr.carlos.commn.model.ScheduleTemplateCode;
+import io.github.carlos_emr.carlos.config.CacheConfig;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Repository;
 
 @Repository
 public class ScheduleTemplateCodeDaoImpl extends AbstractDaoImpl<ScheduleTemplateCode> implements ScheduleTemplateCodeDao {
+    private static final String ALL_KEY = "all";
+    private static final String TEMPLATE_CODES_KEY = "templateCodes";
+    private static final String CODE_KEY_PREFIX = "codeChar:";
 
-    public ScheduleTemplateCodeDaoImpl() {
+    /*
+     * Reads use CacheManager directly instead of @Cacheable so cache hits can return
+     * fresh entity copies. @Cacheable would return the cached entity/list instance.
+     */
+    private final CacheManager cacheManager;
+
+    @Autowired
+    public ScheduleTemplateCodeDaoImpl(CacheManager cacheManager) {
         super(ScheduleTemplateCode.class);
+        this.cacheManager = cacheManager;
     }
 
     @SuppressWarnings("unchecked")
     @Override
     public List<ScheduleTemplateCode> findAll() {
+        List<ScheduleTemplateCode> cached = getCachedList(ALL_KEY);
+        if (cached != null) {
+            return copyScheduleTemplateCodes(cached);
+        }
+
         Query query = createQuery("x", null);
-        return query.getResultList();
+        List<ScheduleTemplateCode> results = query.getResultList();
+        List<ScheduleTemplateCode> snapshot = copyScheduleTemplateCodes(results);
+        List<ScheduleTemplateCode> response = copyScheduleTemplateCodes(results);
+        cache().put(ALL_KEY, Collections.unmodifiableList(snapshot));
+        return response;
     }
 
     @Override
     public ScheduleTemplateCode getByCode(char code) {
+        String cacheKey = CODE_KEY_PREFIX + code;
+        ScheduleTemplateCode cached = getCachedScheduleTemplateCode(cacheKey);
+        if (cached != null) {
+            return ScheduleTemplateCode.copyOf(cached);
+        }
+
         //Query query = entityManager.createQuery("FROM " + modelClass.getSimpleName() + " bst WHERE bst.id IN (:typeCodes)");
         Query query = entityManager.createQuery("select s from ScheduleTemplateCode s where s.code=?1");
         query.setParameter(1, code);
@@ -60,32 +94,107 @@ public class ScheduleTemplateCodeDaoImpl extends AbstractDaoImpl<ScheduleTemplat
         @SuppressWarnings("unchecked")
         List<ScheduleTemplateCode> results = query.getResultList();
         if (!results.isEmpty()) {
-            return results.get(0);
+            ScheduleTemplateCode result = results.get(0);
+            cache().put(cacheKey, ScheduleTemplateCode.copyOf(result));
+            return ScheduleTemplateCode.copyOf(result);
         }
         return null;
     }
 
     @Override
     public List<ScheduleTemplateCode> findTemplateCodes() {
+        List<ScheduleTemplateCode> cached = getCachedList(TEMPLATE_CODES_KEY);
+        if (cached != null) {
+            return copyScheduleTemplateCodes(cached);
+        }
+
         Query query = entityManager.createQuery("select s from ScheduleTemplateCode s where s.bookinglimit > 0 and s.duration <>''");
 
         @SuppressWarnings("unchecked")
         List<ScheduleTemplateCode> results = query.getResultList();
 
-        return results;
+        List<ScheduleTemplateCode> snapshot = copyScheduleTemplateCodes(results);
+        List<ScheduleTemplateCode> response = copyScheduleTemplateCodes(results);
+        cache().put(TEMPLATE_CODES_KEY, Collections.unmodifiableList(snapshot));
+        return response;
     }
 
     @Override
     public ScheduleTemplateCode findByCode(String code) {
-        char codeChar = code.charAt(0);
-        Query query = entityManager.createQuery("select s from ScheduleTemplateCode s where s.code like ?1");
-        query.setParameter(1, codeChar);
-
-        @SuppressWarnings("unchecked")
-        List<ScheduleTemplateCode> results = query.getResultList();
-        if (!results.isEmpty()) {
-            return results.get(0);
+        if (code == null || code.isEmpty()) {
+            return null;
         }
-        return null;
+        return getByCode(code.charAt(0));
     }
+
+    private Cache cache() {
+        Cache cache = cacheManager.getCache(CacheConfig.SCHEDULE_TEMPLATE_CODES);
+        if (cache == null) {
+            throw new IllegalStateException("Cache not configured: " + CacheConfig.SCHEDULE_TEMPLATE_CODES);
+        }
+        return cache;
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<ScheduleTemplateCode> getCachedList(String key) {
+        Cache.ValueWrapper wrapper = cache().get(key);
+        return wrapper == null ? null : (List<ScheduleTemplateCode>) wrapper.get();
+    }
+
+    private ScheduleTemplateCode getCachedScheduleTemplateCode(String key) {
+        Cache.ValueWrapper wrapper = cache().get(key);
+        return wrapper == null ? null : (ScheduleTemplateCode) wrapper.get();
+    }
+
+    private List<ScheduleTemplateCode> copyScheduleTemplateCodes(List<ScheduleTemplateCode> source) {
+        List<ScheduleTemplateCode> copies = new ArrayList<>(source.size());
+        for (ScheduleTemplateCode scheduleTemplateCode : source) {
+            copies.add(ScheduleTemplateCode.copyOf(scheduleTemplateCode));
+        }
+        return copies;
+    }
+
+    @CacheEvict(value = CacheConfig.SCHEDULE_TEMPLATE_CODES, allEntries = true)
+    @Override
+    public void persist(AbstractModel<?> o) { super.persist(o); }
+
+    @CacheEvict(value = CacheConfig.SCHEDULE_TEMPLATE_CODES, allEntries = true)
+    @Override
+    public void merge(AbstractModel<?> o) { super.merge(o); }
+
+    @CacheEvict(value = CacheConfig.SCHEDULE_TEMPLATE_CODES, allEntries = true)
+    @Override
+    public void remove(AbstractModel<?> o) { super.remove(o); }
+
+    @CacheEvict(value = CacheConfig.SCHEDULE_TEMPLATE_CODES, allEntries = true)
+    @Override
+    public boolean remove(Object id) { return super.remove(id); }
+
+    @CacheEvict(value = CacheConfig.SCHEDULE_TEMPLATE_CODES, allEntries = true)
+    @Override
+    public ScheduleTemplateCode saveEntity(ScheduleTemplateCode entity) { return super.saveEntity(entity); }
+
+    // batch* methods use a separate EntityManager and invoke persist/remove on it directly,
+    // bypassing the Spring proxy, so @CacheEvict on persist/remove never fires through this
+    // path. Override both overloads to restore eviction at the proxied boundary.
+    //
+    // beforeInvocation = true: AbstractDaoImpl.batchPersist commits sub-batches inside its
+    // loop, so a later sub-batch failure leaves earlier sub-batches persisted to the DB.
+    // Default beforeInvocation = false would skip eviction on exception, pinning stale
+    // entries in the cache until TTL.
+    @CacheEvict(value = CacheConfig.SCHEDULE_TEMPLATE_CODES, allEntries = true, beforeInvocation = true)
+    @Override
+    public void batchPersist(List<ScheduleTemplateCode> oList) { super.batchPersist(oList); }
+
+    @CacheEvict(value = CacheConfig.SCHEDULE_TEMPLATE_CODES, allEntries = true, beforeInvocation = true)
+    @Override
+    public void batchPersist(List<ScheduleTemplateCode> oList, int batchSize) { super.batchPersist(oList, batchSize); }
+
+    @CacheEvict(value = CacheConfig.SCHEDULE_TEMPLATE_CODES, allEntries = true, beforeInvocation = true)
+    @Override
+    public void batchRemove(List<ScheduleTemplateCode> oList) { super.batchRemove(oList); }
+
+    @CacheEvict(value = CacheConfig.SCHEDULE_TEMPLATE_CODES, allEntries = true, beforeInvocation = true)
+    @Override
+    public void batchRemove(List<ScheduleTemplateCode> oList, int batchSize) { super.batchRemove(oList, batchSize); }
 }

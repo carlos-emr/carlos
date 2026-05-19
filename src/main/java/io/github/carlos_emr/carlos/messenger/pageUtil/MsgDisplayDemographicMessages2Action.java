@@ -38,7 +38,7 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -158,7 +158,7 @@ public class MsgDisplayDemographicMessages2Action extends ActionSupport {
 
             // Validate demographicNo is numeric before storing in session bean
             if (!demographicNo.matches("\\d+")) {
-                MiscUtils.getLogger().error("Invalid non-numeric demographic_no: {}", LogSanitizer.sanitize(demographicNo));
+                MiscUtils.getLogger().error("Invalid non-numeric demographic_no: {}", LogSafe.sanitize(demographicNo));
                 // Clear any stale session bean to prevent PHI leakage from a previous request
                 request.getSession().removeAttribute("msgSessionBean");
                 return "error";

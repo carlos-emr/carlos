@@ -39,6 +39,7 @@ __pycache__/
 .env
 /.smarttomcat/
 .claude/settings.local.json
+.claude/*.lock
 
 
 # Docusaurus
