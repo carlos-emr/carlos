@@ -24,7 +24,7 @@ package io.github.carlos_emr.carlos.billings.ca.on;
 import java.time.DateTimeException;
 import java.time.LocalDate;
 
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 /**
  * Package-private utility for OHIP {@code yyyyMMdd} date tokens shared by
@@ -53,7 +53,7 @@ final class OhipDateTokens {
         String value = raw == null ? "" : raw.trim();
         if (!value.matches("\\d{8}")) {
             throw new IllegalArgumentException("Expected OHIP date in yyyyMMdd format: "
-                    + LogSanitizer.sanitizeForDisplay(raw));
+                    + LogSafe.sanitizeForDisplay(raw));
         }
 
         int year = Integer.parseInt(value.substring(0, 4));
@@ -66,7 +66,7 @@ final class OhipDateTokens {
             return LocalDate.of(year, month, day);
         } catch (DateTimeException e) {
             throw new IllegalArgumentException("Invalid OHIP date in yyyyMMdd format: "
-                    + LogSanitizer.sanitizeForDisplay(raw), e);
+                    + LogSafe.sanitizeForDisplay(raw), e);
         }
     }
 }

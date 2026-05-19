@@ -28,6 +28,41 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    documentsInQueues.jsp — "Pending Docs" inbox sub-page.
+
+    Renders the two-column queue review UI: a list of inbox queues on the
+    left, and (lazily) the documents/labs assigned to the selected queue
+    on the right. From the right pane the provider can preview a document
+    image, paginate, rotate, remove the first page, split, file or force-
+    file the document, acknowledge it, forward it, and re-assign it to a
+    patient. Each mutation hits a JSON endpoint (DocumentJSON, etc.) via
+    Prototype/jQuery AJAX and updates global JS lookup tables in place so
+    the queue counts stay in sync without a full reload.
+
+    Wrapped in `.container` so the popup (opened by InboxhubTopbar at
+    height=800, width=1000) shares the same Bootstrap lg-breakpoint
+    gutter as Doc Upload and the other inbox sub-pages.
+
+    Required request attributes (set by DmsInboxManage2Action#execute when
+    method=getDocumentsInQueues):
+      queueIdNames         Map<Integer,String>  — queue id → display name
+      queueDocNos          Map<Integer,List>    — queue id → doc/lab ids
+      providerNo           String               — viewing provider
+      searchProviderNo     String               — provider filter applied
+      patientIdNamesStr    String               — ";id=last,first;..." packed list
+      patientIdStr         String               — packed patient id list
+      patientDocs          Map<Integer,List>    — patient id → doc/lab ids
+      docStatus            Map<Integer,String>  — doc/lab id → status flag (N/A/I/...)
+      docType              Map<Integer,String>  — doc/lab id → "DOC" or "HL7"
+      typeDocLab           Map<String,List>     — type → ids of that type
+      normals / abnormals  List<String>         — flag categorisation for display
+
+    Required privilege: _lab read (enforced by <security:oscarSec> at the
+    top of the page; missing privilege redirects to /securityError).
+
+    @since 2010-11-06
+--%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -44,9 +79,7 @@
     }
 %>
 
-<%@page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ page import="java.util.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.CarlosProperties" %>
@@ -341,6 +374,16 @@
         var nowMultiple = 1;
         var queueID;
 
+        /**
+         * Switch the right pane to show the documents/labs belonging to the given queue.
+         *
+         * Side effects: clears the right pane, resets the global lazy-render state
+         * (`nowChildId`, `nowMultiple`, `nowDocLabIds`), records the active queue in
+         * `queueID`, then triggers `showFirstTime()` which renders the first batch.
+         * The id list is reversed because the renderer pops from the end.
+         *
+         * @param {number|string} qid queue id (key into the global `queueDocNos` map)
+         */
         function showDocInQueue(qid) {
             var docsDiv = $('docs');
             while (docsDiv.firstChild) {
@@ -417,7 +460,16 @@
             return initList(s);
         }
 
-        function initPatientIdNames(s) {//;1=abc,def;2=dksi,skal;3=dks,eiw
+        /**
+         * Parse the packed patient-name string the action serialises into the page.
+         *
+         * Format: `;<id>=<lastName>,<firstName>;<id>=<lastName>,<firstName>;...`
+         * Leading semicolon and empty trailing segments are tolerated.
+         *
+         * @param {string} s packed string, e.g. ";1=Doe,Jane;2=Roe,John"
+         * @returns {Object<string,string>} id → "lastName,firstName"
+         */
+        function initPatientIdNames(s) {
             var ar = s.split(';');
             var r = new Object();
             for (var i = 0; i < ar.length; i++) {
@@ -434,7 +486,16 @@
             return r;
         }
 
-        function initHashtblWithList(s) {//for typeDocLab,patientDocs
+        /**
+         * Parse the toString() of a Java HashMap whose values are Lists.
+         *
+         * Input format: `{key1=[v1, v2, v3], key2=[v4, v5], ...}`. Used for
+         * `typeDocLab` (type → ids) and `patientDocs` (patient id → doc ids).
+         *
+         * @param {string} s Java Map.toString() output
+         * @returns {Object<string,string[]>} key → array of stringified values
+         */
+        function initHashtblWithList(s) {
             s = s.replace('{', '');
             s = s.replace('}', '');
             if (s.length > 0) {
@@ -461,7 +522,16 @@
 
         }
 
-        function initHashtblWithString(s) {//for docStatus,docType
+        /**
+         * Parse the toString() of a Java HashMap whose values are scalar Strings.
+         *
+         * Input format: `{key1=val1, key2=val2, ...}`. Used for `docStatus`
+         * (doc/lab id → status flag) and `docType` (doc/lab id → "DOC"/"HL7").
+         *
+         * @param {string} s Java Map.toString() output
+         * @returns {Object<string,string>} key → scalar value
+         */
+        function initHashtblWithString(s) {
             s = s.replace('{', '');
             s = s.replace('}', '');
             s = s.replace(/\s/g, '');
@@ -761,15 +831,32 @@
             }
         }
 
+        /**
+         * Local override of the global `reportWindow` (defined in
+         * /share/javascript/oscarMDSIndex.js).
+         *
+         * Uses caller-provided dimensions when both height and width are
+         * provided; falls back to the legacy 660x960 defaults when either
+         * dimension is absent or zero.
+         *
+         * @param {string} page absolute or context-relative URL to open
+         * @param {number} height popup height in px
+         * @param {number} width popup width in px
+         */
         function reportWindow(page, height, width) {
-            //console.log(page);
+            var windowprops;
             if (height && width) {
-                windowprops = "height=" + 660 + ", width=" + width + ", location=no, scrollbars=yes, menubars=no, toolbars=no, resizable=yes, top=0, left=0";
+                windowprops = "height=" + height + ", width=" + width + ", location=no, scrollbars=yes, menubars=no, toolbars=no, resizable=yes, top=0, left=0";
             } else {
                 windowprops = "height=660, width=960, location=no, scrollbars=yes, menubars=no, toolbars=no, resizable=yes, top=0, left=0";
             }
             var popup = window.open(page, "labreport", windowprops);
-            popup.focus();
+            if (popup != null) {
+                if (popup.opener == null) {
+                    popup.opener = self;
+                }
+                popup.focus();
+            }
         }
 
 
@@ -2424,6 +2511,7 @@
 
 %>
 
+<div class="container">
 <div class="page-header-bar" style="font-size:14px !important;">
     <h4 class="page-header-title" style="font-size:18px !important;font-weight:normal !important;"><fmt:message key="inboxmanager.documentsInQueues"/></h4>
     <input type="hidden" name="providerNo" value="<carlos:encode value='<%= providerNo %>' context="htmlAttribute"/>">
@@ -2481,5 +2569,6 @@
 
 </script>
 <jsp:include page="/images/spinner.jsp"/>
+</div><%-- close container --%>
 </body>
 </html>

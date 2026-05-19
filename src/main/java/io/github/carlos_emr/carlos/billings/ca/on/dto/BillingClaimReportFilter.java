@@ -7,7 +7,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 /** Typed filter for the legacy ON billing claim report query. */
 public record BillingClaimReportFilter(
@@ -39,7 +39,7 @@ public record BillingClaimReportFilter(
         } catch (DateTimeParseException e) {
             throw new BillingValidationException(
                     "BillingClaimReportFilter: malformed " + fieldName + " ["
-                            + LogSanitizer.sanitizeForDisplay(raw) + "]",
+                            + LogSafe.sanitizeForDisplay(raw) + "]",
                     e);
         }
     }

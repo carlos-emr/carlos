@@ -150,7 +150,6 @@
 <html>
     <head>
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
-        <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/share/javascript/Oscar.js"></script>
         <title><fmt:message key="demographic.demographicsearchresults.title"/></title>
 
         <link rel="stylesheet" type="text/css" media="all"

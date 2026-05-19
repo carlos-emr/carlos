@@ -38,7 +38,7 @@ import io.github.carlos_emr.carlos.billing.CA.model.BillActivity;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.DateRange;
@@ -259,8 +259,8 @@ public class OhipReportGenerationService {
                         : ex.getMessage();
                 MiscUtils.getLogger().error(
                         "OhipReportGeneration: per-provider failure for provider {} (ohip={}, cause={}); tx rolled back, prior providers stay committed",
-                        LogSanitizer.sanitize(p.getProviderNo()),
-                        LogSanitizer.sanitize(proOHIP),
+                        LogSafe.sanitize(p.getProviderNo()),
+                        LogSafe.sanitize(proOHIP),
                         causeClass,
                         ex);
                 skipped.add(new FailedProvider(

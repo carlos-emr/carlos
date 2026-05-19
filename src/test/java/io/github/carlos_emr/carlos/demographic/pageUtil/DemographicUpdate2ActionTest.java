@@ -27,7 +27,6 @@ import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
-import org.apache.struts2.ActionSupport;
 import org.junit.jupiter.api.*;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -86,6 +85,7 @@ class DemographicUpdate2ActionTest extends CarlosWebTestBase {
     @Test
     @DisplayName("should throw SecurityException when session is null")
     void shouldThrowSecurityException_whenSessionIsNull() {
+        mockRequest.setMethod("POST");
         String key = LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY";
         setSessionAttribute(key, null);
 
@@ -97,6 +97,7 @@ class DemographicUpdate2ActionTest extends CarlosWebTestBase {
     @Test
     @DisplayName("should throw SecurityException when user lacks demographic write privilege")
     void shouldThrowSecurityException_whenUserLacksWritePrivilege() {
+        mockRequest.setMethod("POST");
         denyPrivilege("_demographic", "w");
 
         assertThatThrownBy(() -> executeAction(action))
@@ -109,6 +110,7 @@ class DemographicUpdate2ActionTest extends CarlosWebTestBase {
     @Test
     @DisplayName("should require write privilege, not read")
     void shouldRequireWritePrivilege_notRead() {
+        mockRequest.setMethod("POST");
         // Allow read but deny write
         allowPrivilege("_demographic", "r");
         denyPrivilege("_demographic", "w");
@@ -122,13 +124,21 @@ class DemographicUpdate2ActionTest extends CarlosWebTestBase {
     }
 
     @Test
-    @DisplayName("should return SUCCESS when user has demographic write privilege")
-    void shouldReturnSuccess_whenUserHasWritePrivilege() throws Exception {
+    @DisplayName("should return methodNotAllowed when request is GET")
+    void shouldReturnMethodNotAllowed_whenRequestIsGet() throws Exception {
         allowPrivilege("_demographic", "w");
 
         String result = executeAction(action);
 
-        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(result).isEqualTo("methodNotAllowed");
+    }
+
+    @Test
+    @DisplayName("should normalize middle names when literal null is submitted")
+    void shouldNormalizeMiddleNames_whenLiteralNullIsSubmitted() {
+        assertThat(DemographicUpdate2Action.normalizeOptionalMiddleNames(" null ")).isEmpty();
+        assertThat(DemographicUpdate2Action.normalizeOptionalMiddleNames("Anne Marie"))
+                .isEqualTo("Anne Marie");
     }
 
     @Test

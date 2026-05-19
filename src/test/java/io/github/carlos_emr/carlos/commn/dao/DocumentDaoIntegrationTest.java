@@ -57,7 +57,7 @@ import static org.assertj.core.api.Assertions.*;
  * <p>Critical for Hibernate 6 migration due to:
  * <ul>
  *   <li>Object[] return types from JPQL cross-entity queries</li>
- *   <li>EAGER {@code @OneToMany} relationship with DocumentReview</li>
+ *   <li>LAZY {@code @OneToMany} relationship with DocumentReview</li>
  *   <li>Composite embedded ID traversal (CtlDocumentPK: c.id.module, c.id.moduleId, c.id.documentNo)</li>
  *   <li>Native SQL with BigInteger return from COUNT(*)</li>
  *   <li>DISTINCT queries with cross-entity joins</li>
@@ -226,7 +226,7 @@ public class DocumentDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @DisplayName("should return maximum document number")
-        void shouldReturnMaxDocumentNo() {
+        void shouldReturnMaxDocumentNo_whenDocumentsExist() {
             // Given
             Document doc1 = createAndPersist("lab", PROVIDER_NO, 'A');
             Document doc2 = createAndPersist("consult", PROVIDER_NO, 'A');
@@ -794,7 +794,7 @@ public class DocumentDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @DisplayName("should respect items limit")
-        void shouldRespectLimit() {
+        void shouldRespectLimit_whenMoreRowsAvailable() {
             // Given
             createDocumentWithCtl("lab", PROVIDER_NO, 'A', DEMO_ID);
             createDocumentWithCtl("consult", PROVIDER_NO, 'A', DEMO_ID);

@@ -437,21 +437,44 @@ popup.focus();
 }
 }
 
-function popupPageOfChangePassword(){
+function showPasswordExpiryWarning(){
 <%
-    Integer ed;
     String expired_days = "";
-    if (session.getAttribute("expired_days") != null) {
-        expired_days = (String) session.getAttribute("expired_days");
+    Object expiredDaysAttr = session.getAttribute("expired_days");
+    if (expiredDaysAttr != null) {
+        expired_days = String.valueOf(expiredDaysAttr).trim();
     }
-    if (!(expired_days.equals(" ") || expired_days.equals("") || expired_days == null)) {
+    if (!expired_days.isEmpty()) {
         //javascript
 %>
-
-window.open("<%= request.getContextPath() %>/provider/ViewChangePassword","changePassword","resizable=yes,scrollbars=yes,width=400,height=300");
-changePassword.moveTo(0,0);
+<fmt:message var="accountExpiringWithDaysMsg" key="provider.changePassword.msgAccountExpiringWithDays">
+    <fmt:param value="<%= expired_days %>"/>
+</fmt:message>
+<fmt:message var="changePasswordLabel" key="provider.providerchangepassword.title"/>
+var warningId = "password-expiry-warning";
+if (document.getElementById(warningId)) {
+return;
+}
+var warning = document.createElement("div");
+warning.id = warningId;
+warning.className = "alert alert-warning d-flex align-items-center justify-content-between gap-2 m-2";
+warning.setAttribute("role", "alert");
+var warningText = document.createElement("span");
+warningText.textContent = '${carlos:forJavaScript(accountExpiringWithDaysMsg)}';
+var changePasswordLink = document.createElement("a");
+changePasswordLink.className = "btn btn-sm btn-warning";
+changePasswordLink.href = "<%= request.getContextPath() %>/provider/ViewChangePassword";
+changePasswordLink.textContent = '${carlos:forJavaScript(changePasswordLabel)}';
+warning.appendChild(warningText);
+warning.appendChild(changePasswordLink);
+document.body.insertBefore(warning, document.body.firstChild);
 <%}%>
 }
+
+function popupPageOfChangePassword() {
+    showPasswordExpiryWarning();
+}
+
 function popupInboxManager(varpage, height = 700, width = 1215) {
 var page = "" + varpage;
 if (openEncounterInTab && !isForceWindowUrl(page)) { return popupTab(page); }
@@ -605,7 +628,7 @@ pu.focus();
 }
 }
 
-popupPageOfChangePassword();
+showPasswordExpiryWarning();
 refreshAllTabAlerts();
 }
 

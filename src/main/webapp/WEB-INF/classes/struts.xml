@@ -37,6 +37,8 @@
     <constant name="struts.actionConfig.fallbackToEmptyNamespace" value="true" />
     <constant name="struts.serve.static" value="true" />
     <constant name="struts.serve.static.browserCache" value="true" />
+    <constant name="struts.allowlist.enable" value="true" />
+    <constant name="struts.allowlist.packageNames" value="io.github.carlos_emr.carlos" />
     <!-- Exclude pattern structure:
          1. Exclude extension-based static/direct view requests, except the one legacy
             Rich Text Letter template endpoint that still needs to reach Struts.
