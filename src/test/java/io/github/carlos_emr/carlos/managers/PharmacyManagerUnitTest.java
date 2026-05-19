@@ -252,14 +252,14 @@ class PharmacyManagerUnitTest extends CarlosUnitTestBase {
     class SetDoNotContact {
 
         @Test
-        @DisplayName("should toggle consent to contact flag")
-        void shouldToggleConsentFlag() {
+        @DisplayName("should mark pharmacy as do not contact when flag is true")
+        void shouldMarkDoNotContact_whenFlagIsTrue() {
             DemographicPharmacy dp = createDemographicPharmacy(1, 100, 50);
             when(mockDemographicPharmacyDao.find(1)).thenReturn(dp);
 
             manager.setDoNotContact(loggedInInfo, 1, true);
 
-            assertThat(dp.isConsentToContact()).isTrue();
+            assertThat(dp.isConsentToContact()).isFalse();
             verify(mockDemographicPharmacyDao).saveEntity(dp);
         }
     }
