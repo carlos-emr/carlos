@@ -1779,6 +1779,9 @@
              Activate with: mvn compile spotbugs:spotbugs -Pspotbugs -->
         <profile>
             <id>spotbugs</id>
+            <properties>
+                <spotbugs.maxHeap>2048</spotbugs.maxHeap>
+            </properties>
             <build>
                 <plugins>
                     <plugin>
@@ -1792,6 +1795,8 @@
                             <xmlOutputDirectory>${project.build.directory}</xmlOutputDirectory>
                             <spotbugsXmlOutputFilename>spotbugs-result.xml</spotbugsXmlOutputFilename>
                             <excludeFilterFile>${project.basedir}/.github/spotbugs/spotbugs-exclude.xml</excludeFilterFile>
+                            <fork>true</fork>
+                            <maxHeap>${spotbugs.maxHeap}</maxHeap>
                             <plugins>
                                 <plugin>
                                     <groupId>com.h3xstream.findsecbugs</groupId>

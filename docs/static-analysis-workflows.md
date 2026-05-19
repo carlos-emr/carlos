@@ -119,6 +119,7 @@ Suppresses known false positives:
 - Find Security Bugs: 1.13.0
 - Effort: `Max` (deepest analysis)
 - Threshold: `Low` (report everything, filter via exclude file)
+- Analyzer heap: `2048` MB via `spotbugs.maxHeap` in the Maven profile
 
 ### Triggers
 
@@ -136,7 +137,7 @@ SpotBugs needs compiled `.class` files, so the workflow uses the dev container (
 
 1. Pull or build the `carlos-tomcat-dev` container
 2. Restore Maven dependency cache
-3. Run `mvn compile spotbugs:spotbugs -Pspotbugs,skip-dependency-lock`
+3. Run `mvn -DskipTests -Pspotbugs,skip-dependency-lock compile spotbugs:spotbugs`
 4. Convert the SpotBugs XML report (`target/spotbugs-result.xml`) to SARIF format
 5. Upload SARIF to GitHub Security tab
 
@@ -191,13 +192,16 @@ In the devcontainer, compile first then run SpotBugs:
 make install
 
 # Run SpotBugs analysis
-mvn spotbugs:spotbugs -Pspotbugs,skip-dependency-lock -DskipTests
+mvn -q -DskipTests -Pspotbugs spotbugs:spotbugs
 
 # View results
 # XML report: target/spotbugs-result.xml
 
+# Optional: override the analyzer heap in MB if a local branch needs more
+mvn -q -DskipTests -Pspotbugs -Dspotbugs.maxHeap=3072 spotbugs:spotbugs
+
 # Optional: open HTML report in browser
-mvn spotbugs:gui -Pspotbugs,skip-dependency-lock
+mvn -Pspotbugs spotbugs:gui
 ```
 
 ---
