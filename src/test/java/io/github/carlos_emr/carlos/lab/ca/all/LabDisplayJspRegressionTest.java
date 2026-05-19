@@ -27,6 +27,10 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -47,45 +51,42 @@ class LabDisplayJspRegressionTest {
     private static final Path LAB_DISPLAY_AJAX_JSP = Path.of(
             "src", "main", "webapp", "WEB-INF", "jsp", "lab", "CA", "ALL", "labDisplayAjax.jsp");
 
-    private static final String HTML_ATTRIBUTE_HANDLER =
-            "onclick=\"<carlos:encode value='<%= ackLabFunc %>' context=\"htmlAttribute\"/>";
-    private static final String JAVA_SCRIPT_ATTRIBUTE_HANDLER =
-            "onclick=\"<carlos:encode value='<%= ackLabFunc %>' context=\"javaScriptAttribute\"/>";
+    private static final Pattern ACK_LAB_FUNC_ENCODE_TAG = Pattern.compile(
+            "<carlos:encode\\s+value\\s*=\\s*(['\"])<%=\\s*ackLabFunc\\s*%>\\1"
+                    + "\\s+context\\s*=\\s*(['\"])([^'\"]+)\\2\\s*/\\s*>");
+    private static final int CONTEXT_GROUP = 3;
 
     @Test
     @DisplayName("should render acknowledgement handler with htmlAttribute encoding in lab display")
     void shouldRenderAcknowledgementHandler_withHtmlAttributeEncodingInLabDisplay() throws IOException {
         assertAcknowledgementHandlerUsesHtmlAttributeEncoding(
-                Files.readString(LAB_DISPLAY_JSP, StandardCharsets.UTF_8), 2);
+                Files.readString(LAB_DISPLAY_JSP, StandardCharsets.UTF_8));
     }
 
     @Test
     @DisplayName("should render acknowledgement handler with htmlAttribute encoding in ajax lab display")
     void shouldRenderAcknowledgementHandler_withHtmlAttributeEncodingInAjaxLabDisplay() throws IOException {
         assertAcknowledgementHandlerUsesHtmlAttributeEncoding(
-                Files.readString(LAB_DISPLAY_AJAX_JSP, StandardCharsets.UTF_8), 2);
+                Files.readString(LAB_DISPLAY_AJAX_JSP, StandardCharsets.UTF_8));
     }
 
-    private void assertAcknowledgementHandlerUsesHtmlAttributeEncoding(String jsp, int expectedOccurrences) {
+    private void assertAcknowledgementHandlerUsesHtmlAttributeEncoding(String jsp) {
         // ackLabFunc is already executable JavaScript built server-side with dynamic values
         // pre-encoded via SafeEncode.forJavaScriptAttribute. The enclosing onclick attribute
         // therefore only needs HTML-attribute encoding -- re-applying javaScriptAttribute
         // encoding produces top-level \x escapes that break onclick parsing.
-        assertThat(countOccurrences(jsp, HTML_ATTRIBUTE_HANDLER))
+        assertThat(ackLabFuncEncodeContexts(jsp))
                 .as("every ackLabFunc onclick handler must use htmlAttribute encoding")
-                .isEqualTo(expectedOccurrences);
-        assertThat(jsp)
-                .as("no ackLabFunc onclick handler may revert to javaScriptAttribute encoding")
-                .doesNotContain(JAVA_SCRIPT_ATTRIBUTE_HANDLER);
+                .isNotEmpty()
+                .containsOnly("htmlAttribute");
     }
 
-    private static int countOccurrences(String haystack, String needle) {
-        int count = 0;
-        int index = 0;
-        while ((index = haystack.indexOf(needle, index)) != -1) {
-            count++;
-            index += needle.length();
+    private static List<String> ackLabFuncEncodeContexts(String jsp) {
+        Matcher matcher = ACK_LAB_FUNC_ENCODE_TAG.matcher(jsp);
+        List<String> contexts = new ArrayList<>();
+        while (matcher.find()) {
+            contexts.add(matcher.group(CONTEXT_GROUP));
         }
-        return count;
+        return contexts;
     }
 }
