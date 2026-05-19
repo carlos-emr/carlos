@@ -73,7 +73,7 @@ class JpqlQueryHelperUnitTest {
 
         @Test
         @DisplayName("should translate PersistenceException to DataAccessException")
-        void shouldTranslatePersistenceException_toDataAccessException() {
+        void shouldTranslateException_toDataAccessException() {
             when(mockQuery.getResultList()).thenThrow(new PersistenceException("test error"));
 
             assertThatThrownBy(() -> JpqlQueryHelper.find(mockEntityManager, "bad query"))
