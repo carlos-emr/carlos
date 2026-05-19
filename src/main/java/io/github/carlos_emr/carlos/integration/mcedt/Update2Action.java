@@ -44,6 +44,7 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
+import java.io.IOException;
 import java.math.BigInteger;
 import java.nio.file.Files;
 import java.util.List;
@@ -145,7 +146,7 @@ public class Update2Action extends ActionSupport implements UploadedFilesAware {
 
     private String resourceId;
     private File content;
-    private SecurityException uploadValidationError;
+    private String uploadValidationErrorMessage;
 
     public String getResourceId() {
         return resourceId;
@@ -163,16 +164,21 @@ public class Update2Action extends ActionSupport implements UploadedFilesAware {
     @Override
     public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
         if (uploadedFiles == null) {
+            this.content = null;
+            this.uploadValidationErrorMessage = null;
             return;
         }
+        this.content = null;
+        this.uploadValidationErrorMessage = null;
+
         for (UploadedFile uploaded : uploadedFiles) {
             if ("content".equals(uploaded.getInputName())) {
                 try {
                     this.content = PathValidationUtils.validateUpload(UploadedFileUtils.getUploadedFile(uploaded));
-                    this.uploadValidationError = null;
-                } catch (SecurityException e) {
+                    this.uploadValidationErrorMessage = null;
+                } catch (FileValidationException e) {
                     this.content = null;
-                    this.uploadValidationError = e;
+                    this.uploadValidationErrorMessage = e.getMessage();
                 }
                 return;
             }
@@ -183,17 +189,17 @@ public class Update2Action extends ActionSupport implements UploadedFilesAware {
         UpdateRequest result = new UpdateRequest();
         result.setResourceID(BigInteger.valueOf(ConversionUtils.fromIntString(resourceId)));
         try {
-            if (uploadValidationError != null) {
-                throw uploadValidationError;
+            if (uploadValidationErrorMessage != null) {
+                throw new FileValidationException(uploadValidationErrorMessage);
             }
             if (content == null) {
-                throw new SecurityException("Invalid upload file path", new FileValidationException("Uploaded file is null"));
+                throw new FileValidationException("Uploaded file is null");
             }
             result.setContent(Files.readAllBytes(content.toPath()));
-        } catch (SecurityException e) {
-            throw new SecurityException("Invalid upload file path", e);
-        } catch (Exception e) {
+        } catch (IOException e) {
             throw new RuntimeException("Unable to read upload data", e);
+        } catch (FileValidationException e) {
+            throw e;
         }
         return result;
     }

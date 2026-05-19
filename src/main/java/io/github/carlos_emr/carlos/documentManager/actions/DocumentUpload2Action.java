@@ -23,14 +23,10 @@ import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
 import java.text.SimpleDateFormat;
-import java.util.Arrays;
 import java.util.Calendar;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.ResourceBundle;
-import java.util.Set;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -77,11 +73,8 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    private static final Set<String> DEFAULT_INCOMING_DOC_FOLDERS = Set.of("Fax", "Mail", "File", "Refile");
-    private static final Set<String> ALLOWED_INCOMING_DOC_FOLDERS = getAllowedIncomingDocFolders();
     private static final String INVALID_INCOMING_DESTINATION_MESSAGE = "Invalid incoming document destination.";
     private static final String PREFERRED_QUEUE_SESSION_KEY = "preferredQueue";
-    private static final int MAX_DOCUMENT_FILENAME_ATTEMPTS = 100;
     private static final String UNIQUE_DOCUMENT_FILENAME_ERROR =
             "Unable to create a unique document filename. Please try again.";
     private static Logger logger = MiscUtils.getLogger();
@@ -89,24 +82,6 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
 
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
-
-    private static Set<String> getAllowedIncomingDocFolders() {
-        String configuredFolders = CarlosProperties.getInstance().getProperty("ALLOWED_INCOMING_DOC_FOLDERS");
-        if (configuredFolders == null || configuredFolders.trim().isEmpty()) {
-            return DEFAULT_INCOMING_DOC_FOLDERS;
-        }
-
-        Set<String> parsedFolders = new LinkedHashSet<>();
-        Arrays.stream(configuredFolders.split(","))
-                .map(String::trim)
-                .filter(folder -> !folder.isEmpty())
-                .forEach(parsedFolders::add);
-
-        if (parsedFolders.isEmpty()) {
-            return DEFAULT_INCOMING_DOC_FOLDERS;
-        }
-        return Collections.unmodifiableSet(parsedFolders);
-    }
 
     public String execute() throws Exception {
         return executeUpload();
@@ -307,7 +282,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
         File baseDir = new File(documentDir);
         IOException lastCollision = null;
 
-        for (int attempt = 0; attempt < MAX_DOCUMENT_FILENAME_ATTEMPTS; attempt++) {
+        for (int attempt = 0; attempt < PathValidationUtils.MAX_UPLOAD_COLLISION_ATTEMPTS; attempt++) {
             File destinationFile = PathValidationUtils.validatePath(
                     fileNameWithCollisionSuffix(fileName, attempt), baseDir);
             boolean fileCreatedByRequest = false;
@@ -408,12 +383,6 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             return false;
         }
 
-        // Check direct path separators; PathValidationUtils handles dot-only and hidden names.
-        if (fileName.contains("/") || fileName.contains("\\")) {
-            logger.error("Filename contains invalid path characters");
-            return false;
-        }
-
         // Create directory structure and get validated parent path
         String parentPath = IncomingDocUtil.getAndCreateIncomingDocumentFilePath(queueId, PdfDir);
         File parentDir = new File(parentPath);
@@ -462,7 +431,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
     private boolean isValidIncomingDestination(String queueId, String destFolder) {
         return queueId != null
                 && queueId.trim().matches("\\d+")
-                && ALLOWED_INCOMING_DOC_FOLDERS.contains(destFolder);
+                && IncomingDocUtil.isValidIncomingDocFolder(destFolder);
     }
 
     private void storePreferredQueue(String queueId) {

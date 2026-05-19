@@ -92,7 +92,6 @@ import io.github.carlos_emr.carlos.utility.LogSanitizer;
 @Service
 public class DocumentManagerImpl implements DocumentManager {
 
-    private static final int MAX_DOCUMENT_FILENAME_ATTEMPTS = 100;
     private static final String PARENT_DIR = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
     private static final String MOVE_DOCUMENT_LOG_ACTION = "EformDataManager.moveDocument";
     private final Logger logger = MiscUtils.getLogger();
@@ -254,7 +253,7 @@ public class DocumentManagerImpl implements DocumentManager {
         }
 
         IOException lastCollision = null;
-        for (int attempt = 0; attempt < MAX_DOCUMENT_FILENAME_ATTEMPTS; attempt++) {
+        for (int attempt = 0; attempt < PathValidationUtils.MAX_UPLOAD_COLLISION_ATTEMPTS; attempt++) {
             File file = PathValidationUtils.validatePath(storageFileNameWithCollisionSuffix(storageFileName, attempt), documentDir);
             boolean fileCreatedByRequest = false;
             Path filePath = file.toPath();
@@ -278,7 +277,7 @@ public class DocumentManagerImpl implements DocumentManager {
         }
 
         throw new IOException("Unable to create a unique document filename after "
-                + MAX_DOCUMENT_FILENAME_ATTEMPTS + " attempts", lastCollision);
+                + PathValidationUtils.MAX_UPLOAD_COLLISION_ATTEMPTS + " attempts", lastCollision);
     }
 
     private String storageFileNameWithCollisionSuffix(String storageFileName, int attempt) {

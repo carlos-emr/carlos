@@ -62,14 +62,18 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.UUID;
 import org.apache.commons.io.FilenameUtils;
 
 public class Fax2Action extends ActionSupport {
     private static final String FAX_PREVIEW_PATHS_SESSION_KEY = Fax2Action.class.getName() + ".faxPreviewPaths";
+    private static final String FAX_PREVIEW_PATHS_ORDER_SESSION_KEY = Fax2Action.class.getName() + ".faxPreviewPathsOrder";
+    private static final int MAX_FAX_PREVIEW_PATHS = 20;
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -424,7 +428,20 @@ public class Fax2Action extends ActionSupport {
 
     private String registerFaxPreviewPath(Path pdfPath) {
         String token = UUID.randomUUID().toString();
-        faxPreviewPaths(true).put(token, pdfPath.toString());
+        Map<String, String> previewPaths = faxPreviewPaths(true);
+        if (previewPaths == null) {
+            return null;
+        }
+
+        previewPaths.put(token, pdfPath.toString());
+
+        Deque<String> previewPathOrder = faxPreviewPathOrder(true);
+        if (previewPathOrder != null) {
+            previewPathOrder.remove(token);
+            previewPathOrder.addLast(token);
+            trimFaxPreviewPaths(previewPaths, previewPathOrder);
+        }
+
         return token;
     }
 
@@ -465,6 +482,69 @@ public class Fax2Action extends ActionSupport {
         if (previewPaths != null) {
             previewPaths.remove(token);
         }
+
+        Deque<String> previewPathOrder = faxPreviewPathOrder(false);
+        if (previewPathOrder != null) {
+            previewPathOrder.remove(token);
+        }
+    }
+
+    private void trimFaxPreviewPaths(Map<String, String> previewPaths, Deque<String> previewPathOrder) {
+        while (previewPaths.size() > MAX_FAX_PREVIEW_PATHS && !previewPathOrder.isEmpty()) {
+            String oldestToken = previewPathOrder.pollFirst();
+            if (oldestToken == null) {
+                break;
+            }
+            previewPaths.remove(oldestToken);
+        }
+
+        if (previewPaths.size() <= MAX_FAX_PREVIEW_PATHS || !previewPathOrder.isEmpty()) {
+            return;
+        }
+
+        java.util.Iterator<String> iterator = previewPaths.keySet().iterator();
+        while (previewPaths.size() > MAX_FAX_PREVIEW_PATHS && iterator.hasNext()) {
+            iterator.next();
+            iterator.remove();
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private Deque<String> faxPreviewPathOrder(boolean create) {
+        HttpSession session = request.getSession(create);
+        if (session == null) {
+            return null;
+        }
+
+        Object existing = session.getAttribute(FAX_PREVIEW_PATHS_ORDER_SESSION_KEY);
+        if (existing instanceof Deque<?> orderDeque) {
+            if (orderDeque instanceof ConcurrentLinkedDeque<?>) {
+                return (Deque<String>) orderDeque;
+            }
+            Deque<String> migratedOrder = new ConcurrentLinkedDeque<>();
+            for (Object token : orderDeque) {
+                if (token != null) {
+                    migratedOrder.addLast(token.toString());
+                }
+            }
+            session.setAttribute(FAX_PREVIEW_PATHS_ORDER_SESSION_KEY, migratedOrder);
+            return migratedOrder;
+        }
+        if (!create) {
+            return null;
+        }
+
+        Deque<String> previewPathOrder = new ConcurrentLinkedDeque<>();
+        Object existingPreviewPaths = session.getAttribute(FAX_PREVIEW_PATHS_SESSION_KEY);
+        if (existingPreviewPaths instanceof Map<?, ?> existingPaths) {
+            for (Object token : existingPaths.keySet()) {
+                if (token != null) {
+                    previewPathOrder.addLast(token.toString());
+                }
+            }
+        }
+        session.setAttribute(FAX_PREVIEW_PATHS_ORDER_SESSION_KEY, previewPathOrder);
+        return previewPathOrder;
     }
 
     @SuppressWarnings("unchecked")
@@ -476,7 +556,18 @@ public class Fax2Action extends ActionSupport {
 
         Object existing = session.getAttribute(FAX_PREVIEW_PATHS_SESSION_KEY);
         if (existing instanceof Map<?, ?> map) {
-            return (Map<String, String>) map;
+            if (map instanceof ConcurrentHashMap<?, ?> concurrentHashMap) {
+                return (Map<String, String>) concurrentHashMap;
+            }
+            Map<String, String> migratedPaths = new ConcurrentHashMap<>();
+            for (java.util.Map.Entry<?, ?> entry : map.entrySet()) {
+                if (entry.getKey() == null || entry.getValue() == null) {
+                    continue;
+                }
+                migratedPaths.put(entry.getKey().toString(), entry.getValue().toString());
+            }
+            session.setAttribute(FAX_PREVIEW_PATHS_SESSION_KEY, migratedPaths);
+            return migratedPaths;
         }
         if (!create) {
             return null;

@@ -42,9 +42,11 @@ import jakarta.servlet.http.HttpServletResponse;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementCSSLocationDao;
 import io.github.carlos_emr.carlos.commn.model.MeasurementCSSLocation;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.UploadedFileUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -81,7 +83,7 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport implements
             String validatedFileName;
             try {
                 validatedFileName = PathValidationUtils.validateFileName(fileName);
-            } catch (SecurityException e) {
+            } catch (FileValidationException e) {
                 addActionError(getText("errors.fileNotAdded"));
                 request.setAttribute("actionErrors", new java.util.ArrayList<>(getActionErrors()));
                 return INPUT;
@@ -119,7 +121,7 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport implements
                 MiscUtils.getLogger().debug("No file provided for measurement stylesheet upload");
                 return false;
             }
-            File validatedUpload = PathValidationUtils.validateUpload(uploadContentFile(fileUpload));
+            File validatedUpload = PathValidationUtils.validateUpload(UploadedFileUtils.getUploadedFile(fileUpload));
 
             String sanitizedFileName = PathValidationUtils.validateFileName(fileName);
             
@@ -149,7 +151,7 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport implements
         } catch (IOException e) {
             MiscUtils.getLogger().error("Error saving file", e);
             isAdded = false;
-        } catch (SecurityException e) {
+        } catch (FileValidationException e) {
             MiscUtils.getLogger().error("Security error saving file", e);
             isAdded = false;
         } catch (IllegalArgumentException e) {
@@ -177,7 +179,7 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport implements
     private String fileName; // Name of the uploaded file
 
     public File getFile() {
-        return uploadContentFileOrNull(fileUpload);
+        return UploadedFileUtils.getUploadedFileOrNull(fileUpload);
     }
 
     @Override
@@ -202,22 +204,4 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport implements
         this.fileName = fileName;
     }
 
-    private static File uploadContentFile(UploadedFile upload) {
-        if (upload == null) {
-            throw new IllegalArgumentException("Uploaded file cannot be null");
-        }
-        Object content = upload.getContent();
-        if (content instanceof File file) {
-            return file;
-        }
-        throw new IllegalArgumentException("Uploaded file content is not file-backed");
-    }
-
-    private static File uploadContentFileOrNull(UploadedFile upload) {
-        if (upload == null) {
-            return null;
-        }
-        Object content = upload.getContent();
-        return content instanceof File file ? file : null;
-    }
 }

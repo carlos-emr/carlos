@@ -23,6 +23,7 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
@@ -169,6 +170,25 @@ class DocumentUpload2ActionTest extends CarlosUnitTestBase {
         assertThat(result).isNull();
         assertThat(request.getSession().getAttribute("preferredQueue")).isEqualTo("123");
         assertThat(response.getContentAsString()).contains("my.file.pdf");
+        assertThat(Files.readAllBytes(writtenFile)).containsExactly(1);
+    }
+
+    @Test
+    @DisplayName("should sanitize incoming filename path separators")
+    void shouldSanitizeIncomingFilename_pathSeparators() throws Exception {
+        request.setAttribute("user", "123");
+        request.setParameter("destination", "incomingDocs");
+        request.setParameter("queue", "123");
+        request.setParameter("destFolder", "Fax");
+        bindFiledataUpload(tempUploadFile, "nested/path\\deep/file.pdf", "application/pdf");
+
+        String result = action.executeUpload();
+
+        Path writtenFile = incomingDocumentDir.resolve("123").resolve("Fax").resolve("file.pdf");
+        assertThat(result).isNull();
+        assertThat(request.getSession().getAttribute("preferredQueue")).isEqualTo("123");
+        assertThat(response.getContentAsString()).contains("file.pdf");
+        assertThat(writtenFile).exists();
         assertThat(Files.readAllBytes(writtenFile)).containsExactly(1);
     }
 
@@ -403,7 +423,7 @@ class DocumentUpload2ActionTest extends CarlosUnitTestBase {
     }
 
     private void createCollisionAttempts(String storageFileName) throws Exception {
-        for (int attempt = 0; attempt < 100; attempt++) {
+        for (int attempt = 0; attempt < PathValidationUtils.MAX_UPLOAD_COLLISION_ATTEMPTS; attempt++) {
             Files.write(documentDir.resolve(fileNameWithCollisionSuffix(storageFileName, attempt)), new byte[]{0});
         }
     }

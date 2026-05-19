@@ -361,18 +361,20 @@ public final class MiscUtils {
 
 
 	/**
-	 * Sanitizes a file name to ensure it is safe for use and complies with naming conventions .
-	 *		<p>- Replace spaces with underscores
-	 * 		<p>- Remove invalid characters, excluding valid delimiter like {@code -}.
-	 * 		<p>- Remove repeated dots
+	 * Sanitizes a file name to ensure it is safe for use and complies with naming conventions.
+	 *
+	 * <p>- Replace spaces with underscores
+	 * <p>- Remove invalid characters, excluding valid delimiter like {@code -}.
+ * <p>- Remove repeated dots
 	 *
 	 * @param fileName The original file name to be sanitized. It must not be {@code null}.
 	 * @return A sanitized value of the input file name.
 	 * @throws NullPointerException if the input fileName is {@code null}.
 	 * @deprecated Use {@link PathValidationUtils#validateFileName(String)} for filename-only
-	 * validation or {@link PathValidationUtils#validatePath(String, java.io.File)} /
-	 * {@link PathValidationUtils#validateUpload(java.io.File, String, java.io.File)} when
-	 * constructing or validating file paths.
+	 *             validation or {@link PathValidationUtils#validatePath(String, java.io.File)} /
+	 *             {@link PathValidationUtils#validateUpload(java.io.File, String, java.io.File)} when
+	 *             constructing or validating file paths.
+	 *             TODO: remove remaining callsites (tracked in follow-up migration tickets).
 	 */
 	@Deprecated(since = "2026-05-06", forRemoval = true)
 	public static String sanitizeFileName(String fileName) {

@@ -42,10 +42,11 @@ import java.util.Set;
 public final class PathValidationUtils {
 
     public static final String INVALID_FILENAME_MESSAGE =
-            "Invalid filename. Use letters, numbers, dots, underscores, or spaces, and filenames must not start with a dot.";
+            "Invalid filename. Use letters, numbers, dots, or underscores, and filenames must not start with a dot.";
     public static final String HIDDEN_FILENAME_MESSAGE =
             "Invalid filename: hidden files not allowed. Do not start the filename with a dot.";
     public static final String PATH_OUTSIDE_ALLOWED_DIRECTORY_MESSAGE = "Invalid file path";
+    public static final int MAX_UPLOAD_COLLISION_ATTEMPTS = 100;
 
     private static final Logger logger = MiscUtils.getLogger();
 
@@ -65,9 +66,11 @@ public final class PathValidationUtils {
 
     /**
      * Validates a filename component and returns a safe path within the allowed directory.
-     * This method strips path components and rejects hidden or empty names, but it does not
-     * apply legacy character normalization. For new user-facing upload/download filenames,
-     * prefer {@link #validateUserFilePath(String, File)}.
+     * This method strips path components and rejects hidden or empty names, but it does
+     * not perform legacy filename character normalization. It is intended for internal
+     * path use when a path component has already been safely separated from user input.
+     * For new user-facing upload/download filenames, prefer
+     * {@link #validateUserFilePath(String, File)}.
      *
      * <p>Performs the following validations:</p>
      * <ol>

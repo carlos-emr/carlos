@@ -62,7 +62,12 @@ public class GenericDownload extends HttpServlet {
      * Rejects direct requests to the legacy generic download servlet. Concrete
      * download servlets must perform their own authorization and call
      * {@link #download(boolean, HttpServletResponse, String, String)}.
+     *
+     * @deprecated The direct GET endpoint is intentionally tombstoned. Subclasses
+     * should only call {@link #download(boolean, HttpServletResponse, String, String)}
+     * or {@link #transferFile(HttpServletResponse, jakarta.servlet.ServletOutputStream, String, String)}.
      */
+    @Deprecated(since = "2026-05-07", forRemoval = true)
     public void doGet(HttpServletRequest req, HttpServletResponse res) throws IOException {
         log.warn("Rejected direct GenericDownload request from {}", req.getRemoteAddr());
         sendErrorIfPossible(res, HttpServletResponse.SC_GONE, "This download endpoint is no longer available.");
