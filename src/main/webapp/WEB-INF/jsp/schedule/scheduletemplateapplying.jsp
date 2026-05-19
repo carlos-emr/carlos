@@ -303,7 +303,7 @@
                 window.location.href = ref;
             }
 
-            function setDeleteFormValue(form, name, value) {
+            function setFormValue(form, name, value) {
                 var input = form.querySelector('input[name="' + name + '"]');
                 if (!input) {
                     input = document.createElement('input');
@@ -319,11 +319,11 @@
                     var form = document.forms['schedule'];
                     form.method = 'post';
                     form.action = "${pageContext.request.contextPath}/schedule/TemplateApplying";
-                    setDeleteFormValue(form, 'provider_no', '<carlos:encode value='<%= request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "" %>' context="javaScriptBlock"/>');
-                    setDeleteFormValue(form, 'provider_name', '<carlos:encode value='<%= request.getParameter("provider_name") != null ? request.getParameter("provider_name") : "" %>' context="javaScriptBlock"/>');
-                    setDeleteFormValue(form, 'sdate', s.options[s.selectedIndex].value);
-                    setDeleteFormValue(form, 'delete', '1');
-                    setDeleteFormValue(form, 'deldate', 'all');
+                    setFormValue(form, 'provider_no', '<carlos:encode value='<%= request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "" %>' context="javaScriptBlock"/>');
+                    setFormValue(form, 'provider_name', '<carlos:encode value='<%= request.getParameter("provider_name") != null ? request.getParameter("provider_name") : "" %>' context="javaScriptBlock"/>');
+                    setFormValue(form, 'sdate', s.options[s.selectedIndex].value);
+                    setFormValue(form, 'delete', '1');
+                    setFormValue(form, 'deldate', 'all');
                     form.submit();
                 }
             }

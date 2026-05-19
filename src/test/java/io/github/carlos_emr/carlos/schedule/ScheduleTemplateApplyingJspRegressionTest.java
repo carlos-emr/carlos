@@ -38,14 +38,22 @@ class ScheduleTemplateApplyingJspRegressionTest {
 
     @Test
     @DisplayName("delete should reuse the rendered POST form so CSRFGuard can include its token")
-    void shouldReuseRenderedPostForm_forDeleteSubmission() throws IOException {
+    void shouldReuseRenderedPostForm_forDelete() throws IOException {
         String jsp = Files.readString(TEMPLATE_APPLYING_JSP, StandardCharsets.UTF_8);
 
         assertThat(jsp).contains("<form method=\"post\" name=\"schedule\"");
         assertThat(jsp).contains("var form = document.forms['schedule'];");
         assertThat(jsp).contains("form.action = \"${pageContext.request.contextPath}/schedule/TemplateApplying\";");
-        assertThat(jsp).contains("setDeleteFormValue(form, 'delete', '1');");
-        assertThat(jsp).contains("<html lang=\"${pageContext.request.locale.language}\">");
+        assertThat(jsp).contains("setFormValue(form, 'delete', '1');");
         assertThat(jsp).doesNotContain("var form = document.createElement('form');");
+    }
+
+    @Test
+    @DisplayName("page should use the current request locale for the HTML language")
+    void shouldUseRequestLocale_forHtmlLanguage() throws IOException {
+        String jsp = Files.readString(TEMPLATE_APPLYING_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp).contains("<html lang=\"${pageContext.request.locale.language}\">");
+        assertThat(jsp).doesNotContain("<html lang=\"en\">");
     }
 }
