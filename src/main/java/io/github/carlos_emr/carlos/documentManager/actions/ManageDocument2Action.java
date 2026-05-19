@@ -934,13 +934,14 @@ public class ManageDocument2Action extends ActionSupport {
         LogAction.addLog(loggedInInfo, LogConst.READ, "Document", null, demoNo, data);
 
         response.setContentType(contentType);
-        response.setHeader("Content-Disposition", "inline; filename=\"" + sanitizeHeaderValue(filename) + "\"");
         if (RequestNegotiation.isHtmlContentType(contentType)) {
+            response.setHeader("Content-Disposition", "inline; filename=\"" + sanitizeHeaderValue(filename) + "\"");
             response.setCharacterEncoding(StandardCharsets.UTF_8.name());
             response.getWriter().write(new String(contentBytes, StandardCharsets.UTF_8));
             return;
         }
         response.setContentLength(contentBytes.length);
+        response.setHeader("Content-Disposition", "inline; filename=\"" + sanitizeHeaderValue(filename) + "\"");
         log.debug("about to Print to stream");
         try (ServletOutputStream outs = response.getOutputStream()) {
             outs.write(contentBytes); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- binary document download with validated content-type
