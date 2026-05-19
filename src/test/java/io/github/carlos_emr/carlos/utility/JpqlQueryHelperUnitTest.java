@@ -50,7 +50,7 @@ class JpqlQueryHelperUnitTest {
 
         @Test
         @DisplayName("should execute query with no params")
-        void shouldExecuteQuery_whenNoParamsProvided() {
+        void shouldExecuteQuery_withNoParams() {
             List<?> result = JpqlQueryHelper.find(mockEntityManager, "from Entity");
             assertThat(result).isNotNull();
             verify(mockEntityManager).createQuery("from Entity");
@@ -101,7 +101,7 @@ class JpqlQueryHelperUnitTest {
 
         @Test
         @DisplayName("should bind params and set limit together")
-        void shouldBindParamsAndSetLimit_whenLimitAndParamsProvided() {
+        void shouldBindParamsAndSetLimit_withParamsAndLimit() {
             JpqlQueryHelper.findWithLimit(mockEntityManager, "from Entity where x = ?1", 5, "value");
             verify(mockQuery).setParameter(1, "value");
             verify(mockQuery).setMaxResults(5);
