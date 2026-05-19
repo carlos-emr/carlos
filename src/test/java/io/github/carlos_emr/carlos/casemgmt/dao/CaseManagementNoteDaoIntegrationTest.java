@@ -86,6 +86,45 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
         }
 
         @Test
+        @Tag("read")
+        @DisplayName("should initialize issues when retrieving note by valid ID")
+        void shouldInitializeIssues_whenRetrievingNoteByValidId() {
+            // Given
+            Issue issue = createIssue("IssueInit", "Issue initialization");
+            CaseManagementIssue cmi = createCaseManagementIssue("112", issue);
+            CaseManagementNote note = createNoteWithIssue("112", "Note with linked issue", new Date(), cmi);
+            hibernateTemplate.flush();
+            entityManager.clear();
+
+            // When
+            CaseManagementNote found = caseManagementNoteDAO.getNote(note.getId());
+            entityManager.detach(found);
+
+            // Then
+            assertThatCode(() -> assertThat(found.getIssues()).hasSize(1)).doesNotThrowAnyException();
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should initialize issues when retrieving notes for demographic")
+        void shouldInitializeIssues_whenRetrievingNotesForDemographic() {
+            // Given
+            Issue issue = createIssue("DemoIssueInit", "Demographic issue initialization");
+            CaseManagementIssue cmi = createCaseManagementIssue("113", issue);
+            createNoteWithIssue("113", "Demographic note with linked issue", new Date(), cmi);
+            hibernateTemplate.flush();
+            entityManager.clear();
+
+            // When
+            List<CaseManagementNote> found = caseManagementNoteDAO.getNotesByDemographic("113");
+            found.forEach(entityManager::detach);
+
+            // Then
+            assertThat(found).hasSize(1);
+            assertThatCode(() -> assertThat(found.get(0).getIssues()).hasSize(1)).doesNotThrowAnyException();
+        }
+
+        @Test
         @Tag("create")
         @DisplayName("should persist valid note data")
         void shouldPersistNote_whenValidDataProvided() {
