@@ -241,10 +241,10 @@
             <td colspan="8" class="docTable">
                 <div style="text-align: right; font-weight: bold">
                     <% if (numOfPage > 1) {%>
-                    <a id="firstP" style="display: none;" href="javascript:void(0);" onclick="firstPage('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>');">First</a>
-                    <a id="prevP" style="display: none;" href="javascript:void(0);" onclick="prevPage('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>');">Prev</a>
-                    <a id="nextP" href="javascript:void(0);" onclick="nextPage('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>');">Next</a>
-                    <a id="lastP" href="javascript:void(0);" onclick="lastPage('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>');">Last</a>
+                    <a id="firstP" style="display: none;" href="javascript:void(0);" onclick="firstPage('<carlos:encode value="<%= docId %>" context='javaScriptAttribute'/>');">First</a>
+                    <a id="prevP" style="display: none;" href="javascript:void(0);" onclick="prevPage('<carlos:encode value="<%= docId %>" context='javaScriptAttribute'/>');">Prev</a>
+                    <a id="nextP" href="javascript:void(0);" onclick="nextPage('<carlos:encode value="<%= docId %>" context='javaScriptAttribute'/>');">Next</a>
+                    <a id="lastP" href="javascript:void(0);" onclick="lastPage('<carlos:encode value="<%= docId %>" context='javaScriptAttribute'/>');">Last</a>
                     <%}%>
                 </div>
                 <a href="<%=url2%>"><img class="docTable" alt="document" src="<%=url%>" id="docImg_<%=docId%>"/></a>
@@ -327,7 +327,7 @@
                                     <input type="hidden" name="demog" value="<carlos:encode value='<%= demographicID %>' context="htmlAttribute"/>"
                                            id="demofind<%=docId%>"/>
                                     <input tabindex="<%=tabindex++%>" type="text" id="autocompletedemo<%=docId%>"
-                                           onchange="checkSave('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>')" name="demographicKeyword"/>
+                                           onchange="checkSave('<carlos:encode value="<%= docId %>" context='javaScriptAttribute'/>')" name="demographicKeyword"/>
                                     <div id="autocomplete_choices<%=docId%>" class="autocomplete"></div>
                                     <%}%>
 
@@ -906,10 +906,10 @@
                 <div style="text-align: right; font-weight: bold">
                     <% if (numOfPage > 1) {%>
                     <a id="firstP2" style="display: none;" href="javascript:void(0);"
-                       onclick="firstPage('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>');">First</a>
-                    <a id="prevP2" style="display: none;" href="javascript:void(0);" onclick="prevPage('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>');">Prev</a>
-                    <a id="nextP2" href="javascript:void(0);" onclick="nextPage('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>');">Next</a>
-                    <a id="lastP2" href="javascript:void(0);" onclick="lastPage('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>');">Last</a>
+                       onclick="firstPage('<carlos:encode value="<%= docId %>" context='javaScriptAttribute'/>');">First</a>
+                    <a id="prevP2" style="display: none;" href="javascript:void(0);" onclick="prevPage('<carlos:encode value="<%= docId %>" context='javaScriptAttribute'/>');">Prev</a>
+                    <a id="nextP2" href="javascript:void(0);" onclick="nextPage('<carlos:encode value="<%= docId %>" context='javaScriptAttribute'/>');">Next</a>
+                    <a id="lastP2" href="javascript:void(0);" onclick="lastPage('<carlos:encode value="<%= docId %>" context='javaScriptAttribute'/>');">Last</a>
                     <%}%>
                 </div>
 
