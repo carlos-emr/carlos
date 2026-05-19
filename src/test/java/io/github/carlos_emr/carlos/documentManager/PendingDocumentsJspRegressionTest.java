@@ -130,11 +130,12 @@ public class PendingDocumentsJspRegressionTest {
         }
     }
 
-    private static String normalizePatientNumber(String patientId) {
-        if (!patientId.matches("-?\\d+")) {
-            throw new IllegalArgumentException("Invalid patient id");
-        }
-        return patientId;
+    @Test
+    @DisplayName("pending documents jsp should keep the exact patient number validation regex")
+    void shouldKeepExactPatientNumberValidationRegex_inPendingDocumentsJsp() throws IOException {
+        String jsp = Files.readString(PENDING_DOCUMENTS_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp).contains("/^-?\\\\d+$/");
     }
 
     private static List<String> invalidI18nKeys(Path bundlePath) throws IOException {
