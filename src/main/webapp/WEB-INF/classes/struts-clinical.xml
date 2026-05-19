@@ -403,9 +403,6 @@
         <action name="encounter/oscarMeasurements/ViewProcessAddMeasurementGroupAction" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
             <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/ProcessAddMeasurementGroupAction.jsp</result>
         </action>
-        <action name="encounter/oscarMeasurements/ViewProcessMeasurementsSubmission" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
-            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/ProcessMeasurementsSubmission.jsp</result>
-        </action>
         <action name="encounter/oscarMeasurements/ViewSelectMeasurementGroup" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
             <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/SelectMeasurementGroup.jsp</result>
         </action>
