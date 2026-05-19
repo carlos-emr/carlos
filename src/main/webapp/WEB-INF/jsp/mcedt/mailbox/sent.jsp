@@ -33,6 +33,7 @@
     KAIInnovations.com
 --%>
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <!DOCTYPE html>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
@@ -42,7 +43,6 @@
 <%@ taglib uri="http://www.oscar-emr.com/tags/integration" prefix="i" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <html>
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">

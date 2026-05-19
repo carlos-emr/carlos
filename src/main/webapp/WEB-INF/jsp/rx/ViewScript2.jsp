@@ -506,7 +506,7 @@
                 setDefaultAddr();
                 <%      for(int i=0; i<vecAddressName.size(); i++) {%>
                 if (document.getElementById("addressSel").value == "<%=i%>") {
-                    frames['preview'].document.getElementById("clinicAddress").innerHTML = "<%=SafeEncode.forJavaScript(vecAddress.get(i))%>";
+                    frames['preview'].document.getElementById("clinicAddress").innerHTML = "<%=SafeEncode.forJavaScript(String.valueOf(vecAddress.get(i)))%>";
                 }
                 <%       }
                       }%>

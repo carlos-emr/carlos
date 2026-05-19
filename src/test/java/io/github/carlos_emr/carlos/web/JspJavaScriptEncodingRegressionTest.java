@@ -18,7 +18,11 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Unit coverage for JSP JavaScript-context encoding regressions. */
+/**
+ * Unit coverage for JSP JavaScript-context encoding regressions.
+ *
+ * @since 2026-05-19
+ */
 @DisplayName("JSP JavaScript encoding")
 @Tag("unit")
 class JspJavaScriptEncodingRegressionTest {
@@ -64,7 +68,7 @@ class JspJavaScriptEncodingRegressionTest {
 
         assertThat(viewScriptJsp)
                 .doesNotContain("innerHTML = \"<%=vecAddress.get(i)%>\";")
-                .contains("innerHTML = \"<%=SafeEncode.forJavaScript(vecAddress.get(i))%>\";");
+                .contains("innerHTML = \"<%=SafeEncode.forJavaScript(String.valueOf(vecAddress.get(i)))%>\";");
     }
 
     @Test
