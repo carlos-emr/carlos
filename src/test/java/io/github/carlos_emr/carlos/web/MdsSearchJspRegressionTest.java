@@ -41,8 +41,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("unit")
 class MdsSearchJspRegressionTest {
 
-    private static final Path SEARCH_JSP = Path.of(
-            "src", "main", "webapp", "WEB-INF", "jsp", "oscarMDS", "Search.jsp");
+    private static final Path SEARCH_JSP = Path.of(System.getProperty("user.dir"))
+            .resolve(Path.of("src", "main", "webapp", "WEB-INF", "jsp", "oscarMDS", "Search.jsp"));
 
     @Test
     @DisplayName("should precompute providerNo encoding before JavaScript builds search URL")
@@ -55,6 +55,14 @@ class MdsSearchJspRegressionTest {
                 .contains("SafeEncode.forUriComponent")
                 .contains("request.getParameter(\"providerNo\")")
                 .contains("&providerNo=<%= encodedProviderNo %>");
-        assertThat(jsp).doesNotContain("<c:set var=\"__enc_1\"");
+        assertThat(firstScriptBlock(jsp)).doesNotContain("<c:");
+    }
+
+    private static String firstScriptBlock(String jsp) {
+        int start = jsp.indexOf("<script type=\"text/javascript\">");
+        int end = jsp.indexOf("</script>", start);
+        assertThat(start).isNotNegative();
+        assertThat(end).isGreaterThan(start);
+        return jsp.substring(start, end);
     }
 }
