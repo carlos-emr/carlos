@@ -243,6 +243,28 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should return failAdd with filename feedback when add upload filename is invalid")
+    @SuppressWarnings("unchecked")
+    void shouldReturnFailAddWithFilenameFeedback_whenAddUploadFilenameIsInvalid() throws Exception {
+        tempUploadFile = File.createTempFile("docfile-upload", ".pdf");
+        Files.write(tempUploadFile.toPath(), new byte[]{1});
+
+        action.setMode("add");
+        action.setFunction("demographic");
+        action.setFunctionId("123");
+        action.setDocDesc("Consult note");
+        action.setDocType("Consultant Report");
+        action.setDocFile(tempUploadFile);
+        action.setDocFileFileName(".hidden.pdf");
+
+        String result = action.execute2();
+
+        assertThat(result).isEqualTo("failAdd");
+        Hashtable<String, String> errors = (Hashtable<String, String>) request.getAttribute("docerrors");
+        assertThat(errors).containsEntry("uploaderror", "dms.error.invalidFilename");
+    }
+
+    @Test
     @DisplayName("should reject standard edit upload source outside upload temp directories")
     @SuppressWarnings("unchecked")
     void shouldRejectStandardEditUploadSource_whenSourceIsOutsideUploadTempDirectories() {
@@ -265,6 +287,39 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
             assertThat(result).isEqualTo("failEdit");
             Hashtable<String, String> errors = (Hashtable<String, String>) request.getAttribute("docerrors");
             assertThat(errors).containsEntry("uploaderror", "dms.error.uploadError");
+        } finally {
+            if (previousUpdateDocumentContent == null) {
+                CarlosProperties.getInstance().remove("ALLOW_UPDATE_DOCUMENT_CONTENT");
+            } else {
+                CarlosProperties.getInstance()
+                        .setProperty("ALLOW_UPDATE_DOCUMENT_CONTENT", previousUpdateDocumentContent);
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("should return failEdit with filename feedback when edit upload filename is invalid")
+    @SuppressWarnings("unchecked")
+    void shouldReturnFailEditWithFilenameFeedback_whenEditUploadFilenameIsInvalid() throws Exception {
+        tempUploadFile = File.createTempFile("docfile-upload", ".pdf");
+        Files.write(tempUploadFile.toPath(), new byte[]{1});
+        String previousUpdateDocumentContent = CarlosProperties.getInstance()
+                .getProperty("ALLOW_UPDATE_DOCUMENT_CONTENT");
+
+        action.setMode("42");
+        action.setDocDesc("Consult note");
+        action.setDocType("Consultant Report");
+        action.setDocFile(tempUploadFile);
+        action.setDocFileFileName(".hidden.pdf");
+
+        try {
+            CarlosProperties.getInstance().setProperty("ALLOW_UPDATE_DOCUMENT_CONTENT", "true");
+
+            String result = action.execute2();
+
+            assertThat(result).isEqualTo("failEdit");
+            Hashtable<String, String> errors = (Hashtable<String, String>) request.getAttribute("docerrors");
+            assertThat(errors).containsEntry("uploaderror", "dms.error.invalidFilename");
         } finally {
             if (previousUpdateDocumentContent == null) {
                 CarlosProperties.getInstance().remove("ALLOW_UPDATE_DOCUMENT_CONTENT");
@@ -325,13 +380,14 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
 
         String redirect = AddEditDocument2Action.buildDocumentReportRedirect(request);
 
-        assertThat(redirect).isEqualTo("/oscar/documentManager/ViewDocumentReport"
-                + "?docerrors=docerrors"
-                + "&function=demographic"
-                + "&functionid="
-                + "&curUser="
-                + "&appointmentNo=456");
-        assertThat(redirect).doesNotContain("evil", "Location", "parentAjaxId", "script");
+        assertThat(redirect)
+                .isEqualTo("/oscar/documentManager/ViewDocumentReport"
+                        + "?docerrors=docerrors"
+                        + "&function=demographic"
+                        + "&functionid="
+                        + "&curUser="
+                        + "&appointmentNo=456")
+                .doesNotContain("evil", "Location", "parentAjaxId", "script");
     }
 
     @Test

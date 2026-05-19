@@ -13,12 +13,15 @@ import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteLinkDAO;
 import io.github.carlos_emr.carlos.commn.dao.CtlDocTypeDao;
 import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao;
+import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletRequest;
 import org.apache.struts2.ServletActionContext;
@@ -29,6 +32,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -36,16 +40,21 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import java.io.File;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Date;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -92,7 +101,7 @@ class DocumentUpload2ActionTest extends CarlosUnitTestBase {
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
         mockProgramManager = mock(ProgramManager2.class);
         registerMock(ProgramManager2.class, mockProgramManager);
-        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_edoc"), eq("w"), isNull()))
+        lenient().when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_edoc"), eq("w"), isNull()))
                 .thenReturn(true);
 
         action = new DocumentUpload2Action();
@@ -210,6 +219,92 @@ class DocumentUpload2ActionTest extends CarlosUnitTestBase {
         }
     }
 
+    @Test
+    @DisplayName("should persist suffixed document filename when local upload destination collides")
+    void shouldPersistSuffixedDocumentFilename_whenLocalUploadDestinationCollides() throws Exception {
+        request.getSession().setAttribute("user", "123");
+        when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("123");
+        registerEDocUtilStaticDependencies();
+        action.setFiledata(tempUploadFile);
+        action.setFiledataFileName("duplicate.pdf");
+        action.setFiledataContentType("application/pdf");
+        Files.write(documentDir.resolve("20260519113000duplicate.pdf"), new byte[]{0});
+        ArgumentCaptor<EDoc> persistedDocument = ArgumentCaptor.forClass(EDoc.class);
+
+        try (MockedStatic<UtilDateUtilities> dateMock = mockStatic(UtilDateUtilities.class);
+             MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class)) {
+            dateMock.when(() -> UtilDateUtilities.DateToString(any(Date.class), eq("yyyyMMdd")))
+                    .thenReturn("20260519");
+            dateMock.when(() -> UtilDateUtilities.DateToString(any(Date.class), eq("HHmmss")))
+                    .thenReturn("113000");
+            eDocUtilMock.when(() -> EDocUtil.addDocumentSQL(any(EDoc.class))).thenReturn("42");
+
+            String result = action.executeUpload();
+
+            assertThat(result).isNull();
+            eDocUtilMock.verify(() -> EDocUtil.addDocumentSQL(persistedDocument.capture()));
+        }
+
+        String actualFileName = persistedDocument.getValue().getFileName();
+        assertThat(actualFileName).isEqualTo("20260519113000duplicate_1.pdf");
+        assertThat(Files.readAllBytes(documentDir.resolve(actualFileName))).containsExactly(1);
+        assertThat(response.getContentAsString()).contains(actualFileName);
+    }
+
+    @Test
+    @DisplayName("should return upload error when local upload filename attempts are exhausted")
+    void shouldReturnUploadError_whenLocalUploadFilenameAttemptsAreExhausted() throws Exception {
+        request.getSession().setAttribute("user", "123");
+        when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("123");
+        registerEDocUtilStaticDependencies();
+        action.setFiledata(tempUploadFile);
+        action.setFiledataFileName("duplicate.pdf");
+        action.setFiledataContentType("application/pdf");
+        createCollisionAttempts("20260519113000duplicate.pdf");
+
+        try (MockedStatic<UtilDateUtilities> dateMock = mockStatic(UtilDateUtilities.class);
+             MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class)) {
+            dateMock.when(() -> UtilDateUtilities.DateToString(any(Date.class), eq("yyyyMMdd")))
+                    .thenReturn("20260519");
+            dateMock.when(() -> UtilDateUtilities.DateToString(any(Date.class), eq("HHmmss")))
+                    .thenReturn("113000");
+
+            String result = action.executeUpload();
+
+            assertThat(result).isNull();
+            assertThat(response.getContentAsString())
+                    .contains("Unable to create a unique document filename. Please try again.");
+            eDocUtilMock.verify(() -> EDocUtil.addDocumentSQL(any(EDoc.class)), never());
+        }
+    }
+
+    @Test
+    @DisplayName("should preserve existing document when upload source validation fails")
+    void shouldPreserveExistingDocument_whenUploadSourceValidationFails() throws Throwable {
+        Path existingDocument = documentDir.resolve("existing.txt");
+        Files.writeString(existingDocument, "keep");
+        File outsideUploadSource = new File("pom.xml").getAbsoluteFile();
+        assertThat(outsideUploadSource).isFile();
+
+        assertThatThrownBy(() -> writeLocalFile(outsideUploadSource, "existing.txt"))
+                .isInstanceOf(FileValidationException.class);
+
+        assertThat(Files.readString(existingDocument)).isEqualTo("keep");
+    }
+
+    @Test
+    @DisplayName("should append suffix instead of overwriting existing document destination")
+    void shouldAppendSuffixInsteadOfOverwritingExistingDocumentDestination() throws Throwable {
+        Path existingDocument = documentDir.resolve("existing.txt");
+        Files.writeString(existingDocument, "keep");
+
+        File copiedDocument = writeLocalFile(tempUploadFile, "existing.txt");
+
+        assertThat(Files.readString(existingDocument)).isEqualTo("keep");
+        assertThat(copiedDocument.getName()).isEqualTo("existing_1.txt");
+        assertThat(Files.readAllBytes(copiedDocument.toPath())).containsExactly(1);
+    }
+
     private void registerEDocUtilStaticDependencies() {
         createAndRegisterMock(ProgramManager.class);
         createAndRegisterMock(CaseManagementNoteLinkDAO.class);
@@ -220,5 +315,34 @@ class DocumentUpload2ActionTest extends CarlosUnitTestBase {
         createAndRegisterMock(CtlDocTypeDao.class);
         createAndRegisterMock(DemographicManager.class);
         createAndRegisterMock(CtlDocumentDao.class);
+    }
+
+    private File writeLocalFile(File sourceFile, String fileName) throws Throwable {
+        Method writeLocalFile = DocumentUpload2Action.class
+                .getDeclaredMethod("writeLocalFile", File.class, String.class);
+        writeLocalFile.setAccessible(true);
+        try {
+            return (File) writeLocalFile.invoke(action, sourceFile, fileName);
+        } catch (InvocationTargetException e) {
+            throw e.getCause();
+        }
+    }
+
+    private void createCollisionAttempts(String storageFileName) throws Exception {
+        for (int attempt = 0; attempt < 100; attempt++) {
+            Files.write(documentDir.resolve(fileNameWithCollisionSuffix(storageFileName, attempt)), new byte[]{0});
+        }
+    }
+
+    private String fileNameWithCollisionSuffix(String fileName, int attempt) {
+        if (attempt == 0) {
+            return fileName;
+        }
+
+        int extensionIndex = fileName.lastIndexOf('.');
+        if (extensionIndex > 0) {
+            return fileName.substring(0, extensionIndex) + "_" + attempt + fileName.substring(extensionIndex);
+        }
+        return fileName + "_" + attempt;
     }
 }

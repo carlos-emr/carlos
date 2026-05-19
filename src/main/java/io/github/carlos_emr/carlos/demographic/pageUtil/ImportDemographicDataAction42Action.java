@@ -4868,7 +4868,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
         }
         for (UploadedFile uploaded : uploadedFiles) {
             if ("importFile".equals(uploaded.getInputName())) {
-                this.importFile = new File(uploaded.getAbsolutePath());
+                this.importFile = Path.of(uploaded.getAbsolutePath()).toFile();
                 this.importFileFileName = uploaded.getOriginalName();
                 return;
             }

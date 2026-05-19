@@ -37,6 +37,7 @@ import java.io.InputStream;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.net.URL;
+import java.nio.file.Path;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -231,6 +232,7 @@ public class DemographicExportAction42Action extends ActionSupport {
     private static final String REPORTTEXT = "Text";
     private static final String RISKFACTOR = "Risk";
     private static final String HTTP_METHOD_POST = "POST";
+    private static final String DOCUMENT_EXPORT_ERROR_PREFIX = "Error! Document \"";
     public static final int CMS4 = 0;
     public static final int E2E = 1;
 
@@ -2064,14 +2066,14 @@ public class DemographicExportAction42Action extends ActionSupport {
                                             new File(edoc.getFilePath()),
                                             new File(oscarProperties.getProperty("DOCUMENT_DIR")));
                                 } catch (FileValidationException e) {
-                                    exportError.add("Error! Document \"" + SafeEncode.forHtmlContent(edoc.getFileName()) + "\" path is invalid or outside the allowed directory. Skipping.");
+                                    exportError.add(DOCUMENT_EXPORT_ERROR_PREFIX + SafeEncode.forHtmlContent(edoc.getFileName()) + "\" path is invalid or outside the allowed directory. Skipping.");
                                     logger.error("Path traversal attempt on document export: {}", LogSanitizer.sanitize(edoc.getFilePath()));
                                     continue;
                                 }
                                 if (!f.exists()) {
-                                    exportError.add("Error! Document \"" + f.getName() + "\" does not exist!");
+                                    exportError.add(DOCUMENT_EXPORT_ERROR_PREFIX + f.getName() + "\" does not exist!");
                                 } else if (f.length() > Runtime.getRuntime().freeMemory()) {
-                                    exportError.add("Error! Document \"" + f.getName() + "\" too big to be exported. Not enough memory!");
+                                    exportError.add(DOCUMENT_EXPORT_ERROR_PREFIX + f.getName() + "\" too big to be exported. Not enough memory!");
                                 } else {
                                     Reports rpr = patientRec.addNewReports();
                                     if (edoc.getType() != null) {
@@ -2666,7 +2668,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                     }
 //
 //	if (setName!=null) zipName = "export_"+setName.replace(" ","")+"_"+UtilDateUtilities.getToday("yyyyMMddHHmmss")+".pgp";
-                    zipName = PathValidationUtils.validateUserFilePath(zipName, new File(tmpDir)).getName();
+                    zipName = PathValidationUtils.validateUserFilePath(zipName, Path.of(tmpDir).toFile()).getName();
                     if (!Util.zipFiles(files, dirs, zipName, tmpDir)) {
                         logger.debug("Error! Failed to zip export files");
                     }

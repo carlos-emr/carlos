@@ -628,7 +628,7 @@ public class ManageDocument2Action extends ActionSupport {
         if (docdownload == null || docdownload.trim().isEmpty()) {
             throw new FileValidationException("Document directory is required");
         }
-        File docDir = new File(docdownload).getAbsoluteFile();
+        File docDir = Paths.get(docdownload).toAbsolutePath().toFile();
         String documentDirName = docDir.getName();
         File parentDir = docDir.getParentFile();
         if (parentDir == null) {

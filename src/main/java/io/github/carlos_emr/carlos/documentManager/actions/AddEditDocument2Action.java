@@ -118,6 +118,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
     private static final String FUNCTION_ID_PARAMETER = "functionid";
     private static final String CURRENT_USER_PARAMETER = "curUser";
     private static final String APPOINTMENT_NO_PARAMETER = "appointmentNo";
+    private static final String PARENT_AJAX_ID_PARAMETER = "parentAjaxId";
     private static final String DOCUMENT_REPORT_PATH = "/documentManager/ViewDocumentReport";
     private static final int MAX_REDIRECT_PARAMETER_LENGTH = 128;
     private static final Pattern SAFE_REDIRECT_PARAMETER = Pattern.compile("[A-Za-z0-9_.:-]{0,128}");
@@ -289,7 +290,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             } else {
                 request.setAttribute(FUNCTION_PARAMETER, request.getParameter(FUNCTION_PARAMETER));
                 request.setAttribute(FUNCTION_ID_PARAMETER, request.getParameter(FUNCTION_ID_PARAMETER));
-                request.setAttribute("parentAjaxId", request.getParameter("parentAjaxId"));
+                request.setAttribute(PARENT_AJAX_ID_PARAMETER, request.getParameter(PARENT_AJAX_ID_PARAMETER));
                 request.setAttribute(CURRENT_USER_PARAMETER, request.getParameter(CURRENT_USER_PARAMETER));
                 request.setAttribute(APPOINTMENT_NO_PARAMETER, request.getParameter(APPOINTMENT_NO_PARAMETER));
                 return "failAdd";
@@ -342,7 +343,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             String fileName2 = newDoc.getFileName();
 
             // save local file
-            File file = writeLocalFile(docUpload.openStream(), fileName2);
+            writeLocalFile(docUpload.openStream(), fileName2);
             newDoc.setContentType(this.docFileContentType);
 
             if (fileName2.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
@@ -449,7 +450,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
     }
 
     private boolean isMissingDocumentDescription() {
-        return this.getDocDesc().length() == 0 || this.getDocDesc().equals("Enter Title");
+        return this.getDocDesc().isEmpty() || this.getDocDesc().equals("Enter Title");
     }
 
     /**
@@ -588,7 +589,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         }
 
         private static ValidatedDocumentUpload from(File uploadFile) {
-            File validatedUpload = PathValidationUtils.validateUpload(uploadFile); // codeql[java/path-injection] -- validation boundary for Struts/Tomcat upload temp files; validateUpload canonicalizes and allowlists the source
+            File validatedUpload = PathValidationUtils.validateUpload(uploadFile);
             return new ValidatedDocumentUpload(validatedUpload);
         }
 
@@ -597,7 +598,8 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         }
 
         private InputStream openStream() throws IOException {
-            return Files.newInputStream(file.toPath()); // codeql[java/path-injection] -- file was canonicalized and allowlisted by ValidatedDocumentUpload.from before this sink
+            // codeql[java/path-injection] -- validated Struts/Tomcat temp file; see ValidatedDocumentUpload.from.
+            return Files.newInputStream(file.toPath());
         }
     }
 
@@ -694,7 +696,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         }
 
         if (selected != null) {
-            this.docFile = new File(selected.getAbsolutePath());
+            this.docFile = Path.of(selected.getAbsolutePath()).toFile();
             this.docFileFileName = selected.getOriginalName();
             this.docFileContentType = selected.getContentType();
         }
@@ -713,9 +715,9 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         appendQueryParam(redirect, CURRENT_USER_PARAMETER, safeRedirectParameter(request.getParameter(CURRENT_USER_PARAMETER)));
         appendQueryParam(redirect, APPOINTMENT_NO_PARAMETER, safeRedirectParameter(request.getParameter(APPOINTMENT_NO_PARAMETER)));
 
-        String parentAjaxId = safeRedirectParameter(request.getParameter("parentAjaxId"));
+        String parentAjaxId = safeRedirectParameter(request.getParameter(PARENT_AJAX_ID_PARAMETER));
         if (!parentAjaxId.isEmpty()) {
-            appendQueryParam(redirect, "parentAjaxId", parentAjaxId);
+            appendQueryParam(redirect, PARENT_AJAX_ID_PARAMETER, parentAjaxId);
             appendQueryParam(redirect, "updateParent", "true");
         }
         return redirect.toString();

@@ -32,6 +32,7 @@ package io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil;
 
 import java.io.*;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -146,15 +147,14 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport implements
 
             // Create the upload directory if it doesn't exist
             File uploadDir = new File(uploadPath);
-            uploadDir.mkdirs();
+            Files.createDirectories(uploadDir.toPath());
             
             // Create and validate the destination file using PathValidationUtils
             File destinationFile = PathValidationUtils.validatePath(sanitizedFileName, uploadDir);
 
             // Write the file to the validated destination
-            try (FileInputStream fis = new FileInputStream(validatedUpload)) {
-                Files.copy(fis, destinationFile.toPath());
-            }
+            // codeql[java/path-injection] -- source and destination are canonicalized and allowlist validated.
+            Files.copy(validatedUpload.toPath(), destinationFile.toPath());
 
         } catch (IOException e) {
             MiscUtils.getLogger().error("Error saving file", e);
@@ -198,7 +198,7 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport implements
         }
         for (UploadedFile uploaded : uploadedFiles) {
             if ("file".equals(uploaded.getInputName())) {
-                this.file = new File(uploaded.getAbsolutePath());
+                this.file = Path.of(uploaded.getAbsolutePath()).toFile();
                 this.fileName = uploaded.getOriginalName();
                 return;
             }

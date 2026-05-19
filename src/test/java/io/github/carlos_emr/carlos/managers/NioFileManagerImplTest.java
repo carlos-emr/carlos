@@ -83,8 +83,10 @@ class NioFileManagerImplTest {
             Files.createDirectories(workDir);
             System.setProperty("catalina.base", catalinaBase.toString());
             resetAllowedTempDirectories();
+            NioFileManagerImpl manager = new NioFileManagerImpl();
+            String workDirName = workDir.toString();
 
-            assertThatThrownBy(() -> new NioFileManagerImpl().deleteTempFile(workDir.toString()))
+            assertThatThrownBy(() -> manager.deleteTempFile(workDirName))
                     .isInstanceOf(SecurityException.class)
                     .hasMessageContaining("regular file");
         } finally {

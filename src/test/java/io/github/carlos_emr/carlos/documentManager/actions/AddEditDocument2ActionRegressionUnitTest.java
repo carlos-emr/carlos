@@ -25,8 +25,8 @@ class AddEditDocument2ActionRegressionUnitTest {
         AddEditDocument2Action.appendQueryParam(redirect, "curUser", "provider 1");
         AddEditDocument2Action.appendQueryParam(redirect, "appointmentNo", null);
 
-        assertThat(redirect.toString())
-                .isEqualTo("/ctx/documentManager/ViewDocumentReport"
+        assertThat(redirect)
+                .hasToString("/ctx/documentManager/ViewDocumentReport"
                         + "?function=demographic%26injected%3Dtrue"
                         + "&curUser=provider+1"
                         + "&appointmentNo=");

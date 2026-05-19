@@ -44,6 +44,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.math.BigInteger;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 
 import static io.github.carlos_emr.carlos.integration.mcedt.ActionUtils.*;
@@ -168,7 +169,7 @@ public class Update2Action extends ActionSupport implements UploadedFilesAware {
         }
         for (UploadedFile uploaded : uploadedFiles) {
             if ("content".equals(uploaded.getInputName())) {
-                this.content = new File(uploaded.getAbsolutePath());
+                this.content = Path.of(uploaded.getAbsolutePath()).toFile();
                 return;
             }
         }
