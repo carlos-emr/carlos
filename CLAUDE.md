@@ -387,6 +387,7 @@ Tests use hierarchical tagging for filtering:
 - **Required Tags**: `@Tag("integration")`, `@Tag("dao")` (test type & layer)
 - **CRUD Tags**: `@Tag("create")`, `@Tag("read")`, `@Tag("update")`, `@Tag("delete")`
 - **Extended Tags**: `@Tag("query")`, `@Tag("search")`, `@Tag("filter")`, `@Tag("aggregate")`
+- **Endpoint Tags**: `@Tag("endpoint")`, `@Tag("rest")`, `@Tag("soap")`
 
 **Running Tagged Tests:**
 ```bash
@@ -429,6 +430,8 @@ When asked to write tests, you MUST:
 4. **Choose the right base class**:
    - `CarlosTestBase` - Integration tests with Spring context and database
    - `CarlosUnitTestBase` - Unit tests with mocked SpringUtils (no database)
+   - `CarlosRestTestBase` - REST endpoint tests with CXF local transport (no database)
+   - `CarlosSoapTestBase` - SOAP endpoint tests with CXF local transport (no database)
    - Domain-specific bases like `DemographicUnitTestBase` - Unit tests with test data builders
 5. **Use @PersistenceContext(unitName = "testPersistenceUnit")** for EntityManager (integration tests only)
 6. **For Manager unit tests**: Register SpringUtils mocks BEFORE creating static mocks (LogAction, etc.)
@@ -1258,6 +1261,7 @@ src/test/resources/                                   # Test configurations
 src/test/resources/over_ride_config.properties        # Test configuration template
 docs/test/modern-test-framework-complete.md           # Complete test framework documentation
 docs/test/test-writing-guide.md                       # Test writing patterns and static mocking
+docs/test/endpoint-testing-guide.md                   # REST & SOAP endpoint testing with CXF local transport
 ```
 
 #### Test Framework - Critical Guidelines

@@ -1086,6 +1086,27 @@
             <artifactId>cxf-rt-rs-client</artifactId>
             <version>${cxf.version}</version>
         </dependency>
+        <dependency>
+            <groupId>org.apache.cxf</groupId>
+            <artifactId>cxf-rt-transports-local</artifactId>
+            <version>${cxf.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <!--
+            Switched from Jettison (org.codehaus.jettison) to FasterXML Jackson 
+            for JSON handling in CXF JAX-RS providers. 
+            This ensures better compatibility and consistency of REST API 
+            request/response serialization and deserialization. 
+            Also excluded cxf-rt-rs-extension-providers to avoid Jettison being pulled in transitively.
+        -->
+        <!-- <dependency>
+            <groupId>org.apache.cxf</groupId>
+            <artifactId>cxf-rt-rs-extension-providers</artifactId>
+            <version>${cxf.version}</version>
+        </dependency> -->
+
+        <!-- ScribeJava removed — only used for 2 string constants and 1 unused method.
+             OAuth 1.0a implementation is fully in-house (OAuth1SignatureVerifier, OAuthInterceptor, etc.) -->
 
         <dependency>
             <groupId>org.commonmark</groupId>
@@ -1594,6 +1615,7 @@
                         <include>**/managers/**/*Test.java</include>
                         <include>**/*IntegrationTest.java</include>
                         <include>**/*UnitTest.java</include>
+                        <include>**/*EndpointTest.java</include>
                     </includes>
                     <excludes>
                         <exclude>**/archive/**/*Test.java</exclude>
