@@ -13,6 +13,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
 
 import static org.assertj.core.api.Assertions.*;
 
@@ -35,8 +36,9 @@ class FileSortByDateUnitTest {
     void shouldReturnNegative_whenFirstNewer() throws IOException {
         Path older = Files.createFile(tempDir.resolve("old.txt"));
         Path newer = Files.createFile(tempDir.resolve("new.txt"));
-        boolean modified = newer.toFile().setLastModified(System.currentTimeMillis() + 1000);
-        assertThat(modified).isTrue();
+        long now = System.currentTimeMillis();
+        Files.setLastModifiedTime(older, FileTime.fromMillis(now - 10_000));
+        Files.setLastModifiedTime(newer, FileTime.fromMillis(now));
 
         int result = sorter.compare(newer.toFile(), older.toFile());
         assertThat(result).isNegative();
