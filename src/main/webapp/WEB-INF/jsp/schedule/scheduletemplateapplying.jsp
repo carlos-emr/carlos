@@ -81,7 +81,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
-<html lang="en">
+<html lang="${pageContext.request.locale.language}">
 
     <%
         if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
@@ -377,12 +377,21 @@
                 ctrl.value = ctrl.value.toUpperCase();
             }
 
+            function selectedTemplateValue() {
+                var template = document.schedule.mytemplate;
+                return template && template.selectedIndex > -1 ? template.value : "";
+            }
+
+            function valueOrSelectedTemplate(field) {
+                return field.value || selectedTemplateValue();
+            }
+
             function addDataString() {
                 var str = "";
                 var str1 = "";
                 if (document.schedule.checksun.checked) {
                     str += "1 ";
-                    str1 += "<SUN>" + document.schedule.sunfrom1.value + "</SUN>";
+                    str1 += "<SUN>" + valueOrSelectedTemplate(document.schedule.sunfrom1) + "</SUN>";
                     <%=bMoreAddr? getJSstr("A7", "sunaddr1") : "" %>
                     //alert("<A7>"+document.schedule.sunaddr1[document.schedule.sunaddr1.selectedIndex].text+"</A7>");
                 }
@@ -392,7 +401,7 @@
                 }
                 if (document.schedule.checkmon.checked) {
                     str += "2 ";
-                    str1 += "<MON>" + document.schedule.monfrom1.value + "</MON>";
+                    str1 += "<MON>" + valueOrSelectedTemplate(document.schedule.monfrom1) + "</MON>";
                     <%=bMoreAddr? getJSstr("A1", "monaddr1") : "" %>
                 }
                 if (document.schedule.checkmon.unchecked) {
@@ -400,7 +409,7 @@
                 }
                 if (document.schedule.checktue.checked) {
                     str += "3 ";
-                    str1 += "<TUE>" + document.schedule.tuefrom1.value + "</TUE>";
+                    str1 += "<TUE>" + valueOrSelectedTemplate(document.schedule.tuefrom1) + "</TUE>";
                     <%=bMoreAddr? getJSstr("A2", "tueaddr1") : "" %>
                 }
                 if (document.schedule.checktue.unchecked) {
@@ -408,7 +417,7 @@
                 }
                 if (document.schedule.checkwed.checked) {
                     str += "4 ";
-                    str1 += "<WED>" + document.schedule.wedfrom1.value + "</WED>";
+                    str1 += "<WED>" + valueOrSelectedTemplate(document.schedule.wedfrom1) + "</WED>";
                     <%=bMoreAddr? getJSstr("A3", "wedaddr1") : "" %>
                 }
                 if (document.schedule.checkwed.unchecked) {
@@ -416,7 +425,7 @@
                 }
                 if (document.schedule.checkthu.checked) {
                     str += "5 ";
-                    str1 += "<THU>" + document.schedule.thufrom1.value + "</THU>";
+                    str1 += "<THU>" + valueOrSelectedTemplate(document.schedule.thufrom1) + "</THU>";
                     <%=bMoreAddr? getJSstr("A4", "thuaddr1") : "" %>
                 }
                 if (document.schedule.checkthu.unchecked) {
@@ -424,7 +433,7 @@
                 }
                 if (document.schedule.checkfri.checked) {
                     str += "6 ";
-                    str1 += "<FRI>" + document.schedule.frifrom1.value + "</FRI>";
+                    str1 += "<FRI>" + valueOrSelectedTemplate(document.schedule.frifrom1) + "</FRI>";
                     <%=bMoreAddr? getJSstr("A5", "friaddr1") : "" %>
                 }
                 if (document.schedule.checkfri.unchecked) {
@@ -432,7 +441,7 @@
                 }
                 if (document.schedule.checksat.checked) {
                     str += "7 ";
-                    str1 += "<SAT>" + document.schedule.satfrom1.value + "</SAT>";
+                    str1 += "<SAT>" + valueOrSelectedTemplate(document.schedule.satfrom1) + "</SAT>";
                     <%=bMoreAddr? getJSstr("A6", "sataddr1") : "" %>
                 }
                 if (document.schedule.checksat.unchecked) {
@@ -454,7 +463,7 @@
                 var str1 = "";
                 if (document.schedule.checksun2.checked) {
                     strB += "1 ";
-                    str1 += "<SUN>" + document.schedule.sunfrom2.value + "</SUN>";
+                    str1 += "<SUN>" + valueOrSelectedTemplate(document.schedule.sunfrom2) + "</SUN>";
                     <%=bMoreAddr? getJSstr("A7", "sunaddr2") : "" %>
                 }
                 if (document.schedule.checksun2.unchecked) {
@@ -463,7 +472,7 @@
                 }
                 if (document.schedule.checkmon2.checked) {
                     strB += "2 ";
-                    str1 += "<MON>" + document.schedule.monfrom2.value + "</MON>";
+                    str1 += "<MON>" + valueOrSelectedTemplate(document.schedule.monfrom2) + "</MON>";
                     <%=bMoreAddr? getJSstr("A1", "monaddr2") : "" %>
                 }
                 if (document.schedule.checkmon2.unchecked) {
@@ -471,7 +480,7 @@
                 }
                 if (document.schedule.checktue2.checked) {
                     strB += "3 ";
-                    str1 += "<TUE>" + document.schedule.tuefrom2.value + "</TUE>";
+                    str1 += "<TUE>" + valueOrSelectedTemplate(document.schedule.tuefrom2) + "</TUE>";
                     <%=bMoreAddr? getJSstr("A2", "tueaddr2") : "" %>
                 }
                 if (document.schedule.checktue2.unchecked) {
@@ -479,7 +488,7 @@
                 }
                 if (document.schedule.checkwed2.checked) {
                     strB += "4 ";
-                    str1 += "<WED>" + document.schedule.wedfrom2.value + "</WED>";
+                    str1 += "<WED>" + valueOrSelectedTemplate(document.schedule.wedfrom2) + "</WED>";
                     <%=bMoreAddr? getJSstr("A3", "wedaddr2") : "" %>
                 }
                 if (document.schedule.checkwed2.unchecked) {
@@ -487,7 +496,7 @@
                 }
                 if (document.schedule.checkthu2.checked) {
                     strB += "5 ";
-                    str1 += "<THU>" + document.schedule.thufrom2.value + "</THU>";
+                    str1 += "<THU>" + valueOrSelectedTemplate(document.schedule.thufrom2) + "</THU>";
                     <%=bMoreAddr? getJSstr("A4", "thuaddr2") : "" %>
                 }
                 if (document.schedule.checkthu2.unchecked) {
@@ -495,7 +504,7 @@
                 }
                 if (document.schedule.checkfri2.checked) {
                     strB += "6 ";
-                    str1 += "<FRI>" + document.schedule.frifrom2.value + "</FRI>";
+                    str1 += "<FRI>" + valueOrSelectedTemplate(document.schedule.frifrom2) + "</FRI>";
                     <%=bMoreAddr? getJSstr("A5", "friaddr2") : "" %>
                 }
                 if (document.schedule.checkfri2.unchecked) {
@@ -503,7 +512,7 @@
                 }
                 if (document.schedule.checksat2.checked) {
                     strB += "7 ";
-                    str1 += "<SAT>" + document.schedule.satfrom2.value + "</SAT>";
+                    str1 += "<SAT>" + valueOrSelectedTemplate(document.schedule.satfrom2) + "</SAT>";
                     <%=bMoreAddr? getJSstr("A6", "sataddr2") : "" %>
                 }
                 if (document.schedule.checksat2.unchecked) {
