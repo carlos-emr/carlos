@@ -27,6 +27,8 @@
 --%>
 <%@page import="io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnDiskService" %>
 <%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%-- Empty stub. ViewOnReportGeneration2Action enforces _billing w + POST and runs the
      MOH disk-creation pass via BillingOnDiskService.generateNewDisk
      (BillingDiskCreationService + JdbcBillingCreateBillingFile, solo + group),

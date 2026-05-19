@@ -54,6 +54,8 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.LookupList" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%
     String demographic_no = request.getParameter("demo");

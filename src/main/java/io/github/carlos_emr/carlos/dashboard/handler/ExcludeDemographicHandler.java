@@ -43,7 +43,7 @@ import io.github.carlos_emr.carlos.commn.model.DemographicExt;
 import io.github.carlos_emr.carlos.dashboard.display.beans.DrilldownBean;
 import io.github.carlos_emr.carlos.managers.DashboardManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -183,7 +183,7 @@ public class ExcludeDemographicHandler {
         }
 
         if (!VALID_INT_ARRAY_PATTERN.matcher(input).matches()) {
-            logger.warn("Rejected invalid integer array input: {}", LogSanitizer.sanitize(input));
+            logger.warn("Rejected invalid integer array input: {}", LogSafe.sanitize(input));
             return List.of();
         }
 
@@ -203,7 +203,7 @@ public class ExcludeDemographicHandler {
                 result.add(Integer.parseInt(token.strip()));
             }
         } catch (NumberFormatException e) {
-            logger.warn("Integer overflow in array input: {}", LogSanitizer.sanitize(input));
+            logger.warn("Integer overflow in array input: {}", LogSafe.sanitize(input));
             return List.of();
         }
         return result;

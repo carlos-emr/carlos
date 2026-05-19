@@ -84,6 +84,10 @@
     String prefillYearOfBirth   = io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("prefill_year_of_birth"));
     String prefillMonthOfBirth  = io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("prefill_month_of_birth"));
     String prefillDateOfBirth   = io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("prefill_date_of_birth"));
+    String prefillDOB           = (!prefillYearOfBirth.equals("") && !prefillMonthOfBirth.equals("") && !prefillDateOfBirth.equals(""))
+            ? prefillYearOfBirth + "-" + org.apache.commons.lang3.StringUtils.leftPad(prefillMonthOfBirth, 2, '0')
+            + "-" + org.apache.commons.lang3.StringUtils.leftPad(prefillDateOfBirth, 2, '0')
+            : "";
     String prefillHin           = io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("prefill_hin"));
     String prefillVer           = io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("prefill_ver"));
     String prefillHcType        = io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("prefill_hc_type"));
@@ -757,14 +761,14 @@
                                            name="inputDOB" id="inputDOB"
                                            class="form-control"
                                            size="12" required
-                                           onchange="parsedob_date();" value="<carlos:encode value='<%= prefillYearOfBirth %>' context="htmlAttribute"/>-<carlos:encode value='<%= prefillMonthOfBirth %>' context="htmlAttribute"/>-<carlos:encode value='<%= prefillDateOfBirth %>' context="htmlAttribute"/>">
+                                           onchange="syncInputDobParts();" value="<carlos:encode value='<%= prefillDOB %>' context="htmlAttribute"/>">
                                     <img src="<%= request.getContextPath() %>/images/cal.gif" id="inputDOB_cal">
                                     <div class="invalid-feedback">
                                            <fmt:message key="demographic.add.msgInvalidDOB"/>
                                     </div>
-                                    <input type="hidden" name="year_of_birth" value="<carlos:encode value='<%= prefillYearOfBirth %>' context="htmlAttribute"/>">
-                                    <input type="hidden" name="month_of_birth" value="<carlos:encode value='<%= prefillMonthOfBirth %>' context="htmlAttribute"/>">
-                                    <input type="hidden" name="date_of_birth" value="<carlos:encode value='<%= prefillDateOfBirth %>' context="htmlAttribute"/>">
+                                    <input type="hidden" name="year_of_birth" id="year_of_birth" value="<carlos:encode value='<%= prefillYearOfBirth %>' context="htmlAttribute"/>">
+                                    <input type="hidden" name="month_of_birth" id="month_of_birth" value="<carlos:encode value='<%= prefillMonthOfBirth %>' context="htmlAttribute"/>">
+                                    <input type="hidden" name="date_of_birth" id="date_of_birth" value="<carlos:encode value='<%= prefillDateOfBirth %>' context="htmlAttribute"/>">
                                 </div>
                             </div>
                             <div class="col-sm-2 text-end">

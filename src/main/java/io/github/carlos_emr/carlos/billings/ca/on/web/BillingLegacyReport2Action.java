@@ -26,17 +26,19 @@ import java.io.File;
 import java.nio.charset.StandardCharsets;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billing.CA.ON.util.EDTFolder;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingLegacyReportViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
@@ -81,6 +83,12 @@ public class BillingLegacyReport2Action extends ActionSupport {
         if (filename == null) {
             filename = "";
         }
+        String safeFilename = FilenameUtils.getName(filename);
+        if (!safeFilename.equals(filename)) {
+            ServletActionContext.getResponse().sendError(HttpServletResponse.SC_BAD_REQUEST,
+                    "Invalid report filename.");
+            return NONE;
+        }
 
         // Match the legacy heuristic for choosing the XSL stylesheet:
         // chars [2..4) of the filename are "OU" → outpatient stylesheet,
@@ -96,7 +104,7 @@ public class BillingLegacyReport2Action extends ActionSupport {
                 String folderPath = selectedFolderPath(request);
                 if (folderPath != null && !folderPath.isEmpty()) {
                     File folderDir = new File(folderPath);
-                    File target = PathValidationUtils.validatePath(filename, folderDir);
+                    File target = PathValidationUtils.validatePath(safeFilename, folderDir);
                     if (target.exists() && target.isFile()) {
                         fileContents = FileUtils.readFileToString(target, StandardCharsets.UTF_8);
                     }
@@ -107,10 +115,10 @@ public class BillingLegacyReport2Action extends ActionSupport {
                 // and stash a message on the request so the JSP can render an
                 // explicit banner instead of a silent blank report.
                 MiscUtils.getLogger().error("billingLreport: failed to read MOH response file {} from ONEDT_INBOX",
-                        LogSanitizer.sanitize(filename), e);
+                        LogSafe.sanitize(filename), e);
                 fileContents = "";
                 request.setAttribute("readError",
-                        "Could not read MOH response file: " + filename);
+                        "Could not read selected MOH response file.");
             }
         }
 

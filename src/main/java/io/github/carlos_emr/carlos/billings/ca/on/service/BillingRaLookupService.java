@@ -202,8 +202,8 @@ public class BillingRaLookupService {
                 unreadable++;
                 MiscUtils.getLogger().error(
                         "Failed to parse amountpay {} for billing_no {}; coalescing to zero (total will understate)",
-                        io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(h.get("amountpay")),
-                        io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(h.get("billing_no")),
+                        io.github.carlos_emr.carlos.utility.LogSafe.sanitize(h.get("amountpay")),
+                        io.github.carlos_emr.carlos.utility.LogSafe.sanitize(h.get("billing_no")),
                         badValueException);
             }
             total = total.add(valueToAdd);
@@ -218,19 +218,12 @@ public class BillingRaLookupService {
     public record AmountPaidResult(String formattedTotal, int unreadableCount) { }
 
     /**
-
      * Returns amount paid.
-
      *
-
-     * @param a ArrayList<HashMap<String, String>>
-
-     * @param billingNo String
-
-     * @param serviceCode String
-
-     * @return String
-
+     * @param a legacy RA rows for one billing/service pair
+     * @param billingNo target billing number
+     * @param serviceCode target service code
+     * @return formatted amount paid
      */
 
     public String getAmountPaid(ArrayList<HashMap<String, String>> a, String billingNo, String serviceCode) {
@@ -255,9 +248,9 @@ public class BillingRaLookupService {
                 unreadable++;
                 MiscUtils.getLogger().error(
                         "Failed to parse amountpay {} for billing_no {} service_code {}; coalescing to zero",
-                        io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(h.get("amountpay")),
-                        io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(h.get("billing_no")),
-                        io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(serviceCode),
+                        io.github.carlos_emr.carlos.utility.LogSafe.sanitize(h.get("amountpay")),
+                        io.github.carlos_emr.carlos.utility.LogSafe.sanitize(h.get("billing_no")),
+                        io.github.carlos_emr.carlos.utility.LogSafe.sanitize(serviceCode),
                         badValueException);
             }
             total = total.add(valueToAdd);

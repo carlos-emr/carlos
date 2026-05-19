@@ -21,8 +21,10 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.assembler;
 
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Enumeration;
 import java.util.GregorianCalendar;
 import java.util.HashMap;
@@ -31,7 +33,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
-import java.util.ArrayList;
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -41,6 +42,7 @@ import io.github.carlos_emr.carlos.billing.CA.model.BillActivity;
 import io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnConstants;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingDiskNameDto;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.DiskFilenameRow;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingDataLoadException;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnMriViewModel;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnLookupService;
 import io.github.carlos_emr.carlos.commn.dao.ProviderBillCenterDao;
@@ -52,9 +54,10 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewLoader;
+import org.apache.logging.log4j.Logger;
 
 /**
  * Assembles {@link BillingOnMriViewModel} for {@code billingONMRI.jsp}, the
@@ -76,6 +79,8 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewLoader;
 @org.springframework.stereotype.Service
 public class BillingOnMriViewModelAssembler {
 
+    private static final Logger LOGGER = MiscUtils.getLogger();
+
     /** Color cycle the legacy JSP used to highlight the selected year row. */
     private static final String[] YEAR_COLORS = {"#CCFFCC", "#BBBBBB", "#CCCCCC", "#DDDDDD", "#EEEEEE"};
     private static final int ARCHIVE_YEARS = 5;
@@ -85,7 +90,7 @@ public class BillingOnMriViewModelAssembler {
     private final ProviderDataDao providerDataDao;
     private final ProviderBillCenterDao providerBillCenterDao;
     private final SecurityInfoManager securityInfoManager;
-    private final BillingReviewLoader reviewPrep;
+    private final BillingReviewLoader reviewLoader;
     private final BillingOnLookupService lookupService;
 
     public BillingOnMriViewModelAssembler(ProviderDao providerDao,
@@ -93,14 +98,14 @@ public class BillingOnMriViewModelAssembler {
                               ProviderDataDao providerDataDao,
                               ProviderBillCenterDao providerBillCenterDao,
                               SecurityInfoManager securityInfoManager,
-                              BillingReviewLoader reviewPrep,
+                              BillingReviewLoader reviewLoader,
                               BillingOnLookupService lookupService) {
         this.providerDao = providerDao;
         this.billActivityDao = billActivityDao;
         this.providerDataDao = providerDataDao;
         this.providerBillCenterDao = providerBillCenterDao;
         this.securityInfoManager = securityInfoManager;
-        this.reviewPrep = reviewPrep;
+        this.reviewLoader = reviewLoader;
         this.lookupService = lookupService;
     }
 
@@ -131,6 +136,12 @@ public class BillingOnMriViewModelAssembler {
         String selectedYear = request.getParameter("year");
         if (selectedYear == null || selectedYear.isEmpty()) {
             selectedYear = String.valueOf(curYear);
+        }
+        if (!selectedYear.matches("\\d{4}")) {
+            throw new BillingDataLoadException(
+                    "Invalid OHIP archive year",
+                    BillingDataLoadException.Phase.DATE_PARSE,
+                    Map.of("year", LogSafe.sanitize(selectedYear)));
         }
 
         List<String> archiveYears = new ArrayList<>();
@@ -198,11 +209,11 @@ public class BillingOnMriViewModelAssembler {
                                                                            boolean isTeamAccessPrivacy) {
         List<io.github.carlos_emr.carlos.billings.ca.on.dto.ProviderDropdownEntry> providerStrs;
         if (isTeamBillingOnly || isTeamAccessPrivacy) {
-            providerStrs = reviewPrep.getTeamProviderBillingStr(userProviderNo);
+            providerStrs = reviewLoader.getTeamProviderBillingStr(userProviderNo);
         } else if (isSiteAccessPrivacy) {
-            providerStrs = reviewPrep.getSiteProviderBillingStr(userProviderNo);
+            providerStrs = reviewLoader.getSiteProviderBillingStr(userProviderNo);
         } else {
-            providerStrs = reviewPrep.getProviderBillingStr();
+            providerStrs = reviewLoader.getProviderBillingStr();
         }
         List<BillingOnMriViewModel.ProviderEntry> options = new ArrayList<>();
         if (providerStrs == null) {
@@ -233,7 +244,13 @@ public class BillingOnMriViewModelAssembler {
             String providerNo = p.getProviderNo();
             ProviderBillCenter pbc = providerBillCenterDao.find(providerNo);
             if (pbc != null) {
-                map.put(providerNo, pbc.getBillCenterCode());
+                String billCenterCode = pbc.getBillCenterCode();
+                if (billCenterCode == null || billCenterCode.isBlank()) {
+                    LOGGER.warn("Billable provider is missing bill-center code; excluding providerNo={} from MRI bill-center map",
+                            LogSafe.sanitize(providerNo));
+                    continue;
+                }
+                map.put(providerNo, billCenterCode);
             }
         }
         return map;
@@ -250,7 +267,7 @@ public class BillingOnMriViewModelAssembler {
                                                             String currentYearColor,
                                                             Set<String> visibleProviderSet,
                                                             boolean filterByVisibleProviders) {
-        List mriList = reviewPrep.getMRIList(selectedYear + "-01-01 00:00:01",
+        List mriList = reviewLoader.getMRIList(selectedYear + "-01-01 00:00:01",
                 selectedYear + "-12-31 23:59:59", "U");
         Properties proName = lookupService.getPropProviderName();
 
@@ -283,10 +300,15 @@ public class BillingOnMriViewModelAssembler {
                     bgColor = "silver";
                 }
                 String trimmedDate = updateDate == null ? "" : updateDate.substring(0, Math.min(16, updateDate.length()));
-                // BillingDiskNameDto.getId() returns the disk id as a String;
-                // legacy JSP injected it raw into a JS onclick. Parse it now
-                // so the view model is type-clean.
-                int diskId = parseIntOrZero(data.getId());
+                // BillingDiskNameDto.getId() returns the disk id as a String.
+                // Invalid ids used to become diskId=0, which produced rows that
+                // looked clickable but could not resolve to a real disk record.
+                Integer diskId = parseDiskId(data.getId());
+                if (diskId == null) {
+                    LOGGER.warn("BillingOnMri: dropping MRI row with invalid disk id [{}]",
+                            LogSafe.sanitize(data.getId()));
+                    continue;
+                }
                 rows.add(new BillingOnMriViewModel.MriRow(
                         diskId,
                         nullToEmpty(name),
@@ -304,8 +326,8 @@ public class BillingOnMriViewModelAssembler {
     /**
      * Load the older BillActivity records table. The legacy code mapped
      * providers by OHIP number (not provider_no), so we build a separate
-     * lookup here. Sorting by update-date matches the legacy
-     * {@code Collections.sort(bas, BillActivity.UpdateDateTimeComparator)}.
+     * lookup here. Sorting keeps the legacy newest-first ordering while making
+     * null update timestamps sort last instead of failing the whole page.
      */
     private List<BillingOnMriViewModel.BillActivityRow> loadBillActivityRows(String selectedYear,
                                                                               String currentYearColor) {
@@ -316,13 +338,15 @@ public class BillingOnMriViewModelAssembler {
             }
         }
 
-        java.util.Date startDate = ConversionUtils.fromDateString(selectedYear + "-01-01 00:00:00");
-        java.util.Date endDate = ConversionUtils.fromDateString(selectedYear + "-12-31 23:59:59");
+        java.util.Date startDate = ConversionUtils.fromTimestampString(selectedYear + "-01-01 00:00:00");
+        java.util.Date endDate = ConversionUtils.fromTimestampString(selectedYear + "-12-31 23:59:59");
         List<BillActivity> bas = billActivityDao.findCurrentByDateRange(startDate, endDate);
         if (bas == null) {
             return Collections.emptyList();
         }
-        Collections.sort(bas, BillActivity.UpdateDateTimeComparator);
+        bas = new ArrayList<>(bas);
+        // Use a null-safe comparator — updateDateTime can be null for in-progress claims.
+        bas.sort(Comparator.comparing(BillActivity::getUpdateDateTime, Comparator.nullsLast(Comparator.reverseOrder())));
 
         List<BillingOnMriViewModel.BillActivityRow> rows = new ArrayList<>();
         int count = 0;
@@ -362,14 +386,12 @@ public class BillingOnMriViewModelAssembler {
         return s == null || s.isEmpty() ? fallback : s;
     }
 
-    private static int parseIntOrZero(String s) {
-        if (s == null) return 0;
+    private static Integer parseDiskId(String s) {
+        if (s == null) return null;
         try {
             return Integer.parseInt(s);
         } catch (NumberFormatException e) {
-            MiscUtils.getLogger().warn("BillingOnMri: invalid integer [{}]; using 0",
-                    LogSanitizer.sanitize(s), e);
-            return 0;
+            return null;
         }
     }
 }

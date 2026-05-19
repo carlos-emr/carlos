@@ -57,7 +57,7 @@ import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
 import io.github.carlos_emr.CarlosProperties;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 public class DefaultHandler implements MessageHandler {
     Logger logger = MiscUtils.getLogger();
@@ -68,12 +68,12 @@ public class DefaultHandler implements MessageHandler {
     }
 
     String getHl7Type() {
-        logger.debug("DefaultHandler.getHl7Type: Returning hl7Type = {}", LogSanitizer.sanitize(hl7Type));
+        logger.debug("DefaultHandler.getHl7Type: Returning hl7Type = {}", LogSafe.sanitize(hl7Type));
         return hl7Type;
     }
 
     public String parse(LoggedInInfo loggedInInfo, String serviceName, String fileName, int fileId, String ipAddr) {
-        logger.info("DefaultHandler.parse: Called with serviceName={}, fileName={}, fileId={}", LogSanitizer.sanitize(serviceName), LogSanitizer.sanitize(fileName), fileId); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+        logger.info("DefaultHandler.parse: Called with serviceName={}, fileName={}, fileId={}", LogSafe.sanitize(serviceName), LogSafe.sanitize(fileName), fileId); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
         Document xmlDoc = getXML(fileName);
 
         /*
@@ -91,7 +91,7 @@ public class DefaultHandler implements MessageHandler {
                     if (hl7Body != null && hl7Body.indexOf("\nPID|") > 0) {
                         msgCount++;
                         String currentHl7Type = getHl7Type();
-                        logger.debug("using xml HL7 Type {}", LogSanitizer.sanitize(currentHl7Type));
+                        logger.debug("using xml HL7 Type {}", LogSafe.sanitize(currentHl7Type));
                         MessageUploader.routeReport(loggedInInfo, serviceName, currentHl7Type, hl7Body, fileId);
                     }
                 }
@@ -109,9 +109,9 @@ public class DefaultHandler implements MessageHandler {
                     String currentHl7Type = getHl7Type();
                     String typeToUse = currentHl7Type != null ? currentHl7Type : serviceName;
                     logger.info("using HL7 Type {} (original: {}, serviceName: {})",
-                            LogSanitizer.sanitize(typeToUse),
-                            LogSanitizer.sanitize(currentHl7Type),
-                            LogSanitizer.sanitize(serviceName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                            LogSafe.sanitize(typeToUse),
+                            LogSafe.sanitize(currentHl7Type),
+                            LogSafe.sanitize(serviceName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                     MessageUploader.routeReport(loggedInInfo, serviceName, typeToUse, msg, fileId);
                 }
             } catch (Exception e) {
@@ -142,7 +142,7 @@ public class DefaultHandler implements MessageHandler {
 
             // Ensure the file exists and is a regular file
             if (!file.exists() || !file.isFile()) {
-                logger.error("File does not exist or is not a regular file: {}", LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                logger.error("File does not exist or is not a regular file: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 return null;
             }
 
@@ -152,10 +152,10 @@ public class DefaultHandler implements MessageHandler {
             return (doc);
 
         } catch (SecurityException e) {
-            logger.error("Path traversal attempt detected while parsing XML file: {}", LogSanitizer.sanitize(fileName), e); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            logger.error("Path traversal attempt detected while parsing XML file: {}", LogSafe.sanitize(fileName), e); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             return null;
         } catch (Exception e) {
-            logger.error("Error parsing XML file: {}", LogSanitizer.sanitize(fileName), e); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            logger.error("Error parsing XML file: {}", LogSafe.sanitize(fileName), e); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             return (null);
         }
     }

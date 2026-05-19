@@ -38,6 +38,7 @@ v<%
 <%@ page
         import="io.github.carlos_emr.carlos.form.*, java.util.*,io.github.carlos_emr.carlos.billing.ca.bc.pageUtil.*,io.github.carlos_emr.carlos.db.*,io.github.carlos_emr.carlos.billing.ca.bc.MSP.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>

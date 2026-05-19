@@ -80,13 +80,12 @@
 
         <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
         <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css" rel="stylesheet">
-        <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/css/jquery.dataTables.min.css"
-              rel="stylesheet">
 
         <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="${pageContext.request.contextPath}/js/global.js"></script>
         <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
-        <script src="${ pageContext.request.contextPath }/library/DataTables/datatables.min.js"></script><!-- 1.13.4 -->
+        <script src="${ pageContext.request.contextPath }/library/DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js"></script>
+        <script src="${ pageContext.request.contextPath }/library/DataTables/DataTables-1.13.11/js/dataTables.bootstrap5.min.js"></script>
 
         <script>
             document.addEventListener("DOMContentLoaded", function () {

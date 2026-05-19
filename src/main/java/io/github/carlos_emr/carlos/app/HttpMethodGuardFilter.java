@@ -23,7 +23,7 @@ package io.github.carlos_emr.carlos.app;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
@@ -515,6 +515,10 @@ public class HttpMethodGuardFilter implements Filter {
         }
         int lastSlash = path.lastIndexOf('/');
         String actionName = lastSlash >= 0 ? path.substring(lastSlash + 1) : path;
+        int pathParameterIndex = actionName.indexOf(';');
+        if (pathParameterIndex >= 0) {
+            actionName = actionName.substring(0, pathParameterIndex);
+        }
         if (actionName.isEmpty() || actionName.contains(".")) {
             return null;
         }
@@ -557,9 +561,9 @@ public class HttpMethodGuardFilter implements Filter {
         String detail = methodParam != null ? path + "?method=" + methodParam : path;
 
         LOGGER.warn("Blocked {} request on mutator endpoint: {} (remote: {}, session: {})", // NOSONAR javasecurity:S5145 — all user-controlled args sanitized below
-                LogSanitizer.sanitize(request.getMethod()),
-                LogSanitizer.sanitize(detail),
-                LogSanitizer.sanitize(request.getRemoteAddr()),
+                LogSafe.sanitize(request.getMethod()),
+                LogSafe.sanitize(detail),
+                LogSafe.sanitize(request.getRemoteAddr()),
                 request.getRequestedSessionId() != null ? "present" : "none"); // NOSONAR java:S2254 — session ID value is never exposed; only null/non-null checked for logging
 
         response.setHeader("Allow", "POST");
@@ -581,18 +585,15 @@ public class HttpMethodGuardFilter implements Filter {
             return path;
         }
 
-        // Strip path parameters (;jsessionid=...) which could be used to
-        // obscure the real path from pattern matching
-        int semiIdx = path.indexOf(';');
-        if (semiIdx >= 0) {
-            path = path.substring(0, semiIdx);
-        }
+        // Strip path parameters segment-by-segment; truncating at the first semicolon can hide
+        // later mutator action names from the guard while Tomcat still routes the full path.
+        String normalizedPath = path.replaceAll(";[^/]*", "");
 
         // Collapse consecutive slashes (e.g., //admin///mutator.jsp)
-        path = path.replaceAll("/+", "/");
+        normalizedPath = normalizedPath.replaceAll("/+", "/");
 
         // Resolve . and .. segments
-        String[] segments = path.split("/");
+        String[] segments = normalizedPath.split("/");
         java.util.Deque<String> stack = new java.util.ArrayDeque<>();
         for (String seg : segments) {
             if (seg.isEmpty() || ".".equals(seg)) {

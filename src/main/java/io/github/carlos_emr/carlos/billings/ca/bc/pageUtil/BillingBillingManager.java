@@ -26,7 +26,7 @@ import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
 import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.commn.model.BillingService;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.entities.Billingmaster;
@@ -368,9 +368,9 @@ public class BillingBillingManager implements Serializable {
                 } catch (NumberFormatException eNum) {
                     throw new IllegalArgumentException(
                             "BC BillingBillingManager: invalid percentage on service "
-                                    + LogSanitizer.sanitizeForDisplay(bs.getServiceCode())
-                                    + " (gstPercent=" + LogSanitizer.sanitizeForDisplay(gstPercent)
-                                    + ", bsPercentage=" + LogSanitizer.sanitizeForDisplay(bs.getPercentage()) + ")",
+                                    + LogSafe.sanitizeForDisplay(bs.getServiceCode())
+                                    + " (gstPercent=" + LogSafe.sanitizeForDisplay(gstPercent)
+                                    + ", bsPercentage=" + LogSafe.sanitizeForDisplay(bs.getPercentage()) + ")",
                             eNum);
                 }
             }
