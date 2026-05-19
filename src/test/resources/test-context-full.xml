@@ -46,6 +46,13 @@
     <context:annotation-config/>
     <tx:annotation-driven proxy-target-class="true"/>
 
+    <!-- Mirrors the production Spring wiring in spring_managers.xml / component-based
+         configuration by registering the @Configuration class that declares
+         @EnableCaching and the Caffeine CacheManager bean. Tests that rely on
+         @Cacheable / @CacheEvict behaviour (or inject CacheManager) need this bean
+         present in the test context just like production. -->
+    <bean class="io.github.carlos_emr.carlos.config.CacheConfig"/>
+
     <!-- Properties -->
     <bean id="propertyConfigurer" class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
         <property name="properties">
@@ -597,7 +604,7 @@
     <!-- Non-@Repository DAOs (require manual bean definitions)                -->
     <!-- ===================================================================== -->
 
-    <!-- DemographicDao (extends AbstractHibernateDao, no @Repository) -->
+    <!-- DemographicDao (extends AbstractJpaDao, no @Repository) -->
     <bean id="demographicDao" class="io.github.carlos_emr.carlos.commn.dao.DemographicDaoImpl" autowire="byName" />
 
     <!-- Other non-@Repository DAOs -->
@@ -684,6 +691,12 @@
     </bean>
     <bean id="demographicManager" class="io.github.carlos_emr.carlos.test.mocks.MockBeanFactory">
         <property name="mockType" value="io.github.carlos_emr.carlos.managers.DemographicManager" />
+    </bean>
+    <bean id="preventionManager" class="io.github.carlos_emr.carlos.test.mocks.MockBeanFactory">
+        <property name="mockType" value="io.github.carlos_emr.carlos.managers.PreventionManager" />
+    </bean>
+    <bean id="programManager2" class="io.github.carlos_emr.carlos.test.mocks.MockBeanFactory">
+        <property name="mockType" value="io.github.carlos_emr.carlos.managers.ProgramManager2" />
     </bean>
     <bean id="defaultNoteService" class="io.github.carlos_emr.carlos.test.mocks.MockBeanFactory">
         <property name="mockType" value="io.github.carlos_emr.carlos.casemgmt.service.impl.DefaultNoteService" />

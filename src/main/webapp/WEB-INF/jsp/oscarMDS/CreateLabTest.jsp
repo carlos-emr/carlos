@@ -28,10 +28,10 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -44,85 +44,193 @@
     if (!authed) {
         return;
     }
-%>
-
-
-<%@ include file="/taglibs.jsp" %>
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.DemographicContact" %>
-<%
     String id = request.getParameter("id");
 %>
-
 <div id="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>">
-					<input type="hidden" name="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.id" id="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.id" value="<carlos:encode value='<%= id %>' context="htmlAttribute"/>"/>
+    <input type="hidden"
+           name="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.id"
+           id="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.id"
+           value="<carlos:encode value='<%= id %>' context="htmlAttribute"/>"/>
+    <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span class="fw-bold"><fmt:message key="oscarMDS.createLab.testInformation"/></span>
+            <a href="#" onclick="deleteTest(<carlos:encode value='<%= id %>' context="javaScriptAttribute"/>); return false;"
+               class="btn btn-danger btn-sm">
+                <fmt:message key="oscarMDS.createLab.delete"/>
+            </a>
+        </div>
+        <div class="card-body">
+            <%-- Row 1: Date, Flag, Status --%>
+            <div class="row g-2 mb-2">
+                <div class="col-md-4">
+                    <label class="form-label"
+                           for="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.valDate">
+                        <span class="text-danger" aria-hidden="true">*</span> <fmt:message key="oscarMDS.createLab.date"/>
+                    </label>
+                    <div class="input-group has-validation">
+                        <input type="text" class="form-control"
+                               name="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.valDate"
+                               id="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.valDate"
+                               required>
+                        <img src="<%=request.getContextPath()%>/images/cal.gif"
+                             id="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.valDate_cal"
+                             class="input-group-text" style="cursor:pointer;">
+                        <div class="invalid-feedback"><fmt:message key="oscarMDS.createLab.validation.testDate"/></div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label"
+                           for="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.flag">
+                        <fmt:message key="oscarMDS.createLab.flag"/>
+                    </label>
+                    <select class="form-select"
+                            name="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.flag"
+                            id="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.flag">
+                        <option value=""><fmt:message key="oscarMDS.createLab.flagNone"/></option>
+                        <option value="A"><fmt:message key="oscarMDS.createLab.flagAbnormal"/></option>
+                        <option value="N"><fmt:message key="oscarMDS.createLab.flagNormal"/></option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label"
+                           for="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.stat">
+                        <fmt:message key="oscarMDS.createLab.status"/>
+                    </label>
+                    <select class="form-select"
+                            name="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.stat"
+                            id="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.stat">
+                        <option value="F"><fmt:message key="oscarMDS.createLab.statusFinal"/></option>
+                        <option value="P"><fmt:message key="oscarMDS.createLab.statusPartial"/></option>
+                    </select>
+                </div>
+            </div>
 
-					<fieldset>
-                <legend>Test Information</legend>
+            <%-- Row 2: Code Type, Code, Name, Description --%>
+            <div class="row g-2 mb-2">
+                <div class="col-md-3">
+                    <label class="form-label"
+                           for="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.codeType">
+                        <fmt:message key="oscarMDS.createLab.codeType"/>
+                    </label>
+                    <select class="form-select"
+                            name="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.codeType"
+                            id="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.codeType">
+                        <option value="ST"><fmt:message key="oscarMDS.createLab.codeTypeShortText"/></option>
+                        <option value="FT"><fmt:message key="oscarMDS.createLab.codeTypeFormattedText"/></option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label"
+                           for="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.code">
+                        <fmt:message key="oscarMDS.createLab.code"/>
+                    </label>
+                    <input type="text" class="form-control"
+                           name="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.code"
+                           id="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.code"/>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label"
+                           for="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.lab_test_name">
+                        <span class="text-danger" aria-hidden="true">*</span> <fmt:message key="oscarMDS.createLab.testName"/>
+                    </label>
+                    <input type="text" class="form-control"
+                           name="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.lab_test_name"
+                           id="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.lab_test_name"
+                           required>
+                    <div class="invalid-feedback"><fmt:message key="oscarMDS.createLab.validation.testName"/></div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label"
+                           for="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.test_descr">
+                        <fmt:message key="oscarMDS.createLab.testDescription"/>
+                    </label>
+                    <input type="text" class="form-control"
+                           name="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.test_descr"
+                           id="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.test_descr"/>
+                </div>
+            </div>
 
-                <table border="0" class="lab-test-table">
-					<tr>
-						<td  class="input-group"><label>Date:</label><input type="text" name="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.valDate" id="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.valDate" class="form-control" required><img src="<%=request.getContextPath()%>/images/cal.gif" id="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.valDate_cal" class="input-group-text" required></td>
-						<td><label>Flag:</label>
-                 		<select name="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.flag" id="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.flag">
-                        	<option value="">None</option>
-                            <option value="A">Abnormal</option>
-                            <option value="N">Normal</option>
-                        </select>
-                     </td>
-                     <td><label>Status:</label>
- 						<select name="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.stat" id="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.stat">
-                    		<option value="F">Final</option>
-                   			<option value="P">Partial</option>
-                        </select>
-                    </td>
-                 		</tr>
+            <%-- Row 3: Value, Unit, Ref Range Low, Ref Range High, Ref Range Text --%>
+            <div class="row g-2 mb-2">
+                <div class="col-md-2">
+                    <label class="form-label"
+                           for="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.codeVal">
+                        <fmt:message key="oscarMDS.createLab.value"/>
+                    </label>
+                    <input type="text" class="form-control"
+                           name="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.codeVal"
+                           id="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.codeVal"/>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label"
+                           for="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.codeUnit">
+                        <fmt:message key="oscarMDS.createLab.unit"/>
+                    </label>
+                    <input type="text" class="form-control"
+                           name="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.codeUnit"
+                           id="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.codeUnit"/>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label"
+                           for="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.refRangeLow">
+                        <fmt:message key="oscarMDS.createLab.refRangeLow"/>
+                    </label>
+                    <input type="text" class="form-control"
+                           name="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.refRangeLow"
+                           id="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.refRangeLow"/>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label"
+                           for="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.refRangeHigh">
+                        <fmt:message key="oscarMDS.createLab.refRangeHigh"/>
+                    </label>
+                    <input type="text" class="form-control"
+                           name="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.refRangeHigh"
+                           id="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.refRangeHigh"/>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label"
+                           for="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.refRangeText">
+                        <fmt:message key="oscarMDS.createLab.refRangeText"/>
+                    </label>
+                    <input type="text" class="form-control"
+                           name="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.refRangeText"
+                           id="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.refRangeText"/>
+                </div>
+            </div>
 
-                	<tr>
-
-                		<td><label>Code Type:</label>
-                			<select name="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.codeType" id="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.codeType">
-                            	<option value="ST">ST-short text</option>
-                                <option value="FT">FT-formatted text</option>
-                            </select>
-                        </td>
-                  	<td><label>Code:</label><input type="text" name="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.code" size="10" id="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.code"/></td>
-                  	<td><label>Name:</label><input type="text" name="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.lab_test_name" size="15" id="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.lab_test_name" required></td>
-                 	<td colspan="2"><label>Description:</label><input type="text" name="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.test_descr" size="40" id="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.test_descr"/></td>
-
-                  </tr>
-
-
-                 <tr>
-                 	<td><label>Value:</label><input type="text" name="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.codeVal" size="10" id="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.codeVal"/></td>
-                 	<td><label>Unit:</label><input type="text" name="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.codeUnit" size="10" id="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.codeUnit"/></td>
-                 </tr>
-
-                 <tr>
-                 	<td><label>refRange (low):</label><input type="text" name="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.refRangeLow" id="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.refRangeLow" size="5"/></td>
-                 	<td><label>refRange (high):</label><input type="text" name="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.refRangeHigh" id="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.refRangeHigh" size="5"/></td>
-                 	<td><label>refRange (text):</label><input type="text" name="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.refRangeText" id="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.refRangeText" size="15"/></td>
-                 </tr>
-
- 			     <tr>
- 			     	<td valign="top"><label>Lab Notes:</label><textarea name="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.labnotes" id="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.labnotes" rows="5" cols="30"></textarea></td>
- 			     	<td valign="top">
- 			     		<label>Blocked Test Result:</label>
- 			     		<select name="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.blocked" id="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.blocked">
- 			     			<option value="">No</option>
- 			     			<option value="BLOCKED">Yes</option>
- 			     		</select>
- 			     	</td>
- 			     </tr>
-
-                </table>
-
-                <a href="#" onclick="deleteTest(<carlos:encode value='<%= id %>' context="javaScriptAttribute"/>); return false;" class="btn btn-danger" style="width: 80px; margin-top: 10px;">Delete</a>
-
-		       </fieldset>
-		       <script>
-			       Calendar.setup({ inputField : "test_<carlos:encode value='<%= id %>' context="javaScript"/>.valDate", ifFormat : "%Y-%m-%d %H:%m", showsTime :true, button : "test_<carlos:encode value='<%= id %>' context="javaScript"/>.valDate_cal" });
-
-    </script>
+            <%-- Row 4: Lab Notes, Blocked Test Result --%>
+            <div class="row g-2">
+                <div class="col-md-6">
+                    <label class="form-label"
+                           for="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.labnotes">
+                        <fmt:message key="oscarMDS.createLab.labNotes"/>
+                    </label>
+                    <textarea class="form-control" rows="4"
+                              name="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.labnotes"
+                              id="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.labnotes"></textarea>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label"
+                           for="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.blocked">
+                        <fmt:message key="oscarMDS.createLab.blockedResult"/>
+                    </label>
+                    <select class="form-select"
+                            name="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.blocked"
+                            id="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.blocked">
+                        <option value=""><fmt:message key="oscarMDS.createLab.blockedNo"/></option>
+                        <option value="BLOCKED"><fmt:message key="oscarMDS.createLab.blockedYes"/></option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
+<script>
+    Calendar.setup({
+        inputField: "test_<carlos:encode value='<%= id %>' context="javaScript"/>.valDate",
+        ifFormat: "%Y-%m-%d %H:%M",
+        showsTime: true,
+        button: "test_<carlos:encode value='<%= id %>' context="javaScript"/>.valDate_cal"
+    });
+</script>

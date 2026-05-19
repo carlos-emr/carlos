@@ -1,6 +1,7 @@
-<%@ page import="io.github.carlos_emr.CarlosProperties" %><%--
-
+<%--
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2006-. OSCARservice, OpenSoft System. All Rights Reserved.
+
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -16,32 +17,32 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
-    Now maintained by the CARLOS EMR Project (2026+).
+    CARLOS EMR Project
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
+--%>
+<%--
+  Purpose: Supports billingOBECEA in the Ontario billing workflow.
+  Keep request setup in the paired action and use CARLOS encoding helpers
+  for dynamic output rendered by the page.
+--%>
+<%--
+    billingOBECEA.jsp (view) - Ontario EDT OBEC Response Report Generator.
+    Rendered by BillingDocumentErrorReportUpload2Action on the "error" result
+    so the operator can re-upload an OBEC response file. Auth and any
+    project_home / homepath wiring is handled upstream by the action and
+    by CarlosProperties; this view is purely presentational.
+    @since 2006
 --%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
-
-<% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
-<%
-    if (session.getAttribute("user") == null)
-        response.sendRedirect(request.getContextPath() + "/logoutPage");
-
-    String user_no;
-    user_no = (String) session.getAttribute("user");
-    String docdownload = oscarVariables.getProperty("project_home");
-    ;
-    session.setAttribute("homepath", docdownload);
-
-%>
 <!DOCTYPE html>
 <html>
     <head>
 
-        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
 
         <title>EDT OBEC Response Report Generator</title>
     </head>
@@ -55,16 +56,32 @@
 
         <div class="alert alert-danger">
 
-            <% 
-    java.util.List<String> actionErrors = (java.util.List<String>) request.getAttribute("actionErrors");
-    if (actionErrors != null && !actionErrors.isEmpty()) {
-%>
-    <div class="action-errors">
-        <% for (String error : actionErrors) { %>
-            <p><%= error %></p>
-        <% } %>
-    </div>
-<% } %>
+            <c:if test="${not empty actionErrors}">
+                <div class="action-errors">
+                    <c:forEach var="error" items="${actionErrors}">
+                        <p><carlos:encode value="${error}" context="html"/></p>
+                    </c:forEach>
+                </div>
+            </c:if>
+
+            <c:if test="${not empty obecApplyResult}">
+                <div class="obec-apply-result">
+                    <p>
+                        OBEC output apply updated
+                        ${carlos:forHtml(obecApplyResult.appliedCount)}
+                        demographic record(s) and skipped
+                        ${carlos:forHtml(obecApplyResult.skippedCount)}
+                        row(s).
+                    </p>
+                    <c:if test="${not empty obecApplyResult.reasons}">
+                        <ul>
+                            <c:forEach var="reason" items="${obecApplyResult.reasons}">
+                                <li>${carlos:forHtml(reason)}</li>
+                            </c:forEach>
+                        </ul>
+                    </c:if>
+                </div>
+            </c:if>
         </div>
 
         <div class="card card-body bg-body-tertiary">

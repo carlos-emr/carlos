@@ -1,7 +1,7 @@
-<!DOCTYPE html>
 <%--
-
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2006-. OSCARservice, OpenSoft System. All Rights Reserved.
+
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -17,304 +17,33 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
-    Now maintained by the CARLOS EMR Project (2026+).
+    CARLOS EMR Project
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
 --%>
-<%
-    if (session.getAttribute("user") == null) {
-        response.sendRedirect(request.getContextPath() + "/logoutPage");
-    }
-%>
-<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp"
-         import="java.util.*,java.sql.*,io.github.carlos_emr.*,java.text.*, java.lang.*,java.net.*" %>
-
-<%@ page
-        import="io.github.carlos_emr.carlos.utility.SpringUtils, io.github.carlos_emr.carlos.commn.dao.CSSStylesDAO, io.github.carlos_emr.carlos.commn.model.CssStyle, java.util.List" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.BillingService" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao" %>
-<%@ page import="io.github.carlos_emr.carlos.billing.CA.ON.model.BillingPercLimit" %>
-<%@ page import="io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingPercLimitDao" %>
-<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
-<%@ page import="io.github.carlos_emr.MyDateFormat" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
-<%
-    BillingServiceDao billingServiceDao = SpringUtils.getBean(BillingServiceDao.class);
-    BillingPercLimitDao billingPercLimitDao = SpringUtils.getBean(BillingPercLimitDao.class);
-
-    int serviceCodeLen = 5;
-    String msg = "Type in a service code and search first to see if it is available.";
-    String alert = "info";
-    String action = "search"; // add/edit
-    String action2 = ""; //add a new record even if code already exists
-    //BillingServiceCode serviceCodeObj = new BillingServiceCode();
-    Properties prop = new Properties();
-    LinkedHashMap codes = new LinkedHashMap();
-
-    List<CssStyle> styles = new ArrayList<CssStyle>();
-    if (request.getParameter("submitFrm") != null && (request.getParameter("submitFrm").equals("Save") || request.getParameter("submitFrm").equalsIgnoreCase("Add Service Code"))) {
-        // check the input data
-        // if input the perc code,
-        String valuePara = request.getParameter("value");
-        if (request.getParameter("percentage").length() > 0 && valuePara.trim().equals("")) {
-            valuePara = ".00";
-        }
-
-        if (request.getParameter("action").startsWith("edit")) {
-            // update the service code
-
-            String serviceCode = request.getParameter("service_code");
-            String billingservice_no = request.getParameter("billingservice_no");
-            if (serviceCode.equals(request.getParameter("action").substring("edit".length()))) {
-                BillingService bs = null;
-                if (billingservice_no != null) {
-                    bs = billingServiceDao.find(Integer.parseInt(billingservice_no));
-                } else {
-                    List<BillingService> bsList = billingServiceDao.findByServiceCode(serviceCode);
-                    if (!bsList.isEmpty()) {
-                        bs = bsList.get(0);
-                    } else {
-                        msg = SafeEncode.forHtml(serviceCode) + " is not updated. Action failed! Try edit it again.";
-                        action = "search";
-                        alert = "error";
-                    }
-                }
-                if (bs != null) {
-                    bs.setDescription(request.getParameter("description"));
-                    bs.setValue(valuePara);
-                    bs.setPercentage(request.getParameter("percentage"));
-                    bs.setBillingserviceDate(MyDateFormat.getSysDate(request.getParameter("billingservice_date")));
-                    bs.setSliFlag("true".equals(request.getParameter("sliFlag")) ? true : false);
-                    bs.setTerminationDate(MyDateFormat.getSysDate(request.getParameter("termination_date")));
-
-                    String servicecodeStyle = request.getParameter("servicecode_style");
-                    String styleId;
-                    String[] tmp;
-                    if (!servicecodeStyle.startsWith("-1")) {
-                        tmp = servicecodeStyle.split(",");
-                        bs.setDisplayStyle(Integer.parseInt(tmp[0]));
-                    } else {
-                        bs.setDisplayStyle(null);
-                    }
-
-
-                    if (request.getParameter("percentage").length() > 1 && request.getParameter("min").length() > 1 && request.getParameter("max").length() > 1) {
-                        List<BillingPercLimit> percLimits = billingPercLimitDao.findByServiceCode(serviceCode);
-                        if (percLimits.size() == 0) {
-                            BillingPercLimit percLimit = new BillingPercLimit();
-                            percLimit.setService_code(serviceCode);
-                            percLimit.setMin(request.getParameter("min"));
-                            percLimit.setMax(request.getParameter("max"));
-                            percLimit.setEffective_date(MyDateFormat.getSysDate(request.getParameter("billingservice_date")));
-                            billingPercLimitDao.persist(percLimit);
-                        } else {
-                            BillingPercLimit percLimit = billingPercLimitDao.findByServiceCodeAndEffectiveDate(serviceCode, MyDateFormat.getSysDate(request.getParameter("billingservice_date")));
-                            if (percLimit != null) {
-                                percLimit.setMin(request.getParameter("min"));
-                                percLimit.setMax(request.getParameter("max"));
-                                billingPercLimitDao.merge(percLimit);
-                            }
-                        }
-
-                    }
-
-                    billingServiceDao.merge(bs);
-                    msg = SafeEncode.forHtml(serviceCode) + " is updated.<br>" + "Type in a service code and search first to see if it is available.";
-                    alert = "success";
-                    action = "search";
-                    prop.setProperty("service_code", serviceCode);
-                } else {
-                    msg = SafeEncode.forHtml(serviceCode) + " is not updated. Action failed! Try edit it again.";
-                    alert = "error";
-                    action = "edit" + serviceCode;
-                    prop.setProperty("service_code", serviceCode);
-                    prop.setProperty("description", request.getParameter("description"));
-                    prop.setProperty("value", request.getParameter("value"));
-                    prop.setProperty("percentage", request.getParameter("percentage"));
-                    prop.setProperty("billingservice_date", request.getParameter("billingservice_date"));
-                    prop.setProperty("sliFlag", request.getParameter("sliFlag"));
-                }
-
-            } else {
-                msg = "You can not save the service code - " + SafeEncode.forHtml(serviceCode) + ". Please search the service code first.";
-                alert = "error";
-                action = "search";
-                prop.setProperty("service_code", serviceCode);
-            }
-
-        } else if (request.getParameter("action").startsWith("add")) {
-            String serviceCode = request.getParameter("service_code");
-            if (serviceCode.equals(request.getParameter("action").substring("add".length()))) {
-                BillingService bs = new BillingService();
-                bs.setServiceCompositecode("");
-                bs.setServiceCode(serviceCode);
-                bs.setDescription(request.getParameter("description"));
-                bs.setValue(valuePara);
-                bs.setPercentage(request.getParameter("percentage"));
-                bs.setBillingserviceDate(MyDateFormat.getSysDate(request.getParameter("billingservice_date")));
-                bs.setSpecialty("");
-                bs.setRegion("ON");
-                bs.setAnaesthesia("00");
-                bs.setTerminationDate(MyDateFormat.getSysDate(request.getParameter("termination_date")));
-                bs.setSliFlag("true".equals(request.getParameter("sliFlag")) ? true : false);
-
-                String servicecodeStyle = request.getParameter("servicecode_style");
-                String styleId;
-                String[] tmp;
-                if (!servicecodeStyle.startsWith("-1")) {
-                    tmp = servicecodeStyle.split(",");
-                    bs.setDisplayStyle(Integer.parseInt(tmp[0]));
-                }
-                bs.setGstFlag(false);
-
-                if (request.getParameter("percentage").length() > 1 && request.getParameter("min").length() > 1 && request.getParameter("max").length() > 1) {
-                    BillingPercLimit bpl = new BillingPercLimit();
-                    bpl.setService_code(serviceCode);
-                    bpl.setMin(request.getParameter("min"));
-                    bpl.setMax(request.getParameter("max"));
-                    bpl.setEffective_date(MyDateFormat.getSysDate(request.getParameter("billingservice_date")));
-                    billingPercLimitDao.persist(bpl);
-                }
-
-                // Check that service date is unique for service code
-                List scadList = billingServiceDao.findByServiceCodeAndDate(bs.getServiceCode(), bs.getBillingserviceDate());
-                if (!scadList.isEmpty()) {
-                    msg = "The selected Service Code has an entry for this Issue Date. <br> Select new issue date, or use 'Save' to update the existing entry.";
-                    alert = "error";
-                    prop.setProperty("service_code", serviceCode);
-                    prop.setProperty("description", StringUtils.noNull(bs.getDescription()));
-                    prop.setProperty("value", StringUtils.noNull(bs.getValue()));
-                    prop.setProperty("percentage", StringUtils.noNull(bs.getPercentage()));
-                    prop.setProperty("billingservice_date", StringUtils.noNull(MyDateFormat.getMyStandardDate(bs.getBillingserviceDate())));
-                    prop.setProperty("sliFlag", StringUtils.noNull(bs.getSliFlag().toString()));
-                    prop.setProperty("termination_date", StringUtils.noNull(MyDateFormat.getMyStandardDate(bs.getTerminationDate())));
-                    action = "edit" + serviceCode;
-                    action2 = "add" + serviceCode;
-                } else {
-                    billingServiceDao.persist(bs);
-
-                    msg = SafeEncode.forHtml(serviceCode) + " is added.<br>" + "Type in a service code and search first to see if it is available.";
-                    alert = "success";
-                    action = "search";
-                    prop.setProperty("service_code", serviceCode);
-                }
-
-            } else {
-                msg = "You can not save the service code - " + SafeEncode.forHtml(serviceCode) + ". Please search the service code first.";
-                alert = "error";
-                action = "search";
-                prop.setProperty("service_code", serviceCode);
-            }
-        } else {
-            msg = "You can not save the service code. Please search the service code first.";
-            alert = "error";
-        }
-    } else if (request.getParameter("submitFrm") != null && request.getParameter("submitFrm").equals("Search")) {
-        // check the input data
-        if (request.getParameter("service_code") == null || request.getParameter("service_code").length() != serviceCodeLen) {
-            msg = "Please type in a right service code.";
-            alert = "warning";
-        } else {
-            String serviceCode = request.getParameter("service_code");
-
-            List<BillingService> bsList = billingServiceDao.findByServiceCode(serviceCode);
-            String tmp;
-            int count = 0;
-            for (BillingService bs : bsList) {
-                count++;
-
-                codes.put(MyDateFormat.getMyStandardDate(bs.getBillingserviceDate()), bs.getId().toString());
-                if (count == 1) {
-                    prop.setProperty("service_code", serviceCode);
-                    prop.setProperty("description", StringUtils.noNull(bs.getDescription()));
-                    prop.setProperty("value", StringUtils.noNull(bs.getValue()));
-                    prop.setProperty("percentage", StringUtils.noNull(bs.getPercentage()));
-                    prop.setProperty("billingservice_date", StringUtils.noNull(MyDateFormat.getMyStandardDate(bs.getBillingserviceDate())));
-                    prop.setProperty("sliFlag", StringUtils.noNull(bs.getSliFlag().toString()));
-                    prop.setProperty("termination_date", StringUtils.noNull(MyDateFormat.getMyStandardDate(bs.getTerminationDate())));
-                    if (bs.getDisplayStyle() != null)
-                        prop.setProperty("displaystyle", StringUtils.noNull(bs.getDisplayStyle().toString()));
-                    msg = "You can edit the service code by clicking 'Save' or add a new entry for this code by clicking 'Add Service Code'";
-                    action = "edit" + serviceCode;
-                    action2 = "add" + serviceCode;
-
-                    BillingPercLimit bpl = billingPercLimitDao.findByServiceCodeAndEffectiveDate(serviceCode, MyDateFormat.getSysDate(prop.getProperty("billingservice_date")));
-                    if (bpl != null) {
-                        prop.setProperty("min", bpl.getMin());
-                        prop.setProperty("max", bpl.getMax());
-                    }
-                }
-            }
-
-            CSSStylesDAO cssStylesDao = (CSSStylesDAO) SpringUtils.getBean(CSSStylesDAO.class);
-            styles = cssStylesDao.findAll();
-
-            if (count == 0) {
-                prop.setProperty("service_code", serviceCode);
-                msg = "It is a NEW service code. You can add it.";
-                alert = "success";
-                action = "add" + serviceCode;
-            }
-        }
-    } else if (request.getParameter("action") != null && request.getParameter("action").startsWith("single")) {
-        String serviceCode = request.getParameter("service_code");
-
-        int serviceNo = Integer.parseInt(request.getParameter("billingservice_no"));
-
-        BillingService bs = billingServiceDao.find(serviceNo);
-
-        String tmp;
-        int count = 0;
-
-        if (bs != null) {
-            ++count;
-            codes.put(MyDateFormat.getMyStandardDate(bs.getBillingserviceDate()), bs.getId().toString());
-
-            if (serviceNo == bs.getId().intValue()) {
-                prop.setProperty("service_code", serviceCode);
-                prop.setProperty("description", StringUtils.noNull(bs.getDescription()));
-                prop.setProperty("value", StringUtils.noNull(bs.getValue()));
-                prop.setProperty("percentage", StringUtils.noNull(bs.getPercentage()));
-                prop.setProperty("billingservice_date", StringUtils.noNull(MyDateFormat.getMyStandardDate(bs.getBillingserviceDate())));
-                prop.setProperty("sliFlag", StringUtils.noNull(bs.getSliFlag().toString()));
-                prop.setProperty("termination_date", StringUtils.noNull(MyDateFormat.getMyStandardDate(bs.getTerminationDate())));
-                if (bs.getDisplayStyle() != null)
-                    prop.setProperty("displaystyle", StringUtils.noNull(bs.getDisplayStyle().toString()));
-                msg = "You can edit the service code by clicking 'Save' or add a new entry for this code by clicking 'Add Service Code'";
-                action = "edit" + serviceCode;
-                action2 = "add" + serviceCode;
-
-                BillingPercLimit bpl = billingPercLimitDao.findByServiceCodeAndEffectiveDate(serviceCode, MyDateFormat.getSysDate(prop.getProperty("billingservice_date")));
-                if (bpl != null) {
-                    prop.setProperty("min", bpl.getMin());
-                    prop.setProperty("max", bpl.getMax());
-                }
-            }
-        }
-
-        CSSStylesDAO cssStylesDao = (CSSStylesDAO) SpringUtils.getBean(CSSStylesDAO.class);
-        styles = cssStylesDao.findAll();
-    }
-
-%>
+<%--
+  Purpose: Supports addEditServiceCode in the Ontario billing workflow.
+  Expected request model data includes: addEditModel.
+  Keep request setup in the paired action and use CARLOS encoding helpers
+  for dynamic output rendered by the page.
+--%>
+<!DOCTYPE html>
+<%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <html>
     <head>
         <title><fmt:message key="admin.admin.manageBillingServiceCode"/></title>
-        <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
-        <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
-        <script src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
+        <script type="text/javascript" src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
+        <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
+        <script src="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.js"></script>
 
-        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
-        <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet">
-        <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
+        <link href="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.css" rel="stylesheet">
+        <link rel="stylesheet" href="${pageContext.request.contextPath}/css/fontawesome-all.min.css">
 
         <script type="text/javascript">
 
@@ -333,13 +62,11 @@
             }
 
             function onSearch() {
-                //document.forms[0].submit.value="Search";
                 var ret = checkServiceCode();
                 return ret;
             }
 
             function onSave() {
-                //document.forms[0].submit.value="Save";
                 var ret = checkServiceCode();
                 if (ret == true) {
                     ret = checkAllFields();
@@ -360,7 +87,6 @@
             }
 
             function isServiceCode(s) {
-                // temp for 0.
                 if (s.length == 0) return true;
                 if (s.length != 5) return false;
                 if ((s.charAt(0) < "A") || (s.charAt(0) > "Z")) return false;
@@ -368,7 +94,6 @@
 
                 var i;
                 for (i = 1; i < s.length - 1; i++) {
-                    // Check that current character is number.
                     var c = s.charAt(i);
                     if (((c < "0") || (c > "9"))) return false;
                 }
@@ -414,19 +139,16 @@
             function isNumber(s) {
                 var i;
                 for (i = 0; i < s.length; i++) {
-                    // Check that current character is number.
                     var c = s.charAt(i);
                     if (c == ".") continue;
                     if (((c < "0") || (c > "9"))) return false;
                 }
-                // All characters are numbers.
                 return true;
             }
 
             function upCaseCtrl(ctrl) {
                 ctrl.value = ctrl.value.toUpperCase();
             }
-
 
             function fetchBillService(billno) {
                 document.getElementById('action').value = "single" + billno;
@@ -460,48 +182,40 @@
     <body onLoad="setfocus()">
     <h3><fmt:message key="admin.admin.manageBillingServiceCode"/></h3>
 
-
     <div class="container-fluid card card-body bg-body-tertiary">
 
-        <div class="alert alert-<carlos:encode value='<%= alert %>' context="htmlAttribute"/>">
-            <%=msg%>
+        <div class="alert alert-<carlos:encode value="${addEditModel.alert}" context="htmlAttribute"/>">
+            <%-- The assembler builds the message with HTML escape on the user-controlled
+                 service-code value (via SafeEncode.forHtml) — render raw so the trailing
+                 "<br>" + prompt text remains visible. Same as the legacy JSP. --%>
+            ${addEditModel.message}
         </div>
 
-        <form method="post" id="baseurl" name="baseurl" action="/billing/CA/ON/AddEditServiceCode">
+        <form method="post" id="baseurl" name="baseurl" action="${pageContext.request.contextPath}/billing/CA/ON/AddEditServiceCode">
 
             <div class="col-md-10">
                 Service Code <small>5 Characters, e.g. A001A</small><br>
                 <div class="input-group">
-                    <input type="text" name="service_code" value="<carlos:encode value='<%= prop.getProperty("service_code", "") %>' context="htmlAttribute"/>"
+                    <input type="text" name="service_code" value="<carlos:encode value="${addEditModel.prop['service_code']}" context="htmlAttribute"/>"
                            class="col-md-2" maxlength='5' onblur="upCaseCtrl(this)"/>
                     <button class="btn btn-primary" type="submit" name="submitFrm" value="Search"
                             onclick="javascript:return onSearch();">Search
                     </button>
                 </div>
                 <br/>
-                <%
-                    if (codes.size() > 1) {
-                        Set dates = codes.keySet();
-                        Iterator<String> i = dates.iterator();
-                        String date;
-                %>
+                <c:if test="${fn:length(addEditModel.codes) > 1}">
                 Edit Entry<br>
                 <select name="billingservice_no" onchange="fetchBillService(this.options[this.selectedIndex].value);">
-                    <%
-                        while (i.hasNext()) {
-                            date = i.next();
-                    %>
-                    <option value="<carlos:encode value='<%= String.valueOf(codes.get(date)) %>' context="htmlAttribute"/>" <%=prop.getProperty("billingservice_date", "").equalsIgnoreCase(date) ? "selected" : ""%>><carlos:encode value='<%= date %>' context="html"/>
-                                <%}%>
+                    <c:forEach var="__c" items="${addEditModel.codes}">
+                    <option value="<carlos:encode value='${__c.value}' context='htmlAttribute'/>" <c:if test="${addEditModel.prop['billingservice_date'] == __c.key}">selected</c:if>><carlos:encode value="${__c.key}" context="html"/></option>
+                    </c:forEach>
                 </select>
-
-                <%}%>
+                </c:if>
             </div>
-
 
             <div class="col-md-10">
                 Description <small>50 Characters</small><br>
-                <textarea name="description" class="form-control"><carlos:encode value='<%= prop.getProperty("description", "") %>' context="html"/></textarea>
+                <textarea name="description" class="form-control"><carlos:encode value="${addEditModel.prop['description']}" context="html"/></textarea>
             </div>
 
             <div class="col-md-10">
@@ -509,15 +223,9 @@
                 <select id="servicecode_style" name="servicecode_style" class="form-select"
                         onchange="displayStyleText(this.options[this.selectedIndex].value);" title="CSS Style Viewer">
                     <option value="-1,None">None</option>
-                    <%
-                        for (CssStyle cssStyle : styles) {
-                    %>
-                    <option value="<carlos:encode value='<%= cssStyle.getId()+","+cssStyle.getStyle() %>' context="htmlAttribute"/>" <%=prop.getProperty("displaystyle", "").equals(cssStyle.getId().toString()) ? "selected" : ""%>><carlos:encode value='<%= cssStyle.getName() %>' context="html"/>
-                    </option>
-                    <%
-                        }
-
-                    %>
+                    <c:forEach var="__cs" items="${addEditModel.cssStyles}">
+                    <option value="<carlos:encode value='${__cs.id}' context='htmlAttribute'/>,<carlos:encode value='${__cs.style}' context='htmlAttribute'/>" <c:if test="${addEditModel.prop['displaystyle'] == __cs.id}">selected</c:if>><carlos:encode value="${__cs.name}" context="html"/></option>
+                    </c:forEach>
                 </select>
                 <br>
                 <textarea id="displayStyle" readonly="readonly" class="form-control"></textarea>
@@ -525,23 +233,23 @@
 
             <div class="col-md-2">
                 Fee <small> e.g. 18.20</small><br>
-                <input type="text" name="value" value="<carlos:encode value='<%= prop.getProperty("value", "") %>' context="htmlAttribute"/>" size='8' maxlength='8'
+                <input type="text" name="value" value="<carlos:encode value="${addEditModel.prop['value']}" context="htmlAttribute"/>" size='8' maxlength='8'
                        pattern="\d+(\.\d{2})?"><br/>
             </div>
 
             <div class="col-md-6">
                 Percentage <small> e.g. 0.20</small><br>
-                <input type="text" name="percentage" value="<carlos:encode value='<%= prop.getProperty("percentage", "") %>' context="htmlAttribute"/>" size='8'
+                <input type="text" name="percentage" value="<carlos:encode value="${addEditModel.prop['percentage']}" context="htmlAttribute"/>" size='8'
                        maxlength='8'>
-                min.<input type="text" name="min" value="<carlos:encode value='<%= prop.getProperty("min", "") %>' context="htmlAttribute"/>" size='7' maxlength='8'>
-                max.<input type="text" name="max" value="<carlos:encode value='<%= prop.getProperty("max", "") %>' context="htmlAttribute"/>" size='7' maxlength='8'>
+                min.<input type="text" name="min" value="<carlos:encode value="${addEditModel.prop['min']}" context="htmlAttribute"/>" size='7' maxlength='8'>
+                max.<input type="text" name="max" value="<carlos:encode value="${addEditModel.prop['max']}" context="htmlAttribute"/>" size='7' maxlength='8'>
             </div>
 
             <div class="col-md-2">
                 <label>Issued Date</label>
                 <div class="input-group">
                     <input type="text" name="billingservice_date" id="billingservice_date"
-                           class="form-control" value="<carlos:encode value='<%= prop.getProperty("billingservice_date", "") %>' context="htmlAttribute"/>"
+                           class="form-control" value="<carlos:encode value="${addEditModel.prop['billingservice_date']}" context="htmlAttribute"/>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
@@ -551,35 +259,29 @@
                 <label>Termination Date</label>
                 <div class="input-group">
                     <input type="text" name="termination_date" id="termination_date"
-                           class="form-control" value="<carlos:encode value='<%= prop.getProperty("termination_date", "9999-12-31") %>' context="htmlAttribute"/>"
+                           class="form-control" value="<carlos:encode value="${addEditModel.terminationDateOrDefault}" context="htmlAttribute"/>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
             </div>
 
-
             <div class="col-md-10">
-                <% String sliFlagValue = prop.getProperty("sliFlag", "0");
-                    sliFlagValue = sliFlagValue.equals("1") || sliFlagValue.equals("true") ? "checked" : "";
-                %>
-                <input type="checkbox" name="sliFlag" id="sliFlag" value="true" <%=sliFlagValue%>> Requires SLI Code
+                <input type="checkbox" name="sliFlag" id="sliFlag" value="true" <c:if test="${addEditModel.sliFlagChecked}">checked</c:if>> Requires SLI Code
             </div>
-
 
             <div class="col-md-10">
                 <br>
-                <input type="hidden" id="action" name="action" value=''> <input class="btn btn-secondary" type="submit"
-                                                                                name="submitFrm"
-                                                                                value="<fmt:message key="admin.resourcebaseurl.btnSave"/>"
-                                                                                onclick="document.getElementById('action').value='<carlos:encode value='<%= action %>' context="javaScript"/>';return onSave();">
+                <input type="hidden" id="action" name="action" value=''>
+                <input class="btn btn-secondary" type="submit"
+                       name="submitFrm"
+                       value="<fmt:message key="admin.resourcebaseurl.btnSave"/>"
+                       onclick="document.getElementById('action').value='<carlos:encode value="${addEditModel.action}" context="javaScript"/>';return onSave();">
 
-                <%
-                    if (!action2.equals("")) {
-                %>
+                <c:if test="${not empty addEditModel.action2}">
                 <input class="btn btn-secondary" type="submit" name="submitFrm"
                        value="<fmt:message key="admin.resourcebaseurl.btnAdd"/>"
-                       onclick="document.getElementById('action').value='<carlos:encode value='<%= action2 %>' context="javaScript"/>';return onSave();">
-                <%}%>
+                       onclick="document.getElementById('action').value='<carlos:encode value="${addEditModel.action2}" context="javaScript"/>';return onSave();">
+                </c:if>
             </div>
 
         </form>

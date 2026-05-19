@@ -129,7 +129,7 @@ public class DemographicAddRecord2Action extends ActionSupport {
         Demographic demographic = new Demographic();
         demographic.setLastName(StringUtils.trimToEmpty(request.getParameter("last_name")));
         demographic.setFirstName(StringUtils.trimToEmpty(request.getParameter("first_name")));
-        demographic.setMiddleNames(StringUtils.trimToEmpty(request.getParameter("middleNames")));
+        demographic.setMiddleNames(normalizeOptionalMiddleNames(request.getParameter("middleNames")));
         demographic.setAlias(request.getParameter("nameUsed"));
         demographic.setPrefName(request.getParameter("nameUsed"));
         demographic.setAddress(request.getParameter("address"));
@@ -234,6 +234,15 @@ public class DemographicAddRecord2Action extends ActionSupport {
             }
         } else {
             demographic.setPatientStatusDate(new Date());
+        }
+
+        List<String> fieldLengthValidationErrors = demographic.validateFieldLengths();
+        if (!fieldLengthValidationErrors.isEmpty()) {
+            logger.warn("DemographicAddRecord2Action: rejected demographic input due to field length limits: {}",
+                    String.join("; ", fieldLengthValidationErrors));
+            request.setAttribute("fieldLengthValidationErrors", fieldLengthValidationErrors);
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return "validationError";
         }
 
         // --- HIN duplicate check ---
@@ -430,5 +439,10 @@ public class DemographicAddRecord2Action extends ActionSupport {
         request.setAttribute("remarks", request.getParameter("remarks"));
 
         return SUCCESS;
+    }
+
+    static String normalizeOptionalMiddleNames(String rawMiddleNames) {
+        String middleNames = StringUtils.trimToEmpty(rawMiddleNames);
+        return "null".equalsIgnoreCase(middleNames) ? "" : middleNames;
     }
 }

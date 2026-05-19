@@ -111,7 +111,7 @@
 
             <% if ((request.getAttribute("success") != null) && (errors.size() == 0)) { %>
             if (elementExists == null) {
-                window.opener.location.href = '<%=request.getContextPath()%>/administration/?show=Forms';
+                window.opener.location.href = '<%=request.getContextPath()%>/administration?show=Forms';
             }
             <%}%>
         </script>
@@ -150,10 +150,11 @@
                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 <fmt:message key="<%=formNameMissing%>"/>
             </div>
-            <%} else if (errors.containsKey("formNameExists")) { %>
+            <%} else if (errors.containsKey("formNameExists")) {
+                String formNameExists = errors.get("formNameExists"); %>
             <div class="alert alert-danger">
                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                <fmt:message key="<%=formNameMissing%>"/>
+                <fmt:message key="<%=formNameExists%>"/>
             </div>
             <%}%>
 
@@ -264,4 +265,3 @@
 
     </body>
 </html>
-

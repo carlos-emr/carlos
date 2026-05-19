@@ -78,7 +78,7 @@ import io.github.carlos_emr.CarlosProperties;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 public class Contact2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -768,7 +768,7 @@ public class Contact2Action extends ActionSupport {
 
             demographicContactId = demographicContact.getId() + "";
 
-            logger.info("Linked contact id {}-{} with demographic {}", LogSanitizer.sanitize(String.valueOf(contactType)), LogSanitizer.sanitize(String.valueOf(contactId)), LogSanitizer.sanitize(String.valueOf(demographic_no))); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            logger.info("Linked contact id {}-{} with demographic {}", LogSafe.sanitize(String.valueOf(contactType)), LogSafe.sanitize(String.valueOf(contactId)), LogSafe.sanitize(String.valueOf(demographic_no))); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
 
             request.setAttribute("demographic_no", demographic_no);
             request.setAttribute("id", demographicContactId);
@@ -985,7 +985,7 @@ public class Contact2Action extends ActionSupport {
         Integer newPharmacyId = pharmacyManager.savePharmacyInfo(loggedInInfo, pharmacyInfo);
 
         // Link to demographic if this is a new contact generated from a demographic.
-        logger.info("Linking new Pharmacy {} to demographic {}", newPharmacyId, LogSanitizer.sanitize(demographic_no)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+        logger.info("Linking new Pharmacy {} to demographic {}", newPharmacyId, LogSafe.sanitize(demographic_no)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
         if (newPharmacyId > 0 && !demographic_no.isEmpty() && currentPharmacyId == 0) {
             pharmacyManager.addPharmacy(loggedInInfo, Integer.parseInt(demographic_no), newPharmacyId, 0);
         }

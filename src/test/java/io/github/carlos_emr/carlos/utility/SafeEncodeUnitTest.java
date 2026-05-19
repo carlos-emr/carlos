@@ -91,6 +91,11 @@ class SafeEncodeUnitTest {
         }
 
         @Test
+        void shouldReturnEmpty_forHtmlContentWithBreaks_whenValueIsNull() {
+            assertThat(SafeEncode.forHtmlContentWithBreaks(null)).isEmpty();
+        }
+
+        @Test
         void shouldReturnEmpty_forHtmlAttribute_whenValueIsNull() {
             assertThat(SafeEncode.forHtmlAttribute(null)).isEmpty();
         }
@@ -232,6 +237,18 @@ class SafeEncodeUnitTest {
                         .as("forHtmlContent(%s)", input)
                         .isEqualTo(Encode.forHtmlContent(input));
             }
+        }
+
+        @Test
+        void shouldEncodeHtmlAndPreserveLineBreaks_forHtmlContentWithBreaks() {
+            String input = "line1\r\n<script>alert('xss')</script>\rline3\n";
+            String expected = Encode.forHtmlContent(input)
+                    .replace("\r\n", "\n")
+                    .replace("\r", "\n")
+                    .replace("\n", "<br/>");
+
+            assertThat(SafeEncode.forHtmlContentWithBreaks(input))
+                    .isEqualTo(expected);
         }
 
         @Test

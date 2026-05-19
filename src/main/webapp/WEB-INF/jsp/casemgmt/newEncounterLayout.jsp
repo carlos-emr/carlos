@@ -609,6 +609,9 @@
 
         <div id="content">
             <jsp:include page="/WEB-INF/jsp/casemgmt/newCaseManagementView.jsp"/>
+            <%-- Clinical notes are part of the first eChart render; CPP AJAX fragments only fill the summary boxes above. --%>
+            <c:set var="eChartLayoutIncludesDependencies" value="true" scope="request"/>
+            <jsp:include page="/WEB-INF/jsp/casemgmt/ChartNotes.jsp"/>
         </div>
     </div>
     <!-- hovering divs -->

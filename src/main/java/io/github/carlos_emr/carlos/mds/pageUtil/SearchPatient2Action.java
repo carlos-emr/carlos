@@ -47,7 +47,7 @@ import org.owasp.encoder.Encode;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 /**
  * Struts2 action that handles the E-Chart button functionality in lab display pages.
@@ -65,7 +65,7 @@ import io.github.carlos_emr.carlos.utility.LogSanitizer;
  * @since 2004-02-04
  */
 public class SearchPatient2Action extends ActionSupport {
-    private static final String PATIENT_SEARCH_URL = "/oscarMDS/ViewPatientSearch?search_mode=search_name&limit1=0&limit2=10";
+    private static final String PATIENT_SEARCH_URL = "/oscarMDS/ViewPatientSearch?search_mode=search_name&limit1=0&limit2=500";
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -119,7 +119,7 @@ public class SearchPatient2Action extends ActionSupport {
 
         // Validate required parameters (name is optional, only used for keyword search)
         if (labNo == null || labType == null) {
-            MiscUtils.getLogger().error("Missing required parameters in SearchPatient2Action: labNo={}, labType={}", LogSanitizer.sanitize(labNo), LogSanitizer.sanitize(labType)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            MiscUtils.getLogger().error("Missing required parameters in SearchPatient2Action: labNo={}, labType={}", LogSafe.sanitize(labNo), LogSafe.sanitize(labType)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             response.sendRedirect(contextPath + PATIENT_SEARCH_URL);
             return NONE;
         }

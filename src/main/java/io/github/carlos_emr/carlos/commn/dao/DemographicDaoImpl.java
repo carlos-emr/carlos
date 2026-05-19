@@ -1,32 +1,31 @@
 /**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
- * <p>
  * Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
+ *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
- * <p>
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- * <p>
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
- * <p>
+ *
  * This software was written for
  * Centre for Research on Inner City Health, St. Michael's Hospital,
  * Toronto, Ontario, Canada
- * <p>
+ *
  * Modifications made by Magenta Health in 2024.
- 
- * <p>
- * Now maintained by the CARLOS EMR Project (2026+).
+ *
+ * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
- * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
@@ -77,7 +76,7 @@ import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 /**
  *
@@ -344,9 +343,19 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
 
     @Override
     public List<Demographic> searchDemographic(String searchStr) {
+        // Defensive: an empty/blank/all-comma input produces a length-0 array
+        // (String.split strips trailing empties at default limit), so guard
+        // every dereference of parts[].
+        if (searchStr == null || searchStr.trim().isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
         String hql = "From Demographic d where ";
         String[] parts = searchStr.split(",");
-        boolean hasFirstName = searchStr.indexOf(",") != -1
+        if (parts.length == 0 || parts[0].trim().isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+        boolean hasFirstName = parts.length > 1
+            && searchStr.indexOf(",") != -1
             && searchStr.trim().indexOf(",") != (searchStr.trim().length() - 1);
 
         if (hasFirstName) {
@@ -1507,16 +1516,32 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
     @Override
     public String getOrderField(String orderBy, boolean nativeQuery) {
         if (!nativeQuery) {
-            orderBy = getOrderField(orderBy);
-        } else {
-            if (orderBy.equals("dob")) {
-                orderBy = "de.year_of_birth, de.month_of_birth, de.date_of_birth ";
-            } else {
-                orderBy = "de." + orderBy;
-            }
+            return getOrderField(orderBy);
         }
 
-        return orderBy;
+        String orderByField = "de.last_name, de.first_name";
+
+        if ("last_name".equals(orderBy) || "last_name, first_name".equals(orderBy)) {
+            orderByField = "de.last_name, de.first_name";
+        } else if ("demographic_no".equals(orderBy)) {
+            orderByField = "de.demographic_no";
+        } else if ("chart_no".equals(orderBy)) {
+            orderByField = "de.chart_no";
+        } else if ("sex".equals(orderBy)) {
+            orderByField = "de.sex";
+        } else if ("dob".equals(orderBy)) {
+            orderByField = "de.year_of_birth, de.month_of_birth, de.date_of_birth";
+        } else if ("provider_no".equals(orderBy)) {
+            orderByField = "de.provider_no";
+        } else if ("roster_status".equals(orderBy)) {
+            orderByField = "de.roster_status";
+        } else if ("patient_status".equals(orderBy)) {
+            orderByField = "de.patient_status";
+        } else if ("phone".equals(orderBy)) {
+            orderByField = "de.phone";
+        }
+
+        return orderByField;
     }
 
     @Override
@@ -2626,14 +2651,14 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
 
         String demographicQuery = generateDemographicSearchQuery(loggedInInfo, searchRequest, params, "count(*)");
 
-        MiscUtils.getLogger().debug("demographicQuery: {}", LogSanitizer.sanitize(demographicQuery, 1000));
+        MiscUtils.getLogger().debug("demographicQuery: {}", LogSafe.sanitize(demographicQuery, 1000));
 
         EntityManager session = entityManager();
             Query sqlQuery = session.createNativeQuery(demographicQuery);
             for (String key : params.keySet()) {
                 sqlQuery.setParameter(key, params.get(key));
-                MiscUtils.getLogger().debug("query param: {}={}", LogSanitizer.sanitize(key),
-                    PHI_PARAM_KEYS.contains(key) ? "[REDACTED]" : LogSanitizer.sanitize(String.valueOf(params.get(key))));
+                MiscUtils.getLogger().debug("query param: {}={}", LogSafe.sanitize(key),
+                    PHI_PARAM_KEYS.contains(key) ? "[REDACTED]" : LogSafe.sanitize(String.valueOf(params.get(key))));
             }
             Integer result = ((Number) sqlQuery.getSingleResult()).intValue();
             return result;

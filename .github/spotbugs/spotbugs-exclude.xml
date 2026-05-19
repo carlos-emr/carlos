@@ -88,4 +88,36 @@
         <Bug pattern="RV_RETURN_VALUE_OF_PUTIFABSENT_IGNORED"/>
     </Match>
 
+    <!--
+      HRM report temp files are created under DOCUMENT_DIR only after the configured directory is
+      normalized and verified as an existing directory. The temp filename prefix is derived from an
+      integer-parsed HRM id, so no request-controlled path segment reaches createTempFile().
+    -->
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.hospitalReportManager.PrintHRMReport2Action"/>
+        <Method name="execute"/>
+    </Match>
+
+    <!--
+      BC billing receipt redirects are built as context-relative application paths, URL-encode every
+      billing_no value, and are validated with RedirectValidationUtils before sendRedirect().
+    -->
+    <Match>
+        <Bug pattern="UNVALIDATED_REDIRECT"/>
+        <Class name="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSaveBilling2Action"/>
+        <Method name="sendReceiptRedirect"/>
+    </Match>
+
+    <!--
+      BC billing rejection bodies are text/plain direct responses with X-Content-Type-Options:
+      nosniff. User-facing values are sanitized before formatting, and the helper is only used after
+      callers set the status/content type for rejection responses.
+    -->
+    <Match>
+        <Bug pattern="XSS_SERVLET"/>
+        <Class name="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSaveBilling2Action"/>
+        <Method name="writeBody"/>
+    </Match>
+
 </FindBugsFilter>

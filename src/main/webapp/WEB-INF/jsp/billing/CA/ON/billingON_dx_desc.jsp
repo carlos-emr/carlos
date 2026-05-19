@@ -1,6 +1,7 @@
 <%--
-
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -16,39 +17,26 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-    This software was written for the
-    Department of Family Medicine
-    McMaster University
-    Hamilton
-    Ontario, Canada
-
-
-    Now maintained by the CARLOS EMR Project (2026+).
+    CARLOS EMR Project
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
 --%>
-
-
+<%--
+  Purpose: Supports billingON_dx_desc in the Ontario billing workflow.
+  Expected request model data includes: dxDescModel.
+  Keep request setup in the paired action and use CARLOS encoding helpers
+  for dynamic output rendered by the page.
+--%>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnDiagDescriptionViewModel" %>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingDiagCodeViewModelAssembler" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ page import="java.util.List" %>
-
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.DiagnosticCode" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
-    DiagnosticCodeDao diagnosticCodeDao = SpringUtils.getBean(DiagnosticCodeDao.class);
-%>
-
-<%
-    String diagnostic_code = request.getParameter("diagnostic_code");
-    String description = "";
-
-    List<DiagnosticCode> results = diagnosticCodeDao.findByDiagnosticCode(diagnostic_code);
-    for (DiagnosticCode result : results) {
-        description = result.getDescription().trim();
+    // ViewBillingOnDiagDesc2Action enforces _billing r and assembles the
+    // truncated description via BillingDiagCodeViewModelAssembler.assembleDescription.
+    BillingOnDiagDescriptionViewModel dxDescModel =
+            (BillingOnDiagDescriptionViewModel) request.getAttribute("dxDescModel");
+    if (dxDescModel == null) {
+        dxDescModel = BillingOnDiagDescriptionViewModel.builder().build();
     }
-
-%>
-
-<%=(!description.equals("") && description.length() > 32) ? description.substring(0, 32) + "..." : description%>
+%><carlos:encode value="${dxDescModel.description}" context="html"/>

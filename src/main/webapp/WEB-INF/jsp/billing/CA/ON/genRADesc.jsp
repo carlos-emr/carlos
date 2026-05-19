@@ -1,6 +1,7 @@
 <%--
-
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2006-. OSCARservice, OpenSoft System. All Rights Reserved.
+
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -16,180 +17,26 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
-    Now maintained by the CARLOS EMR Project (2026+).
+    CARLOS EMR Project
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
 --%>
-
-<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%--
+  Purpose: Supports genRADesc in the Ontario billing workflow.
+  Expected request model data includes: raDescModel.
+  Keep request setup in the paired action and use CARLOS encoding helpers
+  for dynamic output rendered by the page.
+--%>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
-
-<%@page import="io.github.carlos_emr.carlos.util.DateUtils" %>
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Provider,io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.BillingONPremium, io.github.carlos_emr.carlos.commn.dao.BillingONPremiumDao" %>
-
-<%@ page import="java.io.*, java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@ include file="/WEB-INF/jsp/admin/dbconnection.jsp" %>
-
-<%@page import="io.github.carlos_emr.carlos.commn.model.RaHeader" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.RaHeaderDao" %>
-<%@ page import="io.github.carlos_emr.SxmlMisc" %>
-<%
-    RaHeaderDao dao = SpringUtils.getBean(RaHeaderDao.class);
-%>
-
-<%
-    String raNo = "", note = "", htmlContent = "", transaction = "", messages = "";
-    raNo = request.getParameter("rano");
-//note = request.getParameter("note");
-    String filepath = "", filename = "", header = "", headerCount = "", total = "", new_total = "", other_total = "", local_total = "", co_total = "", ob_total = "", paymentdate = "", payable = "", totalStatus = "", deposit = ""; //request.getParameter("filename");
-    String transactiontype = "", providerno = "", specialty = "", account = "", patient_last = "", patient_first = "", provincecode = "", newhin = "", hin = "", ver = "", billtype = "", location = "";
-    String servicedate = "", serviceno = "", servicecode = "", amountsubmit = "", amountpay = "", amountpaysign = "", explain = "", error = "";
-    String proFirst = "", proLast = "", demoFirst = "", demoLast = "", apptDate = "", apptTime = "", checkAccount = "", strcount = "", strtCount = "";
-    String balancefwd = "", abf_ca = "", abf_ad = "", abf_re = "", abf_de = "";
-    String trans_code = "", cheque_indicator = "", trans_date = "", trans_amount = "", trans_message = "";
-    String message = "", message_txt = "";
-    String xml_ra = "", HTMLtransaction = "";
-    int accountno = 0, totalsum = 0, txFlag = 0, recFlag = 0, flag = 0, payFlag = 0, count = 0, tCount = 0, amountPaySum = 0, amountSubmitSum = 0;
-
-    RaHeader rh = dao.find(Integer.parseInt(raNo));
-    if (rh != null && !rh.getStatus().equals("D")) {
-        filename = rh.getFilename();
-        HTMLtransaction = SxmlMisc.getXmlContent(rh.getContent(), "<xml_transaction>", "</xml_transaction>");
-        htmlContent = SxmlMisc.getXmlContent(rh.getContent(), "<xml_balancefwd>", "</xml_balancefwd>");
-        new_total = SxmlMisc.getXmlContent(rh.getContent(), "<xml_total>", "</xml_total>");
-        local_total = SxmlMisc.getXmlContent(rh.getContent(), "<xml_local>", "</xml_local>");
-        other_total = SxmlMisc.getXmlContent(rh.getContent(), "<xml_other_total>", "</xml_other_total>");
-        ob_total = SxmlMisc.getXmlContent(rh.getContent(), "<xml_ob_total>", "</xml_ob_total>");
-        co_total = SxmlMisc.getXmlContent(rh.getContent(), "<xml_co_total>", "</xml_co_total>");
-    }
-
-    filepath = oscarVariables.getProperty("DOCUMENT_DIR").trim();
-    FileInputStream file = new FileInputStream(filepath + filename);
-    InputStreamReader reader = new InputStreamReader(file);
-    BufferedReader input = new BufferedReader(reader);
-    String nextline;
-    while ((nextline = input.readLine()) != null) {
-        header = nextline.substring(0, 1);
-        if (header.compareTo("H") == 0) {
-            headerCount = nextline.substring(2, 3);
-
-            if (headerCount.compareTo("1") == 0) {
-                paymentdate = nextline.substring(21, 29);
-                payable = nextline.substring(29, 59);
-                total = nextline.substring(59, 68);
-                totalStatus = nextline.substring(68, 69);
-                deposit = nextline.substring(69, 77);
-
-                totalsum = Integer.parseInt(total);
-                if (totalsum == 0) {
-                    total = "0.00";
-                } else {
-                    total = String.valueOf(totalsum);
-                    total = total.substring(0, total.length() - 2) + "." + total.substring(total.length() - 2) + totalStatus;
-                }
-            }
-
-            if (headerCount.compareTo("6") == 0) {
-                // balancefwd = "<table width='100%' border='0' cellspacing='0' cellpadding='0'><tr><td colspan='4'>Balance Forward Record - Amount Brought Forward (ABF)</td></tr><tr><td>Claims Adjustment</td><td>Advances</td><td>Reductions</td><td>Deductions</td></tr><tr><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr></table>";
-                abf_ca = nextline.substring(3, 10) + "." + nextline.substring(10, 13);
-                abf_ad = nextline.substring(13, 20) + "." + nextline.substring(20, 23);
-                abf_re = nextline.substring(23, 30) + "." + nextline.substring(30, 33);
-                abf_de = nextline.substring(33, 40) + "." + nextline.substring(40, 43);
-            }
-
-
-            if (headerCount.compareTo("7") == 0) {
-                trans_code = nextline.substring(3, 5);
-                if (trans_code.compareTo("10") == 0) trans_code = "Advance";
-                if (trans_code.compareTo("20") == 0) trans_code = "Reduction";
-                if (trans_code.compareTo("30") == 0) trans_code = "Unused";
-                if (trans_code.compareTo("40") == 0) trans_code = "Advance repayment";
-                if (trans_code.compareTo("50") == 0) trans_code = "Accounting adjustment";
-                if (trans_code.compareTo("70") == 0) trans_code = "Attachments";
-                cheque_indicator = nextline.substring(5, 6);
-                if (cheque_indicator.compareTo("M") == 0) cheque_indicator = "Manual Cheque issued";
-                if (cheque_indicator.compareTo("C") == 0) cheque_indicator = "Computer Cheque issued";
-                if (cheque_indicator.compareTo("I") == 0)
-                    cheque_indicator = "Interim payment Cheque/Direct Bank Deposit issued";
-                if (cheque_indicator.compareTo(" ") == 0 || cheque_indicator.compareTo("N") == 0)
-                    cheque_indicator = "No Cheque issued";
-                trans_date = nextline.substring(6, 14);
-                trans_amount = nextline.substring(14, 20) + "." + nextline.substring(20, 23);
-                trans_message = nextline.substring(23, 73);
-
-                transaction = transaction + "<tr><td width='14%'>" + trans_code + "</td><td width='12%'>" + trans_date + "</td><td width='17%'>" + cheque_indicator + "</td><td width='13%'>" + trans_amount + "</td><td width='44%'>" + trans_message + "</td></tr>";
-            }
-
-            if (headerCount.compareTo("4") == 0) {
-                count = count + 1;
-            }
-
-            if (headerCount.compareTo("5") == 0) {
-                tCount = tCount + 1;
-            }
-
-            if (headerCount.compareTo("8") == 0) {
-                message_txt = message_txt + nextline.substring(3, 73) + "\r\n";
-            }
-        }
-    }
-
-    if (transaction.compareTo("") != 0) {
-        transaction = "<xml_transaction><table width='100%' border='0' cellspacing='0' cellpadding='0'><tr><td colspan='5'>Accounting Transaction Record</td></tr><tr><td width='14%'>Transaction</td><td width='12%'>Transaction Date</td><td width='17%'>Cheque Issued</td><td width='13%'>Amount</td><td width='44%'>Message</td></tr>" + transaction + "</table></xml_transaction>";
-    }
-
-    balancefwd = "<xml_balancefwd><table width='100%' border='0' cellspacing='0' cellpadding='0'><tr><td colspan='4'>Balance Forward Record - Amount Brought Forward (ABF)</td></tr><tr><td>Claims Adjustment</td><td>Advances</td><td>Reductions</td><td>Deductions</td></tr><tr><td>" + abf_ca + "</td><td>" + abf_ad + "</td><td>" + abf_re + "</td><td>" + abf_de + "</td></tr></table></xml_balancefwd>";
-
-    xml_ra = transaction + balancefwd + "<xml_local>" + local_total + "</xml_local>" + "<xml_cheque>" + total + "</xml_cheque>" + "<xml_total>" + new_total + "</xml_total>" + "<xml_other_total>" + other_total + "</xml_other_total>" + "<xml_ob_total>" + ob_total + "</xml_ob_total>" +
-            "<xml_co_total>" + co_total + "</xml_co_total>";
-
-    int rowsAffected1 = 0;
-
-    for (RaHeader r : dao.findByFilenamePaymentDate(filename, paymentdate)) {
-        r.setTotalAmount(total);
-        r.setRecords(String.valueOf(count));
-        r.setClaims(String.valueOf(tCount));
-        r.setContent(xml_ra);
-        dao.merge(r);
-        rowsAffected1++;
-    }
-
-    rh = dao.find(Integer.parseInt(raNo));
-    if (rh != null && !rh.getStatus().equals("D")) {
-        filename = rh.getFilename();
-        HTMLtransaction = SxmlMisc.getXmlContent(rh.getContent(), "<xml_transaction>", "</xml_transaction>");
-        htmlContent = SxmlMisc.getXmlContent(rh.getContent(), "<xml_balancefwd>", "</xml_balancefwd>");
-        new_total = SxmlMisc.getXmlContent(rh.getContent(), "<xml_total>", "</xml_total>");
-        other_total = SxmlMisc.getXmlContent(rh.getContent(), "<xml_other_total>", "</xml_other_total>");
-        local_total = SxmlMisc.getXmlContent(rh.getContent(), "<xml_local>", "</xml_local>");
-        ob_total = SxmlMisc.getXmlContent(rh.getContent(), "<xml_ob_total>", "</xml_ob_total>");
-        co_total = SxmlMisc.getXmlContent(rh.getContent(), "<xml_co_total>", "</xml_co_total>");
-    }
-
-    file.close();
-    reader.close();
-    input.close();
-%>
 
 <html>
 <head>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+    <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
     <title>CARLOS EMR</title>
-    <link rel="stylesheet" href="<%= request.getContextPath() %>/web.css">
-    <script LANGUAGE="JavaScript">
-        <!--
-
-
-
-        //-->
-    </script>
+    <link rel="stylesheet" href="${pageContext.request.contextPath}/web.css">
 </head>
 
 <body onLoad="setfocus()" topmargin="0" leftmargin="0" rightmargin="0">
@@ -203,52 +50,67 @@
             Reconcillation Report </font></th>
         <th align="right">
             <form><input type="button"
-                         onClick="popupPage(700,600,'/billing/CA/ON/ViewBillingClipboard')" value="Clipboard"></form>
+                         onClick="popupPage(700,600,'${pageContext.request.contextPath}/billing/CA/ON/ViewBillingClipboard')" value="Clipboard"></form>
         </th>
     </tr>
 </table>
 
 Cheque amount:
-<carlos:encode value='<%= total %>' context="html"/>
+<carlos:encode value="${raDescModel.chequeTotal}" context="html"/>
 <br>
-<%="Local clinic "%>:
-<carlos:encode value='<%= local_total %>' context="html"/>
+Local clinic :
+<carlos:encode value="${raDescModel.localTotal}" context="html"/>
 <br>
 Other clinic :
-<carlos:encode value='<%= other_total %>' context="html"/><br>
+<carlos:encode value="${raDescModel.otherTotal}" context="html"/><br>
 
 OB Total :
-<carlos:encode value='<%= ob_total %>' context="html"/><br>
+<carlos:encode value="${raDescModel.obTotal}" context="html"/><br>
 Colposcopy Total :
-<carlos:encode value='<%= co_total %>' context="html"/><br>
+<carlos:encode value="${raDescModel.coTotal}" context="html"/><br>
+
+<c:if test="${raDescModel.raFileIncomplete}">
+    <div class="alert alert-danger">
+        <carlos:encode value="${raDescModel.raFileWarning}" context="html"/>
+    </div>
+</c:if>
 
 <br>
 <br>
 <table bgcolor="#EEEEEE" bordercolor="#666666" border="1">
-    <%=htmlContent%>
+    <tr><td colspan="4">Balance Forward Record - Amount Brought Forward (ABF)</td></tr>
+    <tr><td>Claims Adjustment</td><td>Advances</td><td>Reductions</td><td>Deductions</td></tr>
+    <tr>
+        <td><carlos:encode value="${raDescModel.balanceForwardRow.claimsAdjustment}" context="html"/></td>
+        <td><carlos:encode value="${raDescModel.balanceForwardRow.advances}" context="html"/></td>
+        <td><carlos:encode value="${raDescModel.balanceForwardRow.reductions}" context="html"/></td>
+        <td><carlos:encode value="${raDescModel.balanceForwardRow.deductions}" context="html"/></td>
+    </tr>
 </table>
 <br>
+<c:if test="${not empty raDescModel.transactionRows}">
 <table bgcolor="#EEEEFF" bordercolor="#666666" border="1">
-    <%=transaction%>
+    <tr><td colspan="5">Accounting Transaction Record</td></tr>
+    <tr><td width="14%">Transaction</td><td width="12%">Transaction Date</td>
+        <td width="17%">Cheque Issued</td><td width="13%">Amount</td><td width="44%">Message</td></tr>
+    <c:forEach var="__txn" items="${raDescModel.transactionRows}">
+    <tr>
+        <td width="14%"><carlos:encode value="${__txn.transaction}" context="html"/></td>
+        <td width="12%"><carlos:encode value="${__txn.transactionDate}" context="html"/></td>
+        <td width="17%"><carlos:encode value="${__txn.chequeIssued}" context="html"/></td>
+        <td width="13%"><carlos:encode value="${__txn.amount}" context="html"/></td>
+        <td width="44%"><carlos:encode value="${__txn.message}" context="html"/></td>
+    </tr>
+    </c:forEach>
 </table>
+</c:if>
 
-<%
-    LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-    Integer raHeaderNo = Integer.parseInt(raNo);
-
-    BillingONPremiumDao bPremiumDao = (BillingONPremiumDao) SpringUtils.getBean(BillingONPremiumDao.class);
-    List<BillingONPremium> bPremiumList = bPremiumDao.getRAPremiumsByRaHeaderNo(raHeaderNo);
-    if (bPremiumList.isEmpty()) {
-        bPremiumDao.parseAndSaveRAPremiums(loggedInInfo, raHeaderNo, request.getLocale());
-        bPremiumList = bPremiumDao.getRAPremiumsByRaHeaderNo(raHeaderNo);
-    }
-
-
-    if (!bPremiumList.isEmpty()) {
-%>
-<form action="<%=request.getContextPath() %>/billing/CA/ON/ApplyPractitionerPremium" method="post">
-    <input type="hidden" name="rano" value="<carlos:encode value='<%= raNo %>' context="htmlAttribute"/>"/>
+<c:if test="${not empty raDescModel.premiumRows}">
+<form action="${pageContext.request.contextPath}/billing/CA/ON/ApplyPractitionerPremium" method="post">
+    <input type="hidden" name="rano" value="<carlos:encode value="${raDescModel.raNo}" context="htmlAttribute"/>"/>
     <input type="hidden" name="method" value="applyPremium"/>
+    <%-- Checkbox/select input names are keyed by premiumId so the apply action
+         can update only the practitioner-premium rows the operator selected. --%>
     <h3><fmt:message key="oscar.billing.on.genRADesc.premiumTitle"/></h3>
     <table>
         <thead>
@@ -258,45 +120,19 @@ Colposcopy Total :
         <th style="font-family: helvetica; background-color: #486ebd; color:white;"><fmt:message key="oscar.billing.on.genRADesc.totalMonthlyPayment"/></th>
         <th style="font-family: helvetica; background-color: #486ebd; color:white;"><fmt:message key="oscar.billing.on.genRADesc.paymentDate"/></th>
         </thead>
-        <%
-
-            for (BillingONPremium premium : bPremiumList) {
-                Integer premiumId = premium.getId();
-                ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
-                List<Provider> pList = providerDao.getBillableProvidersByOHIPNo(premium.getProviderOHIPNo());
-                if ((pList != null) && !pList.isEmpty()) {
-                    String isChecked = "";
-                    if (premium.getStatus())
-                        isChecked = "checked";
-        %>
+        <c:forEach var="__row" items="${raDescModel.premiumRows}">
         <tr>
-            <td><input name="choosePremium<%=premiumId%>" type="checkbox" value="Y" <%=isChecked%>/>
-            <td><carlos:encode value='<%= premium.getProviderOHIPNo() %>' context="html"/>
-            </td>
-            <td><select name="providerNo<%=premiumId%>">
-                <%
-                    for (Provider p : pList) {
-                        String selectedChoice = "";
-                        String providerNo = p.getProviderNo();
-                        String premiumProviderNo = premium.getProviderNo();
-                        if (premiumProviderNo != null && providerNo.equals(premiumProviderNo)) {
-                            selectedChoice = "selected=\"selected\"";
-                        }
-                %>
-                <option value="<carlos:encode value='<%= p.getProviderNo() %>' context="htmlAttribute"/>" <%=selectedChoice%>><carlos:encode value='<%= p.getFormattedName() %>' context="html"/>
-                </option>
-                <% } %>
-            </select>
-            </td>
-            <td><carlos:encode value='<%= premium.getAmountPay() %>' context="html"/>
-            </td>
-            <td><carlos:encode value='<%= DateUtils.formatDate(premium.getPayDate(), request.getLocale()) %>' context="html"/>
-            </td>
+            <td><input name="choosePremium<carlos:encode value='${__row.premiumId}' context='htmlAttribute'/>" type="checkbox" value="Y" <c:if test="${__row.checked}">checked</c:if>/>
+            <td><carlos:encode value="${__row.providerOhipNo}" context="html"/></td>
+            <td><select name="providerNo<carlos:encode value='${__row.premiumId}' context='htmlAttribute'/>">
+                <c:forEach var="__opt" items="${__row.providerOptions}">
+                <option value="<carlos:encode value='${__opt.providerNo}' context='htmlAttribute'/>" <c:if test="${__opt.selected}">selected="selected"</c:if>><carlos:encode value="${__opt.formattedName}" context="html"/></option>
+                </c:forEach>
+            </select></td>
+            <td><carlos:encode value="${__row.amountPay}" context="html"/></td>
+            <td><carlos:encode value="${__row.payDateStr}" context="html"/></td>
         </tr>
-        <%
-                }
-            }
-        %>
+        </c:forEach>
         <tr>
             <td colspan="5" style="text-align: right"><input type="submit"
                                                              value="<fmt:message key="oscar.billing.on.genRADesc.submitPremium"/>"/>
@@ -304,8 +140,8 @@ Colposcopy Total :
         </tr>
     </table>
 </form>
-<% } %><%--  --%>
-<pre><carlos:encode value='<%= message_txt %>' context="html"/></pre>
+</c:if>
+<pre><carlos:encode value="${raDescModel.messageTxt}" context="html"/></pre>
 
 </body>
 </html>

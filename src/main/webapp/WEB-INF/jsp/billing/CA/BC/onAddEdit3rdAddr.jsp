@@ -1,6 +1,7 @@
 <%--
-
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2006-. OSCARservice, OpenSoft System. All Rights Reserved.
+
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -16,11 +17,13 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
-    Now maintained by the CARLOS EMR Project (2026+).
+    CARLOS EMR Project
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
+--%>
+<%--
+  Page role: Renders `onAddEdit3rdAddr.jsp` for the British Columbia billing workflow.
+  Keep request setup in the paired action and use CARLOS encoding helpers
+  for dynamic output rendered by the page.
 --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -49,15 +52,15 @@
          import="java.util.*,java.sql.*,io.github.carlos_emr.*,java.text.*,java.net.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBilling3rdPartImpl" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.service.BillingThirdPartyService" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <% //
     int serviceCodeLen = 5;
     String msg = "Type in a name and search first to see if it is available.";
     String action = "search"; // add/edit
-    //BillingServiceCode serviceCodeObj = new BillingServiceCode();
     Properties prop = new Properties();
-    JdbcBilling3rdPartImpl dbObj = new JdbcBilling3rdPartImpl();
+    BillingThirdPartyService dbObj = SpringUtils.getBean(BillingThirdPartyService.class);
     if (request.getParameter("submit") != null && request.getParameter("submit").equals("Save")) {
         if (request.getParameter("action").startsWith("edit")) {
             // update the service code
@@ -193,9 +196,13 @@
 
             <!--
             function setfocus() {
-                this.focus();
-                document.forms[0].company_name.focus();
-                document.forms[0].company_name.select();
+                // forms[0] is the saved-company <select> dropdown; forms[1]
+                // is the company-name <input type="text"> on the add/edit
+                // details form. Auto-focus and select-all so the user can
+                // type-to-replace. (Was previously forms[0], which silently
+                // threw because <select> has no .select().)
+                document.forms[1].company_name.focus();
+                document.forms[1].company_name.select();
             }
 
             function onSearch() {

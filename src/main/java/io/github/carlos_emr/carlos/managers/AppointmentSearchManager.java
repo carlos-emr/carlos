@@ -53,12 +53,10 @@ public interface AppointmentSearchManager {
     public List<TimeSlot> findAppointment(LoggedInInfo loggedInInfo, SearchConfig config, Integer demographicNo, Long appointmentTypeId, Calendar startDate);
 
     /**
-     * Thrown when appointment search filter instantiation fails due to
-     * misconfiguration or an unauthorized filter class name.
+     * Thrown when appointment search filter resolution fails due to
+     * misconfiguration or an unauthorized filter key.
      *
-     * <p>This exception wraps {@link ReflectiveOperationException} cases that occur
-     * during reflective instantiation of whitelisted {@code AvailableTimeSlotFilter}
-     * implementations. Callers should handle this as a configuration or system error.</p>
+     * <p>Callers should handle this as a configuration or system error.</p>
      *
      * @since 2026-04-10
      */

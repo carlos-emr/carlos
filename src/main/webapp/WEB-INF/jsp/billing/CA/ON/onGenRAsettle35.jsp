@@ -1,6 +1,7 @@
 <%--
-
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2006-. OSCARservice, OpenSoft System. All Rights Reserved.
+
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -16,111 +17,21 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
-    Now maintained by the CARLOS EMR Project (2026+).
+    CARLOS EMR Project
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
 --%>
-
-<%@ page import="java.math.*, java.util.*, java.io.*, java.sql.*, java.net.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.MyDateFormat"
-         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@ page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
-
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.RaHeader" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.RaHeaderDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.RaDetail" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.RaDetailDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Billing" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingDao" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingRAPrep" %>
-<%
-    RaHeaderDao dao = SpringUtils.getBean(RaHeaderDao.class);
-    BillingDao billingDao = SpringUtils.getBean(BillingDao.class);
-    RaDetailDao raDetailDao = SpringUtils.getBean(RaDetailDao.class);
-%>
-
-
-<%
-    String raNo = "", flag = "", plast = "", pfirst = "", pohipno = "", proNo = "";
-    String filepath = "", filename = "", header = "", headerCount = "", total = "", paymentdate = "", payable = "", totalStatus = "", deposit = ""; //request.getParameter("filename");
-    String transactiontype = "", providerno = "", specialty = "", account = "", patient_last = "", patient_first = "", provincecode = "", hin = "", ver = "", billtype = "", location = "";
-    String servicedate = "", serviceno = "", servicecode = "", amountsubmit = "", amountpay = "", amountpaysign = "", explain = "", error = "";
-    String proFirst = "", proLast = "", demoFirst = "", demoLast = "", apptDate = "", apptTime = "", checkAccount = "";
-    String errorAccount = "", eFlag = "", noErrorAccount = "";
-
-    raNo = request.getParameter("rano") != null ? request.getParameter("rano") : "";
-    if (raNo.compareTo("") == 0) return;
-
-    ArrayList noErrorBill = new ArrayList();
-    ArrayList errorBill = new ArrayList();
-    ArrayList errorBillNoQ = new ArrayList();
-
-
-    for (RaDetail rad : raDetailDao.search_raerror35(Integer.parseInt(raNo), "I2", "35", proNo + "%")) {
-        account = String.valueOf(rad.getBillingNo());
-        errorBill.add(account);
-        if (!rad.getServiceCode().matches("Q011A|Q020A|Q130A|Q131A|Q132A|Q133A|Q140A|Q141A|Q142A")) {
-            errorBillNoQ.add(account);
-        }
-    }
-
-    account = "";
-    List<Integer> res = raDetailDao.search_ranoerror35(Integer.parseInt(raNo), "I2", "35", proNo + "%");
-
-    for (Integer r : res) {
-        account = String.valueOf(r);
-        eFlag = "1";
-        for (int i = 0; i < errorBill.size(); i++) {
-            errorAccount = (String) errorBill.get(i);
-            if (errorAccount.compareTo(account) == 0) {
-                eFlag = "0";
-                break;
-            }
-        }
-
-        if (eFlag.compareTo("1") == 0) noErrorBill.add(account);
-    }
-
-    String[] param0 = new String[2];
-    param0[0] = raNo;
-    param0[1] = proNo + "%";
-
-
-// settle Qcodes
-    account = "";
-    for (Integer r : raDetailDao.search_ranoerrorQ(Integer.parseInt(raNo), proNo + "%")) {
-        account = String.valueOf(r);
-        eFlag = "1";
-        for (int i = 0; i < errorBillNoQ.size(); i++) {
-            errorAccount = (String) errorBillNoQ.get(i);
-            if (errorAccount.compareTo(account) == 0) {
-                eFlag = "0";
-                break;
-            }
-        }
-
-        if (eFlag.compareTo("1") == 0) noErrorBill.add(account);
-    }
-
-    BillingRAPrep obj = new BillingRAPrep();
-    for (int j = 0; j < noErrorBill.size(); j++) {
-        noErrorAccount = (String) noErrorBill.get(j);
-        obj.updateBillingStatus(noErrorAccount, "S");
-
-    }
-
-    int recordAffected1 = 0;
-
-    RaHeader raHeader = dao.find(Integer.parseInt(raNo));
-    if (raHeader != null) {
-        raHeader.setStatus("F");
-        dao.merge(raHeader);
-        recordAffected1++;
-    }
-%>
-
+<%--
+  Purpose: Supports onGenRAsettle35 in the Ontario billing workflow.
+  Keep request setup in the paired action and use CARLOS encoding helpers
+  for dynamic output rendered by the page.
+--%>
+<%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
+<%-- ViewOnGenRaSettle352Action enforces _billing w + POST and runs the
+     I2/35 settle mutation (with Q-code allow-list) via OnRaSettlementService
+     — the 3 inline DAO lookups (RaHeaderDao, BillingDao, RaDetailDao)
+     the JSP body used to perform are now in the assembler. --%>
 <script LANGUAGE="JavaScript">
     self.close();
     self.opener.refresh();

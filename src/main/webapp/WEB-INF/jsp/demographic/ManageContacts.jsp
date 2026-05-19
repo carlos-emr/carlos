@@ -351,8 +351,8 @@
                         <td><c:set var="__enc_1"><carlos:encode value='<%= demographic_no != null ? demographic_no : "" %>' context="htmlAttribute"/></c:set><oscar:nameage demographicNo="${__enc_1}"/></td>
                         <td>&nbsp;</td>
                         <td style="text-align: right"><a
-                                href="javascript:popupStart(300,400,'About.jsp')"><fmt:message key="global.about"/></a> | <a
-                                href="javascript:popupStart(300,400,'License.jsp')"><fmt:message key="global.license"/></a></td>
+                                href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')"><fmt:message key="global.about"/></a> | <a
+                                href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')"><fmt:message key="global.license"/></a></td>
                     </tr>
                 </table>
             </td>

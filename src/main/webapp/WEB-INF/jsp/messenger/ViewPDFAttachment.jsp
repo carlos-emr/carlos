@@ -68,16 +68,17 @@
  */
 --%>
 
-<%@ page
-        import="io.github.carlos_emr.carlos.messenger.docxfer.send.*, io.github.carlos_emr.carlos.messenger.docxfer.util.*, io.github.carlos_emr.carlos.util.*" %>
-<%@ page import="java.util.*, org.w3c.dom.*" %>
+<%@ page import="io.github.carlos_emr.carlos.messenger.docxfer.send.*" %>
+<%@ page import="io.github.carlos_emr.carlos.messenger.docxfer.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.util.*" %>
+<%@ page import="java.util.*" %>
+<%@ page import="org.w3c.dom.*" %>
 <%@ page import="io.github.carlos_emr.carlos.util.Doc2PDF" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<fmt:setBundle basename="oscarResources"/>
-
-
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -103,10 +104,11 @@
     </c:if>
 </c:if>
 
-<link rel="stylesheet" type="text/css" href="encounterStyles.css">
-<html>
+<!DOCTYPE html>
+<html lang="${pageContext.request.locale.language}">
 <head>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+    <meta charset="UTF-8">
+    <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
 
     <%
         // Extract and store PDF attachment data for processing
@@ -116,50 +118,54 @@
 
     <title><fmt:message key="messenger.ViewPDFAttachment.title"/></title>
 </head>
+<fmt:message key="global.btnClose" var="closeLabel"/>
+<body>
+<div class="container-fluid px-2 py-2">
 
+    <%-- Alert banner — hidden by default, shown via JS on error --%>
+    <div id="jsAlertBanner"
+         class="alert alert-danger alert-dismissible"
+         style="display:none"
+         role="alert">
+        <span id="jsAlertText"></span>
+        <button type="button"
+                class="btn-close"
+                onclick="this.closest('.alert').style.display='none'"
+                aria-label="${closeLabel}"></button>
+    </div>
 
-<link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
+    <%-- Page header bar --%>
+    <div class="page-header-bar d-flex align-items-center justify-content-between py-2 mb-2 border-bottom"
+         id="header">
+        <div class="d-flex align-items-center gap-2">
+            <i class="fa-regular fa-paperclip" aria-hidden="true"></i>
+            <span class="fw-semibold"><fmt:message key="messenger.CreateMessage.msgMessenger"/></span>
+        </div>
+        <div class="d-flex align-items-center gap-3">
+            <a href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')" class="small text-decoration-none">
+                <fmt:message key="global.about"/>
+            </a>
+            <a href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')" class="small text-decoration-none">
+                <fmt:message key="global.license"/>
+            </a>
+        </div>
+    </div>
 
-<body class="BodyStyle" vlink="#0000FF">
-<!--  -->
+    <div class="bg-light border rounded p-2">
 
-<table class="MainTable" id="scrollNumber1" name="encounterTable">
-    <tr class="MainTableTopRow">
-        <td class="MainTableTopRowLeftColumn"><fmt:message key="messenger.ViewPDFAttachment.headerMessenger"/></td>
-        <td class="MainTableTopRowRightColumn">
-            <table class="TopStatusBar">
-                <tr>
-                    <td><fmt:message key="messenger.ViewPDFAttachment.headerAttachment"/></td>
-                    <td></td>
-                    <td style="text-align: right"><a
-                            href="javascript:popupStart(300,400,'About.jsp')"><fmt:message key="messenger.ViewPDFAttachment.linkAbout"/></a> | <a
-                            href="javascript:popupStart(300,400,'License.jsp')"><fmt:message key="messenger.ViewPDFAttachment.linkLicense"/></a></td>
-                </tr>
-            </table>
-        </td>
-    </tr>
+        <%-- Close button --%>
+        <div class="mb-2">
+            <button type="button"
+                    class="btn btn-outline-secondary btn-sm"
+                    onclick="javascript:top.window.close()">
+                <i class="fa-regular fa-circle-xmark" aria-hidden="true"></i>
+                <fmt:message key="messenger.ViewPDFAttachment.btnCloseAttachment"/>
+            </button>
+        </div>
 
-
-    <tr>
-        <td class="MainTableBottomRowLeftColumn"></td>
 
         <form action="${pageContext.request.contextPath}/messenger/ViewPDFFile" method="post">
-            <td class="MainTableBottomRowRightColumn">
-                <table cellspacing=3>
-                    <tr>
-                        <td>
-                            <table class=messButtonsA cellspacing=0 cellpadding=3>
-                                <tr>
-                                    <td class="messengerButtonsA"><a href="#"
-                                                                     onclick="javascript:top.window.close()"
-                                                                     class="messengerButtons">
-                                        <fmt:message key="messenger.ViewPDFAttachment.btnCloseAttachment"/> </a></td>
-                                </tr>
-                            </table>
-                        </td>
-                    </tr>
-                </table>
-                <table>
+            <table class="table table-sm table-bordered">
 
                             <% 
                                 // Extract PDF file titles from attachment data
@@ -167,20 +173,25 @@
                             %>
                             <% for ( int i = 0 ; i < attVector.size(); i++) { %>
                     <tr>
-                        <td bgcolor="#DDDDFF"><%=(String) attVector.get(i)%>
+                        <td><%= SafeEncode.forHtml((String) attVector.get(i)) %>
                         </td>
-                        <td bgcolor="#DDDDFF"><input type=submit
-                                                     onclick=" document.forms[0].file_id.value = <%=i%>"
-                                                     value="<fmt:message key='messenger.ViewPDFAttachment.btnDownload'/>"/></td>
+                        <td>
+                          <button type="submit"
+                                  class="btn btn-success"
+                                  onclick="document.forms[0].file_id.value = <%=i%>"
+                                  title="<fmt:message key='messenger.ViewPDFAttachment.btnDownload'/>"
+                                  aria-label="<fmt:message key='messenger.ViewPDFAttachment.btnDownload'/>">
+                              <i class="fa fa-download" aria-hidden="true"></i>
+                              <span class="visually-hidden"><fmt:message key="messenger.ViewPDFAttachment.btnDownload"/></span>
+                           </button></td>
                     </tr>
                             <% }  %>
+                    </table>
                         <input type="hidden" name="file_id" id="file_id"/>
-                        <input type="hidden" name="attachment" id="attachment" value="<%=pdfAttch%>"/>
+                        <input type="hidden" name="attachment" id="attachment" value="<%= SafeEncode.forHtmlAttribute(pdfAttch) %>"/>
 
-                    <table>
-            </td>
         </form>
-    </tr>
-</table>
+    </div>
+</div>
 </body>
 </html>

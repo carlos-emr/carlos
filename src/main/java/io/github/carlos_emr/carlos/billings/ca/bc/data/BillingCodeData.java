@@ -43,7 +43,10 @@ import io.github.carlos_emr.carlos.util.SqlUtils;
  * @author root
  */
 public final class BillingCodeData implements Comparable {
-    private static BillingServiceDao billingServiceDao = (BillingServiceDao) SpringUtils.getBean(BillingServiceDao.class);
+    /**
+     * DAO used for billing service persistence operations.
+     */
+    private final BillingServiceDao billingServiceDao;
   
 
   /*
@@ -79,6 +82,16 @@ public final class BillingCodeData implements Comparable {
      * Creates a new instance of BillingCodeData
      */
     public BillingCodeData() {
+        this((BillingServiceDao) SpringUtils.getBean(BillingServiceDao.class));
+    }
+
+    /**
+     * Creates a new instance backed by the supplied DAO. Package-private for testing.
+     *
+     * @param billingServiceDao BillingServiceDao the DAO to use for billing service persistence operations
+     */
+    BillingCodeData(BillingServiceDao billingServiceDao) {
+        this.billingServiceDao = billingServiceDao;
     }
 
     //public BillingCodeData(ResultSet rs) throws {
@@ -106,11 +119,31 @@ public final class BillingCodeData implements Comparable {
      * @return boolean
      */
     public boolean deleteBillingCode(String codeId) {
+        if (codeId == null || codeId.isBlank()) {
+            return false;
+        }
 
-        boolean retval = true;
-        BillingService billingService = billingServiceDao.find(Integer.parseInt(codeId));
+        try {
+            return deleteBillingCode(Integer.parseInt(codeId.trim()));
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Removes a private billing code from database by numeric identifier.
+     *
+     * @param codeId int - the billing service primary key to remove
+     * @return boolean - {@code true} when the billing code exists and is removed, otherwise {@code false}
+     */
+    public boolean deleteBillingCode(int codeId) {
+        BillingService billingService = billingServiceDao.find(codeId);
+        if (billingService == null) {
+            return false;
+        }
+
         billingServiceDao.remove(billingService.getId());
-        return retval;
+        return true;
     }
 
     public boolean addBillingCode(String code, String desc, String val) {

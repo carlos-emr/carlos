@@ -1,6 +1,7 @@
 <%--
-
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -16,17 +17,13 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-    This software was written for the
-    Department of Family Medicine
-    McMaster University
-    Hamilton
-    Ontario, Canada
-
-
-    Now maintained by the CARLOS EMR Project (2026+).
+    CARLOS EMR Project
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
+--%>
+<%--
+  Page role: Renders `efmpatientformlistdeleted.jsp` for the eForm workflow.
+  Keep request setup in the paired action and use CARLOS encoding helpers
+  for dynamic output rendered by the page.
 --%>
 <!DOCTYPE html>
 <%
@@ -76,7 +73,7 @@
         </title>
 
 		<link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
-		<link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+		<link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css" rel="stylesheet">
 		<link href="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.css" rel="stylesheet">
 
 
@@ -84,8 +81,8 @@
 		<script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
 		<script src="${pageContext.request.contextPath}/library/jquery/jquery-compat.js"></script>
 		<script src="${pageContext.request.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
-		<script src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
-		<script src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
+		<script src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js"></script>
+		<script src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/js/dataTables.bootstrap5.min.js"></script>
 
 		<script src="${pageContext.request.contextPath}/share/javascript/Oscar.js"></script>
 
@@ -204,7 +201,7 @@
 <%--			<a href="efmpatientformlistdeleted?demographic_no=<e:forUriComponent value='<%= demographic_no %>' />&appointment=<%=appointment%>&parentAjaxId=<%=parentAjaxId%>">
                     <fmt:message key="eform.showmyform.btnDeleted"/></a>--%>
 				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.eform" rights="r" reverse="<%=false%>" >
-					<a href="#" onclick="javascript: return popup(600, 1200, '${pageContext.request.contextPath}/administration/?show=Forms', 'manageeforms');" style="color: #835921;">
+					<a href="#" onclick="javascript: return popup(600, 1200, '${pageContext.request.contextPath}/administration?show=Forms', 'manageeforms');" style="color: #835921;">
                         <fmt:message key="eform.showmyform.msgManageEFrm"/></a>
 				</security:oscarSec>
 			</div>

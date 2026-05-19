@@ -131,7 +131,12 @@ public class PrintClientLabLabel2Action extends ActionSupport {
         } finally {
             IOUtils.closeQuietly(ins);
         }
-        return SUCCESS;
+        // Action writes PDF bytes directly to response.getOutputStream() above, so return
+        // NONE to suppress Struts2 result resolution. The mapping in struts-demographic.xml
+        // has no <result name="success">; returning SUCCESS would raise ConfigurationException
+        // and the global exception result would render errorpage.jsp on top of the PDF bytes
+        // already written to the response (visible as a stray "0" from errorData.statusCode).
+        return NONE;
     }
 
     private StringBuilder getHeader(HttpServletResponse response) {

@@ -187,6 +187,19 @@ class HttpMethodGuardFilterUnitTest {
             verify(chain).doFilter(request, response);
             verify(response, never()).sendError(anyInt(), anyString());
         }
+
+        @Test
+        @DisplayName("should pass through GET to moveMOHFiles render action")
+        void shouldPassThrough_forGetToMoveMohFilesRenderAction() throws Exception {
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/billing/CA/ON/moveMOHFiles");
+            when(request.getParameter("method")).thenReturn(null);
+
+            filter.doFilter(request, response, chain);
+
+            verify(chain).doFilter(request, response);
+            verify(response, never()).sendError(anyInt(), anyString());
+        }
     }
 
     @Nested
@@ -226,6 +239,19 @@ class HttpMethodGuardFilterUnitTest {
         void shouldBlock_forGetToSaveAction() throws Exception {
             when(request.getMethod()).thenReturn("GET");
             when(request.getRequestURI()).thenReturn("/carlos/SaveAssoc");
+            when(request.getParameter("method")).thenReturn(null);
+
+            filter.doFilter(request, response, chain);
+
+            verify(response).sendError(anyInt(), anyString());
+            verify(chain, never()).doFilter(request, response);
+        }
+
+        @Test
+        @DisplayName("should block GET when path parameter appears before mutator action")
+        void shouldBlock_whenPathParameterAppearsBeforeMutatorAction() throws Exception {
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/billing;v=1/CA/ON/SaveBilling");
             when(request.getParameter("method")).thenReturn(null);
 
             filter.doFilter(request, response, chain);
@@ -283,6 +309,22 @@ class HttpMethodGuardFilterUnitTest {
             filter.doFilter(request, response, chain);
 
             verify(response).sendError(anyInt(), anyString());
+            verify(chain, never()).doFilter(request, response);
+        }
+
+        @Test
+        @DisplayName("should block GET to DocumentErrorReportUpload")
+        void shouldBlock_forGetToDocumentErrorReportUpload() throws Exception {
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/oscarBilling/DocumentErrorReportUpload");
+            when(request.getParameter("filename")).thenReturn("R1234567");
+            when(request.getParameter("method")).thenReturn(null);
+
+            filter.doFilter(request, response, chain);
+
+            verify(response).sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED,
+                    "GET requests are not allowed on this endpoint. Use POST.");
+            verify(response).setHeader("Allow", "POST");
             verify(chain, never()).doFilter(request, response);
         }
     }
@@ -397,9 +439,8 @@ class HttpMethodGuardFilterUnitTest {
             verify(chain, never()).doFilter(request, response);
         }
 
-        // Note: the former test that targeted /appointment/appointmentcontrol.jsp
-        // has been removed. That JSP is now at /WEB-INF/jsp/appointment/appointmentcontrol.jsp
-        // and is reachable only via /appointment/appointmentcontrol
+        // Note: the former appointmentcontrol dispatcher route has been removed.
+        // Edit/add appointment flows now target their final action endpoints directly.
         // (ViewAppointment2Action gate). The public JSP path returns 404 at the
         // servlet layer before this filter ever sees it, so the prior test was
         // exercising a dead URL. End-to-end coverage of the gated action path lives in
@@ -701,6 +742,46 @@ class HttpMethodGuardFilterUnitTest {
     }
 
     @Nested
+    @DisplayName("Prevention form view gate")
+    class PreventionFormViewGate {
+
+        @Test
+        @DisplayName("should pass through GET to prevention/ViewAddPreventionData")
+        void shouldPassThrough_forGetToViewAddPreventionData() throws Exception {
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/prevention/ViewAddPreventionData");
+            when(request.getParameter("method")).thenReturn(null);
+
+            filter.doFilter(request, response, chain);
+
+            verify(chain).doFilter(request, response);
+            verify(response, never()).sendError(anyInt(), anyString());
+            verify(response, never()).sendError(anyInt());
+        }
+
+        @Test
+        @DisplayName("should pass through GET to prevention/ViewAddPreventionData with the exact failing URL parameters")
+        void shouldPassThrough_forGetToViewAddPreventionDataWithParams() throws Exception {
+            // Reproduces the original failing popup URL, now routed through the
+            // dedicated view gate instead of the POST-only AddPrevention action:
+            // /carlos/prevention/ViewAddPreventionData?4=4&prevention=Tuberculosis&demographic_no=1&prevResultDesc=
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/prevention/ViewAddPreventionData");
+            when(request.getParameter("method")).thenReturn(null);
+            when(request.getParameter("4")).thenReturn("4");
+            when(request.getParameter("prevention")).thenReturn("Tuberculosis");
+            when(request.getParameter("demographic_no")).thenReturn("1");
+            when(request.getParameter("prevResultDesc")).thenReturn("");
+
+            filter.doFilter(request, response, chain);
+
+            verify(chain).doFilter(request, response);
+            verify(response, never()).sendError(anyInt(), anyString());
+            verify(response, never()).sendError(anyInt());
+        }
+    }
+
+    @Nested
     @DisplayName("Action name extraction")
     class ActionNameExtraction {
 
@@ -737,6 +818,20 @@ class HttpMethodGuardFilterUnitTest {
         void shouldReturnNull_forNullPath() {
             assertThat(HttpMethodGuardFilter.extractActionName(null))
                     .isNull();
+        }
+
+        @Test
+        @DisplayName("should keep action segment when earlier path segment has parameters")
+        void shouldKeepActionSegment_whenEarlierPathSegmentHasParameters() {
+            assertThat(HttpMethodGuardFilter.extractActionName("/billing;v=1/CA/ON/SaveBilling"))
+                    .isEqualTo("SaveBilling");
+        }
+
+        @Test
+        @DisplayName("should strip path parameters from mutator action segment")
+        void shouldStripPathParameters_fromMutatorActionSegment() {
+            assertThat(HttpMethodGuardFilter.extractActionName("/admin/ProviderDelete;jsessionid=secret"))
+                    .isEqualTo("ProviderDelete");
         }
     }
 

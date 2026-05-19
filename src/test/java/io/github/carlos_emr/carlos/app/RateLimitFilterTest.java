@@ -122,6 +122,14 @@ class RateLimitFilterTest extends CarlosUnitTestBase {
         filter.init(fc);
     }
 
+    private HttpServletRequest requestForIp(String ip) {
+        HttpServletRequest r = mock(HttpServletRequest.class);
+        when(r.getContextPath()).thenReturn("/carlos");
+        when(r.getRemoteAddr()).thenReturn(ip);
+        when(r.getRequestURI()).thenReturn("/carlos/someAction");
+        return r;
+    }
+
     /**
      * Initialises the filter as disabled.
      */
@@ -351,6 +359,112 @@ class RateLimitFilterTest extends CarlosUnitTestBase {
             filter.doFilter(request, response, chain);
             verify(response).sendError(eq(429), anyString());
         }
+
+        @Test
+        @DisplayName("should apply forced-reset submit rate to submit endpoint")
+        void shouldApplyForcedResetSubmitRate_whenSubmitPathMatches() throws Exception {
+            when(mockProperties.isPropertyActive("WAF_RATE_LIMIT_ENABLED")).thenReturn(true);
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_MODE")).thenReturn("enforce");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_DEFAULT_REQUESTS")).thenReturn("100");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_DEFAULT_WINDOW_SECONDS")).thenReturn("60");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_PATHS"))
+                    .thenReturn("/forcepasswordreset=20/60,/forcepasswordresetSubmit=2/60");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_EXEMPT_IPS")).thenReturn("127.0.0.1,::1");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_CLEANUP_INTERVAL_SECONDS")).thenReturn("300");
+            filter.init(mock(FilterConfig.class));
+
+            when(request.getRequestURI()).thenReturn("/carlos/forcepasswordresetSubmit");
+
+            filter.doFilter(request, response, chain);
+            filter.doFilter(request, response, chain);
+            filter.doFilter(request, response, chain);
+
+            verify(response).sendError(eq(429), anyString());
+        }
+
+        /**
+         * Boundary check: an attacker cookie-rewriting their session as a
+         * matrix-param suffix on /login (e.g., {@code /login;jsessionid=…})
+         * must still hit the /login rate-limit tier — appending a path
+         * parameter is not a rate-limit bypass. Locks in the {@code ;}
+         * boundary handling added at {@code RateLimitFilter#findMatchingPath}.
+         */
+        @Test
+        @DisplayName("should match /login path-rate when request is /login;jsessionid=...")
+        void shouldMatchLoginRate_whenJsessionidMatrixParamPresent() throws Exception {
+            when(mockProperties.isPropertyActive("WAF_RATE_LIMIT_ENABLED")).thenReturn(true);
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_MODE")).thenReturn("enforce");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_DEFAULT_REQUESTS")).thenReturn("100");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_DEFAULT_WINDOW_SECONDS")).thenReturn("60");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_PATHS")).thenReturn("/login=2/60");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_EXEMPT_IPS")).thenReturn("127.0.0.1,::1");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_CLEANUP_INTERVAL_SECONDS")).thenReturn("300");
+            filter.init(mock(FilterConfig.class));
+
+            when(request.getRequestURI())
+                    .thenReturn("/carlos/login;jsessionid=TEST_SESSION_ID_4Q5R");
+
+            // /login limit of 2 should still apply — three requests on the
+            // matrix-param-suffixed path should yield a 429 on the third.
+            filter.doFilter(request, response, chain);
+            filter.doFilter(request, response, chain);
+            filter.doFilter(request, response, chain);
+
+            verify(response).sendError(eq(429), anyString());
+        }
+
+        /**
+         * Boundary check: paths that begin with {@code /login} but extend
+         * with a non-{@code /;?} character (e.g., {@code /loginfailed}) MUST
+         * NOT match the /login path-rate tier — they fall to the global
+         * default. Locks in the prefix-boundary check that distinguishes
+         * "/login*" patterns from "/login" exactly.
+         */
+        @Test
+        @DisplayName("should NOT match /login path-rate for /loginfailed")
+        void shouldNotMatchLoginRate_whenPathIsLoginfailed() throws Exception {
+            when(mockProperties.isPropertyActive("WAF_RATE_LIMIT_ENABLED")).thenReturn(true);
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_MODE")).thenReturn("enforce");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_DEFAULT_REQUESTS")).thenReturn("5");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_DEFAULT_WINDOW_SECONDS")).thenReturn("60");
+            // Set /login VERY tight (1/60). If /loginfailed leaks into this
+            // tier, the second request will block. The global default of 5
+            // must be the actual cap.
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_PATHS")).thenReturn("/login=1/60");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_EXEMPT_IPS")).thenReturn("127.0.0.1,::1");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_CLEANUP_INTERVAL_SECONDS")).thenReturn("300");
+            filter.init(mock(FilterConfig.class));
+
+            when(request.getRequestURI()).thenReturn("/carlos/loginfailed");
+
+            // Three requests — would be blocked if /loginfailed matched
+            // the /login=1/60 tier. Should pass under the global 5/60.
+            filter.doFilter(request, response, chain);
+            filter.doFilter(request, response, chain);
+            filter.doFilter(request, response, chain);
+
+            verify(response, never()).sendError(eq(429), anyString());
+        }
+
+        @Test
+        @DisplayName("should match /login path-rate when query string is separate")
+        void shouldMatchLoginRate_whenQueryStringIsSeparate() throws Exception {
+            when(mockProperties.isPropertyActive("WAF_RATE_LIMIT_ENABLED")).thenReturn(true);
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_MODE")).thenReturn("enforce");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_DEFAULT_REQUESTS")).thenReturn("5");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_DEFAULT_WINDOW_SECONDS")).thenReturn("60");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_PATHS")).thenReturn("/login=1/60");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_EXEMPT_IPS")).thenReturn("127.0.0.1,::1");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_CLEANUP_INTERVAL_SECONDS")).thenReturn("300");
+            filter.init(mock(FilterConfig.class));
+
+            when(request.getRequestURI()).thenReturn("/carlos/login");
+
+            filter.doFilter(request, response, chain);
+            filter.doFilter(request, response, chain);
+
+            verify(response).sendError(eq(429), anyString());
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -550,6 +664,79 @@ class RateLimitFilterTest extends CarlosUnitTestBase {
             filter.evictStaleCounters();
 
             assertThat(filter.getCounters().size()).isLessThan(sizeWithActive);
+        }
+
+        @Test
+        @DisplayName("should cap stored counters when many client IPs rotate")
+        void shouldCapStoredCounters_whenManyClientIpsRotate() throws Exception {
+            when(mockProperties.isPropertyActive("WAF_RATE_LIMIT_ENABLED")).thenReturn(true);
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_MODE")).thenReturn("detect");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_DEFAULT_REQUESTS")).thenReturn("100");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_DEFAULT_WINDOW_SECONDS")).thenReturn("60");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_PATHS")).thenReturn("");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_EXEMPT_IPS")).thenReturn("127.0.0.1,::1");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_CLEANUP_INTERVAL_SECONDS")).thenReturn("300");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_MAX_COUNTERS")).thenReturn("2");
+            filter.init(mock(FilterConfig.class));
+
+            for (int i = 1; i <= 5; i++) {
+                when(request.getRemoteAddr()).thenReturn("10.0.0." + i);
+                filter.doFilter(request, response, chain);
+            }
+
+            assertThat(filter.getCounters()).hasSizeLessThanOrEqualTo(2);
+        }
+
+        @Test
+        @DisplayName("should keep new clients isolated when counter cap is reached")
+        void shouldKeepNewClientsIsolated_whenCounterCapReached() throws Exception {
+            when(mockProperties.isPropertyActive("WAF_RATE_LIMIT_ENABLED")).thenReturn(true);
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_MODE")).thenReturn("enforce");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_DEFAULT_REQUESTS")).thenReturn("1");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_DEFAULT_WINDOW_SECONDS")).thenReturn("60");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_PATHS")).thenReturn("");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_EXEMPT_IPS")).thenReturn("127.0.0.1,::1");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_CLEANUP_INTERVAL_SECONDS")).thenReturn("300");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_MAX_COUNTERS")).thenReturn("2");
+            filter.init(mock(FilterConfig.class));
+
+            filter.doFilter(requestForIp("10.0.0.1"), response, chain);
+            filter.doFilter(requestForIp("10.0.0.2"), response, chain);
+
+            HttpServletResponse thirdResponse = mock(HttpServletResponse.class);
+            filter.doFilter(requestForIp("10.0.0.3"), thirdResponse, chain);
+            filter.doFilter(requestForIp("10.0.0.3"), thirdResponse, chain);
+            verify(thirdResponse).sendError(eq(429), anyString());
+
+            HttpServletResponse fourthResponse = mock(HttpServletResponse.class);
+            filter.doFilter(requestForIp("10.0.0.4"), fourthResponse, chain);
+
+            verify(fourthResponse, never()).sendError(eq(429), anyString());
+            assertThat(filter.getCounters()).hasSizeLessThanOrEqualTo(2);
+        }
+
+        @Test
+        @DisplayName("should cap forwarded-address warning suppression set")
+        void shouldCapForwardedWarningSet_whenProxyIpsRotate() throws Exception {
+            when(mockProperties.isPropertyActive("WAF_RATE_LIMIT_ENABLED")).thenReturn(true);
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_MODE")).thenReturn("detect");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_DEFAULT_REQUESTS")).thenReturn("100");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_DEFAULT_WINDOW_SECONDS")).thenReturn("60");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_PATHS")).thenReturn("");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_EXEMPT_IPS")).thenReturn("127.0.0.1,::1");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_CLEANUP_INTERVAL_SECONDS")).thenReturn("300");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_MAX_COUNTERS")).thenReturn("2");
+            when(mockProperties.getProperty(XforwardHeaderFilter.TRUSTED_PROXY_IPS_PROPERTY))
+                    .thenReturn("10.0.0.1,10.0.0.2,10.0.0.3,10.0.0.4,10.0.0.5");
+            filter.init(mock(FilterConfig.class));
+
+            for (int i = 1; i <= 5; i++) {
+                HttpServletRequest forwardedRequest = requestForIp("10.0.0." + i);
+                when(forwardedRequest.getHeader("X-Forwarded-For")).thenReturn("192.0.2." + i);
+                filter.doFilter(forwardedRequest, response, chain);
+            }
+
+            assertThat(filter.forwardedAddressWarningIpCount()).isLessThanOrEqualTo(2);
         }
     }
 

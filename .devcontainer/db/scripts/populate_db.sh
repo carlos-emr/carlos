@@ -7,9 +7,9 @@ cd /database/mysql || exit 1
 DB_PASSWORD="${MYSQL_ROOT_PASSWORD:-password}"
 
 echo 'Creating development database...'
-./createdatabase_on.sh root "$DB_PASSWORD" oscar
+./createdatabase_on.sh root "$DB_PASSWORD" oscar suppressPwdGen
 echo 'Creating test database...'
-./createdatabase_on.sh root "$DB_PASSWORD" oscar_test
+./createdatabase_on.sh root "$DB_PASSWORD" oscar_test suppressPwdGen
 echo 'Creating drugref2 database...'
 mysql -u root -p"$DB_PASSWORD" -e "CREATE DATABASE IF NOT EXISTS drugref2;"
 mysql -u root -p"$DB_PASSWORD" drugref2 < /database/mysql/development-drugref.sql
@@ -26,6 +26,7 @@ mysql -u root -p"$DB_PASSWORD" oscar < /database/mysql/updates/update-2026-01-26
 mysql -u root -p"$DB_PASSWORD" oscar < /database/mysql/updates/update-2026-02-10-fax-provider-type.sql
 mysql -u root -p"$DB_PASSWORD" oscar < /database/mysql/updates/update-2026-02-14-facility-integrator-removal.sql
 mysql -u root -p"$DB_PASSWORD" oscar < /database/mysql/updates/update-2026-03-25-security-mfa-default.sql
+mysql -u root -p"$DB_PASSWORD" oscar < /database/mysql/updates/update-2026-04-30-sec-obj-missing-privileges.sql
 # CAUTION: This migration drops deprecated form tables (formONAR, formIntakeHx, etc.)
 # and deletes their encounterForm entries. Run manually only after verifying no patient
 # data exists in these tables: mysql oscar < /database/mysql/updates/update-2026-03-25-remove-deprecated-form-tables.sql

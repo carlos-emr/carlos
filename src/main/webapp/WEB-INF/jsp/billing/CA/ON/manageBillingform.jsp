@@ -1,6 +1,7 @@
 <%--
-
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2006-. OSCARservice, OpenSoft System. All Rights Reserved.
+
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -16,51 +17,27 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
-    Now maintained by the CARLOS EMR Project (2026+).
+    CARLOS EMR Project
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
+--%>
+<%--
+  Purpose: Supports manageBillingform in the Ontario billing workflow.
+  Expected request model data includes: manageBillingformModel.
+  Keep request setup in the paired action and use CARLOS encoding helpers
+  for dynamic output rendered by the page.
 --%>
 <!DOCTYPE html>
-<%
-    String user_no = (String) session.getAttribute("user");
-    String asstProvider_no = "";
-    String color = "";
-    String premiumFlag = "";
-    String service_form = "", service_name = "";
-%>
-
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
-
-<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" %>
 <%@ include file="/WEB-INF/jsp/admin/dbconnection.jsp" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.CtlBillingService" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.CtlDiagCode" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.CtlDiagCodeDao" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.CtlBillingServicePremium" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingServicePremiumDao" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-<%
-    CtlBillingServiceDao ctlBillingServiceDao = SpringUtils.getBean(CtlBillingServiceDao.class);
-    CtlDiagCodeDao ctlDiagCodeDao = SpringUtils.getBean(CtlDiagCodeDao.class);
-    CtlBillingServicePremiumDao ctlBillingServicePremiumDao = SpringUtils.getBean(CtlBillingServicePremiumDao.class);
 
-%>
-
-
-<%
-    String clinicview = request.getParameter("billingform") == null ? oscarVariables.getProperty("default_view") : request.getParameter("billingform");
-    String reportAction = request.getParameter("reportAction") == null ? "" : request.getParameter("reportAction");
-%>
 <html>
     <head>
         <title><fmt:message key="billing.manageBillingform.title"/></title>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+        <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
         <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
         <!-- Bootstrap -->
 
@@ -84,7 +61,7 @@
 
             function valid(form) {
                 if (validateServiceType(form)) {
-                    form.action = "<%= request.getContextPath() %>/billing/CA/ON/DbManageBillingformAdd";
+                    form.action = "${pageContext.request.contextPath}/billing/CA/ON/DbManageBillingformAdd";
                     form.submit();
                 }
             }
@@ -112,7 +89,7 @@
             }
 
             function manageType(stype, stype_name) {
-                url = "/billing/CA/ON/ManageBillingformBilltype";
+                url = "${pageContext.request.contextPath}/billing/CA/ON/ManageBillingformBilltype";
                 pars = "type_id=" + stype + "&type_name=" + stype_name;
 
                 fetch(url + "?" + pars, {method: "get"})
@@ -144,7 +121,7 @@
 
             function onUnbilled(servicetype) {
                 if (confirm("<fmt:message key="billing.manageBillingform.msgDeleteBillingConfirm"/>")) {
-                    postToPopup('<%= request.getContextPath() %>/billing/CA/ON/DbManageBillingformDelete',
+                    postToPopup('${pageContext.request.contextPath}/billing/CA/ON/DbManageBillingformDelete',
                         {servicetype: servicetype}, 'deletePopup', 700, 720);
                 }
             }
@@ -159,7 +136,7 @@
             }
 
             function manageBillType(id, oldtype, newtype) {
-                postToPopup('<%= request.getContextPath() %>/billing/CA/ON/DbManageBillingformBilltype',
+                postToPopup('${pageContext.request.contextPath}/billing/CA/ON/DbManageBillingformBilltype',
                     {servicetype: id, billtype_old: oldtype, billtype: newtype},
                     'billtypePopup', 700, 720);
             }
@@ -169,38 +146,30 @@
     <body onload="showManageType(false);">
     <h4><b>oscar<fmt:message key="billing.manageBillingform.msgBilling"/></h4>
 
-    <form name="serviceform" method="post" action="/billing/CA/ON/ManageBillingform">
+    <form name="serviceform" method="post" action="${pageContext.request.contextPath}/billing/CA/ON/ManageBillingform">
 
         <div class="card card-body bg-body-tertiary">
             <table width="100%">
                 <tr>
                     <td style="width:30%; text-align:right">
                         <input type="radio" name="reportAction" value="servicecode"
-                                <%=reportAction.equals("servicecode")?"checked":""%>> <fmt:message key="billing.manageBillingform.formServiceCode"/>
+                               <c:if test="${manageBillingformModel.reportAction eq 'servicecode'}">checked</c:if>>
+                        <fmt:message key="billing.manageBillingform.formServiceCode"/>
                         <input type="radio" name="reportAction" value="dxcode"
-                                <%=reportAction.equals("dxcode")?"checked":""%>> <fmt:message key="billing.manageBillingform.formDxCode"/></td>
+                               <c:if test="${manageBillingformModel.reportAction eq 'dxcode'}">checked</c:if>>
+                        <fmt:message key="billing.manageBillingform.formDxCode"/></td>
                     <td style="width:40%; text-align: center">
                         <div style="align:right">
                             <fmt:message key="billing.manageBillingform.formSelectForm"/>&nbsp;&nbsp;
                             <select name="billingform">
-                                <option value="000" <%=clinicview.equals("000") ? "selected" : ""%>><fmt:message key="billing.manageBillingform.formAddDelete"/></option>
-                                <option value="***" <%=clinicview.equals("***") ? "selected" : ""%>><fmt:message key="billing.manageBillingform.formManagePremium"/></option>
-
-                                <%
-                                    String serviceType = "";
-                                    String serviceTypeName = "";
-                                    List<Object[]> billingServices = ctlBillingServiceDao.findServiceTypes();
-
-                                    for (Object[] billingService : billingServices) {
-                                        serviceType = String.valueOf(billingService[0]);
-                                        serviceTypeName = String.valueOf(billingService[1]);
-                                %>
-                                <option value="<%=serviceType%>"
-                                        <%=clinicview.equals(serviceType) ? "selected" : ""%>><%=serviceTypeName%>
-                                </option>
-                                <%
-                                    }
-                                %>
+                                <option value="000" <c:if test="${manageBillingformModel.clinicView eq '000'}">selected</c:if>><fmt:message key="billing.manageBillingform.formAddDelete"/></option>
+                                <option value="***" <c:if test="${manageBillingformModel.clinicView eq '***'}">selected</c:if>><fmt:message key="billing.manageBillingform.formManagePremium"/></option>
+                                <c:forEach var="opt" items="${manageBillingformModel.serviceTypes}">
+                                    <option value="<carlos:encode value='${opt.code}' context='htmlAttribute'/>"
+                                            <c:if test="${manageBillingformModel.clinicView eq opt.code}">selected</c:if>>
+                                        <carlos:encode value='${opt.name}' context='html'/>
+                                    </option>
+                                </c:forEach>
                             </select></div>
                     </td>
                     <td style="width:30%;">
@@ -211,20 +180,23 @@
             </table>
     </form>
     <br>
-    <%
-        if (clinicview.compareTo("000") == 0) { %>
-    <%@ include file="manageBillingform_add.jspf" %>
-    <%} else if (clinicview.compareTo("***") == 0) { %>
-    <%@ include file="manageBillingform_premium.jspf" %>
-    <%} else if (reportAction.compareTo("") == 0 || reportAction == null) { %>
-    <p>&nbsp;</p>
-    <%} else if (reportAction.compareTo("servicecode") == 0) { %>
-    <%@ include file="manageBillingform_service.jspf" %>
-    <%} else if (reportAction.compareTo("dxcode") == 0) { %>
-    <%@ include file="manageBillingform_dx.jspf" %>
-    <%
-        }
-    %>
+    <c:choose>
+        <c:when test="${manageBillingformModel.clinicView eq '000'}">
+            <%@ include file="manageBillingform_add.jspf" %>
+        </c:when>
+        <c:when test="${manageBillingformModel.clinicView eq '***'}">
+            <%@ include file="manageBillingform_premium.jspf" %>
+        </c:when>
+        <c:when test="${empty manageBillingformModel.reportAction}">
+            <p>&nbsp;</p>
+        </c:when>
+        <c:when test="${manageBillingformModel.reportAction eq 'servicecode'}">
+            <%@ include file="manageBillingform_service.jspf" %>
+        </c:when>
+        <c:when test="${manageBillingformModel.reportAction eq 'dxcode'}">
+            <%@ include file="manageBillingform_dx.jspf" %>
+        </c:when>
+    </c:choose>
     </div>
 
     </body>

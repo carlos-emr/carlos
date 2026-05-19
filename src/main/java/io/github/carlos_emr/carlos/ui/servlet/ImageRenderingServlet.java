@@ -45,7 +45,7 @@ import jakarta.servlet.http.HttpSession;
 import java.io.*;
 import java.net.SocketException;
 import java.net.URL;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 /**
  * This servlet requires a parameter called "source" which should signify where to get the image from. Examples include source=local_client. Depending on the source, you may optionally need more parameters, as an example a local_client
@@ -90,7 +90,7 @@ public final class ImageRenderingServlet extends HttpServlet {
             if (e.getCause() instanceof SocketException) {
                 logger.warn("An error we can't handle that's expected infrequently. " + e.getMessage());
             } else {
-                logger.error("Unexpected error. qs=" + LogSanitizer.sanitize(request.getQueryString()), e);
+                logger.error("Unexpected error. qs=" + LogSafe.sanitize(request.getQueryString()), e);
                 if (!response.isCommitted()) {
                     response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
                 }
@@ -131,11 +131,17 @@ public final class ImageRenderingServlet extends HttpServlet {
             try {
                 // get image
                 ClientImage clientImage = clientImageDAO.getClientImage(Integer.parseInt(clientId));
-                if (clientImage != null && "jpg".equalsIgnoreCase(clientImage.getImage_type())) {
-                    renderImage(response, clientImage.getImage_data(), "jpeg");
+                String imageType = getRenderableImageType(clientImage);
+                if (imageType != null) {
+                    renderImage(response, clientImage.getImage_data(), imageType);
                     return;
                 } else {
-                    renderImage(response, getDefaultImage(request), "jpeg");
+                    byte[] defaultImage = getDefaultImage(request);
+                    if (defaultImage == null) {
+                        response.sendError(HttpServletResponse.SC_NOT_FOUND);
+                        return;
+                    }
+                    renderImage(response, defaultImage, "jpeg");
                     return;
                 }
             } catch (Exception e) {
@@ -145,11 +151,35 @@ public final class ImageRenderingServlet extends HttpServlet {
         response.sendError(HttpServletResponse.SC_NOT_FOUND);
     }
 
+    /**
+     * Determines whether a client image record has renderable binary data and a
+     * supported stored image type.
+     *
+     * @param clientImage ClientImage the stored client image record to inspect
+     * @return String the normalized renderable image subtype, or {@code null}
+     *         when the record is missing, empty, or unsupported
+     */
+    private static String getRenderableImageType(ClientImage clientImage) {
+        if (clientImage == null || clientImage.getImage_data() == null || clientImage.getImage_data().length == 0) {
+            return null;
+        }
+
+        String imageType = clientImage.getImage_type();
+        if (imageType == null) {
+            return null;
+        }
+        return ClientImage.getRenderableImageType(imageType);
+    }
+
     private static byte[] getDefaultImage(HttpServletRequest request) {
         String defaultClientImage = "/images/defaultG_img.jpg";
 
         try (ByteArrayOutputStream bais = new ByteArrayOutputStream();
              InputStream is = request.getSession().getServletContext().getResourceAsStream(defaultClientImage)) {
+            if (is == null) {
+                logger.warn("Default client image not found at {}. Ensure the web application image resources are deployed correctly.", defaultClientImage);
+                return null;
+            }
             byte[] byteChunk = new byte[1024];
             int n;
             while ((n = is.read(byteChunk)) > 0) {
@@ -187,7 +217,7 @@ public final class ImageRenderingServlet extends HttpServlet {
                 // Reject any path traversal attempts
                 if (signatureRequestId.contains("..") || signatureRequestId.contains("/") || 
                     signatureRequestId.contains("\\") || signatureRequestId.contains(File.separator)) {
-                    logger.warn("SECURITY WARNING: Path traversal attempt detected in signature request ID: {}", LogSanitizer.sanitize(signatureRequestId));
+                    logger.warn("SECURITY WARNING: Path traversal attempt detected in signature request ID: {}", LogSafe.sanitize(signatureRequestId));
                     throw new IllegalArgumentException("Invalid signature request ID");
                 }
                 
@@ -196,7 +226,7 @@ public final class ImageRenderingServlet extends HttpServlet {
                 // Use PathValidationUtils to validate the temp file path
                 File targetFile = new File(tempFilePath);
                 if (!PathValidationUtils.isInAllowedTempDirectory(targetFile)) {
-                    logger.warn("SECURITY WARNING: Attempt to access file outside temp directory: {}", LogSanitizer.sanitize(tempFilePath));
+                    logger.warn("SECURITY WARNING: Attempt to access file outside temp directory: {}", LogSafe.sanitize(tempFilePath));
                     throw new IllegalArgumentException("Invalid file path");
                 }
 

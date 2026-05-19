@@ -138,17 +138,22 @@ Always include tests for edge cases and error conditions:
 
 ### Method Naming Patterns
 
-1. **`should<Action>_<preposition><Condition>`** - Testing behavior/requirements
+1. **`should<Action>_<prepositionOrContext><Condition>`** - Testing behavior/requirements
    - Use camelCase
    - Exactly ONE underscore separating action from condition
-   - The preposition (`when`, `by`, `for`, `with`, `to`, `from`, etc.) should read naturally
+   - The segment after the underscore starts lowercase
+   - The preposition/context (`when`, `by`, `for`, `with`, `to`, `from`, etc.) should read naturally
    - Examples: `shouldReturnTickler_whenValidIdProvided()`, `shouldReturnSpecialists_byServiceName()`, `shouldPersistMeasurement_withBloodPressureData()`
 
-2. **`<methodName>_<scenario>_<expectedOutcome>`** - Testing specific methods
-   - Example: `findActiveByDemographicNo_multipleStatuses_returnsOnlyActive()`
+2. **No zero-underscore or multi-underscore variants**
+   - Wrong: `shouldLoadSpringContext()`
+   - Correct: `shouldLoadSpringContext_forDefaultCase()`
+   - Wrong: `shouldReturnFoo_whenBar_andBaz()`
+   - Correct: `shouldReturnFoo_whenBarAndBaz()`
 
-3. **`should<ExpectedBehavior>`** - Simple assertions without conditions
-   - Example: `shouldLoadSpringContext()`
+3. **Do not use method-name-first test names**
+   - Wrong: `findActiveByDemographicNo_multipleStatuses_returnsOnlyActive()`
+   - Correct: `shouldReturnOnlyActiveRows_whenMultipleStatusesPresent()`
 
 ### @DisplayName Convention
 
@@ -160,7 +165,7 @@ Always include tests for edge cases and error conditions:
 
 - NO "test" prefix (e.g., ~~`testFindTickler()`~~)
 - NO test numbers (e.g., ~~`test1_findTickler()`~~)
-- NO multiple underscores (e.g., ~~`should_return_tickler_when_valid()`~~)
+- NO multiple underscores or snake_case (e.g., ~~`should_return_tickler_when_valid()`~~)
 
 ### BDD Test Structure Quick Reference
 
@@ -247,6 +252,32 @@ public abstract class CarlosUnitTestBase {
     }
 }
 ```
+
+### Capturing Log Output
+
+When a test needs to assert Log4j2 output, use the shared `LogCapture` helper
+instead of defining a local `AbstractAppender` or mutating the root logger:
+
+```java
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
+
+@Test
+void shouldWarn_whenRejectingRequest() {
+    try (LogCapture capture = LogCapture.forLogger(MyAction.class)) {
+        action.execute();
+
+        assertThat(capture.events()).anySatisfy(event -> {
+            assertThat(event.getLevel()).isEqualTo(Level.WARN);
+            assertThat(event.getMessage().getFormattedMessage())
+                    .contains("Rejected request");
+        });
+    }
+}
+```
+
+`LogCapture` attaches to the exact logger under test, stores immutable log
+events, and removes only the logger configuration it created. This keeps log
+assertions stable when Surefire runs test classes in parallel.
 
 ### Domain-Specific Base Classes
 

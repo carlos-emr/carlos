@@ -117,7 +117,7 @@ public class PrintDemoAddressLabel2Action extends ActionSupport {
      * ${user.home}/Addresslabel.xml, falls back to classpath resource
      * /oscar/oscarDemographic/Addresslabel.xml if custom template not found.</p>
      *
-     * @return String "success" constant from ActionSupport indicating successful execution
+     * @return String NONE constant after streaming the direct PDF response
      * @throws SecurityException if the user lacks "_demographic" read privilege
      */
     public String execute() {
@@ -197,7 +197,12 @@ public class PrintDemoAddressLabel2Action extends ActionSupport {
             MiscUtils.getLogger().error("Error", e);
         }
 
-        return SUCCESS;
+        // Action writes PDF bytes directly to response.getOutputStream() above, so return
+        // NONE to suppress Struts2 result resolution. The mapping in struts-demographic.xml
+        // has no <result name="success">; returning SUCCESS would raise ConfigurationException
+        // and the global exception result would render errorpage.jsp on top of the PDF bytes
+        // already written to the response (visible as a stray "0" from errorData.statusCode).
+        return NONE;
     }
 
     /**

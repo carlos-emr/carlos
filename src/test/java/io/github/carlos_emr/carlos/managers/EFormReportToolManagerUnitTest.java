@@ -116,7 +116,9 @@ public class EFormReportToolManagerUnitTest extends CarlosUnitTestBase {
         EFormValue valueOne = createValue(10, "bp");
         EFormValue valueThree = createValue(12, "weight");
 
-        when(mockEFormReportToolDao.find(77)).thenReturn(reportTool);
+        // Production calls dao.find(Integer) which resolves to find(Object); stub must match that
+        // overload, not the find(int) overload picked by a bare int literal.
+        when(mockEFormReportToolDao.find((Object) Integer.valueOf(77))).thenReturn(reportTool);
         when(mockEFormDataDao.findMetaFieldsByFormId(500)).thenReturn(List.of(rowOne, rowTwo, rowThree));
         when(mockEFormValueDao.findByFormDataIdList(List.of(10, 11, 12))).thenReturn(List.of(valueOne, valueThree));
 
@@ -158,7 +160,7 @@ public class EFormReportToolManagerUnitTest extends CarlosUnitTestBase {
             }
         }
 
-        when(mockEFormReportToolDao.find(78)).thenReturn(reportTool);
+        when(mockEFormReportToolDao.find((Object) Integer.valueOf(78))).thenReturn(reportTool);
         when(mockEFormDataDao.findMetaFieldsByFormId(501)).thenReturn(fdidRows);
         when(mockEFormValueDao.findByFormDataIdList(firstBatch)).thenReturn(List.of(createValue(1, "bp")));
         when(mockEFormValueDao.findByFormDataIdList(secondBatch)).thenReturn(List.of(createValue(501, "weight")));
@@ -174,7 +176,9 @@ public class EFormReportToolManagerUnitTest extends CarlosUnitTestBase {
     }
 
     /**
-     * Creates an eform value fixture for a specific form-data row.
+     * Creates an eform value fixture for a specific form-data row. Sets a unique id so
+     * AbstractModel.equals — which dereferences getId() without a null guard — doesn't NPE
+     * when Mockito runs eq() comparisons during verify().
      *
      * @param formDataId Integer the form-data identifier the value belongs to
      * @param varName String the eform variable name
@@ -185,6 +189,13 @@ public class EFormReportToolManagerUnitTest extends CarlosUnitTestBase {
         value.setFormDataId(formDataId);
         value.setVarName(varName);
         value.setVarValue("value");
+        try {
+            java.lang.reflect.Field idField = EFormValue.class.getDeclaredField("id");
+            idField.setAccessible(true);
+            idField.set(value, formDataId);
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException("failed to set id on EFormValue test fixture", e);
+        }
         return value;
     }
 }

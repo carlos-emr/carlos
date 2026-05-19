@@ -138,7 +138,7 @@ public class MyComponentIntegrationTest extends CarlosTestBase {
 
     @Test
     @DisplayName("should perform expected action when condition is met")
-    void should_performAction_when_conditionMet() {
+    void shouldPerformExpectedAction_whenConditionMet() {
         // Given - setup
         Entity entity = createTestEntity();
 

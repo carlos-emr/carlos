@@ -66,7 +66,7 @@ public interface SecProviderDao {
 
     public SecProvider findById(java.lang.String id, String status);
 
-    public List findByExample(SecProviderDao instance);
+    public List findByExample(SecProvider instance);
 
     public List findByProperty(String propertyName, Object value);
 
@@ -104,9 +104,9 @@ public interface SecProviderDao {
 
     public List findAll();
 
-    public SecProviderDao merge(SecProviderDao detachedInstance);
+    public SecProvider merge(SecProvider detachedInstance);
 
-    public void attachDirty(SecProviderDao instance);
+    public void attachDirty(SecProvider instance);
 
-    public void attachClean(SecProviderDao instance);
+    public void attachClean(SecProvider instance);
 }

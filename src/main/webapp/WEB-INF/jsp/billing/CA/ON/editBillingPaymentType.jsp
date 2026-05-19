@@ -1,6 +1,7 @@
 <%--
-
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -16,23 +17,20 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-    This software was written for the
-    Department of Family Medicine
-    McMaster University
-    Hamilton
-    Ontario, Canada
-
-
-    Now maintained by the CARLOS EMR Project (2026+).
+    CARLOS EMR Project
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
+--%>
+<%--
+  Purpose: Supports editBillingPaymentType in the Ontario billing workflow.
+  Expected request model data includes: paymentTypeModel.
+  Keep request setup in the paired action and use CARLOS encoding helpers
+  for dynamic output rendered by the page.
 --%>
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
-<%@ page import="java.util.List" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.BillingPaymentType" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
 <html>
 
@@ -43,29 +41,13 @@
     }
 </style>
 
-<%
-    Boolean isModify = false;
-    String id = request.getParameter("id");
-    String type = request.getParameter("type");
-    String titleStr = "Create Billing Payment Type";
-    String method = "createType";
-    if (id != null && type != null) {
-        isModify = true;
-        titleStr = "Modify Billing Payment Type";
-        method = "editType";
-    } else {
-        type = "";
-    }
-%>
-
-
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-    <title><%=titleStr%>
+    <title><carlos:encode value='${paymentTypeModel.title}' context='html'/>
     </title>
     <script type="text/javascript"
-            src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
-            <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
+            src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
+            <script src="${pageContext.request.contextPath}/library/jquery/jquery-compat.js"></script>
     <script type="text/javascript">
 
         function check() {
@@ -76,6 +58,11 @@
             return true;
         }
 
+        function csrfTokenValue() {
+            var tokenInput = document.querySelector("input[name='CSRF-TOKEN']");
+            return tokenInput ? tokenInput.value : "";
+        }
+
         function createType() {
             if (!check()) {
                 return;
@@ -83,8 +70,9 @@
             $.ajax({
                 type: "POST",
                 async: true,
-                data: {method: "<%=method%>", paymentType: document.getElementById("paymentType").value},
-                url: "<%=request.getContextPath()%>/billing/CA/ON/managePaymentType",
+                headers: {"CSRF-TOKEN": csrfTokenValue()},
+                data: {paymentType: document.getElementById("paymentType").value},
+                url: "${pageContext.request.contextPath}/billing/CA/ON/createPaymentType",
                 dataType: "json",
                 success: function (ret) {
                     if (!ret) {
@@ -115,13 +103,13 @@
             $.ajax({
                 type: "POST",
                 async: true,
+                headers: {"CSRF-TOKEN": csrfTokenValue()},
                 data: {
-                    method: "<%=method%>",
-                    id: "<carlos:encode value='<%= id %>' context="javaScriptBlock"/>",
-                    oldPaymentType: "<carlos:encode value='<%= type %>' context="javaScriptBlock"/>",
+                    id: "<carlos:encode value='${paymentTypeModel.id}' context='javaScriptBlock'/>",
+                    oldPaymentType: "<carlos:encode value='${paymentTypeModel.type}' context='javaScriptBlock'/>",
                     paymentType: document.getElementById("paymentType").value
                 },
-                url: "<%=request.getContextPath()%>/billing/CA/ON/managePaymentType",
+                url: "${pageContext.request.contextPath}/billing/CA/ON/updatePaymentType",
                 dataType: "json",
                 success: function (ret) {
                     if (!ret) {
@@ -149,10 +137,11 @@
 </head>
 
 <body>
+<%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
 <table width="100%">
     <tbody>
     <tr bgcolor="#CCCCFF">
-        <th><%=titleStr%>
+        <th><carlos:encode value='${paymentTypeModel.title}' context='html'/>
         </th>
     </tr>
     </tbody>
@@ -162,18 +151,17 @@
 
 <center>
     <input id="paymentType" name="paymentType" type="text"
-           value="<carlos:encode value='<%= type %>' context="htmlAttribute"/>" placeholder="Please input a new payment type"
+           value="<carlos:encode value='${paymentTypeModel.type}' context="htmlAttribute"/>" placeholder="Please input a new payment type"
            size="38"/>
-    <%
-        if (isModify) {
-    %>
-    <input name="save" type="button" onclick="saveType()" value="save"/>
-    <%
-    } else {
-    %>
-    <input name="create" type="button" onclick="createType()"
-           value="create"/>
-    <%}%>
+    <c:choose>
+        <c:when test="${paymentTypeModel.modify}">
+            <input name="save" type="button" onclick="saveType()" value="save"/>
+        </c:when>
+        <c:otherwise>
+            <input name="create" type="button" onclick="createType()"
+                   value="create"/>
+        </c:otherwise>
+    </c:choose>
     <input name="back" type="button" onclick="history.back();" value="back"/>
 </center>
 </body>

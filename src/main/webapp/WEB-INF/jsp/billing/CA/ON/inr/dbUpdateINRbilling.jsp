@@ -1,5 +1,7 @@
 <%--
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2006-. OSCARservice, OpenSoft System. All Rights Reserved.
+
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -15,17 +17,16 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-    Now maintained by the CARLOS EMR Project (2026+).
+    CARLOS EMR Project
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
 --%>
 <%--
     dbUpdateINRbilling.jsp (WEB-INF view)
 
-    View fragment for DbUpdateINRbilling2Action.
+    View fragment for InrBillingRecordUpdate2Action.
     Renders success/failure confirmation and closes the popup.
 
-    Request Attributes (set by DbUpdateINRbilling2Action):
+    Request Attributes (set by InrBillingRecordUpdate2Action):
     - errorCode (String): validation error messages (empty = no error)
     - inraction (String): the action performed ("update" or "delete")
     - billinginr_no (String): the billing record number
@@ -35,6 +36,8 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <html>
 <head>
     <script language="JavaScript">

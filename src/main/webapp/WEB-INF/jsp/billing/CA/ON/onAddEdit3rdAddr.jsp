@@ -1,6 +1,7 @@
 <%--
-
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2006-. OSCARservice, OpenSoft System. All Rights Reserved.
+
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -16,170 +17,50 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
-    Now maintained by the CARLOS EMR Project (2026+).
+    CARLOS EMR Project
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
 --%>
-<%
-    if (session.getAttribute("user") == null) {
-        response.sendRedirect(request.getContextPath() + "/logoutPage");
-    }
-    String user_no = (String) session.getAttribute("user");
-
-%>
-<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp"
-         import="java.util.*,java.sql.*,io.github.carlos_emr.*,java.text.*,java.net.*" %>
-<%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBilling3rdPartImpl" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
-<% //
-    int serviceCodeLen = 5;
-    String msg = "Type in a name and search first to see if it is available.";
-    String action = "search"; // add/edit
-    //BillingServiceCode serviceCodeObj = new BillingServiceCode();
-    Properties prop = new Properties();
-    JdbcBilling3rdPartImpl dbObj = new JdbcBilling3rdPartImpl();
-    if (request.getParameter("submit") != null && request.getParameter("submit").equals("Save")) {
-        if (request.getParameter("action").startsWith("edit")) {
-            // update the service code
-            String company_name = request.getParameter("company_name");
-            if (company_name.equals(request.getParameter("action").substring("edit".length()))) {
-                String list = "";
-                Properties val = new Properties();
-                val.setProperty("id", request.getParameter("id"));
-                val.setProperty("attention", request.getParameter("attention"));
-                val.setProperty("company_name", request.getParameter("company_name"));
-                val.setProperty("address", request.getParameter("address"));
-                val.setProperty("city", request.getParameter("city"));
-                val.setProperty("province", request.getParameter("province"));
-                val.setProperty("postcode", request.getParameter("postcode"));
-                val.setProperty("telephone", request.getParameter("telephone"));
-                val.setProperty("fax", request.getParameter("fax"));
-
-                boolean ni = dbObj.update3rdAddr(request.getParameter("id"), val);
-                if (ni) {
-                    msg = SafeEncode.forHtml(company_name) + " is updated.<br>"
-                            + "Type in a name and search first to see if it is available.";
-                    action = "search";
-                    prop.setProperty("company_name", company_name);
-                } else {
-                    msg = SafeEncode.forHtml(company_name) + " is <font color='red'>NOT</font> updated. Action failed! Try edit it again.";
-                    action = "edit" + company_name;
-                    prop.setProperty("company_name", company_name);
-                    prop.setProperty("id", request.getParameter("id"));
-                    prop.setProperty("attention", request.getParameter("attention"));
-                    prop.setProperty("company_name", request.getParameter("company_name"));
-                    prop.setProperty("address", request.getParameter("address"));
-                    prop.setProperty("city", request.getParameter("city"));
-                    prop.setProperty("province", request.getParameter("province"));
-                    prop.setProperty("postcode", request.getParameter("postcode"));
-                    prop.setProperty("telephone", request.getParameter("telephone"));
-                    prop.setProperty("fax", request.getParameter("fax"));
-                }
-            } else {
-                msg = "You can <font color='red'>NOT</font> save the name - " + SafeEncode.forHtml(company_name)
-                        + ". Please search the name first.";
-                action = "search";
-                prop.setProperty("company_name", company_name);
-            }
-
-        } else if (request.getParameter("action").startsWith("add")) {
-            String company_name = request.getParameter("company_name");
-            if (company_name.equals(request.getParameter("action").substring("add".length()))) {
-                Properties val = new Properties();
-                val.setProperty("attention", request.getParameter("attention"));
-                val.setProperty("company_name", request.getParameter("company_name"));
-                val.setProperty("address", request.getParameter("address"));
-                val.setProperty("city", request.getParameter("city"));
-                val.setProperty("province", request.getParameter("province"));
-                val.setProperty("postcode", request.getParameter("postcode"));
-                val.setProperty("telephone", request.getParameter("telephone"));
-                val.setProperty("fax", request.getParameter("fax"));
-                int ni = dbObj.addOne3rdAddrRecord(val);
-                if (ni > 0) {
-                    msg = SafeEncode.forHtml(company_name) + " is added.<br>"
-                            + "Type in a name and search first to see if it is available.";
-                    action = "search";
-                    prop.setProperty("company_name", company_name);
-                } else {
-                    msg = SafeEncode.forHtml(company_name) + " is <font color='red'>NOT</font> added. Action failed! Try edit it again.";
-                    action = "add" + company_name;
-                    prop.setProperty("company_name", company_name);
-                    prop.setProperty("attention", request.getParameter("attention"));
-                    prop.setProperty("company_name", request.getParameter("company_name"));
-                    prop.setProperty("address", request.getParameter("address"));
-                    prop.setProperty("city", request.getParameter("city"));
-                    prop.setProperty("province", request.getParameter("province"));
-                    prop.setProperty("postcode", request.getParameter("postcode"));
-                    prop.setProperty("telephone", request.getParameter("telephone"));
-                    prop.setProperty("fax", request.getParameter("fax"));
-                }
-            } else {
-                msg = "You can <font color='red'>NOT</font> save the name - " + SafeEncode.forHtml(company_name)
-                        + ". Please search the name first.";
-                action = "search";
-                prop.setProperty("company_name", company_name);
-            }
-        } else {
-            msg = "You can <font color='red'>NOT</font> save the name. Please search the name first.";
-        }
-    } else if (request.getParameter("submit") != null && request.getParameter("submit").equals("Search")) {
-        // check the input data
-        if (request.getParameter("company_name") == null) {
-            msg = "Please type in a right name.";
-        } else {
-            String company_name = request.getParameter("company_name");
-            Properties ni = dbObj.get3rdAddrProp(company_name);
-            if (!ni.getProperty("company_name", "").equals("")) {
-                prop = ni; //.setProperty("company_name", company_name);
-                int n = 0;
-                msg = "You can edit the name.";
-                action = "edit" + company_name;
-
-            } else {
-                prop.setProperty("company_name", company_name);
-                msg = "It is a NEW name. You can add it.";
-                action = "add" + company_name;
-            }
-        }
-    }
-
-
-%>
+<%--
+  Purpose: Supports onAddEdit3rdAddr in the Ontario billing workflow.
+  Expected request model data includes: addrModel.
+  Keep request setup in the paired action and use CARLOS encoding helpers
+  for dynamic output rendered by the page.
+--%>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
-
 <html>
     <head>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+        <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
         <title>Add/Edit Service Code</title>
         <link rel="stylesheet" type="text/css" href="billingON.css"/>
-        <link rel="StyleSheet" type="text/css" href="<%= request.getContextPath() %>/web.css"/>
+        <link rel="StyleSheet" type="text/css" href="${pageContext.request.contextPath}/web.css"/>
         <!-- calendar stylesheet -->
         <link rel="stylesheet" type="text/css" media="all"
-              href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
+              href="${pageContext.request.contextPath}/share/calendar/calendar.css" title="win2k-cold-1"/>
         <!-- main calendar program -->
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
+        <script type="text/javascript" src="${pageContext.request.contextPath}/share/calendar/calendar.js"></script>
         <!-- language for the calendar -->
         <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>">
+                src="${pageContext.request.contextPath}/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>">
         </script>
         <!-- the following script defines the Calendar.setup helper function, which makes
                adding a calendar a matter of 1 or 2 lines of code. -->
         <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
+                src="${pageContext.request.contextPath}/share/calendar/calendar-setup.js"></script>
         <script language="JavaScript">
 
             <!--
             function setfocus() {
-                this.focus();
-                document.forms[0].company_name.focus();
-                document.forms[0].company_name.select();
+                // forms[0] is the saved-company <select> dropdown; forms[1]
+                // is the company-name <input type="text"> on the add/edit
+                // details form. Auto-focus and select-all so the user can
+                // type-to-replace. (Was previously forms[0], which silently
+                // threw because <select> has no .select().)
+                document.forms[1].company_name.focus();
+                document.forms[1].company_name.select();
             }
 
             function onSearch() {
@@ -285,31 +166,22 @@
     <center>
         <table BORDER="1" CELLPADDING="0" CELLSPACING="0" WIDTH="100%">
             <tr class="myDarkGreen">
-                <th><font color="white"><%=msg%>
-                </font></th>
+                <th><font color="white"><carlos:encode value="${addrModel.message}" context="html"/></font></th>
             </tr>
         </table>
     </center>
 
     <table BORDER="0" CELLPADDING="0" CELLSPACING="0" WIDTH="100%"
            class="myYellow">
-        <form method="post" name="baseur0" action="/billing/CA/ON/OnAddEdit3rdAddr">
+        <form method="post" name="baseur0" action="${pageContext.request.contextPath}/billing/CA/ON/OnAddEdit3rdAddr">
 
             <tr>
                 <td align="right" width="50%"><select name="company_name"
                                                       id="company_name">
                     <option selected="selected" value="">- choose one -</option>
-                    <%
-                        //
-                        List sL = dbObj.get3rdAddrNameList();
-                        for (int i = 0; i < sL.size(); i++) {
-                            Properties propT = (Properties) sL.get(i);
-                    %>
-                    <option value="<carlos:encode value='<%= propT.getProperty("company_name", "") %>' context="htmlAttribute"/>"><carlos:encode value='<%= propT.getProperty("company_name", "") %>' context="html"/>
-                    </option>
-                    <%
-                        }
-                    %>
+                    <c:forEach var="propT" items="${addrModel.companyOptions}">
+                        <option value="<carlos:encode value='${propT["company_name"]}' context='htmlAttribute'/>"><carlos:encode value='${propT["company_name"]}' context='html'/></option>
+                    </c:forEach>
                 </select></td>
                 <td><input type="hidden" name="submit" value="Search"> <input
                         type="submit" name="action" value=" Edit "></td>
@@ -317,59 +189,59 @@
         </form>
     </table>
     <table width="100%" border="0" cellspacing="2" cellpadding="2">
-        <form method="post" name="baseurl" action="/billing/CA/ON/OnAddEdit3rdAddr">
+        <form method="post" name="baseurl" action="${pageContext.request.contextPath}/billing/CA/ON/OnAddEdit3rdAddr">
             <tr class="myGreen">
                 <td align="right"><b>Company Name</b></td>
                 <td><input type="text" name="company_name"
-                           value="<carlos:encode value='<%= prop.getProperty("company_name", "") %>' context="htmlAttribute"/>" size='40'
+                           value="<carlos:encode value='${addrModel.companyName}' context='htmlAttribute'/>" size='40'
                            maxlength='50'/> <input type="submit" name="submit" value="Search"
                                                    onclick="javascript:return onSearch();"></td>
             </tr>
             <tr class="myIvory">
                 <td align="right"><b>Attention</b></td>
                 <td><input type="text" name="attention"
-                           value="<carlos:encode value='<%= prop.getProperty("attention", "") %>' context="htmlAttribute"/>" size='40'
+                           value="<carlos:encode value='${addrModel.attention}' context='htmlAttribute'/>" size='40'
                            maxlength='50'/></td>
             </tr>
             <tr class="myGreen">
                 <td align="right"><b>Address</b></td>
                 <td><input type="text" name="address"
-                           value="<carlos:encode value='<%= prop.getProperty("address", "") %>' context="htmlAttribute"/>" size='40' maxlength='50'/>
+                           value="<carlos:encode value='${addrModel.address}' context='htmlAttribute'/>" size='40' maxlength='50'/>
                 </td>
             </tr>
             <tr class="myIvory">
                 <td align="right"><b>City</b></td>
                 <td><input type="text" name="city"
-                           value="<carlos:encode value='<%= prop.getProperty("city", "") %>' context="htmlAttribute"/>" size='40' maxlength='50'/>
+                           value="<carlos:encode value='${addrModel.city}' context='htmlAttribute'/>" size='40' maxlength='50'/>
                 </td>
             </tr>
             <tr class="myGreen">
                 <td align="right"><b>Province</b></td>
                 <td><input type="text" name="province"
-                           value="<carlos:encode value='<%= prop.getProperty("province", "") %>' context="htmlAttribute"/>" size='20'
+                           value="<carlos:encode value='${addrModel.province}' context='htmlAttribute'/>" size='20'
                            maxlength='20'/></td>
             </tr>
             <tr class="myIvory">
                 <td align="right"><b>postcode</b></td>
                 <td><input type="text" name="postcode"
-                           value="<carlos:encode value='<%= prop.getProperty("postcode", "") %>' context="htmlAttribute"/>" size='10'
+                           value="<carlos:encode value='${addrModel.postcode}' context='htmlAttribute'/>" size='10'
                            maxlength='10'/></td>
             </tr>
             <tr class="myGreen">
                 <td align="right"><b>Tel.</b></td>
                 <td><input type="text" name="telephone"
-                           value="<carlos:encode value='<%= prop.getProperty("telephone", "") %>' context="htmlAttribute"/>" size='40'
+                           value="<carlos:encode value='${addrModel.telephone}' context='htmlAttribute'/>" size='40'
                            maxlength='50'/></td>
             </tr>
             <tr class="myIvory">
                 <td align="right"><b>Fax</b></td>
                 <td><input type="text" name="fax"
-                           value="<carlos:encode value='<%= prop.getProperty("fax", "") %>' context="htmlAttribute"/>" size='40' maxlength='50'/>
+                           value="<carlos:encode value='${addrModel.fax}' context='htmlAttribute'/>" size='40' maxlength='50'/>
                 </td>
             </tr>
             <tr>
                 <td align="center" class="myGreen" colspan="2"><input
-                        type="hidden" name="action" value='<carlos:encode value='<%= action %>' context="htmlAttribute"/>'> <input
+                        type="hidden" name="action" value="<carlos:encode value='${addrModel.action}' context='htmlAttribute'/>"> <input
                         type="submit" name="submit"
                         value="<fmt:message key="admin.resourcebaseurl.btnSave"/>"
                         onclick="javascript:return onSave();"> <input type="button"
@@ -377,7 +249,7 @@
                                                                       value="<fmt:message key="admin.resourcebaseurl.btnExit"/>"
                                                                       onClick="window.close()"> <input type="hidden"
                                                                                                        name="id"
-                                                                                                       value="<carlos:encode value='<%= prop.getProperty("id", "") %>' context="htmlAttribute"/>"/>
+                                                                                                       value="<carlos:encode value='${addrModel.id}' context='htmlAttribute'/>"/>
                 </td>
             </tr>
         </form>

@@ -110,17 +110,8 @@
         }
 
         function onPrint() {
-            document.forms[0].submit.value = "print"; //printAR1
-            var ret = checkAllDates();
-            if (ret == true) {
-                //ret = confirm("Do you wish to save this form and view the print preview?");
-                popupFixedPage(650, 850, '<%= request.getContextPath() %>/provider/notice.htm');
-                document.forms[0].action = "<%= request.getContextPath() %>/form/formbcbirthsummoprint.jsp";
-                document.forms[0].target = "planner";
-                document.forms[0].submit();
-                document.forms[0].target = "apptProviderSearch";
-            }
-            return ret;
+            window.print();
+            return false;
         }
 
         function onSave() {
@@ -334,9 +325,9 @@
                                                                              onclick="javascript:return onSaveExit();"/> <%
                     }
                 %> <input type="submit" value="<fmt:message key='global.btnExit'/>"
-                          onclick="javascript:return onExit();"/> <input type="submit"
+                          onclick="javascript:return onExit();"/> <input type="button"
                                                                          value="<fmt:message key='global.btnPrint'/>"
-                                                                         onclick="javascript:window.print();"/></td>
+                                                                         onclick="javascript:return onPrint();"/></td>
             </tr>
         </table>
 

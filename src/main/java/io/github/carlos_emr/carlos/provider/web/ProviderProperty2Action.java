@@ -1038,8 +1038,8 @@ public class ProviderProperty2Action extends ActionSupport {
 
         ArrayList<LabelValueBean> serviceList = new ArrayList<LabelValueBean>();
         CtlBillingServiceDao dao = SpringUtils.getBean(CtlBillingServiceDao.class);
-        for (Object[] service : dao.getUniqueServiceTypes())
-            serviceList.add(new LabelValueBean(String.valueOf(service[0]), String.valueOf(service[1])));
+        for (io.github.carlos_emr.carlos.billings.ca.on.dto.UniqueServiceTypeRow service : dao.getUniqueServiceTypes())
+            serviceList.add(new LabelValueBean(service.serviceType(), service.serviceTypeName()));
         serviceList.add(new LabelValueBean("None", ""));
 
         request.setAttribute("dropOpts", serviceList);
@@ -1077,8 +1077,8 @@ public class ProviderProperty2Action extends ActionSupport {
 
         ArrayList<LabelValueBean> serviceList = new ArrayList<LabelValueBean>();
         CtlBillingServiceDao dao = SpringUtils.getBean(CtlBillingServiceDao.class);
-        for (Object[] service : dao.getUniqueServiceTypes())
-            serviceList.add(new LabelValueBean(String.valueOf(service[0]), String.valueOf(service[1])));
+        for (io.github.carlos_emr.carlos.billings.ca.on.dto.UniqueServiceTypeRow service : dao.getUniqueServiceTypes())
+            serviceList.add(new LabelValueBean(service.serviceType(), service.serviceTypeName()));
 
         request.setAttribute("dropOpts", serviceList);
 

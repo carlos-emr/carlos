@@ -43,6 +43,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile;
@@ -70,6 +71,11 @@ public final class BillingUpdateBilling2Action
 
     public String execute() throws IOException,
             ServletException {
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");
@@ -84,7 +90,6 @@ public final class BillingUpdateBilling2Action
         recip.setProvince(this.getRecipientProvince());
         recip.setPostal(this.getRecipientPostal());
         recip.setBillingNoString(this.getBillingNo());
-        log.debug("Name of recip " + recip.getName());
         MSPReconcile msprec = new MSPReconcile();
         BillingViewBean bean = new BillingViewBean();
         bean.updateBill(this.getBillingNo(), request.getParameter("billingProvider"));
@@ -94,7 +99,10 @@ public final class BillingUpdateBilling2Action
         try {
             n.addNoteFromBillingNo(this.getBillingNo(), creator, this.getMessageNotes());
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
+            throw new IllegalStateException(
+                    "BC billing note update failed for billingNo="
+                            + LogSafe.sanitizeForDisplay(this.getBillingNo()),
+                    e);
         }
 
         return SUCCESS;

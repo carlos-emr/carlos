@@ -48,6 +48,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.lab.FileUploadCheck;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.HandlerClassFactory;
+import io.github.carlos_emr.carlos.lab.ca.all.upload.ProviderLabRouting;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.MessageHandler;
 import io.github.carlos_emr.carlos.lab.ca.all.util.CMLLabHL7Generator;
 import io.github.carlos_emr.carlos.lab.ca.all.util.GDMLLabHL7Generator;
@@ -58,7 +59,7 @@ import io.github.carlos_emr.CarlosProperties;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 public class SubmitLabByForm2Action extends ActionSupport {
@@ -187,7 +188,7 @@ public class SubmitLabByForm2Action extends ActionSupport {
                 firstSep = hl7.indexOf('\n');
             }
             String mshSegment = firstSep > 0 ? hl7.substring(0, firstSep) : "[MSH extraction failed]";
-            logger.info("HL7 generated (length={}, MSH={})", hl7.length(), LogSanitizer.sanitize(mshSegment, 400)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            logger.info("HL7 generated (length={}, MSH={})", hl7.length(), LogSafe.sanitize(mshSegment, 400)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
         } else {
             logger.error("HL7 generation returned null for lab submission");
             addActionError("Failed to generate lab result. Please verify all required fields and try again.");
@@ -207,24 +208,41 @@ public class SubmitLabByForm2Action extends ActionSupport {
             checkFileUploadedSuccessfully = FileUploadCheck.addFile(file.getName(), fis, providerNo);
         }
 
-        String outcome = null;
-
         if (checkFileUploadedSuccessfully != FileUploadCheck.UNSUCCESSFUL_SAVE) {
-            logger.info("filePath {}", LogSanitizer.sanitize(filePath)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
-            logger.info("Type :{}", LogSanitizer.sanitize(labName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            logger.info("filePath {}", LogSafe.sanitize(filePath)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            logger.info("Type :{}", LogSafe.sanitize(labName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             MessageHandler msgHandler = HandlerClassFactory.getHandler(labName);
-            if (msgHandler != null) {
-                logger.info("MESSAGE HANDLER {}", msgHandler.getClass().getName());
+            if (msgHandler == null) {
+                logger.warn("outcome=error — no message handler found for lab type {}", LogSafe.sanitize(labName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                addActionError(getText("oscarMDS.createLab.submitError"));
+                return manage();
             }
-            if ((msgHandler.parse(loggedInInfo, getClass().getSimpleName(), filePath, checkFileUploadedSuccessfully, ipAddr)) != null)
-                outcome = "success";
+            logger.info("MESSAGE HANDLER {}", msgHandler.getClass().getName());
+            String parseResult = msgHandler.parse(loggedInInfo, getClass().getSimpleName(), filePath, checkFileUploadedSuccessfully, ipAddr);
+            if (parseResult != null) {
+                logger.info("outcome=success");
+                Integer labNo = msgHandler.getLastLabNo();
+                if (labNo == null) {
+                    logger.error("Parsed lab is missing a lab number; skipping provider routing");
+                    addActionError(getText("oscarMDS.createLab.submitError"));
+                    return manage();
+                }
 
+                try {
+                    new ProviderLabRouting().routeMagic(labNo, providerNo, "HL7");
+                    addActionMessage(getText("oscarMDS.createLab.submitSuccess"));
+                } catch (RuntimeException e) {
+                    logger.error("Provider routing failed for lab {}", labNo, e);
+                    addActionError(getText("oscarMDS.createLab.submitError"));
+                }
+            } else {
+                logger.warn("outcome=null — lab handler returned null; lab may not have been saved");
+                addActionError(getText("oscarMDS.createLab.submitError"));
+            }
         } else {
-            outcome = "uploaded previously";
+            logger.info("outcome=uploaded previously");
+            addActionError(getText("oscarMDS.createLab.submitDuplicate"));
         }
-
-        logger.info("outcome={}", outcome);
-
 
         return manage();
     }
@@ -241,7 +259,7 @@ public class SubmitLabByForm2Action extends ActionSupport {
 		// Generate appropriate HL7 format based on lab type
 		String labType = lab.getLabName();
 		labType = labType == null ? "" : labType.trim().toUpperCase();
-		logger.info("Generating HL7 for lab type: [{}]", LogSanitizer.sanitize(labType)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+		logger.info("Generating HL7 for lab type: [{}]", LogSafe.sanitize(labType)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
 
 		switch (labType) {
 			case "MDS":
@@ -251,7 +269,7 @@ public class SubmitLabByForm2Action extends ActionSupport {
 			case "CML":
 				return CMLLabHL7Generator.generate(lab);
 			default:
-				logger.error("Unsupported lab type: [{}]; defaulting to CML.", LogSanitizer.sanitize(labType)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+				logger.error("Unsupported lab type: [{}]; defaulting to CML.", LogSafe.sanitize(labType)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
 				return CMLLabHL7Generator.generate(lab);
 		}
 	}

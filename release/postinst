@@ -51,7 +51,6 @@ UPGRADE=false
 INSTALL_SSL=true
 signature_tablet=no
 ENABLE_EDIT_APPT_STATUS=yes
-appt_intake_form=off
 NEW_CONTACTS_UI=false
 indivica_rx_enhance=false
 enableFax=false

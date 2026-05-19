@@ -34,6 +34,7 @@
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -82,7 +83,7 @@
                        height="100%">
                     <tr>
                         <td width="0%" valign="top">
-                            <div class="DivCCBreadCrumbs"><a href="SearchPatient.jsp">
+                            <div class="DivCCBreadCrumbs"><a href="${pageContext.request.contextPath}/rx/ViewPrint">
                                 <fmt:message key="SearchPatient.title"/></a> > <b><fmt:message key="ChoosePatient.title"/></b></div>
                         </td>
                     </tr>
@@ -103,7 +104,8 @@
                             <table>
                                 <tr>
                                     <td><fmt:message key="ChoosePatient.textBox"/></td>
-                                    <td><input type="checkbox" name="surname" size="16" maxlength="16" />
+                                    <td><input type="text" name="surname" size="16" maxlength="16"
+                                               value="<carlos:encode value='${requestScope.searchSurname}' context='htmlAttribute'/>" />
                                     </td>
                                     <td><input type="submit" name="submit" value="Search" class="ControlPushButton"/></td>
                                 </tr>
@@ -115,6 +117,45 @@
                             <div class="DivContentSectionHead"><fmt:message key="ChoosePatient.choose"/></div>
                         </td>
                     </tr>
+                    <c:if test="${requestScope.searchPerformed == true}">
+                        <tr>
+                            <td>
+                                <c:choose>
+                                    <c:when test="${empty requestScope.searchSurname}">
+                                        <div><fmt:message key="SearchPatient.surname"/> <fmt:message key="admin.securityrecord.msgIsRequired"/></div>
+                                    </c:when>
+                                    <c:when test="${empty requestScope.searchResults}">
+                                        <div><fmt:message key="ChoosePatient.emptySearch"/></div>
+                                    </c:when>
+                                </c:choose>
+                            </td>
+                        </tr>
+                    </c:if>
+                    <c:if test="${not empty requestScope.searchResults}">
+                        <tr>
+                            <td>
+                                <table width="100%" border="0" cellpadding="2" cellspacing="0">
+                                    <tr>
+                                        <th align="left">Patient</th>
+                                        <th align="left">Sex</th>
+                                        <th align="left">Age</th>
+                                        <th align="left">Chart No.</th>
+                                    </tr>
+                                    <c:forEach var="patient" items="${requestScope.searchResults}">
+                                        <c:url var="choosePatientUrl" value="/rx/choosePatient">
+                                            <c:param name="demographicNo" value="${patient.demographicNo}"/>
+                                        </c:url>
+                                        <tr>
+                                            <td><a href="${choosePatientUrl}"><carlos:encode value="${patient.surname}" context="html"/>, <carlos:encode value="${patient.firstName}" context="html"/></a></td>
+                                            <td><carlos:encode value="${patient.sex}" context="html"/></td>
+                                            <td><carlos:encode value="${patient.age}" context="html"/></td>
+                                            <td><carlos:encode value="${patient.chartNo}" context="html"/></td>
+                                        </tr>
+                                    </c:forEach>
+                                </table>
+                            </td>
+                        </tr>
+                    </c:if>
 
 
                     <!----End new rows here-->

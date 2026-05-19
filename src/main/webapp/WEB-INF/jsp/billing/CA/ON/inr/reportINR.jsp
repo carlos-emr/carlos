@@ -1,7 +1,7 @@
-<!DOCTYPE html>
 <%--
-
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2006-. OSCARservice, OpenSoft System. All Rights Reserved.
+
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -17,51 +17,20 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
-    Now maintained by the CARLOS EMR Project (2026+).
+    CARLOS EMR Project
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
 --%>
-<%
-    String user_no = (String) session.getAttribute("user");
-%>
-<%@page import="java.nio.charset.StandardCharsets" %>
+<%--
+  Purpose: Supports reportINR in the Ontario billing workflow.
+  Expected request model data includes: reportInrModel.
+  Keep request setup in the paired action and use CARLOS encoding helpers
+  for dynamic output rendered by the page.
+--%>
+<!DOCTYPE html>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ page import="java.util.*, java.sql.*, java.net.*" %>
-<%@ include file="/WEB-INF/jsp/admin/dbconnection.jsp" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
-<%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
-<%@ page import="io.github.carlos_emr.carlos.billing.CA.model.BillingInr" %>
-<%@ page import="io.github.carlos_emr.carlos.billing.CA.dao.BillingInrDao" %>
-<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
-<%
-    ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
-    BillingInrDao billingInrDao = SpringUtils.getBean(BillingInrDao.class);
-
-%>
-
-<jsp:useBean id="SxmlMisc" class="io.github.carlos_emr.SxmlMisc" scope="session"/>
-
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.ClinicLocationDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.ClinicLocation" %>
-<%
-    ClinicLocationDao clinicLocationDao = (ClinicLocationDao) SpringUtils.getBean(ClinicLocationDao.class);
-%>
-<% GregorianCalendar now = new GregorianCalendar();
-    int curYear = now.get(Calendar.YEAR);
-    int curMonth = (now.get(Calendar.MONTH) + 1);
-    int curDay = now.get(Calendar.DAY_OF_MONTH);
-    String nowDate = String.valueOf(curYear) + "/" + String.valueOf(curMonth) + "/" + String.valueOf(curDay);
-    String nowTime = now.get(Calendar.HOUR_OF_DAY) + ":" + now.get(Calendar.MINUTE) + ":" + now.get(Calendar.SECOND);
-    String clinicview = oscarVariables.getProperty("clinic_view");
-    String Clinic_no = oscarVariables.getProperty("clinic_no");
-
-
-%>
 
 <html>
 <head>
@@ -97,8 +66,8 @@
 
         //-->
     </script>
-    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+    <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="${pageContext.request.contextPath}/css/fontawesome-all.min.css">
 </head>
 
 <body>
@@ -109,73 +78,33 @@
             class="fa-solid fa-print"></i> Print
     </button>
 
-    <% String providerview = request.getParameter("provider_no") == null ? "" : request.getParameter("provider_no");
-
-    %>
     <form name="serviceform" method="post"
-          action="<%=oscarVariables.getProperty("isNewONbilling","").equals("true")? "/billing/CA/ON/ViewInrOnGenINRbilling":"/billing/CA/ON/ViewInrGenINRbilling" %>">
+          action="${carlos:forHtmlAttribute(reportInrModel.inrBillingActionUrl)}">
         Select provider
         <select name="provider" onChange="jumpMenu('parent',this,0)" class="form-select">
             <option value="#">Select Provider</option>
-            <option value="/billing/CA/ON/ViewInrReportINR?provider_no=all"
-                    <%=providerview.equals("all") ? "selected" : ""%>><b>All
-                Provider</b></option>
-            <% String proFirst = "";
-                String proLast = "";
-                String proName = "";
-                String proName1 = "";
-                String proOHIP = "";
-                String specialty_code;
-                String billinggroup_no;
-                ArrayList providerArray = new ArrayList();
-                String[] providerArr = new String[2];
-                int Count = 0;
-
-
-                for (Provider p : providerDao.getActiveProviders()) {
-                    if (p.getOhipNo() == null || p.getOhipNo().isEmpty())
-                        continue;
-
-                    proFirst = p.getFirstName();
-                    proLast = p.getLastName();
-                    proName = proFirst + " " + proLast;
-                    proOHIP = p.getProviderNo();
-
-                    providerArr[0] = proOHIP;
-                    providerArr[1] = proName;
-                    providerArray.add(providerArr);
-            %>
-            <option value="/billing/CA/ON/ViewInrReportINR?provider_no=<%=proOHIP%>"
-                    <%=providerview.equals(proOHIP) ? "selected" : ""%>><%=proLast%>,
-                <%=proFirst%>
-            </option>
-            <%
-
-                }
-//
-            %>
+            <option value="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/billing/CA/ON/ViewInrReportINR?provider_no=all"
+                    ${reportInrModel.allProvidersSelected ? 'selected' : ''}><b>All Provider</b></option>
+            <c:forEach var="prov" items="${reportInrModel.providers}">
+                <option value="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/billing/CA/ON/ViewInrReportINR?provider_no=${carlos:forUriComponent(prov.providerNo)}"
+                        ${reportInrModel.providerView eq prov.providerNo ? 'selected' : ''}><carlos:encode value="${prov.lastName}"/>,
+                    <carlos:encode value="${prov.firstName}"/>
+                </option>
+            </c:forEach>
         </select>
         Clinic Location:
         <input type="hidden" name="billcenter" value="G">
         <select name="xml_location" datafld='xml_location' class="form-select">
-            <% ResultSet rsclinic = null;
-                String clinic_location = "", clinic_code = "";
-                List<ClinicLocation> clinicLocations = clinicLocationDao.findByClinicNo(1);
-                for (ClinicLocation clinicLocation : clinicLocations) {
-                    clinic_location = clinicLocation.getClinicLocationName();
-                    clinic_code = clinicLocation.getClinicLocationNo();
-            %>
-            <option value="<%=clinic_code%>"
-                    <%=clinicview.equals(clinic_code) ? "selected" : ""%>><%=clinic_location%>
-            </option>
-            <%
-                }
-            %>
+            <c:forEach var="loc" items="${reportInrModel.clinicLocations}">
+                <option value="${carlos:forHtmlAttribute(loc.code)}"
+                        ${reportInrModel.clinicView eq loc.code ? 'selected' : ''}><carlos:encode value="${loc.name}"/>
+                </option>
+            </c:forEach>
         </select>
         <input type="hidden" name="verCode" value="V03">
-        <input type="hidden" name="curUser" value="<%=user_no%>">
-        <input type="hidden" name="curDate" value="<%=nowDate%>">
-        <input type="hidden" name="curTime" value="<%=nowTime%>">
+        <input type="hidden" name="curUser" value="${carlos:forHtmlAttribute(reportInrModel.userNo)}">
+        <input type="hidden" name="curDate" value="${carlos:forHtmlAttribute(reportInrModel.nowDate)}">
+        <input type="hidden" name="curTime" value="${carlos:forHtmlAttribute(reportInrModel.nowTime)}">
 
         <table class="table table-striped  table-sm">
 
@@ -189,153 +118,50 @@
                 <td>Last Bill Date</td>
 
             </tr>
-            <% String demono = "", demo_name = "", demo_dob = "", demo_hin = "", billinginr_no = "", provider_no = "";
-                String provider_ohip_no = "", provider_rma_no = "", diagnostic_code = "", service_code = "", billing_amount = "";
-                String billing_unit = "", billdate = "", billstatus = "";
-                int colorCount = 0;
-                String color = "";
-                int Count1 = 0;
-
-                if (providerview.compareTo("all") == 0) {
-                    for (BillingInr b : billingInrDao.findCurrentByProviderNo("%")) {
-
-                        billinginr_no = b.getId().toString();
-                        demono = String.valueOf(b.getDemographicNo());
-                        demo_name = b.getDemographicName();
-                        demo_hin = b.getHin();
-                        demo_dob = b.getDob();
-                        provider_no = b.getProviderNo();
-
-                        Provider p = providerDao.getProvider(provider_no);
-                        if (p != null) {
-                            proFirst = p.getFirstName();
-                            proLast = p.getLastName();
-                            proName1 = proFirst + " " + proLast;
-                        }
-
-                        provider_ohip_no = b.getProviderOhipNo();
-                        provider_rma_no = b.getProviderRmaNo();
-                        diagnostic_code = b.getDiagnosticCode();
-                        service_code = b.getServiceCode();
-                        billing_amount = b.getBillingAmount();
-                        billing_unit = b.getBillingUnit();
-                        billdate = ConversionUtils.toDateString(b.getCreateDateTime());
-                        billstatus = b.getStatus();
-                        if (colorCount == 0) {
-                            colorCount = 1;
-                            color = "#FFFFFF";
-                        } else {
-                            colorCount = 0;
-                            color = "#EEEEFF";
-                        }
-                        Count1 = Count1 + 1;
-            %>
-            <tr>
-                <td width="12%" height="16"><input type="checkbox"
-                                                   name="inrbilling<%=billinginr_no%>"></td>
-                <td width="22%" height="16"><a href="#"
-                                               onClick='rs("billinginrupdate","/billing/CA/ON/InrUpdateINRbilling?demono=<%=demono%>&billinginr_no=<%=billinginr_no%>&servicecode=<%=service_code%>&billingamount=<%=billing_amount%>&dxcode=<%=diagnostic_code%>&demo_name=<%=URLEncoder.encode(demo_name, StandardCharsets.UTF_8)%>&provider_name=<%=URLEncoder.encode(proName1, StandardCharsets.UTF_8)%>","380","300","0")'><%=demo_name%>
-                </a></td>
-                <td width="22%" height="16"><%=proName1%>
-                </td>
-                <td width="12%" height="16"><%=service_code%>
-                </td>
-                <td width="12%" height="16"><%=billing_amount%>
-                </td>
-                <td width="10%" height="16"><%=diagnostic_code%>
-                </td>
-                <td width="10%" height="16">
-                    <% if (billstatus.compareTo("A") == 0) {%><%=billdate.substring(0, 10)%>
-                    <%} else {%>Not Available<%}%>
-                </td>
-            </tr>
-            <%
-                }
-            } else {
-
-                for (BillingInr b : billingInrDao.findCurrentByProviderNo(providerview)) {
-
-                    billinginr_no = b.getId().toString();
-                    demono = String.valueOf(b.getDemographicNo());
-                    demo_name = b.getDemographicName();
-                    demo_hin = b.getHin();
-                    demo_dob = b.getDob();
-                    provider_no = b.getProviderNo();
-
-                    Provider p = providerDao.getProvider(provider_no);
-                    if (p != null) {
-                        proFirst = p.getFirstName();
-                        proLast = p.getLastName();
-                        proName1 = proFirst + " " + proLast;
-                    }
-
-                    provider_ohip_no = b.getProviderOhipNo();
-                    provider_rma_no = b.getProviderRmaNo();
-                    diagnostic_code = b.getDiagnosticCode();
-                    service_code = b.getServiceCode();
-                    billing_amount = b.getBillingAmount();
-                    billing_unit = b.getBillingUnit();
-                    billdate = ConversionUtils.toDateString(b.getCreateDateTime());
-                    billstatus = b.getStatus();
-
-
-                    if (colorCount == 0) {
-                        colorCount = 1;
-                        color = "#FFFFFF";
-                    } else {
-                        colorCount = 0;
-                        color = "#EEEEFF";
-                    }
-
-                    Count1 = Count1 + 1;
-            %>
-            <tr>
-                <td width="12%" height="16"><input type="checkbox"
-                                                   name="inrbilling<%=billinginr_no%>"></td>
-                <td width="22%" height="16"><a href="#"
-                                               onClick='rs("billinginrupdate","/billing/CA/ON/InrUpdateINRbilling?demono=<%=demono%>&billinginr_no=<%=billinginr_no%>&servicecode=<%=service_code%>&billingamount=<%=billing_amount%>&dxcode=<%=diagnostic_code%>&demo_name=<%=URLEncoder.encode(demo_name, StandardCharsets.UTF_8)%>&provider_name=<%=URLEncoder.encode(proName1, StandardCharsets.UTF_8)%>","380","300","0")'><%=demo_name%>
-                </a></td>
-                <td width="22%" height="16"><%=proName1%>
-                </td>
-                <td width="12%" height="16"><%=service_code%>
-                </td>
-                <td width="12%" height="16"><%=billing_amount%>
-                </td>
-                <td width="10%" height="16"><%=diagnostic_code%>
-                </td>
-                <td width="10%" height="16">
-                    <% if (billstatus.compareTo("A") == 0) {%><%=billdate.substring(0, 10)%>
-                    <%} else {%>Not Available<%}%>
-                </td>
-            </tr>
-            <%
-                    }
-                }
-            %>
-            <% if (Count1 == 0) { %>
-            <tr>
-                <td colspan=7>No Match Found</td>
-                <%} else {%>
-            </tr>
-            <tr>
-                <td>
-                    <a href="#"
-                       onClick='rs("billingcalendar","<%= request.getContextPath() %>/billing/CA/ON/ViewBillingCalendarPopup?year=<%=curYear%>&month=<%=curMonth%>&type=service","380","300","0")'>Service
-                        Date:</a>
-                    <input type="text" name="xml_appointment_date"
-                           value="<%=now.get(Calendar.YEAR)+"-"+(now.get(Calendar.MONTH)+1)+"-"+now.get(Calendar.DAY_OF_MONTH)%>"
-                           size="12" datafld='xml_appointment_date'>
-                </td>
-                <td colspan=7>
-                    <input type="submit" name="submit" value="Generate INR Batch Billing">
-                    <input type="hidden" name="rowCount" value="<%=Count1%>">
-                    <input type="hidden" name="clinic_no" value="<%=Clinic_no%>">
-                    <input type="hidden" name="visittype" value="00">
-                </td>
-            </tr>
-            <%
-                }
-            %>
+            <c:forEach var="row" items="${reportInrModel.billRows}">
+                <tr>
+                    <td width="12%" height="16"><input type="checkbox"
+                                                       name="inrbilling${carlos:forHtmlAttribute(row.billingInrNo)}"></td>
+                    <td width="22%" height="16"><a href="#"
+                                                   onClick='rs("billinginrupdate","${carlos:forJavaScript(pageContext.request.contextPath)}/billing/CA/ON/InrUpdateINRbilling?demono=${carlos:forJavaScript(row.demoNo)}&billinginr_no=${carlos:forJavaScript(row.billingInrNo)}&servicecode=${carlos:forJavaScript(row.serviceCode)}&billingamount=${carlos:forJavaScript(row.billingAmount)}&dxcode=${carlos:forJavaScript(row.diagnosticCode)}&demo_name=${carlos:forJavaScript(row.demoNameUrlEncoded)}&provider_name=${carlos:forJavaScript(row.providerNameUrlEncoded)}","380","300","0")'><carlos:encode value="${row.demoName}"/>
+                    </a></td>
+                    <td width="22%" height="16"><carlos:encode value="${row.providerName}"/>
+                    </td>
+                    <td width="12%" height="16"><carlos:encode value="${row.serviceCode}"/>
+                    </td>
+                    <td width="12%" height="16"><carlos:encode value="${row.billingAmount}"/>
+                    </td>
+                    <td width="10%" height="16"><carlos:encode value="${row.diagnosticCode}"/>
+                    </td>
+                    <td width="10%" height="16"><carlos:encode value="${row.lastBillDateLabel}"/>
+                    </td>
+                </tr>
+            </c:forEach>
+            <c:choose>
+                <c:when test="${reportInrModel.rowCount == 0}">
+                    <tr>
+                        <td colspan="7">No Match Found</td>
+                    </tr>
+                </c:when>
+                <c:otherwise>
+                    <tr>
+                        <td>
+                            <a href="#"
+                               onClick='rs("billingcalendar","${carlos:forJavaScript(pageContext.request.contextPath)}/billing/CA/ON/ViewBillingCalendarPopup?year=${carlos:forJavaScript(reportInrModel.curYear)}&month=${carlos:forJavaScript(reportInrModel.curMonth)}&type=service","380","300","0")'>Service
+                                Date:</a>
+                            <input type="text" name="xml_appointment_date"
+                                   value="${carlos:forHtmlAttribute(reportInrModel.defaultServiceDate)}"
+                                   size="12" datafld='xml_appointment_date'>
+                        </td>
+                        <td colspan="7">
+                            <input type="submit" name="submit" value="Generate INR Batch Billing">
+                            <input type="hidden" name="rowCount" value="${carlos:forHtmlAttribute(reportInrModel.rowCount)}">
+                            <input type="hidden" name="clinic_no" value="${carlos:forHtmlAttribute(reportInrModel.clinicNo)}">
+                            <input type="hidden" name="visittype" value="00">
+                        </td>
+                    </tr>
+                </c:otherwise>
+            </c:choose>
         </table>
     </form>
 </div>

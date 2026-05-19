@@ -44,16 +44,20 @@ import org.apache.logging.log4j.Logger;
 import jakarta.persistence.Query;
 import jakarta.persistence.TypedQuery;
 import io.github.carlos_emr.carlos.commn.NativeSql;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.commn.dao.ProviderFacilityDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.ProviderFacility;
 import io.github.carlos_emr.carlos.commn.model.ProviderFacilityPK;
+import io.github.carlos_emr.carlos.config.CacheConfig;
 import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
 import io.github.carlos_emr.carlos.provider.dto.ProviderSummaryDTO;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.carlos.model.security.SecProvider;
@@ -85,6 +89,9 @@ public class ProviderDaoImpl extends AbstractJpaDao implements ProviderDao {
         return provider;
     }
 
+    @Cacheable(value = CacheConfig.PROVIDER_NAMES, key = "'name:' + #providerNo",
+               condition = "#providerNo != null && !#providerNo.isEmpty()",
+               unless = "#result == null || #result.isEmpty()")
     @Override
     public String getProviderName(String providerNo) {
 
@@ -108,6 +115,9 @@ public class ProviderDaoImpl extends AbstractJpaDao implements ProviderDao {
         return providerName;
     }
 
+    @Cacheable(value = CacheConfig.PROVIDER_NAMES, key = "'nameLastFirst:' + #providerNo",
+               condition = "#providerNo != null && !#providerNo.isEmpty()",
+               unless = "#result == null || #result.isEmpty()")
     @Override
     public String getProviderNameLastFirst(String providerNo) {
         if (providerNo == null || providerNo.length() <= 0) {
@@ -204,7 +214,7 @@ public class ProviderDaoImpl extends AbstractJpaDao implements ProviderDao {
                 // Caller asked for providers in a specific program but passed a non-numeric id.
                 // Return empty rather than silently widening the result to all active providers.
                 log.warn("getActiveProviders: non-numeric programId '{}', returning empty list",
-                        LogSanitizer.sanitize(programId));
+                        LogSafe.sanitize(programId));
                 return Collections.emptyList();
             }
         } else if (facilityId != null && "0".equals(facilityId) == false) {
@@ -223,6 +233,7 @@ public class ProviderDaoImpl extends AbstractJpaDao implements ProviderDao {
         return rs;
     }
 
+    @Cacheable(value = CacheConfig.ACTIVE_PROVIDERS, key = "'filter:true'")
     @Override
     public List<Provider> getActiveProviders() {
 
@@ -232,9 +243,10 @@ public class ProviderDaoImpl extends AbstractJpaDao implements ProviderDao {
         if (log.isDebugEnabled()) {
             log.debug("getProviders: # of results=" + rs.size());
         }
-        return rs;
+        return Collections.unmodifiableList(new ArrayList<>(rs));
     }
 
+    @Cacheable(value = CacheConfig.ACTIVE_PROVIDERS, key = "'filter:' + #filterOutSystemAndImportedProviders")
     @Override
     public List<Provider> getActiveProviders(boolean filterOutSystemAndImportedProviders) {
 
@@ -251,14 +263,17 @@ public class ProviderDaoImpl extends AbstractJpaDao implements ProviderDao {
         if (log.isDebugEnabled()) {
             log.debug("getProviders: # of results=" + rs.size());
         }
-        return rs;
+        return Collections.unmodifiableList(new ArrayList<>(rs));
     }
 
     @Override
     public List<Provider> getActiveProvidersByRole(String role) {
         if (role == null) return Collections.emptyList();
-        String sSQL = "select p FROM Provider p, SecUserRole s where p.ProviderNo = s.ProviderNo and p.Status='1' " +
-        "and s.RoleName = ?1 order by p.LastName, p.FirstName";
+        // Uses Secuserrole (model.security) — the identity-PK mapping that matches the actual
+        // secUserRole table schema. The PMmodule SecUserRole composite-key mapping is
+        // intentionally absent from the test EMF and does not reflect the production DB.
+        String sSQL = "select p FROM Provider p, Secuserrole s where p.ProviderNo = s.providerNo and p.Status='1' " +
+        "and s.roleName = ?1 order by p.LastName, p.FirstName";
         List<Provider> rs = (List<Provider>) JpqlQueryHelper.find(entityManager(), sSQL, role);
 
         if (log.isDebugEnabled()) {
@@ -448,11 +463,21 @@ public class ProviderDaoImpl extends AbstractJpaDao implements ProviderDao {
         return (List<String>) query.getResultList();
     }
 
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES,             allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS,           allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES,  allEntries = true)
+    })
     @Override
     public void updateProvider(Provider provider) {
         entityManager().merge(provider);
     }
 
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES,             allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS,           allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES,  allEntries = true)
+    })
     @Override
     public void saveProvider(Provider provider) {
         entityManager().persist(provider);
@@ -767,11 +792,12 @@ public class ProviderDaoImpl extends AbstractJpaDao implements ProviderDao {
     private static final String PROVIDER_SUMMARIES_BY_IDS_HQL =
             "SELECT NEW io.github.carlos_emr.carlos.provider.dto.ProviderSummaryDTO(p.ProviderNo, p.LastName, p.FirstName, p.Specialty, p.Status, p.Team) FROM Provider p WHERE p.ProviderNo IN (:providerNumbers)";
 
+    @Cacheable(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES)
     @Override
     public List<ProviderSummaryDTO> getActiveProviderSummaries() {
         TypedQuery<ProviderSummaryDTO> query = entityManager().createQuery(
                 ACTIVE_PROVIDER_SUMMARIES_HQL, ProviderSummaryDTO.class);
-        return query.getResultList();
+        return Collections.unmodifiableList(new ArrayList<>(query.getResultList()));
     }
 
     @Override

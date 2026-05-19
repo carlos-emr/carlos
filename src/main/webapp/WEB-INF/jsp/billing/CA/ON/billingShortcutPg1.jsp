@@ -1,6 +1,7 @@
 <%--
-
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2006-. OSCARservice, OpenSoft System. All Rights Reserved.
+
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -16,442 +17,67 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
-    Now maintained by the CARLOS EMR Project (2026+).
+    CARLOS EMR Project
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
 --%>
-<%@page import="io.github.carlos_emr.carlos.commn.model.DiagnosticCode" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.CtlBillingServicePremium" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingServicePremiumDao" %>
-<%@page import="java.util.Date" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.BillingService" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.CtlBillingService" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.ClinicLocation" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.ClinicLocationDao" %>
-<%@page import="io.github.carlos_emr.carlos.billing.CA.model.BillingDetail" %>
-<%@page import="io.github.carlos_emr.carlos.billing.CA.dao.BillingDetailDao" %>
-<%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Billing" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
-<%
-    if (session.getAttribute("user") == null) {
-        response.sendRedirect(request.getContextPath() + "/logoutPage");
-    }
-
-    String user_no = (String) session.getAttribute("user");
-    String providerview = request.getParameter("providerview") == null
-            ? ""
-            : request.getParameter("providerview");
-    String asstProvider_no = "";
-    String color = "";
-    String premiumFlag = "";
-    String service_form = "";
-%>
+<%--
+  Purpose: Supports billingShortcutPg1 in the Ontario billing workflow.
+  Expected request model data includes: shortcutPg1Model.
+  Keep request setup in the paired action and use CARLOS encoding helpers
+  for dynamic output rendered by the page.
+--%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-
-
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@ page import="java.util.*,java.net.*, java.sql.*, io.github.carlos_emr.*" %>
-<%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.ClinicNbr" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
-
-<% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
-<jsp:useBean id="providerBean" class="java.util.Properties"
-             scope="session"/>
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao" %>
-<%@page import="org.apache.commons.lang3.StringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingReviewImpl" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data" %>
-<%@ page import="io.github.carlos_emr.Misc" %>
-<%@ page import="io.github.carlos_emr.SxmlMisc" %>
-<%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%
-    ProfessionalSpecialistDao professionalSpecialistDao = (ProfessionalSpecialistDao) SpringUtils.getBean(ProfessionalSpecialistDao.class);
-%>
-<%
-    boolean bHospitalBilling = true;
-    String clinicview = bHospitalBilling ? oscarVariables.getProperty("clinic_hospital", "") : oscarVariables.getProperty("clinic_view", "");
-    String clinicNo = oscarVariables.getProperty("clinic_no", "");
-    String visitType = bHospitalBilling ? "02" : oscarVariables.getProperty("visit_type", "");
-    String appt_no = request.getParameter("appointment_no");
-    String demoname = request.getParameter("demographic_name");
-    String demo_no = request.getParameter("demographic_no");
-    String apptProvider_no = request.getParameter("apptProvider_no");
-    String ctlBillForm = request.getParameter("billForm");
-    String assgProvider_no = request.getParameter("assgProvider_no");
-    if (assgProvider_no == null) assgProvider_no = new String();
-
-    String demoSex = request.getParameter("DemoSex");
-    GregorianCalendar now = new GregorianCalendar();
-    int curYear = now.get(Calendar.YEAR);
-    int curMonth = (now.get(Calendar.MONTH) + 1);
-    int curDay = now.get(Calendar.DAY_OF_MONTH);
-    int dob_year = 0, dob_month = 0, dob_date = 0, age = 0;
-
-    ResourceBundle res = ResourceBundle.getBundle("oscarResources", request.getLocale());
-
-    String msg = res.getString("billing.hospitalBilling.msgDates");
-    String action = "edit";
-    Properties propHist = null;
-    Vector vecHist = new Vector();
-
-    // get providers's detail
-    String proOHIPNO = "", proRMA = "";
-    ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
-    Provider prov = null;
-    if (request.getParameter("xml_provider") != null) {
-        prov = providerDao.getProvider(request.getParameter("xml_provider"));
-    }
-    if (prov != null) {
-        proOHIPNO = prov.getOhipNo();
-        proRMA = prov.getRmaNo();
-    }
-    if (request.getParameter("xml_provider") != null) providerview = request.getParameter("xml_provider");
-    // get patient's detail
-    String errorFlag = "";
-    String warningMsg = "", errorMsg = "";
-    String r_doctor = "", r_doctor_ohip = "";
-    String demoFirst = "", demoLast = "", demoHIN = "", demoDOB = "", demoDOBYY = "", demoDOBMM = "", demoDOBDD = "", demoHCTYPE = "";
-
-    DemographicDao demoDao = SpringUtils.getBean(DemographicDao.class);
-    Demographic demo = demoDao.getDemographic(demo_no);
-    if (demo != null) {
-        assgProvider_no = demo.getProviderNo();
-        if (assgProvider_no == null) assgProvider_no = new String();
-
-        demoFirst = demo.getFirstName();
-        demoLast = demo.getLastName();
-        demoSex = demo.getSex();
-        if (demo.getHin() != null && demo.getVer() != null) demoHIN = demo.getHin() + demo.getVer();
-        if (demoSex.compareTo("M") == 0) demoSex = "1";
-        if (demoSex.compareTo("F") == 0) demoSex = "2";
-
-        demoHCTYPE = demo.getHcType() == null ? "" : demo.getHcType();
-        if (demoHCTYPE.compareTo("") == 0 || demoHCTYPE == null || demoHCTYPE.length() < 2) {
-            demoHCTYPE = "ON";
-        } else {
-            demoHCTYPE = demoHCTYPE.substring(0, 2).toUpperCase();
-        }
-        demoDOBYY = demo.getYearOfBirth();
-        demoDOBMM = demo.getMonthOfBirth();
-        demoDOBDD = demo.getDateOfBirth();
-
-        if (demo.getFamilyDoctor() == null) {
-            r_doctor = "N/A";
-            r_doctor_ohip = "000000";
-        } else {
-            r_doctor = SxmlMisc.getXmlContent(demo.getFamilyDoctor(), "rd") == null ? "" : SxmlMisc.getXmlContent(demo.getFamilyDoctor(), "rd");
-            r_doctor_ohip = SxmlMisc.getXmlContent(demo.getFamilyDoctor(), "rdohip") == null ? "" : SxmlMisc.getXmlContent(demo.getFamilyDoctor(), "rdohip");
-        }
-
-        demoDOBMM = demoDOBMM.length() == 1 ? ("0" + demoDOBMM) : demoDOBMM;
-        demoDOBDD = demoDOBDD.length() == 1 ? ("0" + demoDOBDD) : demoDOBDD;
-        demoDOB = demoDOBYY + demoDOBMM + demoDOBDD;
-
-        if (demo.getHin() == null || demo.getHin().equals("")) {
-            warningMsg += "<br><b><font color='orange'>Warning: The patient does not have a valid HIN. </font></b><br>";
-        }
-        if (r_doctor_ohip != null && r_doctor_ohip.length() > 0 && r_doctor_ohip.length() != 6) {
-            warningMsg += "<br><font color='orange'>Warning: the referral doctor's no is wrong. </font><br>";
-        }
-        if (demoDOB.length() != 8) {
-            errorFlag = "1";
-            errorMsg = errorMsg + "<br><b><font color='red'>Error: The patient does not have a valid DOB. </font></b><br>";
-        }
-    }
-
-    // get patient's billing history
-    boolean bFirst = true;
-    Vector vecHistD = new Vector();
-    List aL = null;
-
-    CarlosProperties props = CarlosProperties.getInstance();
-    if (!props.getProperty("isNewONbilling", "").equals("true")) {
-
-        BillingDao billingDao = SpringUtils.getBean(BillingDao.class);
-        for (Billing b : billingDao.findActiveBillingsByDemoNo(ConversionUtils.fromIntString(demo_no), 5)) {
-            propHist = new Properties();
-
-            propHist.setProperty("billing_no", "" + b.getId());
-            propHist.setProperty("visitdate", ConversionUtils.toDateString(b.getVisitDate())); // admission date
-            propHist.setProperty("billing_date", ConversionUtils.toDateString(b.getBillingDate())); // service date
-            propHist.setProperty("update_date", ConversionUtils.toDateString(b.getUpdateDate())); // create date
-            propHist.setProperty("visitType", b.getVisitType());
-            propHist.setProperty("clinic_ref_code", b.getClinicRefCode());
-            vecHist.add(propHist);
-
-            // get the latest ref. doctor number
-            if (bFirst && "checked".equals(SxmlMisc.getXmlContent(b.getContent(), "xml_referral"))) {
-                bFirst = false;
-                r_doctor_ohip = SxmlMisc.getXmlContent(b.getContent(), "rdohip");
-            }
-        }
-
-        BillingDetailDao billingDetailDao = SpringUtils.getBean(BillingDetailDao.class);
-        for (int i = 0; i < vecHist.size(); i++) {
-            String billingNo = ((Properties) vecHist.get(i)).getProperty("billing_no", "");
-
-            String dx = "";
-            String serCode = "";
-
-            for (BillingDetail bd : billingDetailDao.findByBillingNo(ConversionUtils.fromIntString(billingNo))) {
-                if (dx.equals("") || !dx.equals(bd.getDiagnosticCode())) {
-                    dx += (dx.equals("")
-                            ? ""
-                            : ", ") + bd.getDiagnosticCode();
-                }
-
-                if (serCode.equals("") || !serCode.equals(bd.getServiceCode())) {
-                    serCode += (serCode.equals("")
-                            ? ""
-                            : ", ") + bd.getServiceCode() + " x " + bd.getBillingUnit();
-                }
-            }
-
-            propHist = new Properties();
-
-            propHist.setProperty("service_code", serCode);
-            propHist.setProperty("diagnostic_code", dx);
-            vecHistD.add(propHist);
-        }
-    } else {
-        JdbcBillingReviewImpl hdbObj = new JdbcBillingReviewImpl();
-        aL = hdbObj.getBillingHist(demo_no, 5, 0, null);
-        if (aL.size() > 0) {
-            BillingClaimHeader1Data obj = (BillingClaimHeader1Data) aL.get(0);
-            BillingItemData iobj = (BillingItemData) aL.get(1);
-
-            propHist = new Properties();
-
-            propHist.setProperty("visitdate", obj.getAdmission_date() == null ? "" : obj.getAdmission_date()); // admission date
-            propHist.setProperty("visitType", obj.getVisittype());
-            propHist.setProperty("clinic_ref_code", obj.getFacilty_num());
-            vecHist.add(propHist);
-            propHist.setProperty("diagnostic_code", iobj.getDx());
-            vecHistD.add(propHist);
-        }
-
-    }
-
-    // display the fixed billing part
-    // Retrieving Provider
-    Vector vecProvider = new Vector();
-    Properties propT = null;
-
-    ProviderDao prDao = SpringUtils.getBean(ProviderDao.class);
-    for (Provider pr : prDao.getDoctorsWithOhip()) {
-        propT = new Properties();
-        propT.setProperty("last_name", pr.getLastName());
-        propT.setProperty("first_name", pr.getFirstName());
-        propT.setProperty("proOHIP", pr.getProviderNo());
-        vecProvider.add(propT);
-    }
-    // clinic location
-    Vector vecLocation = new Vector();
-
-    ClinicLocationDao clDao = SpringUtils.getBean(ClinicLocationDao.class);
-    for (ClinicLocation cl : clDao.findAll()) {
-        propT = new Properties();
-        propT.setProperty("clinic_location_name", cl.getClinicLocationName());
-        propT.setProperty("clinic_location_no", cl.getClinicLocationNo());
-        vecLocation.add(propT);
-    }
-
-    // set default value
-    // use parameter -> history record
-    if (StringUtils.trimToNull(r_doctor_ohip) != null) {
-        ProfessionalSpecialist specialist = professionalSpecialistDao.getByReferralNo(r_doctor_ohip);
-        if (specialist != null) {
-            r_doctor = specialist.getLastName() + "," + specialist.getFirstName();
-        }
-    }
-
-    String paraName = request.getParameter("dxCode");
-    String dxCode = getDefaultValue(paraName, vecHistD, "diagnostic_code");
-
-    //visitType
-    paraName = request.getParameter("xml_visittype");
-    String xml_visittype = getDefaultValue(paraName, vecHist, "visitType");
-    if (!"".equals(xml_visittype)) {
-        visitType = xml_visittype;
-    } else {
-        visitType = visitType == null ? "" : visitType;
-    }
-
-    paraName = request.getParameter("xml_location");
-    String xml_location = getDefaultValue(paraName, vecHist, "clinic_ref_code");
-    if (!"".equals(xml_location)) {
-        clinicview = xml_location;
-    } else {
-        clinicview = clinicview == null ? "" : clinicview;
-    }
-
-    String visitdate = null;
-    paraName = request.getParameter("xml_vdate");
-    String xml_vdate = getDefaultValue(paraName, vecHist, "visitdate");
-    if (!"".equals(xml_vdate)) {
-        visitdate = xml_vdate;
-    } else {
-        visitdate = visitdate == null ? "" : visitdate;
-    }
-
-
-    // get billing dx/form info
-    Vector vecCodeCol1 = new Vector();
-    Vector vecCodeCol2 = new Vector();
-    Vector vecCodeCol3 = new Vector();
-    Properties propPremium = new Properties();
-    String serviceCode = "", serviceDesc = "", serviceValue = "", servicePercentage = "", serviceType = "", serviceDisp = "", serviceSLI = "";
-    String headerTitle1 = "", headerTitle2 = "", headerTitle3 = "";
-
-    //int CountService = 0;
-    //int Count2 = 0;
-    BillingServiceDao bsDao = SpringUtils.getBean(BillingServiceDao.class);
-    // "select c.service_group_name, c.service_order,b.service_code, b.description, b.value, b.percentage, b.sliFlag"
-    for (Object[] o : bsDao.findBillingServiceAndCtlBillingServiceByMagic(ctlBillForm, "Group1", new Date())) {
-        BillingService b = (BillingService) o[0];
-        CtlBillingService c = (CtlBillingService) o[1];
-
-        propT = new Properties();
-        headerTitle1 = c.getServiceGroupName();
-        propT.setProperty("serviceCode", b.getServiceCode());
-        propT.setProperty("serviceDesc", b.getDescription());
-        propT.setProperty("serviceDisp", b.getValue());
-        propT.setProperty("servicePercentage", Misc.getStr(b.getPercentage(), ""));
-        propT.setProperty("serviceSLI", Misc.getStr("" + b.getSliFlag(), "false"));
-        vecCodeCol1.add(propT);
-    }
-
-    if (!vecCodeCol1.isEmpty()) {
-        List<String> svcCodes = new ArrayList<String>();
-        for (int i = 0; i < vecCodeCol1.size(); i++) {
-            svcCodes.add(((Properties) vecCodeCol1.get(i)).getProperty("serviceCode"));
-        }
-
-        CtlBillingServicePremiumDao cprDao = SpringUtils.getBean(CtlBillingServicePremiumDao.class);
-        for (CtlBillingServicePremium pr : cprDao.findByServceCodes(svcCodes)) {
-            propPremium.setProperty(pr.getServiceCode(), "A");
-        }
-    }
-
-    for (Object[] o : bsDao.findBillingServiceAndCtlBillingServiceByMagic(ctlBillForm, "Group2", new Date())) {
-        BillingService b = (BillingService) o[0];
-        CtlBillingService c = (CtlBillingService) o[1];
-
-        propT = new Properties();
-        headerTitle1 = c.getServiceGroupName();
-        propT.setProperty("serviceCode", b.getServiceCode());
-        propT.setProperty("serviceDesc", b.getDescription());
-        propT.setProperty("serviceDisp", b.getValue());
-        propT.setProperty("servicePercentage", Misc.getStr(b.getPercentage(), ""));
-        propT.setProperty("serviceSLI", Misc.getStr("" + b.getSliFlag(), "false"));
-        vecCodeCol2.add(propT);
-    }
-
-    if (!vecCodeCol2.isEmpty()) {
-        List<String> svcCodes = new ArrayList<String>();
-        for (int i = 0; i < vecCodeCol2.size(); i++) {
-            svcCodes.add(((Properties) vecCodeCol2.get(i)).getProperty("serviceCode"));
-        }
-
-        CtlBillingServicePremiumDao cprDao = SpringUtils.getBean(CtlBillingServicePremiumDao.class);
-        for (CtlBillingServicePremium pr : cprDao.findByServceCodes(svcCodes)) {
-            propPremium.setProperty(pr.getServiceCode(), "A");
-        }
-    }
-
-    for (Object[] o : bsDao.findBillingServiceAndCtlBillingServiceByMagic(ctlBillForm, "Group3", new Date())) {
-        BillingService b = (BillingService) o[0];
-        CtlBillingService c = (CtlBillingService) o[1];
-
-        propT = new Properties();
-        headerTitle1 = c.getServiceGroupName();
-        propT.setProperty("serviceCode", b.getServiceCode());
-        propT.setProperty("serviceDesc", b.getDescription());
-        propT.setProperty("serviceDisp", b.getValue());
-        propT.setProperty("servicePercentage", Misc.getStr(b.getPercentage(), ""));
-        propT.setProperty("serviceSLI", Misc.getStr("" + b.getSliFlag(), "false"));
-        vecCodeCol3.add(propT);
-    }
-
-    if (!vecCodeCol3.isEmpty()) {
-        List<String> svcCodes = new ArrayList<String>();
-        for (int i = 0; i < vecCodeCol3.size(); i++) {
-            svcCodes.add(((Properties) vecCodeCol3.get(i)).getProperty("serviceCode"));
-        }
-
-        CtlBillingServicePremiumDao cprDao = SpringUtils.getBean(CtlBillingServicePremiumDao.class);
-        for (CtlBillingServicePremium pr : cprDao.findByServceCodes(svcCodes)) {
-            propPremium.setProperty(pr.getServiceCode(), "A");
-        }
-    }
-    // create msg
-    msg += errorMsg + warningMsg;
-
-%>
+<c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
 "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html>
 <head>
-    <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+    <script type="text/javascript" src="${ctx}/js/global.js"></script>
     <title>HospitalBilling</title>
     <link rel="stylesheet" type="text/css" href="billingON.css"/>
 
     <!-- calendar stylesheet -->
     <link rel="stylesheet" type="text/css" media="all"
-          href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
+          href="${ctx}/share/calendar/calendar.css" title="win2k-cold-1"/>
     <!-- main calendar program -->
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
+    <script type="text/javascript" src="${ctx}/share/calendar/calendar.js"></script>
     <!-- language for the calendar -->
     <script type="text/javascript"
             src="${carlos:forHtmlAttribute(ctx)}/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
     <!-- the following script defines the Calendar.setup helper function, which makes
            adding a calendar a matter of 1 or 2 lines of code. -->
     <script type="text/javascript"
-            src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
-    <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
-    <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
+            src="${ctx}/share/calendar/calendar-setup.js"></script>
+    <script type="text/javascript" src="${ctx}/library/jquery/jquery-3.7.1.min.js"></script>
+    <script src="${ctx}/library/jquery/jquery-compat.js"></script>
     <script type="text/javascript" language="JavaScript">
 
         <!--
         window.focus();
+        var billingContextPath = "<carlos:encode value='${ctx}' context='javaScriptBlock'/>";
 
         function checkSli() {
             var needsSli = false;
             jQuery("input[name^=code_xml_]:checked").each(function () {
-                needsSli = needsSli || eval(jQuery("input[name='sli_xml_" + this.name.substring(9) + "']").val());
+                needsSli = needsSli || (jQuery("input[name='sli_xml_" + this.name.substring(9) + "']").val() === 'true');
             });
             jQuery("input[name^=serviceDate][value!='']").each(function () {
-                needsSli = needsSli || eval(jQuery("input[name='sli_xml_" + this.value + "']").val());
+                needsSli = needsSli || (jQuery("input[name='sli_xml_" + this.value + "']").val() === 'true');
             });
             return !needsSli || jQuery("select[name='xml_slicode']").get(0).selectedIndex != 0;
         }
 
-
         function gotoBillingOB() {
+            var a = "";
             if (self.location.href.lastIndexOf("?") > 0) {
                 a = self.location.href.substring(self.location.href.lastIndexOf("?"));
             }
-            self.location.href = "/billing" + a;
+            self.location.href = billingContextPath + "/billing" + a;
         }
 
         function findObj(n, d) { //v4.0
@@ -520,12 +146,12 @@
                 alert("Please select a providers.");
                 return false;
             }
-                <% if (!CarlosProperties.getInstance().getBooleanProperty("rma_enabled", "true")) { %>
+            <c:if test="${!shortcutPg1Model.rmaEnabled}">
             else if (document.forms[0].xml_visittype.options[2].selected && (document.forms[0].xml_vdate.value == "" || document.forms[0].xml_vdate.value == "0000-00-00")) {
                 alert("Need an admission date.");
                 return false;
             }
-            <% } %>
+            </c:if>
 
             if (document.forms[0].xml_vdate.value.length > 0) {
                 return checkServiceDate(document.forms[0].xml_vdate.value);
@@ -562,8 +188,8 @@
             varDate = calDate.getDate();
             var str_date = s; //document.forms[0].xml_appointment_date.value;
             var yyyy = str_date.substring(0, str_date.indexOf("-"));
-            var mm = str_date.substring(eval(str_date.indexOf("-") + 1), str_date.lastIndexOf("-"));
-            var dd = str_date.substring(eval(str_date.lastIndexOf("-") + 1));
+            var mm = str_date.substring(str_date.indexOf("-") + 1, str_date.lastIndexOf("-"));
+            var dd = str_date.substring(str_date.lastIndexOf("-") + 1);
             var bWrongDate = false;
             sMsg = "";
             if (yyyy > varYear) {
@@ -640,8 +266,7 @@
             var d = elementName;
             t0 = escape("document.forms[0].elements[\'" + d + "\'].value");
             //t1 = escape("");
-            //alert(('/billing/CA/ON/ViewSearchRefDoc?param='+t0));
-            awnd = rs('att', ('/billing/CA/ON/ViewSearchRefDoc?param=' + t0), 600, 600, 1);
+            awnd = rs('att', ('${ctx}/billing/CA/ON/ViewSearchRefDoc?param=' + t0), 600, 600, 1);
             awnd.focus();
         }
 
@@ -649,14 +274,14 @@
             var d = elementName;
             t0 = escape("document.forms[0].elements[\'" + d + "\'].value");
             t1 = escape("document.forms[0].elements[\'" + name2 + "\'].value");
-            awnd = rs('att', ('/billing/CA/ON/ViewSearchRefDoc?param=' + t0 + '&param2=' + t1), 600, 600, 1);
+            awnd = rs('att', ('${ctx}/billing/CA/ON/ViewSearchRefDoc?param=' + t0 + '&param2=' + t1), 600, 600, 1);
             awnd.focus();
         }
 
         function dxScriptAttach(name2) {
             f0 = escape(document.forms[0].dxCode.value);
             f1 = escape("document.forms[0].elements[\'" + name2 + "\'].value");
-            awnd = rs('att', '/billing/CA/ON/ViewBillingDigSearch?name=' + f0 + '&search=&name2=' + f1, 600, 600, 1);
+            awnd = rs('att', '${ctx}/billing/CA/ON/ViewBillingDigSearch?name=' + f0 + '&search=&name2=' + f1, 600, 600, 1);
             awnd.focus();
         }
 
@@ -691,28 +316,18 @@
             </td>
         </tr>
 
-        <%
-            String ctlcode = "", ctlcodename = "", currentFormName = "";
-            int ctlCount = 0;
-
-            CtlBillingServiceDao cbsDao = SpringUtils.getBean(CtlBillingServiceDao.class);
-            for (Object[] o : cbsDao.findServiceTypesByStatus("A")) {
-                ctlcodename = String.valueOf(o[0]);
-                ctlcode = String.valueOf(o[1]);
-                ctlCount++;
-                if (ctlcode.equals(ctlBillForm)) {
-                    currentFormName = ctlcodename;
-                }
-        %>
-        <tr bgcolor=<%=ctlCount % 2 == 0 ? "#FFFFFF" : "#EEEEFF"%>>
-            <td colspan="2"><b><font size="-2" color="#7A388D"><a
-                    href="billingShortcutPg1.jsp?billForm=<%=ctlcode%>&hotclick=<%=URLEncoder.encode("","UTF-8")%>&appointment_no=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_no")) %>' context="uriComponent"/>&demographic_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&demographic_no=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")) %>' context="uriComponent"/>&user_no=<%=user_no%>&apptProvider_no=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")) %>' context="uriComponent"/>&providerview=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")) %>' context="uriComponent"/>&appointment_date=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date")) %>' context="uriComponent"/>&status=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("status")) %>' context="uriComponent"/>&start_time=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time")) %>' context="uriComponent"/>&bNewForm=1"
-                    onClick="showHideLayers('Layer1','','hide');"><%=ctlcodename%>
-            </a></font></b></td>
-        </tr>
-        <%
-            }
-        %>
+        <%-- service-type panel iterates the pre-loaded
+             shortcutPg1Model.serviceTypes list. The assembler does the
+             findServiceTypesByStatus call + sanitisation; the JSP just
+             walks the result. --%>
+        <c:forEach var="__st" items="${shortcutPg1Model.serviceTypes}" varStatus="__stStatus">
+            <tr bgcolor="${__stStatus.count % 2 == 0 ? '#FFFFFF' : '#EEEEFF'}">
+                <td colspan="2"><b><font size="-2" color="#7A388D"><a
+                        href="${ctx}/billing/CA/ON/billingShortcutPg1View?billForm=${carlos:forUriComponent(__st.code)}&hotclick=&appointment_no=${carlos:forUriComponent(shortcutPg1Model.requestParamEchoes['appointment_no'])}&demographic_name=${carlos:forUriComponent(shortcutPg1Model.demoName)}&demographic_no=${carlos:forUriComponent(shortcutPg1Model.requestParamEchoes['demographic_no'])}&user_no=${carlos:forUriComponent(shortcutPg1Model.userProviderNo)}&apptProvider_no=${carlos:forUriComponent(shortcutPg1Model.requestParamEchoes['apptProvider_no'])}&providerview=${carlos:forUriComponent(shortcutPg1Model.providerView)}&appointment_date=${carlos:forUriComponent(shortcutPg1Model.requestParamEchoes['appointment_date'])}&status=${carlos:forUriComponent(shortcutPg1Model.requestParamEchoes['status'])}&start_time=${carlos:forUriComponent(shortcutPg1Model.requestParamEchoes['start_time'])}&bNewForm=1"
+                        onClick="showHideLayers('Layer1','','hide');"><carlos:encode value="${__st.name}" context="html"/>
+                </a></font></b></td>
+            </tr>
+        </c:forEach>
     </table>
 </div>
 <div id="Layer2"
@@ -726,34 +341,24 @@
                               onClick="showHideLayers('Layer2','','hide');return false">X</a></td>
         </tr>
 
-        <%
-            String ctldiagcode = "", ctldiagcodename = "";
-            ctlCount = 0;
-            DiagnosticCodeDao dcDao = SpringUtils.getBean(DiagnosticCodeDao.class);
-            for (Object[] o : dcDao.findDiagnosictsAndCtlDiagCodesByServiceType(ctlBillForm)) {
-                DiagnosticCode dc = (DiagnosticCode) o[0];
-                ctldiagcode = dc.getDiagnosticCode();
-                ctldiagcodename = dc.getDescription();
-        %>
-        <tr bgcolor=<%=ctlCount % 2 == 0 ? "#FFFFFF" : "#EEEEFF"%>>
-            <td width="18%"><b><font size="-2" color="#7A388D"><a
-                    href="#"
-                    onClick="document.forms[0].dxCode.value='<%=ctldiagcode%>';showHideLayers('Layer2','','hide');return false;"><%=ctldiagcode%>
-            </a></font></b></td>
-            <td colspan="2"><font size="-2" color="#7A388D"><a
-                    href="#"
-                    onClick="document.forms[0].dxCode.value='<%=ctldiagcode%>';showHideLayers('Layer2','','hide');return false;">
-                <%=ctldiagcodename.length() < 56 ? ctldiagcodename : ctldiagcodename.substring(0, 55)%>
-            </a></font></td>
-        </tr>
-        <%
-            }
-        %>
+        <%-- dx-code panel iterates pre-loaded shortcutPg1Model.dxCodes. --%>
+        <c:forEach var="__dx" items="${shortcutPg1Model.dxCodes}" varStatus="__dxStatus">
+            <tr bgcolor="${__dxStatus.count % 2 == 0 ? '#FFFFFF' : '#EEEEFF'}">
+                <td width="18%"><b><font size="-2" color="#7A388D"><a
+                        href="#"
+                        onClick="document.forms[0].dxCode.value='<carlos:encode value='${__dx.code}' context='javaScript'/>';showHideLayers('Layer2','','hide');return false;"><carlos:encode value="${__dx.code}" context="html"/>
+                </a></font></b></td>
+                <td colspan="2"><font size="-2" color="#7A388D"><a
+                        href="#"
+                        onClick="document.forms[0].dxCode.value='<carlos:encode value='${__dx.code}' context='javaScript'/>';showHideLayers('Layer2','','hide');return false;">
+                    <carlos:encode value="${fn:length(__dx.description) < 56 ? __dx.description : fn:substring(__dx.description, 0, 55)}" context="html"/>
+                </a></font></td>
+            </tr>
+        </c:forEach>
     </table>
 </div>
 
-
-<form method="post" name="titlesearch" action="<%= request.getContextPath() %>/billing/CA/ON/BillingShortcutPg2Save"
+<form method="post" name="titlesearch" action="${ctx}/billing/CA/ON/BillingShortcutPg2Save"
       onsubmit="return onNext();">
     <table border="0" cellpadding="0" cellspacing="2" width="100%"
            bgcolor="#CCCCFF">
@@ -777,9 +382,9 @@
             <td>
                 <table border="0" cellspacing="0" cellpadding="0" width="100%">
                     <tr bgcolor="#33CCCC">
-                        <td nowrap bgcolor="#FFCC99" width="10%" align="center"><carlos:encode value='<%= demoname %>' context="html"/>
+                        <td nowrap bgcolor="#FFCC99" width="10%" align="center">${carlos:forHtmlContent(shortcutPg1Model.demoName)}
                         </td>
-                        <td bgcolor="#99CCCC" align="center"><font color="black"><%= msg %>
+                        <td bgcolor="#99CCCC" align="center"><font color="black"><fmt:message key="billing.hospitalBilling.msgDates"/>${shortcutPg1Model.msg}
                         </font>
                         </td>
                     </tr>
@@ -798,34 +403,34 @@
                                     <td nowrap width="30%" align="center"><a id="trigger"
                                                                              href="#">[<fmt:message key="billing.servicedate"/>]</a><br>
                                         <textarea name="billDate" cols="11" rows="5"
-                                                  readonly><carlos:encode value='<%= request.getParameter("billDate") != null ? request.getParameter("billDate") : "" %>' context="html"/></textarea>
+                                                  readonly><carlos:encode value='${shortcutPg1Model.requestParamEchoes["billDate"]}' context="html"/></textarea>
                                     </td>
                                     <td nowrap align="center"><fmt:message key="billing.billingCorrection.formServiceCode"/> x <fmt:message key="billing.billingCorrection.formUnit"/><br>
                                         <input type="text" name="serviceDate0" size="5" maxlength="5"
-                                               value="<carlos:encode value='<%= request.getParameter("serviceDate0")!=null?request.getParameter("serviceDate0"):"" %>' context="htmlAttribute"/>">x
+                                               value="<carlos:encode value='${shortcutPg1Model.requestParamEchoes["serviceDate0"]}' context="htmlAttribute"/>">x
                                         <input type="text" name="serviceUnit0" size="2" maxlength="2"
                                                style=""
-                                               value="<carlos:encode value='<%= request.getParameter("serviceUnit0")!=null?request.getParameter("serviceUnit0"):"" %>' context="htmlAttribute"/>"><br>
+                                               value="<carlos:encode value='${shortcutPg1Model.requestParamEchoes["serviceUnit0"]}' context="htmlAttribute"/>"><br>
                                         <input type="text" name="serviceDate1" size="5" maxlength="5"
-                                               value="<carlos:encode value='<%= request.getParameter("serviceDate1")!=null?request.getParameter("serviceDate1"):"" %>' context="htmlAttribute"/>">x
+                                               value="<carlos:encode value='${shortcutPg1Model.requestParamEchoes["serviceDate1"]}' context="htmlAttribute"/>">x
                                         <input type="text" name="serviceUnit1" size="2" maxlength="2"
                                                style=""
-                                               value="<carlos:encode value='<%= request.getParameter("serviceUnit1")!=null?request.getParameter("serviceUnit1"):"" %>' context="htmlAttribute"/>"><br>
+                                               value="<carlos:encode value='${shortcutPg1Model.requestParamEchoes["serviceUnit1"]}' context="htmlAttribute"/>"><br>
                                         <input type="text" name="serviceDate2" size="5" maxlength="5"
-                                               value="<carlos:encode value='<%= request.getParameter("serviceDate2")!=null?request.getParameter("serviceDate2"):"" %>' context="htmlAttribute"/>">x
+                                               value="<carlos:encode value='${shortcutPg1Model.requestParamEchoes["serviceDate2"]}' context="htmlAttribute"/>">x
                                         <input type="text" name="serviceUnit2" size="2" maxlength="2"
                                                style=""
-                                               value="<carlos:encode value='<%= request.getParameter("serviceUnit2")!=null?request.getParameter("serviceUnit2"):"" %>' context="htmlAttribute"/>"><br>
+                                               value="<carlos:encode value='${shortcutPg1Model.requestParamEchoes["serviceUnit2"]}' context="htmlAttribute"/>"><br>
                                         <input type="text" name="serviceDate3" size="5" maxlength="5"
-                                               value="<carlos:encode value='<%= request.getParameter("serviceDate3")!=null?request.getParameter("serviceDate3"):"" %>' context="htmlAttribute"/>">x
+                                               value="<carlos:encode value='${shortcutPg1Model.requestParamEchoes["serviceDate3"]}' context="htmlAttribute"/>">x
                                         <input type="text" name="serviceUnit3" size="2" maxlength="2"
                                                style=""
-                                               value="<carlos:encode value='<%= request.getParameter("serviceUnit3")!=null?request.getParameter("serviceUnit3"):"" %>' context="htmlAttribute"/>"><br>
+                                               value="<carlos:encode value='${shortcutPg1Model.requestParamEchoes["serviceUnit3"]}' context="htmlAttribute"/>"><br>
                                         <input type="text" name="serviceDate4" size="5" maxlength="5"
-                                               value="<carlos:encode value='<%= request.getParameter("serviceDate4")!=null?request.getParameter("serviceDate4"):"" %>' context="htmlAttribute"/>">x
+                                               value="<carlos:encode value='${shortcutPg1Model.requestParamEchoes["serviceDate4"]}' context="htmlAttribute"/>">x
                                         <input type="text" name="serviceUnit4" size="2" maxlength="2"
                                                style=""
-                                               value="<carlos:encode value='<%= request.getParameter("serviceUnit4")!=null?request.getParameter("serviceUnit4"):"" %>' context="htmlAttribute"/>">
+                                               value="<carlos:encode value='${shortcutPg1Model.requestParamEchoes["serviceUnit4"]}' context="htmlAttribute"/>">
                                     </td>
                                     <td valign="top">
                                         <table border="0" cellspacing="0" cellpadding="0" width="100%">
@@ -834,17 +439,17 @@
                                                        onClick="showHideLayers('Layer2','','show','Layer1','','hide'); return false;"><fmt:message key="billing.hospitalBilling.formDx"/></a><br>
                                                     <input type="text" name="dxCode" size="5" maxlength="5"
                                                            onDblClick="dxScriptAttach('dxCode')"
-                                                           value="<carlos:encode value='<%= request.getParameter("dxCode")!=null?request.getParameter("dxCode"):dxCode %>' context="htmlAttribute"/>">
+                                                           value="<carlos:encode value='${empty shortcutPg1Model.requestParamEchoes["dxCode"] ? shortcutPg1Model.dxCode : shortcutPg1Model.requestParamEchoes["dxCode"]}' context="htmlAttribute"/>">
                                                 </td>
                                                 <td>Cal.% mode<br>
+                                                    <c:set var="__rulePerc" value="${shortcutPg1Model.requestParamEchoes['rulePerc']}"/>
                                                     <select name="rulePerc">
-                                                        <% String rulePerc = request.getParameter("rulePerc") != null ? request.getParameter("rulePerc") : ""; %>
                                                         <option value="onlyAboveCode"
-                                                                <%="onlyAboveCode".equals(rulePerc) ? "selected" : ""%>>
+                                                                ${'onlyAboveCode' eq __rulePerc ? 'selected' : ''}>
                                                             <fmt:message key="billing.hospitalBilling.optAbove"/>
                                                         </option>
                                                         <option value="allAboveCode"
-                                                                <%="allAboveCode".equals(rulePerc) ? "selected" : ""%>>
+                                                                ${'allAboveCode' eq __rulePerc ? 'selected' : ''}>
                                                             <fmt:message key="billing.hospitalBilling.optAll"/></option>
                                                     </select></td>
                                             </tr>
@@ -855,9 +460,9 @@
                                                 href="javascript:referralScriptAttach2('referralCode','referralDocName')"><fmt:message key="billing.hospitalBilling.btnReferral"/>
                                         </a> <input type="text" name="referralCode" size="5"
                                                     maxlength="6"
-                                                    value="<carlos:encode value='<%= request.getParameter("referralCode")!=null?request.getParameter("referralCode"):r_doctor_ohip %>' context="htmlAttribute"/>"><br>
+                                                    value="<carlos:encode value='${empty shortcutPg1Model.requestParamEchoes["referralCode"] ? shortcutPg1Model.referralDoctorOhip : shortcutPg1Model.requestParamEchoes["referralCode"]}' context="htmlAttribute"/>"><br>
                                         <input type="text" name="referralDocName" size="22" maxlength="30"
-                                               value="<carlos:encode value='<%= request.getParameter("referralDocName")!=null?request.getParameter("referralDocName"):r_doctor %>' context="htmlAttribute"/>">
+                                               value="<carlos:encode value='${empty shortcutPg1Model.requestParamEchoes["referralDocName"] ? shortcutPg1Model.referralDoctorName : shortcutPg1Model.requestParamEchoes["referralDocName"]}' context="htmlAttribute"/>">
                                     </td>
                                 </tr>
                             </table>
@@ -872,231 +477,151 @@
                                     <td nowrap width="30%" align="center"><b><fmt:message key="billing.hospitalBilling.frmBillPhysician"/>
                                     </b></td>
                                     <td width="20%"><select name="xml_provider">
-                                        <%
-                                            if (vecProvider.size() == 1) {
-                                                propT = (Properties) vecProvider.get(0);
-                                        %>
-                                        <option value="<%=propT.getProperty("proOHIP")%>"
-                                                <%=providerview.equals(propT.getProperty("proOHIP")) ? "selected" : ""%>>
-                                            <b><%=propT.getProperty("last_name")%>,
-                                                <%=propT.getProperty("first_name")%>
-                                            </b></option>
-                                        <% } else { %>
-                                        <option value="000000"
-                                                <%=providerview.equals("000000") ? "selected" : ""%>><b><fmt:message key="billing.billingCorrection.msgSelectProvider"/>
-                                        </b></option>
-                                        <%
-                                            for (int i = 0; i < vecProvider.size(); i++) {
-                                                propT = (Properties) vecProvider.get(i);
-                                        %>
-                                        <option value="<%=propT.getProperty("proOHIP")%>"
-                                                <%=providerview.equals(propT.getProperty("proOHIP")) ? "selected" : ""%>>
-                                            <b><%=propT.getProperty("last_name")%>,
-                                                <%=propT.getProperty("first_name")%>
-                                            </b></option>
-                                        <% }
-                                        }
-                                        %>
+                                        <c:choose>
+                                            <c:when test="${fn:length(shortcutPg1Model.providers) == 1}">
+                                                <c:set var="__pr0" value="${shortcutPg1Model.providers[0]}"/>
+                                                <option value="<carlos:encode value='${__pr0.proOHIP}' context='htmlAttribute'/>"
+                                                        ${shortcutPg1Model.providerView eq __pr0.proOHIP ? 'selected' : ''}>
+                                                    <b><carlos:encode value="${__pr0['last_name']}" context="html"/>,
+                                                        <carlos:encode value="${__pr0['first_name']}" context="html"/>
+                                                    </b></option>
+                                            </c:when>
+                                            <c:otherwise>
+                                                <option value="000000"
+                                                        ${shortcutPg1Model.providerView eq '000000' ? 'selected' : ''}><b><fmt:message key="billing.billingCorrection.msgSelectProvider"/>
+                                                </b></option>
+                                                <c:forEach var="__pr" items="${shortcutPg1Model.providers}">
+                                                    <option value="<carlos:encode value='${__pr.proOHIP}' context='htmlAttribute'/>"
+                                                            ${shortcutPg1Model.providerView eq __pr.proOHIP ? 'selected' : ''}>
+                                                        <b><carlos:encode value="${__pr['last_name']}" context="html"/>,
+                                                            <carlos:encode value="${__pr['first_name']}" context="html"/>
+                                                        </b></option>
+                                                </c:forEach>
+                                            </c:otherwise>
+                                        </c:choose>
                                     </select></td>
                                     <td nowrap width="30%" align="center"><b><fmt:message key="billing.hospitalBilling.frmAssgnPhysician"/></b></td>
-                                    <td width="20%"><carlos:encode value='<%= providerBean.getProperty(assgProvider_no, "") %>' context="html"/>
+                                    <td width="20%"><carlos:encode value="${shortcutPg1Model.assgProviderDisplay}" context="html"/>
+                                        <c:if test="${shortcutPg1Model.assignedProviderUnavailable}">
+                                            <div class="alert">Assigned physician name is temporarily unavailable. Verify the assigned provider before saving.</div>
+                                        </c:if>
                                     </td>
                                 </tr>
                                 <tr>
 
                                     <td width="30%">
-                                        <b><%if (CarlosProperties.getInstance().getBooleanProperty("rma_enabled", "true")) { %>
-                                            Clinic Nbr <% } else { %> <fmt:message key="billing.billingCorrection.formVisitType"/> <% } %></b></td>
+                                        <b><c:choose><c:when test="${shortcutPg1Model.rmaEnabled}">Clinic Nbr</c:when><c:otherwise><fmt:message key="billing.billingCorrection.formVisitType"/></c:otherwise></c:choose></b></td>
                                     <td width="20%"><select name="xml_visittype">
-                                        <% if (CarlosProperties.getInstance().getBooleanProperty("rma_enabled", "true")) { %>
-                                        <%
-                                            ClinicNbrDao cnDao = (ClinicNbrDao) SpringUtils.getBean(ClinicNbrDao.class);
-                                            ArrayList<ClinicNbr> nbrs = cnDao.findAll();
-
-                                            String providerSearch = apptProvider_no.equalsIgnoreCase("none") ? user_no : apptProvider_no;
-                                            Provider p = providerDao.getProvider(providerSearch);
-                                            String providerNbr = SxmlMisc.getXmlContent(p.getComments(), "xml_p_nbr");
-                                            for (ClinicNbr clinic : nbrs) {
-                                                String valueString = String.format("%s | %s", clinic.getNbrValue(), clinic.getNbrString());
-                                        %>
-                                        <option value="<%=valueString%>" <%=providerNbr.startsWith(clinic.getNbrValue()) ? "selected" : ""%>><%=valueString%>
-                                        </option>
-                                        <%}%>
-                                        <% } else { %>
-                                        <option value="00| Clinic Visit"
-                                                <%=visitType.startsWith("00") ? "selected" : ""%>><fmt:message key="billing.billingCorrection.formClinicVisit"/>
-                                        </option>
-                                        <option value="01| Outpatient Visit"
-                                                <%=visitType.startsWith("01") ? "selected" : ""%>><fmt:message key="billing.billingCorrection.formOutpatientVisit"/>
-                                        </option>
-                                        <option value="02| Hospital Visit"
-                                                <%=visitType.startsWith("02") ? "selected" : ""%>><fmt:message key="billing.billingCorrection.formHospitalVisit"/>
-                                        </option>
-                                        <option value="03| ER"
-                                                <%=visitType.startsWith("03") ? "selected" : ""%>><fmt:message key="billing.billingCorrection.formER"/></option>
-                                        <option value="04| Nursing Home"
-                                                <%=visitType.startsWith("04") ? "selected" : ""%>><fmt:message key="billing.billingCorrection.formNursingHome"/>
-                                        </option>
-                                        <option value="05| Home Visit"
-                                                <%=visitType.startsWith("05") ? "selected" : ""%>><fmt:message key="billing.billingCorrection.formHomeVisit"/>
-                                        </option>
-                                        <% } %>
+                                        <%-- clinic-nbr dropdown driven by pre-loaded
+                                             shortcutPg1Model.clinicNbrs. The auto-select uses
+                                             shortcutPg1Model.selectedClinicNbrPrefix from the user
+                                             provider's comments XML. --%>
+                                        <c:choose>
+                                            <c:when test="${shortcutPg1Model.rmaEnabled}">
+                                                <c:forEach var="__c" items="${shortcutPg1Model.clinicNbrs}">
+                                                    <option value="<carlos:encode value='${__c.displayLabel}' context='htmlAttribute'/>" ${fn:startsWith(shortcutPg1Model.selectedClinicNbrPrefix, __c.nbrValue) ? 'selected' : ''}><carlos:encode value="${__c.displayLabel}" context="html"/>
+                                                    </option>
+                                                </c:forEach>
+                                            </c:when>
+                                            <c:otherwise>
+                                                <option value="00| Clinic Visit"
+                                                        ${fn:startsWith(shortcutPg1Model.visitType, '00') ? 'selected' : ''}><fmt:message key="billing.billingCorrection.formClinicVisit"/>
+                                                </option>
+                                                <option value="01| Outpatient Visit"
+                                                        ${fn:startsWith(shortcutPg1Model.visitType, '01') ? 'selected' : ''}><fmt:message key="billing.billingCorrection.formOutpatientVisit"/>
+                                                </option>
+                                                <option value="02| Hospital Visit"
+                                                        ${fn:startsWith(shortcutPg1Model.visitType, '02') ? 'selected' : ''}><fmt:message key="billing.billingCorrection.formHospitalVisit"/>
+                                                </option>
+                                                <option value="03| ER"
+                                                        ${fn:startsWith(shortcutPg1Model.visitType, '03') ? 'selected' : ''}><fmt:message key="billing.billingCorrection.formER"/></option>
+                                                <option value="04| Nursing Home"
+                                                        ${fn:startsWith(shortcutPg1Model.visitType, '04') ? 'selected' : ''}><fmt:message key="billing.billingCorrection.formNursingHome"/>
+                                                </option>
+                                                <option value="05| Home Visit"
+                                                        ${fn:startsWith(shortcutPg1Model.visitType, '05') ? 'selected' : ''}><fmt:message key="billing.billingCorrection.formHomeVisit"/>
+                                                </option>
+                                            </c:otherwise>
+                                        </c:choose>
                                     </select></td>
 
                                     <td width="30%"><b>Billing Type</b></td>
                                     <td width="20%">
-                                        <% String srtBillType = request.getParameter("xml_billtype") != null ? request.getParameter("xml_billtype") : ""; %>
+                                        <c:set var="__srtBillType" value="${shortcutPg1Model.requestParamEchoes['xml_billtype']}"/>
                                         <select name="xml_billtype">
                                             <option value="ODP | Bill OHIP"
-                                                    <%=srtBillType.startsWith("ODP") ? "selected" : ""%>><fmt:message key="billing.billingCorrection.formBillTypeO"/>
+                                                    ${fn:startsWith(__srtBillType, 'ODP') ? 'selected' : ''}><fmt:message key="billing.billingCorrection.formBillTypeO"/>
                                             </option>
                                             <option value="PAT | Bill Patient"
-                                                    <%=srtBillType.startsWith("PAT") ? "selected" : ""%>><fmt:message key="billing.billingCorrection.formBillTypeP"/>
+                                                    ${fn:startsWith(__srtBillType, 'PAT') ? 'selected' : ''}><fmt:message key="billing.billingCorrection.formBillTypeP"/>
                                             </option>
                                             <option value="WCB | Worker's Compensation Board"
-                                                    <%=srtBillType.startsWith("WCB") ? "selected" : ""%>><fmt:message key="billing.billingCorrection.formBillTypeW"/></option>
+                                                    ${fn:startsWith(__srtBillType, 'WCB') ? 'selected' : ''}><fmt:message key="billing.billingCorrection.formBillTypeW"/></option>
                                         </select></td>
                                 </tr>
                                 <tr>
                                     <td><b><fmt:message key="billing.billingCorrection.msgVisitLocation"/></b></td>
                                     <td colspan="3"><select name="xml_location">
-                                        <%
-                                            for (int i = 0; i < vecLocation.size(); i++) {
-                                                propT = (Properties) vecLocation.get(i);
-                                                String strLocation = request.getParameter("xml_location") != null ? request.getParameter("xml_location") : clinicview;
-                                        %>
-                                        <option
-                                                value="<%=propT.getProperty("clinic_location_no") + "|" + propT.getProperty("clinic_location_name")%>"
-                                                <%=strLocation.startsWith(propT.getProperty("clinic_location_no")) ? "selected" : ""%>>
-                                            <%=propT.getProperty("clinic_location_name")%>
-                                        </option>
-                                        <%
-                                            }
-                                        %>
+                                        <c:set var="__strLocation" value="${empty shortcutPg1Model.requestParamEchoes['xml_location'] ? shortcutPg1Model.clinicView : shortcutPg1Model.requestParamEchoes['xml_location']}"/>
+                                        <c:forEach var="__loc" items="${shortcutPg1Model.clinicLocations}">
+                                            <c:set var="__locValue" value="${__loc.clinic_location_no}|${__loc.clinic_location_name}"/>
+                                            <option
+                                                    value="<carlos:encode value='${__locValue}' context='htmlAttribute'/>"
+                                                    ${fn:startsWith(__strLocation, __loc.clinic_location_no) ? 'selected' : ''}>
+                                                <carlos:encode value="${__loc.clinic_location_name}" context="html"/>
+                                            </option>
+                                        </c:forEach>
                                     </select></td>
                                 </tr>
-                                <%
-
-                                    String providerNumForQuery = null;
-                                    if (apptProvider_no.equalsIgnoreCase("none")) {
-                                        providerNumForQuery = user_no;
-                                    } else {
-                                        providerNumForQuery = apptProvider_no;
-                                    }
-                                    Provider pr = providerDao.getProvider(providerNumForQuery);
-                                    if (pr != null) {
-                                        String prComments = pr.getComments();
-                                %>
+                                <%--
+                                    SLI-code dropdown auto-select reads from
+                                    shortcutPg1Model.selectedXmlPSli (assembler pre-loaded
+                                    the user-provider's xml_p_sli comments-XML field).
+                                --%>
+                                <c:set var="__prSli" value="${shortcutPg1Model.selectedXmlPSli}"/>
                                 <tr>
                                     <td><b><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode"/></b></td>
                                     <td colspan="3">
                                         <select name="xml_slicode">
 
-                                            <option value="<%=clinicNo%>"><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.NA"/></option>
+                                            <option value="<carlos:encode value='${shortcutPg1Model.clinicNo}' context='htmlAttribute'/>"><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.NA"/></option>
 
-                                            <%if (SxmlMisc.getXmlContent(prComments, "xml_p_sli").trim().equals("HDS")) {%>
-                                            <option selected value="HDS "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HDS"/></option>
-                                            <%} else { %>
-                                            <option value="HDS "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HDS"/></option>
-                                            <%}%>
+                                            <option value="HDS " ${__prSli eq 'HDS' ? 'selected' : ''}><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HDS"/></option>
 
-                                            <%if (SxmlMisc.getXmlContent(prComments, "xml_p_sli").trim().equals("HED")) {%>
-                                            <option selected value="HED "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HED"/></option>
-                                            <%} else { %>
-                                            <option value="HED "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HED"/></option>
-                                            <%}%>
+                                            <option value="HED " ${__prSli eq 'HED' ? 'selected' : ''}><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HED"/></option>
 
-                                            <%if (SxmlMisc.getXmlContent(prComments, "xml_p_sli").trim().equals("HIP")) {%>
-                                            <option selected value="HIP "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HIP"/></option>
-                                            <%} else { %>
-                                            <option value="HIP "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HIP"/></option>
-                                            <%}%>
+                                            <option value="HIP " ${__prSli eq 'HIP' ? 'selected' : ''}><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HIP"/></option>
 
-                                            <%if (SxmlMisc.getXmlContent(prComments, "xml_p_sli").trim().equals("HOP")) {%>
-                                            <option selected value="HOP "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HOP"/></option>
-                                            <%} else { %>
-                                            <option value="HOP "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HOP"/></option>
-                                            <%}%>
+                                            <option value="HOP " ${__prSli eq 'HOP' ? 'selected' : ''}><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HOP"/></option>
 
-                                            <%if (SxmlMisc.getXmlContent(prComments, "xml_p_sli").trim().equals("HRP")) {%>
-                                            <option selected value="HRP "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HRP"/></option>
-                                            <%} else { %>
-                                            <option value="HRP "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HRP"/></option>
-                                            <%}%>
+                                            <option value="HRP " ${__prSli eq 'HRP' ? 'selected' : ''}><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HRP"/></option>
 
-                                            <%if (SxmlMisc.getXmlContent(prComments, "xml_p_sli").trim().equals("IHF")) {%>
-                                            <option selected value="IHF "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.IHF"/></option>
-                                            <%} else { %>
-                                            <option value="IHF "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.IHF"/></option>
-                                            <%}%>
+                                            <option value="IHF " ${__prSli eq 'IHF' ? 'selected' : ''}><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.IHF"/></option>
 
-                                            <%if (SxmlMisc.getXmlContent(prComments, "xml_p_sli").trim().equals("OFF")) {%>
-                                            <option selected value="OFF "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.OFF"/></option>
-                                            <%} else { %>
-                                            <option value="OFF "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.OFF"/></option>
-                                            <%}%>
+                                            <option value="OFF " ${__prSli eq 'OFF' ? 'selected' : ''}><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.OFF"/></option>
 
-                                            <%if (SxmlMisc.getXmlContent(prComments, "xml_p_sli").trim().equals("OTN")) {%>
-                                            <option selected value="OTN "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.OTN"/></option>
-                                            <%} else { %>
-                                            <option value="OTN "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.OTN"/></option>
-                                            <%}%>
+                                            <option value="OTN " ${__prSli eq 'OTN' ? 'selected' : ''}><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.OTN"/></option>
 
-                                            <%if (SxmlMisc.getXmlContent(prComments, "xml_p_sli").trim().equals("PDF")) {%>
-                                            <option selected value="PDF "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.PDF"/></option>
-                                            <%} else { %>
-                                            <option value="PDF "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.PDF"/></option>
-                                            <%}%>
+                                            <option value="PDF " ${__prSli eq 'PDF' ? 'selected' : ''}><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.PDF"/></option>
 
-                                            <%if (SxmlMisc.getXmlContent(prComments, "xml_p_sli").trim().equals("RTF")) {%>
-                                            <option selected value="RTF "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.RTF"/></option>
-                                            <%} else { %>
-                                            <option value="RTF "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.RTF"/></option>
-                                            <%}%>
+                                            <option value="RTF " ${__prSli eq 'RTF' ? 'selected' : ''}><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.RTF"/></option>
                                         </select>
                                     </td>
                                 </tr>
-                                <%} else {%>
-                                <tr>
-                                    <td><b><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode"/></b></td>
-                                    <td colspan="3">
-                                        <select name="xml_slicode">
-                                            <option value="<%=clinicNo%>"><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.NA"/></option>
-                                            <option value="HDS "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HDS"/></option>
-                                            <option value="HED "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HED"/></option>
-                                            <option value="HIP "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HIP"/></option>
-                                            <option value="HOP "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HOP"/></option>
-                                            <option value="HRP "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HRP"/></option>
-                                            <option value="IHF "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.IHF"/></option>
-                                            <option value="OFF "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.OFF"/></option>
-                                            <option value="OTN "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.OTN"/></option>
-                                            <option value="PDF "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.PDF"/></option>
-                                            <option value="RTF "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.RTF"/></option>
-                                        </select>
-                                    </td>
-                                </tr>
-                                <%} %>
                                 <tr>
                                     <td><b><fmt:message key="billing.admissiondate"/></b></td>
                                     <td>
-                                        <%
-                                            String admDate = "";
-                                            if (visitType.startsWith("02") || visitType.startsWith("04")) {
-                                                admDate = visitdate;
-                                            } %>
-                                        <!--input type="text" name="xml_vdate" id="xml_vdate" value="<%--=request.getParameter("xml_vdate")!=null? request.getParameter("xml_vdate"):visitdate--%>" size='10' maxlength='10' -->
                                         <input type="text" name="xml_vdate" id="xml_vdate"
-                                               value="<carlos:encode value='<%= request.getParameter("xml_vdate")!=null? request.getParameter("xml_vdate"):admDate %>' context="htmlAttribute"/>"
+                                               value="<carlos:encode value='${empty shortcutPg1Model.requestParamEchoes["xml_vdate"] ? shortcutPg1Model.admissionDate : shortcutPg1Model.requestParamEchoes["xml_vdate"]}' context="htmlAttribute"/>"
                                                size='10' maxlength='10'> <img
-                                            src="<%= request.getContextPath() %>/images/cal.gif" id="xml_vdate_cal"></td>
+                                            src="${ctx}/images/cal.gif" id="xml_vdate_cal"></td>
                                     <td colspan="2"><a href="#"
                                                        onClick="showHideLayers('Layer1','','show');return false;"><fmt:message key="billing.billingform"/>
-                                    </a>:</font></b> <%=currentFormName.length() < 30 ? currentFormName : currentFormName.substring(0, 30)%>
+                                    </a>:</font></b> <carlos:encode value="${shortcutPg1Model.currentFormName}" context="html"/>
                                     </td>
 
                                 </tr>
                             </table>
-
 
                         </td>
                     </tr>
@@ -1107,7 +632,6 @@
         <tr>
             <td>
 
-
                 <table width="100%" border="0" cellspacing="0" cellpadding="0"
                        height="137">
                     <tr>
@@ -1116,49 +640,43 @@
                             <table width="100%" border="1" cellspacing="0" cellpadding="0"
                                    height="0" bordercolorlight="#99A005" bordercolordark="#FFFFFF">
                                 <tr bgcolor="#CCCCFF">
-                                    <th width="10%" nowrap><font size="-1" color="#000000"><%=headerTitle1%>
+                                    <th width="10%" nowrap><font size="-1" color="#000000"><carlos:encode value="${shortcutPg1Model.headerTitle1}" context="html"/>
                                     </font></th>
                                     <th width="70%" bgcolor="#CCCCFF"><font size="-1"
                                                                             color="#000000">Description</font></th>
                                     <th><font size="-1" color="#000000"> Fee</font></th>
                                 </tr>
-                                <%
-                                    for (int i = 0; i < vecCodeCol1.size(); i++) {
-                                        propT = (Properties) vecCodeCol1.get(i);
-                                        serviceCode = propT.getProperty("serviceCode");
-                                        serviceDesc = propT.getProperty("serviceDesc");
-                                        serviceDisp = propT.getProperty("serviceDisp");
-                                        servicePercentage = propT.getProperty("servicePercentage");
-                                        serviceSLI = propT.getProperty("serviceSLI");
-                                        if (propPremium.getProperty(serviceCode) != null) premiumFlag = "A";
-                                        else premiumFlag = "";
-                                %>
-                                <tr bgcolor=<%=i % 2 == 0 ? "#FFFFFF" : "#EEEEFF"%>>
-                                    <td nowrap><input type="checkbox"
-                                                      name="code_xml_<%=serviceCode%>" value="checked"
-                                        <%="checked".equals(request.getParameter("code_xml_"+serviceCode))? "checked":""%>>
-                                        <b><font size="-1"
-                                                 color="<%=premiumFlag.equals("A")? "#993333" : "black"%>"><span
-                                                id="sc<%=(""+i).substring(0,1)+serviceCode%>"
-                                                onDblClick="onDblClickServiceCode(this)"><%=serviceCode%></span></font></b>
-                                        <input type="text" name="unit_xml_<%=serviceCode%>"
-                                               value="<carlos:encode value='<%= request.getParameter("unit_xml_"+serviceCode)!=null? request.getParameter("unit_xml_"+serviceCode):"" %>' context="htmlAttribute"/>"
-                                               size="1" maxlength="2" style="width: 20px; height: 12px;"></td>
-                                    <td <%=serviceDesc.length() > 30 ? "title=\"" + serviceDesc + "\"" : ""%>><font
-                                            size="-1"><%=serviceDesc.length() > 30 ? serviceDesc.substring(0, 30) + "..." : serviceDesc%>
-                                        <input type="hidden" name="desc_xml_<%=serviceCode%>"
-                                               value="<%=serviceDesc%>"/>
-                                        <input type="hidden" name="sli_xml_<%=serviceCode%>" value="<%=serviceSLI%>"/>
-                                    </font></td>
-                                    <td align="right"><font size="-1"><%=serviceDisp%>
-                                    </font> <input
-                                            type="hidden" name="price_xml_<%=serviceCode%>"
-                                            value="<%=serviceDisp%>"/> <input type="hidden"
-                                                                              name="perc_xml_<%=serviceCode%>"
-                                                                              value="<%=servicePercentage%>"/>
-                                    </td>
-                                </tr>
-                                <% } %>
+                                <c:forEach var="__svc1" items="${shortcutPg1Model.serviceCodeCol1}" varStatus="__svc1Status">
+                                    <c:set var="__sc" value="${__svc1.serviceCode}"/>
+                                    <c:set var="__codeKey" value="code_xml_${__sc}"/>
+                                    <c:set var="__unitKey" value="unit_xml_${__sc}"/>
+                                    <c:set var="__premium" value="${not empty shortcutPg1Model.propPremium[__sc] ? 'A' : ''}"/>
+                                    <tr bgcolor="${__svc1Status.index % 2 == 0 ? '#FFFFFF' : '#EEEEFF'}">
+                                        <td nowrap><input type="checkbox"
+                                                          name="code_xml_<carlos:encode value='${__sc}' context='htmlAttribute'/>" value="checked"
+                                            ${'checked' eq shortcutPg1Model.requestParamEchoes[__codeKey] ? 'checked' : ''}>
+                                            <b><font size="-1"
+                                                     color="${__premium eq 'A' ? '#993333' : 'black'}"><span
+                                                    id="sc${__svc1Status.index}<carlos:encode value='${__sc}' context='htmlAttribute'/>"
+                                                    onDblClick="onDblClickServiceCode(this)"><carlos:encode value="${__sc}" context="html"/></span></font></b>
+                                            <input type="text" name="unit_xml_<carlos:encode value='${__sc}' context='htmlAttribute'/>"
+                                                   value="<carlos:encode value='${shortcutPg1Model.requestParamEchoes[__unitKey]}' context="htmlAttribute"/>"
+                                                   size="1" maxlength="2" style="width: 20px; height: 12px;"></td>
+                                        <td <c:if test="${fn:length(__svc1.serviceDesc) > 30}">title="<carlos:encode value='${__svc1.serviceDesc}' context='htmlAttribute'/>"</c:if>><font
+                                                size="-1"><carlos:encode value="${fn:length(__svc1.serviceDesc) > 30 ? fn:substring(__svc1.serviceDesc, 0, 30).concat('...') : __svc1.serviceDesc}" context="html"/>
+                                            <input type="hidden" name="desc_xml_<carlos:encode value='${__sc}' context='htmlAttribute'/>"
+                                                   value="<carlos:encode value='${__svc1.serviceDesc}' context='htmlAttribute'/>"/>
+                                            <input type="hidden" name="sli_xml_<carlos:encode value='${__sc}' context='htmlAttribute'/>" value="<carlos:encode value='${__svc1.serviceSLI}' context='htmlAttribute'/>"/>
+                                        </font></td>
+                                        <td align="right"><font size="-1"><carlos:encode value="${__svc1.serviceDisp}" context="html"/>
+                                        </font> <input
+                                                type="hidden" name="price_xml_<carlos:encode value='${__sc}' context='htmlAttribute'/>"
+                                                value="<carlos:encode value='${__svc1.serviceDisp}' context='htmlAttribute'/>"/> <input type="hidden"
+                                                                                  name="perc_xml_<carlos:encode value='${__sc}' context='htmlAttribute'/>"
+                                                                                  value="<carlos:encode value='${__svc1.servicePercentage}' context='htmlAttribute'/>"/>
+                                        </td>
+                                    </tr>
+                                </c:forEach>
                             </table>
 
                         </td>
@@ -1167,50 +685,43 @@
                             <table width="100%" border="1" cellspacing="0" cellpadding="0"
                                    height="0" bordercolorlight="#99A005" bordercolordark="#FFFFFF">
                                 <tr bgcolor="#CCCCFF">
-                                    <th width="10%" nowrap><font size="-1" color="#000000"><%=headerTitle2%>
+                                    <th width="10%" nowrap><font size="-1" color="#000000"><carlos:encode value="${shortcutPg1Model.headerTitle2}" context="html"/>
                                     </font></th>
                                     <th width="70%" bgcolor="#CCCCFF"><font size="-1"
                                                                             color="#000000">Description</font></th>
                                     <th><font size="-1" color="#000000"> Fee</font></th>
                                 </tr>
-                                <%
-                                    for (int i = 0; i < vecCodeCol2.size(); i++) {
-                                        propT = (Properties) vecCodeCol2.get(i);
-                                        serviceCode = propT.getProperty("serviceCode");
-                                        serviceDesc = propT.getProperty("serviceDesc");
-                                        serviceDisp = propT.getProperty("serviceDisp");
-                                        servicePercentage = propT.getProperty("servicePercentage");
-                                        serviceSLI = propT.getProperty("serviceSLI");
-                                        if (propPremium.getProperty(serviceCode) != null) premiumFlag = "A";
-                                        else premiumFlag = "";
-                                %>
-                                <tr bgcolor=<%=i % 2 == 0 ? "#FFFFFF" : "#EEEEFF"%>>
-                                    <td nowrap><input type="checkbox"
-                                                      name="code_xml_<%=serviceCode%>" value="checked"
-                                            <%="checked".equals(request.getParameter("code_xml_" + serviceCode)) ? "checked" : ""%> />
-                                        <b><font size="-1"
-                                                 color="<%=premiumFlag.equals("A")? "#993333" : "black"%>"><span
-                                                id="sc<%=(""+i).substring(0,1)+serviceCode%>"
-                                                onDblClick="onDblClickServiceCode(this)"><%=serviceCode%></span></font></b>
-                                        <input type="text" name="unit_xml_<%=serviceCode%>"
-                                               value="<carlos:encode value='<%= request.getParameter("unit_xml_"+serviceCode)!=null? request.getParameter("unit_xml_"+serviceCode):"" %>' context="htmlAttribute"/>"
-                                               size="1" maxlength="2" style="width: 20px; height: 12px;"/></td>
-                                    <td <%=serviceDesc.length() > 30 ? "title=\"" + serviceDesc + "\"" : ""%>><font
-                                            size="-1"><%=serviceDesc.length() > 30 ? serviceDesc.substring(0, 30) + "..." : serviceDesc%>
-                                        <input type="hidden" name="desc_xml_<%=serviceCode%>"
-                                               value="<%=serviceDesc%>"/> </font></td>
-                                    <td align="right"><font size="-1"><%=serviceDisp%>
-                                    </font> <input
-                                            type="hidden" name="price_xml_<%=serviceCode%>"
-                                            value="<%=serviceDisp%>"/> <input type="hidden"
-                                                                              name="perc_xml_<%=serviceCode%>"
-                                                                              value="<%=servicePercentage%>"/>
-                                        <input type="hidden" name="sli_xml_<%=serviceCode%>" value="<%=serviceSLI%>"/>
-                                    </td>
-                                </tr>
-                                <% } %>
+                                <c:forEach var="__svc2" items="${shortcutPg1Model.serviceCodeCol2}" varStatus="__svc2Status">
+                                    <c:set var="__sc" value="${__svc2.serviceCode}"/>
+                                    <c:set var="__codeKey" value="code_xml_${__sc}"/>
+                                    <c:set var="__unitKey" value="unit_xml_${__sc}"/>
+                                    <c:set var="__premium" value="${not empty shortcutPg1Model.propPremium[__sc] ? 'A' : ''}"/>
+                                    <tr bgcolor="${__svc2Status.index % 2 == 0 ? '#FFFFFF' : '#EEEEFF'}">
+                                        <td nowrap><input type="checkbox"
+                                                          name="code_xml_<carlos:encode value='${__sc}' context='htmlAttribute'/>" value="checked"
+                                                ${'checked' eq shortcutPg1Model.requestParamEchoes[__codeKey] ? 'checked' : ''} />
+                                            <b><font size="-1"
+                                                     color="${__premium eq 'A' ? '#993333' : 'black'}"><span
+                                                    id="sc${__svc2Status.index}<carlos:encode value='${__sc}' context='htmlAttribute'/>"
+                                                    onDblClick="onDblClickServiceCode(this)"><carlos:encode value="${__sc}" context="html"/></span></font></b>
+                                            <input type="text" name="unit_xml_<carlos:encode value='${__sc}' context='htmlAttribute'/>"
+                                                   value="<carlos:encode value='${shortcutPg1Model.requestParamEchoes[__unitKey]}' context="htmlAttribute"/>"
+                                                   size="1" maxlength="2" style="width: 20px; height: 12px;"/></td>
+                                        <td <c:if test="${fn:length(__svc2.serviceDesc) > 30}">title="<carlos:encode value='${__svc2.serviceDesc}' context='htmlAttribute'/>"</c:if>><font
+                                                size="-1"><carlos:encode value="${fn:length(__svc2.serviceDesc) > 30 ? fn:substring(__svc2.serviceDesc, 0, 30).concat('...') : __svc2.serviceDesc}" context="html"/>
+                                            <input type="hidden" name="desc_xml_<carlos:encode value='${__sc}' context='htmlAttribute'/>"
+                                                   value="<carlos:encode value='${__svc2.serviceDesc}' context='htmlAttribute'/>"/> </font></td>
+                                        <td align="right"><font size="-1"><carlos:encode value="${__svc2.serviceDisp}" context="html"/>
+                                        </font> <input
+                                                type="hidden" name="price_xml_<carlos:encode value='${__sc}' context='htmlAttribute'/>"
+                                                value="<carlos:encode value='${__svc2.serviceDisp}' context='htmlAttribute'/>"/> <input type="hidden"
+                                                                                  name="perc_xml_<carlos:encode value='${__sc}' context='htmlAttribute'/>"
+                                                                                  value="<carlos:encode value='${__svc2.servicePercentage}' context='htmlAttribute'/>"/>
+                                            <input type="hidden" name="sli_xml_<carlos:encode value='${__sc}' context='htmlAttribute'/>" value="<carlos:encode value='${__svc2.serviceSLI}' context='htmlAttribute'/>"/>
+                                        </td>
+                                    </tr>
+                                </c:forEach>
                             </table>
-
 
                         </td>
                         <td width="33%" valign="top">
@@ -1218,186 +729,184 @@
                             <table width="100%" border="1" cellspacing="0" cellpadding="0"
                                    height="0" bordercolorlight="#99A005" bordercolordark="#FFFFFF">
                                 <tr bgcolor="#CCCCFF">
-                                    <th width="10%" nowrap><font size="-1" color="#000000"><%=headerTitle3%>
+                                    <th width="10%" nowrap><font size="-1" color="#000000"><carlos:encode value="${shortcutPg1Model.headerTitle3}" context="html"/>
                                     </font></th>
                                     <th width="70%" bgcolor="#CCCCFF"><font size="-1"
                                                                             color="#000000"><fmt:message key="billing.service.desc"/></font></th>
                                     <th><font size="-1" color="#000000"> <fmt:message key="billing.service.fee"/></font></th>
                                 </tr>
-                                <%
-                                    for (int i = 0; i < vecCodeCol3.size(); i++) {
-                                        propT = (Properties) vecCodeCol3.get(i);
-                                        serviceCode = propT.getProperty("serviceCode");
-                                        serviceDesc = propT.getProperty("serviceDesc");
-                                        serviceDisp = propT.getProperty("serviceDisp");
-                                        servicePercentage = propT.getProperty("servicePercentage");
-                                        serviceSLI = propT.getProperty("serviceSLI");
-                                        if (propPremium.getProperty(serviceCode) != null) premiumFlag = "A";
-                                        else premiumFlag = "";
-                                %>
-                                <tr bgcolor=<%=i % 2 == 0 ? "#FFFFFF" : "#EEEEFF"%>>
-                                    <td nowrap><input type="checkbox"
-                                                      name="code_xml_<%=serviceCode%>" value="checked"
-                                            <%="checked".equals(request.getParameter("code_xml_" + serviceCode)) ? "checked" : ""%> />
-                                        <b><font size="-1"
-                                                 color="<%=premiumFlag.equals("A")? "#993333" : "black"%>"><span
-                                                id="sc<%=(""+i).substring(0,1)+serviceCode%>"
-                                                onDblClick="onDblClickServiceCode(this)"><%=serviceCode%></span></font></b>
-                                        <input type="text" name="unit_xml_<%=serviceCode%>"
-                                               value="<carlos:encode value='<%= request.getParameter("unit_xml_"+serviceCode)!=null? request.getParameter("unit_xml_"+serviceCode):"" %>' context="htmlAttribute"/>"
-                                               size="1" maxlength="2" style="width: 20px; height: 12px;"/></td>
-                                    <td <%=serviceDesc.length() > 30 ? "title=\"" + serviceDesc + "\"" : ""%>><font
-                                            size="-1"><%=serviceDesc.length() > 30 ? serviceDesc.substring(0, 30) + "..." : serviceDesc%>
-                                        <input type="hidden" name="desc_xml_<%=serviceCode%>"
-                                               value="<%=serviceDesc%>"/> </font></td>
-                                    <td align="right"><font size="-1"><%=serviceDisp%>
-                                    </font> <input
-                                            type="hidden" name="price_xml_<%=serviceCode%>"
-                                            value="<%=serviceDisp%>"/> <input type="hidden"
-                                                                              name="perc_xml_<%=serviceCode%>"
-                                                                              value="<%=servicePercentage%>"/>
-                                        <input type="hidden" name="sli_xml_<%=serviceCode%>" value="<%=serviceSLI%>"/>
-                                    </td>
-                                </tr>
-                                <% } %>
+                                <c:forEach var="__svc3" items="${shortcutPg1Model.serviceCodeCol3}" varStatus="__svc3Status">
+                                    <c:set var="__sc" value="${__svc3.serviceCode}"/>
+                                    <c:set var="__codeKey" value="code_xml_${__sc}"/>
+                                    <c:set var="__unitKey" value="unit_xml_${__sc}"/>
+                                    <c:set var="__premium" value="${not empty shortcutPg1Model.propPremium[__sc] ? 'A' : ''}"/>
+                                    <tr bgcolor="${__svc3Status.index % 2 == 0 ? '#FFFFFF' : '#EEEEFF'}">
+                                        <td nowrap><input type="checkbox"
+                                                          name="code_xml_<carlos:encode value='${__sc}' context='htmlAttribute'/>" value="checked"
+                                                ${'checked' eq shortcutPg1Model.requestParamEchoes[__codeKey] ? 'checked' : ''} />
+                                            <b><font size="-1"
+                                                     color="${__premium eq 'A' ? '#993333' : 'black'}"><span
+                                                    id="sc${__svc3Status.index}<carlos:encode value='${__sc}' context='htmlAttribute'/>"
+                                                    onDblClick="onDblClickServiceCode(this)"><carlos:encode value="${__sc}" context="html"/></span></font></b>
+                                            <input type="text" name="unit_xml_<carlos:encode value='${__sc}' context='htmlAttribute'/>"
+                                                   value="<carlos:encode value='${shortcutPg1Model.requestParamEchoes[__unitKey]}' context="htmlAttribute"/>"
+                                                   size="1" maxlength="2" style="width: 20px; height: 12px;"/></td>
+                                        <td <c:if test="${fn:length(__svc3.serviceDesc) > 30}">title="<carlos:encode value='${__svc3.serviceDesc}' context='htmlAttribute'/>"</c:if>><font
+                                                size="-1"><carlos:encode value="${fn:length(__svc3.serviceDesc) > 30 ? fn:substring(__svc3.serviceDesc, 0, 30).concat('...') : __svc3.serviceDesc}" context="html"/>
+                                            <input type="hidden" name="desc_xml_<carlos:encode value='${__sc}' context='htmlAttribute'/>"
+                                                   value="<carlos:encode value='${__svc3.serviceDesc}' context='htmlAttribute'/>"/> </font></td>
+                                        <td align="right"><font size="-1"><carlos:encode value="${__svc3.serviceDisp}" context="html"/>
+                                        </font> <input
+                                                type="hidden" name="price_xml_<carlos:encode value='${__sc}' context='htmlAttribute'/>"
+                                                value="<carlos:encode value='${__svc3.serviceDisp}' context='htmlAttribute'/>"/> <input type="hidden"
+                                                                                  name="perc_xml_<carlos:encode value='${__sc}' context='htmlAttribute'/>"
+                                                                                  value="<carlos:encode value='${__svc3.servicePercentage}' context='htmlAttribute'/>"/>
+                                            <input type="hidden" name="sli_xml_<carlos:encode value='${__sc}' context='htmlAttribute'/>" value="<carlos:encode value='${__svc3.serviceSLI}' context='htmlAttribute'/>"/>
+                                        </td>
+                                    </tr>
+                                </c:forEach>
                             </table>
-
 
                         </td>
                     </tr>
                 </table>
 
-
             </td>
         </tr>
 
-        <input type="hidden" name="clinic_no" value="<%=clinicNo%>"/>
-        <input type="hidden" name="demographic_no" value="<carlos:encode value='<%= demo_no %>' context="htmlAttribute"/>"/>
-        <input type="hidden" name="appointment_no" value="<carlos:encode value='<%= appt_no %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="clinic_no" value="<carlos:encode value='${shortcutPg1Model.clinicNo}' context='htmlAttribute'/>"/>
+        <input type="hidden" name="demographic_no" value="${carlos:forHtmlAttribute(shortcutPg1Model.demoNo)}"/>
+        <input type="hidden" name="appointment_no" value="${carlos:forHtmlAttribute(shortcutPg1Model.apptNo)}"/>
 
         <input type="hidden" name="ohip_version" value="V03G"/>
-        <input type="hidden" name="hin" value="<%=demoHIN%>"/>
+        <input type="hidden" name="hin" value="<carlos:encode value='${shortcutPg1Model.demoHin}' context='htmlAttribute'/>"/>
 
         <input type="hidden" name="start_time"
-               value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time")) %>' context="htmlAttribute"/>"/>
+               value="<carlos:encode value='${shortcutPg1Model.requestParamEchoes["start_time"]}' context="htmlAttribute"/>"/>
 
-        <input type="hidden" name="demographic_dob" value="<%=demoDOB%>"/>
+        <input type="hidden" name="demographic_dob" value="<carlos:encode value='${shortcutPg1Model.demoDob}' context='htmlAttribute'/>"/>
 
         <input type="hidden" name="apptProvider_no"
-               value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")) %>' context="htmlAttribute"/>"/>
+               value="<carlos:encode value='${shortcutPg1Model.requestParamEchoes["apptProvider_no"]}' context="htmlAttribute"/>"/>
         <input type="hidden" name="asstProvider_no"
-               value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("asstProvider_no")) %>' context="htmlAttribute"/>"/>
+               value="<carlos:encode value='${shortcutPg1Model.requestParamEchoes["asstProvider_no"]}' context="htmlAttribute"/>"/>
 
-        <input type="hidden" name="demographic_name" value="<carlos:encode value='<%= demoname %>' context="htmlAttribute"/>"/>
-        <input type="hidden" name="providerview" value="<carlos:encode value='<%= providerview %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="demographic_name" value="${carlos:forHtmlAttribute(shortcutPg1Model.demoName)}"/>
+        <input type="hidden" name="providerview" value="${carlos:forHtmlAttribute(shortcutPg1Model.providerView)}"/>
         <input type="hidden" name="appointment_date"
-               value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date")) %>' context="htmlAttribute"/>"/>
+               value="<carlos:encode value='${shortcutPg1Model.requestParamEchoes["appointment_date"]}' context="htmlAttribute"/>"/>
         <input type="hidden" name="assgProvider_no"
-               value="<carlos:encode value='<%= assgProvider_no %>' context="htmlAttribute"/>"/>
-        <input type="hidden" name="billForm" value="<carlos:encode value='<%= ctlBillForm %>' context="htmlAttribute"/>"/>
+               value="${carlos:forHtmlAttribute(shortcutPg1Model.assignedProviderNo)}"/>
+        <input type="hidden" name="billForm" value="${carlos:forHtmlAttribute(shortcutPg1Model.ctlBillForm)}"/>
 
     </table>
 </form>
 
-
 <br/>
-<% if (!props.getProperty("isNewONbilling", "").equals("true")) {
-%>
-<table border="0" cellpadding="0" cellspacing="2" width="100%"
-       bgcolor="#CCCCFF">
-    <tr>
-        <td colspan="6" class="RowTop"><carlos:encode value='<%= demoname %>' context="html"/> - <b><fmt:message key="billing.hospitalBilling.frmBillHistory"/>
-        </b> <fmt:message key="billing.hospitalBilling.frmLastFive"/></td>
-    </tr>
-    <tr>
-        <td>
-            <table border="1" cellspacing="0" cellpadding="0"
-                   bordercolorlight="#99A005" bordercolordark="#FFFFFF" width="100%"
-                   bgcolor="#FFFFFF">
-                <tr bgcolor="#99CCCC" align="center">
-                    <td nowrap><fmt:message key="billing.hospitalBilling.frmSerial"/></td>
-                    <td nowrap><fmt:message key="billing.billingCorrection.msgBillingDate"/></td>
-                    <td nowrap><fmt:message key="billing.hospitalBilling.frmApptAdmDate"/></td>
-                    <td nowrap><fmt:message key="billing.billingCorrection.formServiceCode"/></td>
-                    <td nowrap><fmt:message key="billing.hospitalBilling.formDx"/></td>
-                    <td><fmt:message key="billing.hospitalBilling.frmCreateDate"/></td>
-                </tr>
-                <%
-                    for (int i = 0; i < vecHist.size(); i++) {
-                        Properties prop = (Properties) vecHist.get(i);
-                        Properties propD = (Properties) vecHistD.get(i);
-                %>
-                <tr bgcolor="<%=i%2==0?"ivory":"#EEEEFF"%>" align="center">
-                    <td><%= prop.getProperty("billing_no", "&nbsp;") %>
-                    </td>
-                    <td><%= prop.getProperty("billing_date", "&nbsp;") %>
-                    </td>
-                    <td><%= prop.getProperty("visitdate", "&nbsp;") %>
-                    </td>
-                    <td><%= propD.getProperty("service_code", "&nbsp;") %>
-                    </td>
-                    <td><%= propD.getProperty("diagnostic_code", "&nbsp;") %>
-                    </td>
-                    <td><%= prop.getProperty("update_date", "&nbsp;") %>
-                    </td>
-                </tr>
-                <%
-                    }
-                %>
-            </table>
-        </td>
-    </tr>
-</table>
-<% } else { %>
-<table border="0" cellpadding="1" cellspacing="2" width="100%"
-       class="myIvory">
-    <tr class="myYellow">
-        <td colspan="6"><carlos:encode value='<%= demoname %>' context="html"/> - <b><fmt:message key="billing.hospitalBilling.frmBillHistory"/></b>
-            <fmt:message key="billing.hospitalBilling.frmLastFive"/>
-        </td>
-    </tr>
-    <tr>
-        <td>
-            <table border="1" cellspacing="0" cellpadding="1"
-                   bordercolorlight="#99A005" bordercolordark="#FFFFFF" width="100%">
-                <tr class="myYellow" align="center">
-                    <th><fmt:message key="billing.hospitalBilling.frmSerial"/></th>
-                    <th><fmt:message key="billing.billingCorrection.msgBillingDate"/></th>
-                    <th><fmt:message key="billing.hospitalBilling.frmApptAdmDate"/></th>
-                    <th><fmt:message key="billing.billingCorrection.formServiceCode"/></th>
-                    <th><fmt:message key="billing.hospitalBilling.formDx"/></th>
-                    <th><fmt:message key="billing.hospitalBilling.frmCreateDate"/></th>
-                </tr>
-                <%
-                    // new billing records
-                    for (int i = 0; i < aL.size(); i = i + 2) {
-                        BillingClaimHeader1Data obj = (BillingClaimHeader1Data) aL.get(i);
-                        BillingItemData iobj = (BillingItemData) aL.get(i + 1);
-
-                %>
-                <tr <%=i % 4 == 0 ? "class=\"myGreen\"" : ""%> align="center">
-                    <td><%=obj.getId()%>
-                    </td>
-                    <td><%=obj.getBilling_date()%>
-                    </td>
-                    <td><%=iobj.getService_date()%>
-                    </td>
-                    <td><%=iobj.getService_code()%>
-                    </td>
-                    <td><%=iobj.getDx()%>
-                    </td>
-                    <td><%=obj.getUpdate_datetime().substring(0, 10)%>
-                    </td>
-                </tr>
-                <%
-                    }
-
-                %>
-            </table>
-        </td>
-    </tr>
-</table>
-<% } %>
+<c:if test="${shortcutPg1Model.historyUnavailable}">
+    <div class="alert alert-danger" role="alert" style="margin: 8px 0;">
+        <strong>Billing history unavailable.</strong>
+        The lookup failed; the table below is empty even if this patient
+        has prior bills. Verify history through another channel before
+        submitting to avoid duplicate billing.
+    </div>
+</c:if>
+<c:if test="${shortcutPg1Model.historyPartial}">
+    <div class="alert alert-warning" role="alert" style="margin: 8px 0;">
+        <strong>Billing history may be incomplete.</strong>
+        <carlos:encode value="${shortcutPg1Model.historyPartialRowCount}" context="html"/>
+        history row(s) could not be displayed. Verify history through another
+        channel before submitting to avoid duplicate billing.
+    </div>
+</c:if>
+<%-- Both branches now iterate the unified billingHistory + billingHistoryDetails
+     that the assembler builds for legacy and new-ON-billing modes alike. --%>
+<c:choose>
+    <c:when test="${!shortcutPg1Model.newOnBilling}">
+        <table border="0" cellpadding="0" cellspacing="2" width="100%"
+               bgcolor="#CCCCFF">
+            <tr>
+                <td colspan="6" class="RowTop">${carlos:forHtmlContent(shortcutPg1Model.demoName)} - <b><fmt:message key="billing.hospitalBilling.frmBillHistory"/>
+                </b> <fmt:message key="billing.hospitalBilling.frmLastFive"/></td>
+            </tr>
+            <tr>
+                <td>
+                    <table border="1" cellspacing="0" cellpadding="0"
+                           bordercolorlight="#99A005" bordercolordark="#FFFFFF" width="100%"
+                           bgcolor="#FFFFFF">
+                        <tr bgcolor="#99CCCC" align="center">
+                            <td nowrap><fmt:message key="billing.hospitalBilling.frmSerial"/></td>
+                            <td nowrap><fmt:message key="billing.billingCorrection.msgBillingDate"/></td>
+                            <td nowrap><fmt:message key="billing.hospitalBilling.frmApptAdmDate"/></td>
+                            <td nowrap><fmt:message key="billing.billingCorrection.formServiceCode"/></td>
+                            <td nowrap><fmt:message key="billing.hospitalBilling.formDx"/></td>
+                            <td><fmt:message key="billing.hospitalBilling.frmCreateDate"/></td>
+                        </tr>
+                        <c:forEach var="__hist" items="${shortcutPg1Model.billingHistory}" varStatus="__histStatus">
+                            <c:set var="__histD" value="${shortcutPg1Model.billingHistoryDetails[__histStatus.index]}"/>
+                            <tr bgcolor="${__histStatus.index % 2 == 0 ? 'ivory' : '#EEEEFF'}" align="center">
+                                <td><c:choose><c:when test="${empty __hist.billing_no}">&nbsp;</c:when><c:otherwise><carlos:encode value="${__hist.billing_no}" context="html"/></c:otherwise></c:choose>
+                                </td>
+                                <td><c:choose><c:when test="${empty __hist.billing_date}">&nbsp;</c:when><c:otherwise><carlos:encode value="${__hist.billing_date}" context="html"/></c:otherwise></c:choose>
+                                </td>
+                                <td><c:choose><c:when test="${empty __hist.visitdate}">&nbsp;</c:when><c:otherwise><carlos:encode value="${__hist.visitdate}" context="html"/></c:otherwise></c:choose>
+                                </td>
+                                <td><c:choose><c:when test="${empty __histD.service_code}">&nbsp;</c:when><c:otherwise><carlos:encode value="${__histD.service_code}" context="html"/></c:otherwise></c:choose>
+                                </td>
+                                <td><c:choose><c:when test="${empty __histD.diagnostic_code}">&nbsp;</c:when><c:otherwise><carlos:encode value="${__histD.diagnostic_code}" context="html"/></c:otherwise></c:choose>
+                                </td>
+                                <td><c:choose><c:when test="${empty __hist.update_date}">&nbsp;</c:when><c:otherwise><carlos:encode value="${__hist.update_date}" context="html"/></c:otherwise></c:choose>
+                                </td>
+                            </tr>
+                        </c:forEach>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </c:when>
+    <c:otherwise>
+        <table border="0" cellpadding="1" cellspacing="2" width="100%"
+               class="myIvory">
+            <tr class="myYellow">
+                <td colspan="6">${carlos:forHtmlContent(shortcutPg1Model.demoName)} - <b><fmt:message key="billing.hospitalBilling.frmBillHistory"/></b>
+                    <fmt:message key="billing.hospitalBilling.frmLastFive"/>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <table border="1" cellspacing="0" cellpadding="1"
+                           bordercolorlight="#99A005" bordercolordark="#FFFFFF" width="100%">
+                        <tr class="myYellow" align="center">
+                            <th><fmt:message key="billing.hospitalBilling.frmSerial"/></th>
+                            <th><fmt:message key="billing.billingCorrection.msgBillingDate"/></th>
+                            <th><fmt:message key="billing.hospitalBilling.frmApptAdmDate"/></th>
+                            <th><fmt:message key="billing.billingCorrection.formServiceCode"/></th>
+                            <th><fmt:message key="billing.hospitalBilling.formDx"/></th>
+                            <th><fmt:message key="billing.hospitalBilling.frmCreateDate"/></th>
+                        </tr>
+                        <c:forEach var="__hist" items="${shortcutPg1Model.billingHistory}" varStatus="__histStatus">
+                            <c:set var="__histD" value="${shortcutPg1Model.billingHistoryDetails[__histStatus.index]}"/>
+                            <tr ${__histStatus.index % 2 == 0 ? 'class="myGreen"' : ''} align="center">
+                                <td><c:choose><c:when test="${empty __hist.billing_no}">&nbsp;</c:when><c:otherwise><carlos:encode value="${__hist.billing_no}" context="html"/></c:otherwise></c:choose>
+                                </td>
+                                <td><c:choose><c:when test="${empty __hist.billing_date}">&nbsp;</c:when><c:otherwise><carlos:encode value="${__hist.billing_date}" context="html"/></c:otherwise></c:choose>
+                                </td>
+                                <td><c:choose><c:when test="${empty __hist.visitdate}">&nbsp;</c:when><c:otherwise><carlos:encode value="${__hist.visitdate}" context="html"/></c:otherwise></c:choose>
+                                </td>
+                                <td><c:choose><c:when test="${empty __histD.service_code}">&nbsp;</c:when><c:otherwise><carlos:encode value="${__histD.service_code}" context="html"/></c:otherwise></c:choose>
+                                </td>
+                                <td><c:choose><c:when test="${empty __histD.diagnostic_code}">&nbsp;</c:when><c:otherwise><carlos:encode value="${__histD.diagnostic_code}" context="html"/></c:otherwise></c:choose>
+                                </td>
+                                <td><c:choose><c:when test="${empty __hist.update_date}">&nbsp;</c:when><c:otherwise><carlos:encode value="${__hist.update_date}" context="html"/></c:otherwise></c:choose>
+                                </td>
+                            </tr>
+                        </c:forEach>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </c:otherwise>
+</c:choose>
 <script type="text/javascript">//<![CDATA[
 // the default multiple dates selected, first time the calendar is instantiated
 var MA = [];
@@ -1452,16 +961,5 @@ Calendar.setup({
 });
 
 </script>
-<%!
-    String getDefaultValue(String paraName, Vector vec, String propName) {
-        String ret = "";
-        if (paraName != null && !"".equals(paraName)) {
-            ret = paraName;
-        } else if (vec != null && vec.size() > 0 && vec.get(0) != null) {
-            ret = ((Properties) vec.get(0)).getProperty(propName, "");
-        }
-        return ret;
-    }
-%>
 </body>
 </html>

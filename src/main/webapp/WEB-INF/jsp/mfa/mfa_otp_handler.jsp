@@ -31,7 +31,7 @@
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib prefix="csrf" uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 
@@ -40,6 +40,7 @@
 <div class="card-body d-flex align-items-center justify-content-center">
 
     <form action="<%= request.getContextPath() %>/mfa/loginMfa" method="post">
+        <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>">
         <input type="hidden" name="mfaRegistrationFlow" value="${requestScope.mfaRegistrationRequired}">
         <div class="">
             <div class="row mx-3 mx-md-3 mx-lg-3 px-3 px-md-3 px-lg-3 mb-3">

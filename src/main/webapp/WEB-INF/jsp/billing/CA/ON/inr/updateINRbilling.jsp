@@ -1,6 +1,7 @@
 <%--
-
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2006-. OSCARservice, OpenSoft System. All Rights Reserved.
+
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -16,61 +17,38 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
-    Now maintained by the CARLOS EMR Project (2026+).
+    CARLOS EMR Project
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
 --%>
+<%--
+  Purpose: Supports updateINRbilling in the Ontario billing workflow.
+  Expected request model data includes: inrUpdateModel.
+  Keep request setup in the paired action and use CARLOS encoding helpers
+  for dynamic output rendered by the page.
+--%>
+<%--
+    updateINRbilling.jsp
 
-<%@ page import="java.math.*, java.util.*, java.io.*, java.sql.*, io.github.carlos_emr.*, java.net.*,io.github.carlos_emr.MyDateFormat" %>
-<%@page import="io.github.carlos_emr.carlos.billing.CA.model.BillingInr" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
-<%@page import="io.github.carlos_emr.carlos.billing.CA.dao.BillingInrDao" %>
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+    Purpose:
+        HTML form for editing a single INR billing row's service code and
+        diagnostic code before re-submission. Posts to DbUpdateINRbilling.
+
+    Data binding:
+        All dynamic values come from request attribute `inrUpdateModel`
+        (an InrBillingUpdateViewModel built by InrBillingUpdate2Action).
+        No scriptlets — DAO access lives in the assembler.
+
+    @since 2026-04-26
+--%>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%
-    DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
-%>
-
-
-<%
-
-    GregorianCalendar now = new GregorianCalendar();
-    int curYear = now.get(Calendar.YEAR);
-    int curMonth = (now.get(Calendar.MONTH) + 1);
-    int curDay = now.get(Calendar.DAY_OF_MONTH);
-
-    String nowDate = String.valueOf(curYear) + "/" + String.valueOf(curMonth) + "/" + String.valueOf(curDay) + " " + now.get(Calendar.HOUR_OF_DAY) + ":" + now.get(Calendar.MINUTE) + ":" + now.get(Calendar.SECOND);
-
-    String demoid = "", module_id = "", doctype = "", docdesc = "", docxml = "", doccreator = "", docdate = "", docfilename = "";
-    String demo_name = "", demo_dob = "", demo_hin = "", provider = "", provider_no = "", provider_rma_no = "", provider_ohip_no = "", service_desc = "", service_code = "", service_amount = "", service_unit = "", diag_code = "", errorCode = "", total = "";
-    String billinginr_no = "";
-//module = request.getParameter("function");
-    demo_name = request.getParameter("demo_name");
-    String demono = request.getParameter("demono");
-    billinginr_no = request.getParameter("billinginr_no");
-    provider = request.getParameter("provider_name");
-
-
-    Demographic d = demographicDao.getDemographicById(Integer.parseInt(demono));
-    if (d != null) {
-        demo_dob = MyDateFormat.getStandardDate(Integer.parseInt(d.getYearOfBirth()), Integer.parseInt(d.getMonthOfBirth()), Integer.parseInt(d.getDateOfBirth()));
-        demo_hin = d.getHin() + d.getVer().toUpperCase();
-    }
-
-%>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <html>
 <head>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+    <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
     <title>UPDATE INR BILLING</title>
     <script language="JavaScript">
         <!--
-
-
         var remote = null;
 
         function rs(n, u, w, h, x) {
@@ -96,33 +74,23 @@
             }
         }
 
-
         var awnd = null;
 
         function ScriptAttach() {
             f0 = escape(document.serviceform.xml_diagnostic_detail.value);
             f1 = document.serviceform.xml_dig_search1.value;
-            // f2 = escape(document.serviceform.elements["File2Data"].value);
-            // fname = escape(document.Compose.elements["FName"].value);
-            awnd = rs('att', '<%= request.getContextPath() %>/billing/CA/ON/ViewBillingDigSearch?name=' + f0 + '&search=' + f1, 600, 600, 1);
+            awnd = rs('att', '${pageContext.request.contextPath}/billing/CA/ON/ViewBillingDigSearch?name=' + f0 + '&search=' + f1, 600, 600, 1);
             awnd.focus();
         }
-
 
         function OtherScriptAttach() {
             t0 = escape(document.serviceform.xml_other1.value);
-            // t1 = escape(document.serviceform.xml_other2.value);
-            // t2 = escape(document.serviceform.xml_other3.value);
-            // f1 = document.serviceform.xml_dig_search1.value;
-            // f2 = escape(document.serviceform.elements["File2Data"].value);
-            // fname = escape(document.Compose.elements["FName"].value);
-            awnd = rs('att', '<%= request.getContextPath() %>/billing/CA/ON/ViewBillingCodeSearch?name=' + t0 + '&name1=' + "" + '&name2=' + "" + '&search=', 600, 600, 1);
+            awnd = rs('att', '${pageContext.request.contextPath}/billing/CA/ON/ViewBillingCodeSearch?name=' + t0 + '&name1=' + "" + '&name2=' + "" + '&search=', 600, 600, 1);
             awnd.focus();
         }
-
         //-->
     </script>
-    <link rel="stylesheet" href="<%= request.getContextPath() %>/web.css"/>
+    <link rel="stylesheet" href="${pageContext.request.contextPath}/web.css"/>
 </head>
 
 <body onLoad="setfocus()" topmargin="0" leftmargin="0" rightmargin="0">
@@ -150,9 +118,9 @@
                                                   color="#000000" size="1">Demographic Name </font></td>
                             <td width="50%"><font
                                     face="Verdana, Arial, Helvetica, sans-serif" size="1"> <input
-                                    type="hidden" name="demono" value="<carlos:encode value='<%= demono %>' context="htmlAttribute"/>" size="20">
-                                <input type="hidden" name="billinginr_no" value="<carlos:encode value='<%= billinginr_no %>' context="htmlAttribute"/>">
-                                <input type="text" name="demo_name" value="<carlos:encode value='<%= demo_name %>' context="htmlAttribute"/>"
+                                    type="hidden" name="demono" value="<carlos:encode value='${inrUpdateModel.demoNo}' context='htmlAttribute'/>" size="20">
+                                <input type="hidden" name="billinginr_no" value="<carlos:encode value='${inrUpdateModel.billingInrNo}' context='htmlAttribute'/>">
+                                <input type="text" name="demo_name" value="<carlos:encode value='${inrUpdateModel.demoName}' context='htmlAttribute'/>"
                                        size="20" readonly> </font></td>
                             <td rowspan="9" width="21%" valign="middle">
                                 <p><br>
@@ -163,13 +131,13 @@
                             <td width="29%"><font size="1"
                                                   face="Arial, Helvetica, sans-serif">Demographic HIN</font></td>
                             <td width="50%"><input type="text" name="demo_hin"
-                                                   value="<carlos:encode value='<%= demo_hin %>' context="htmlAttribute"/> " size="20" readonly></td>
+                                                   value="<carlos:encode value='${inrUpdateModel.demoHin}' context='htmlAttribute'/> " size="20" readonly></td>
                         </tr>
                         <tr>
                             <td width="29%"><font size="1"
                                                   face="Arial, Helvetica, sans-serif">Demographic DOB</font></td>
                             <td width="50%"><input type="text" name="demo_dob"
-                                                   value="<carlos:encode value='<%= demo_dob %>' context="htmlAttribute"/> " size="20" readonly></td>
+                                                   value="<carlos:encode value='${inrUpdateModel.demoDob}' context='htmlAttribute'/> " size="20" readonly></td>
                         </tr>
                         <tr>
                             <td width="29%"><font face="Arial, Helvetica, sans-serif"
@@ -177,14 +145,14 @@
                             <td width="50%"><font
                                     face="Verdana, Arial, Helvetica, sans-serif" size="1"> <input
                                     type="text" name="service_code" size="10"
-                                    value="<carlos:encode value='<%= request.getParameter("servicecode") != null ? request.getParameter("servicecode") : "" %>' context="htmlAttribute"/>"> <input
+                                    value="<carlos:encode value='${inrUpdateModel.serviceCode}' context='htmlAttribute'/>"> <input
                                     type="hidden" name="service_unit" value="1"> </font></td>
                         </tr>
                         <tr>
                             <td width="29%"><font size="1"
                                                   face="Arial, Helvetica, sans-serif">Diagnostic Code</font></td>
                             <td width="50%"><input type="text" name="diag_code" size="20"
-                                                   value="<carlos:encode value='<%= request.getParameter("dxcode") != null ? request.getParameter("dxcode") : "" %>' context="htmlAttribute"/>"></td>
+                                                   value="<carlos:encode value='${inrUpdateModel.dxCode}' context='htmlAttribute'/>"></td>
                         </tr>
                         <tr>
                             <td width="29%"><font
