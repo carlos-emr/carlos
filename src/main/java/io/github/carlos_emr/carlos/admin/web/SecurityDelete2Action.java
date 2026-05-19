@@ -29,9 +29,11 @@ import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.security.CarlosMethodSecurity;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
+import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
@@ -53,6 +55,8 @@ public class SecurityDelete2Action extends ActionSupport {
 
     public static final String SPRING_BEAN_NAME =
         "securityDelete2Action";
+
+    private static final Logger logger = MiscUtils.getLogger();
 
     private final transient SecurityDao securityDao;
     private final transient CarlosMethodSecurity methodSecurity;
@@ -87,6 +91,10 @@ public class SecurityDelete2Action extends ActionSupport {
         }
 
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            logger.warn("Rejected security delete request with method {} from {}",
+                    LogSafe.sanitize(String.valueOf(request.getMethod())),
+                    LogSafe.sanitize(String.valueOf(request.getRemoteAddr())));
+            response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
             return NONE;
         }
@@ -129,7 +137,9 @@ public class SecurityDelete2Action extends ActionSupport {
                         request.getRemoteAddr()
                     );
                 } catch (RuntimeException e) {
-                    MiscUtils.getLogger().error("Audit log failed after security entry deletion", e);
+                    logger.error("Audit log failed after security entry deletion", e);
+                    request.setAttribute("msg", "Security entry was deleted, but audit logging failed. Escalate for review.");
+                    return;
                 }
                 request.setAttribute("msg", "Security entry deleted for user: ".concat(userName));
             } else {

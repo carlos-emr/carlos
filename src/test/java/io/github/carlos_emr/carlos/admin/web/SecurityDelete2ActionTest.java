@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.admin.web;
 import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.config.MethodSecurityConfig;
+import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.security.CarlosMethodSecurity;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -403,6 +404,8 @@ class SecurityDelete2ActionTest extends CarlosUnitTestBase {
 
             assertThat(result).isEqualTo(ActionSupport.NONE);
             assertThat(mockResponse.getStatus()).isEqualTo(405);
+            assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
+            assertThat(mockResponse.isCommitted()).isTrue();
         }
     }
 
@@ -481,6 +484,26 @@ class SecurityDelete2ActionTest extends CarlosUnitTestBase {
 
             assertThat((String) mockRequest.getAttribute("msg"))
                 .isEqualTo("Failed to delete security entry.");
+        }
+
+        @Test
+        @DisplayName("should surface audit failure after successful delete")
+        void shouldSurfaceAuditFailure_whenLogActionThrows() throws Exception {
+            SecurityDelete2Action action = createActionWithPrivilege();
+            mockRequest.setParameter("keyword", "42");
+
+            Security entity = mock(Security.class);
+            when(entity.getUserName()).thenReturn("testuser");
+            when(mockSecurityDao.find(42)).thenReturn(entity);
+
+            logActionMock.when(() -> LogAction.addLog(anyString(), anyString(), anyString(), anyString(), anyString()))
+                .thenThrow(new RuntimeException("audit failed"));
+
+            action.execute();
+
+            verify(mockSecurityDao).remove(entity);
+            assertThat((String) mockRequest.getAttribute("msg"))
+                .isEqualTo("Security entry was deleted, but audit logging failed. Escalate for review.");
         }
 
         @Test

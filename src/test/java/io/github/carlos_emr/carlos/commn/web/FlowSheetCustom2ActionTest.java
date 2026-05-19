@@ -12,6 +12,10 @@
  */
 package io.github.carlos_emr.carlos.commn.web;
 
+import io.github.carlos_emr.carlos.commn.dao.FlowSheetCustomizationDao;
+import io.github.carlos_emr.carlos.commn.dao.FlowSheetUserCreatedDao;
+import io.github.carlos_emr.carlos.commn.model.FlowSheetCustomization;
+import io.github.carlos_emr.carlos.commn.model.FlowSheetUserCreated;
 import io.github.carlos_emr.carlos.commn.service.FlowSheetCustomizationService;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -29,6 +33,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -46,12 +51,18 @@ class FlowSheetCustom2ActionTest extends CarlosWebTestBase {
 
     @Mock
     private FlowSheetCustomizationService mockFlowSheetCustomizationService;
+    @Mock
+    private FlowSheetCustomizationDao mockFlowSheetCustomizationDao;
+    @Mock
+    private FlowSheetUserCreatedDao mockFlowSheetUserCreatedDao;
 
     @BeforeEach
     void setUpAction() {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), anyString(), anyString(), any()))
                 .thenReturn(false);
         replaceSpringUtilsBean(FlowSheetCustomizationService.class, mockFlowSheetCustomizationService);
+        replaceSpringUtilsBean(FlowSheetCustomizationDao.class, mockFlowSheetCustomizationDao);
+        replaceSpringUtilsBean(FlowSheetUserCreatedDao.class, mockFlowSheetUserCreatedDao);
         mockRequest.setMethod("POST");
         mockSession.setAttribute("user", "999998");
     }
@@ -114,16 +125,81 @@ class FlowSheetCustom2ActionTest extends CarlosWebTestBase {
     }
 
     @Test
-    @DisplayName("should log and fall through on unknown POST method without mutator dispatch")
-    void shouldReturnSuccess_onUnknownPostMethod() throws Exception {
+    @DisplayName("should return ERROR on unknown POST method without mutator dispatch")
+    void shouldReturnError_onUnknownPostMethod() throws Exception {
         allowPrivilege("_flowsheet", "w");
         addRequestParameter("method", "unknownMethod");
         TestableFlowSheetCustom2Action action = new TestableFlowSheetCustom2Action();
 
         String result = executeAction(action);
 
-        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(result).isEqualTo(ActionSupport.ERROR);
         assertThat(action.saveCalled).isFalse();
+        assertThat(mockRequest.getAttribute("errorMessage")).isEqualTo("Unknown flowsheet customization method.");
+    }
+
+    @Test
+    @DisplayName("should return ERROR when POST method is missing")
+    void shouldReturnError_whenPostMethodMissing() throws Exception {
+        allowPrivilege("_flowsheet", "w");
+        TestableFlowSheetCustom2Action action = new TestableFlowSheetCustom2Action();
+
+        String result = executeAction(action);
+
+        assertThat(result).isEqualTo(ActionSupport.ERROR);
+        assertThat(action.saveCalled).isFalse();
+        assertThat(mockRequest.getAttribute("errorMessage")).isEqualTo("Unknown flowsheet customization method.");
+    }
+
+    @Test
+    @DisplayName("should reject save when measurement parameter is missing")
+    void shouldReturnError_whenSaveMeasurementMissing() throws Exception {
+        allowPrivilege("_flowsheet", "w");
+        allowPrivilege("_demographic", "w");
+        addRequestParameter("method", "save");
+        addRequestParameter("flowsheet", "diabetes");
+        addRequestParameter("demographic", "1");
+
+        String result = executeAction(new FlowSheetCustom2Action());
+
+        assertThat(result).isEqualTo(ActionSupport.ERROR);
+        assertThat(mockRequest.getAttribute("errorMessage"))
+                .isEqualTo("Measurement is required to save a flowsheet customization.");
+        verify(mockFlowSheetCustomizationDao, never()).persist(any(FlowSheetCustomization.class));
+    }
+
+    @Test
+    @DisplayName("should deny createNewFlowSheet when demographic write is missing")
+    void shouldDenyCreateNewFlowSheet_whenDemographicWriteMissing() {
+        allowPrivilege("_flowsheet", "w");
+        addRequestParameter("method", "createNewFlowSheet");
+        addRequestParameter("demographic", "0");
+
+        assertThatThrownBy(() -> executeAction(new FlowSheetCustom2Action()))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("_demographic");
+        verify(mockFlowSheetCustomizationService, never()).validateScopePermission(any(LoggedInInfo.class), anyString());
+        verify(mockFlowSheetUserCreatedDao, never()).persist(any(FlowSheetUserCreated.class));
+    }
+
+    @Test
+    @DisplayName("should validate scope before createNewFlowSheet persists")
+    void shouldValidateScope_whenCreateNewFlowSheet() throws Exception {
+        allowPrivilege("_flowsheet", "w");
+        allowPrivilege("_demographic", "w");
+        addRequestParameter("method", "createNewFlowSheet");
+        addRequestParameter("demographic", "0");
+        addRequestParameter("scope", "clinic");
+        addRequestParameter("displayName", "Clinic Diabetes Flow");
+        addRequestParameter("dxcodeTriggers", "250");
+        addRequestParameter("warningColour", "yellow");
+        addRequestParameter("recommendationColour", "green");
+
+        String result = executeAction(new TestableCreateNewFlowSheetAction());
+
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        verify(mockFlowSheetCustomizationService).validateScopePermission(any(LoggedInInfo.class), eq("clinic"));
+        verify(mockFlowSheetUserCreatedDao).persist(any(FlowSheetUserCreated.class));
     }
 
     private static final class TestableFlowSheetCustom2Action extends FlowSheetCustom2Action {
@@ -133,6 +209,17 @@ class FlowSheetCustom2ActionTest extends CarlosWebTestBase {
         public String save() {
             saveCalled = true;
             return SUCCESS;
+        }
+    }
+
+    private static final class TestableCreateNewFlowSheetAction extends FlowSheetCustom2Action {
+        @Override
+        protected String addFlowSheetToTemplateConfig(
+                String dxcodeTriggers,
+                String displayName,
+                String warningColour,
+                String recommendationColour) {
+            return "clinic_diabetes_flow";
         }
     }
 }

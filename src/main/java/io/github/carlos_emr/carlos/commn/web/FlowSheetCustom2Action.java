@@ -224,15 +224,30 @@ public class FlowSheetCustom2Action extends ActionSupport {
                 LogSafe.sanitize(String.valueOf(method)),
                 LogSafe.sanitize(String.valueOf(request.getParameter("demographic"))),
                 LogSafe.sanitize(String.valueOf(request.getRemoteAddr())));
-        return SUCCESS;
+        request.setAttribute("errorMessage", "Unknown flowsheet customization method.");
+        request.setAttribute("demographic", Optional.ofNullable(request.getParameter("demographic")).orElse("0"));
+        request.setAttribute("flowsheet", request.getParameter("flowsheet"));
+        return ERROR;
     }
 
     public String save() throws Exception {
         String flowsheet = request.getParameter("flowsheet");
         String demographicNo = Optional.ofNullable(request.getParameter("demographic")).orElse("0");
         String scope = request.getParameter("scope");
+        String measurement = request.getParameter("measurement");
 
         LoggedInInfo loggedInInfo = validateCustomizationPermissions(scope, demographicNo);
+
+        if (measurement == null || measurement.trim().isEmpty()) {
+            logger.warn("Rejected flowsheet save without measurement for flowsheet {} demographic {} from {}",
+                    LogSafe.sanitize(String.valueOf(flowsheet)),
+                    LogSafe.sanitize(String.valueOf(demographicNo)),
+                    LogSafe.sanitize(String.valueOf(request.getRemoteAddr())));
+            request.setAttribute("errorMessage", "Measurement is required to save a flowsheet customization.");
+            request.setAttribute("demographic", demographicNo);
+            request.setAttribute("flowsheet", flowsheet);
+            return ERROR;
+        }
 
         MeasurementTemplateFlowSheetConfig templateConfig = MeasurementTemplateFlowSheetConfig.getInstance();
         MeasurementFlowSheet mFlowsheet = templateConfig.getFlowSheet(flowsheet);
@@ -594,6 +609,9 @@ public class FlowSheetCustom2Action extends ActionSupport {
     /*first add it as a flowsheet into the current system.  The save it to the database so that it will be there on reboot */
     public String createNewFlowSheet() {
         logger.debug("IN create new flowsheet");
+        String demographicNo = Optional.ofNullable(request.getParameter("demographic")).orElse("0");
+        String scope = request.getParameter("scope");
+        validateCustomizationPermissions(scope, demographicNo);
         //String name let oscar create the name
         String dxcodeTriggers = request.getParameter("dxcodeTriggers");
         String displayName = request.getParameter("displayName");
@@ -602,18 +620,8 @@ public class FlowSheetCustom2Action extends ActionSupport {
         //String topHTML 				= request.getParameter("topHTML");  // Not supported yet
 
 
-        /// NEW FLOWSHEET CODE
-        MeasurementFlowSheet m = new MeasurementFlowSheet();
-        m.parseDxTriggers(dxcodeTriggers);
-        m.setDisplayName(displayName);
-        m.setWarningColour(warningColour);
-        m.setRecommendationColour(recommendationColour);
-
-        MeasurementTemplateFlowSheetConfig templateConfig = MeasurementTemplateFlowSheetConfig.getInstance();
-        templateConfig.addIndicatorsInCustomFlowsheet(m);
-        String name = templateConfig.addFlowsheet(m);
-        m.loadRuleBase();
-        /// END FLOWSHEET CODE
+        String name = addFlowSheetToTemplateConfig(
+            dxcodeTriggers, displayName, warningColour, recommendationColour);
 
         FlowSheetUserCreated fsuc = new FlowSheetUserCreated();
         fsuc.setName(name);
@@ -628,5 +636,23 @@ public class FlowSheetCustom2Action extends ActionSupport {
         request.setAttribute("flowsheet", fsuc.getName());
         request.setAttribute("displayName", fsuc.getDisplayName());
         return SUCCESS;
+    }
+
+    protected String addFlowSheetToTemplateConfig(
+            String dxcodeTriggers,
+            String displayName,
+            String warningColour,
+            String recommendationColour) {
+        MeasurementFlowSheet m = new MeasurementFlowSheet();
+        m.parseDxTriggers(dxcodeTriggers);
+        m.setDisplayName(displayName);
+        m.setWarningColour(warningColour);
+        m.setRecommendationColour(recommendationColour);
+
+        MeasurementTemplateFlowSheetConfig templateConfig = MeasurementTemplateFlowSheetConfig.getInstance();
+        templateConfig.addIndicatorsInCustomFlowsheet(m);
+        String name = templateConfig.addFlowsheet(m);
+        m.loadRuleBase();
+        return name;
     }
 }
