@@ -36,6 +36,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%
+    // Encode first for URL parameter context, then for JavaScript string literal context.
     String encodedProviderNo = SafeEncode.forJavaScript(
             SafeEncode.forUriComponent(StringUtils.noNull(request.getParameter("providerNo"))));
 %>

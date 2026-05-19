@@ -46,7 +46,7 @@ class MdsSearchJspRegressionTest {
 
     @Test
     @DisplayName("should precompute providerNo encoding before JavaScript builds search URL")
-    void shouldPrecomputeProviderNoEncoding_beforeJavaScriptBuildsSearchUrl() throws IOException {
+    void shouldPrecomputeProviderNoEncoding_beforeBuildingSearchUrl() throws IOException {
         String jsp = Files.readString(SEARCH_JSP, StandardCharsets.UTF_8);
 
         assertThat(jsp)
