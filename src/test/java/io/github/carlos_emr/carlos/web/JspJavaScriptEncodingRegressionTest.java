@@ -90,10 +90,16 @@ class JspJavaScriptEncodingRegressionTest {
         String editGroupJsp = readJsp("encounter/oscarMeasurements/EditMeasurementGroup.jsp");
 
         assertThat(addGroupJsp)
+                // regression guard: no remaining raw usages of groupName via session
                 .doesNotContain("<%= session.getAttribute(\"groupName\") %>")
+                // regression guard: no remaining direct scriptlet usage of groupName in any context
+                .doesNotContain("<%= groupName %>")
                 .contains("<carlos:encode value='<%= groupName %>' context=\"html\"/>");
         assertThat(editGroupJsp)
+                // regression guard: no remaining raw usages of groupName via session
                 .doesNotContain("<%= session.getAttribute(\"groupName\") %>")
+                // regression guard: no remaining direct scriptlet usage of groupName in any context
+                .doesNotContain("<%= groupName %>")
                 .contains("<carlos:encode value='<%= groupName %>' context=\"html\"/>");
     }
 
