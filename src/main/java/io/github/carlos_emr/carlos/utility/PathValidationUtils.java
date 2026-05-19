@@ -42,9 +42,10 @@ import java.util.Set;
 public final class PathValidationUtils {
 
     public static final String INVALID_FILENAME_MESSAGE =
-            "Invalid filename. Use letters, numbers, dots, or underscores. Spaces are converted to underscores, and filenames must not start with a dot.";
+            "Invalid filename. Use letters, numbers, dots, underscores, or spaces, and filenames must not start with a dot.";
     public static final String HIDDEN_FILENAME_MESSAGE =
             "Invalid filename: hidden files not allowed. Do not start the filename with a dot.";
+    public static final String PATH_OUTSIDE_ALLOWED_DIRECTORY_MESSAGE = "Invalid file path";
 
     private static final Logger logger = MiscUtils.getLogger();
 
@@ -63,8 +64,10 @@ public final class PathValidationUtils {
     // ========================================================================
 
     /**
-     * Validates a user-provided filename and returns a safe path within the allowed directory.
-     * Use this for both read and write operations where a user provides a filename.
+     * Validates a filename component and returns a safe path within the allowed directory.
+     * This method strips path components and rejects hidden or empty names, but it does not
+     * apply legacy character normalization. For new user-facing upload/download filenames,
+     * prefer {@link #validateUserFilePath(String, File)}.
      *
      * <p>Performs the following validations:</p>
      * <ol>
@@ -109,11 +112,12 @@ public final class PathValidationUtils {
     /**
      * Validates a user-provided filename and returns a normalized safe filename component.
      * Use this when only a filename should be stored or passed to another API and
-     * the actual file operation is validated separately with {@link #validatePath(String, File)}
+     * the actual file operation is validated separately with {@link #validateUserFilePath(String, File)}
      * or {@link #validateUpload(File, String, File)}.
      * Normalization preserves the legacy filename hygiene contract while centralizing
-     * that behavior in this path-validation utility, including removal of characters
-     * outside {@code [a-zA-Z0-9._]}.
+     * that behavior in this path-validation utility: whitespace becomes underscores,
+     * characters outside {@code [a-zA-Z0-9._]} are removed, and repeated dots collapse
+     * to a single dot.
      *
      * @param userProvidedFileName the filename provided by the user
      * @return the validated filename component
@@ -308,7 +312,7 @@ public final class PathValidationUtils {
                 logger.error("Path {} is outside allowed directory {}",
                         LogSanitizer.sanitize(fileCanonical, 1024),
                         LogSanitizer.sanitize(baseCanonical, 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
-                throw new FileValidationException("Invalid file path");
+                throw new FileValidationException(PATH_OUTSIDE_ALLOWED_DIRECTORY_MESSAGE);
             }
         } catch (IOException e) {
             logger.error("Error validating file path", e);

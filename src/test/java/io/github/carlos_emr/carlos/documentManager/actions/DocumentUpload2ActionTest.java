@@ -25,6 +25,7 @@ import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletRequest;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -45,6 +46,7 @@ import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Date;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -144,9 +146,7 @@ class DocumentUpload2ActionTest extends CarlosUnitTestBase {
         request.setParameter("destination", "incomingDocs");
         request.setParameter("queue", "123");
         request.setParameter("destFolder", "BadFolder");
-        action.setFiledata(tempUploadFile);
-        action.setFiledataFileName("scan.pdf");
-        action.setFiledataContentType("application/pdf");
+        bindFiledataUpload(tempUploadFile, "scan.pdf", "application/pdf");
 
         String result = action.executeUpload();
 
@@ -161,9 +161,7 @@ class DocumentUpload2ActionTest extends CarlosUnitTestBase {
         request.setParameter("destination", "incomingDocs");
         request.setParameter("queue", "123");
         request.setParameter("destFolder", "Fax");
-        action.setFiledata(tempUploadFile);
-        action.setFiledataFileName("my..file.pdf");
-        action.setFiledataContentType("application/pdf");
+        bindFiledataUpload(tempUploadFile, "my..file.pdf", "application/pdf");
 
         String result = action.executeUpload();
 
@@ -183,9 +181,7 @@ class DocumentUpload2ActionTest extends CarlosUnitTestBase {
         request.setParameter("destination", "incomingDocs");
         request.setParameter("queue", "123");
         request.setParameter("destFolder", "Fax");
-        action.setFiledata(tempUploadFile);
-        action.setFiledataFileName("scan.pdf");
-        action.setFiledataContentType("application/pdf");
+        bindFiledataUpload(tempUploadFile, "scan.pdf", "application/pdf");
 
         String result = action.executeUpload();
 
@@ -200,9 +196,7 @@ class DocumentUpload2ActionTest extends CarlosUnitTestBase {
         request.getSession().setAttribute("user", "123");
         when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("123");
         registerEDocUtilStaticDependencies();
-        action.setFiledata(tempUploadFile);
-        action.setFiledataFileName("failed upload.txt");
-        action.setFiledataContentType("text/plain");
+        bindFiledataUpload(tempUploadFile, "failed upload.txt", "text/plain");
 
         try (MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class)) {
             eDocUtilMock.when(() -> EDocUtil.addDocumentSQL(any()))
@@ -225,9 +219,7 @@ class DocumentUpload2ActionTest extends CarlosUnitTestBase {
         request.getSession().setAttribute("user", "123");
         when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("123");
         registerEDocUtilStaticDependencies();
-        action.setFiledata(tempUploadFile);
-        action.setFiledataFileName("duplicate.pdf");
-        action.setFiledataContentType("application/pdf");
+        bindFiledataUpload(tempUploadFile, "duplicate.pdf", "application/pdf");
         Files.write(documentDir.resolve("20260519113000duplicate.pdf"), new byte[]{0});
         ArgumentCaptor<EDoc> persistedDocument = ArgumentCaptor.forClass(EDoc.class);
 
@@ -257,9 +249,7 @@ class DocumentUpload2ActionTest extends CarlosUnitTestBase {
         request.getSession().setAttribute("user", "123");
         when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("123");
         registerEDocUtilStaticDependencies();
-        action.setFiledata(tempUploadFile);
-        action.setFiledataFileName("duplicate.pdf");
-        action.setFiledataContentType("application/pdf");
+        bindFiledataUpload(tempUploadFile, "duplicate.pdf", "application/pdf");
         createCollisionAttempts("20260519113000duplicate.pdf");
 
         try (MockedStatic<UtilDateUtilities> dateMock = mockStatic(UtilDateUtilities.class);
@@ -318,13 +308,97 @@ class DocumentUpload2ActionTest extends CarlosUnitTestBase {
     }
 
     private File writeLocalFile(File sourceFile, String fileName) throws Throwable {
+        Object validatedUpload = validatedUpload(sourceFile);
         Method writeLocalFile = DocumentUpload2Action.class
-                .getDeclaredMethod("writeLocalFile", File.class, String.class);
+                .getDeclaredMethod("writeLocalFile", validatedUploadClass(), String.class);
         writeLocalFile.setAccessible(true);
         try {
-            return (File) writeLocalFile.invoke(action, sourceFile, fileName);
+            return (File) writeLocalFile.invoke(action, validatedUpload, fileName);
         } catch (InvocationTargetException e) {
             throw e.getCause();
+        }
+    }
+
+    private Object validatedUpload(File sourceFile) throws Throwable {
+        Method from = validatedUploadClass().getDeclaredMethod("from", UploadedFile.class);
+        from.setAccessible(true);
+        try {
+            return from.invoke(null, uploadedFile("filedata", sourceFile, sourceFile.getName(), "application/pdf"));
+        } catch (InvocationTargetException e) {
+            throw e.getCause();
+        }
+    }
+
+    private Class<?> validatedUploadClass() throws ClassNotFoundException {
+        return Class.forName(DocumentUpload2Action.class.getName() + "$ValidatedUpload");
+    }
+
+    private void bindFiledataUpload(File file, String originalName, String contentType) {
+        action.withUploadedFiles(List.of(uploadedFile("filedata", file, originalName, contentType)));
+    }
+
+    private UploadedFile uploadedFile(String inputName, File file, String originalName, String contentType) {
+        return new TestUploadedFile(inputName, file, originalName, contentType);
+    }
+
+    private static final class TestUploadedFile implements UploadedFile {
+        private static final long serialVersionUID = 1L;
+
+        private final String inputName;
+        private final File content;
+        private final String originalName;
+        private final String contentType;
+
+        private TestUploadedFile(String inputName, File content, String originalName, String contentType) {
+            this.inputName = inputName;
+            this.content = content;
+            this.originalName = originalName;
+            this.contentType = contentType;
+        }
+
+        @Override
+        public Long length() {
+            return content.length();
+        }
+
+        @Override
+        public String getName() {
+            return content.getName();
+        }
+
+        @Override
+        public String getOriginalName() {
+            return originalName;
+        }
+
+        @Override
+        public boolean isFile() {
+            return true;
+        }
+
+        @Override
+        public boolean delete() {
+            return content.delete();
+        }
+
+        @Override
+        public String getAbsolutePath() {
+            return content.getAbsolutePath();
+        }
+
+        @Override
+        public File getContent() {
+            return content;
+        }
+
+        @Override
+        public String getContentType() {
+            return contentType;
+        }
+
+        @Override
+        public String getInputName() {
+            return inputName;
         }
     }
 

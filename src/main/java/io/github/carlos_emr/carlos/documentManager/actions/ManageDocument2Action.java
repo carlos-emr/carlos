@@ -626,13 +626,13 @@ public class ManageDocument2Action extends ActionSupport {
      */
     private static File getDocumentCacheDir(String docdownload) {
         if (docdownload == null || docdownload.trim().isEmpty()) {
-            throw new FileValidationException("Document directory is required");
+            throw new IllegalStateException("Document directory is required");
         }
         File docDir = Paths.get(docdownload).toAbsolutePath().toFile();
         String documentDirName = docDir.getName();
         File parentDir = docDir.getParentFile();
         if (parentDir == null) {
-            throw new FileValidationException("Document cache parent directory is required");
+            throw new IllegalStateException("Document cache parent directory is required");
         }
 
         File cacheDir = PathValidationUtils.validatePath(documentDirName + "_cache", parentDir);

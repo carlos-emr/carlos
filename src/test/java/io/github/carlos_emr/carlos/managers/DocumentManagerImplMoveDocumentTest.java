@@ -105,6 +105,40 @@ class DocumentManagerImplMoveDocumentTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("reports missing configured document source instead of generic move error")
+    void reportsMissingConfiguredDocumentSource_insteadOfGenericMoveError() throws Exception {
+        Path targetDir = Files.createDirectories(Path.of("target"));
+        Path documentRoot = Files.createTempDirectory(targetDir, "document-root-");
+        Path sourceDir = Files.createDirectory(documentRoot.resolve("source"));
+        Path destinationDir = Files.createDirectory(tempDir.resolve("destination"));
+        String filename = "missing-document.pdf";
+
+        CarlosProperties properties = CarlosProperties.getInstance();
+        String previousDocumentDir = properties.getProperty("DOCUMENT_DIR");
+        try {
+            properties.setProperty("DOCUMENT_DIR", documentRoot.toString());
+
+            Document document = new Document();
+            document.setDocfilename(filename);
+            document.setDocumentNo(44);
+
+            assertThatThrownBy(() -> manager.moveDocument(loggedInInfo, document,
+                    sourceDir.toString(), destinationDir.toString()))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("Invalid document move path")
+                    .hasRootCauseMessage("Source document does not exist");
+        } finally {
+            if (previousDocumentDir == null) {
+                properties.remove("DOCUMENT_DIR");
+            } else {
+                properties.setProperty("DOCUMENT_DIR", previousDocumentDir);
+            }
+            Files.deleteIfExists(sourceDir);
+            Files.deleteIfExists(documentRoot);
+        }
+    }
+
+    @Test
     @DisplayName("rejects stored document filename with path separator")
     void rejectsStoredDocumentFilenameWithPathSeparator() {
         Path sourceDir = tempDir.resolve("source");

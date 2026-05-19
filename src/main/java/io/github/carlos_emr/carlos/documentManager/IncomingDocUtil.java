@@ -95,10 +95,8 @@ public final class IncomingDocUtil {
             return false;
         }
 
-        // Use PathValidationUtils to validate hidden, empty, "." and ".." component rules.
         try {
-            File tempDir = new File(System.getProperty("java.io.tmpdir"));
-            PathValidationUtils.validatePath(pathComponent, tempDir);
+            PathValidationUtils.validateFileName(pathComponent);
             return true;
         } catch (FileValidationException e) {
             return false;

@@ -105,8 +105,6 @@ public class zip {
             logger.error("unzipXML: " + fName + " does not have .zip extension.");
             return result;
         }
-        BufferedOutputStream dest = null;
-        BufferedInputStream is = null;
         ZipEntry entry;
 
         try (ZipFile zipfile = new ZipFile(fullpath)) {
@@ -117,9 +115,6 @@ public class zip {
                 entry = entries.nextElement();
                 String zName = entry.getName();
 
-                is = new BufferedInputStream(zipfile.getInputStream(entry));
-                int count;
-                byte data[] = new byte[BUFFER];
                 if (!zName.substring(zName.length() - 4).equalsIgnoreCase(".zip")) {
                     zName = zName + ".xml";
                 }
@@ -130,7 +125,6 @@ public class zip {
                     z = PathValidationUtils.validatePath(zName, targetDir);
                 } catch (SecurityException e) {
                     logger.error("Skipping potentially malicious zip entry: " + zName);
-                    is.close();
                     continue;
                 }
 
@@ -140,14 +134,15 @@ public class zip {
                     parentDir.mkdirs();
                 }
 
-                FileOutputStream fos = new FileOutputStream(z);
-                dest = new BufferedOutputStream(fos, BUFFER);
-                while ((count = is.read(data, 0, BUFFER)) != -1) {
-                    dest.write(data, 0, count);
+                byte data[] = new byte[BUFFER];
+                try (BufferedInputStream is = new BufferedInputStream(zipfile.getInputStream(entry));
+                        BufferedOutputStream dest = new BufferedOutputStream(new FileOutputStream(z), BUFFER)) {
+                    int count;
+                    while ((count = is.read(data, 0, BUFFER)) != -1) {
+                        dest.write(data, 0, count);
+                    }
+                    dest.flush();
                 }
-                dest.flush();
-                dest.close();
-                is.close();
             }
             //nee to move zip file to archive folder
             File afile = new File(fullpath);

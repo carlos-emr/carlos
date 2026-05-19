@@ -21,7 +21,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -96,23 +95,22 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
         }
 
         HashMap<String, Object> map = new HashMap<String, Object>();
-        File docFile = this.getFiledata();
+        UploadedFile uploadedFile = this.filedataUpload;
+        ValidatedUpload docFile = null;
         String destination = request.getParameter("destination");
         ResourceBundle props = ResourceBundle.getBundle("oscarResources");
-        if (docFile == null) {
+        if (uploadedFile == null) {
             map.put("error", 4);
         } else {
-            // Validate uploaded file is from temp directory for all destinations
             try {
-                docFile = PathValidationUtils.validateUpload(docFile);
+                docFile = ValidatedUpload.from(uploadedFile);
             } catch (FileValidationException e) {
-                logger.error("Invalid upload source - potential path traversal: {}", LogSanitizer.sanitize(docFile.getPath()));
+                logger.error("Invalid upload source - potential path traversal");
                 map.put("error", "Invalid file upload");
-                docFile = null; // Treat as if no file was uploaded
             }
         }
 
-        File uploadedTempFile = docFile;
+        ValidatedUpload uploadedTempFile = docFile;
         try {
             if (docFile != null && destination != null && destination.equals("incomingDocs")) {
                 String fileName = this.filedataFileName;
@@ -251,21 +249,13 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
         return null;
     }
 
-    private void deleteUploadedTempFile(File uploadedFile) {
+    private void deleteUploadedTempFile(ValidatedUpload uploadedFile) {
         if (uploadedFile == null) {
             return;
         }
 
-        try {
-            File validatedUpload = PathValidationUtils.validateUpload(uploadedFile);
-
-            if (!Files.deleteIfExists(validatedUpload.toPath())) { // codeql[java/path-injection] -- validated Struts/Tomcat temp file; see PathValidationUtils.validateUpload.
-                logger.warn("Uploaded temp file was already removed: {}", LogSanitizer.sanitize(validatedUpload.getPath()));
-            }
-        } catch (FileValidationException e) {
-            logger.warn("Skipping invalid uploaded temp file cleanup: {}", LogSanitizer.sanitize(uploadedFile.getPath()));
-        } catch (IOException e) {
-            logger.warn("Unable to delete uploaded temp file: {}", LogSanitizer.sanitize(uploadedFile.getPath()), e);
+        if (!uploadedFile.delete()) {
+            logger.warn("Uploaded temp file was already removed or could not be deleted");
         }
     }
 
@@ -286,8 +276,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
      * @param fileName the name for the file on disk
      * @throws Exception when an error occurs
      */
-    private File writeLocalFile(File docFile, String fileName) throws Exception {
-        File validatedUpload = PathValidationUtils.validateUpload(docFile);
+    private File writeLocalFile(ValidatedUpload docFile, String fileName) throws Exception {
         String documentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         if (!documentDir.endsWith(File.separator)) {
             documentDir += File.separator;
@@ -306,7 +295,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                 try (OutputStream fos = Files.newOutputStream(destinationFile.toPath(),
                         StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
                     fileCreatedByRequest = true;
-                    try (InputStream fis = Files.newInputStream(validatedUpload.toPath())) { // codeql[java/path-injection] -- validated Struts/Tomcat temp file; see PathValidationUtils.validateUpload.
+                    try (InputStream fis = docFile.openStream()) {
                         byte[] buf = new byte[128 * 1024];
                         int i = 0;
                         while ((i = fis.read(buf)) != -1) {
@@ -349,6 +338,52 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
         }
     }
 
+    private static final class ValidatedUpload {
+        private final UploadedFile upload;
+        private final File file;
+
+        private ValidatedUpload(UploadedFile upload, File file) {
+            this.upload = upload;
+            this.file = file;
+        }
+
+        private static ValidatedUpload from(UploadedFile upload) {
+            File validatedUpload = PathValidationUtils.validateUpload(uploadContentFile(upload));
+            return new ValidatedUpload(upload, validatedUpload);
+        }
+
+        private long length() {
+            return file.length();
+        }
+
+        private InputStream openStream() throws IOException {
+            return Files.newInputStream(file.toPath());
+        }
+
+        private boolean delete() {
+            return upload.delete();
+        }
+    }
+
+    private static File uploadContentFile(UploadedFile upload) {
+        if (upload == null) {
+            throw new FileValidationException("Uploaded file is null");
+        }
+        Object content = upload.getContent();
+        if (content instanceof File file) {
+            return file;
+        }
+        throw new FileValidationException("Uploaded file content is not file-backed");
+    }
+
+    private static File uploadContentFileOrNull(UploadedFile upload) {
+        if (upload == null) {
+            return null;
+        }
+        Object content = upload.getContent();
+        return content instanceof File file ? file : null;
+    }
+
     private void deleteCopiedDocumentIfUnpersisted(File copiedDocumentFile, boolean documentRecordCreated) {
         if (documentRecordCreated || copiedDocumentFile == null || !copiedDocumentFile.exists()) {
             return;
@@ -363,7 +398,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
         }
     }
 
-    private boolean writeToIncomingDocs(File docFile, String queueId, String PdfDir, String fileName) {
+    private boolean writeToIncomingDocs(ValidatedUpload docFile, String queueId, String PdfDir, String fileName) {
         if (queueId == null || PdfDir == null || fileName == null) {
             logger.error("Invalid parameters provided for writeToIncomingDocs");
             return false;
@@ -392,10 +427,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             return false;
         }
 
-        // Write the file - validate source file at point of use for static analysis visibility
-        File validatedDocFile = PathValidationUtils.validateUpload(docFile);
-        // codeql[java/path-injection] -- validated temp upload source and incoming-docs destination.
-        try (InputStream fis = Files.newInputStream(validatedDocFile.toPath());
+        try (InputStream fis = docFile.openStream();
                 // codeql[java/path-injection] -- destinationFile is validated under the incoming-docs directory before this sink.
                 OutputStream fos = Files.newOutputStream(destinationFile.toPath(),
                         StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
@@ -494,9 +526,9 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
     private String docCreator = "";
     private String responsibleId = "";
     private String source = "";
-    private File docFile;
+    private UploadedFile docFileUpload;
 
-    private File filedata;
+    private UploadedFile filedataUpload;
     private String filedataFileName;
     private String filedataContentType;
 
@@ -506,11 +538,11 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             for (UploadedFile uploaded : uploadedFiles) {
                 String inputName = uploaded.getInputName();
                 if ("filedata".equals(inputName)) {
-                    this.filedata = Path.of(uploaded.getAbsolutePath()).toFile();
+                    this.filedataUpload = uploaded;
                     this.filedataContentType = uploaded.getContentType();
                     this.filedataFileName = uploaded.getOriginalName();
                 } else if ("docFile".equals(inputName)) {
-                    this.docFile = Path.of(uploaded.getAbsolutePath()).toFile();
+                    this.docFileUpload = uploaded;
                 }
             }
         }
@@ -589,11 +621,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
     }
 
     public File getDocFile() {
-        return docFile;
-    }
-
-    public void setDocFile(File docFile) {
-        this.docFile = docFile;
+        return uploadContentFileOrNull(docFileUpload);
     }
 
     public String getMode() {
@@ -660,11 +688,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
     }
 
     public File getFiledata() {
-        return filedata;
-    }
-
-    public void setFiledata(File Filedata) {
-        this.filedata = Filedata;
+        return uploadContentFileOrNull(filedataUpload);
     }
 
     public String getFiledataFileName() {

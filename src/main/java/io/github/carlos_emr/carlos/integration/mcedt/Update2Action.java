@@ -44,7 +44,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.math.BigInteger;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 
 import static io.github.carlos_emr.carlos.integration.mcedt.ActionUtils.*;
@@ -144,6 +143,7 @@ public class Update2Action extends ActionSupport implements UploadedFilesAware {
 
     private String resourceId;
     private File content;
+    private SecurityException uploadValidationError;
 
     public String getResourceId() {
         return resourceId;
@@ -158,10 +158,6 @@ public class Update2Action extends ActionSupport implements UploadedFilesAware {
         return content;
     }
 
-    public void setContent(File content) {
-        this.content = content;
-    }
-
     @Override
     public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
         if (uploadedFiles == null) {
@@ -169,7 +165,13 @@ public class Update2Action extends ActionSupport implements UploadedFilesAware {
         }
         for (UploadedFile uploaded : uploadedFiles) {
             if ("content".equals(uploaded.getInputName())) {
-                this.content = Path.of(uploaded.getAbsolutePath()).toFile();
+                try {
+                    this.content = PathValidationUtils.validateUpload(uploadContentFile(uploaded));
+                    this.uploadValidationError = null;
+                } catch (SecurityException e) {
+                    this.content = null;
+                    this.uploadValidationError = e;
+                }
                 return;
             }
         }
@@ -179,6 +181,9 @@ public class Update2Action extends ActionSupport implements UploadedFilesAware {
         UpdateRequest result = new UpdateRequest();
         result.setResourceID(BigInteger.valueOf(ConversionUtils.fromIntString(resourceId)));
         try {
+            if (uploadValidationError != null) {
+                throw uploadValidationError;
+            }
             File validatedContent = PathValidationUtils.validateUpload(content);
             result.setContent(Files.readAllBytes(validatedContent.toPath()));
         } catch (SecurityException e) {
@@ -187,5 +192,16 @@ public class Update2Action extends ActionSupport implements UploadedFilesAware {
             throw new RuntimeException("Unable to read upload data", e);
         }
         return result;
+    }
+
+    private static File uploadContentFile(UploadedFile uploadedFile) {
+        if (uploadedFile == null) {
+            throw new SecurityException("Uploaded file is null");
+        }
+        Object content = uploadedFile.getContent();
+        if (content instanceof File file) {
+            return file;
+        }
+        throw new SecurityException("Uploaded file content is not file-backed");
     }
 }
