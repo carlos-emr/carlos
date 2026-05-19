@@ -136,7 +136,7 @@ class BackupDownloadUnitTest extends CarlosUnitTestBase {
 
         assertThat(response.getStatus()).isEqualTo(200);
         assertThat(servlet.downloadCalled).isTrue();
-        assertThat(servlet.downloadAllowed).isTrue();
+        assertThat(servlet.bDownloadValue).isTrue();
         assertThat(servlet.downloadDir).isEqualTo(tempDir.toString());
         assertThat(servlet.downloadFilename).isEqualTo("backup.sql");
         verify(securityInfoManager).hasPrivilege(eq(loggedInInfo), eq("_admin"), eq("r"), isNull());
@@ -159,7 +159,7 @@ class BackupDownloadUnitTest extends CarlosUnitTestBase {
 
         assertThat(response.getStatus()).isEqualTo(200);
         assertThat(servlet.downloadCalled).isTrue();
-        assertThat(servlet.downloadAllowed).isTrue();
+        assertThat(servlet.bDownloadValue).isTrue();
         assertThat(servlet.downloadDir).isEqualTo(tempDir.toString());
         assertThat(servlet.downloadFilename).isEqualTo("backup.sql");
         verify(securityInfoManager).hasPrivilege(eq(loggedInInfo), eq("_admin"), eq("r"), isNull());
@@ -183,7 +183,7 @@ class BackupDownloadUnitTest extends CarlosUnitTestBase {
 
     private static final class RecordingBackupDownload extends BackupDownload {
         private boolean downloadCalled;
-        private boolean downloadAllowed;
+        private boolean bDownloadValue;
         private String downloadDir;
         private String downloadFilename;
 
@@ -191,7 +191,7 @@ class BackupDownloadUnitTest extends CarlosUnitTestBase {
         public void download(boolean bDownload, HttpServletResponse res, String dir, String filename, String contentType)
                 throws IOException {
             downloadCalled = true;
-            downloadAllowed = bDownload;
+            bDownloadValue = bDownload;
             downloadDir = dir;
             downloadFilename = filename;
         }
