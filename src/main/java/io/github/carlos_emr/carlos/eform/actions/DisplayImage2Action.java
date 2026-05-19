@@ -109,6 +109,7 @@ public class DisplayImage2Action extends ActionSupport {
             response.setContentType(contentType);
             if (RequestNegotiation.isHtmlContentType(contentType)) {
                 response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+                // LogoutBroadcastFilter can only append the cross-window logout listener to writer-backed HTML.
                 IOUtils.copy(stream, response.getWriter(), StandardCharsets.UTF_8);
                 return NONE;
             }
