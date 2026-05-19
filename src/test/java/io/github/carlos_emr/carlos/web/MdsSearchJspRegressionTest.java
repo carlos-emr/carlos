@@ -25,6 +25,8 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -41,7 +43,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("unit")
 class MdsSearchJspRegressionTest {
 
-    private static final Path SEARCH_JSP = Path.of(System.getProperty("user.dir"))
+    private static final Pattern SCRIPT_BLOCK_PATTERN = Pattern.compile("(?is)<script\\b[^>]*>(.*?)</script>");
+    private static final Path SEARCH_JSP = repositoryRoot()
             .resolve(Path.of("src", "main", "webapp", "WEB-INF", "jsp", "oscarMDS", "Search.jsp"));
 
     @Test
@@ -55,14 +58,28 @@ class MdsSearchJspRegressionTest {
                 .contains("SafeEncode.forUriComponent")
                 .contains("request.getParameter(\"providerNo\")")
                 .contains("&providerNo=<%= encodedProviderNo %>");
-        assertThat(firstScriptBlock(jsp)).doesNotContain("<c:");
+        assertThat(onSubmitScriptBlock(jsp)).doesNotContain("<c:");
     }
 
-    private static String firstScriptBlock(String jsp) {
-        int start = jsp.indexOf("<script type=\"text/javascript\">");
-        int end = jsp.indexOf("</script>", start);
-        assertThat(start).isNotNegative();
-        assertThat(end).isGreaterThan(start);
-        return jsp.substring(start, end);
+    private static Path repositoryRoot() {
+        Path current = Path.of(System.getProperty("user.dir")).toAbsolutePath();
+        while (current != null) {
+            if (Files.exists(current.resolve("pom.xml")) && Files.exists(current.resolve("src/main/webapp"))) {
+                return current;
+            }
+            current = current.getParent();
+        }
+        throw new IllegalStateException("Unable to locate CARLOS repository root");
+    }
+
+    private static String onSubmitScriptBlock(String jsp) {
+        Matcher matcher = SCRIPT_BLOCK_PATTERN.matcher(jsp);
+        while (matcher.find()) {
+            String scriptBody = matcher.group(1);
+            if (scriptBody.contains("function onSubmitCheck()")) {
+                return scriptBody;
+            }
+        }
+        throw new IllegalStateException("Unable to locate MDS search submit script block");
     }
 }

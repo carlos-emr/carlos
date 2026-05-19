@@ -36,7 +36,8 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%
-    // Encode providerNo as a URI component first, then as a JavaScript string literal.
+    // providerNo becomes a URL query value inside a JavaScript variable assignment.
+    // URI-component encoding must happen before JavaScript string encoding.
     String encodedProviderNo = SafeEncode.forJavaScript(
             SafeEncode.forUriComponent(StringUtils.noNull(request.getParameter("providerNo"))));
 %>
