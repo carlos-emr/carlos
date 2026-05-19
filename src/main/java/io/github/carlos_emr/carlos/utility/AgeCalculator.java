@@ -35,11 +35,14 @@ import java.util.Calendar;
 public class AgeCalculator {
 
     public static Age calculateAge(Calendar birthDate) {
+        return calculateAge(birthDate, LocalDate.now());
+    }
+
+    static Age calculateAge(Calendar birthDate, LocalDate now) {
         LocalDate birthdate = LocalDate.of(
                 birthDate.get(Calendar.YEAR),
                 birthDate.get(Calendar.MONTH) + 1,
                 birthDate.get(Calendar.DAY_OF_MONTH));
-        LocalDate now = LocalDate.now();
         Period period = Period.between(birthdate, now);
 
         return new Age(period.getDays(), period.getMonths(), period.getYears());

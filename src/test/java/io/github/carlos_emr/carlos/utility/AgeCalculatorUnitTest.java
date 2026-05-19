@@ -22,7 +22,9 @@ package io.github.carlos_emr.carlos.utility;
 
 import org.junit.jupiter.api.*;
 
+import java.time.LocalDate;
 import java.util.Calendar;
+import java.util.GregorianCalendar;
 
 import static org.assertj.core.api.Assertions.*;
 
@@ -38,13 +40,18 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("demographic")
 class AgeCalculatorUnitTest {
 
+    private static final LocalDate REFERENCE_DATE = LocalDate.of(2026, 5, 19);
+
+    private Calendar birthDate(int year, int month, int dayOfMonth) {
+        return new GregorianCalendar(year, month - 1, dayOfMonth);
+    }
+
     @Test
     @DisplayName("should calculate adult age correctly")
     void shouldCalculateAdultAge_correctly() {
-        Calendar birthDate = Calendar.getInstance();
-        birthDate.add(Calendar.YEAR, -30);
+        Calendar birthDate = birthDate(1996, 5, 19);
 
-        Age age = AgeCalculator.calculateAge(birthDate);
+        Age age = AgeCalculator.calculateAge(birthDate, REFERENCE_DATE);
 
         assertThat(age.getYears()).isEqualTo(30);
         assertThat(age.getMonths()).isZero();
@@ -53,34 +60,32 @@ class AgeCalculatorUnitTest {
     @Test
     @DisplayName("should calculate infant age in months")
     void shouldCalculateInfantAge_inMonths() {
-        Calendar birthDate = Calendar.getInstance();
-        birthDate.add(Calendar.MONTH, -6);
+        Calendar birthDate = birthDate(2025, 11, 19);
 
-        Age age = AgeCalculator.calculateAge(birthDate);
+        Age age = AgeCalculator.calculateAge(birthDate, REFERENCE_DATE);
 
         assertThat(age.getYears()).isZero();
-        assertThat(age.getMonths()).isBetween(5, 6); // allow for day-of-month edge
+        assertThat(age.getMonths()).isEqualTo(6);
     }
 
     @Test
     @DisplayName("should return zero years for newborn")
     void shouldReturnZeroYears_forNewborn() {
-        Calendar birthDate = Calendar.getInstance();
+        Calendar birthDate = birthDate(2026, 5, 19);
 
-        Age age = AgeCalculator.calculateAge(birthDate);
+        Age age = AgeCalculator.calculateAge(birthDate, REFERENCE_DATE);
 
         assertThat(age.getYears()).isZero();
         assertThat(age.getMonths()).isZero();
-        assertThat(age.getDays()).isBetween(0, 1);
+        assertThat(age.getDays()).isZero();
     }
 
     @Test
     @DisplayName("should handle elderly patient age")
-    void shouldHandleElderlyAge() {
-        Calendar birthDate = Calendar.getInstance();
-        birthDate.add(Calendar.YEAR, -95);
+    void shouldHandleElderlyAge_forReferenceDate() {
+        Calendar birthDate = birthDate(1931, 5, 19);
 
-        Age age = AgeCalculator.calculateAge(birthDate);
+        Age age = AgeCalculator.calculateAge(birthDate, REFERENCE_DATE);
 
         assertThat(age.getYears()).isEqualTo(95);
     }
@@ -88,23 +93,20 @@ class AgeCalculatorUnitTest {
     @Test
     @DisplayName("should calculate age with specific days")
     void shouldCalculateAge_withSpecificDays() {
-        Calendar birthDate = Calendar.getInstance();
-        birthDate.add(Calendar.YEAR, -25);
-        birthDate.add(Calendar.MONTH, -3);
+        Calendar birthDate = birthDate(2001, 2, 19);
 
-        Age age = AgeCalculator.calculateAge(birthDate);
+        Age age = AgeCalculator.calculateAge(birthDate, REFERENCE_DATE);
 
         assertThat(age.getYears()).isEqualTo(25);
-        assertThat(age.getMonths()).isBetween(2, 3);
+        assertThat(age.getMonths()).isEqualTo(3);
     }
 
     @Test
     @DisplayName("should return non-negative values for all age components")
-    void shouldReturnNonNegativeValues() {
-        Calendar birthDate = Calendar.getInstance();
-        birthDate.add(Calendar.DAY_OF_MONTH, -10);
+    void shouldReturnNonNegativeValues_forRecentBirthDate() {
+        Calendar birthDate = birthDate(2026, 5, 9);
 
-        Age age = AgeCalculator.calculateAge(birthDate);
+        Age age = AgeCalculator.calculateAge(birthDate, REFERENCE_DATE);
 
         assertThat(age.getYears()).isGreaterThanOrEqualTo(0);
         assertThat(age.getMonths()).isGreaterThanOrEqualTo(0);
