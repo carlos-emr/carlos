@@ -69,6 +69,7 @@ class EctMeasurements2ActionTest extends CarlosWebTestBase {
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
+        assertThat(mockResponse.isCommitted()).isTrue();
         verify(mockSecurityInfoManager, never()).hasPrivilege(any(LoggedInInfo.class), anyString(), anyString(), any());
     }
 
@@ -83,6 +84,7 @@ class EctMeasurements2ActionTest extends CarlosWebTestBase {
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
+        assertThat(mockResponse.isCommitted()).isTrue();
         verify(mockSecurityInfoManager, never()).hasPrivilege(any(LoggedInInfo.class), anyString(), anyString(), any());
     }
 
@@ -99,5 +101,22 @@ class EctMeasurements2ActionTest extends CarlosWebTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
         assertThat(mockSession.getAttribute("textOnEncounter")).isNull();
+    }
+
+    @Test
+    @DisplayName("should allow ajax POST and clear encounter text session stash")
+    void shouldAllowAjaxPost_whenMeasurementWriteGranted() throws Exception {
+        allowPrivilege("_measurement", "w");
+        mockSession.setAttribute("textOnEncounter", "stale");
+        addRequestParameter("demographicNo", "1");
+        addRequestParameter("numType", "0");
+        addRequestParameter("skipCreateNote", "true");
+        addRequestParameter("ajax", "true");
+
+        String result = executeAction(new EctMeasurements2Action());
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(mockSession.getAttribute("textOnEncounter")).isNull();
+        assertThat(mockResponse.getContentAsString()).contains("\"encounterText\"");
     }
 }

@@ -42,4 +42,14 @@ class ProcessMeasurementsSubmissionJspRegressionTest {
                 .doesNotContain("<%= error %>")
                 .doesNotContain("for (String error : actionErrors)");
     }
+
+    @Test
+    @DisplayName("should only auto-close when there are no action errors")
+    void shouldOnlyAutoClose_whenActionErrorsAreEmpty() throws Exception {
+        String jsp = Files.readString(JSP);
+
+        assertThat(jsp)
+                .contains("<body<c:if test=\"${empty actionErrors}\"> onload=\"closeWin();\"</c:if>>")
+                .doesNotContain("<body onload=\"closeWin();\">");
+    }
 }

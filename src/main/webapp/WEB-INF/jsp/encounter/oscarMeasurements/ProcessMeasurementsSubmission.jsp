@@ -52,7 +52,7 @@
         }
     </script>
 
-    <body onload="closeWin();">
+    <body<c:if test="${empty actionErrors}"> onload="closeWin();"</c:if>>
     <c:if test="${not empty actionErrors}">
     <div class="action-errors">
         <ul>

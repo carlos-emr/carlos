@@ -12,6 +12,7 @@
  */
 package io.github.carlos_emr.carlos.commn.web;
 
+import io.github.carlos_emr.carlos.commn.service.FlowSheetCustomizationService;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
@@ -22,6 +23,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -42,10 +44,14 @@ import static org.mockito.Mockito.when;
 @Tag("clinical")
 class FlowSheetCustom2ActionTest extends CarlosWebTestBase {
 
+    @Mock
+    private FlowSheetCustomizationService mockFlowSheetCustomizationService;
+
     @BeforeEach
     void setUpAction() {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), anyString(), anyString(), any()))
                 .thenReturn(false);
+        replaceSpringUtilsBean(FlowSheetCustomizationService.class, mockFlowSheetCustomizationService);
         mockRequest.setMethod("POST");
         mockSession.setAttribute("user", "999998");
     }
@@ -71,6 +77,7 @@ class FlowSheetCustom2ActionTest extends CarlosWebTestBase {
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
+        assertThat(mockResponse.isCommitted()).isTrue();
         assertThat(action.saveCalled).isFalse();
         verify(mockSecurityInfoManager, never()).hasPrivilege(any(LoggedInInfo.class), anyString(), anyString(), any());
     }
@@ -88,6 +95,7 @@ class FlowSheetCustom2ActionTest extends CarlosWebTestBase {
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
+        assertThat(mockResponse.isCommitted()).isTrue();
         assertThat(action.saveCalled).isFalse();
         verify(mockSecurityInfoManager, never()).hasPrivilege(any(LoggedInInfo.class), anyString(), anyString(), any());
     }
@@ -103,6 +111,19 @@ class FlowSheetCustom2ActionTest extends CarlosWebTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
         assertThat(action.saveCalled).isTrue();
+    }
+
+    @Test
+    @DisplayName("should log and fall through on unknown POST method without mutator dispatch")
+    void shouldReturnSuccess_onUnknownPostMethod() throws Exception {
+        allowPrivilege("_flowsheet", "w");
+        addRequestParameter("method", "unknownMethod");
+        TestableFlowSheetCustom2Action action = new TestableFlowSheetCustom2Action();
+
+        String result = executeAction(action);
+
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(action.saveCalled).isFalse();
     }
 
     private static final class TestableFlowSheetCustom2Action extends FlowSheetCustom2Action {
