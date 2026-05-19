@@ -36,7 +36,9 @@ import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.UploadedFileUtils;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -166,7 +168,7 @@ public class Update2Action extends ActionSupport implements UploadedFilesAware {
         for (UploadedFile uploaded : uploadedFiles) {
             if ("content".equals(uploaded.getInputName())) {
                 try {
-                    this.content = PathValidationUtils.validateUpload(uploadContentFile(uploaded));
+                    this.content = PathValidationUtils.validateUpload(UploadedFileUtils.getUploadedFile(uploaded));
                     this.uploadValidationError = null;
                 } catch (SecurityException e) {
                     this.content = null;
@@ -184,24 +186,15 @@ public class Update2Action extends ActionSupport implements UploadedFilesAware {
             if (uploadValidationError != null) {
                 throw uploadValidationError;
             }
-            File validatedContent = PathValidationUtils.validateUpload(content);
-            result.setContent(Files.readAllBytes(validatedContent.toPath()));
+            if (content == null) {
+                throw new SecurityException("Invalid upload file path", new FileValidationException("Uploaded file is null"));
+            }
+            result.setContent(Files.readAllBytes(content.toPath()));
         } catch (SecurityException e) {
             throw new SecurityException("Invalid upload file path", e);
         } catch (Exception e) {
             throw new RuntimeException("Unable to read upload data", e);
         }
         return result;
-    }
-
-    private static File uploadContentFile(UploadedFile uploadedFile) {
-        if (uploadedFile == null) {
-            throw new SecurityException("Uploaded file is null");
-        }
-        Object content = uploadedFile.getContent();
-        if (content instanceof File file) {
-            return file;
-        }
-        throw new SecurityException("Uploaded file content is not file-backed");
     }
 }

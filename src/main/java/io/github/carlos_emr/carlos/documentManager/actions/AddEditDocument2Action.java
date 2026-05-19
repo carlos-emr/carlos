@@ -74,6 +74,7 @@ import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.UploadedFileUtils;
 import io.github.carlos_emr.carlos.utility.SessionConstants;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.web.context.WebApplicationContext;
@@ -589,7 +590,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         }
 
         private static ValidatedDocumentUpload from(UploadedFile uploadFile) {
-            File validatedUpload = PathValidationUtils.validateUpload(uploadContentFile(uploadFile));
+            File validatedUpload = PathValidationUtils.validateUpload(UploadedFileUtils.getUploadedFile(uploadFile));
             return new ValidatedDocumentUpload(validatedUpload);
         }
 
@@ -600,25 +601,6 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         private InputStream openStream() throws IOException {
             return Files.newInputStream(file.toPath());
         }
-    }
-
-    private static File uploadContentFile(UploadedFile uploadFile) {
-        if (uploadFile == null) {
-            throw new FileValidationException("Uploaded file is null");
-        }
-        Object content = uploadFile.getContent();
-        if (content instanceof File file) {
-            return file;
-        }
-        throw new FileValidationException("Uploaded file content is not file-backed");
-    }
-
-    private static File uploadContentFileOrNull(UploadedFile uploadFile) {
-        if (uploadFile == null) {
-            return null;
-        }
-        Object content = uploadFile.getContent();
-        return content instanceof File file ? file : null;
     }
 
     private UploadedFile getSelectedDocumentUpload() {
@@ -899,7 +881,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
     }
 
     public File getDocFile() {
-        return uploadContentFileOrNull(docFileUpload);
+        return UploadedFileUtils.getUploadedFileOrNull(docFileUpload);
     }
 
     public String getMode() {
@@ -975,7 +957,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
     }
 
     public File getFiledata() {
-        return uploadContentFileOrNull(filedataUpload);
+        return UploadedFileUtils.getUploadedFileOrNull(filedataUpload);
     }
 
     public String getAppointmentNo() {
