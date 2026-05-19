@@ -582,7 +582,7 @@
                                             href="javascript:void(0);"
                                             title="<carlos:encode value='<%= curdoc.getDescription() %>' context="htmlAttribute"/>"
                                             style="word-break: break-word;overflow-wrap: anywhere;overflow: hidden;text-overflow: ellipsis;text-decoration: none;"
-                                            onclick="popupFocusPage(500,700,'<%=url%>','demographic_document');">
+                                            onclick="popupFocusPage(500,700,'<carlos:encode value='<%= url %>' context="javaScriptAttribute"/>','demographic_document');">
                                         <carlos:encode value='<%= curdoc.getDescription() %>' context="html"/>
                                     </a>
                                 </td>

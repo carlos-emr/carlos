@@ -57,6 +57,7 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@page import="java.util.*, io.github.carlos_emr.carlos.billing.ca.bc.data.*,io.github.carlos_emr.carlos.billing.ca.bc.pageUtil.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.entities.*" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.BillingreferralDao" %>
 <%@ page import="io.github.carlos_emr.carlos.dxresearch.util.dxResearchCodingSystem" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.PropertyDao" %>
@@ -2236,7 +2237,7 @@
                                             </tr>
                                             <%for (int i = 0; i < billlist1.length; i++) { %>
                                             <tr>
-                                                <%String svcCall = "addSvcCode('" + billlist1[i].getServiceCode() + "')"; %>
+                                                <%String svcCall = "addSvcCode('" + SafeEncode.forJavaScriptAttribute(billlist1[i].getServiceCode()) + "')"; %>
                                                 <td width="25%" valign="middle">
                                                     <div class="form-check"><label class="form-check-label">
                                                         <input type="checkbox" class="form-check-input" name="service" value="<%=billlist1[i].getServiceCode()%>" onclick="<%=svcCall%>" />
@@ -2275,7 +2276,7 @@
                                             </tr>
                                             <%for (int i = 0; i < billlist2.length; i++) { %>
                                             <tr>
-                                                <%String svcCall = "addSvcCode('" + billlist2[i].getServiceCode() + "')"; %>
+                                                <%String svcCall = "addSvcCode('" + SafeEncode.forJavaScriptAttribute(billlist2[i].getServiceCode()) + "')"; %>
                                                 <td width="25%">
                                                     <div class="form-check"><label class="form-check-label">
                                                         <input type="checkbox" class="form-check-input" name="service" value="<%=billlist2[i].getServiceCode()%>" onclick="<%=svcCall%>"/>
@@ -2311,7 +2312,7 @@
                                             </tr>
                                             <%for (int i = 0; i < billlist3.length; i++) { %>
                                             <tr>
-                                                <%String svcCall = "addSvcCode('" + billlist3[i].getServiceCode() + "')"; %>
+                                                <%String svcCall = "addSvcCode('" + SafeEncode.forJavaScriptAttribute(billlist3[i].getServiceCode()) + "')"; %>
                                                 <td width="25%">
                                                     <div class="form-check"><label class="form-check-label">
                                                         <input type="checkbox" class="form-check-input" name="service" value="<%=billlist3[i].getServiceCode()%>"/>

@@ -42,6 +42,7 @@
 <%@ taglib uri="http://www.oscar-emr.com/tags/integration" prefix="i" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <html>
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
@@ -136,7 +137,7 @@
         }
 
         function displayInfo() {
-            var info = '<%= session.getAttribute("info") %>';
+            var info = '<%= SafeEncode.forJavaScript(String.valueOf(session.getAttribute("info"))) %>';
             if (info == 'true') {
                 ShowDialog(true);
             }
