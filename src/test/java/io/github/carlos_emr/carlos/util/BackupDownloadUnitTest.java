@@ -175,7 +175,7 @@ class BackupDownloadUnitTest extends CarlosUnitTestBase {
 
     private LoggedInInfo mockLoggedInInfo(MockHttpServletRequest request) {
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
-        HttpSession session = request.getSession(false);
+        HttpSession session = request.getSession();
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(session))
                 .thenReturn(loggedInInfo);
         return loggedInInfo;
