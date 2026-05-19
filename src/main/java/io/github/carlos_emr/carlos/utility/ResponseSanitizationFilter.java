@@ -463,21 +463,21 @@ public class ResponseSanitizationFilter implements Filter {
                     e);
             throw new IOException("Cannot reset buffer before replaying captured response", e);
         }
+        String encoding = response.getCharacterEncoding();
+        if (encoding == null || encoding.isEmpty()) {
+            encoding = StandardCharsets.UTF_8.name();
+        }
+        byte[] bytes = content.getBytes(encoding);
+        response.setContentLength(bytes.length);
         try {
+            response.getOutputStream().write(bytes);
+            response.getOutputStream().flush();
+        } catch (IllegalStateException e) {
+            // A downstream wrapper may have opened the real writer; keep the byte-accurate length
+            // and fall back to the matching character path.
             PrintWriter out = response.getWriter();
             out.write(content);
             out.flush();
-        } catch (IllegalStateException e) {
-            // getWriter() failed because getOutputStream() was already called on the real response.
-            // Fall back to byte-stream output.
-            String encoding = response.getCharacterEncoding();
-            if (encoding == null || encoding.isEmpty()) {
-                encoding = StandardCharsets.UTF_8.name();
-            }
-            byte[] bytes = content.getBytes(encoding);
-            response.setContentLength(bytes.length);
-            response.getOutputStream().write(bytes);
-            response.getOutputStream().flush();
         }
     }
 

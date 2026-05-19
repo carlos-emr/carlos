@@ -302,6 +302,29 @@ class ResponseSanitizationFilterUnitTest {
         }
 
         @Test
+        @DisplayName("should overwrite stale Content-Length when replaying safe writer response")
+        void shouldOverwriteStaleContentLength_whenReplayingSafeWriterResponse() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/provider/providercontrol");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            String body = "<html><body>Provider control</body></html>";
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(200);
+                httpRes.setContentType("text/html;charset=UTF-8");
+                httpRes.setContentLength(0);
+                res.getWriter().write(body);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(response.getContentAsString()).isEqualTo(body);
+            assertThat(response.getHeader("Content-Length"))
+                    .isEqualTo(String.valueOf(body.getBytes(StandardCharsets.UTF_8).length));
+        }
+
+        @Test
         @DisplayName("should pass through 404 response without stack trace unchanged")
         void shouldPassThroughWithoutSanitization_whenStatusIs404() throws Exception {
             MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/missing.jsp");

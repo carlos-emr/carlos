@@ -186,6 +186,7 @@ public class LogoutBroadcastFilter implements Filter {
         DelegatingServletResponse delegatingResponse = new DelegatingServletResponse(
                 (HttpServletResponse) response, safeRequestUri);
         chain.doFilter(request, delegatingResponse);
+        delegatingResponse.markChainComplete();
 
         HttpSession session = httpRequest.getSession(false);
         if (session == null || session.getAttribute("user") == null) {
@@ -228,7 +229,6 @@ public class LogoutBroadcastFilter implements Filter {
             logger.error("Skipping logout broadcast script injection because the response writer was unavailable and the output stream write failed: uri={}",
                     safeRequestUri, e);
             delegatingResponse.discardDeferredContentLength();
-            delegatingResponse.flushDelegatingWriter();
             return;
         }
     }
@@ -569,29 +569,41 @@ public class LogoutBroadcastFilter implements Filter {
     }
 
     /**
-     * Writer that keeps the underlying writer open after JSP execution so the filter can append
-     * the logout-broadcast script after the chain completes.
+     * Writer that keeps the response open for post-chain script injection.
      */
     private static class DelegatingWriter extends PrintWriter {
 
+        private final Writer out;
+
         /**
-         * Creates a DelegatingWriter wrapping the given writer.
+         * Creates a DelegatingWriter wrapping the given underlying writer.
          *
-         * @param out Writer the underlying writer to delegate output to
+         * @param out Writer the underlying response writer
          */
         public DelegatingWriter(Writer out) {
             super(out);
+            this.out = out;
         }
 
         /**
-         * Allows flushes to reach Tomcat while the filter chain executes.
+         * Lets downstream writer flushes reach the outer response wrapper.
          *
-         * <p>Tomcat 11 forwards depend on normal writer flushing; this writer suppresses only
-         * {@link #close()} so the filter can append after the chain returns.</p>
+         * <p>Struts/Tomcat forwards call {@code resetBuffer()} before dispatching to the result JSP.
+         * This filter suppresses {@link DelegatingServletResponse#flushBuffer()} before chain
+         * completion, but writer flushes themselves must pass through so Jasper can drain its final
+         * JSP buffer into the outer sanitization wrapper instead of truncating the page tail.</p>
          */
         @Override
         public void flush() {
             super.flush();
+        }
+
+        /**
+         * Flushes the underlying writer once the outer filter has made its append decision.
+         */
+        void flushToUnderlying() throws IOException {
+            super.flush();
+            out.flush();
         }
 
         /**
@@ -604,8 +616,9 @@ public class LogoutBroadcastFilter implements Filter {
          */
         @Override
         public void close() {
-            // prevent premature close
+            super.flush();
         }
+
     }
 
     /**
@@ -627,6 +640,7 @@ public class LogoutBroadcastFilter implements Filter {
         private boolean deferredContentLengthIsLong;
         private boolean htmlInjectionBufferConfigured;
         private boolean htmlInjectionBufferUnavailable;
+        private boolean chainComplete;
         private DelegatingWriter writer;
         private final String requestUriForLog;
 
@@ -670,10 +684,11 @@ public class LogoutBroadcastFilter implements Filter {
         /**
          * Returns a {@link DelegatingWriter} wrapping the underlying response writer.
          *
-         * <p>The delegating writer suppresses {@code close()} calls made by the JSP container
-         * during JSP execution. Flush calls pass through because Tomcat 11
-         * {@code RequestDispatcher.forward()} depends on them; the 1 MB response buffer is what
-         * keeps normal JSP output available for the script append after the chain completes.
+         * <p>The delegating writer suppresses {@code close()} while allowing {@code flush()} calls
+         * to reach the outer capture wrapper. The response buffer is reserved before returning the
+         * writer because several legacy JSP paths obtain the writer before declaring
+         * {@code text/html}; waiting for the content type lets large pages commit before this
+         * filter can append safely.
          *
          * @return PrintWriter a delegating writer that suppresses premature close
          * @throws IOException if the underlying writer cannot be obtained
@@ -681,7 +696,7 @@ public class LogoutBroadcastFilter implements Filter {
         @Override
         public PrintWriter getWriter() throws IOException {
             responseWriterObtained = true;
-            configureHtmlInjectionBufferIfNeeded();
+            configureWriterInjectionBufferIfNeeded();
             if (writer == null) {
                 writer = new DelegatingWriter(super.getWriter());
             }
@@ -700,7 +715,9 @@ public class LogoutBroadcastFilter implements Filter {
         @Override
         public void setContentType(String type) {
             super.setContentType(type);
-            configureHtmlInjectionBufferIfNeeded();
+            if (RequestNegotiation.isHtmlContentType(type)) {
+                configureWriterInjectionBufferIfNeeded();
+            }
         }
 
         /**
@@ -728,15 +745,23 @@ public class LogoutBroadcastFilter implements Filter {
         }
 
         /**
-         * Allows the servlet container to flush its buffer.
+         * Defers writer-backed response commits until after the filter chain returns.
          *
-         * <p>Tomcat 11 forwards require the normal flush path. Script append safety comes from the
-         * lazily configured HTML buffer when content type is known before body bytes are written.</p>
+         * <p>Tomcat 11 forwards need to reset the response buffer before dispatching to a JSP result.
+         * A downstream {@code flushBuffer()} during action/interceptor rendering must therefore not
+         * commit writer-backed responses before Struts reaches the result forward. Stream-backed
+         * responses still pass through immediately because binary/direct responses are never
+         * candidates for appended logout script injection.</p>
          *
          * @throws IOException if the wrapped response cannot flush
          */
         @Override
         public void flushBuffer() throws IOException {
+            if (!chainComplete && !responseOutputStreamObtained) {
+                flushDelegatingWriter();
+                return;
+            }
+            flushDelegatingWriter();
             super.flushBuffer();
         }
 
@@ -862,7 +887,7 @@ public class LogoutBroadcastFilter implements Filter {
          * need an explicit flush before the filter exits; otherwise JavaScript and JSON responses
          * can remain partially buffered and reach the browser truncated.</p>
          */
-        void completeWithoutInjection() {
+        void completeWithoutInjection() throws IOException {
             applyDeferredContentLength();
             flushDelegatingWriter();
         }
@@ -877,10 +902,14 @@ public class LogoutBroadcastFilter implements Filter {
             clearDeferredContentLength();
         }
 
-        void flushDelegatingWriter() {
+        void flushDelegatingWriter() throws IOException {
             if (writer != null) {
-                writer.flush();
+                writer.flushToUnderlying();
             }
+        }
+
+        void markChainComplete() {
+            chainComplete = true;
         }
 
         /**
@@ -930,19 +959,20 @@ public class LogoutBroadcastFilter implements Filter {
         }
 
         /**
-         * Enables the large servlet buffer only when the response is known to be HTML.
+         * Enables the large servlet buffer before writer-backed body bytes can commit.
          *
-         * <p>The wrapper may be installed before Struts runs, but many wrapped responses eventually
-         * become redirects, JSON, or binary output. Deferring this call avoids allocating the 1 MB
-         * buffer until HTML injection is actually possible.</p>
+         * <p>The wrapper itself is already limited to authenticated/session-establishing,
+         * non-AJAX, non-static requests. Within that narrowed set, reserving the buffer at writer
+         * acquisition is safer than waiting for {@code Content-Type}: Tomcat/JSP code can obtain the
+         * writer and write a large HTML page before the content type reaches this wrapper.</p>
          */
-        private void configureHtmlInjectionBufferIfNeeded() {
+        private void configureWriterInjectionBufferIfNeeded() {
             if (htmlInjectionBufferConfigured || htmlInjectionBufferUnavailable || isCommitted()) {
                 return;
             }
 
             String contentType = getContentType();
-            if (!RequestNegotiation.isHtmlContentType(contentType)) {
+            if (contentType != null && !RequestNegotiation.isHtmlContentType(contentType)) {
                 return;
             }
 
@@ -950,7 +980,7 @@ public class LogoutBroadcastFilter implements Filter {
                 setBufferSize(HTML_INJECTION_BUFFER_SIZE_BYTES);
                 htmlInjectionBufferConfigured = true;
             } catch (IllegalStateException e) {
-                logger.debug("setBufferSize rejected for logout broadcast HTML injection: uri={}, committed={}, contentType={}",
+                logger.debug("setBufferSize rejected for logout broadcast writer injection: uri={}, committed={}, contentType={}",
                         requestUriForLog, isCommitted(), LogSafe.sanitize(contentType), e);
                 htmlInjectionBufferUnavailable = true;
             }

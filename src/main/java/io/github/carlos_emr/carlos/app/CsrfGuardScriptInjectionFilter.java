@@ -277,9 +277,10 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         try {
             response.resetBuffer();
         } catch (IllegalStateException e) {
-            LOGGER.warn("writeToResponse: cannot resetBuffer before writing CSRF-adjusted response",
-                    e);
-            throw new IOException("Cannot reset buffer before writing CSRF-adjusted response", e);
+            LOGGER.warn("writeToResponse: response buffer was already committed before "
+                    + "CSRF-adjusted replay; writing captured content without reset: uri={}, "
+                    + "contentType={}, committed={}",
+                    safeRequestUri, response.getContentType(), response.isCommitted(), e);
         }
         String encoding = response.getCharacterEncoding();
         if (encoding == null || encoding.isEmpty()) {

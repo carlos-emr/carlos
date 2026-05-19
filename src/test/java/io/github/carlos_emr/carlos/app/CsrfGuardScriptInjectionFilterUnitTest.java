@@ -42,7 +42,6 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -411,10 +410,11 @@ class CsrfGuardScriptInjectionFilterUnitTest {
     }
 
     @Test
-    @DisplayName("should throw when reset buffer fails before writing adjusted response")
-    void shouldThrow_whenResetBufferFailsBeforeWritingAdjustedResponse() {
+    @DisplayName("should replay captured HTML when reset buffer fails after commit")
+    void shouldReplayCapturedHtml_whenResetBufferFailsAfterCommit() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/provider/providercontrol");
         request.setContextPath("/carlos");
+        request.setRequestURI("/carlos/provider/providercontrol;jsessionid=secret-session");
         MockHttpServletResponse response = new ResetBufferFailingResponse();
 
         FilterChain chain = (servletRequest, servletResponse) -> {
@@ -423,9 +423,19 @@ class CsrfGuardScriptInjectionFilterUnitTest {
                     .write("<html><head><title>Provider</title></head><body></body></html>");
         };
 
-        assertThatThrownBy(() -> withEnabledCsrfGuard(() -> filter.doFilter(request, response, chain)))
-                .isInstanceOf(IOException.class)
-                .hasMessageContaining("Cannot reset buffer before writing CSRF-adjusted response");
+        try (LogCapture capture = LogCapture.forLogger(CsrfGuardScriptInjectionFilter.class)) {
+            withEnabledCsrfGuard(() -> filter.doFilter(request, response, chain));
+
+            assertThat(response.getContentAsString()).contains("/carlos/csrfguard");
+            assertThat(capture.events()).anySatisfy(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                assertThat(event.getMessage().getFormattedMessage())
+                        .contains("writing captured content without reset")
+                        .contains("uri=/carlos/provider/providercontrol")
+                        .doesNotContain("jsessionid")
+                        .doesNotContain("secret-session");
+            });
+        }
     }
 
     private void withEnabledCsrfGuard(Executable executable) throws Exception {
