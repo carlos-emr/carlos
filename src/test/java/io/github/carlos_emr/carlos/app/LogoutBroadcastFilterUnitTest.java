@@ -117,6 +117,25 @@ class LogoutBroadcastFilterUnitTest {
     }
 
     @Test
+    @DisplayName("should handle logout broadcasts immediately after page load")
+    void shouldHandleLogoutBroadcastsImmediately_afterPageLoad() throws Exception {
+        MockHttpServletRequest request = authenticatedRequest("/provider/providercontrol");
+        TrackingMockHttpServletResponse response = new TrackingMockHttpServletResponse();
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.setContentType("text/html;charset=UTF-8");
+            servletResponse.getWriter().write("<html><body>schedule</body></html>");
+        };
+
+        filter.doFilter(request, response, chain);
+
+        String content = response.getContentAsString();
+        assertThat(content).contains("function hL(){if(done)return;done=true;dL()}");
+        assertThat(content).doesNotContain("ready=false");
+        assertThat(content).doesNotContain("||!ready");
+    }
+
+    @Test
     @DisplayName("should reserve append buffer when writer is obtained before HTML content type")
     void shouldReserveAppendBuffer_whenWriterIsObtainedBeforeHtmlContentType() throws Exception {
         MockHttpServletRequest request = authenticatedRequest("/provider/providercontrol");
