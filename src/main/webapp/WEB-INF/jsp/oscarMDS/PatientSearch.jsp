@@ -34,7 +34,7 @@
 
 --%>
 <%@ page import="java.util.*, java.sql.*" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.DbConnectionFilter" %>
+<%@ page import="io.github.carlos_emr.carlos.db.LegacyJdbcQuery" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat, io.github.carlos_emr.Misc" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
@@ -192,8 +192,8 @@
             + "  where dm.demographic_no = demographic.demographic_no and dm.deleted = 0) "
             + safeOrderby + " limit ? offset ?";
 
-        Connection dbConn = DbConnectionFilter.getThreadLocalDbConnection();
-        try (PreparedStatement ps = dbConn.prepareStatement(sql)) {
+        try (Connection dbConn = LegacyJdbcQuery.getConnection();
+             PreparedStatement ps = dbConn.prepareStatement(sql)) {
             int pidx = 1;
             if ("search_dob".equals(p_searchMode)) {
                 String yearStr = "" + MyDateFormat.getYearFromStandardDate(p_keyword) + "%";

@@ -19,8 +19,10 @@ import java.nio.file.Path;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DisplayName;
@@ -72,6 +74,31 @@ class LegacyJdbcQueryUnitTest {
     void shouldRejectStatementSeparator_forTrustedReportSql() {
         assertThatThrownBy(() -> LegacyJdbcQuery.trustedReportSelectSql(
                 "select demographic_no from demographic; select provider_no from provider"))
+                .isInstanceOf(SQLException.class);
+    }
+
+    @Test
+    @DisplayName("should allow trailing semicolon and semicolon literals for report SQL")
+    void shouldAllowTrailingSemicolonAndSemicolonLiterals_forTrustedReportSql() {
+        assertThatCode(() -> LegacyJdbcQuery.trustedReportSelectSql(
+                "select group_concat(name separator ';') from provider;"))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("should reject SQL comments outside quoted literals")
+    void shouldRejectSqlCommentsOutsideQuotedLiterals_forTrustedReportSql() {
+        assertThatCode(() -> LegacyJdbcQuery.trustedReportSelectSql(
+                "select '-- not a comment' as value from demographic"))
+                .doesNotThrowAnyException();
+        assertThatCode(() -> LegacyJdbcQuery.trustedReportSelectSql(
+                "select '#' as value from demographic"))
+                .doesNotThrowAnyException();
+        assertThatThrownBy(() -> LegacyJdbcQuery.trustedReportSelectSql(
+                "select demographic_no from demographic -- comment"))
+                .isInstanceOf(SQLException.class);
+        assertThatThrownBy(() -> LegacyJdbcQuery.trustedReportSelectSql(
+                "select demographic_no from demographic # comment"))
                 .isInstanceOf(SQLException.class);
     }
 
@@ -131,18 +158,37 @@ class LegacyJdbcQueryUnitTest {
     @Test
     @DisplayName("shouldAvoidDeprecatedHandlers_inProductionCallers")
     void shouldAvoidDeprecatedHandlers_inProductionCallers() throws Exception {
-        Path sourceRoot = Path.of("src", "main", "java");
-        try (Stream<Path> files = Files.walk(sourceRoot)) {
-            List<Path> offenders = files
-                    .filter(path -> path.toString().endsWith(".java"))
+        List<Path> offenders = new ArrayList<>();
+        for (Path sourceRoot : List.of(Path.of("src", "main", "java"), Path.of("src", "main", "webapp"))) {
+            try (Stream<Path> files = Files.walk(sourceRoot)) {
+                offenders.addAll(files
+                    .filter(this::isProductionSourceFile)
                     .filter(path -> !path.endsWith(Path.of("db", "DBHandler.java")))
                     .filter(path -> !path.endsWith(Path.of("db", "DBPreparedHandler.java")))
                     .filter(path -> !path.endsWith(Path.of("db", "DBPreparedHandlerParam.java")))
                     .filter(this::usesDeprecatedDatabaseBoundary)
-                    .toList();
-
-            assertThat(offenders).isEmpty();
+                    .toList());
+            }
         }
+
+        assertThat(offenders).isEmpty();
+    }
+
+    @Test
+    @DisplayName("shouldAvoidRawEFormUtilSqlOverloads_inProductionCallers")
+    void shouldAvoidRawEFormUtilSqlOverloads_inProductionCallers() throws Exception {
+        List<Path> offenders = new ArrayList<>();
+        for (Path sourceRoot : List.of(Path.of("src", "main", "java"), Path.of("src", "main", "webapp"))) {
+            try (Stream<Path> files = Files.walk(sourceRoot)) {
+                offenders.addAll(files
+                    .filter(this::isProductionSourceFile)
+                    .filter(path -> !path.endsWith(Path.of("eform", "EFormUtil.java")))
+                    .filter(this::usesRawEFormUtilSqlOverload)
+                    .toList());
+            }
+        }
+
+        assertThat(offenders).isEmpty();
     }
 
     @Test
@@ -199,6 +245,64 @@ class LegacyJdbcQueryUnitTest {
         } catch (Exception e) {
             throw new IllegalStateException("Unable to inspect " + path, e);
         }
+    }
+
+    private boolean isProductionSourceFile(Path path) {
+        String fileName = path.toString();
+        return fileName.endsWith(".java") || fileName.endsWith(".jsp") || fileName.endsWith(".jspf");
+    }
+
+    private boolean usesRawEFormUtilSqlOverload(Path path) {
+        try {
+            String content = Files.readString(path);
+            int start = 0;
+            while ((start = findNextEFormUtilValueCall(content, start)) >= 0) {
+                int openParen = content.indexOf('(', start);
+                int closeParen = findClosingParen(content, openParen);
+                if (closeParen < 0) {
+                    return true;
+                }
+                List<String> arguments = topLevelArguments(content, openParen + 1, closeParen);
+                if (arguments.size() == 2 && !isParameterizedSqlArgument(content, start, arguments.get(1))) {
+                    return true;
+                }
+                start = closeParen + 1;
+            }
+            return false;
+        } catch (Exception e) {
+            throw new IllegalStateException("Unable to inspect " + path, e);
+        }
+    }
+
+    private int findNextEFormUtilValueCall(String content, int start) {
+        ParseState state = ParseState.CODE;
+        for (int i = start; i < content.length(); i++) {
+            if (state == ParseState.CODE
+                    && (content.startsWith("EFormUtil.getValues(", i)
+                            || content.startsWith("EFormUtil.getJsonValues(", i))) {
+                return i;
+            }
+            state = nextState(state, content, i, content.length());
+        }
+        return -1;
+    }
+
+    private boolean isParameterizedSqlArgument(String content, int callStart, String argument) {
+        String trimmed = argument.trim();
+        if (trimmed.startsWith("new ParameterizedSql(")
+                || trimmed.startsWith("DatabaseAP.parameterizeSql(")
+                || trimmed.startsWith("parameterizeAllFields(")
+                || trimmed.contains(".parameterizeAllFields(")) {
+            return true;
+        }
+        if (!trimmed.matches("[A-Za-z_$][A-Za-z0-9_$]*")) {
+            return false;
+        }
+        String precedingContent = content.substring(0, callStart);
+        String identifier = Pattern.quote(trimmed);
+        return Pattern.compile("\\bParameterizedSql\\s+" + identifier + "\\b")
+                .matcher(precedingContent)
+                .find();
     }
 
     private boolean usesRawAdminSqlBoundary(Path path) {
@@ -270,6 +374,34 @@ class LegacyJdbcQueryUnitTest {
             }
         }
         return count;
+    }
+
+    private List<String> topLevelArguments(String content, int start, int end) {
+        List<String> arguments = new ArrayList<>();
+        int depth = 0;
+        int argumentStart = start;
+        ParseState state = ParseState.CODE;
+        for (int i = start; i < end; i++) {
+            char current = content.charAt(i);
+            state = nextState(state, content, i, end);
+            if (state != ParseState.CODE) {
+                continue;
+            }
+            if (current == '(' || current == '[' || current == '{') {
+                depth++;
+            } else if (current == ')' || current == ']' || current == '}') {
+                depth--;
+            } else if (current == ',' && depth == 0) {
+                arguments.add(content.substring(argumentStart, i).trim());
+                argumentStart = i + 1;
+            }
+        }
+
+        String lastArgument = content.substring(argumentStart, end).trim();
+        if (!lastArgument.isEmpty()) {
+            arguments.add(lastArgument);
+        }
+        return arguments;
     }
 
     private ParseState nextState(ParseState state, String content, int index, int end) {

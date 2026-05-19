@@ -257,10 +257,10 @@ public class ReportObjectGeneric implements ReportObject {
      *
      * @param sql        the SQL template fragment to parameterize
      * @param parameters the HTTP request parameter map
-     * @return {@code String[]} where {@code [0]} is the parameterized SQL and {@code [1..n]} are
-     *         parameter values; returns {@code new String[]{""}} if a required parameter is missing
+     * @return parameterized SQL and parameter values; returns an empty SQL string if a required
+     *         parameter is missing
      */
-    private ParameterizedSql parameterizeTemplateSql(String sql, Map parameters) {
+    ParameterizedSql parameterizeTemplateSql(String sql, Map parameters) {
         List<Object> params = new ArrayList<>();
 
         int cursor1;
@@ -276,38 +276,40 @@ public class ReportObjectGeneric implements ReportObject {
             if (substValues == null) {
                 substValues = (String[]) parameters.get(paramId + ":list");
                 if (substValues != null) {
+                    if (substValues.length == 0 || substValues[0] == null) {
+                        MiscUtils.getLogger().warn("Report template list parameter '{}' has no values", paramId);
+                        return new ParameterizedSql("", List.of());
+                    }
                     substValues[0] = substValues[0].replaceAll(" ", "");
                     substValues = StringUtils.splitToStringArray(substValues[0], ",");
                 } else if (parameters.get(paramId + ":check") != null) {
-                    substValues = new String[0];
+                    MiscUtils.getLogger().warn("Report template checkbox parameter '{}' has no selected values", paramId);
+                    return new ParameterizedSql("", List.of());
                 } else {
                     MiscUtils.getLogger().warn("Report template parameter '{}' not found in request", paramId);
                     return new ParameterizedSql("", List.of());
                 }
             }
 
-            // Strip enclosing quotes around the placeholder (e.g. '{foo}') so the
-            // parameterized SQL does not contain literal quotes around the ? marker.
-            boolean hasLeadingQuote = cursor1 > 0
-                    && (sql.charAt(cursor1 - 1) == '\'' || sql.charAt(cursor1 - 1) == '"');
-            boolean hasTrailingQuote = cursor2 + 1 < sql.length()
-                    && (sql.charAt(cursor2 + 1) == '\'' || sql.charAt(cursor2 + 1) == '"');
-            int replStart = hasLeadingQuote ? cursor1 - 1 : cursor1;
-            int replEnd   = hasTrailingQuote ? cursor2 + 2 : cursor2 + 1;
+            QuotedPlaceholder quotedPlaceholder = findQuotedPlaceholder(sql, cursor1, cursor2);
+            int replStart = quotedPlaceholder != null ? quotedPlaceholder.start() : cursor1;
+            int replEnd = quotedPlaceholder != null ? quotedPlaceholder.end() : cursor2 + 1;
+            String valuePrefix = quotedPlaceholder != null ? unescapeSqlLiteralPart(quotedPlaceholder.prefix(), quotedPlaceholder.quote()) : "";
+            String valueSuffix = quotedPlaceholder != null ? unescapeSqlLiteralPart(quotedPlaceholder.suffix(), quotedPlaceholder.quote()) : "";
 
             if (substValues.length == 0) {
-                sql = sql.substring(0, replStart) + "?" + sql.substring(replEnd);
-                params.add("");
+                MiscUtils.getLogger().warn("Report template parameter '{}' has no values", paramId);
+                return new ParameterizedSql("", List.of());
             } else if (substValues.length == 1) {
                 sql = sql.substring(0, replStart) + "?" + sql.substring(replEnd);
-                params.add(substValues[0]);
+                params.add(valuePrefix + substValues[0] + valueSuffix);
             } else {
                 // Multiple values (e.g. for an IN list) – expand to ?,?,?
                 StringBuilder placeholders = new StringBuilder();
                 for (String v : substValues) {
                     if (placeholders.length() > 0) placeholders.append(",");
                     placeholders.append("?");
-                    params.add(v);
+                    params.add(valuePrefix + v + valueSuffix);
                 }
                 sql = sql.substring(0, replStart) + placeholders + sql.substring(replEnd);
             }
@@ -315,6 +317,87 @@ public class ReportObjectGeneric implements ReportObject {
 
         MiscUtils.getLogger().debug("<REPORT BY TEMPLATE> Parameterized SQL: {}", sql);
         return new ParameterizedSql(sql, params);
+    }
+
+    private QuotedPlaceholder findQuotedPlaceholder(String sql, int placeholderStart, int placeholderEnd) {
+        QuoteContext quoteContext = quoteContext(sql, placeholderStart);
+        if (quoteContext == null) {
+            return null;
+        }
+
+        int closeQuote = findClosingQuote(sql, placeholderEnd + 1, quoteContext.quote());
+        if (closeQuote < 0) {
+            return null;
+        }
+
+        return new QuotedPlaceholder(
+                quoteContext.openQuote(),
+                closeQuote + 1,
+                sql.substring(quoteContext.openQuote() + 1, placeholderStart),
+                sql.substring(placeholderEnd + 1, closeQuote),
+                quoteContext.quote());
+    }
+
+    private QuoteContext quoteContext(String sql, int position) {
+        boolean inSingleQuote = false;
+        boolean inDoubleQuote = false;
+        int openQuote = -1;
+        for (int i = 0; i < position; i++) {
+            char current = sql.charAt(i);
+            char next = i + 1 < sql.length() ? sql.charAt(i + 1) : '\0';
+            if (inSingleQuote) {
+                if (current == '\'' && next == '\'') {
+                    i++;
+                } else if (current == '\'') {
+                    inSingleQuote = false;
+                    openQuote = -1;
+                }
+            } else if (inDoubleQuote) {
+                if (current == '"' && next == '"') {
+                    i++;
+                } else if (current == '"') {
+                    inDoubleQuote = false;
+                    openQuote = -1;
+                }
+            } else if (current == '\'') {
+                inSingleQuote = true;
+                openQuote = i;
+            } else if (current == '"') {
+                inDoubleQuote = true;
+                openQuote = i;
+            }
+        }
+        if (inSingleQuote) {
+            return new QuoteContext('\'', openQuote);
+        }
+        if (inDoubleQuote) {
+            return new QuoteContext('"', openQuote);
+        }
+        return null;
+    }
+
+    private int findClosingQuote(String sql, int after, char quote) {
+        for (int i = after; i < sql.length(); i++) {
+            char current = sql.charAt(i);
+            char next = i + 1 < sql.length() ? sql.charAt(i + 1) : '\0';
+            if (current == quote && next == quote) {
+                i++;
+            } else if (current == quote) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private String unescapeSqlLiteralPart(String value, char quote) {
+        String doubledQuote = String.valueOf(quote) + quote;
+        return value.replace(doubledQuote, String.valueOf(quote));
+    }
+
+    private record QuotedPlaceholder(int start, int end, String prefix, String suffix, char quote) {
+    }
+
+    private record QuoteContext(char quote, int openQuote) {
     }
 
     private String[] toLegacyArray(ParameterizedSql parameterizedSql) {

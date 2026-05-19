@@ -35,7 +35,6 @@
     ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
 %>
 <%
-    DBPreparedHandler dbObj = new DBPreparedHandler();
     String submitAddRoles = bundle.getString("report.reportonbilledvisitprovider.btnAddRoles");
     String submitUpdateRole = bundle.getString("report.reportonbilledvisitprovider.btnUpdate");
 
@@ -74,8 +73,8 @@
         }
     }
 %>
-<%@page import="io.github.carlos_emr.carlos.db.DBPreparedHandler" %>
 <%@page import="io.github.carlos_emr.carlos.db.DBPreparedHandlerParam" %>
+<%@page import="io.github.carlos_emr.carlos.db.LegacyJdbcQuery" %>
 
 <%@page import="io.github.carlos_emr.Misc" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
@@ -119,33 +118,34 @@
 
     query += "where u.provider_no=p.provider_no  order by p.first_name, p.last_name";
 
-    ResultSet rs = dbObj.queryResults(query, new DBPreparedHandlerParam[0]);
-
-    while (rs.next()) {
-        oldRoleProp.setProperty(Misc.getString(rs, "provider_no"), Misc.getString(rs, "role_name"));
-        oldRoleList.add(Misc.getString(rs, "first_name"));
-        oldRoleList.add(Misc.getString(rs, "last_name"));
-        oldRoleList.add(Misc.getString(rs, "role_name"));
-        oldRoleList.add(Misc.getString(rs, "provider_no"));
+    try (ResultSet rs = LegacyJdbcQuery.queryResults(query, new DBPreparedHandlerParam[0])) {
+        while (rs.next()) {
+            oldRoleProp.setProperty(Misc.getString(rs, "provider_no"), Misc.getString(rs, "role_name"));
+            oldRoleList.add(Misc.getString(rs, "first_name"));
+            oldRoleList.add(Misc.getString(rs, "last_name"));
+            oldRoleList.add(Misc.getString(rs, "role_name"));
+            oldRoleList.add(Misc.getString(rs, "provider_no"));
+        }
     }
 
     query = "select * from provider order by first_name, last_name";
-    rs = dbObj.queryResults(query, new DBPreparedHandlerParam[0]);
 
-    while (rs.next()) {
-        if (Misc.getString(rs, "last_name").length() < 1 || oldRoleProp.containsKey((Misc.getString(rs, "provider_no")))) {
-            continue;
+    try (ResultSet rs = LegacyJdbcQuery.queryResults(query, new DBPreparedHandlerParam[0])) {
+        while (rs.next()) {
+            if (Misc.getString(rs, "last_name").length() < 1 || oldRoleProp.containsKey((Misc.getString(rs, "provider_no")))) {
+                continue;
+            }
+
+            prop = new Properties();
+
+            prop.setProperty("provider_no", Misc.getString(rs, "provider_no"));
+            prop.setProperty("first_name", Misc.getString(rs, "first_name"));
+            prop.setProperty("last_name", Misc.getString(rs, "last_name"));
+            prop.setProperty("provider_type", Misc.getString(rs, "provider_type"));
+            prop.setProperty("specialty", Misc.getString(rs, "specialty"));
+            prop.setProperty("ohip_no", Misc.getString(rs, "ohip_no"));
+            vec.add(prop);
         }
-
-        prop = new Properties();
-
-        prop.setProperty("provider_no", Misc.getString(rs, "provider_no"));
-        prop.setProperty("first_name", Misc.getString(rs, "first_name"));
-        prop.setProperty("last_name", Misc.getString(rs, "last_name"));
-        prop.setProperty("provider_type", Misc.getString(rs, "provider_type"));
-        prop.setProperty("specialty", Misc.getString(rs, "specialty"));
-        prop.setProperty("ohip_no", Misc.getString(rs, "ohip_no"));
-        vec.add(prop);
     }
 %>
 <form name="myform" action="<%= request.getContextPath() %>/report/ViewReportonbilledvisitprovider"

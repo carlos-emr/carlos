@@ -70,7 +70,6 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.ProviderSite" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ProviderSitePK" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ProviderSiteDao" %>
-<%@ page import="io.github.carlos_emr.carlos.db.DBPreparedHandler" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
@@ -189,11 +188,13 @@
 
             if (!IsPropertiesOn.isProviderFormalizeEnable() || isProviderFormalize) {
 
-                DBPreparedHandler dbObj = new DBPreparedHandler();
-
                 // check if the providers no need to be auto generated
                 if (CarlosProperties.getInstance().isProviderNoAuto()) {
-                    p.setProviderNo(dbObj.getNewProviderNo());
+                    String providerNo;
+                    do {
+                        providerNo = Misc.getRandomNumber(6);
+                    } while (providerNo == null || providerNo.startsWith("0") || providerDao.providerExists(providerNo));
+                    p.setProviderNo(providerNo);
                 }
 
                 if (providerDao.providerExists(p.getProviderNo())) {

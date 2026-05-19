@@ -65,6 +65,7 @@ public class CacheConfig {
     public static final String APPOINTMENT_STATUSES = "appointmentStatuses";
     public static final String MEASUREMENT_TYPES = "measurementTypes";
     public static final String LOOKUP_LISTS = "lookupLists";
+    public static final String ENCOUNTER_FORMS = "encounterForms";
 
     /**
      * Creates and configures the application {@link CacheManager}.
@@ -90,6 +91,8 @@ public class CacheConfig {
      *       <td>{@code 'allByType'}, {@code 'allByName'}, {@code 'allById'}</td></tr>
      *   <tr><td>{@code lookupLists}</td><td>50</td><td>30 min</td>
      *       <td>{@code 'allActive'}, {@code 'name:...'}</td></tr>
+     *   <tr><td>{@code encounterForms}</td><td>200</td><td>5 min</td>
+     *       <td>Rarely changing form-table allowlist lookups keyed by form table</td></tr>
      * </table>
      *
      * @return CacheManager transaction-aware cache manager wrapping the Caffeine caches
@@ -103,7 +106,8 @@ public class CacheConfig {
                 buildCache(ACTIVE_PROVIDER_SUMMARIES, 1, Duration.ofMinutes(5)),
                 buildCache(APPOINTMENT_STATUSES, 5, Duration.ofMinutes(30)),
                 buildCache(MEASUREMENT_TYPES, 10, Duration.ofMinutes(60)),
-                buildCache(LOOKUP_LISTS, 50, Duration.ofMinutes(30))
+                buildCache(LOOKUP_LISTS, 50, Duration.ofMinutes(30)),
+                buildCache(ENCOUNTER_FORMS, 200, Duration.ofMinutes(5))
         ));
         delegate.afterPropertiesSet();
         return new TransactionAwareCacheManagerProxy(delegate);

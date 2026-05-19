@@ -185,6 +185,8 @@ public final class LegacyJdbcQuery {
 
         DataSource dataSource = dataSource();
         Connection connection = DataSourceUtils.getConnection(dataSource);
+        AutoCloseable connectionResource = registerThreadResource(
+                () -> DataSourceUtils.releaseConnection(connection, dataSource));
         try (CallableStatement stmt = connection.prepareCall(sql.toString())) {
             if (params != null) {
                 for (int i = 0; i < params.length; i++) {
@@ -193,7 +195,11 @@ public final class LegacyJdbcQuery {
             }
             stmt.execute();
         } finally {
-            DataSourceUtils.releaseConnection(connection, dataSource);
+            try {
+                DataSourceUtils.releaseConnection(connection, dataSource);
+            } finally {
+                unregisterThreadResource(connectionResource);
+            }
         }
     }
 
@@ -274,7 +280,7 @@ public final class LegacyJdbcQuery {
             throw new SQLException("Only SELECT statements are allowed");
         }
 
-        if (normalized.contains(";") || normalized.contains("--") || normalized.contains("/*") || normalized.contains("*/")) {
+        if (containsUnsafeSqlControlToken(sql)) {
             throw new SQLException("Unsafe SQL detected: comment or statement separator");
         }
 
@@ -318,7 +324,7 @@ public final class LegacyJdbcQuery {
             throw new SQLException("Only SELECT statements are allowed");
         }
 
-        if (normalized.contains(";") || normalized.contains("--") || normalized.contains("/*") || normalized.contains("*/")) {
+        if (containsUnsafeSqlControlToken(sql)) {
             throw new SQLException("Unsafe SQL detected: comment or statement separator");
         }
 
@@ -347,6 +353,86 @@ public final class LegacyJdbcQuery {
             }
         }
         return values;
+    }
+
+    /**
+     * Detects statement separators and SQL comments outside quoted literals.
+     *
+     * <p>A single trailing semicolon is allowed for legacy eForm/report templates
+     * because the bundled AP SQL historically included it. Semicolons inside
+     * quoted literals, such as {@code GROUP_CONCAT(... SEPARATOR ';')}, are data
+     * and are not treated as stacked statements.</p>
+     */
+    public static boolean containsUnsafeSqlControlToken(String sql) {
+        if (sql == null) {
+            return false;
+        }
+
+        boolean inSingleQuote = false;
+        boolean inDoubleQuote = false;
+        boolean inBacktick = false;
+
+        for (int i = 0; i < sql.length(); i++) {
+            char current = sql.charAt(i);
+            char next = i + 1 < sql.length() ? sql.charAt(i + 1) : '\0';
+
+            if (inSingleQuote) {
+                if (current == '\\' && next != '\0') {
+                    i++;
+                } else if (current == '\'' && next == '\'') {
+                    i++;
+                } else if (current == '\'') {
+                    inSingleQuote = false;
+                }
+                continue;
+            }
+            if (inDoubleQuote) {
+                if (current == '\\' && next != '\0') {
+                    i++;
+                } else if (current == '"' && next == '"') {
+                    i++;
+                } else if (current == '"') {
+                    inDoubleQuote = false;
+                }
+                continue;
+            }
+            if (inBacktick) {
+                if (current == '`' && next == '`') {
+                    i++;
+                } else if (current == '`') {
+                    inBacktick = false;
+                }
+                continue;
+            }
+
+            if (current == '\'') {
+                inSingleQuote = true;
+            } else if (current == '"') {
+                inDoubleQuote = true;
+            } else if (current == '`') {
+                inBacktick = true;
+            } else if (current == '-' && next == '-') {
+                return true;
+            } else if (current == '#') {
+                return true;
+            } else if (current == '/' && next == '*') {
+                return true;
+            } else if (current == '*' && next == '/') {
+                return true;
+            } else if (current == ';' && hasNonWhitespaceAfter(sql, i + 1)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean hasNonWhitespaceAfter(String sql, int start) {
+        for (int i = start; i < sql.length(); i++) {
+            if (!Character.isWhitespace(sql.charAt(i))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static void bindParams(PreparedStatement ps, Object... params) throws SQLException {

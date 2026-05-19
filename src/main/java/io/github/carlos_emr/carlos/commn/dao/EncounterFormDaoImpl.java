@@ -31,11 +31,17 @@
 
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import jakarta.persistence.Query;
 
+import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 import io.github.carlos_emr.carlos.commn.model.EncounterForm;
+import io.github.carlos_emr.carlos.config.CacheConfig;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -74,6 +80,8 @@ public class EncounterFormDaoImpl extends AbstractDaoImpl<EncounterForm> impleme
         return (results);
     }
 
+    @Cacheable(value = CacheConfig.ENCOUNTER_FORMS, key = "'table:' + #formTable",
+               condition = "#formTable != null && !#formTable.isEmpty()")
     @Override
     public List<EncounterForm> findByFormTable(String formTable) {
         Query query = entityManager
@@ -83,7 +91,43 @@ public class EncounterFormDaoImpl extends AbstractDaoImpl<EncounterForm> impleme
         @SuppressWarnings("unchecked")
         List<EncounterForm> results = query.getResultList();
 
-        return (results);
+        return Collections.unmodifiableList(new ArrayList<>(results));
     }
+
+    @CacheEvict(value = CacheConfig.ENCOUNTER_FORMS, allEntries = true)
+    @Override
+    public void persist(AbstractModel<?> o) { super.persist(o); }
+
+    @CacheEvict(value = CacheConfig.ENCOUNTER_FORMS, allEntries = true)
+    @Override
+    public void merge(AbstractModel<?> o) { super.merge(o); }
+
+    @CacheEvict(value = CacheConfig.ENCOUNTER_FORMS, allEntries = true)
+    @Override
+    public void remove(AbstractModel<?> o) { super.remove(o); }
+
+    @CacheEvict(value = CacheConfig.ENCOUNTER_FORMS, allEntries = true)
+    @Override
+    public boolean remove(Object id) { return super.remove(id); }
+
+    @CacheEvict(value = CacheConfig.ENCOUNTER_FORMS, allEntries = true)
+    @Override
+    public EncounterForm saveEntity(EncounterForm entity) { return super.saveEntity(entity); }
+
+    @CacheEvict(value = CacheConfig.ENCOUNTER_FORMS, allEntries = true, beforeInvocation = true)
+    @Override
+    public void batchPersist(List<EncounterForm> oList) { super.batchPersist(oList); }
+
+    @CacheEvict(value = CacheConfig.ENCOUNTER_FORMS, allEntries = true, beforeInvocation = true)
+    @Override
+    public void batchPersist(List<EncounterForm> oList, int batchSize) { super.batchPersist(oList, batchSize); }
+
+    @CacheEvict(value = CacheConfig.ENCOUNTER_FORMS, allEntries = true, beforeInvocation = true)
+    @Override
+    public void batchRemove(List<EncounterForm> oList) { super.batchRemove(oList); }
+
+    @CacheEvict(value = CacheConfig.ENCOUNTER_FORMS, allEntries = true, beforeInvocation = true)
+    @Override
+    public void batchRemove(List<EncounterForm> oList, int batchSize) { super.batchRemove(oList, batchSize); }
 
 }

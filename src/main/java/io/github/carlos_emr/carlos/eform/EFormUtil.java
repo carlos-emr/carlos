@@ -561,9 +561,7 @@ public class EFormUtil {
 
     @Deprecated
     public static ArrayList<String> getValues(ArrayList<String> names, String sql) {
-        logger.error("Blocked non-parameterized eForm AP SQL execution",
-                new SecurityException("DatabaseAP SQL must be passed as ParameterizedSql"));
-        return new ArrayList<String>();
+        throw new UnsupportedOperationException("DatabaseAP SQL must be passed as ParameterizedSql");
     }
 
     public static ArrayList<String> getValues(ArrayList<String> names, ParameterizedSql sql) {
@@ -591,10 +589,9 @@ public class EFormUtil {
         return (values);
     }
 
+    @Deprecated
     public static ArrayNode getJsonValues(ArrayList<String> names, String sql) {
-        logger.error("Blocked non-parameterized eForm AP SQL execution",
-                new SecurityException("DatabaseAP SQL must be passed as ParameterizedSql"));
-        return objectMapper.createArrayNode();
+        throw new UnsupportedOperationException("DatabaseAP SQL must be passed as ParameterizedSql");
     }
 
     public static ArrayNode getJsonValues(ArrayList<String> names, ParameterizedSql sql) {
@@ -1325,13 +1322,12 @@ public class EFormUtil {
         }
 
         String normalized = sql.trim();
-        String lower = normalized.toLowerCase(Locale.ROOT);
 
         // Block unresolved template markers and obvious stacked/multi-statement patterns.
         if (normalized.contains("${") || normalized.contains("}")) {
             throw new SecurityException("Unsafe dynamic SQL template detected");
         }
-        if (lower.contains(";") || lower.contains("--") || lower.contains("/*") || lower.contains("*/")) {
+        if (LegacyJdbcQuery.containsUnsafeSqlControlToken(sql)) {
             throw new SecurityException("Unsafe SQL control characters detected");
         }
     }
