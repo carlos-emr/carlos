@@ -26,8 +26,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("clinical")
 class ProcessMeasurementsSubmissionJspRegressionTest {
 
-    private static final Path JSP = Path.of("src", "main", "webapp", "WEB-INF", "jsp",
-            "encounter", "oscarMeasurements", "ProcessMeasurementsSubmission.jsp");
+    private static final int MAX_PARENT_SEARCH_DEPTH = 8;
+    private static final Path JSP = resolveProjectPath(Path.of("src", "main", "webapp", "WEB-INF", "jsp",
+            "encounter", "oscarMeasurements", "ProcessMeasurementsSubmission.jsp"));
 
     @Test
     @DisplayName("should render action errors with JSTL iteration and encoded EL values")
@@ -51,5 +52,17 @@ class ProcessMeasurementsSubmissionJspRegressionTest {
         assertThat(jsp)
                 .contains("<body<c:if test=\"${empty actionErrors}\"> onload=\"closeWin();\"</c:if>>")
                 .doesNotContain("<body onload=\"closeWin();\">");
+    }
+
+    private static Path resolveProjectPath(Path relativePath) {
+        Path current = Path.of("").toAbsolutePath().normalize();
+        for (int depth = 0; depth <= MAX_PARENT_SEARCH_DEPTH && current != null; depth++) {
+            Path candidate = current.resolve(relativePath);
+            if (Files.isRegularFile(candidate)) {
+                return candidate;
+            }
+            current = current.getParent();
+        }
+        throw new IllegalStateException("Unable to locate project file: " + relativePath);
     }
 }
