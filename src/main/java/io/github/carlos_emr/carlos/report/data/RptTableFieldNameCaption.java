@@ -144,9 +144,9 @@ public class RptTableFieldNameCaption {
     public Vector getMetaNameList(String tableName) {
         Vector ret = new Vector();
 
-        // Validate table name to prevent SQL injection
-        // Table names should only contain alphanumeric characters, underscores, and hyphens
-        if (tableName == null || !tableName.matches("^[a-zA-Z0-9_-]+$")) {
+        // Validate table name to prevent SQL injection.
+        // Table names are interpolated as identifiers, so only bare identifier characters are allowed.
+        if (tableName == null || !tableName.matches("^[a-zA-Z0-9_]+$")) {
             logger.error("Invalid table name: " + tableName);
             return ret;
         }

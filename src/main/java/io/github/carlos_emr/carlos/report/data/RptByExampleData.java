@@ -62,28 +62,17 @@ public class RptByExampleData {
             return "";
         }
 
-        if (sql.compareTo("") != 0) {
-            sql = replaceSQLString(";", "", sql);
-            sql = replaceSQLString("\"", "\'", sql);
-        }
-
         this.sql = sql;
         this.oscarVariables = oscarVariables;
 
-        // Audit log: admin SQL execution is intentional but sensitive
-        MiscUtils.getLogger().warn("Admin report SQL execution: {}", sql.length() > 200 ? sql.substring(0, 200) + "..." : sql);
+        MiscUtils.getLogger().warn("Admin report SQL execution requested; queryLength={}", sql.length());
 
-        try {
-            ResultSet rs = null;
-            rs = LegacyJdbcQuery.queryResults(this.sql); // nosemgrep: formatted-sql-string — intentional admin dynamic SQL; validated by LegacyJdbcQuery.validateSafeSelectQuery
-
+        try (ResultSet rs = LegacyJdbcQuery.queryResults(this.sql)) { // nosemgrep: formatted-sql-string -- intentional admin dynamic SQL; validated by LegacyJdbcQuery.validateSafeSelectQuery
             if (rs != null) {
                 results = RptResultStruct.getStructure(rs);
             } else {
                 results = "";
             }
-
-            rs.close();
         } catch (java.sql.SQLException e) {
             MiscUtils.getLogger().debug("Problems");
             MiscUtils.getLogger().error("Error", e);

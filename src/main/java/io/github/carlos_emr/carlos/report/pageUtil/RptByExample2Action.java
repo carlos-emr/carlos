@@ -31,10 +31,10 @@
 package io.github.carlos_emr.carlos.report.pageUtil;
 
 import java.io.IOException;
+import java.sql.SQLException;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
-import java.util.Locale;
 import java.util.Properties;
 
 import jakarta.servlet.ServletException;
@@ -47,6 +47,7 @@ import io.github.carlos_emr.carlos.PMmodule.dao.SecUserRoleDao;
 import io.github.carlos_emr.carlos.PMmodule.model.SecUserRole;
 import io.github.carlos_emr.carlos.commn.dao.ReportByExamplesDao;
 import io.github.carlos_emr.carlos.commn.model.ReportByExamples;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -105,7 +106,9 @@ public class RptByExample2Action extends ActionSupport {
         request.setAttribute("favorites", favorites);
 
         if (sql != null) {
-            if (!isSafeAdminSelectQuery(sql)) {
+            try {
+                LegacyJdbcQuery.validateSafeSelectQuery(sql);
+            } catch (SQLException e) {
                 addActionError("Only a single safe SELECT query is allowed.");
                 request.setAttribute("results", "");
                 request.setAttribute("resultText", "");
@@ -118,45 +121,13 @@ public class RptByExample2Action extends ActionSupport {
         RptByExampleData exampleData = new RptByExampleData();
         Properties proppies = CarlosProperties.getInstance();
 
-        String results = exampleData.exampleReportGenerate(sql, proppies) == null ? null : exampleData.exampleReportGenerate(sql, proppies);
-        String resultText = exampleData.exampleTextGenerate(sql, proppies) == null ? null : exampleData.exampleTextGenerate(sql, proppies);
+        String results = exampleData.exampleReportGenerate(sql, proppies);
+        String resultText = results;
 
         request.setAttribute("results", results);
         request.setAttribute("resultText", resultText);
 
         return SUCCESS;
-    }
-
-    private boolean isSafeAdminSelectQuery(String sql) {
-        if (sql == null) {
-            return false;
-        }
-        String normalized = sql.trim();
-        if (normalized.isEmpty()) {
-            return false;
-        }
-
-        String upper = normalized.toUpperCase(Locale.ROOT);
-        if (!upper.startsWith("SELECT")) {
-            return false;
-        }
-
-        if (upper.contains(";") || upper.contains("--") || upper.contains("/*") || upper.contains("*/")) {
-            return false;
-        }
-
-        String[] blocked = new String[] {
-                " INSERT ", " UPDATE ", " DELETE ", " DROP ", " ALTER ", " CREATE ", " TRUNCATE ",
-                " MERGE ", " EXEC ", " EXECUTE ", " CALL ", " GRANT ", " REVOKE ", " COMMIT ", " ROLLBACK "
-        };
-        String padded = " " + upper + " ";
-        for (String token : blocked) {
-            if (padded.contains(token)) {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     public void write2Database(String query, String providerNo) {

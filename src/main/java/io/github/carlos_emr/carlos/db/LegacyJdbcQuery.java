@@ -194,7 +194,7 @@ public final class LegacyJdbcQuery {
         return queryResultsCaisi(preparedSQL, (Object[]) params);
     }
 
-    static void validateSafeSelectQuery(String sql) throws SQLException {
+    public static void validateSafeSelectQuery(String sql) throws SQLException {
         if (sql == null || sql.trim().isEmpty()) {
             throw new SQLException("SQL query must not be empty");
         }
