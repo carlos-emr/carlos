@@ -28,6 +28,18 @@
 <struts>
     <package name="admin" namespace="/" extends="struts-default">
 
+        <global-results>
+            <result name="securityError">/WEB-INF/jsp/error/securityError.jsp</result>
+        </global-results>
+
+        <global-exception-mappings>
+            <!-- Keep Spring method-security denials on the existing CARLOS security-error page.
+                 Authorization still happens before the action body; this only normalizes
+                 the user-facing error result to match legacy SecurityException handling. -->
+            <exception-mapping exception="org.springframework.security.access.AccessDeniedException" result="securityError"/>
+            <exception-mapping exception="java.lang.SecurityException" result="securityError"/>
+        </global-exception-mappings>
+
         <action name="lookupListManagerAction" class="io.github.carlos_emr.carlos.admin.lookUpLists.LookupListManager2Action">
             <result name="success">/WEB-INF/jsp/admin/lookUpLists/index.jsp</result>
         </action>
@@ -85,7 +97,7 @@
         <action name="admin/SecurityUpdate" class="io.github.carlos_emr.carlos.admin.web.SecurityUpdate2Action">
             <result name="success">/WEB-INF/jsp/admin/securityupdate.jsp</result>
         </action>
-        <action name="admin/SecurityDelete" class="io.github.carlos_emr.carlos.admin.web.SecurityDelete2Action">
+        <action name="admin/SecurityDelete" class="securityDelete2Action">
             <result name="success">/WEB-INF/jsp/admin/securitydelete.jsp</result>
         </action>
         <action name="admin/SecurityAddSecurity" class="io.github.carlos_emr.carlos.admin.web.SecurityAddSecurity2Action">

@@ -53,6 +53,28 @@
 		and skips re-registering it — one bean, no duplication.
 	-->
 	<bean id="cacheConfig" class="io.github.carlos_emr.carlos.config.CacheConfig"/>
+	<!--
+		Registers the @Configuration class that activates @EnableMethodSecurity interceptors.
+		MethodSecurityConfig is also discovered by the broad <context:component-scan
+		base-package="io.github.carlos_emr.carlos"> in spring_managers.xml, but any future
+		change to that scan (adding exclude-filters, narrowing scope, switching to a
+		repository-only filter) would silently drop @PreAuthorize enforcement with no test
+		signal. The id="methodSecurityConfig" matches the name the scanner would generate
+		from the class, so the scanner detects the existing definition and skips
+		re-registering it — one bean, no duplication. Same pattern as cacheConfig above.
+	-->
+	<bean id="methodSecurityConfig" class="io.github.carlos_emr.carlos.config.MethodSecurityConfig"/>
+	<!--
+		Registers the SpEL expression helper that backs @carlosMethodSecurity.hasPrivilege(...)
+		in @PreAuthorize expressions. CarlosMethodSecurity is also picked up by the broad
+		<context:component-scan base-package="io.github.carlos_emr.carlos"> in spring_managers.xml,
+		but any future change to that scan (adding exclude-filters, narrowing scope, switching to a
+		repository-only filter) would silently break every @PreAuthorize expression that calls
+		@carlosMethodSecurity with no test signal. The id="carlosMethodSecurity" matches the name
+		the scanner would generate from the class, so the scanner detects the existing definition
+		and skips re-registering it — one bean, no duplication. Same pattern as methodSecurityConfig above.
+	-->
+	<bean id="carlosMethodSecurity" class="io.github.carlos_emr.carlos.security.CarlosMethodSecurity"/>
     <!-- Enable annotation-driven transaction management with CGLIB proxies -->
     <tx:annotation-driven proxy-target-class="true"/>
 	<bean id="propertyConfigurer" class="io.github.carlos_emr.carlos.commn.OscarPropertyPlaceholderConfigurer">

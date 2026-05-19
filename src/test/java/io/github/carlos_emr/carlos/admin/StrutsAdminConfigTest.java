@@ -12,6 +12,8 @@
  */
 package io.github.carlos_emr.carlos.admin;
 
+import io.github.carlos_emr.carlos.admin.web.SecurityDelete2Action;
+
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -56,6 +58,8 @@ class StrutsAdminConfigTest {
             "src", "main", "webapp", "WEB-INF", "jsp", "admin", "lookUpLists", "index.jsp");
     private static final Path LOOKUP_LIST_MANAGER_JSP = Path.of(
             "src", "main", "webapp", "WEB-INF", "jsp", "admin", "lookUpLists", "manageLookUpLists.jsp");
+    private static final Path SECURITY_DELETE_JSP = Path.of(
+            "src", "main", "webapp", "WEB-INF", "jsp", "admin", "securitydelete.jsp");
     private static final String LOOKUP_LIST_MANAGER_FRAGMENT =
             "/WEB-INF/jsp/admin/lookUpLists/manageLookUpLists.jsp";
     private static final String LOOKUP_LIST_ITEM_FRAGMENT = "/WEB-INF/jsp/admin/lookUpLists/lookupList.jsp";
@@ -105,6 +109,48 @@ class StrutsAdminConfigTest {
     }
 
     @Test
+    @DisplayName("SecurityDelete action class attribute should match the Spring bean name")
+    void shouldUseSpringBeanName_forSecurityDeleteActionClass() {
+        Element action = findAction("admin/SecurityDelete");
+        assertThat(action)
+                .as("struts-admin.xml must declare admin/SecurityDelete")
+                .isNotNull();
+        assertThat(action.getAttribute("class"))
+                .as("Struts class attribute must equal SPRING_BEAN_NAME so the Spring ObjectFactory "
+                        + "resolves the method-security proxy instead of constructing a raw instance")
+                .isEqualTo(SecurityDelete2Action.SPRING_BEAN_NAME);
+    }
+
+    @Test
+    @DisplayName("admin security exceptions should render the existing security error page")
+    void shouldMapAdminSecurityExceptions_toSecurityErrorPage() {
+        assertThat(findGlobalResultPath("securityError"))
+                .as("admin package should reuse the legacy CARLOS security-error page")
+                .isEqualTo("/WEB-INF/jsp/error/securityError.jsp");
+        assertThat(findGlobalExceptionResult("org.springframework.security.access.AccessDeniedException"))
+                .as("Spring method-security denials should render like legacy security denials")
+                .isEqualTo("securityError");
+        assertThat(findGlobalExceptionResult("java.lang.SecurityException"))
+                .as("legacy admin SecurityException handling should remain consistent")
+                .isEqualTo("securityError");
+        assertThat(findGlobalExceptionResult("java.lang.Exception"))
+                .as("method-security routing should not add an admin-wide generic exception handler")
+                .isEmpty();
+    }
+
+    @Test
+    @DisplayName("SecurityDelete result JSP should stay aligned with action security")
+    void shouldAlignSecurityDeleteJsp_withActionSecurity() throws Exception {
+        String jsp = readProjectFile(SECURITY_DELETE_JSP);
+
+        assertThat(jsp)
+                .as("SecurityDelete2Action requires admin write access before forwarding to this JSP")
+                .contains("objectName=\"_admin,_admin.userAdmin\" rights=\"w\"")
+                .as("result-only JSP should not load unused global JavaScript helpers")
+                .doesNotContain("/js/global.js");
+    }
+
+    @Test
     @DisplayName("lab forwarding rules admin link should render the migrated WEB-INF JSP")
     void shouldRenderMigratedWebInfJsp_forLabForwardingRulesAction() {
         Element action = findAction("admin/labForwardingRules");
@@ -127,6 +173,36 @@ class StrutsAdminConfigTest {
             }
         }
         return null;
+    }
+
+    private String findGlobalResultPath(String resultName) {
+        NodeList results = adminConfig.getElementsByTagName("global-results");
+        if (results.getLength() == 0) {
+            return "";
+        }
+        NodeList resultNodes = ((Element) results.item(0)).getElementsByTagName("result");
+        for (int i = 0; i < resultNodes.getLength(); i++) {
+            Element result = (Element) resultNodes.item(i);
+            if (resultName.equals(result.getAttribute("name"))) {
+                return result.getTextContent().trim();
+            }
+        }
+        return "";
+    }
+
+    private String findGlobalExceptionResult(String exceptionClass) {
+        NodeList mappings = adminConfig.getElementsByTagName("global-exception-mappings");
+        if (mappings.getLength() == 0) {
+            return "";
+        }
+        NodeList exceptionMappings = ((Element) mappings.item(0)).getElementsByTagName("exception-mapping");
+        for (int i = 0; i < exceptionMappings.getLength(); i++) {
+            Element mapping = (Element) exceptionMappings.item(i);
+            if (exceptionClass.equals(mapping.getAttribute("exception"))) {
+                return mapping.getAttribute("result");
+            }
+        }
+        return "";
     }
 
     private static String extractSuccessResultPath(Element action) {

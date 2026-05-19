@@ -28,13 +28,16 @@ import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
-import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.security.CarlosMethodSecurity;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.springframework.beans.factory.config.ConfigurableBeanFactory;
+import org.springframework.context.annotation.Scope;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.stereotype.Component;
 
 /**
  * Admin action for permanently deleting a security (user account) record.
@@ -44,19 +47,42 @@ import org.apache.struts2.ServletActionContext;
  *
  * @since 2026-04-05
  */
+@Component(SecurityDelete2Action.SPRING_BEAN_NAME)
+@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class SecurityDelete2Action extends ActionSupport {
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private SecurityDao securityDao = SpringUtils.getBean(SecurityDao.class);
+    public static final String SPRING_BEAN_NAME =
+        "securityDelete2Action";
+
+    private final transient SecurityDao securityDao;
+    private final transient CarlosMethodSecurity methodSecurity;
+
+    /**
+     * Creates the Spring-managed action.
+     *
+     * <p>This action now participates in Spring method-security proxying, so it
+     * uses constructor injection instead of the older {@code SpringUtils}
+     * service-locator style. That keeps the proxied bean wiring explicit and
+     * easier to verify in tests.</p>
+     *
+     * @param securityDao the DAO used to find and remove security records
+     * @param methodSecurity the helper that evaluates the shared admin write policy
+     */
+    public SecurityDelete2Action(SecurityDao securityDao, CarlosMethodSecurity methodSecurity) {
+        this.securityDao = securityDao;
+        this.methodSecurity = methodSecurity;
+    }
 
     @Override
+    @PreAuthorize("@carlosMethodSecurity.hasAdminWrite()")
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)
-                && !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.userAdmin", "w", null)) {
+        // Defense-in-depth: @PreAuthorize above is the primary gate. Remove this check once
+        // method-security coverage is broad enough to drop the per-action fallback.
+        if (!methodSecurity.hasAdminWrite()) {
             throw new SecurityException("missing required sec object (_admin or _admin.userAdmin)");
         }
 
