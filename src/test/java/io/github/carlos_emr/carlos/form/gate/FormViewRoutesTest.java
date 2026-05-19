@@ -51,10 +51,13 @@ class FormViewRoutesTest {
     void shouldResolveSpecialLegacyRoutes() {
         assertThat(FormViewRoutes.resolveActionPath("../form/forwardshortcutname.jsp?formname=Rourke"))
                 .isEqualTo("/form/forwardshortcutname?formname=Rourke");
-        assertThat(FormViewRoutes.resolveActionPath("/form/eCARES/formeCARES.jsp"))
-                .isEqualTo("/formeCARES");
         assertThat(FormViewRoutes.resolveActionPath("/form/pharmaForms/formBPMH.jsp"))
                 .isEqualTo("/formBPMH");
+    }
+
+    @Test
+    void shouldReturnNull_forRemovedEcaresRoute() {
+        assertThat(FormViewRoutes.resolveActionPath("/form/eCARES/formeCARES.jsp")).isNull();
     }
 
     @Test
