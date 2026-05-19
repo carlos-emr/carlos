@@ -164,7 +164,7 @@ public class FrmData {
         String selectClause = "SELECT ID, demographic_no, formCreated, formEdited FROM ";
         String whereClause = " WHERE demographic_no=? ORDER BY ID DESC limit 0,1";
         sql = selectClause + table + whereClause;
-        // deepcode ignore SqlInjection: table validated by regex [a-zA-Z][a-zA-Z0-9_]*; demoNo parameterized via GetPreSQL
+        // deepcode ignore SqlInjection: table validated by regex [a-zA-Z][a-zA-Z0-9_]*; demoNo is JDBC-bound
         rs = LegacyJdbcQuery.getPreparedResultSet(sql, demoNo);
         while (rs.next()) {
             frm = new PatientForm(Misc.getString(rs, "ID"), Misc.getString(rs, "demographic_no"),

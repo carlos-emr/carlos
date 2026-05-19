@@ -58,8 +58,8 @@ import io.github.carlos_emr.carlos.login.DBHelp;
  */
 public class RptTableFieldNameCaption {
     private static final Logger logger = MiscUtils.getLogger();
-    private static EncounterFormDao encounterFormDao = (EncounterFormDao) SpringUtils.getBean(EncounterFormDao.class);
-    private ReportTableFieldCaptionDao dao = SpringUtils.getBean(ReportTableFieldCaptionDao.class);
+    private static EncounterFormDao encounterFormDao;
+    private ReportTableFieldCaptionDao dao;
 
     String table_name;
     String name;
@@ -68,22 +68,28 @@ public class RptTableFieldNameCaption {
 
     public boolean insertOrUpdateRecord() {
         boolean ret = false;
+        try {
+            if (recordExists()) {
+                ret = updateRecord();
+            } else {
+                ret = insertRecord();
+            }
+        } catch (SQLException e) {
+            logger.error("insertOrUpdateRecord() error", e);
+        }
+        return ret;
+    }
+
+    protected boolean recordExists() throws SQLException {
         String sql = "select id from reportTableFieldCaption where table_name = ? and name = ?";
         try (Connection conn = LegacyJdbcQuery.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, table_name);
             ps.setString(2, name);
             try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    ret = updateRecord();
-                } else {
-                    ret = insertRecord();
-                }
+                return rs.next();
             }
-        } catch (SQLException e) {
-            logger.error("insertOrUpdateRecord() error", e);
         }
-        return ret;
     }
 
 
@@ -92,16 +98,30 @@ public class RptTableFieldNameCaption {
         r.setTableName(table_name);
         r.setName(name);
         r.setCaption(caption);
-        dao.persist(r);
+        dao().persist(r);
         return true;
     }
 
     public boolean updateRecord() {
-        for (ReportTableFieldCaption r : dao.findByTableNameAndName(table_name, name)) {
+        for (ReportTableFieldCaption r : dao().findByTableNameAndName(table_name, name)) {
             r.setCaption(caption);
-            dao.merge(r);
+            dao().merge(r);
         }
         return true;
+    }
+
+    private static EncounterFormDao encounterFormDao() {
+        if (encounterFormDao == null) {
+            encounterFormDao = (EncounterFormDao) SpringUtils.getBean(EncounterFormDao.class);
+        }
+        return encounterFormDao;
+    }
+
+    private ReportTableFieldCaptionDao dao() {
+        if (dao == null) {
+            dao = SpringUtils.getBean(ReportTableFieldCaptionDao.class);
+        }
+        return dao;
     }
 
     // combine a table meta list and caption from table reportTableFieldCaption
@@ -152,7 +172,7 @@ public class RptTableFieldNameCaption {
         }
 
         // Additional validation: check against known form tables
-        List<EncounterForm> forms = encounterFormDao.findAll();
+        List<EncounterForm> forms = encounterFormDao().findAll();
         boolean isValidTable = false;
         for (EncounterForm form : forms) {
             if (tableName.equals(form.getFormTable())) {
@@ -183,7 +203,7 @@ public class RptTableFieldNameCaption {
 
     public Vector getFormTableNameList() {
 
-        List<EncounterForm> forms = encounterFormDao.findAll();
+        List<EncounterForm> forms = encounterFormDao().findAll();
 
         Vector ret = new Vector();
         for (EncounterForm encounterForm : forms) {

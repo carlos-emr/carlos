@@ -93,28 +93,29 @@ public final class DBPreparedHandler {
         return (rs);
     }
 
-    synchronized public Object[] queryResultsCaisi(String preparedSQL, int param) throws SQLException {
+    synchronized public LegacyJdbcQuery.CaisiResult queryResultsCaisi(String preparedSQL, int param) throws SQLException {
         return LegacyJdbcQuery.queryResultsCaisi(preparedSQL, param);
     }
 
-    synchronized public Object[] queryResultsCaisi(String preparedSQL, String param) throws SQLException {
+    synchronized public LegacyJdbcQuery.CaisiResult queryResultsCaisi(String preparedSQL, String param) throws SQLException {
         return LegacyJdbcQuery.queryResultsCaisi(preparedSQL, param);
     }
 
-    synchronized public Object[] queryResultsCaisi(String preparedSQL, String[] param) throws SQLException {
+    synchronized public LegacyJdbcQuery.CaisiResult queryResultsCaisi(String preparedSQL, String[] param) throws SQLException {
         return LegacyJdbcQuery.queryResultsCaisi(preparedSQL, param);
     }
 
     // queryResultsCaisi(String) removed — all callers migrated to parameterized overloads.
 
     /**
-     * Executes a dynamic SQL SELECT query with denylist-based validation.
-     * <p><strong>Sole authorized caller: {@code RptByExampleData}</strong> (admin report tool).
-     * All other code must use the parameterized overloads. Do not add new callers.</p>
+     * @deprecated Direct SQL execution is intentionally disabled. Even
+     * SELECT-only SQL supplied at request time can bypass report-level
+     * authorization and expose PHI outside the intended workflow. Use one of the
+     * parameterized overloads, or a curated report template, instead.
      */
-    synchronized public ResultSet queryResults(String preparedSQL) throws SQLException { // nosemgrep: formatted-sql-string — sole caller is RptByExampleData (admin report); validated by validateSafeSelectQuery denylist
-        rs = LegacyJdbcQuery.queryResults(LegacyJdbcQuery.trustedSelectSql(preparedSQL));
-        return rs;
+    @Deprecated(forRemoval = true)
+    synchronized public ResultSet queryResults(String preparedSQL) throws SQLException {
+        throw new SQLException("Direct SQL execution is disabled; use parameterized query overloads.");
     }
 
     // queryResults_paged(String, int) removed — all callers migrated to parameterized overloads.

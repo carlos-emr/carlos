@@ -37,16 +37,16 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Properties;
 import java.util.Vector;
 
 import org.apache.commons.lang3.time.DateFormatUtils;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.login.DBHelp;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
  * @author yilee18
@@ -359,7 +359,7 @@ public final class RptReportCreator {
         String ret = "0";
 
         MiscUtils.getLogger().debug(" tempVal: " + sql);
-        try (ResultSet rs = DBHelp.searchDBRecord(LegacyJdbcQuery.trustedReportSelectSql(sql), params)) {
+        try (ResultSet rs = DBHelp.searchDBRecord(new ParameterizedSql(sql, Arrays.asList(params)))) {
             if (rs == null) {
                 MiscUtils.getLogger().error("Database query failed for sub-query");
                 return ret;
@@ -378,11 +378,18 @@ public final class RptReportCreator {
     /**
      * Executes a report query and returns properties for each row.
      */
+    public Vector query(ParameterizedSql sql, Vector vecFieldName) throws SQLException {
+        return query(sql.getSql(), vecFieldName, sql.getParamsArray());
+    }
+
+    /**
+     * Executes a report query and returns properties for each row.
+     */
     public Vector query(String sql, Vector vecFieldName, Object... params) throws SQLException {
         Vector ret = new Vector();
         Properties prop = null;
 
-        try (ResultSet rs = DBHelp.searchDBRecord(LegacyJdbcQuery.trustedReportSelectSql(sql), params)) {
+        try (ResultSet rs = DBHelp.searchDBRecord(new ParameterizedSql(sql, Arrays.asList(params)))) {
             if (rs == null) {
                 MiscUtils.getLogger().error("Database query failed for report query");
                 return ret;

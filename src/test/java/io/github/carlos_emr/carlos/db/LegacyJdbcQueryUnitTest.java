@@ -11,9 +11,13 @@ package io.github.carlos_emr.carlos.db;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -22,6 +26,7 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 
 /**
  * Regression tests for the legacy JDBC transition boundary.
@@ -116,6 +121,14 @@ class LegacyJdbcQueryUnitTest {
     }
 
     @Test
+    @DisplayName("shouldRejectDirectSqlExecutionBoundary")
+    void shouldRejectDirectSqlExecutionBoundary() {
+        assertThatThrownBy(() -> LegacyJdbcQuery.queryResults("select demographic_no from demographic"))
+                .isInstanceOf(SQLException.class)
+                .hasMessageContaining("Direct SQL execution is disabled");
+    }
+
+    @Test
     @DisplayName("shouldAvoidDeprecatedHandlers_inProductionCallers")
     void shouldAvoidDeprecatedHandlers_inProductionCallers() throws Exception {
         Path sourceRoot = Path.of("src", "main", "java");
@@ -133,15 +146,14 @@ class LegacyJdbcQueryUnitTest {
     }
 
     @Test
-    @DisplayName("shouldLimitRawAdminSqlBoundary_toReportByExample")
-    void shouldLimitRawAdminSqlBoundary_toReportByExample() throws Exception {
+    @DisplayName("shouldDisallowRawAdminSqlBoundary_inProductionCallers")
+    void shouldDisallowRawAdminSqlBoundary_inProductionCallers() throws Exception {
         Path sourceRoot = Path.of("src", "main", "java");
         try (Stream<Path> files = Files.walk(sourceRoot)) {
             List<Path> offenders = files
                     .filter(path -> path.toString().endsWith(".java"))
                     .filter(path -> !path.endsWith(Path.of("db", "LegacyJdbcQuery.java")))
                     .filter(path -> !path.endsWith(Path.of("db", "DBPreparedHandler.java")))
-                    .filter(path -> !path.endsWith(Path.of("report", "data", "RptByExampleData.java")))
                     .filter(this::usesRawAdminSqlBoundary)
                     .toList();
 
@@ -159,6 +171,21 @@ class LegacyJdbcQueryUnitTest {
         assertThatCode(() -> LegacyJdbcQuery.unregisterThreadResource(resource)).doesNotThrowAnyException();
         assertThatCode(LegacyJdbcQuery::releaseThreadResources).doesNotThrowAnyException();
         assertThat(closed).isFalse();
+    }
+
+    @Test
+    @DisplayName("should close CAISI result set and statement together")
+    void shouldCloseCaisiResultSetAndStatementTogether() throws Exception {
+        ResultSet rs = mock(ResultSet.class);
+        PreparedStatement ps = mock(PreparedStatement.class);
+
+        try (LegacyJdbcQuery.CaisiResult ignored = new LegacyJdbcQuery.CaisiResult(rs, ps)) {
+            // Resource ownership belongs to the holder.
+        }
+
+        InOrder order = inOrder(rs, ps);
+        order.verify(rs).close();
+        order.verify(ps).close();
     }
 
     private boolean usesDeprecatedDatabaseBoundary(Path path) {

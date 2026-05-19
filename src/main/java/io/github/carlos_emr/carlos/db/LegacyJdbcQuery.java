@@ -36,12 +36,14 @@ import java.sql.Types;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.sql.DataSource;
 
 import org.springframework.jdbc.datasource.DataSourceUtils;
 
+import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -54,6 +56,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * of returning JDBC cursors.</p>
  */
 public final class LegacyJdbcQuery {
+    private static final int MAX_THREAD_RESOURCES_BEFORE_WARNING = 10;
     private static final ThreadLocal<Deque<AutoCloseable>> THREAD_RESOURCES = new ThreadLocal<>();
 
     private LegacyJdbcQuery() {
@@ -71,6 +74,37 @@ public final class LegacyJdbcQuery {
         }
     }
 
+    public record CaisiResult(ResultSet resultSet, PreparedStatement statement) implements AutoCloseable {
+        public CaisiResult {
+            Objects.requireNonNull(resultSet, "resultSet");
+            Objects.requireNonNull(statement, "statement");
+        }
+
+        @Override
+        public void close() throws SQLException {
+            SQLException failure = null;
+            try {
+                resultSet.close();
+            } catch (SQLException e) {
+                failure = e;
+            }
+
+            try {
+                statement.close();
+            } catch (SQLException e) {
+                if (failure == null) {
+                    failure = e;
+                } else {
+                    failure.addSuppressed(e);
+                }
+            }
+
+            if (failure != null) {
+                throw failure;
+            }
+        }
+    }
+
     public static TrustedSql trustedSelectSql(String sql) throws SQLException {
         validateSafeSelectQuery(sql);
         return new TrustedSql(sql);
@@ -83,6 +117,11 @@ public final class LegacyJdbcQuery {
 
     public static ResultSet getPreparedResultSet(String sql, Object... params) throws SQLException {
         return getPreparedResultSet(sql, false, params);
+    }
+
+    public static ResultSet getPreparedResultSet(ParameterizedSql sql) throws SQLException {
+        validateReportSelectQuery(sql.getSql());
+        return getPreparedResultSetInternal(sql.getSql(), false, sql.getParamsArray());
     }
 
     public static ResultSet getPreparedResultSet(TrustedSql sql, Object... params) throws SQLException {
@@ -191,23 +230,8 @@ public final class LegacyJdbcQuery {
         return getPreparedResultSet(preparedSQL, toObjects(params));
     }
 
-    public static ResultSet queryResults(String preparedSQL) throws SQLException { // nosemgrep: formatted-sql-string -- admin report SQL is validated before execution
-        return queryResults(trustedSelectSql(preparedSQL));
-    }
-
-    public static ResultSet queryResults(TrustedSql preparedSQL) throws SQLException {
-        DataSource dataSource = dataSource();
-        Connection connection = DataSourceUtils.getConnection(dataSource);
-        Statement stmt = null;
-        try {
-            stmt = connection.createStatement();
-            ResultSet rs = stmt.executeQuery(preparedSQL.sql);
-            return registerThreadResource(StatementClosingResultSet.wrap(rs, stmt, connection, dataSource));
-        } catch (SQLException | RuntimeException e) {
-            closeStatement(stmt);
-            DataSourceUtils.releaseConnection(connection, dataSource);
-            throw e;
-        }
+    public static ResultSet queryResults(String preparedSQL) throws SQLException {
+        throw new SQLException("Direct SQL execution is disabled; use parameterized query overloads.");
     }
 
     public static ResultSet queryResultsPaged(String preparedSQL, String param, int offset) throws SQLException {
@@ -222,18 +246,24 @@ public final class LegacyJdbcQuery {
         return advance(queryResults(preparedSQL, params), offset);
     }
 
-    public static Object[] queryResultsCaisi(String preparedSQL, int param) throws SQLException {
+    public static CaisiResult queryResultsCaisi(String preparedSQL, int param) throws SQLException {
         return queryResultsCaisi(preparedSQL, new Object[] { param });
     }
 
-    public static Object[] queryResultsCaisi(String preparedSQL, String param) throws SQLException {
+    public static CaisiResult queryResultsCaisi(String preparedSQL, String param) throws SQLException {
         return queryResultsCaisi(preparedSQL, new Object[] { param });
     }
 
-    public static Object[] queryResultsCaisi(String preparedSQL, String[] params) throws SQLException {
+    public static CaisiResult queryResultsCaisi(String preparedSQL, String[] params) throws SQLException {
         return queryResultsCaisi(preparedSQL, (Object[]) params);
     }
 
+    /**
+     * Strict SELECT validator for generic legacy SQL boundaries. It rejects
+     * UNION, stacked statements, comments, DML/DDL/control keywords, and file
+     * access functions because these call sites do not have a report-template
+     * review process.
+     */
     public static void validateSafeSelectQuery(String sql) throws SQLException {
         if (sql == null || sql.trim().isEmpty()) {
             throw new SQLException("SQL query must not be empty");
@@ -272,6 +302,12 @@ public final class LegacyJdbcQuery {
         }
     }
 
+    /**
+     * SELECT validator for curated report-template SQL. It still rejects stacked
+     * statements, comments, and file access phrases, but intentionally allows
+     * UNION because existing report templates use UNION for legitimate reporting
+     * queries and are handled at the report-template boundary.
+     */
     public static void validateReportSelectQuery(String sql) throws SQLException {
         if (sql == null || sql.trim().isEmpty()) {
             throw new SQLException("SQL query must not be empty");
@@ -324,7 +360,7 @@ public final class LegacyJdbcQuery {
         }
     }
 
-    private static Object[] queryResultsCaisi(String preparedSQL, Object[] params) throws SQLException {
+    private static CaisiResult queryResultsCaisi(String preparedSQL, Object[] params) throws SQLException {
         DataSource dataSource = dataSource();
         Connection connection = DataSourceUtils.getConnection(dataSource);
         PreparedStatement ps = null;
@@ -332,7 +368,7 @@ public final class LegacyJdbcQuery {
             ps = connection.prepareStatement(preparedSQL);
             bindParams(ps, params);
             ResultSet rs = ps.executeQuery();
-            return new Object[] { rs, registerThreadResource(releasingPreparedStatement(ps, connection, dataSource)) };
+            return new CaisiResult(rs, registerThreadResource(releasingPreparedStatement(ps, connection, dataSource)));
         } catch (SQLException | RuntimeException e) {
             closeStatement(ps);
             DataSourceUtils.releaseConnection(connection, dataSource);
@@ -426,6 +462,11 @@ public final class LegacyJdbcQuery {
             THREAD_RESOURCES.set(resources);
         }
         resources.add(resource);
+        if (resources.size() == MAX_THREAD_RESOURCES_BEFORE_WARNING + 1) {
+            MiscUtils.getLogger().warn(
+                    "Legacy JDBC thread resource count exceeded {}; a caller may be leaking ResultSet or Connection objects",
+                    MAX_THREAD_RESOURCES_BEFORE_WARNING);
+        }
         return resource;
     }
 

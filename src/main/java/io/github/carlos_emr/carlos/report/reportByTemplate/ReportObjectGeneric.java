@@ -36,10 +36,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
+import io.github.carlos_emr.carlos.util.StringUtils;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-
-import io.github.carlos_emr.carlos.util.StringUtils;
 
 /*
  * Created on December 19, 2006, 10:46 AM
@@ -212,12 +212,16 @@ public class ReportObjectGeneric implements ReportObject {
      *         SQL cannot be found for the configured templateId (an error is logged in that case)
      */
     public String[] getParameterizedSQL(Map parameters) {
+        return toLegacyArray(getParameterizedSql(parameters));
+    }
+
+    public ParameterizedSql getParameterizedSql(Map parameters) {
         String sql = (new ReportManager()).getSQL(this.templateId);
         if (sql == null) {
             MiscUtils.getLogger().error("Template SQL not found for templateId: {}", LogSanitizer.sanitize(this.templateId)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
-            return new String[]{""};
+            return new ParameterizedSql("", List.of());
         }
-        return parameterizeTemplate(sql, parameters);
+        return parameterizeTemplateSql(sql, parameters);
     }
 
     /**
@@ -230,16 +234,21 @@ public class ReportObjectGeneric implements ReportObject {
      *         if {@code sequenceNo} is out of range
      */
     public String[] getParameterizedSQL(int sequenceNo, Map parameters) {
+        ParameterizedSql parameterizedSql = getParameterizedSql(sequenceNo, parameters);
+        return parameterizedSql == null ? null : toLegacyArray(parameterizedSql);
+    }
+
+    public ParameterizedSql getParameterizedSql(int sequenceNo, Map parameters) {
         String sql = (new ReportManager()).getSQL(this.templateId);
         if (sql == null) {
             MiscUtils.getLogger().error("Template SQL not found for templateId: {}", LogSanitizer.sanitize(this.templateId)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
-            return new String[]{""};
+            return new ParameterizedSql("", List.of());
         }
         String[] parts = sql.split(";");
         if (parts.length <= sequenceNo) {
             return null;
         }
-        return parameterizeTemplate(parts[sequenceNo], parameters);
+        return parameterizeTemplateSql(parts[sequenceNo], parameters);
     }
 
     /**
@@ -251,15 +260,15 @@ public class ReportObjectGeneric implements ReportObject {
      * @return {@code String[]} where {@code [0]} is the parameterized SQL and {@code [1..n]} are
      *         parameter values; returns {@code new String[]{""}} if a required parameter is missing
      */
-    private String[] parameterizeTemplate(String sql, Map parameters) {
-        List<String> params = new ArrayList<>();
+    private ParameterizedSql parameterizeTemplateSql(String sql, Map parameters) {
+        List<Object> params = new ArrayList<>();
 
         int cursor1;
         while ((cursor1 = sql.indexOf("{")) != -1) {
             int cursor2 = sql.indexOf("}", cursor1);
             if (cursor2 == -1) {
                 MiscUtils.getLogger().warn("Malformed report template: missing closing '}}' in SQL");
-                return new String[]{""};
+                return new ParameterizedSql("", List.of());
             }
             String paramId = sql.substring(cursor1 + 1, cursor2);
 
@@ -273,7 +282,7 @@ public class ReportObjectGeneric implements ReportObject {
                     substValues = new String[0];
                 } else {
                     MiscUtils.getLogger().warn("Report template parameter '{}' not found in request", paramId);
-                    return new String[]{""};
+                    return new ParameterizedSql("", List.of());
                 }
             }
 
@@ -305,10 +314,16 @@ public class ReportObjectGeneric implements ReportObject {
         }
 
         MiscUtils.getLogger().debug("<REPORT BY TEMPLATE> Parameterized SQL: {}", sql);
+        return new ParameterizedSql(sql, params);
+    }
+
+    private String[] toLegacyArray(ParameterizedSql parameterizedSql) {
+        List<Object> params = parameterizedSql.getParams();
         String[] result = new String[params.size() + 1];
-        result[0] = sql;
+        result[0] = parameterizedSql.getSql();
         for (int i = 0; i < params.size(); i++) {
-            result[i + 1] = params.get(i);
+            Object param = params.get(i);
+            result[i + 1] = param == null ? null : param.toString();
         }
         return result;
     }

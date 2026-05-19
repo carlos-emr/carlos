@@ -30,19 +30,17 @@
 
 package io.github.carlos_emr.carlos.report.data;
 
-import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.Properties;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
-
-
 /**
  * This classes main function FluReportGenerate collects a group of patients with flu in the last specified date
  */
 public class RptByExampleData {
+    public static final String DIRECT_SQL_DISABLED_MESSAGE =
+            "Direct SQL execution has been disabled. Use curated report templates instead.";
 
     public ArrayList demoList = null;
     public String sql = "";
@@ -65,19 +63,12 @@ public class RptByExampleData {
         this.sql = sql;
         this.oscarVariables = oscarVariables;
 
-        MiscUtils.getLogger().warn("Admin report SQL execution requested; queryLength={}", sql.length());
-
-        try (ResultSet rs = LegacyJdbcQuery.queryResults(LegacyJdbcQuery.trustedSelectSql(this.sql))) {
-            if (rs != null) {
-                results = RptResultStruct.getStructure(rs);
-            } else {
-                results = "";
-            }
-        } catch (java.sql.SQLException e) {
-            MiscUtils.getLogger().debug("Problems");
-            MiscUtils.getLogger().error("Error", e);
-        }
-
+        // Direct request-submitted SQL is deliberately not executed. A
+        // denylist-validated SELECT can still read tables/columns outside the
+        // user's reporting workflow, so this legacy endpoint now preserves the
+        // page contract while blocking the unsafe database boundary.
+        MiscUtils.getLogger().warn("Blocked direct Query-by-Example SQL execution; queryLength={}", sql.length());
+        results = DIRECT_SQL_DISABLED_MESSAGE;
         return results;
     }
 

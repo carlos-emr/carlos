@@ -64,6 +64,7 @@ import io.github.carlos_emr.carlos.eform.data.EFormBase;
 import io.github.carlos_emr.carlos.clinic.ClinicData;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.messenger.data.MessengerSystemMessage;
+import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.OscarRoleObjectPrivilege;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
@@ -560,6 +561,12 @@ public class EFormUtil {
 
     @Deprecated
     public static ArrayList<String> getValues(ArrayList<String> names, String sql) {
+        logger.error("Blocked non-parameterized eForm AP SQL execution",
+                new SecurityException("DatabaseAP SQL must be passed as ParameterizedSql"));
+        return new ArrayList<String>();
+    }
+
+    public static ArrayList<String> getValues(ArrayList<String> names, ParameterizedSql sql) {
         // gets the values for each column name in the sql (used by DatabaseAP)
         ArrayList<String> values = new ArrayList<String>();
         try (ResultSet rs = getSQL(sql)) {
@@ -585,6 +592,12 @@ public class EFormUtil {
     }
 
     public static ArrayNode getJsonValues(ArrayList<String> names, String sql) {
+        logger.error("Blocked non-parameterized eForm AP SQL execution",
+                new SecurityException("DatabaseAP SQL must be passed as ParameterizedSql"));
+        return objectMapper.createArrayNode();
+    }
+
+    public static ArrayNode getJsonValues(ArrayList<String> names, ParameterizedSql sql) {
         // gets the values for each column name in the sql (used by DatabaseAP)
         ArrayNode values = objectMapper.createArrayNode();
         try (ResultSet rs = getSQL(sql)) {
@@ -1325,9 +1338,17 @@ public class EFormUtil {
 
     @Deprecated
     private static ResultSet getSQL(String sql) {
+        if (sql == null) {
+            logger.error("Blocked unsafe SQL execution in legacy eForm path", new SecurityException("Null SQL is not allowed"));
+            return null;
+        }
+        return getSQL(new ParameterizedSql(sql, List.of()));
+    }
+
+    private static ResultSet getSQL(ParameterizedSql sql) {
         ResultSet rs = null;
         try {
-            validateLegacySqlSafety(sql);
+            validateLegacySqlSafety(sql.getSql());
             rs = LegacyJdbcQuery.getPreparedResultSet(sql);
         } catch (SecurityException secEx) {
             logger.error("Blocked unsafe SQL execution in legacy eForm path", secEx);

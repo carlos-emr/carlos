@@ -284,12 +284,14 @@ public class EctFormData {
             return null;
         }
         if (!FORM_TABLE_NAME.matcher(table).matches()) {
-            throw new IllegalArgumentException("Invalid encounter form table name");
+            logger.warn("Rejected invalid encounter form table name: {}", LogSanitizer.sanitize(table));
+            return null;
         }
         if ("form".equals(table) || INTERNAL_FORM_TABLES.contains(table) || isKnownEncounterFormTable(table)) {
             return table;
         }
-        throw new IllegalArgumentException("Unknown encounter form table name");
+        logger.warn("Rejected unknown encounter form table name: {}", LogSanitizer.sanitize(table));
+        return null;
     }
 
     private static boolean isKnownEncounterFormTable(String table) {

@@ -34,7 +34,6 @@
 package io.github.carlos_emr.carlos.report.pageUtil;
 
 import java.util.ArrayList;
-import java.util.Enumeration;
 import java.util.List;
 import java.util.Vector;
 import java.util.regex.Pattern;
@@ -43,6 +42,7 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
 import io.github.carlos_emr.carlos.report.data.RptReportCreator;
+import io.github.carlos_emr.carlos.report.data.RptReportFilter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
@@ -51,8 +51,6 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 public class RptFormQuery {
 
     static String CHECK_BOX = "filter_";
-    static String VALUE = "value_";
-    static String DATE_FORMAT = "dateFormat_";
     static String VARNAME_FORMAT = "startDate\\d|endDate\\d";
 
     /**
@@ -101,8 +99,11 @@ public class RptFormQuery {
         boolean bDemo = tableName.indexOf("demographic") >= 0 ? true : false;
         reportSql += tableName;
 
-        // get value param string — single call ensures vecValue and vecDateFormat stay index-aligned
-        Vector[] valueParams = getValueParam(request);
+        // Get selected filter SQL fragments from server-side reportFilter rows.
+        // Older pages post value_* hidden fields, but those are client-tamperable
+        // SQL fragments. Only the checkbox selection is trusted from the request;
+        // the SQL shape and date formats are loaded again from configuration.
+        Vector[] valueParams = getValueParam(reportId, request);
         Vector vecValue = valueParams[0];
         Vector vecDateFormat = valueParams[1];
         List<ParameterizedSql> vecVarValue = getQueryValueParameterized(vecValue, vecDateFormat, request);
@@ -159,22 +160,21 @@ public class RptFormQuery {
         return new ParameterizedSql(reportSql, new ArrayList<>());
     }
 
-    private Vector[] getValueParam(HttpServletRequest request) {
+    private Vector[] getValueParam(String reportId, HttpServletRequest request) throws Exception {
+        return getValueParam(new RptReportFilter().getNameList(reportId, 1), request);
+    }
+
+    static Vector[] getValueParam(Vector configuredFilters, HttpServletRequest request) {
         Vector[] ret = new Vector[2];
-        String serialNo = "";
         Vector vecValue = new Vector();
         Vector vecDateFormat = new Vector();
 
-        Enumeration varEnum = request.getParameterNames();
-        while (varEnum.hasMoreElements()) {
-            String name = (String) varEnum.nextElement();
-            if (name.startsWith(VALUE)) {
-                serialNo = name.substring(VALUE.length());
-                if (request.getParameter(CHECK_BOX + serialNo) == null)
-                    continue;
-
-                vecValue.add(request.getParameter(name));
-                vecDateFormat.add(request.getParameter(DATE_FORMAT + serialNo));
+        for (Object configuredFilter : configuredFilters) {
+            String[] filter = (String[]) configuredFilter;
+            String itemId = filter[3];
+            if (request.getParameter(CHECK_BOX + itemId) != null) {
+                vecValue.add(filter[1]);
+                vecDateFormat.add(filter[5]);
             }
         }
         ret[0] = vecValue;

@@ -151,7 +151,6 @@ public class GeneratePatientLetters2Action extends ActionSupport {
             if (reportParams != null) {
                 for (int p = 0; p < reportParams.length; p++) {
                     MiscUtils.getLogger().debug("demo = {}", LogSanitizer.sanitize(demos[i]));
-                    // deepcode ignore SqlInjection: report template SQL executed via DatabaseAP; templates are admin-configured
                     parameters.put(reportParams[p], apExe.execute(reportParams[p], demos[i]));
                 }
             }

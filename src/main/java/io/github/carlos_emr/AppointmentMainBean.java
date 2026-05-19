@@ -185,9 +185,9 @@ public class AppointmentMainBean {
         return rs;
     }
 
-    public Object[] queryResultsCaisi(String[] aKeyword, String dboperation) throws Exception {
+    public LegacyJdbcQuery.CaisiResult queryResultsCaisi(String[] aKeyword, String dboperation) throws Exception {
         String sqlQuery = null;
-        Object[] rs = null;
+        LegacyJdbcQuery.CaisiResult rs = null;
         if (aKeyword[0].equals("*")) {
             sqlQuery = dbSQL.getDef("search*", "");
             rs = LegacyJdbcQuery.queryResultsCaisi(sqlQuery, new String[0]);
@@ -198,9 +198,9 @@ public class AppointmentMainBean {
         return rs;
     }
 
-    public Object[] queryResultsCaisi(String aKeyword, String dboperation) throws Exception {
+    public LegacyJdbcQuery.CaisiResult queryResultsCaisi(String aKeyword, String dboperation) throws Exception {
         String sqlQuery = null;
-        Object[] rs = null;
+        LegacyJdbcQuery.CaisiResult rs = null;
         if (aKeyword.equals("*")) {
             sqlQuery = dbSQL.getDef("search*", "");
             rs = LegacyJdbcQuery.queryResultsCaisi(sqlQuery, new String[0]);
@@ -211,13 +211,13 @@ public class AppointmentMainBean {
         return rs;
     }
 
-    public Object[] queryResultsCaisi(int aKeyword, String dboperation) throws Exception {
+    public LegacyJdbcQuery.CaisiResult queryResultsCaisi(int aKeyword, String dboperation) throws Exception {
         String sqlQuery = null;
         sqlQuery = dbSQL.getDef(dboperation, "");
         return LegacyJdbcQuery.queryResultsCaisi(sqlQuery, aKeyword);
     }
 
-    public Object[] queryResultsCaisi(String dboperation) throws Exception {
+    public LegacyJdbcQuery.CaisiResult queryResultsCaisi(String dboperation) throws Exception {
         String sqlQuery = dbSQL.getDef(dboperation);
         return LegacyJdbcQuery.queryResultsCaisi(sqlQuery, new String[0]);
     }

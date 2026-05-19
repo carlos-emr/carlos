@@ -31,46 +31,35 @@
 package io.github.carlos_emr.carlos.report.pageUtil;
 
 import java.io.IOException;
-import java.sql.SQLException;
 import java.util.Collection;
-import java.util.Date;
 import java.util.List;
-import java.util.Properties;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.carlos.report.data.RptByExampleData;
-import io.github.carlos_emr.carlos.services.security.SecurityManager;
 import io.github.carlos_emr.carlos.PMmodule.dao.SecUserRoleDao;
 import io.github.carlos_emr.carlos.PMmodule.model.SecUserRole;
-import io.github.carlos_emr.carlos.commn.dao.ReportByExamplesDao;
-import io.github.carlos_emr.carlos.commn.model.ReportByExamples;
-import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.report.bean.RptByExampleQueryBeanHandler;
+import io.github.carlos_emr.carlos.report.data.RptByExampleData;
+import io.github.carlos_emr.carlos.services.security.SecurityManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-
-import io.github.carlos_emr.CarlosProperties;
-import io.github.carlos_emr.carlos.report.bean.RptByExampleQueryBeanHandler;
-
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 /**
- * Struts2 action for the Query-by-Example report tool. Allows admin users to execute
- * custom SQL queries, persist them as recent searches, and display results.
+ * Struts2 action for the legacy Query-by-Example report tool. Direct SQL
+ * execution is disabled; administrators should use curated report templates
+ * instead.
  *
  * @since 2003-07-22
  */
 public class RptByExample2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
-
-
-    private ReportByExamplesDao dao = SpringUtils.getBean(ReportByExamplesDao.class);
 
 
     public String execute()
@@ -105,41 +94,25 @@ public class RptByExample2Action extends ActionSupport {
         Collection favorites = hd.getFavoriteCollection(providerNo);
         request.setAttribute("favorites", favorites);
 
-        if (sql != null) {
-            try {
-                LegacyJdbcQuery.validateSafeSelectQuery(sql);
-            } catch (SQLException e) {
-                addActionError("Only a single safe SELECT query is allowed.");
-                request.setAttribute("results", "");
-                request.setAttribute("resultText", "");
-                return SUCCESS;
-            }
-            write2Database(sql, providerNo);
-        } else
+        String results = "";
+        String resultText = "";
+        if (sql != null && !sql.trim().isEmpty()) {
+            // Query-by-Example previously executed SQL text posted from this
+            // request. That remains unsafe even with SELECT-only validation:
+            // the SQL shape can target PHI tables outside the user's intended
+            // report workflow. Keep the page available for legacy navigation,
+            // but require curated report templates for execution.
+            results = RptByExampleData.DIRECT_SQL_DISABLED_MESSAGE;
+            resultText = results;
+            addActionError(results);
+        } else {
             sql = "";
-
-        RptByExampleData exampleData = new RptByExampleData();
-        Properties proppies = CarlosProperties.getInstance();
-
-        String results = exampleData.exampleReportGenerate(sql, proppies);
-        String resultText = results;
+        }
 
         request.setAttribute("results", results);
         request.setAttribute("resultText", resultText);
 
         return SUCCESS;
-    }
-
-    public void write2Database(String query, String providerNo) {
-        if (query != null && query.compareTo("") != 0) {
-            ReportByExamples r = new ReportByExamples();
-            r.setProviderNo(providerNo);
-            r.setQuery(query);
-            r.setDate(new Date());
-            dao.persist(r);
-
-
-        }
     }
 
 

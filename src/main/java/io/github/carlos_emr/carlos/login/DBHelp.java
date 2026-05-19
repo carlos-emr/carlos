@@ -37,11 +37,12 @@ package io.github.carlos_emr.carlos.login;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
-import io.github.carlos_emr.Misc;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 
+import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
  * deprecated Use JPA instead, no new code should be written against this class.
@@ -65,6 +66,16 @@ public final class DBHelp {
         ResultSet ret = null;
         try {
             ret = LegacyJdbcQuery.getPreparedResultSet(sql, params);
+        } catch (SQLException e) {
+            logger.error("Error", e);
+        }
+        return ret;
+    }
+
+    public static ResultSet searchDBRecord(ParameterizedSql sql) {
+        ResultSet ret = null;
+        try {
+            ret = LegacyJdbcQuery.getPreparedResultSet(sql);
         } catch (SQLException e) {
             logger.error("Error", e);
         }

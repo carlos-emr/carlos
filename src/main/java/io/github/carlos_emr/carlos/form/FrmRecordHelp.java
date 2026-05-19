@@ -229,6 +229,10 @@ public class FrmRecordHelp {
             return "SELECT LAST_INSERT_ID()";
         }
         if (dbType.equalsIgnoreCase("postgresql")) {
+            // Legacy ResultSet insert mode does not expose the table sequence name
+            // here. LASTVAL() is safe only on the same JDBC session immediately
+            // after this insert; new PostgreSQL insert paths should use RETURNING
+            // or Statement.RETURN_GENERATED_KEYS instead.
             return "SELECT LASTVAL()";
         }
         throw new SQLException("ERROR: Database " + dbType + " unrecognized.");

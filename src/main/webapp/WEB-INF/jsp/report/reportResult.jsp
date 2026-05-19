@@ -34,19 +34,16 @@
 <%@ page import="io.github.carlos_emr.carlos.report.data.ParameterizedSql" %>
 <%@ page import="java.util.ResourceBundle" %>
 <%
-    String VALUE = "value_";
-    String DATE_FORMAT = "dateFormat_";
     String SAVE_AS = "default";
     String reportId = request.getParameter("id") != null ? request.getParameter("id") : "0";
 // get form name
     String reportName = (new RptReportItem()).getReportName(reportId);
     ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
 
-    // Security note (CodeQL java/Sqli #6469 false positive):
-    // getQueryStr() returns a ParameterizedSql with '?' bind placeholders for all WHERE
-    // values. Table names are validated by RptFormQuery.validateTableName() against a
-    // strict SQL-identifier regex. The query is executed with psql.getParamsArray() as
-    // bind parameters — no user input is concatenated into the SQL string.
+    // Security note:
+    // getQueryStr() reloads report filter SQL fragments from server-side
+    // reportFilter rows instead of trusting client-posted hidden value_* fields.
+    // User-entered filter values are carried only as ParameterizedSql bind values.
     RptFormQuery formQuery = new RptFormQuery();
     ParameterizedSql psql = formQuery.getQueryStr(reportId, request);
 
@@ -54,7 +51,7 @@
     Vector[] vecField = formConfig.getAllFieldNameValue(SAVE_AS, reportId);
     Vector vecFieldCaption = vecField[1];
     Vector vecFieldName = vecField[0];
-    Vector vecFieldValue = (new RptReportCreator()).query(psql.getSql(), vecFieldCaption, psql.getParamsArray());
+    Vector vecFieldValue = (new RptReportCreator()).query(psql, vecFieldCaption);
 
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>

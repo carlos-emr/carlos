@@ -34,6 +34,10 @@ import jakarta.xml.bind.annotation.XmlAccessType;
 import jakarta.xml.bind.annotation.XmlAccessorType;
 import jakarta.xml.bind.annotation.XmlElement;
 import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
 
 @XmlAccessorType(XmlAccessType.NONE)
 public class DatabaseAP {
@@ -206,9 +210,57 @@ public class DatabaseAP {
         while ((tagstart = strb.indexOf("${", tagstart + 2)) >= 0) {
             strb.replace(tagstart, tagstart + 2, "\"");
             tagend = strb.indexOf("}", tagstart);
-            strb.replace(tagend, tagend + 2, "\"");
+            strb.replace(tagend, tagend + 1, "\"");
         }
         return strb.toString();
+    }
+
+    public static ParameterizedSql parameterizeSql(String sql, Map<String, ?> replacements) {
+        StringBuilder parameterized = new StringBuilder();
+        List<Object> params = new ArrayList<>();
+        int position = 0;
+        while (position < sql.length()) {
+            int start = sql.indexOf("${", position);
+            if (start < 0) {
+                parameterized.append(sql.substring(position));
+                break;
+            }
+
+            int end = sql.indexOf("}", start);
+            if (end < 0) {
+                parameterized.append(sql.substring(position));
+                break;
+            }
+
+            String name = sql.substring(start + 2, end);
+            if (replacements.containsKey(name)) {
+                if (isQuotedPlaceholder(sql, start, end)) {
+                    parameterized.append(sql, position, start - 1);
+                    position = end + 2;
+                } else {
+                    parameterized.append(sql, position, start);
+                    position = end + 1;
+                }
+                parameterized.append("?");
+                params.add(replacements.get(name));
+            } else {
+                parameterized.append(sql, position, end + 1);
+                position = end + 1;
+            }
+        }
+
+        // Unknown placeholders are legacy AP output names, not request values.
+        // parserClean preserves the old behavior by turning ${name} into "name".
+        return new ParameterizedSql(parserClean(parameterized.toString()), params);
+    }
+
+    private static boolean isQuotedPlaceholder(String sql, int start, int end) {
+        if (start == 0 || end + 1 >= sql.length()) {
+            return false;
+        }
+        char before = sql.charAt(start - 1);
+        char after = sql.charAt(end + 1);
+        return (before == '\'' && after == '\'') || (before == '"' && after == '"');
     }
 
 }
