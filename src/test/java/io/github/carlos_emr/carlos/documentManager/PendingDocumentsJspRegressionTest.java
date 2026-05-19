@@ -97,10 +97,11 @@ public class PendingDocumentsJspRegressionTest {
     }
 
     @Test
-    @DisplayName("pending documents patient ID normalization should reject non-numeric values")
+    @DisplayName("pending documents patient ID normalization should accept only non-negative numeric values")
     void shouldRejectNonNumericValues_whenNormalizingPatientIds() {
         assertThat(normalizePatientNumber("123")).isEqualTo("123");
-        assertThat(normalizePatientNumber("-1")).isEqualTo("-1");
+        assertThatThrownBy(() -> normalizePatientNumber("-1"))
+                .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> normalizePatientNumber("location"))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> normalizePatientNumber("1<script>"))
