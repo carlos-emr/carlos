@@ -44,6 +44,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class MdsSearchJspRegressionTest {
 
     private static final Pattern SCRIPT_BLOCK_PATTERN = Pattern.compile("(?is)<script\\b[^>]*>(.*?)</script>");
+    private static final Pattern ON_SUBMIT_FUNCTION_PATTERN = Pattern.compile("\\bfunction\\s+onSubmitCheck\\s*\\(");
     private static final Path SEARCH_JSP = repositoryRoot()
             .resolve(Path.of("src", "main", "webapp", "WEB-INF", "jsp", "oscarMDS", "Search.jsp"));
 
@@ -76,7 +77,7 @@ class MdsSearchJspRegressionTest {
         Matcher matcher = SCRIPT_BLOCK_PATTERN.matcher(jsp);
         while (matcher.find()) {
             String scriptBody = matcher.group(1);
-            if (scriptBody.contains("function onSubmitCheck()")) {
+            if (ON_SUBMIT_FUNCTION_PATTERN.matcher(scriptBody).find()) {
                 return scriptBody;
             }
         }
