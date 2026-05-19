@@ -244,7 +244,7 @@ class DisplayImage2ActionTest extends CarlosUnitTestBase {
         }
     }
 
-    private static class TrackingMockHttpServletResponse extends MockHttpServletResponse {
+    private class TrackingMockHttpServletResponse extends MockHttpServletResponse {
         private boolean writerObtained;
         private boolean outputStreamObtained;
 
