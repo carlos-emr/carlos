@@ -50,6 +50,7 @@ class JsonResponseHeaderRegressionTest {
 
         assertThat(source).contains("application/json; charset=UTF-8");
         assertThat(contentTypeIndex).isNotNegative();
+        assertThat(firstWriteIndex).isNotNegative();
         assertThat(contentTypeIndex).isLessThan(firstWriteIndex);
     }
 
@@ -60,7 +61,7 @@ class JsonResponseHeaderRegressionTest {
 
         assertThat(source).contains("import java.nio.charset.StandardCharsets;");
         assertThat(source).contains("json.getBytes(StandardCharsets.UTF_8)");
-        assertThat(source).doesNotContain("getBytes())");
+        assertThat(source).doesNotContainPattern("\\.getBytes\\s*\\(\\s*\\)");
     }
 
     @Test
