@@ -73,12 +73,45 @@ gh pr create                 # GitHub pull request creation
 - OWASP Encoder for ALL user inputs (see [OWASP Encoding](#owasp-encoding--xss-prevention) below)
 - Parameterized queries ONLY - never string concatenation
 - ALL actions MUST include `SecurityInfoManager.hasPrivilege()` checks
+- SecurityException messages for failed security-object privilege checks MUST use
+  paren form: `missing required sec object (_objectname)` (not colon form).
 - PHI (Patient Health Information) must NEVER be logged or exposed
 - **Use `PathValidationUtils` for ALL file path operations** (see below)
 
+### Documentation-Only Changes
+
+When asked for a documentation-only pass, change only comments, Javadocs, Markdown, or other
+non-executable documentation text. Do not hide behavior changes in comment sweeps: no route
+mappings, constants, selectors, assertions, imports, SQL, config values, or executable statements.
+Inline comments are expected when they help a future maintainer understand intent, context, or
+risk. Senior-maintainer comments should explain security boundaries, legacy constraints,
+invariants, and why a surprising pattern exists; avoid line-by-line narration that restates the
+code.
+
+For login/password-reset work, keep documentation aligned with these invariants:
+- Server-side validation is authoritative; browser password policy checks are only user feedback.
+- Forced-reset credential material stays out of the HTTP session and is referenced by an opaque,
+  short-lived cache token.
+- Retryable reset validation errors may keep the token live; terminal password changes consume it.
+- `scripts/login-playwright-checks.js` is the reference browser/direct-POST regression check for
+  login, failed login, forced reset, CSRF rejection, and provider schedule rendering. It requires
+  exactly these environment variables: `TEST_PASSWORD`, `TEST_PIN`, `MYSQL_PASSWORD`, and
+  `TEST_PASSWORD_HASH`. The script uses them to seed a known-good dev password before mutating the
+  test user's security row. Run it with
+  `npm run test:login-playwright` against a disposable local/dev database; it is a manual reference
+  check unless the active CI job has already started Tomcat and the dev database.
+  Devcontainer-only defaults are `TEST_USER=carlosdoc`, `TEST_PASSWORD=carlos2026`, and
+  `TEST_PIN=2026`; these are not production defaults. Use the dev database password from
+  `.devcontainer/development/config/shared/local.env` and the seeded `carlosdoc` hash from
+  `database/mysql/oscardata.sql` for `TEST_PASSWORD_HASH`.
+
 **What counts as PHI vs. internal identifiers:**
 - **PHI** (treat as sensitive): HIN/health card number, patient name, DOB, address, phone, diagnosis text, clinical notes, lab values, medication details — anything that identifies a real person or their care.
-- **NOT PHI** (safe in logs and operator-facing error context): `demographic_no` / `demoNo`, appointment IDs, billing IDs, provider numbers, internal surrogate keys. These are internal indexes scoped to this CARLOS instance — they do not identify a person outside the system and have no meaning without DB access (which is already gated by `SecurityInfoManager`). Including them in error context, exception payloads, and log messages is encouraged because they make incidents debuggable.
+- **PHI-correlating operational identifiers**: `demographic_no` / `demoNo`, appointment IDs, billing IDs, provider numbers, claim/WCB IDs, and internal surrogate keys. These are not clinical text, but they can join directly back to patient or billing records inside CARLOS. Log them only when necessary for operations, sanitize them with `LogSafe`, avoid pairing them with clinical context, and never place them in browser-visible exception messages unless the endpoint explicitly requires that identifier for an authorized user workflow.
+
+### Response-Rewriting Filter Safety
+
+Response-rewriting filters are security controls and UI-critical infrastructure. Recent fixes showed that broad buffering, stale `Content-Length` replay, and blanket wrapper changes can silently break login pages, static assets, and first-render post-login screens. Keep fixes targeted by route/status/content type, preserve binary/static passthrough, and add regression coverage before changing buffer limits, dispatcher mappings, `Content-Length` handling, or writer/output-stream fallback behavior. After touching `ResponseSanitizationFilter`, `CsrfGuardScriptInjectionFilter`, `LogoutBroadcastFilter`, or `LoginFilter`, run the focused unit tests and the Playwright login/reset script against Tomcat.
 
 ### OWASP Encoding — XSS Prevention
 
@@ -251,8 +284,11 @@ the top of that file:
   on truly unsupported methods like DELETE/PUT.
 
 **When a new slice is migrated**, extend `IN_SCOPE_PACKAGE_PREFIXES` with
-the slice's package prefix in the same PR that gates the first mutator
-JSP behind a 2Action.
+the slice's package prefix only after the existing guarded actions in that
+slice have been audited and classified in the contract manifest. For a
+legacy-heavy slice where one mutator is migrated first, add that specific
+class to `IN_SCOPE_EXPLICIT_CLASSES` and file/track the broader slice-audit
+work instead of sweeping unreviewed legacy actions into the manifest.
 
 ### Struts 7.1.1 Notes
 
@@ -1200,6 +1236,11 @@ docs/test/test-writing-guide.md                       # Test writing patterns an
    - Register SpringUtils mocks FIRST, THEN create static mocks
    - Close static mocks in @AfterEach to prevent test pollution
    - Use @Nested classes with JavaDoc to organize large test suites
+8. **For Log4j2 assertions**: use `io.github.carlos_emr.carlos.test.logging.LogCapture`
+   from `src/test/java/io/github/carlos_emr/carlos/test/logging/LogCapture.java`.
+   Do not define local `AbstractAppender`, `CapturingAppender`, or per-test
+   logger-config copies. `LogCapture` scopes capture to the exact logger under
+   test, stores immutable events, and cleans up safely for parallel Surefire.
 
 Example of proper test development workflow:
 ```java

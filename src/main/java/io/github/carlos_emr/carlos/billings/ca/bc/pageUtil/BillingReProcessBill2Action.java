@@ -46,7 +46,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -115,13 +115,13 @@ public class BillingReProcessBill2Action extends ActionSupport {
             DemographicData demoD = new DemographicData();
             Demographic demo = demoD.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), demographicNo);
 
-            logger.debug("RETRIEVING Using {}", LogSanitizer.sanitize(billingmasterNo));
+            logger.debug("RETRIEVING Using {}", LogSafe.sanitize(billingmasterNo));
             Billingmaster billingmaster = billingmasterDAO.getBillingMasterByBillingMasterNo(billingmasterNo);
             Billing bill = billingmasterDAO.getBilling(billingmaster.getBillingNo());
 
 
             String billingType = bill.getBillingtype();
-            logger.debug("type {}", LogSanitizer.sanitize(billingType));
+            logger.debug("type {}", LogSafe.sanitize(billingType));
 
 
             BillingFormData billform = new BillingFormData();
@@ -253,7 +253,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
                 } catch (NumberFormatException e) {
                     throw new IllegalArgumentException(
                             "BC debit request date is malformed ["
-                                    + LogSanitizer.sanitizeForDisplay(dateRecieved) + "]",
+                                    + LogSafe.sanitizeForDisplay(dateRecieved) + "]",
                             e);
                 }
 
@@ -298,7 +298,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
                 //BillingCodeData bcd = new BillingCodeData();
                 //BillingService billingService = bcd.getBillingCodeByCode(billingServiceCode, new Date());
                 String codePrice = StringUtils.isNullOrEmpty(request.getParameter("billingAmount")) ? (StringUtils.isNullOrEmpty(frm.getBillingAmount()) ? "0.00" : frm.getBillingAmount()) : request.getParameter("billingAmount"); //billingService.getValue();
-                logger.debug("codePrice={} amount on form {}", LogSanitizer.sanitize(codePrice), LogSanitizer.sanitize(request.getParameter("billingAmount")));
+                logger.debug("codePrice={} amount on form {}", LogSafe.sanitize(codePrice), LogSafe.sanitize(request.getParameter("billingAmount")));
 
                 if ("E".equals(payment_mode)) {
                     codePrice = "0.00";
@@ -375,12 +375,12 @@ public class BillingReProcessBill2Action extends ActionSupport {
                 MiscUtils.getLogger().warn("warning", e);
             }
             bill.setProviderNo(providerNo);
-            logger.debug("WHAT IS BILL <ASTER {}", LogSanitizer.sanitize(String.valueOf(billingmaster.getBillingmasterNo())));
+            logger.debug("WHAT IS BILL <ASTER {}", LogSafe.sanitize(String.valueOf(billingmaster.getBillingmasterNo())));
             billingmasterDAO.update(billingmaster);
             billingmasterDAO.update(bill);
 
-            logger.debug("type 2 {}", LogSanitizer.sanitize(bill.getBillingtype()));
-            logger.debug("WHAT IS BILL <ASTER2 {}", LogSanitizer.sanitize(String.valueOf(billingmaster.getBillingmasterNo())));
+            logger.debug("type 2 {}", LogSafe.sanitize(bill.getBillingtype()));
+            logger.debug("WHAT IS BILL <ASTER2 {}", LogSafe.sanitize(String.valueOf(billingmaster.getBillingmasterNo())));
 
 
             if (!StringUtils.isNullOrEmpty(billingStatus)) {  //What if billing status is null?? the status just doesn't get updated but everything else does??'
@@ -463,7 +463,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
      */
     public String convertDate8Char(String s) {
         String sdate = "00000000", syear = "", smonth = "", sday = "";
-        logger.debug("s={}", LogSanitizer.sanitize(s));
+        logger.debug("s={}", LogSafe.sanitize(s));
         if (s != null) {
 
             if (s.indexOf("-") != -1) {
@@ -480,13 +480,13 @@ public class BillingReProcessBill2Action extends ActionSupport {
                     sday = "0" + sday;
                 }
 
-                logger.debug("Year{} Month{} Day{}", LogSanitizer.sanitize(syear), LogSanitizer.sanitize(smonth), LogSanitizer.sanitize(sday));
+                logger.debug("Year{} Month{} Day{}", LogSafe.sanitize(syear), LogSafe.sanitize(smonth), LogSafe.sanitize(sday));
                 sdate = syear + smonth + sday;
 
             } else {
                 sdate = s;
             }
-            logger.debug("sdate:{}", LogSanitizer.sanitize(sdate));
+            logger.debug("sdate:{}", LogSafe.sanitize(sdate));
         } else {
             sdate = "00000000";
 

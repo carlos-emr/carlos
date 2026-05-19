@@ -37,7 +37,7 @@ import javax.xml.parsers.ParserConfigurationException;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
@@ -82,7 +82,7 @@ public class ExcellerisOntarioHandler implements MessageHandler {
             // Use PathValidationUtils for validation
             File docDir = new File(documentDir).getCanonicalFile();
             if (!docDir.exists() || !docDir.isDirectory()) {
-                logger.error("Document directory does not exist or is not a directory: {}", LogSanitizer.sanitize(documentDir)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                logger.error("Document directory does not exist or is not a directory: {}", LogSafe.sanitize(documentDir)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 return null;
             }
 
@@ -91,24 +91,24 @@ public class ExcellerisOntarioHandler implements MessageHandler {
             try {
                 file = PathValidationUtils.validateExistingPath(file, docDir);
             } catch (SecurityException e) {
-                logger.error("Attempted path traversal detected - file outside document directory: {}", LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                logger.error("Attempted path traversal detected - file outside document directory: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 return null;
             }
 
             // Now safe to check if file exists and is a regular file
             if (!file.exists()) {
-                logger.error("File does not exist: {}", LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                logger.error("File does not exist: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 return null;
             }
 
             if (!file.isFile()) {
-                logger.error("Path is not a regular file: {}", LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                logger.error("Path is not a regular file: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 return null;
             }
 
             // Ensure file is readable
             if (!file.canRead()) {
-                logger.error("File is not readable: {}", LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                logger.error("File is not readable: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 return null;
             }
             

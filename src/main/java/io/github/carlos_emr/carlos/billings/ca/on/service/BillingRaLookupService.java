@@ -202,8 +202,8 @@ public class BillingRaLookupService {
                 unreadable++;
                 MiscUtils.getLogger().error(
                         "Failed to parse amountpay {} for billing_no {}; coalescing to zero (total will understate)",
-                        io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(h.get("amountpay")),
-                        io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(h.get("billing_no")),
+                        io.github.carlos_emr.carlos.utility.LogSafe.sanitize(h.get("amountpay")),
+                        io.github.carlos_emr.carlos.utility.LogSafe.sanitize(h.get("billing_no")),
                         badValueException);
             }
             total = total.add(valueToAdd);
@@ -247,9 +247,9 @@ public class BillingRaLookupService {
                 unreadable++;
                 MiscUtils.getLogger().error(
                         "Failed to parse amountpay {} for billing_no {} service_code {}; coalescing to zero",
-                        io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(h.get("amountpay")),
-                        io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(h.get("billing_no")),
-                        io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(serviceCode),
+                        io.github.carlos_emr.carlos.utility.LogSafe.sanitize(h.get("amountpay")),
+                        io.github.carlos_emr.carlos.utility.LogSafe.sanitize(h.get("billing_no")),
+                        io.github.carlos_emr.carlos.utility.LogSafe.sanitize(serviceCode),
                         badValueException);
             }
             total = total.add(valueToAdd);

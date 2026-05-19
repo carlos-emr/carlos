@@ -50,7 +50,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 public final class Frm2Action extends ActionSupport {
 
@@ -97,7 +97,7 @@ public final class Frm2Action extends ActionSupport {
             rec = recorder.factory(formClassName);
             Properties props = new Properties();
 
-            log.info("SUBMIT {}", LogSanitizer.sanitize(submitType)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            log.info("SUBMIT {}", LogSafe.sanitize(submitType)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
 
             //if we are graphing, we need to grab info from db and add it to request object
             if ("graph".equals(submitType)) {
@@ -238,10 +238,10 @@ public final class Frm2Action extends ActionSupport {
                 newID = rec.saveFormRecord(props);
 
                 if (newID > 0) {
-                    log.info("{} new form ID {} successfully saved.", LogSanitizer.sanitize(formClassName), newID); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                    log.info("{} new form ID {} successfully saved.", LogSafe.sanitize(formClassName), newID); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                     saveSuccess = Boolean.TRUE;
                 } else {
-                    log.info("{} form ID {} failed to save.", LogSanitizer.sanitize(formClassName), formId); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                    log.info("{} form ID {} failed to save.", LogSafe.sanitize(formClassName), formId); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 }
 
                 String ip = request.getRemoteAddr();
@@ -271,10 +271,10 @@ public final class Frm2Action extends ActionSupport {
 
         } catch (Exception ex) {
             // throw new ServletException(ex);
-            MiscUtils.getLogger().error("Exception for form {} Save failed.", LogSanitizer.sanitize(formClassName), ex); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            MiscUtils.getLogger().error("Exception for form {} Save failed.", LogSafe.sanitize(formClassName), ex); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
         }
 
-        log.info("Forwarding form {} to {}", LogSanitizer.sanitize(formClassName), LogSanitizer.sanitize(actionForward)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+        log.info("Forwarding form {} to {}", LogSafe.sanitize(formClassName), LogSafe.sanitize(actionForward)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
 
         request.setAttribute("saveSuccess", saveSuccess);
 

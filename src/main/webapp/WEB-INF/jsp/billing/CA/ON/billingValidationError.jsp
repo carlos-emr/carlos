@@ -37,7 +37,7 @@
   per-action duplication.
 
   PHI-safe: the exception message is server-composed at the throw site with
-  LogSanitizer-sanitized values; it is rendered with the carlos:encode tag
+  LogSafe-sanitized values; it is rendered with the carlos:encode tag
   in context="html" mode so any residual control characters are HTML-escaped
   before display.
 
@@ -81,7 +81,7 @@
     request.setAttribute("__bveMessage", __bveMessage);
 %>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="${pageContext.request.locale.language}">
 <head>
     <meta charset="UTF-8">
     <title>Billing — Submission Rejected</title>

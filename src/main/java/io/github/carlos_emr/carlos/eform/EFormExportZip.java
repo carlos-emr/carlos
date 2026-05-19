@@ -50,7 +50,7 @@ import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 /**
@@ -65,7 +65,7 @@ public class EFormExportZip {
 
         for (EForm eForm : eForms) {
             if (eForm.getFormName() == null || eForm.getFormName().equals("")) {
-                _log.error("Eform must have a name to export.  FID: {}", LogSanitizer.sanitize(eForm.getFid())); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                _log.error("Eform must have a name to export.  FID: {}", LogSafe.sanitize(eForm.getFid())); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 throw new Exception("EForm must have a name to export");
             }
             Properties properties = new Properties(); //put all form properties into here
@@ -202,7 +202,7 @@ public class EFormExportZip {
         //first runthrough, get the properties files, construct eforms, cache files
         while ((ze = zis.getNextEntry()) != null) {
             File file = new File(ze.getName());
-            _log.info("Unzipping..." + LogSanitizer.sanitize(file.getName()));
+            _log.info("Unzipping..." + LogSafe.sanitize(file.getName()));
             if (file.getName().equalsIgnoreCase("eform.properties")) {
                 Properties properties = new Properties();
                 properties.load(zis);

@@ -55,7 +55,7 @@ import org.w3c.dom.NodeList;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.RouteReportResults;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 /**
  * @author wrighd
@@ -87,7 +87,7 @@ public class PATHL7Handler implements MessageHandler {
             targetFile = PathValidationUtils.validateExistingPath(targetFile, baseDirFile);
 
             if (!targetFile.exists() || !targetFile.isFile()) {
-                logger.error("File does not exist or is not a regular file: {}", LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                logger.error("File does not exist or is not a regular file: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 return null;
             }
 
@@ -96,7 +96,7 @@ public class PATHL7Handler implements MessageHandler {
             doc = docBuilder.parse(targetFile);
 
         } catch (IllegalArgumentException e) {
-            logger.error("Invalid file name: {}", LogSanitizer.sanitize(fileName), e); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            logger.error("Invalid file name: {}", LogSafe.sanitize(fileName), e); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             return null;
         } catch (ParserConfigurationException e) {
             logger.error("Failed to configure XML parser", e);
@@ -118,7 +118,7 @@ public class PATHL7Handler implements MessageHandler {
                 }
             } catch (Exception e) {
                 logger.error("Could not upload PATHL7 message", e);
-                MiscUtils.getLogger().error("Error in Lab #{} in batch file {}", i + 1, LogSanitizer.sanitize(fileName), e); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                MiscUtils.getLogger().error("Error in Lab #{} in batch file {}", i + 1, LogSafe.sanitize(fileName), e); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 MessageUploader.clean(fileId);
                 return null;
             }

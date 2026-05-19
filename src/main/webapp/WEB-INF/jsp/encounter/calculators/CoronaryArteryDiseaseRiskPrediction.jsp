@@ -29,7 +29,7 @@
 
 --%>
 
-<html lang="en">
+<html lang="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(request.getLocale().getLanguage()) %>">
 
 
 <head>
@@ -827,8 +827,8 @@
         </td>
         <td style="text-align: right"><a
                 href="javascript:
-                    popupStart(300,400,'About.jsp')">About</a>
-            | <a href="javascript:popupStart(300,400,'License.jsp')">License</a>
+                    popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')">About</a>
+            | <a href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')">License</a>
         </td>
     </tr>
     <tr>

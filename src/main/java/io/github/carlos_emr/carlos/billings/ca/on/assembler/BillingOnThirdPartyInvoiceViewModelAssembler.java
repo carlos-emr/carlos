@@ -53,7 +53,7 @@ import io.github.carlos_emr.carlos.commn.model.Site;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnInvoiceTotalsService;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.utility.LocaleUtils;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingThirdPartyRecordService;
@@ -355,7 +355,7 @@ public class BillingOnThirdPartyInvoiceViewModelAssembler {
             return new BigDecimal(s).setScale(2, RoundingMode.HALF_UP);
         } catch (NumberFormatException e) {
             MiscUtils.getLogger().warn("Could not parse 3rd-party invoice amount '{}'",
-                    LogSanitizer.sanitize(s), e);
+                    LogSafe.sanitize(s), e);
             if (tracker != null) tracker.markUnreadable();
             return ZERO;
         }
