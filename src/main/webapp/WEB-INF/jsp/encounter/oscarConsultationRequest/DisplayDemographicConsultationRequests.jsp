@@ -109,7 +109,8 @@
 
     <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
     <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css" rel="stylesheet">
-    <script src="${pageContext.request.contextPath}/library/DataTables/datatables.min.js"></script>
+    <script src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js"></script>
+    <script src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/js/dataTables.bootstrap5.min.js"></script>
 
     <style>
         /* DataTables — CARLOS design overrides (matching WEB-INF/jsp/tickler/ticklerMain.jsp pattern) */

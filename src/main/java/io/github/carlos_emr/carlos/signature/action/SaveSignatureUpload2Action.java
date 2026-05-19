@@ -41,7 +41,7 @@ import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
 import io.github.carlos_emr.carlos.managers.DigitalSignatureManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.DigitalSignatureUtils;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -117,7 +117,7 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
         // Reject signatureKey values containing anything other than alphanumeric characters
         // to prevent path traversal (e.g. "../" sequences) from escaping the temp directory.
         if (signatureKey != null && !signatureKey.matches("[a-zA-Z0-9]+")) {
-            MiscUtils.getLogger().warn("Invalid signatureKey rejected: {}", LogSanitizer.sanitize(signatureKey));
+            MiscUtils.getLogger().warn("Invalid signatureKey rejected: {}", LogSafe.sanitize(signatureKey));
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid signature key");
             return NONE;
         }
@@ -136,7 +136,7 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
             File tmpDir = new File(System.getProperty("java.io.tmpdir"));
             safeTarget = PathValidationUtils.validateExistingPath(new File(filename), tmpDir);
         } catch (SecurityException e) {
-            MiscUtils.getLogger().warn("Path traversal attempt blocked for signatureKey: {}", LogSanitizer.sanitize(signatureKey));
+            MiscUtils.getLogger().warn("Path traversal attempt blocked for signatureKey: {}", LogSafe.sanitize(signatureKey));
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid signature key");
             return NONE;
         }
@@ -161,7 +161,7 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
             try {
                 imageData = new Base64().decode(encoded.getBytes(StandardCharsets.US_ASCII));
             } catch (IllegalArgumentException e) {
-                MiscUtils.getLogger().warn("Invalid Base64 signatureImage for key {}", LogSanitizer.sanitize(signatureKey));
+                MiscUtils.getLogger().warn("Invalid Base64 signatureImage for key {}", LogSafe.sanitize(signatureKey));
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid image data");
                 return NONE;
             }
@@ -178,9 +178,9 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
             }
             try (FileOutputStream fos = new FileOutputStream(safeTarget)) {
                 fos.write(imageData);
-                MiscUtils.getLogger().debug("Signature uploaded: {}, size={}", LogSanitizer.sanitize(filename), imageData.length);
+                MiscUtils.getLogger().debug("Signature uploaded: {}, size={}", LogSafe.sanitize(filename), imageData.length);
             } catch (IOException e) {
-                MiscUtils.getLogger().error("Error uploading signature from IPAD: {}", LogSanitizer.sanitize(filename), e);
+                MiscUtils.getLogger().error("Error uploading signature from IPAD: {}", LogSafe.sanitize(filename), e);
                 deleteQuietly(safeTarget);
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Upload failed");
                 return NONE;
@@ -202,9 +202,9 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
                     fos.write(buffer, 0, bytesRead);
                 }
                 writeOk = true;
-                MiscUtils.getLogger().debug("Signature uploaded: {}, size={}", LogSanitizer.sanitize(filename), counter);
+                MiscUtils.getLogger().debug("Signature uploaded: {}, size={}", LogSafe.sanitize(filename), counter);
             } catch (IOException e) {
-                MiscUtils.getLogger().error("Error uploading signature: {}", LogSanitizer.sanitize(filename), e);
+                MiscUtils.getLogger().error("Error uploading signature: {}", LogSafe.sanitize(filename), e);
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Upload failed");
                 return NONE;
             } finally {
@@ -213,7 +213,7 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
                 }
             }
         } else {
-            MiscUtils.getLogger().warn("Unknown signature upload source: {}", LogSanitizer.sanitize(uploadSource));
+            MiscUtils.getLogger().warn("Unknown signature upload source: {}", LogSafe.sanitize(uploadSource));
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Unknown source");
             return NONE;
         }
@@ -224,7 +224,7 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
                 try {
                     demographicNo = Integer.parseInt(demographic);
                 } catch (NumberFormatException e) {
-                    MiscUtils.getLogger().warn("Invalid demographicNo: {}", LogSanitizer.sanitize(demographic));
+                    MiscUtils.getLogger().warn("Invalid demographicNo: {}", LogSafe.sanitize(demographic));
                     response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid demographicNo");
                     return NONE;
                 }
@@ -242,7 +242,7 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
                 // RuntimeException is an unexpected failure mode (e.g. encryption,
                 // DB connectivity). Delete the orphan temp file before surfacing 500.
                 MiscUtils.getLogger().error("Digital signature persist failed for key {}",
-                        LogSanitizer.sanitize(signatureKey), e);
+                        LogSafe.sanitize(signatureKey), e);
                 deleteQuietly(safeTarget);
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Save failed");
                 return NONE;
@@ -254,7 +254,7 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
                 // surface 500 rather than returning an empty signatureId that the
                 // caller has no way to distinguish from a successful save.
                 MiscUtils.getLogger().warn("Digital signature persist returned null for key {}",
-                        LogSanitizer.sanitize(signatureKey));
+                        LogSafe.sanitize(signatureKey));
                 deleteQuietly(safeTarget);
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Save failed");
                 return NONE;
@@ -281,7 +281,7 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
         try {
             Files.deleteIfExists(f.toPath());
         } catch (IOException ignored) {
-            MiscUtils.getLogger().warn("Failed to clean up partial upload: {}", LogSanitizer.sanitize(f.getName()));
+            MiscUtils.getLogger().warn("Failed to clean up partial upload: {}", LogSafe.sanitize(f.getName()));
         }
     }
 

@@ -51,19 +51,17 @@ import org.owasp.encoder.Encode;
  * logger.error("Invalid document ID: " + docId);
  *
  * // After (safe — user input sanitized and parameterized):
- * logger.error("Invalid document ID: {}", LogSanitizer.sanitize(docId));
+ * logger.error("Invalid document ID: {}", LogSafe.sanitize(docId));
  *
  * // For longer values where truncation at 200 would lose diagnostics:
- * logger.warn("SQL: {}", LogSanitizer.sanitize(sqlStatement, 1000));
+ * logger.warn("SQL: {}", LogSafe.sanitize(sqlStatement, 1000));
  * </pre>
  *
  * <p><strong>Note:</strong> SLF4J/Log4j2 parameterized logging ({@code {}}) alone does NOT
  * prevent log injection — CRLF characters in parameter values are written to logs verbatim.
- * {@code LogSanitizer.sanitize()} is required to neutralize control characters.</p>
- *
- * @since 2026-04-02
+ * {@code LogSafe.sanitize()} is required to neutralize control characters.</p>
  */
-public final class LogSanitizer {
+public final class LogSafe {
 
     /** Default maximum number of characters for raw input before encoding. */
     static final int DEFAULT_MAX_LENGTH = 200;
@@ -71,10 +69,17 @@ public final class LogSanitizer {
     /**
      * Precompiled control-character pattern reused by every
      * {@link #sanitizeForDisplay(String)} call so the regex isn't recompiled
-     * per BVE message.
+     * per billing validation error message.
      */
     private static final java.util.regex.Pattern CONTROL_CHARS =
-            java.util.regex.Pattern.compile("\\p{Cntrl}");
+            java.util.regex.Pattern.compile("[\\p{Cntrl}\\u2028\\u2029]");
+
+    /**
+     * Per-segment path parameters can carry bearer identifiers such as {@code ;jsessionid}.
+     * They must be removed before request paths are written to operator logs.
+     */
+    private static final java.util.regex.Pattern PATH_PARAMETERS =
+            java.util.regex.Pattern.compile("(?i)(?:;|%3b)[^/]*");
 
     /**
      * Post-encoding expansion factor. {@code Encode.forJava()} expands control characters
@@ -89,7 +94,7 @@ public final class LogSanitizer {
      */
     static final int MAX_ENCODED_LENGTH = DEFAULT_MAX_LENGTH * ENCODING_EXPANSION_FACTOR;
 
-    private LogSanitizer() {
+    private LogSafe() {
         // utility class — no instances
     }
 
@@ -127,20 +132,43 @@ public final class LogSanitizer {
         if (input == null) {
             return "null";
         }
-        if (maxLength < 1) {
-            maxLength = DEFAULT_MAX_LENGTH;
-        }
-        boolean truncated = input.length() > maxLength;
+        int effectiveMaxLength = maxLength < 1 ? DEFAULT_MAX_LENGTH : maxLength;
+        boolean truncated = input.length() > effectiveMaxLength;
+        String rawInput = input;
         if (truncated) {
-            input = input.substring(0, maxLength);
+            rawInput = rawInput.substring(0, effectiveMaxLength);
         }
-        String encoded = Encode.forJava(input);
-        int encodedLimit = maxLength * ENCODING_EXPANSION_FACTOR;
+        String encoded = Encode.forJava(rawInput);
+        int encodedLimit = (int) Math.min(Integer.MAX_VALUE,
+                (long) effectiveMaxLength * ENCODING_EXPANSION_FACTOR);
         if (encoded.length() > encodedLimit) {
             encoded = encoded.substring(0, encodedLimit);
             truncated = true;
         }
         return truncated ? encoded + "..." : encoded;
+    }
+
+    /**
+     * Sanitizes a request URI for logging after removing path parameters.
+     *
+     * <p>Servlet containers may expose URL-rewritten session ids in
+     * {@code HttpServletRequest.getRequestURI()} as {@code ;jsessionid=...}. Log escaping alone
+     * would still leak that bearer token, so callers that log request paths should use this helper
+     * instead of {@link #sanitize(String)} directly.</p>
+     *
+     * <p>This helper is for request-URI paths such as {@code getRequestURI()}, not full URLs or
+     * query-bearing strings. It strips literal semicolon path parameters per path segment and
+     * encoded semicolon parameters such as {@code %3Bjsessionid=...}; it does not fully URL-decode
+     * the remaining path.</p>
+     *
+     * @param requestUri raw request URI path; may be {@code null}
+     * @return String URI with path parameters removed, then log-sanitized
+     */
+    public static String sanitizeUri(String requestUri) {
+        if (requestUri == null) {
+            return "null";
+        }
+        return sanitize(PATH_PARAMETERS.matcher(requestUri).replaceAll(""));
     }
 
     /**

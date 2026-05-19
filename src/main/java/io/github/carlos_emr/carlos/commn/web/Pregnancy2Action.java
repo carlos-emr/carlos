@@ -39,7 +39,7 @@ import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
@@ -178,7 +178,7 @@ public class Pregnancy2Action extends ActionSupport {
         try {
             cs = AbstractCodeSystemDao.codingSystem.valueOf(codeType);
         } catch (IllegalArgumentException | NullPointerException e) {
-            MiscUtils.getLogger().warn("Invalid code type requested in pregnancy create: {}", LogSanitizer.sanitize(codeType));
+            MiscUtils.getLogger().warn("Invalid code type requested in pregnancy create: {}", LogSafe.sanitize(codeType));
             request.setAttribute("error", "There was an internal error processing this request, please contact your system administrator");
             return SUCCESS;
         }
@@ -279,7 +279,7 @@ public class Pregnancy2Action extends ActionSupport {
     public String createGBSLabReq() throws SQLException {
         String demoNoParam = request.getParameter("demographicNo");
         if (demoNoParam == null || !demoNoParam.matches("\\d+")) {
-            MiscUtils.getLogger().warn("Invalid non-numeric demographicNo in createGBSLabReq: {}", LogSanitizer.sanitize(demoNoParam)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            MiscUtils.getLogger().warn("Invalid non-numeric demographicNo in createGBSLabReq: {}", LogSafe.sanitize(demoNoParam)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             return null;
         }
         Integer demographicNo = Integer.parseInt(demoNoParam);
@@ -318,7 +318,7 @@ public class Pregnancy2Action extends ActionSupport {
     public String createMCVLabReq() throws SQLException {
         String demoNoParam = request.getParameter("demographicNo");
         if (demoNoParam == null || !demoNoParam.matches("\\d+")) {
-            MiscUtils.getLogger().warn("Invalid non-numeric demographicNo in createMCVLabReq: {}", LogSanitizer.sanitize(demoNoParam)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            MiscUtils.getLogger().warn("Invalid non-numeric demographicNo in createMCVLabReq: {}", LogSafe.sanitize(demoNoParam)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             return null;
         }
         Integer demographicNo = Integer.parseInt(demoNoParam);
@@ -427,7 +427,7 @@ public class Pregnancy2Action extends ActionSupport {
 
         String formClass = request.getParameter("form_class");
         if (formClass == null || !ALLOWED_PREGNANCY_FORM_CLASSES.contains(formClass)) {
-            MiscUtils.getLogger().warn("Invalid form class requested in pregnancy saveFormAjax: {}", LogSanitizer.sanitize(formClass)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            MiscUtils.getLogger().warn("Invalid form class requested in pregnancy saveFormAjax: {}", LogSafe.sanitize(formClass)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             jsonObj = objectMapper.valueToTree(new LabelValueBean("result", "error"));
             response.setContentType("application/json");
             response.setCharacterEncoding("UTF-8");
@@ -624,7 +624,7 @@ Repeat antibody screen
     public String createGCTLabReq() throws SQLException {
         String demoNoParam = request.getParameter("demographicNo");
         if (demoNoParam == null || !demoNoParam.matches("\\d+")) {
-            MiscUtils.getLogger().warn("Invalid non-numeric demographicNo in createGCTLabReq: {}", LogSanitizer.sanitize(demoNoParam)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            MiscUtils.getLogger().warn("Invalid non-numeric demographicNo in createGCTLabReq: {}", LogSafe.sanitize(demoNoParam)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             return null;
         }
         Integer demographicNo = Integer.parseInt(demoNoParam);
@@ -682,7 +682,7 @@ Repeat antibody screen
     public String createGTTLabReq() throws SQLException {
         String demoNoParam = request.getParameter("demographicNo");
         if (demoNoParam == null || !demoNoParam.matches("\\d+")) {
-            MiscUtils.getLogger().warn("Invalid non-numeric demographicNo in createGTTLabReq: {}", LogSanitizer.sanitize(demoNoParam)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            MiscUtils.getLogger().warn("Invalid non-numeric demographicNo in createGTTLabReq: {}", LogSafe.sanitize(demoNoParam)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             return null;
         }
         Integer demographicNo = Integer.parseInt(demoNoParam);

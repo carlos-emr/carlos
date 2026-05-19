@@ -22,11 +22,13 @@
 package io.github.carlos_emr.carlos.hospitalReportManager;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -36,9 +38,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.StringReader;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
@@ -50,12 +55,16 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
+import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
+import org.apache.logging.log4j.Level;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.AfterEach;
@@ -65,6 +74,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Isolated;
+import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -96,6 +106,8 @@ class PrintHRMReport2ActionUnitTest extends CarlosUnitTestBase {
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
     private SecurityInfoManager securityInfoManager;
+    private DemographicDao demographicDao;
+    private HRMDocumentToDemographicDao hrmDocumentToDemographicDao;
     private LoggedInInfo loggedInInfo;
     private String previousDocumentDir;
 
@@ -108,10 +120,12 @@ class PrintHRMReport2ActionUnitTest extends CarlosUnitTestBase {
         response = new MockHttpServletResponse();
 
         securityInfoManager = mock(SecurityInfoManager.class);
+        demographicDao = mock(DemographicDao.class);
+        hrmDocumentToDemographicDao = mock(HRMDocumentToDemographicDao.class);
         loggedInInfo = mock(LoggedInInfo.class);
         registerMock(SecurityInfoManager.class, securityInfoManager);
-        registerMock(DemographicDao.class, mock(DemographicDao.class));
-        registerMock(HRMDocumentToDemographicDao.class, mock(HRMDocumentToDemographicDao.class));
+        registerMock(DemographicDao.class, demographicDao);
+        registerMock(HRMDocumentToDemographicDao.class, hrmDocumentToDemographicDao);
 
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_hrm"), eq("r"), isNull()))
                 .thenReturn(true);
@@ -144,8 +158,11 @@ class PrintHRMReport2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should return none when HRM PDF is streamed")
     void shouldReturnNone_whenHrmPdfIsStreamed() throws Exception {
-        try (MockedStatic<ConcatPDF> concatPdfMock = mockStatic(ConcatPDF.class)) {
+        stageSingleHrmReport();
+        try (MockedConstruction<HRMPDFCreator> ignored = mockConstruction(HRMPDFCreator.class);
+                MockedStatic<ConcatPDF> concatPdfMock = mockStatic(ConcatPDF.class)) {
             concatPdfMock.when(() -> ConcatPDF.concat(any(ArrayList.class), any(OutputStream.class)))
                     .thenAnswer(invocation -> {
                         ((OutputStream) invocation.getArgument(1)).write(PDF_BYTES);
@@ -156,25 +173,174 @@ class PrintHRMReport2ActionUnitTest extends CarlosUnitTestBase {
 
             assertThat(result).isEqualTo(ActionSupport.NONE);
             assertThat(response.getContentType()).isEqualTo("application/pdf");
+            assertThat(response.getHeader("Content-Disposition"))
+                    .startsWith("attachment; filename=\"HRMReport_")
+                    .doesNotContain("Stone")
+                    .doesNotContain("Pat");
             assertThat(response.getContentAsByteArray()).startsWith(PDF_BYTES);
         }
     }
 
     @Test
+    @DisplayName("should return none when response stream cannot be opened")
     void shouldReturnNone_whenResponseStreamCannotBeOpened() throws Exception {
+        stageSingleHrmReport();
         HttpServletResponse failingResponse = mock(HttpServletResponse.class);
         when(failingResponse.isCommitted()).thenReturn(false);
         doThrow(new IOException("stream unavailable")).when(failingResponse).getOutputStream();
         servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(failingResponse);
 
-        String result = new PrintHRMReport2Action().execute();
+        String result;
+        try (MockedConstruction<HRMPDFCreator> ignored = mockConstruction(HRMPDFCreator.class)) {
+            result = new PrintHRMReport2Action().execute();
+        }
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
-        verify(failingResponse).reset();
+        verify(failingResponse).resetBuffer();
+        verify(failingResponse).setContentType("text/html;charset=UTF-8");
         verify(failingResponse).sendError(500, "Unable to generate HRM PDF");
     }
 
     @Test
+    @DisplayName("should reject request when HRM report id is invalid")
+    void shouldRejectRequest_whenHrmReportIdIsInvalid() throws Exception {
+        request.setParameter("hrmReportId", "101", "../patient-name");
+
+        String result = new PrintHRMReport2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(response.getErrorMessage()).isEqualTo("Invalid HRM report id");
+    }
+
+    @Test
+    @DisplayName("should reject request when HRM report id is missing")
+    void shouldRejectRequest_whenHrmReportIdIsMissing() throws Exception {
+        String result = new PrintHRMReport2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(response.getErrorMessage()).isEqualTo("Missing HRM report id");
+        assertThat(response.getContentType()).isNull();
+        assertThat(response.getHeader("Content-Disposition")).isNull();
+    }
+
+    @Test
+    @DisplayName("should reject missing document directory before creating temp files")
+    void shouldRejectMissingDocumentDirectory_beforeCreatingTempFiles() {
+        Path missingDir = tempDir.resolve("missing-document-dir");
+
+        assertThatThrownBy(() -> PrintHRMReport2Action.validatedDocumentDirectory(missingDir.toString()))
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining("DOCUMENT_DIR is not an existing directory");
+    }
+
+    @Test
+    @DisplayName("should reject blank document directory before creating temp files")
+    void shouldRejectBlankDocumentDirectory_beforeCreatingTempFiles() {
+        assertThatThrownBy(() -> PrintHRMReport2Action.validatedDocumentDirectory(" "))
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining("DOCUMENT_DIR is not configured");
+    }
+
+    @Test
+    @DisplayName("should reject invalid document directory path before creating temp files")
+    void shouldRejectInvalidDocumentDirectoryPath_beforeCreatingTempFiles() {
+        assertThatThrownBy(() -> PrintHRMReport2Action.validatedDocumentDirectory("bad\u0000path"))
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining("DOCUMENT_DIR is not a valid path");
+    }
+
+    @Test
+    @DisplayName("should reject file configured as document directory before creating temp files")
+    void shouldRejectFileConfiguredAsDocumentDirectory_beforeCreatingTempFiles() throws IOException {
+        Path notDirectory = Files.createFile(tempDir.resolve("document-dir-file"));
+
+        assertThatThrownBy(() -> PrintHRMReport2Action.validatedDocumentDirectory(notDirectory.toString()))
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining("DOCUMENT_DIR is not an existing directory");
+    }
+
+    @Test
+    @DisplayName("should return normalized absolute document directory")
+    void shouldReturnNormalizedAbsoluteDocumentDirectory_whenDirectoryExists() throws IOException {
+        Path configuredDirectory = Files.createDirectory(tempDir.resolve("document-dir"));
+
+        assertThat(PrintHRMReport2Action.validatedDocumentDirectory(configuredDirectory.toString()))
+                .isEqualTo(configuredDirectory.toAbsolutePath().normalize());
+    }
+
+    @Test
+    @DisplayName("should delete all temp files when multiple HRM reports are streamed")
+    void shouldDeleteAllTempFiles_whenMultipleHrmReportsAreStreamed() throws Exception {
+        request.addParameter("hrmReportId", "101", "102");
+        when(hrmDocumentToDemographicDao.findByHrmDocumentId(101)).thenReturn(List.of(hrmMapping(1)));
+        when(hrmDocumentToDemographicDao.findByHrmDocumentId(102)).thenReturn(List.of(hrmMapping(2)));
+        when(demographicDao.getDemographicById(1)).thenReturn(demographic("Alpha", "One"));
+        when(demographicDao.getDemographicById(2)).thenReturn(demographic("Beta", "Two"));
+
+        try (MockedConstruction<HRMPDFCreator> ignored = mockConstruction(HRMPDFCreator.class);
+                MockedStatic<ConcatPDF> concatPdfMock = mockStatic(ConcatPDF.class)) {
+            concatPdfMock.when(() -> ConcatPDF.concat(any(ArrayList.class), any(OutputStream.class)))
+                    .thenAnswer(invocation -> {
+                        ((OutputStream) invocation.getArgument(1)).write(PDF_BYTES);
+                        return null;
+                    });
+
+            String result = new PrintHRMReport2Action().execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+        }
+
+        try (Stream<Path> files = Files.list(tempDir)) {
+            assertThat(files.toList()).isEmpty();
+        }
+    }
+
+    @Test
+    @DisplayName("should send error when PDF merge throws runtime exception")
+    void shouldSendError_whenPdfMergeThrowsRuntimeException() throws Exception {
+        stageSingleHrmReport();
+        try (MockedConstruction<HRMPDFCreator> ignored = mockConstruction(HRMPDFCreator.class);
+                MockedStatic<ConcatPDF> concatPdfMock = mockStatic(ConcatPDF.class)) {
+            concatPdfMock.when(() -> ConcatPDF.concat(any(ArrayList.class), any(OutputStream.class)))
+                    .thenThrow(new RuntimeException("merge failed"));
+
+            String result = new PrintHRMReport2Action().execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(500);
+            assertThat(response.getErrorMessage()).isEqualTo("Unable to generate HRM PDF");
+        }
+    }
+
+    @Test
+    @DisplayName("should log committed response when PDF merge fails after commit")
+    void shouldLogCommittedResponse_whenPdfMergeFailsAfterCommit() throws Exception {
+        stageSingleHrmReport();
+        CommittedMockHttpServletResponse committedResponse = new CommittedMockHttpServletResponse();
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(committedResponse);
+
+        try (MockedConstruction<HRMPDFCreator> ignored = mockConstruction(HRMPDFCreator.class);
+                MockedStatic<ConcatPDF> concatPdfMock = mockStatic(ConcatPDF.class);
+                LogCapture capture = LogCapture.forLogger(PrintHRMReport2Action.class)) {
+            concatPdfMock.when(() -> ConcatPDF.concat(any(ArrayList.class), any(OutputStream.class)))
+                    .thenThrow(new RuntimeException("merge failed after commit"));
+
+            String result = new PrintHRMReport2Action().execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(capture.events()).anySatisfy(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.ERROR);
+                assertThat(event.getMessage().getFormattedMessage())
+                        .contains("after response commit")
+                        .contains("responseCommitted=true");
+            });
+        }
+    }
+
+    @Test
+    @DisplayName("should keep HRM print route without named results")
     void shouldKeepHrmPrintRoute_withoutNamedResults() throws Exception {
         Element action = findAction(parse(STRUTS_DOCUMENT_XML), HRM_PRINT_ROUTE)
                 .orElseThrow(() -> new AssertionError(
@@ -184,6 +350,25 @@ class PrintHRMReport2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(action.getElementsByTagName("result").getLength())
                 .as("%s must not map named JSP results for direct PDF responses", HRM_PRINT_ROUTE)
                 .isZero();
+    }
+
+    private HRMDocumentToDemographic hrmMapping(int demographicNo) {
+        HRMDocumentToDemographic mapping = new HRMDocumentToDemographic();
+        mapping.setDemographicNo(demographicNo);
+        return mapping;
+    }
+
+    private Demographic demographic(String lastName, String firstName) {
+        Demographic demographic = new Demographic();
+        demographic.setLastName(lastName);
+        demographic.setFirstName(firstName);
+        return demographic;
+    }
+
+    private void stageSingleHrmReport() {
+        request.addParameter("hrmReportId", "101");
+        when(hrmDocumentToDemographicDao.findByHrmDocumentId(101)).thenReturn(List.of(hrmMapping(1)));
+        when(demographicDao.getDemographicById(1)).thenReturn(demographic("Alpha", "One"));
     }
 
     private Optional<Element> findAction(Document document, String actionName) {
@@ -216,5 +401,12 @@ class PrintHRMReport2ActionUnitTest extends CarlosUnitTestBase {
         DocumentBuilder db = dbf.newDocumentBuilder();
         db.setEntityResolver((publicId, systemId) -> new InputSource(new StringReader("")));
         return db;
+    }
+
+    private static class CommittedMockHttpServletResponse extends MockHttpServletResponse {
+        @Override
+        public boolean isCommitted() {
+            return true;
+        }
     }
 }

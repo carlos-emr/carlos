@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.app;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+import io.github.carlos_emr.carlos.utility.RequestNegotiation;
 import org.owasp.csrfguard.CsrfGuard;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,7 +41,7 @@ import java.io.CharArrayWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Writer;
-import java.util.Locale;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
 
@@ -56,10 +58,19 @@ import java.util.regex.Pattern;
  * Responses using {@link ServletOutputStream} (binary content like PDFs, images) pass
  * through untouched.</p>
  *
+ * <p>The deployed web.xml mapping is load-bearing and currently FORWARD-only so JSP rendering
+ * can be captured after Struts forwards without double-wrapping the top-level request. The
+ * REQUEST-dispatch branch remains defensive for tests or future remapping; see
+ * {@code docs/csrf-protection-architecture.md} before changing dispatcher mappings.</p>
+ *
+ * <p>If {@link CsrfGuard#getInstance()} fails, the filter fails closed with HTTP 503 to avoid
+ * serving HTML without the CSRF script tag.</p>
+ *
  * <p>Injection is skipped when:
  * <ul>
  *   <li>Content-Type is not {@code text/html}</li>
- *   <li>The request is AJAX ({@code X-Requested-With: XMLHttpRequest})</li>
+ *   <li>The request is AJAX ({@code X-Requested-With: XMLHttpRequest}) on REQUEST dispatch
+ *       if that dispatcher mapping is re-enabled</li>
  *   <li>CSRFGuard is disabled</li>
  *   <li>The response already contains a {@code /csrfguard} script reference (idempotency)</li>
  *   <li>The response used {@code getOutputStream()} instead of {@code getWriter()}</li>
@@ -74,9 +85,6 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CsrfGuardScriptInjectionFilter.class);
 
-    private static final String AJAX_HEADER_NAME = "X-Requested-With";
-    private static final String AJAX_HEADER_VALUE = "XMLHttpRequest";
-
     /**
      * Matches a {@code <script src="...csrfguard...">} tag (case-insensitive).
      * Used for the idempotency check to avoid double-injection. A simple
@@ -85,6 +93,7 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
      */
     private static final Pattern CSRFGUARD_SCRIPT_PATTERN =
             Pattern.compile("<script[^>]*src=[\"'][^\"']*\\/csrfguard[\"']", Pattern.CASE_INSENSITIVE);
+    private static final AtomicBoolean HTML_LOOKING_PASSTHROUGH_WARNED = new AtomicBoolean(false);
 
     @Override
     public void init(FilterConfig filterConfig) throws ServletException {
@@ -115,13 +124,13 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
 
         HttpServletRequest httpRequest = (HttpServletRequest) request;
         HttpServletResponse httpResponse = (HttpServletResponse) response;
+        String safeRequestUri = LogSafe.sanitizeUri(httpRequest.getRequestURI());
 
         // Skip AJAX requests on REQUEST dispatch only (not FORWARD).
         // On FORWARD dispatch, the CaptureResponseWrapper is needed to prevent
         // Tomcat 11 from truncating large JSP responses (> 8KB) during forward.
         if (httpRequest.getDispatcherType() == jakarta.servlet.DispatcherType.REQUEST) {
-            String requestedWith = httpRequest.getHeader(AJAX_HEADER_NAME);
-            if (AJAX_HEADER_VALUE.equalsIgnoreCase(requestedWith)) {
+            if (RequestNegotiation.isAjax(httpRequest)) {
                 chain.doFilter(request, response);
                 return;
             }
@@ -132,9 +141,10 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         try {
             csrfGuard = CsrfGuard.getInstance();
         } catch (Exception e) {
-            LOGGER.error("CsrfGuard.getInstance() failed — page will be served without CSRF "
-                    + "script tag (method={})", httpRequest.getMethod(), e);
-            chain.doFilter(request, response);
+            LOGGER.error("CsrfGuard.getInstance() failed — failing closed so HTML is not "
+                    + "served without CSRF script injection (method={} uri={})",
+                    LogSafe.sanitize(httpRequest.getMethod()), safeRequestUri, e);
+            httpResponse.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
             return;
         }
 
@@ -143,17 +153,17 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             return;
         }
 
-        CaptureResponseWrapper wrapper = new CaptureResponseWrapper(httpResponse);
-        LOGGER.debug("CsrfGuard: wrapping request {}", httpRequest.getRequestURI());
+        CaptureResponseWrapper wrapper = new CaptureResponseWrapper(httpResponse, safeRequestUri);
+        LOGGER.debug("CsrfGuard: wrapping request {}", safeRequestUri);
         chain.doFilter(request, wrapper);
         LOGGER.debug("CsrfGuard: chain completed for {} committed={} writer={} stream={}",
-                httpRequest.getRequestURI(), wrapper.isResponseCommitted(),
+                safeRequestUri, wrapper.isResponseCommitted(),
                 wrapper.isUsingWriter(), wrapper.isUsingOutputStream());
 
         // If the response was committed by sendRedirect() or sendError(), the status and
         // headers have already been sent to the client — no post-processing is possible
         if (wrapper.isResponseCommitted()) {
-            LOGGER.debug("CsrfGuard: response committed for {}", httpRequest.getRequestURI());
+            LOGGER.debug("CsrfGuard: response committed for {}", safeRequestUri);
             return;
         }
 
@@ -161,7 +171,7 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         // client via the real response's output stream — no capture occurred and no injection
         // is possible
         if (wrapper.isUsingOutputStream()) {
-            LOGGER.debug("CsrfGuard: output stream used for {}", httpRequest.getRequestURI());
+            LOGGER.debug("CsrfGuard: output stream used for {}", safeRequestUri);
             return;
         }
 
@@ -170,39 +180,40 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             LOGGER.debug("CsrfGuard script injection skipped — getWriter() was never called "
                     + "(usingOutputStream={}, committed={}, uri={})",
                     wrapper.isUsingOutputStream(), wrapper.isResponseCommitted(),
-                    httpRequest.getRequestURI());
+                    safeRequestUri);
             return;
         }
 
         if (wrapper.isWriterPassthrough()) {
             LOGGER.debug("CsrfGuard: writer passthrough for {} contentType={}",
-                    httpRequest.getRequestURI(), wrapper.getContentType());
+                    safeRequestUri, wrapper.getContentType());
+            wrapper.flushPassthroughWriter();
             return;
         }
 
         String contentType = wrapper.getContentType();
-        if (!isHtmlContentType(contentType)) {
+        if (!RequestNegotiation.isHtmlContentType(contentType)) {
             // Not HTML — write captured content through without modification
-            writeToResponse(httpResponse, wrapper.getCapturedContent());
+            writeToResponse(httpResponse, wrapper.getCapturedContent(), safeRequestUri);
             return;
         }
 
         String captured = wrapper.getCapturedContent();
         LOGGER.debug("CsrfGuard: captured {} bytes for {} contentType={}",
-                captured != null ? captured.length() : 0, httpRequest.getRequestURI(), contentType);
+                captured.length(), safeRequestUri, contentType);
 
         // Idempotency: skip if the page already contains a <script src="...csrfguard..."> tag.
         // Regex is used rather than contains() to avoid false positives when the literal
         // string "/csrfguard" appears in JavaScript code, comments, or user-generated content.
         if (CSRFGUARD_SCRIPT_PATTERN.matcher(captured).find()) {
-            writeToResponse(httpResponse, captured);
+            writeToResponse(httpResponse, captured, safeRequestUri);
             return;
         }
 
         String scriptTag = "<script src=\"" + httpRequest.getContextPath() + "/csrfguard\"></script>";
         String modified = injectScript(captured, scriptTag);
 
-        writeToResponse(httpResponse, modified);
+        writeToResponse(httpResponse, modified, safeRequestUri);
     }
 
     /**
@@ -247,48 +258,51 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
     }
 
     /**
-     * Writes the final content to the real response, updating Content-Length.
+     * Writes the final content to the real response.
+     *
+     * <p>{@code Content-Length} is updated only on the output-stream fallback path, where this
+     * method writes the exact byte array. The normal writer path leaves length calculation to the
+     * container so response character encoding cannot create a stale byte count.</p>
      *
      * <p>Uses {@code getWriter()} for text content because Tomcat 11's
      * {@code RequestDispatcher.forward()} may have already opened the writer
      * on the underlying response. Calling {@code getOutputStream()} after
      * {@code getWriter()} throws {@code IllegalStateException}.</p>
      */
-    private void writeToResponse(HttpServletResponse response, String content) throws IOException {
+    private void writeToResponse(HttpServletResponse response, String content, String safeRequestUri)
+            throws IOException {
         // Clear only the response body buffer, preserving status code, headers, and cookies
         // set by downstream components. resetBuffer() is safer than reset() which would
         // wipe Set-Cookie, security headers, CSP, and non-200 status codes.
         try {
             response.resetBuffer();
         } catch (IllegalStateException e) {
-            LOGGER.debug("writeToResponse: cannot resetBuffer for {}-byte content", content.length());
+            LOGGER.warn("writeToResponse: response buffer was already committed before "
+                    + "CSRF-adjusted replay; writing captured content without reset: uri={}, "
+                    + "contentType={}, committed={}",
+                    safeRequestUri, response.getContentType(), response.isCommitted(), e);
         }
         String encoding = response.getCharacterEncoding();
         if (encoding == null || encoding.isEmpty()) {
             encoding = "UTF-8";
         }
         try {
-            // Use getWriter() for text responses. Content-Length is not set here — the byte
-            // count from content.getBytes(encoding) may differ from what the writer sends if
-            // the response encoding changes, causing client-side truncation from a mismatched
-            // header. The container computes the correct length via chunked transfer encoding.
+            // Use getWriter() for text responses. Content-Length is not set here because
+            // the byte count from content.getBytes(encoding) may differ from what the writer
+            // sends if the response encoding changes. The container should own the final length.
             response.getWriter().write(content); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer, java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss, java.servlets.security.servletresponse-writer-xss-deepsemgrep.servletresponse-writer-xss-deepsemgrep -- trusted CSRF framework content
             response.getWriter().flush();
         } catch (IllegalStateException e) {
-            // getWriter() failed because getOutputStream() was already called — use byte stream.
-            // Content-Length is safe here since we write the exact same bytes array.
+            // getWriter() failed because getOutputStream() was already called. This fallback
+            // writes the exact byte array, so Content-Length is safe here.
+            LOGGER.warn("CsrfGuard: response writer unavailable while writing adjusted content; "
+                            + "falling back to output stream: uri={}, contentType={}, committed={}",
+                    safeRequestUri, response.getContentType(), response.isCommitted(), e);
             byte[] bytes = content.getBytes(encoding);
             response.setContentLength(bytes.length);
             response.getOutputStream().write(bytes); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- trusted CSRF framework content
             response.getOutputStream().flush();
         }
-    }
-
-    /**
-     * Returns whether the supplied Content-Type represents an HTML response.
-     */
-    private static boolean isHtmlContentType(String contentType) {
-        return contentType != null && contentType.toLowerCase(Locale.ROOT).startsWith("text/html");
     }
 
     @Override
@@ -313,13 +327,14 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         private boolean committed;
         private Integer deferredContentLength;
         private Long deferredContentLengthLong;
+        private final String requestUri;
 
-        public CaptureResponseWrapper(HttpServletResponse response) {
+        public CaptureResponseWrapper(HttpServletResponse response, String requestUri) {
             super(response);
-            // Increase underlying response buffer to 1 MB to prevent premature flushing
-            // before our wrapper can capture the complete HTML content for script injection
-            // Note: setBufferSize removed for Tomcat 11 compatibility — the default
-            // buffer is sufficient since we capture via CharArrayWriter, not the response buffer
+            this.requestUri = requestUri;
+            // Do not call setBufferSize() here. Tomcat 11 forwards can reject late buffer-size
+            // changes after a JSP has obtained its writer, so the capture boundary is the
+            // CharArrayWriter below rather than the servlet container's response buffer.
         }
 
         @Override
@@ -344,7 +359,7 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
                 if (isKnownNonHtmlContentType()) {
                     writerPassthrough = true;
                     applyDeferredContentLength();
-                    writer = super.getWriter();
+                    writer = new PrintWriter(new SniffingPassthroughWriter(super.getWriter()));
                 } else {
                     writer = new PrintWriter(new LazyCaptureWriter());
                 }
@@ -388,6 +403,42 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             }
             // Mode not yet determined — defer until getOutputStream() or getWriter() is called
             deferredContentLengthLong = len;
+        }
+
+        @Override
+        public void setHeader(String name, String value) {
+            if (isContentLengthHeader(name)) {
+                deferContentLengthHeader(value);
+                return;
+            }
+            super.setHeader(name, value);
+        }
+
+        @Override
+        public void addHeader(String name, String value) {
+            if (isContentLengthHeader(name)) {
+                deferContentLengthHeader(value);
+                return;
+            }
+            super.addHeader(name, value);
+        }
+
+        @Override
+        public void setIntHeader(String name, int value) {
+            if (isContentLengthHeader(name)) {
+                setContentLength(value);
+                return;
+            }
+            super.setIntHeader(name, value);
+        }
+
+        @Override
+        public void addIntHeader(String name, int value) {
+            if (isContentLengthHeader(name)) {
+                setContentLength(value);
+                return;
+            }
+            super.addIntHeader(name, value);
         }
 
         @Override
@@ -476,11 +527,77 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         }
 
         /**
+         * Completes non-HTML writer passthrough responses before returning from the FORWARD
+         * filter. JSP writers can hold up to the servlet buffer size; without this explicit
+         * flush, JavaScript and JSON forwards may reach the browser with only the first buffer.
+         */
+        void flushPassthroughWriter() {
+            if (writer != null) {
+                writer.flush();
+            }
+        }
+
+        /**
          * Returns true only when Content-Type is known and not HTML.
          */
         private boolean isKnownNonHtmlContentType() {
             String contentType = getContentType();
-            return contentType != null && !isHtmlContentType(contentType);
+            return contentType != null && !RequestNegotiation.isHtmlContentType(contentType);
+        }
+
+        /**
+         * Emits one operator-visible warning when a response opts out of CSRF injection using a
+         * non-HTML content type but the first body chunk looks like a full HTML page. This catches
+         * JSPs that accidentally set {@code text/json} or similar before writing HTML, a failure
+         * mode that otherwise causes missing CSRF tokens with only DEBUG-level evidence.
+         */
+        private void warnIfHtmlLookingPassthrough(String value, int offset, int length) {
+            if (value == null || length <= 0 || !isKnownNonHtmlContentType()) {
+                return;
+            }
+            int safeOffset = Math.max(0, Math.min(offset, value.length()));
+            int safeEnd = Math.max(safeOffset, Math.min(value.length(), safeOffset + length));
+            if (startsWithHtmlDocument(value.subSequence(safeOffset, safeEnd))
+                    && HTML_LOOKING_PASSTHROUGH_WARNED.compareAndSet(false, true)) {
+                LOGGER.warn("CSRF script injection passed through a response with non-HTML "
+                        + "Content-Type [{}] even though the body appears to be HTML; uri={}",
+                        getContentType(), requestUri);
+            }
+        }
+
+        private void warnIfHtmlLookingPassthrough(char[] chars, int offset, int length) {
+            if (chars == null || length <= 0 || !isKnownNonHtmlContentType()) {
+                return;
+            }
+            int safeOffset = Math.max(0, Math.min(offset, chars.length));
+            int safeLength = Math.max(0, Math.min(length, chars.length - safeOffset));
+            if (safeLength == 0) {
+                return;
+            }
+            warnIfHtmlLookingPassthrough(new String(chars, safeOffset, safeLength), 0, safeLength);
+        }
+
+        private static boolean startsWithHtmlDocument(CharSequence value) {
+            int index = 0;
+            int length = value.length();
+            while (index < length && Character.isWhitespace(value.charAt(index))) {
+                index++;
+            }
+            return startsWithIgnoreCase(value, index, "<html")
+                    || startsWithIgnoreCase(value, index, "<!doctype");
+        }
+
+        private static boolean startsWithIgnoreCase(CharSequence value, int offset, String prefix) {
+            if (value.length() - offset < prefix.length()) {
+                return false;
+            }
+            for (int i = 0; i < prefix.length(); i++) {
+                if (Character.toLowerCase(value.charAt(offset + i))
+                        != Character.toLowerCase(prefix.charAt(i))) {
+                    return false;
+                }
+            }
+            return true;
         }
 
         /**
@@ -495,6 +612,19 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
                 super.setContentLengthLong(deferredContentLengthLong);
                 deferredContentLengthLong = null;
             }
+        }
+
+        private void deferContentLengthHeader(String value) {
+            try {
+                setContentLengthLong(Long.parseLong(value));
+            } catch (NumberFormatException e) {
+                LOGGER.warn("Ignoring malformed Content-Length header value during CSRF capture: uri={}, value={}",
+                        requestUri, LogSafe.sanitize(value), e);
+            }
+        }
+
+        private boolean isContentLengthHeader(String name) {
+            return "Content-Length".equalsIgnoreCase(name);
         }
 
         /**
@@ -512,11 +642,13 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
 
             @Override
             public void write(char[] chars, int offset, int length) throws IOException {
+                warnIfHtmlLookingPassthrough(chars, offset, length);
                 getTarget().write(chars, offset, length);
             }
 
             @Override
             public void write(String string, int offset, int length) throws IOException {
+                warnIfHtmlLookingPassthrough(string, offset, length);
                 getTarget().write(string, offset, length);
             }
 
@@ -558,6 +690,41 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
                 }
                 captureWriter = new CharArrayWriter();
                 return captureWriter;
+            }
+        }
+
+        private class SniffingPassthroughWriter extends Writer {
+            private final Writer delegate;
+
+            SniffingPassthroughWriter(Writer delegate) {
+                this.delegate = delegate;
+            }
+
+            @Override
+            public void write(int character) throws IOException {
+                delegate.write(character);
+            }
+
+            @Override
+            public void write(char[] chars, int offset, int length) throws IOException {
+                warnIfHtmlLookingPassthrough(chars, offset, length);
+                delegate.write(chars, offset, length);
+            }
+
+            @Override
+            public void write(String string, int offset, int length) throws IOException {
+                warnIfHtmlLookingPassthrough(string, offset, length);
+                delegate.write(string, offset, length);
+            }
+
+            @Override
+            public void flush() throws IOException {
+                delegate.flush();
+            }
+
+            @Override
+            public void close() throws IOException {
+                delegate.close();
             }
         }
     }

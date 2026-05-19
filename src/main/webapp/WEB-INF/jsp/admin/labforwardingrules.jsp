@@ -74,6 +74,8 @@
 
     <title><fmt:message key="admin.admin.labFwdRules"/></title>
     <link href="${ctx}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+    <script type="text/javascript" src="${ctx}/library/jquery/jquery-3.7.1.min.js"></script>
+    <script type="text/javascript" src="${ctx}/library/jquery/jquery-compat.js"></script>
     <script src="${ctx}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
     <link rel="stylesheet" href="${ctx}/css/fontawesome-all.min.css">
 
@@ -265,7 +267,9 @@
     var pageTitle = document.title;
     document.title = 'Administration Panel | Lab Forwarding Rules';
 
-    registerFormSubmit('ForwardRulesForm', 'dynamic-content');
+    if (typeof registerFormSubmit === 'function') {
+        registerFormSubmit('ForwardRulesForm', 'dynamic-content');
+    }
 
     $("#providers-selection").change(function (e) {
         e.preventDefault();

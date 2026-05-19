@@ -809,6 +809,12 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
     <input type="hidden" name="addToPatientDx"/>
     <input type="hidden" name="codeMatchToPatientDx"/>
 
+    <c:if test="${not empty formModel.display.displayMessage}">
+        <div class="smallFont">
+            <carlos:encode value='${formModel.display.displayMessage}' context='html'/>
+        </div>
+    </c:if>
+
     <table class="xmyDarkGreen"
            style="width: 100%; background-color: silver;">
         <tr>

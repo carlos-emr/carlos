@@ -32,7 +32,7 @@ import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.dao.BatchEligibilityDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicCustDao;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -197,7 +197,7 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
             String place = props.getProperty("DOCUMENT_DIR");
             if (place == null || place.trim().isEmpty()) {
                 MiscUtils.getLogger().error("DOCUMENT_DIR property is not configured for MOH report upload file {}",
-                        LogSanitizer.sanitize(fileName));
+                        LogSafe.sanitize(fileName));
                 return SaveReportFileResult.failure(CONFIG_ERROR_MESSAGE);
             }
 
@@ -205,7 +205,7 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
             File placeDir = new File(place).getCanonicalFile();
             if (!placeDir.exists() || !placeDir.isDirectory()) {
                 MiscUtils.getLogger().error("DOCUMENT_DIR does not exist or is not a directory for MOH report upload file {}: {}",
-                        LogSanitizer.sanitize(fileName), LogSanitizer.sanitize(place));
+                        LogSafe.sanitize(fileName), LogSafe.sanitize(place));
                 return SaveReportFileResult.failure(CONFIG_ERROR_MESSAGE);
             }
 
@@ -214,7 +214,7 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
                 destFile = PathValidationUtils.validatePath(fileName, placeDir);
             } catch (SecurityException e) {
                 MiscUtils.getLogger().error("Invalid MOH report upload filename provided: {}",
-                        LogSanitizer.sanitize(fileName), e);
+                        LogSafe.sanitize(fileName), e);
                 return SaveReportFileResult.failure(FILE_ACCESS_ERROR_MESSAGE);
             }
 
@@ -232,7 +232,7 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
             String inboxDir = props.getProperty("ONEDT_INBOX");
             if (inboxDir == null || inboxDir.trim().isEmpty()) {
                 MiscUtils.getLogger().error("ONEDT_INBOX property is not configured for MOH report upload file {}",
-                        LogSanitizer.sanitize(fileName));
+                        LogSafe.sanitize(fileName));
                 return SaveReportFileResult.failure(CONFIG_ERROR_MESSAGE);
             }
 
@@ -240,7 +240,7 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
             File inboxDirFile = new File(inboxDir).getCanonicalFile();
             if (!inboxDirFile.exists() || !inboxDirFile.isDirectory()) {
                 MiscUtils.getLogger().error("ONEDT_INBOX does not exist or is not a directory for MOH report upload file {}: {}",
-                        LogSanitizer.sanitize(fileName), LogSanitizer.sanitize(String.valueOf(inboxDir)));
+                        LogSafe.sanitize(fileName), LogSafe.sanitize(String.valueOf(inboxDir)));
                 return SaveReportFileResult.failure(CONFIG_ERROR_MESSAGE);
             }
 
@@ -248,19 +248,19 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
             try {
                 inboxFile = PathValidationUtils.validatePath(destFile.getName(), inboxDirFile);
             } catch (SecurityException e) {
-                MiscUtils.getLogger().error("Invalid filename for inbox: {}", LogSanitizer.sanitize(destFile == null ? "null" : destFile.getName()));
+                MiscUtils.getLogger().error("Invalid filename for inbox: {}", LogSafe.sanitize(destFile.getName()));
                 return SaveReportFileResult.failure(FILE_ACCESS_ERROR_MESSAGE);
             }
 
             org.apache.commons.io.FileUtils.copyFile(destFile, inboxFile);
         } catch (FileNotFoundException e) {
             MiscUtils.getLogger().error("MOH report upload source file not found: {}",
-                    LogSanitizer.sanitize(fileName), e);
+                    LogSafe.sanitize(fileName), e);
             return SaveReportFileResult.failure(FILE_ACCESS_ERROR_MESSAGE);
 
         } catch (IOException ioe) {
             MiscUtils.getLogger().error("MOH report upload IO error for {}",
-                    LogSanitizer.sanitize(fileName), ioe);
+                    LogSafe.sanitize(fileName), ioe);
             return SaveReportFileResult.failure(FILE_ACCESS_ERROR_MESSAGE);
         }
 
@@ -293,7 +293,7 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
 
             if (filepath == null || filepath.isBlank()) {
                 MiscUtils.getLogger().error("{} property is not configured for MOH report file {}",
-                        LogSanitizer.sanitize(pathDir), LogSanitizer.sanitize(fileName));
+                        LogSafe.sanitize(pathDir), LogSafe.sanitize(fileName));
                 return MohReportReadResult.failure(ReadFailureCategory.CONFIGURATION, CONFIG_ERROR_MESSAGE);
             }
 
@@ -301,8 +301,8 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
             File safeDir = new File(filepath).getCanonicalFile();
             if (!safeDir.exists() || !safeDir.isDirectory()) {
                 MiscUtils.getLogger().error("{} does not exist or is not a directory for MOH report file {}: {}",
-                        LogSanitizer.sanitize(pathDir), LogSanitizer.sanitize(fileName),
-                        LogSanitizer.sanitize(filepath));
+                        LogSafe.sanitize(pathDir), LogSafe.sanitize(fileName),
+                        LogSafe.sanitize(filepath));
                 return MohReportReadResult.failure(ReadFailureCategory.CONFIGURATION, CONFIG_ERROR_MESSAGE);
             }
             File inputFile;
@@ -310,14 +310,14 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
                 inputFile = PathValidationUtils.validatePath(fileName, safeDir);
             } catch (SecurityException e) {
                 MiscUtils.getLogger().error("Invalid MOH report filename provided for {}: {}",
-                        LogSanitizer.sanitize(pathDir), LogSanitizer.sanitize(fileName), e);
+                        LogSafe.sanitize(pathDir), LogSafe.sanitize(fileName), e);
                 return MohReportReadResult.failure(ReadFailureCategory.FILE_ACCESS, FILE_ACCESS_ERROR_MESSAGE);
             }
 
             // Get the sanitized filename from the validated path
             String sanitizedFileName = inputFile.getName();
             if (sanitizedFileName.isEmpty()) {
-                MiscUtils.getLogger().warn("MOH report filename empty after sanitization for {}", LogSanitizer.sanitize(fileName));
+                MiscUtils.getLogger().warn("MOH report filename empty after sanitization for {}", LogSafe.sanitize(fileName));
                 return MohReportReadResult.failure(ReadFailureCategory.FILE_ACCESS, FILE_ACCESS_ERROR_MESSAGE);
             }
 
@@ -328,7 +328,7 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
             // try-with-resources to close the FileInputStream on every exit path.
             try (FileInputStream file = new FileInputStream(inputFile)) {
                 MiscUtils.getLogger().debug("File path: {}",
-                        LogSanitizer.sanitize(inputFile.getAbsolutePath()));
+                        LogSafe.sanitize(inputFile.getAbsolutePath()));
 
                 if (prefix.compareTo("E") == 0 || prefix.compareTo("F") == 0) {
                     ReportName = "Claims Error Report";
@@ -361,8 +361,8 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
                     // log the operator can't see what prefix actually arrived.
                     MiscUtils.getLogger().warn(
                             "Unrecognized MOH report prefix [{}] for file {} — supported prefixes are E/F/B/X/R/L",
-                            LogSanitizer.sanitize(prefix),
-                            LogSanitizer.sanitize(sanitizedFileName));
+                            LogSafe.sanitize(prefix),
+                            LogSafe.sanitize(sanitizedFileName));
                     return MohReportReadResult.failure(ReadFailureCategory.FORMAT, getText("errors.incorrectFileFormat"));
                 }
             }
@@ -370,20 +370,20 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
             request.setAttribute("ReportName", ReportName);
             if (!isGot) {
                 MiscUtils.getLogger().warn("MOH report parser returned unsuccessful verdict for file {} from {}",
-                        LogSanitizer.sanitize(sanitizedFileName), LogSanitizer.sanitize(pathDir));
+                        LogSafe.sanitize(sanitizedFileName), LogSafe.sanitize(pathDir));
                 return MohReportReadResult.failure(ReadFailureCategory.FORMAT, getText("errors.incorrectFileFormat"));
             }
         } catch (FileNotFoundException fnfe) {
             MiscUtils.getLogger().error("MOH report upload - file not found at validated path for {}: {}",
-                    LogSanitizer.sanitize(pathDir), LogSanitizer.sanitize(fileName), fnfe);
+                    LogSafe.sanitize(pathDir), LogSafe.sanitize(fileName), fnfe);
             return MohReportReadResult.failure(ReadFailureCategory.FILE_ACCESS, FILE_ACCESS_ERROR_MESSAGE);
         } catch (BillingFileImportException importFailure) {
             MiscUtils.getLogger().error("MOH report import failed for {} from {}",
-                    LogSanitizer.sanitize(fileName), LogSanitizer.sanitize(pathDir), importFailure);
+                    LogSafe.sanitize(fileName), LogSafe.sanitize(pathDir), importFailure);
             return MohReportReadResult.failure(ReadFailureCategory.IMPORT, IMPORT_ERROR_MESSAGE);
         } catch (IOException ioe) {
             MiscUtils.getLogger().error("MOH report upload - IO error reading {} from {}",
-                    LogSanitizer.sanitize(fileName), LogSanitizer.sanitize(pathDir), ioe);
+                    LogSafe.sanitize(fileName), LogSafe.sanitize(pathDir), ioe);
             return MohReportReadResult.failure(ReadFailureCategory.FILE_ACCESS, FILE_ACCESS_ERROR_MESSAGE);
         }
 

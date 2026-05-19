@@ -360,6 +360,28 @@ class RateLimitFilterTest extends CarlosUnitTestBase {
             verify(response).sendError(eq(429), anyString());
         }
 
+        @Test
+        @DisplayName("should apply forced-reset submit rate to submit endpoint")
+        void shouldApplyForcedResetSubmitRate_whenSubmitPathMatches() throws Exception {
+            when(mockProperties.isPropertyActive("WAF_RATE_LIMIT_ENABLED")).thenReturn(true);
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_MODE")).thenReturn("enforce");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_DEFAULT_REQUESTS")).thenReturn("100");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_DEFAULT_WINDOW_SECONDS")).thenReturn("60");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_PATHS"))
+                    .thenReturn("/forcepasswordreset=20/60,/forcepasswordresetSubmit=2/60");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_EXEMPT_IPS")).thenReturn("127.0.0.1,::1");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_CLEANUP_INTERVAL_SECONDS")).thenReturn("300");
+            filter.init(mock(FilterConfig.class));
+
+            when(request.getRequestURI()).thenReturn("/carlos/forcepasswordresetSubmit");
+
+            filter.doFilter(request, response, chain);
+            filter.doFilter(request, response, chain);
+            filter.doFilter(request, response, chain);
+
+            verify(response).sendError(eq(429), anyString());
+        }
+
         /**
          * Boundary check: an attacker cookie-rewriting their session as a
          * matrix-param suffix on /login (e.g., {@code /login;jsessionid=…})

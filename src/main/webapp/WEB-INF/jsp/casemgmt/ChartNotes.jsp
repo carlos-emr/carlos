@@ -31,9 +31,9 @@
 <%--
     ChartNotes.jsp — Renders the clinical notes panel inside the encounter page.
 
-    Loaded via jsp:include from newCaseManagementView.jsp. Displays filtered and
-    sorted clinical notes for a patient, with inline editing, issue assignment,
-    and template insertion.
+    Loaded either as the standalone CaseManagementView AJAX result or as part of
+    newEncounterLayout.jsp. Displays filtered and sorted clinical notes for a
+    patient, with inline editing, issue assignment, and template insertion.
 
     The 1 MB buffer (page directive + response.setBufferSize) prevents Tomcat 11
     from truncating large AJAX forward responses. Without it, the
@@ -160,8 +160,11 @@
         if (request.getParameter("caseManagementEntryForm") == null) {
             request.setAttribute("caseManagementEntryForm", cform);
         }
+        boolean layoutIncludesDependencies = Boolean.parseBoolean(
+                String.valueOf(request.getAttribute("eChartLayoutIncludesDependencies")));
 %>
 
+<% if (!layoutIncludesDependencies) { %>
 <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/library/jquery/jquery-3.7.1.min.js"></script>
 <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/library/jquery/jquery-ui-1.14.2.min.js"></script>
 <script type="text/javascript">jQuery.noConflict();</script>
@@ -173,6 +176,7 @@
 <!-- vanilla JS autocomplete select box (replaces Scriptaculous Autocompleter.SelectBox) -->
 <script src="${carlos:forHtmlAttribute(ctx)}/share/javascript/select.js" type="text/javascript"></script>
 <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/js/newCaseManagementView.js.jsp?v=<%= System.currentTimeMillis() %>"></script>
+<% } %>
 <script type="text/javascript">
     ctx = "${carlos:forJavaScript(ctx)}";
     imgPrintgreen.src = ctx + "/encounter/graphics/printerGreen.png"; //preload green print image so firefox will update properly
@@ -323,17 +327,20 @@
                                     @SuppressWarnings("unchecked")
                                     Set<Provider> providers = (Set<Provider>) request.getAttribute("providers");
 
+                                    // Layout includes may not carry standalone CaseManagementView filter collections.
                                     String providerNo;
                                     Provider prov;
-                                    Iterator<Provider> iter = providers.iterator();
-                                    while (iter.hasNext()) {
-                                        prov = iter.next();
-                                        providerNo = prov.getProviderNo();
+                                    if (providers != null) {
+                                        Iterator<Provider> iter = providers.iterator();
+                                        while (iter.hasNext()) {
+                                            prov = iter.next();
+                                            providerNo = prov.getProviderNo();
                                 %>
                                 <li>
                                     <input type="checkbox" name="filter_providers" value="<%= providerNo %>" onclick="filterCheckBox(this)" /><carlos:encode value='<%= prov.getFormattedName() %>' context="html"/>
                                 </li>
                                 <%
+                                        }
                                     }
                                 %>
                             </ul>
@@ -349,14 +356,16 @@
                                 <%
                                     @SuppressWarnings("unchecked")
                                     List roles = (List) request.getAttribute("roles");
-                                    for (int num = 0; num < roles.size(); ++num) {
-                                        Secrole role = (Secrole) roles.get(num);
+                                    if (roles != null) {
+                                        for (int num = 0; num < roles.size(); ++num) {
+                                            Secrole role = (Secrole) roles.get(num);
                                 %>
                                 <li>
                                     <input type="checkbox" name="filter_roles" value="<%=String.valueOf(role.getId())%>" onclick="filterCheckBox(this)" />
                                     <carlos:encode value='<%= role.getName() %>' context="html"/>
                                 </li>
                                 <%
+                                        }
                                     }
                                 %>
                             </ul>
@@ -397,8 +406,9 @@
                                 <%
                                     @SuppressWarnings("unchecked")
                                     List issues = (List) request.getAttribute("cme_issues");
-                                    for (int num = 0; num < issues.size(); ++num) {
-                                        CheckBoxBean issue_checkBoxBean = (CheckBoxBean) issues.get(num);
+                                    if (issues != null) {
+                                        for (int num = 0; num < issues.size(); ++num) {
+                                            CheckBoxBean issue_checkBoxBean = (CheckBoxBean) issues.get(num);
                                 %>
                                 <li>
                                     <input type="checkbox" name="issues" value="<%=String.valueOf(issue_checkBoxBean.getIssue().getId())%>"
@@ -406,6 +416,7 @@
                                     <%=issue_checkBoxBean.getIssueDisplay().getResolved().equals("resolved") ? "* " : ""%> <carlos:encode value='<%= issue_checkBoxBean.getIssueDisplay().getDescription() %>' context="html"/>
                                 </li>
                                 <%
+                                        }
                                     }
                                 %>
                             </ul>
@@ -684,4 +695,3 @@
         MiscUtils.getLogger().debug("Failed to flush ChartNotes.jsp output", flushEx);
     }
 %>
-
