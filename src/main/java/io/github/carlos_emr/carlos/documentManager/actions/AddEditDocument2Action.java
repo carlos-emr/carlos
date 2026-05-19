@@ -598,8 +598,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         }
 
         private InputStream openStream() throws IOException {
-            // codeql[java/path-injection] -- validated Struts/Tomcat temp file; see ValidatedDocumentUpload.from.
-            return Files.newInputStream(file.toPath());
+            return Files.newInputStream(file.toPath()); // codeql[java/path-injection] -- validated Struts/Tomcat temp file; see ValidatedDocumentUpload.from.
         }
     }
 
