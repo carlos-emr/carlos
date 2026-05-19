@@ -8,6 +8,7 @@
 package io.github.carlos_emr.carlos.utility;
 
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.parallel.ResourceLock;
 
 import java.util.Arrays;
 
@@ -23,6 +24,7 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("fast")
 @Tag("utility")
 @Tag("clinical")
+@ResourceLock("CppUtils.cppCodes")
 class CppUtilsUnitTest {
 
     private static final String[] DEFAULT_CPP_CODES = {
