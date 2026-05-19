@@ -104,6 +104,10 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
         connections.remove();
     }
 
+    /**
+     * Releases current-thread JDBC tracking and clears diagnostic references during
+     * webapp shutdown to avoid retaining connections or class-loader-owned state.
+     */
     static void clearTrackingState() {
         releaseThreadConnections();
         debugMap.clear();

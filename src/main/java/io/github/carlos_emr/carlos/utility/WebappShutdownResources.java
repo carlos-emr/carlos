@@ -43,6 +43,14 @@ public final class WebappShutdownResources {
         deregisterJdbcDrivers(webappClassLoader);
     }
 
+    /**
+     * Deregisters JDBC drivers loaded by the stopping webapp class loader only.
+     * Drivers loaded by Tomcat or another parent loader are left registered because
+     * they may be shared with other applications.
+     *
+     * @param webappClassLoader class loader whose drivers should be deregistered
+     * @return number of JDBC drivers successfully deregistered
+     */
     static int deregisterJdbcDrivers(ClassLoader webappClassLoader) {
         ClassLoader classLoader = webappClassLoader != null
                 ? webappClassLoader
@@ -66,6 +74,12 @@ public final class WebappShutdownResources {
         return deregistered;
     }
 
+    /**
+     * Stops MySQL Connector/J's abandoned-connection cleanup thread during webapp
+     * shutdown. A stopped cleanup thread is expected on repeated shutdown paths, so
+     * that state is logged at debug level; unexpected runtime failures are warnings
+     * because shutdown should continue best-effort.
+     */
     static void shutdownMySqlAbandonedConnectionCleanupThread() {
         try {
             AbandonedConnectionCleanupThread.checkedShutdown();

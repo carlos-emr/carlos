@@ -198,6 +198,10 @@ public class Startup implements ServletContextListener {
         WebappShutdownResources.releaseForContext(getWebappClassLoader(arg0));
     }
 
+    /**
+     * Resolves the stopping webapp class loader, falling back to the context class
+     * loader for direct unit calls or unusual container callbacks with no event.
+     */
     private ClassLoader getWebappClassLoader(ServletContextEvent event) {
         if (event != null) {
             ServletContext servletContext = event.getServletContext();

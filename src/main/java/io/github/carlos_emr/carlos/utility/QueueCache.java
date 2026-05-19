@@ -54,6 +54,11 @@ public final class QueueCache<K, V> {
         timer.schedule(new QueueCache.ShiftTimerTask(), maxTimeToCache / (long) pools, maxTimeToCache / (long) pools);
     }
 
+    /**
+     * Cancels the shared shift timer during webapp shutdown so Tomcat does not
+     * retain the CARLOS webapp class loader through the timer thread. The class
+     * monitor makes cancellation and later timer recreation mutually exclusive.
+     */
     static void shutdownSharedTimer() {
         synchronized (QueueCache.class) {
             if (timer != null) {
