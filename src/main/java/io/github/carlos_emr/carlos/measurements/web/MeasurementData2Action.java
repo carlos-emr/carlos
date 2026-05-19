@@ -31,6 +31,7 @@
 package io.github.carlos_emr.carlos.measurements.web;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -95,6 +96,8 @@ import org.apache.struts2.ServletActionContext;
  * @see io.github.carlos_emr.carlos.managers.MeasurementManager
  */
 public class MeasurementData2Action extends ActionSupport {
+    private static final String JSON_CONTENT_TYPE = "application/json; charset=UTF-8";
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -244,6 +247,7 @@ public class MeasurementData2Action extends ActionSupport {
         if (nctTs != null)
             script.append("jQuery(\"#nct_ts\").html('" + sdf.format(nctTs) + "');\n");
 
+        response.setContentType(JSON_CONTENT_TYPE);
         response.getWriter().print(script);
         return null;
     }
@@ -273,7 +277,7 @@ public class MeasurementData2Action extends ActionSupport {
 
         if (isJsonRequest) {
             String json = objectMapper.writeValueAsString(measurementsMap);
-            response.getOutputStream().write(json.getBytes());
+            writeJson(json);
         }
         return null;
     }
@@ -326,11 +330,11 @@ public class MeasurementData2Action extends ActionSupport {
 
             hashMap.put("success", true);
             String json = objectMapper.writeValueAsString(hashMap);
-            response.getOutputStream().write(json.getBytes());
+            writeJson(json);
         } else {
             hashMap.put("success", false);
             String json = objectMapper.writeValueAsString(hashMap);
-            response.getOutputStream().write(json.getBytes());
+            writeJson(json);
         }
 
         return null;
@@ -381,7 +385,7 @@ public class MeasurementData2Action extends ActionSupport {
                 HashMap<String, Object> hashMap = new HashMap<String, Object>();
                 hashMap.put("success", true);
                 String json = objectMapper.writeValueAsString(hashMap);
-                response.getOutputStream().write(json.getBytes());
+                writeJson(json);
             }
 
         } catch (Exception e) {
@@ -389,7 +393,7 @@ public class MeasurementData2Action extends ActionSupport {
             hashMap.put("success", false);
             MiscUtils.getLogger().error("Couldn't save measurements", e);
             String json = objectMapper.writeValueAsString(hashMap);
-            response.getOutputStream().write(json.getBytes());
+            writeJson(json);
         }
 
         return null;
@@ -424,8 +428,7 @@ public class MeasurementData2Action extends ActionSupport {
             }
         }
 
-        response.setContentType("application/json");
-        response.setCharacterEncoding("UTF-8");
+        response.setContentType(JSON_CONTENT_TYPE);
 
         objectMapper.writeValue(response.getWriter(), json);
         return null;
@@ -451,7 +454,12 @@ public class MeasurementData2Action extends ActionSupport {
             }
         }
 
-        response.getOutputStream().write(json.toString().getBytes());
+        writeJson(json.toString());
         return null;
+    }
+
+    private void writeJson(String json) throws IOException {
+        response.setContentType(JSON_CONTENT_TYPE);
+        response.getOutputStream().write(json.getBytes(StandardCharsets.UTF_8));
     }
 }
