@@ -319,8 +319,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
         try {
             File validatedUpload = PathValidationUtils.validateUpload(uploadedFile);
 
-            // codeql[java/path-injection] -- validated Struts/Tomcat temp file; see PathValidationUtils.validateUpload.
-            if (!Files.deleteIfExists(validatedUpload.toPath())) {
+            if (!Files.deleteIfExists(validatedUpload.toPath())) { // codeql[java/path-injection] -- validated Struts/Tomcat temp file; see PathValidationUtils.validateUpload.
                 logger.warn("Uploaded temp file was already removed: {}", LogSanitizer.sanitize(validatedUpload.getPath()));
             }
         } catch (FileValidationException e) {
@@ -367,8 +366,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                 try (OutputStream fos = Files.newOutputStream(destinationFile.toPath(),
                         StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
                     fileCreatedByRequest = true;
-                    // codeql[java/path-injection] -- validated Struts/Tomcat temp file; see PathValidationUtils.validateUpload.
-                    try (InputStream fis = Files.newInputStream(validatedUpload.toPath())) {
+                    try (InputStream fis = Files.newInputStream(validatedUpload.toPath())) { // codeql[java/path-injection] -- validated Struts/Tomcat temp file; see PathValidationUtils.validateUpload.
                         byte[] buf = new byte[128 * 1024];
                         int i = 0;
                         while ((i = fis.read(buf)) != -1) {

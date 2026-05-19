@@ -440,19 +440,16 @@ public class NioFileManagerImpl implements NioFileManager {
 
             Path tempfile = tempFile.toPath();
 
-            // codeql[java/path-injection] -- tempFile is canonicalized and temp-dir allowlisted above.
-            if (!Files.exists(tempfile)) {
+            if (!Files.exists(tempfile)) { // codeql[java/path-injection] -- tempFile is canonicalized and temp-dir allowlisted above.
                 return false;
             }
 
-            // codeql[java/path-injection] -- tempFile is canonicalized and temp-dir allowlisted above.
-            if (!Files.isRegularFile(tempfile)) {
+            if (!Files.isRegularFile(tempfile)) { // codeql[java/path-injection] -- tempFile is canonicalized and temp-dir allowlisted above.
                 log.error("Attempt to delete a non-file temp path: {}", LogSanitizer.sanitize(fileName));
                 throw new SecurityException("Temp deletion target must be a regular file");
             }
             
-            // codeql[java/path-injection] -- tempFile is canonicalized and temp-dir allowlisted above.
-            return Files.deleteIfExists(tempfile);
+            return Files.deleteIfExists(tempfile); // codeql[java/path-injection] -- tempFile is canonicalized and temp-dir allowlisted above.
         } catch (SecurityException e) {
             log.error("Security violation while attempting to delete file: {}", LogSanitizer.sanitize(fileName), e);
             throw e; // Re-throw security exceptions

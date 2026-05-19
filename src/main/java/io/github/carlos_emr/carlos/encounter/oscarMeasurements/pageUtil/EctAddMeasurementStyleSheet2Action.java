@@ -153,8 +153,7 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport implements
             File destinationFile = PathValidationUtils.validatePath(sanitizedFileName, uploadDir);
 
             // Write the file to the validated destination
-            // codeql[java/path-injection] -- source and destination are canonicalized and allowlist validated.
-            Files.copy(validatedUpload.toPath(), destinationFile.toPath());
+            Files.copy(validatedUpload.toPath(), destinationFile.toPath()); // codeql[java/path-injection] -- source and destination are canonicalized and allowlist validated.
 
         } catch (IOException e) {
             MiscUtils.getLogger().error("Error saving file", e);
