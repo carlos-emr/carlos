@@ -33,6 +33,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -52,11 +54,38 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * of returning JDBC cursors.</p>
  */
 public final class LegacyJdbcQuery {
+    private static final ThreadLocal<Deque<AutoCloseable>> THREAD_RESOURCES = new ThreadLocal<>();
 
     private LegacyJdbcQuery() {
     }
 
+    /**
+     * SQL text that has passed the legacy report-query validation boundary.
+     * Dynamic report code must construct one of these before reaching JDBC.
+     */
+    public static final class TrustedSql {
+        private final String sql;
+
+        private TrustedSql(String sql) {
+            this.sql = sql;
+        }
+    }
+
+    public static TrustedSql trustedSelectSql(String sql) throws SQLException {
+        validateSafeSelectQuery(sql);
+        return new TrustedSql(sql);
+    }
+
+    public static TrustedSql trustedReportSelectSql(String sql) throws SQLException {
+        validateReportSelectQuery(sql);
+        return new TrustedSql(sql);
+    }
+
     public static ResultSet getPreparedResultSet(String sql, Object... params) throws SQLException {
+        return getPreparedResultSet(sql, false, params);
+    }
+
+    public static ResultSet getPreparedResultSet(TrustedSql sql, Object... params) throws SQLException {
         return getPreparedResultSet(sql, false, params);
     }
 
@@ -75,10 +104,18 @@ public final class LegacyJdbcQuery {
      */
     public static Connection getConnection() throws SQLException {
         DataSource dataSource = dataSource();
-        return releasingConnection(DataSourceUtils.getConnection(dataSource), dataSource);
+        return registerThreadResource(releasingConnection(DataSourceUtils.getConnection(dataSource), dataSource));
     }
 
     public static ResultSet getPreparedResultSet(String sql, boolean updatable, Object... params) throws SQLException { // nosemgrep: formatted-sql-string -- legacy SQL shape is owned by callers; values are bound below
+        return getPreparedResultSetInternal(sql, updatable, params);
+    }
+
+    public static ResultSet getPreparedResultSet(TrustedSql sql, boolean updatable, Object... params) throws SQLException {
+        return getPreparedResultSetInternal(sql.sql, updatable, params);
+    }
+
+    private static ResultSet getPreparedResultSetInternal(String sql, boolean updatable, Object... params) throws SQLException {
         DataSource dataSource = dataSource();
         Connection connection = DataSourceUtils.getConnection(dataSource);
         PreparedStatement ps = null;
@@ -87,7 +124,7 @@ public final class LegacyJdbcQuery {
                     updatable ? ResultSet.CONCUR_UPDATABLE : ResultSet.CONCUR_READ_ONLY);
             bindParams(ps, params);
             ResultSet rs = ps.executeQuery(); // NOSONAR javasecurity:S3649 -- parameterized query boundary
-            return StatementClosingResultSet.wrap(rs, ps, connection, dataSource);
+            return registerThreadResource(StatementClosingResultSet.wrap(rs, ps, connection, dataSource));
         } catch (SQLException | RuntimeException e) {
             closeStatement(ps);
             DataSourceUtils.releaseConnection(connection, dataSource);
@@ -155,14 +192,17 @@ public final class LegacyJdbcQuery {
     }
 
     public static ResultSet queryResults(String preparedSQL) throws SQLException { // nosemgrep: formatted-sql-string -- admin report SQL is validated before execution
-        validateSafeSelectQuery(preparedSQL);
+        return queryResults(trustedSelectSql(preparedSQL));
+    }
+
+    public static ResultSet queryResults(TrustedSql preparedSQL) throws SQLException {
         DataSource dataSource = dataSource();
         Connection connection = DataSourceUtils.getConnection(dataSource);
         Statement stmt = null;
         try {
             stmt = connection.createStatement();
-            ResultSet rs = stmt.executeQuery(preparedSQL);
-            return StatementClosingResultSet.wrap(rs, stmt, connection, dataSource);
+            ResultSet rs = stmt.executeQuery(preparedSQL.sql);
+            return registerThreadResource(StatementClosingResultSet.wrap(rs, stmt, connection, dataSource));
         } catch (SQLException | RuntimeException e) {
             closeStatement(stmt);
             DataSourceUtils.releaseConnection(connection, dataSource);
@@ -232,6 +272,28 @@ public final class LegacyJdbcQuery {
         }
     }
 
+    public static void validateReportSelectQuery(String sql) throws SQLException {
+        if (sql == null || sql.trim().isEmpty()) {
+            throw new SQLException("SQL query must not be empty");
+        }
+
+        String normalized = sql.trim().toLowerCase(Locale.ROOT);
+        if (!startsWithSqlWord(normalized, "select")) {
+            throw new SQLException("Only SELECT statements are allowed");
+        }
+
+        if (normalized.contains(";") || normalized.contains("--") || normalized.contains("/*") || normalized.contains("*/")) {
+            throw new SQLException("Unsafe SQL detected: comment or statement separator");
+        }
+
+        String[] blockedPhrases = {"into outfile", "into dumpfile", "load_file", "load data"};
+        for (String phrase : blockedPhrases) {
+            if (normalized.contains(phrase)) {
+                throw new SQLException("Unsafe SQL detected: prohibited keyword");
+            }
+        }
+    }
+
     private static Object[] toObjects(DBPreparedHandlerParam[] params) {
         Object[] values = new Object[params.length];
         for (int i = 0; i < params.length; i++) {
@@ -270,7 +332,7 @@ public final class LegacyJdbcQuery {
             ps = connection.prepareStatement(preparedSQL);
             bindParams(ps, params);
             ResultSet rs = ps.executeQuery();
-            return new Object[] { rs, releasingPreparedStatement(ps, connection, dataSource) };
+            return new Object[] { rs, registerThreadResource(releasingPreparedStatement(ps, connection, dataSource)) };
         } catch (SQLException | RuntimeException e) {
             closeStatement(ps);
             DataSourceUtils.releaseConnection(connection, dataSource);
@@ -290,7 +352,11 @@ public final class LegacyJdbcQuery {
                         throw e.getCause();
                     } finally {
                         if (released.compareAndSet(false, true)) {
-                            DataSourceUtils.releaseConnection(connection, dataSource);
+                            try {
+                                DataSourceUtils.releaseConnection(connection, dataSource);
+                            } finally {
+                                unregisterThreadResource((AutoCloseable) proxy);
+                            }
                         }
                     }
                 }
@@ -312,7 +378,11 @@ public final class LegacyJdbcQuery {
             public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
                 if ("close".equals(method.getName())) {
                     if (released.compareAndSet(false, true)) {
-                        DataSourceUtils.releaseConnection(delegate, dataSource);
+                        try {
+                            DataSourceUtils.releaseConnection(delegate, dataSource);
+                        } finally {
+                            unregisterThreadResource((AutoCloseable) proxy);
+                        }
                     }
                     return null;
                 }
@@ -325,6 +395,49 @@ public final class LegacyJdbcQuery {
         };
         return (Connection) Proxy.newProxyInstance(delegate.getClass().getClassLoader(),
                 new Class<?>[] { Connection.class }, handler);
+    }
+
+    /**
+     * Request-end safety net for legacy callers that still expose {@link ResultSet}
+     * across layers. Explicit try-with-resources remains the primary ownership model.
+     */
+    public static void releaseThreadResources() {
+        Deque<AutoCloseable> resources = THREAD_RESOURCES.get();
+        if (resources == null || resources.isEmpty()) {
+            THREAD_RESOURCES.remove();
+            return;
+        }
+
+        THREAD_RESOURCES.remove();
+        while (!resources.isEmpty()) {
+            AutoCloseable resource = resources.removeLast();
+            try {
+                resource.close();
+            } catch (Exception e) {
+                MiscUtils.getLogger().error("Error closing legacy JDBC resource", e);
+            }
+        }
+    }
+
+    private static <T extends AutoCloseable> T registerThreadResource(T resource) {
+        Deque<AutoCloseable> resources = THREAD_RESOURCES.get();
+        if (resources == null) {
+            resources = new ArrayDeque<>();
+            THREAD_RESOURCES.set(resources);
+        }
+        resources.add(resource);
+        return resource;
+    }
+
+    static void unregisterThreadResource(AutoCloseable resource) {
+        Deque<AutoCloseable> resources = THREAD_RESOURCES.get();
+        if (resources == null) {
+            return;
+        }
+        resources.removeIf(candidate -> candidate == resource);
+        if (resources.isEmpty()) {
+            THREAD_RESOURCES.remove();
+        }
     }
 
     private static ResultSet advance(ResultSet rs, int offset) throws SQLException {

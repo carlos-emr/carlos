@@ -71,6 +71,16 @@ public final class DBHelp {
         return ret;
     }
 
+    public static ResultSet searchDBRecord(LegacyJdbcQuery.TrustedSql sql, Object... params) {
+        ResultSet ret = null;
+        try {
+            ret = LegacyJdbcQuery.getPreparedResultSet(sql, params);
+        } catch (SQLException e) {
+            logger.error("Error", e);
+        }
+        return ret;
+    }
+
     public static String getString(ResultSet rs, String columnName) throws SQLException {
         return Misc.getString(rs, columnName);
     }

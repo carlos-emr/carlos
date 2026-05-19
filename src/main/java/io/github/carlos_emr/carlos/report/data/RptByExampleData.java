@@ -67,7 +67,7 @@ public class RptByExampleData {
 
         MiscUtils.getLogger().warn("Admin report SQL execution requested; queryLength={}", sql.length());
 
-        try (ResultSet rs = LegacyJdbcQuery.queryResults(this.sql)) { // nosemgrep: formatted-sql-string -- intentional admin dynamic SQL; validated by LegacyJdbcQuery.validateSafeSelectQuery
+        try (ResultSet rs = LegacyJdbcQuery.queryResults(LegacyJdbcQuery.trustedSelectSql(this.sql))) {
             if (rs != null) {
                 results = RptResultStruct.getStructure(rs);
             } else {

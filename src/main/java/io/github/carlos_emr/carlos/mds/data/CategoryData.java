@@ -228,7 +228,7 @@ public class CategoryData {
 			hrmViewed = "";
 		} else if (status.equalsIgnoreCase("A") || status.equalsIgnoreCase("F")) {
 			hrmSignedOff = " AND hp.signedOff = 1 ";
-		} else if (status.isEmpty()) { // checks if status is an empty string
+		} else if (matchesAnyStatus()) {
 			hrmViewed = "";
 			hrmSignedOff = "";
 		}
@@ -243,6 +243,14 @@ public class CategoryData {
 
         patients = new HashMap<Integer, PatientInfo>();
 
+    }
+
+    private boolean matchesAnyStatus() {
+        return status != null && status.isEmpty();
+    }
+
+    private boolean bindsStatusParameter() {
+        return !matchesAnyStatus();
     }
 
     public void populateCountsAndPatients() throws SQLException {
@@ -307,7 +315,7 @@ public class CategoryData {
                 + (dateSearchType.equals("receivedCreated") ? " RIGHT JOIN hl7TextMessage message ON plr.lab_no = message.lab_id" : "")
                 + " WHERE plr.lab_type = 'HL7' "
                 + (providerSearch ? " AND plr.provider_no = ? " : "")
-                + " AND plr.status " + ("".equals(status) ? " IS NOT NULL " : " = ? ")
+                + " AND plr.status " + (matchesAnyStatus() ? " IS NOT NULL " : " = ? ")
                 + labAbnormalSql
                 + labDateSql
                 + " AND (plr2.demographic_no IS NULL"
@@ -318,7 +326,7 @@ public class CategoryData {
              PreparedStatement ps = c.prepareStatement(sql)) {
             int paramIndex = 1;
             if (providerSearch) ps.setString(paramIndex++, searchProviderNo);
-            if (!"".equals(status)) ps.setString(paramIndex++, status);
+            if (bindsStatusParameter()) ps.setString(paramIndex++, status);
             for (String p : labDateParams) ps.setString(paramIndex++, p);
 
             return readCount(ps);
@@ -334,7 +342,7 @@ public class CategoryData {
                         + " WHERE d.last_name" + (StringUtils.isEmpty(patientLastName) ? " IS NOT NULL " : " like ?  ")
                         + " 	AND d.first_name" + (StringUtils.isEmpty(patientFirstName) ? " IS NOT NULL " : " like ? ")
                         + " 	AND d.hin" + (StringUtils.isEmpty(patientHealthNumber) ? " IS NOT NULL " : " like ? ")
-                        + " 	AND plr.status " + ("".equals(status) ? " IS NOT NULL " : " = ? ")
+                        + " 	AND plr.status " + (matchesAnyStatus() ? " IS NOT NULL " : " = ? ")
                         + (providerSearch ? "AND plr.provider_no = ? " : "")
                         + " 	AND plr.lab_type = 'HL7' "
                         + " 	AND cd.lab_type = 'HL7' "
@@ -347,21 +355,21 @@ public class CategoryData {
                     if (!StringUtils.isEmpty(patientLastName)) ps.setString(paramIndex++, "%" + patientLastName + "%");
                     if (!StringUtils.isEmpty(patientFirstName)) ps.setString(paramIndex++, "%" + patientFirstName + "%");
                     if (!StringUtils.isEmpty(patientHealthNumber)) ps.setString(paramIndex++, "%" + patientHealthNumber + "%");
-                    if (!"".equals(status)) ps.setString(paramIndex++, status);
+                    if (bindsStatusParameter()) ps.setString(paramIndex++, status);
                     if (providerSearch) ps.setString(paramIndex++, searchProviderNo);
                     return readCount(ps);
                 }
-            } else if (providerSearch || !"".equals(status)) { // providerSearch
+            } else if (providerSearch || bindsStatusParameter()) { // providerSearch
                 sql = "SELECT HIGH_PRIORITY COUNT(1) as count "
                         + " FROM providerLabRouting plr, hl7TextInfo info "
-                        + " WHERE plr.status " + ("".equals(status) ? " IS NOT NULL " : " = ?")
+                        + " WHERE plr.status " + (matchesAnyStatus() ? " IS NOT NULL " : " = ?")
                         + (providerSearch ? " AND plr.provider_no = ? " : " ")
                         + " AND plr.lab_type = 'HL7'  "
                         + " AND info.lab_no = plr.lab_no"
                         + " AND result_status " + (isAbnormal ? "" : "!") + "= 'A' ";
                 try (PreparedStatement ps = c.prepareStatement(sql)) {
                     int paramIndex = 1;
-                    if (!"".equals(status)) ps.setString(paramIndex++, status);
+                    if (bindsStatusParameter()) ps.setString(paramIndex++, status);
                     if (providerSearch) ps.setString(paramIndex++, searchProviderNo);
                     return readCount(ps);
                 }
@@ -383,7 +391,7 @@ public class CategoryData {
                 + "LEFT JOIN providerLabRouting plr ON plr.lab_no = cd.document_no"
                 + documentJoinSql
                 + " WHERE plr.lab_type = 'DOC' "
-                + " AND plr.status " + ("".equals(status) ? " IS NOT NULL " : " = ? ")
+                + " AND plr.status " + (matchesAnyStatus() ? " IS NOT NULL " : " = ? ")
                 + (providerSearch ? " AND plr.provider_no = ? " : "")
                 + " AND 	cd.module_id = -1 "
                 + documentAbnormalSql
@@ -391,7 +399,7 @@ public class CategoryData {
         try (Connection c = LegacyJdbcQuery.getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
             int paramIndex = 1;
-            if (!"".equals(status)) ps.setString(paramIndex++, status);
+            if (bindsStatusParameter()) ps.setString(paramIndex++, status);
             if (providerSearch) ps.setString(paramIndex++, searchProviderNo);
             for (String p : documentDateParams) ps.setString(paramIndex++, p);
 
@@ -413,7 +421,7 @@ public class CategoryData {
                 + " 	AND d.hin" + (StringUtils.isEmpty(patientHealthNumber) ? " IS NOT NULL " : " like ? ")
                 + " 	AND plr.lab_type = 'HL7' "
                 + " 	AND cd.lab_type = 'HL7' "
-                + " 	AND plr.status " + ("".equals(status) ? " IS NOT NULL " : " = ? ")
+                + " 	AND plr.status " + (matchesAnyStatus() ? " IS NOT NULL " : " = ? ")
                 + (dateSearchType.equals("receivedCreated") ? " AND message.lab_id IS NOT NULL " : " AND info.lab_no IS NOT NULL ")
                 + (providerSearch ? " AND plr.provider_no = ? " : "")
                 + labAbnormalSql
@@ -426,7 +434,7 @@ public class CategoryData {
             if (!StringUtils.isEmpty(patientLastName)) ps.setString(paramIndex++, "%" + patientLastName + "%");
             if (!StringUtils.isEmpty(patientFirstName)) ps.setString(paramIndex++, "%" + patientFirstName + "%");
             if (!StringUtils.isEmpty(patientHealthNumber)) ps.setString(paramIndex++, "%" + patientHealthNumber + "%");
-            if (!"".equals(status)) ps.setString(paramIndex++, status);
+            if (bindsStatusParameter()) ps.setString(paramIndex++, status);
             if (providerSearch) ps.setString(paramIndex++, searchProviderNo);
             for (String p : labDateParams) ps.setString(paramIndex++, p);
 
@@ -468,7 +476,7 @@ public class CategoryData {
         sql.append(" AND plr.lab_type = 'HL7' ");
         sql.append(" AND cd.lab_type = 'HL7' ");
         
-        if ("".equals(status)) {
+        if (matchesAnyStatus()) {
             sql.append(" AND plr.status IS NOT NULL ");
         } else {
             sql.append(" AND plr.status = ? ");
@@ -485,7 +493,7 @@ public class CategoryData {
             int paramIndex = 1;
             ps.setString(paramIndex++, demographicNo);
             
-            if (!"".equals(status)) {
+            if (bindsStatusParameter()) {
                 ps.setString(paramIndex++, status);
             }
             
@@ -516,7 +524,7 @@ public class CategoryData {
                 + " 	AND d.hin" + (StringUtils.isEmpty(patientHealthNumber) ? " IS NOT NULL " : " like ? ")
                 + " 	AND d.first_name" + (StringUtils.isEmpty(patientFirstName) ? " IS NOT NULL " : " like ? ")
                 + " 	AND plr.lab_type = 'DOC' "
-                + " 	AND plr.status " + ("".equals(status) ? " IS NOT NULL " : " = ? ")
+                + " 	AND plr.status " + (matchesAnyStatus() ? " IS NOT NULL " : " = ? ")
                 + (providerSearch ? "AND plr.provider_no = ? " : "")
                 + documentAbnormalSql
                 + documentDateSql
@@ -527,7 +535,7 @@ public class CategoryData {
             if (!StringUtils.isEmpty(patientLastName)) ps.setString(paramIndex++, "%" + patientLastName + "%");
             if (!StringUtils.isEmpty(patientHealthNumber)) ps.setString(paramIndex++, "%" + patientHealthNumber + "%");
             if (!StringUtils.isEmpty(patientFirstName)) ps.setString(paramIndex++, "%" + patientFirstName + "%");
-            if (!"".equals(status)) ps.setString(paramIndex++, status);
+            if (bindsStatusParameter()) ps.setString(paramIndex++, status);
             if (providerSearch) ps.setString(paramIndex++, searchProviderNo);
             for (String p : documentDateParams) ps.setString(paramIndex++, p);
 

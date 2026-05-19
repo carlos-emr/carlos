@@ -204,7 +204,7 @@ public class SQLReporter implements Reporter {
         String rsHtml = "An SQL query error has occured ";
         String csv = "";
         try (StringWriter swr = new StringWriter();
-             ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, sqlParams)) {
+             ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(LegacyJdbcQuery.trustedReportSelectSql(sql), sqlParams)) {
             if (!rs.isBeforeFirst()) {
                 rsHtml = showSqlOnEmpty
                         ? (Encode.forHtml(sql) + "<br/>The query returned no results.")

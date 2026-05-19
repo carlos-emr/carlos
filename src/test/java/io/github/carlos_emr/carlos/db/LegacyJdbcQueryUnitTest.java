@@ -16,6 +16,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DisplayName;
@@ -37,6 +38,36 @@ class LegacyJdbcQueryUnitTest {
     void shouldAllowSelectOnlyQueries_forAdminReportBoundary() {
         assertThatCode(() -> validateSafeSelectQuery("select demographic_no from demographic"))
                 .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("shouldCreateTrustedSql_forValidatedSelectOnlyQueries")
+    void shouldCreateTrustedSql_forValidatedSelectOnlyQueries() {
+        assertThatCode(() -> LegacyJdbcQuery.trustedSelectSql("select demographic_no from demographic"))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("shouldRejectUnsafeQueries_forTrustedSql")
+    void shouldRejectUnsafeQueries_forTrustedSql() {
+        assertThatThrownBy(() -> LegacyJdbcQuery.trustedSelectSql("select * from demographic; drop table provider"))
+                .isInstanceOf(SQLException.class);
+    }
+
+    @Test
+    @DisplayName("shouldAllowUnion_forTrustedReportSql")
+    void shouldAllowUnion_forTrustedReportSql() {
+        assertThatCode(() -> LegacyJdbcQuery.trustedReportSelectSql(
+                "select demographic_no from demographic union select demographic_no from provider"))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("shouldRejectStatementSeparator_forTrustedReportSql")
+    void shouldRejectStatementSeparator_forTrustedReportSql() {
+        assertThatThrownBy(() -> LegacyJdbcQuery.trustedReportSelectSql(
+                "select demographic_no from demographic; select provider_no from provider"))
+                .isInstanceOf(SQLException.class);
     }
 
     @Test
@@ -118,6 +149,18 @@ class LegacyJdbcQueryUnitTest {
         }
     }
 
+    @Test
+    @DisplayName("should ignore unregister when no thread resources are tracked")
+    void shouldIgnoreUnregister_whenNoThreadResourcesAreTracked() {
+        LegacyJdbcQuery.releaseThreadResources();
+        AtomicBoolean closed = new AtomicBoolean(false);
+        AutoCloseable resource = () -> closed.set(true);
+
+        assertThatCode(() -> LegacyJdbcQuery.unregisterThreadResource(resource)).doesNotThrowAnyException();
+        assertThatCode(LegacyJdbcQuery::releaseThreadResources).doesNotThrowAnyException();
+        assertThat(closed).isFalse();
+    }
+
     private boolean usesDeprecatedDatabaseBoundary(Path path) {
         try {
             String content = Files.readString(path);
@@ -165,7 +208,6 @@ class LegacyJdbcQueryUnitTest {
         ParseState state = ParseState.CODE;
         for (int i = openParen; i < content.length(); i++) {
             char current = content.charAt(i);
-            char next = i + 1 < content.length() ? content.charAt(i + 1) : '\0';
             state = nextState(state, content, i, content.length());
             if (state != ParseState.CODE) {
                 continue;
@@ -188,7 +230,6 @@ class LegacyJdbcQueryUnitTest {
         ParseState state = ParseState.CODE;
         for (int i = start; i < end; i++) {
             char current = content.charAt(i);
-            char next = i + 1 < end ? content.charAt(i + 1) : '\0';
             state = nextState(state, content, i, end);
             if (state != ParseState.CODE) {
                 continue;

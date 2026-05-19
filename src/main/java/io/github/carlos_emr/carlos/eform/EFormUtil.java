@@ -561,9 +561,11 @@ public class EFormUtil {
     @Deprecated
     public static ArrayList<String> getValues(ArrayList<String> names, String sql) {
         // gets the values for each column name in the sql (used by DatabaseAP)
-        ResultSet rs = getSQL(sql);
         ArrayList<String> values = new ArrayList<String>();
-        try {
+        try (ResultSet rs = getSQL(sql)) {
+            if (rs == null) {
+                return values;
+            }
             while (rs.next()) {
                 values = new ArrayList<String>();
                 for (int i = 0; i < names.size(); i++) {
@@ -576,7 +578,6 @@ public class EFormUtil {
                     }
                 }
             }
-            rs.close();
         } catch (SQLException sqe) {
             logger.error("Error", sqe);
         }
@@ -585,9 +586,11 @@ public class EFormUtil {
 
     public static ArrayNode getJsonValues(ArrayList<String> names, String sql) {
         // gets the values for each column name in the sql (used by DatabaseAP)
-        ResultSet rs = getSQL(sql);
         ArrayNode values = objectMapper.createArrayNode();
-        try {
+        try (ResultSet rs = getSQL(sql)) {
+            if (rs == null) {
+                return values;
+            }
             while (rs.next()) {
                 ObjectNode value = objectMapper.createObjectNode();
                 for (int i = 0; i < names.size(); i++) {
@@ -600,7 +603,6 @@ public class EFormUtil {
                 }
                 values.add(value);
             }
-            rs.close();
         } catch (SQLException sqe) {
             logger.error("Error", sqe);
         }
@@ -643,10 +645,12 @@ public class EFormUtil {
         String sql;
         sql = "SELECT DISTINCT eform_groups.group_name, count(*)-1 AS 'count' FROM eform_groups "
                 + "LEFT JOIN eform ON eform.fid=eform_groups.fid WHERE eform.status=1 OR eform_groups.fid=0 "
-                + "GROUP BY eform_groups.group_name;";
+                + "GROUP BY eform_groups.group_name";
         ArrayList<HashMap<String, String>> al = new ArrayList<HashMap<String, String>>();
-        try {
-            ResultSet rs = getSQL(sql);
+        try (ResultSet rs = getSQL(sql)) {
+            if (rs == null) {
+                return al;
+            }
             while (rs.next()) {
                 HashMap<String, String> curhash = new HashMap<String, String>();
                 curhash.put("groupName", Misc.getString(rs, "group_name"));
@@ -674,8 +678,7 @@ public class EFormUtil {
             return al;
         }
 
-        try {
-            ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo);
+        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo)) {
             while (rs.next()) {
                 HashMap<String, String> curhash = new HashMap<String, String>();
                 curhash.put("groupName", Misc.getString(rs, "group_name"));
@@ -730,8 +733,7 @@ public class EFormUtil {
             sql = "SELECT * FROM eform, eform_groups where eform.fid=eform_groups.fid AND eform_groups.group_name=? ORDER BY " + validatedSort;
         }
         ArrayList<HashMap<String, ? extends Object>> results = new ArrayList<HashMap<String, ? extends Object>>();
-        try {
-            ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, group);
+        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, group)) {
             while (rs.next()) {
                 HashMap<String, String> curht = new HashMap<String, String>();
                 curht.put("fid", rsGetString(rs, "fid"));
@@ -754,7 +756,6 @@ public class EFormUtil {
                 }
                 results.add(curht);
             }
-            rs.close();
         } catch (Exception sqe) {
             logger.error("Error", sqe);
         }
@@ -816,8 +817,7 @@ public class EFormUtil {
             logger.error("Invalid demographic_no: " + demographic_no, nfe);
             return results;
         }
-        try {
-            ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo, groupName);
+        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo, groupName)) {
             while (rs.next()) {
                 // filter eform by role type
                 if (rsGetString(rs, "roleType") != null && !rsGetString(rs, "roleType").equals("") && !rsGetString(rs, "roleType").equals("null")) {
@@ -839,7 +839,6 @@ public class EFormUtil {
                 curht.put("roleType", rsGetString(rs, "roleType"));
                 results.add(curht);
             }
-            rs.close();
         } catch (Exception sqe) {
             logger.error("Error", sqe);
         }

@@ -52,6 +52,7 @@ import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
 import io.github.carlos_emr.carlos.commn.model.EncounterForm;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -155,13 +156,15 @@ public class EctFormData {
         if (table == null) return (new ArrayList<PatientForm>());
 
         ArrayList<PatientForm> forms = new ArrayList<PatientForm>();
+        Integer demographicNo = parseDemographicNo(demoNo);
+        if (demographicNo == null) return forms;
 
         try (Connection c = LegacyJdbcQuery.getConnection()) {
             if (!table.equals("form")) {
                 String sql = "SELECT max(ID) ID, demographic_no, formCreated, date(formEdited) 'lastEdited', max(formEdited) 'frmEdited' FROM " + table + " WHERE demographic_no=? group by lastEdited";
 
                 try (PreparedStatement ps = c.prepareStatement(sql)) {
-                    ps.setInt(1, Integer.parseInt(demoNo));
+                    ps.setInt(1, demographicNo);
 
                     try (ResultSet rs = ps.executeQuery()) {
                         while (rs.next()) {
@@ -174,7 +177,7 @@ public class EctFormData {
                 String sql = "SELECT form_no, demographic_no, form_date from " + table + " where demographic_no=? order by form_no desc";
 
                 try (PreparedStatement ps = c.prepareStatement(sql)) {
-                    ps.setInt(1, Integer.parseInt(demoNo));
+                    ps.setInt(1, demographicNo);
 
                     try (ResultSet rs = ps.executeQuery()) {
                         while (rs.next()) {
@@ -219,13 +222,15 @@ public class EctFormData {
         if (table == null) return (new ArrayList<PatientForm>());
 
         ArrayList<PatientForm> forms = new ArrayList<PatientForm>();
+        Integer demographicNo = parseDemographicNo(demoNo);
+        if (demographicNo == null) return forms;
 
         try (Connection c = LegacyJdbcQuery.getConnection()) {
             if (!table.equals("form")) {
                 String sql = "SELECT ID, demographic_no, formCreated, formEdited FROM " + table + " WHERE demographic_no=? ORDER BY ID DESC";
 
                 try (PreparedStatement ps = c.prepareStatement(sql)) {
-                    ps.setInt(1, Integer.parseInt(demoNo));
+                    ps.setInt(1, demographicNo);
 
                     try (ResultSet rs = ps.executeQuery()) {
                         while (rs.next()) {
@@ -242,7 +247,7 @@ public class EctFormData {
                 String sql = "SELECT form_no, demographic_no, form_date from " + table + " where demographic_no=? order by form_no desc";
 
                 try (PreparedStatement ps = c.prepareStatement(sql)) {
-                    ps.setInt(1, Integer.parseInt(demoNo));
+                    ps.setInt(1, demographicNo);
 
                     try (ResultSet rs = ps.executeQuery()) {
                         while (rs.next()) {
@@ -262,6 +267,15 @@ public class EctFormData {
         }
 
         return (forms);
+    }
+
+    private static Integer parseDemographicNo(String demoNo) {
+        try {
+            return Integer.valueOf(demoNo);
+        } catch (NumberFormatException e) {
+            logger.warn("Invalid demographic_no for form lookup: {}", LogSanitizer.sanitize(demoNo));
+            return null;
+        }
     }
 
     private static String validateFormTable(String table) {

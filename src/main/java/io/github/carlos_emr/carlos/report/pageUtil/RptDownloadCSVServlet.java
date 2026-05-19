@@ -45,6 +45,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.login.DBHelp;
 import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
 import io.github.carlos_emr.carlos.report.data.RptReportConfigData;
@@ -329,7 +330,8 @@ public class RptDownloadCSVServlet extends HttpServlet {
                 bARFilter = true;
                 //"formBCAR.demographic_no in (select distinct demographic_no from formBCBirthSumMo)"
                 if (strFilter.indexOf("formBCBirthSumMo") > 0) {
-                    ResultSet rs = DBHelp.searchDBRecord("select distinct demographic_no from formBCBirthSumMo");
+                    ResultSet rs = DBHelp.searchDBRecord(
+                            LegacyJdbcQuery.trustedReportSelectSql("select distinct demographic_no from formBCBirthSumMo"));
                     String sBirthSumNo = "";
                     if (rs != null) while (rs.next()) {
                         sBirthSumNo += (sBirthSumNo.length() > 0 ? "," : "") + rs.getInt("demographic_no");
@@ -400,7 +402,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
                         for (int k = 0; k < demoNoList.size(); k++) {
                             params[k + 1] = demoNoList.get(k);
                         }
-                        ResultSet rs = DBHelp.searchDBRecord(sql, params);
+                        ResultSet rs = DBHelp.searchDBRecord(LegacyJdbcQuery.trustedReportSelectSql(sql), params);
                         if (rs != null) while (rs.next()) {
                             propSpecValue.setProperty(rs.getString("demographic_no") + temp[i], rs.getString("value"));
                         }
@@ -425,7 +427,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
                 List<Object> subQueryParams = new ArrayList<>();
                 subQueryParams.addAll(demoFilterParams);
                 subQueryParams.addAll(specFilterParams);
-                rs = DBHelp.searchDBRecord(subQuery, subQueryParams.toArray());
+                rs = DBHelp.searchDBRecord(LegacyJdbcQuery.trustedReportSelectSql(subQuery), subQueryParams.toArray());
                 if (rs != null) while (rs.next()) {
                     subDemoNoList.add(String.valueOf(rs.getInt("demographic.demographic_no")));
                 }
@@ -444,7 +446,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
                             params[k + 1] = subDemoNoList.get(k);
                         }
                         MiscUtils.getLogger().debug(" demographic and demographicExt: " + sql);
-                        rs = DBHelp.searchDBRecord(sql, params);
+                        rs = DBHelp.searchDBRecord(LegacyJdbcQuery.trustedReportSelectSql(sql), params);
                         if (rs != null) while (rs.next()) {
                             propSpecValue.setProperty(rs.getString("demographic_no") + temp[i], rs.getString("value"));
                         }
@@ -494,7 +496,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
             List<Object> subQueryParams = new ArrayList<>();
             subQueryParams.addAll(demoFilterParams);
             subQueryParams.addAll(arFilterParams);
-            ResultSet rs = DBHelp.searchDBRecord(subQuery, subQueryParams.toArray());
+            ResultSet rs = DBHelp.searchDBRecord(LegacyJdbcQuery.trustedReportSelectSql(subQuery), subQueryParams.toArray());
             if (rs != null) while (rs.next()) {
                 subFormId += (subFormId.length() > 0 ? "," : "") + rs.getInt("max(ID)");
             }
@@ -537,7 +539,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
                 List<Object> subQueryParams = new ArrayList<>();
                 subQueryParams.addAll(demoFilterParams);
                 subQueryParams.addAll(arFilterParams);
-                ResultSet rs = DBHelp.searchDBRecord(subQuery, subQueryParams.toArray());
+                ResultSet rs = DBHelp.searchDBRecord(LegacyJdbcQuery.trustedReportSelectSql(subQuery), subQueryParams.toArray());
                 if (rs != null) while (rs.next()) {
                     subFormId += (subFormId.length() > 0 ? "," : "") + rs.getInt("max(ID)");
                 }
@@ -582,7 +584,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
                         for (int k = 0; k < demoNoList.size(); k++) {
                             params[k + 1] = demoNoList.get(k);
                         }
-                        rs = DBHelp.searchDBRecord(sql, params);
+                        rs = DBHelp.searchDBRecord(LegacyJdbcQuery.trustedReportSelectSql(sql), params);
                         if (rs != null) while (rs.next()) {
                             propSpecValue.setProperty(rs.getString("demographic_no") + temp[i], rs.getString("value"));
                         }
@@ -609,7 +611,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
                 List<Object> subQueryParams1 = new ArrayList<>();
                 subQueryParams1.addAll(demoFilterParams);
                 subQueryParams1.addAll(specFilterParams);
-                rs = DBHelp.searchDBRecord(subQuery, subQueryParams1.toArray());
+                rs = DBHelp.searchDBRecord(LegacyJdbcQuery.trustedReportSelectSql(subQuery), subQueryParams1.toArray());
                 if (rs != null) while (rs.next()) {
                     subDemoNoList.add(String.valueOf(rs.getInt("demographic.demographic_no")));
                 }
@@ -625,7 +627,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
                         for (int k = 0; k < subDemoNoList.size(); k++) {
                             params[k + 1] = subDemoNoList.get(k);
                         }
-                        rs = DBHelp.searchDBRecord(sql, params);
+                        rs = DBHelp.searchDBRecord(LegacyJdbcQuery.trustedReportSelectSql(sql), params);
                         if (rs != null) while (rs.next()) {
                             propSpecValue.setProperty(rs.getString("demographic_no") + temp[i], rs.getString("value"));
                         }
@@ -646,7 +648,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
                 List<Object> subQueryParams2 = new ArrayList<>();
                 subQueryParams2.addAll(demoFilterParams);
                 subQueryParams2.addAll(arFilterParams);
-                rs = DBHelp.searchDBRecord(subQuery, subQueryParams2.toArray());
+                rs = DBHelp.searchDBRecord(LegacyJdbcQuery.trustedReportSelectSql(subQuery), subQueryParams2.toArray());
                 if (rs != null) while (rs.next()) {
                     subFormId += (subFormId.length() > 0 ? "," : "") + rs.getInt("max(ID)");
                 }

@@ -179,6 +179,7 @@ final class StatementClosingResultSet implements InvocationHandler {
                 if (connection != null && dataSource != null) {
                     DataSourceUtils.releaseConnection(connection, dataSource);
                 }
+                LegacyJdbcQuery.unregisterThreadResource((AutoCloseable) proxy);
             }
             if (rsThrowable != null) {
                 throw rsThrowable;

@@ -113,7 +113,7 @@ public final class DBPreparedHandler {
      * All other code must use the parameterized overloads. Do not add new callers.</p>
      */
     synchronized public ResultSet queryResults(String preparedSQL) throws SQLException { // nosemgrep: formatted-sql-string — sole caller is RptByExampleData (admin report); validated by validateSafeSelectQuery denylist
-        rs = LegacyJdbcQuery.queryResults(preparedSQL);
+        rs = LegacyJdbcQuery.queryResults(LegacyJdbcQuery.trustedSelectSql(preparedSQL));
         return rs;
     }
 

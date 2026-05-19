@@ -40,6 +40,7 @@ import javax.sql.DataSource;
 
 import org.apache.logging.log4j.Logger;
 
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.util.SqlUtils;
 
 public class DbConnectionFilter implements jakarta.servlet.Filter {
@@ -91,6 +92,7 @@ public class DbConnectionFilter implements jakarta.servlet.Filter {
     }
 
     public static void releaseAllThreadDbResources() {
+        LegacyJdbcQuery.releaseThreadResources();
         releaseThreadLocalDbConnection();
         OscarTrackingBasicDataSource.releaseThreadConnections();
     }
