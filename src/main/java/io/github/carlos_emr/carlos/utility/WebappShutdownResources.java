@@ -46,7 +46,9 @@ public final class WebappShutdownResources {
     /**
      * Deregisters JDBC drivers loaded by the stopping webapp class loader only.
      * Drivers loaded by Tomcat or another parent loader are left registered because
-     * they may be shared with other applications.
+     * they may be shared with other applications. Package-private visibility keeps
+     * the lifecycle helper scoped to the utility package while allowing focused
+     * tests to exercise the class-loader filtering contract directly.
      *
      * @param webappClassLoader class loader whose drivers should be deregistered
      * @return number of JDBC drivers successfully deregistered
@@ -78,7 +80,8 @@ public final class WebappShutdownResources {
      * Stops MySQL Connector/J's abandoned-connection cleanup thread during webapp
      * shutdown. A stopped cleanup thread is expected on repeated shutdown paths, so
      * that state is logged at debug level; unexpected runtime failures are warnings
-     * because shutdown should continue best-effort.
+     * because shutdown should continue best-effort. Package-private visibility keeps
+     * direct use inside the utility package and supports focused lifecycle tests.
      */
     static void shutdownMySqlAbandonedConnectionCleanupThread() {
         try {

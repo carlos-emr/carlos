@@ -35,14 +35,14 @@ class QueueCacheUnitTest {
     void shouldCancelSharedTimer_whenShutdownInvoked() throws Exception {
         new QueueCache<String, String>(2, 10, 1_000L, null);
 
-        assertThat(getSharedTimerViaReflection()).isNotNull();
+        assertThat(getSharedTimer()).isNotNull();
 
         QueueCache.shutdownSharedTimer();
 
-        assertThat(getSharedTimerViaReflection()).isNull();
+        assertThat(getSharedTimer()).isNull();
     }
 
-    private Object getSharedTimerViaReflection() throws Exception {
+    private Object getSharedTimer() throws Exception {
         Field field = QueueCache.class.getDeclaredField("timer");
         field.setAccessible(true);
         return field.get(null);
