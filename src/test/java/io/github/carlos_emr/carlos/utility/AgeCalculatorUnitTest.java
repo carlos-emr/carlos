@@ -42,6 +42,10 @@ class AgeCalculatorUnitTest {
 
     private static final LocalDate REFERENCE_DATE = LocalDate.of(2026, 5, 19);
 
+    /**
+     * Creates a Calendar birth date using a 1-based month value for readability.
+     * GregorianCalendar expects a 0-based month, so this helper performs that conversion.
+     */
     private Calendar birthDate(int year, int month, int dayOfMonth) {
         return new GregorianCalendar(year, month - 1, dayOfMonth);
     }

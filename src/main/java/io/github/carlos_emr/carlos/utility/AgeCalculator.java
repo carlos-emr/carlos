@@ -38,6 +38,13 @@ public class AgeCalculator {
         return calculateAge(birthDate, LocalDate.now());
     }
 
+    /**
+     * Calculates age against an explicit reference date for deterministic tests.
+     *
+     * @param birthDate Calendar date of birth
+     * @param now LocalDate reference date to calculate age against
+     * @return Age difference between the birth date and reference date
+     */
     static Age calculateAge(Calendar birthDate, LocalDate now) {
         LocalDate birthdate = LocalDate.of(
                 birthDate.get(Calendar.YEAR),
