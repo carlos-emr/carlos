@@ -109,7 +109,7 @@
 %>
 
 <!doctype html>
-<html lang="en">
+<html lang="${pageContext.request.locale.language}">
 
 <head>
     <title><fmt:message key="admin.admin.page.title"/></title>
