@@ -34,7 +34,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.BillingDates;
 import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
 import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto;
@@ -541,7 +541,7 @@ public class BillingClaimSubmissionService {
         } catch (IllegalArgumentException e) {
             throw new BillingValidationException(
                     "Billing claim submission: malformed " + fieldName + " ["
-                            + LogSanitizer.sanitizeForDisplay(raw) + "]", e);
+                            + LogSafe.sanitizeForDisplay(raw) + "]", e);
         }
     }
 
@@ -551,7 +551,7 @@ public class BillingClaimSubmissionService {
         } catch (IllegalArgumentException e) {
             throw new BillingValidationException(
                     "Billing claim submission: malformed " + fieldName + " ["
-                            + LogSanitizer.sanitizeForDisplay(raw) + "]", e);
+                            + LogSafe.sanitizeForDisplay(raw) + "]", e);
         }
     }
 
@@ -561,7 +561,7 @@ public class BillingClaimSubmissionService {
         } catch (IllegalArgumentException e) {
             throw new BillingValidationException(
                     "Billing claim submission: malformed " + fieldName + " ["
-                            + LogSanitizer.sanitizeForDisplay(raw) + "]", e);
+                            + LogSafe.sanitizeForDisplay(raw) + "]", e);
         }
     }
 
@@ -631,7 +631,7 @@ public class BillingClaimSubmissionService {
         } catch (NumberFormatException e) {
             throw new BillingValidationException(
                     "Billing claim submission: malformed " + fieldName + " ["
-                            + LogSanitizer.sanitizeForDisplay(raw) + "]", e);
+                            + LogSafe.sanitizeForDisplay(raw) + "]", e);
         }
     }
 
@@ -651,7 +651,7 @@ public class BillingClaimSubmissionService {
         if (raw.length() < length) {
             throw new BillingValidationException(
                     "Billing claim submission: malformed " + fieldName + " ["
-                            + LogSanitizer.sanitizeForDisplay(raw) + "]");
+                            + LogSafe.sanitizeForDisplay(raw) + "]");
         }
         return raw.substring(0, length);
     }
@@ -661,7 +661,7 @@ public class BillingClaimSubmissionService {
         if (pipe <= 0) {
             throw new BillingValidationException(
                     "Billing claim submission: malformed " + fieldName + " ["
-                            + LogSanitizer.sanitizeForDisplay(raw) + "]");
+                            + LogSafe.sanitizeForDisplay(raw) + "]");
         }
         return raw.substring(0, pipe);
     }
@@ -671,7 +671,7 @@ public class BillingClaimSubmissionService {
         if (pipe < 0 || pipe == raw.length() - 1) {
             throw new BillingValidationException(
                     "Billing claim submission: malformed " + fieldName + " ["
-                            + LogSanitizer.sanitizeForDisplay(raw) + "]");
+                            + LogSafe.sanitizeForDisplay(raw) + "]");
         }
         return raw.substring(pipe + 1);
     }

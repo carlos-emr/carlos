@@ -48,9 +48,14 @@ CARLOS has three independent session timeout mechanisms:
 
 #### `LogoutBroadcastFilter`
 - Location: `src/main/java/io/github/carlos_emr/carlos/app/LogoutBroadcastFilter.java`
-- Servlet filter registered in `web.xml` after `PrivacyStatementAppendingFilter`
+- Servlet filter registered in `web.xml` before Struts execution
 - Injects ~1KB inline JavaScript into all authenticated HTML responses
-- Exclusions configured via init-param (excludes `/logoutPage` to prevent self-listening)
+- Exclusions configured via init-param (excludes `/logoutPage` to prevent self-listening and `/status/SessionHeartbeat` so timeout polling stays lightweight)
+- Fast-passes static assets, AJAX requests, and anonymous public pages before wrapping
+- Configures the 1 MB append buffer lazily only after a wrapped response is marked `text/html`
+- Wraps `POST /login` and `POST /forcepasswordresetSubmit` before Struts so the first
+  authenticated HTML page after login/reset receives the heartbeat script; failed submissions
+  still skip injection because no authenticated `user` session attribute exists after the chain
 
 #### `logoutPage`
 - Public Struts action that renders `/WEB-INF/jsp/login/logout.jsp`
@@ -130,6 +135,11 @@ The script sets `window.__carlosLogoutActive = true` at the start. If the script
 - With 10 open windows: ~10 additional requests/minute to the server
 - `SessionHeartbeat2Action` is extremely lightweight (no Spring beans, no business logic)
 - Comparable to existing `tabAlertsRefresh.jsp` polling already in the application
+- Logout script buffering is limited to authenticated or session-establishing HTML responses.
+  Anonymous login/error pages, `/library/`, `/share/`, AJAX, JSON, and binary responses avoid
+  the 1 MB injection buffer.
+- Downstream `reset()` / `resetBuffer()` calls clear any deferred `Content-Length`, so error
+  responses generated after a wrapped page cannot inherit stale lengths from the abandoned body.
 
 ## Testing
 
@@ -152,6 +162,8 @@ The script sets `window.__carlosLogoutActive = true` at the start. If the script
 
 ### Exclusion Verification
 - Login page (`/index`, usually reached through `/context/`): injected script should NOT appear (no valid session)
+- Login failure page (`/loginfailed`): injected script should NOT appear and should not trigger the 1 MB append buffer
+- Static assets under `/library/` and `/share/`: no injection and no 1 MB append buffer
 - AJAX responses: check browser devtools Network tab -> script not in AJAX responses
 - `/logoutPage`: script NOT injected (in exclusion list)
 - Heartbeat polling: verify `last_request_time` is NOT reset (check debug logs with `debug-on`)

@@ -54,7 +54,7 @@ import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -99,7 +99,7 @@ public class GeneratePatientLetters2Action extends ActionSupport {
         if (demos != null) {
             for (String demo : demos) {
                 if (demo == null || !demo.matches("\\d+")) {
-                    log.warn("Invalid non-numeric demographic number rejected: {}", LogSanitizer.sanitize(demo));
+                    log.warn("Invalid non-numeric demographic number rejected: {}", LogSafe.sanitize(demo));
                     throw new SecurityException("Invalid demographic number");
                 }
             }
@@ -144,13 +144,13 @@ public class GeneratePatientLetters2Action extends ActionSupport {
         for (int i = 0; i < demos.length; i++) {
             //fill the map with patient info
             if (log.isTraceEnabled()) {
-                log.trace("Getting demographic info for {}", LogSanitizer.sanitize(demos[i]));
+                log.trace("Getting demographic info for {}", LogSafe.sanitize(demos[i]));
             }
 
             HashMap parameters = new HashMap();
             if (reportParams != null) {
                 for (int p = 0; p < reportParams.length; p++) {
-                    MiscUtils.getLogger().debug("demo = {}", LogSanitizer.sanitize(demos[i]));
+                    MiscUtils.getLogger().debug("demo = {}", LogSafe.sanitize(demos[i]));
                     // deepcode ignore SqlInjection: report template SQL executed via DatabaseAP; templates are admin-configured
                     parameters.put(reportParams[p], apExe.execute(reportParams[p], demos[i]));
                 }
@@ -159,7 +159,7 @@ public class GeneratePatientLetters2Action extends ActionSupport {
             try {
 
                 if (log.isTraceEnabled()) {
-                    log.trace("Filling report for {}", LogSanitizer.sanitize(demos[i]));
+                    log.trace("Filling report for {}", LogSafe.sanitize(demos[i]));
                 }
                 JasperPrint print = JasperFillManager.fillReport(jasperReport, parameters, new JREmptyDataSource());
 
@@ -191,18 +191,18 @@ public class GeneratePatientLetters2Action extends ActionSupport {
                 newDoc.setFileName(validatedFile.getName());
                 String savePath = validatedFile.getAbsolutePath();
                 if (log.isTraceEnabled()) {
-                    log.trace("writing report to disk for file {}", LogSanitizer.sanitize(fileName));
+                    log.trace("writing report to disk for file {}", LogSafe.sanitize(fileName));
                 }
                 JasperExportManager.exportReportToPdfFile(print, savePath);
                 if (log.isTraceEnabled()) {
-                    log.trace("Saving reference to database for {}", LogSanitizer.sanitize(demos[i]));
+                    log.trace("Saving reference to database for {}", LogSafe.sanitize(demos[i]));
                 }
                 EDocUtil.addDocumentSQL(newDoc);
 
                 fullPatientlist.add(savePath);
 
             } catch (SecurityException secEx) {
-                MiscUtils.getLogger().error("Security violation generating letter for demo {}: {}", LogSanitizer.sanitize(demos[i]), secEx.getMessage());
+                MiscUtils.getLogger().error("Security violation generating letter for demo {}: {}", LogSafe.sanitize(demos[i]), secEx.getMessage());
             } catch (Exception jpException) {
                 MiscUtils.getLogger().error("Error", jpException);
             }
@@ -212,14 +212,14 @@ public class GeneratePatientLetters2Action extends ActionSupport {
 
         //LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.READ, LogConst.CON_JASPERREPORTLETER, demographic$, request.getRemoteAddr());
         manageLetters.logLetterCreated(providerNo, id, demos);
-        MiscUtils.getLogger().debug("Add Follow Up {}", LogSanitizer.sanitize(request.getParameter("addFollowUp")));
+        MiscUtils.getLogger().debug("Add Follow Up {}", LogSafe.sanitize(request.getParameter("addFollowUp")));
         if (request.getParameter("addFollowUp") != null && request.getParameter("addFollowUp").equals("ON")) {
             //MARK IN MEASUREMENTS????
             MiscUtils.getLogger().debug("IN MARK MEASUREMENTS");
             String followUpType = request.getParameter("followupType"); //"FLUF";
             String followUpValue = request.getParameter("followupValue"); //"L1";
             String comment = request.getParameter("message");
-            MiscUtils.getLogger().debug("Follow up type {} follow up value {}", LogSanitizer.sanitize(followUpType), LogSanitizer.sanitize(followUpValue));
+            MiscUtils.getLogger().debug("Follow up type {} follow up value {}", LogSafe.sanitize(followUpType), LogSafe.sanitize(followUpValue));
             if (followUpType != null && followUpValue != null) {
                 FollowupManagement fup = new FollowupManagement();
                 fup.markFollowupProcedure(followUpType, followUpValue, demos, providerNo, new Date(), comment);

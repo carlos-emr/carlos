@@ -233,7 +233,7 @@ public final class PathValidationUtils {
             return canonicalFile;
         }
 
-        logger.error("Invalid upload source path: {}", LogSanitizer.sanitize(canonicalFile.getPath(), 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+        logger.error("Invalid upload source path: {}", LogSafe.sanitize(canonicalFile.getPath(), 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
         throw new SecurityException("Invalid upload source");
     }
 
@@ -248,8 +248,8 @@ public final class PathValidationUtils {
 
             if (!fileCanonical.equals(baseCanonical) && !fileCanonical.startsWith(baseCanonical + File.separator)) {
                 logger.error("Path {} is outside allowed directory {}",
-                        LogSanitizer.sanitize(fileCanonical, 1024),
-                        LogSanitizer.sanitize(baseCanonical, 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                        LogSafe.sanitize(fileCanonical, 1024),
+                        LogSafe.sanitize(baseCanonical, 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 throw new SecurityException("Invalid file path");
             }
         } catch (IOException e) {
@@ -268,13 +268,13 @@ public final class PathValidationUtils {
 
         // Reject hidden files (starting with .)
         if (baseName.startsWith(".")) {
-            logger.warn("Hidden filenames not allowed: {}", LogSanitizer.sanitize(fileName));
+            logger.warn("Hidden filenames not allowed: {}", LogSafe.sanitize(fileName));
             throw new SecurityException("Invalid filename: hidden files not allowed");
         }
 
         // Ensure the result is not empty
         if (baseName.trim().isEmpty()) {
-            logger.warn("Filename became empty after sanitization: {}", LogSanitizer.sanitize(fileName));
+            logger.warn("Filename became empty after sanitization: {}", LogSafe.sanitize(fileName));
             throw new SecurityException("Invalid filename");
         }
 

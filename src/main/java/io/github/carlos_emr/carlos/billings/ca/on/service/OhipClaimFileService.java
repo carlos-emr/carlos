@@ -60,7 +60,7 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Site;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.DateRange;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
@@ -1193,7 +1193,7 @@ public class OhipClaimFileService {
             // OHIP — duplicate claim submission. RuntimeException covers the
             // String#substring/Integer.parseInt paths above on a malformed line.
             _logger.error("Failed to read OHIP file {} (record dedup will be incomplete; aborting to prevent duplicate-claim submission)",
-                    LogSanitizer.sanitize(ohipFilename), e);
+                    LogSafe.sanitize(ohipFilename), e);
             throw new IllegalStateException(
                     "Failed to read OHIP file for billing-no dedup; aborting regeneration", e);
         }
@@ -1275,8 +1275,8 @@ public class OhipClaimFileService {
             lastRenamedBackupFile = null;
         } catch (IOException | RuntimeException e) {
             _logger.warn("Failed to restore renamed OHIP file from {} to {}",
-                    LogSanitizer.sanitize(lastRenamedBackupFile.getName()),
-                    LogSanitizer.sanitize(lastRenamedOriginalFile.getName()), e);
+                    LogSafe.sanitize(lastRenamedBackupFile.getName()),
+                    LogSafe.sanitize(lastRenamedOriginalFile.getName()), e);
         }
     }
 
@@ -1295,7 +1295,7 @@ public class OhipClaimFileService {
             java.nio.file.Files.deleteIfExists(safeOut.toPath());
         } catch (IOException | RuntimeException e) {
             _logger.warn("Failed to delete generated {} file {} during cleanup", outputLabel,
-                    LogSanitizer.sanitize(configuredFilename), e);
+                    LogSafe.sanitize(configuredFilename), e);
         }
     }
 

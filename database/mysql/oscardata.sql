@@ -2180,6 +2180,8 @@ insert into `secObjectName`
 	values
 	('_site_access_privacy', 'restrict access to only the assigned sites of a provider', 0);
 
+insert into `secObjPrivilege` values('admin','_site_access_privacy','x',0,'999998');
+
 -- create new roles for multi-office control
 insert into `secRole` 
 	(role_no, role_name, `description`)

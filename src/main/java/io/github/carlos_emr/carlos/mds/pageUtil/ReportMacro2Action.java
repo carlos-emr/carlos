@@ -44,7 +44,7 @@ import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.commn.model.TicklerLink;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -82,7 +82,7 @@ public class ReportMacro2Action extends ActionSupport {
 
         String name = request.getParameter("name");
 
-        logger.info("RunMacro called with name = {}", LogSanitizer.sanitize(name)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+        logger.info("RunMacro called with name = {}", LogSafe.sanitize(name)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
         if (name == null) {
             result.put("success", false);
             result.put("error", "No macro name provided");
@@ -120,7 +120,7 @@ public class ReportMacro2Action extends ActionSupport {
     }
 
     protected boolean runMacro(ObjectNode macro, HttpServletRequest request) {
-        logger.info("running macro {}", LogSanitizer.sanitize(macro.get("name").asText("")));
+        logger.info("running macro {}", LogSafe.sanitize(macro.get("name").asText("")));
         String segmentID = request.getParameter("segmentID");
         String labType = request.getParameter("labType");
         String demographicNo = request.getParameter("demographicNo");
@@ -130,18 +130,18 @@ public class ReportMacro2Action extends ActionSupport {
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         if (macro.has("acknowledge")) {
-            logger.info("Acknowledging lab {}:{}", LogSanitizer.sanitize(labType), LogSanitizer.sanitize(segmentID)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            logger.info("Acknowledging lab {}:{}", LogSafe.sanitize(labType), LogSafe.sanitize(segmentID)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             ObjectNode jAck = (ObjectNode) macro.get("acknowledge");
             String comment = jAck.get("comment").asText();
             if (StringUtils.isBlank(segmentID)) {
-                logger.error("Cannot acknowledge lab: missing or empty segmentID for labType={}", LogSanitizer.sanitize(labType)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                logger.error("Cannot acknowledge lab: missing or empty segmentID for labType={}", LogSafe.sanitize(labType)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 return false;
             }
             final int segmentInt;
             try {
                 segmentInt = Integer.parseInt(segmentID);
             } catch (NumberFormatException e) {
-                logger.error("Cannot acknowledge lab: non-numeric segmentID='{}' for labType={}", LogSanitizer.sanitize(segmentID), LogSanitizer.sanitize(labType), e);
+                logger.error("Cannot acknowledge lab: non-numeric segmentID='{}' for labType={}", LogSafe.sanitize(segmentID), LogSafe.sanitize(labType), e);
                 return false;
             }
             CommonLabResultData.updateReportStatus(segmentInt, providerNo, 'A', comment, labType, skipComment(providerNo));

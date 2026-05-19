@@ -54,7 +54,7 @@
     <script type="text/javascript">
         if (window.opener && !window.opener.closed) {
             <% if ("visitreport".equals(action)) { %>
-            window.opener.location.href = "<%=request.getContextPath()%>/administration/?show=<carlos:encode value='<%= action %>' context="javaScript"/>";
+            window.opener.location.href = "<%=request.getContextPath()%>/administration?show=<carlos:encode value='<%= action %>' context="javaScript"/>";
             <% } else { %>
             window.opener.location.reload();
             <% } %>

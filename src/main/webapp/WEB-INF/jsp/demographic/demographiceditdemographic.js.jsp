@@ -304,6 +304,34 @@ return false;
 }
 
 
+function updateProvinces(province) {
+updateProvinceOptions("#country", "#province", province);
+}
+
+function updateResidentialProvinces(province) {
+updateProvinceOptions("#residentialCountry", "#residentialProvince", province);
+}
+
+function updateProvinceOptions(countrySelector, provinceSelector, province) {
+var country = jQuery(countrySelector).val();
+jQuery.ajax({
+type: "POST",
+url: ctx + '/demographicSupport',
+data: 'method=getCountryAndProvinceCodes&country=' + encodeURIComponent(country || ''),
+dataType: 'json',
+success: function (data) {
+jQuery(provinceSelector).empty();
+jQuery.each(data, function(i, value) {
+jQuery(provinceSelector).append(jQuery('<option>').text(value.label).attr('value', value.value));
+});
+if (province != null) {
+jQuery(provinceSelector).val(province);
+}
+}
+});
+}
+
+
 function setProvince(sdCode) {
 jQuery("#country").on('change',function(){
 updateProvinces('');
@@ -361,4 +389,3 @@ updateResidentialProvinces(sdCode);
 }
 });
 }
-

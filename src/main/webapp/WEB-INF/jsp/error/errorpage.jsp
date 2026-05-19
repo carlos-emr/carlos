@@ -48,14 +48,21 @@
 <!-- only true can access exception object -->
 <%--
   DISPLAY_ERROR — developer mode block.
-  When carlos.properties sets DISPLAY_ERROR=true, render full exception details in
-  the browser to aid local debugging. ResponseSanitizationFilter also disables itself
-  when this flag is active so raw details are not stripped before reaching the client.
+  When carlos.properties sets DISPLAY_ERROR=true, render the developer detail block
+  in the browser to aid local debugging. To allow raw exception details through
+  ResponseSanitizationFilter, also set response.sanitization.enabled=false.
+  DISPLAY_ERROR alone does not disable sanitization.
   SECURITY: this block MUST remain inactive in all production and PHI environments.
 --%>
 <%
-    boolean _displayError = io.github.carlos_emr.CarlosProperties.getInstance()
-            .isPropertyActive("DISPLAY_ERROR");
+    io.github.carlos_emr.CarlosProperties _props = io.github.carlos_emr.CarlosProperties.getInstance();
+    boolean _displayErrorFlag = _props.isPropertyActive("DISPLAY_ERROR");
+    String _sanitizationEnabled = _props.getProperty("response.sanitization.enabled", "").trim();
+    boolean _sanitizationDisabled = "false".equalsIgnoreCase(_sanitizationEnabled)
+            || "no".equalsIgnoreCase(_sanitizationEnabled)
+            || "off".equalsIgnoreCase(_sanitizationEnabled)
+            || "0".equals(_sanitizationEnabled);
+    boolean _displayError = _displayErrorFlag && _sanitizationDisabled;
     request.setAttribute("_displayError", _displayError);
     if (_displayError) {
         Throwable _t = exception;

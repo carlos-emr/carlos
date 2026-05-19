@@ -175,7 +175,7 @@ public class OscarOAuthDataProvider {
     }
 
     public AccessToken getAccessToken(String tokenId) {
-        ServiceAccessToken sat = serviceAccessTokenDao.findByTokenId(tokenId);
+        ServiceAccessToken sat = findUnexpiredAccessToken(tokenId);
         if (sat == null) return null;
 
         ServiceClient sc = serviceClientDao.find(sat.getClientId());
@@ -203,12 +203,19 @@ public class OscarOAuthDataProvider {
     }
 
     public String finalizeAuthorization(RequestToken requestToken) throws OAuth1Exception {
+        return finalizeAuthorization(requestToken, null);
+    }
+
+    public String finalizeAuthorization(RequestToken requestToken, String providerNo) throws OAuth1Exception {
         logger.debug("finalizeAuthorization() called");
         // RequestToken requestToken = data.getToken(); - now passing the token directly. 
         requestToken.setVerifier(UUID.randomUUID().toString());
         ServiceRequestToken srt = serviceRequestTokenDao.findByTokenId(requestToken.getTokenKey());
         if (srt != null) {
             srt.setVerifier(requestToken.getVerifier());
+            if (providerNo != null && !providerNo.isBlank()) {
+                srt.setProviderNo(providerNo);
+            }
             serviceRequestTokenDao.merge(srt);
         }
         return requestToken.getVerifier();
@@ -216,18 +223,44 @@ public class OscarOAuthDataProvider {
  
 
     public String getAccessTokenSecret(String accessTokenId) {
-        ServiceAccessToken sat = serviceAccessTokenDao.findByTokenId(accessTokenId);
+        ServiceAccessToken sat = findUnexpiredAccessToken(accessTokenId);
         return sat != null ? sat.getTokenSecret() : null;
     }
 
     public String getProviderNoByAccessToken(String accessTokenId) {
-        ServiceAccessToken sat = serviceAccessTokenDao.findByTokenId(accessTokenId);
+        ServiceAccessToken sat = findUnexpiredAccessToken(accessTokenId);
         return sat != null ? sat.getProviderNo() : null;
     }
 
     public String getRequestTokenSecret(String requestTokenId) {
         ServiceRequestToken srt = serviceRequestTokenDao.findByTokenId(requestTokenId);
         return srt != null ? srt.getTokenSecret() : null;
+    }
+
+    private ServiceAccessToken findUnexpiredAccessToken(String accessTokenId) {
+        ServiceAccessToken sat = serviceAccessTokenDao.findByTokenId(accessTokenId);
+        if (sat == null) {
+            return null;
+        }
+        if (isAccessTokenExpired(sat)) {
+            logger.debug("Rejecting expired OAuth access token id={}", sat.getId());
+            serviceAccessTokenDao.remove(sat);
+            return null;
+        }
+        return sat;
+    }
+
+    private boolean isAccessTokenExpired(ServiceAccessToken token) {
+        if (token.getLifetime() <= 0 || token.getIssued() <= 0) {
+            return true;
+        }
+        long expiresAt;
+        try {
+            expiresAt = Math.addExact(token.getIssued(), token.getLifetime());
+        } catch (ArithmeticException e) {
+            return true;
+        }
+        return System.currentTimeMillis() / 1000 >= expiresAt;
     }
 
 }

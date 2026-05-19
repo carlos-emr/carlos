@@ -33,7 +33,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.apache.logging.log4j.LogManager;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 
@@ -107,7 +107,7 @@ public class BillingOnSave2Action extends ActionSupport {
                 && !rawUrlBack.contains("\r")
                 && !rawUrlBack.contains("\n")) ? rawUrlBack : "";
         if (rawUrlBack != null && safeUrlBack.isEmpty()) {
-            LogManager.getLogger(BillingOnSave2Action.class).warn("Rejected url_back parameter: {}", LogSanitizer.sanitize(rawUrlBack)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            LogManager.getLogger(BillingOnSave2Action.class).warn("Rejected url_back parameter: {}", LogSafe.sanitize(rawUrlBack)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
         }
         request.setAttribute("safeUrlBack", safeUrlBack);
 
