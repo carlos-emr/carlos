@@ -23,8 +23,11 @@ import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.ResourceBundle;
 import java.util.Set;
@@ -53,6 +56,7 @@ import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.UploadedFileUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
@@ -73,7 +77,8 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    private static final Set<String> ALLOWED_INCOMING_DOC_FOLDERS = Set.of("Fax", "Mail", "File", "Refile");
+    private static final Set<String> DEFAULT_INCOMING_DOC_FOLDERS = Set.of("Fax", "Mail", "File", "Refile");
+    private static final Set<String> ALLOWED_INCOMING_DOC_FOLDERS = getAllowedIncomingDocFolders();
     private static final String INVALID_INCOMING_DESTINATION_MESSAGE = "Invalid incoming document destination.";
     private static final String PREFERRED_QUEUE_SESSION_KEY = "preferredQueue";
     private static final int MAX_DOCUMENT_FILENAME_ATTEMPTS = 100;
@@ -84,6 +89,24 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
 
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
+
+    private static Set<String> getAllowedIncomingDocFolders() {
+        String configuredFolders = CarlosProperties.getInstance().getProperty("ALLOWED_INCOMING_DOC_FOLDERS");
+        if (configuredFolders == null || configuredFolders.trim().isEmpty()) {
+            return DEFAULT_INCOMING_DOC_FOLDERS;
+        }
+
+        Set<String> parsedFolders = new LinkedHashSet<>();
+        Arrays.stream(configuredFolders.split(","))
+                .map(String::trim)
+                .filter(folder -> !folder.isEmpty())
+                .forEach(parsedFolders::add);
+
+        if (parsedFolders.isEmpty()) {
+            return DEFAULT_INCOMING_DOC_FOLDERS;
+        }
+        return Collections.unmodifiableSet(parsedFolders);
+    }
 
     public String execute() throws Exception {
         return executeUpload();
@@ -348,7 +371,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
         }
 
         private static ValidatedUpload from(UploadedFile upload) {
-            File validatedUpload = PathValidationUtils.validateUpload(uploadContentFile(upload));
+            File validatedUpload = PathValidationUtils.validateUpload(UploadedFileUtils.getUploadedFile(upload));
             return new ValidatedUpload(upload, validatedUpload);
         }
 
@@ -363,25 +386,6 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
         private boolean delete() {
             return upload.delete();
         }
-    }
-
-    private static File uploadContentFile(UploadedFile upload) {
-        if (upload == null) {
-            throw new FileValidationException("Uploaded file is null");
-        }
-        Object content = upload.getContent();
-        if (content instanceof File file) {
-            return file;
-        }
-        throw new FileValidationException("Uploaded file content is not file-backed");
-    }
-
-    private static File uploadContentFileOrNull(UploadedFile upload) {
-        if (upload == null) {
-            return null;
-        }
-        Object content = upload.getContent();
-        return content instanceof File file ? file : null;
     }
 
     private void deleteCopiedDocumentIfUnpersisted(File copiedDocumentFile, boolean documentRecordCreated) {
@@ -526,8 +530,6 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
     private String docCreator = "";
     private String responsibleId = "";
     private String source = "";
-    private UploadedFile docFileUpload;
-
     private UploadedFile filedataUpload;
     private String filedataFileName;
     private String filedataContentType;
@@ -541,8 +543,6 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                     this.filedataUpload = uploaded;
                     this.filedataContentType = uploaded.getContentType();
                     this.filedataFileName = uploaded.getOriginalName();
-                } else if ("docFile".equals(inputName)) {
-                    this.docFileUpload = uploaded;
                 }
             }
         }
@@ -620,10 +620,6 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
         this.source = source;
     }
 
-    public File getDocFile() {
-        return uploadContentFileOrNull(docFileUpload);
-    }
-
     public String getMode() {
         return mode;
     }
@@ -688,7 +684,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
     }
 
     public File getFiledata() {
-        return uploadContentFileOrNull(filedataUpload);
+        return UploadedFileUtils.getUploadedFileOrNull(filedataUpload);
     }
 
     public String getFiledataFileName() {

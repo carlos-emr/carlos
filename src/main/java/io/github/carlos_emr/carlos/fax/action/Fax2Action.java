@@ -62,9 +62,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.UUID;
 import org.apache.commons.io.FilenameUtils;
 
@@ -482,7 +482,7 @@ public class Fax2Action extends ActionSupport {
             return null;
         }
 
-        Map<String, String> previewPaths = new HashMap<>();
+        Map<String, String> previewPaths = new ConcurrentHashMap<>();
         session.setAttribute(FAX_PREVIEW_PATHS_SESSION_KEY, previewPaths);
         return previewPaths;
     }
