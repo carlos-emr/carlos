@@ -49,6 +49,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 
 public class ImageUpload2Action extends ActionSupport implements UploadedFilesAware {
@@ -140,7 +141,7 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
         if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
             try {
                 UploadedFile uploaded = uploadedFiles.get(0);
-                this.image = PathValidationUtils.validateUpload(new File(uploaded.getAbsolutePath()));
+                this.image = PathValidationUtils.validateUpload(Path.of(uploaded.getAbsolutePath()).toFile());
                 this.imageFileContentType = uploaded.getContentType();
                 this.imageFileName = uploaded.getOriginalName();
             } catch (FileValidationException e) {

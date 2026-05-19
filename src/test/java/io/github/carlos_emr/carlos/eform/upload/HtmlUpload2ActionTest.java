@@ -24,6 +24,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletRequest;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -40,6 +41,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -120,6 +122,28 @@ class HtmlUpload2ActionTest extends CarlosUnitTestBase {
         registerMock(ConsultationRequestDao.class, mock(ConsultationRequestDao.class));
         registerMock(ProfessionalSpecialistDao.class, mock(ProfessionalSpecialistDao.class));
         registerMock(EFormDao.class, mock(EFormDao.class));
+    }
+
+    @Test
+    @DisplayName("should return fail when Struts-bound upload filename is invalid")
+    void shouldReturnFail_whenStrutsBoundUploadFilenameIsInvalid() throws Exception {
+        File upload = tempDir.resolve("uploaded.html").toFile();
+        Files.writeString(upload.toPath(), "<html></html>");
+        UploadedFile uploaded = mock(UploadedFile.class);
+        when(uploaded.getAbsolutePath()).thenReturn(upload.getAbsolutePath());
+        when(uploaded.getContentType()).thenReturn("text/html");
+        when(uploaded.getOriginalName()).thenReturn(".hidden.html");
+
+        HtmlUpload2Action action = new HtmlUpload2Action();
+        action.withUploadedFiles(List.of(uploaded));
+        action.setFormName("Test Form");
+        action.setSubject("Subject");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo("fail");
+        assertThat(request.getAttribute("errorMessage"))
+                .isEqualTo("Invalid filename: hidden files not allowed. Do not start the filename with a dot.");
     }
 
     @Test

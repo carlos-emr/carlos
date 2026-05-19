@@ -35,6 +35,7 @@ package io.github.carlos_emr.carlos.managers;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.file.*;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -47,7 +48,6 @@ import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
 import io.github.carlos_emr.carlos.documentManager.dto.DocumentListItemDTO;
 import org.openpdf.text.DocumentException;
-import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.pdfbox.Loader;
@@ -92,6 +92,7 @@ import io.github.carlos_emr.carlos.utility.LogSanitizer;
 @Service
 public class DocumentManagerImpl implements DocumentManager {
 
+    private static final int MAX_DOCUMENT_FILENAME_ATTEMPTS = 100;
     private static final String PARENT_DIR = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
     private static final String MOVE_DOCUMENT_LOG_ACTION = "EformDataManager.moveDocument";
     private final Logger logger = MiscUtils.getLogger();
@@ -185,7 +186,6 @@ public class DocumentManagerImpl implements DocumentManager {
         }
 
         SimpleDateFormat dateTimeFormat = new SimpleDateFormat("yyyyMMddHHmmss");
-        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
         Date today = new Date();
         // Generates filename and path data and saves the document data to the file system
         String documentPath = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
@@ -197,13 +197,12 @@ public class DocumentManagerImpl implements DocumentManager {
             String normalizedFileName = PathValidationUtils.validateFileName(originalFileName);
             String storageFileName = dateTimeFormat.format(today) + "_" + normalizedFileName;
             File documentDir = new File(documentPath);
-            file = PathValidationUtils.validatePath(storageFileName, documentDir);
+            file = writeNewDocumentFile(documentDir, storageFileName, documentData);
             fileName = file.getName();
         } catch (FileValidationException e) {
             logger.warn("Document filename failed validation");
             throw e;
         }
-        FileUtils.writeByteArrayToFile(file, documentData);
 
         // Gets the number of pages for the document
         int numberOfPages = 1;
@@ -247,6 +246,51 @@ public class DocumentManagerImpl implements DocumentManager {
         } catch (IOException e) {
             logger.warn("Unable to delete unpersisted document file: {}", LogSanitizer.sanitize(file.getPath()), e);
         }
+    }
+
+    private File writeNewDocumentFile(File documentDir, String storageFileName, byte[] documentData) throws IOException {
+        if (documentData == null) {
+            throw new IOException("Document data is required");
+        }
+
+        IOException lastCollision = null;
+        for (int attempt = 0; attempt < MAX_DOCUMENT_FILENAME_ATTEMPTS; attempt++) {
+            File file = PathValidationUtils.validatePath(storageFileNameWithCollisionSuffix(storageFileName, attempt), documentDir);
+            boolean fileCreatedByRequest = false;
+            Path filePath = file.toPath();
+            Path parentPath = filePath.getParent();
+            if (parentPath != null) {
+                Files.createDirectories(parentPath);
+            }
+
+            try (OutputStream outputStream = Files.newOutputStream(filePath, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
+                fileCreatedByRequest = true;
+                outputStream.write(documentData);
+                return file;
+            } catch (FileAlreadyExistsException e) {
+                lastCollision = e;
+            } catch (IOException | RuntimeException e) {
+                if (fileCreatedByRequest) {
+                    deleteUnpersistedDocumentFile(file);
+                }
+                throw e;
+            }
+        }
+
+        throw new IOException("Unable to create a unique document filename after "
+                + MAX_DOCUMENT_FILENAME_ATTEMPTS + " attempts", lastCollision);
+    }
+
+    private String storageFileNameWithCollisionSuffix(String storageFileName, int attempt) {
+        if (attempt == 0) {
+            return storageFileName;
+        }
+
+        int extensionIndex = storageFileName.lastIndexOf('.');
+        if (extensionIndex > 0) {
+            return storageFileName.substring(0, extensionIndex) + "_" + attempt + storageFileName.substring(extensionIndex);
+        }
+        return storageFileName + "_" + attempt;
     }
 
     public List<Document> getDocumentsUpdateAfterDate(LoggedInInfo loggedInInfo, Date updatedAfterThisDateExclusive, int itemsToReturn) {

@@ -131,7 +131,7 @@ public class GenericDownload extends HttpServlet {
         }
 
         String sanitized = filename
-                .replaceAll("[\\r\\n\\u0000-\\u001F\\u007F-\\u009F]", "")
+                .replaceAll("[\\u0000-\\u001F\\u007F-\\u009F]", "")
                 .replaceAll("[\"\\\\;]", "_");
 
         if (sanitized.trim().isEmpty()) {

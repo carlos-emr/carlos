@@ -113,8 +113,10 @@ class DocumentManagerImplMoveDocumentTest extends CarlosUnitTestBase {
         Document document = new Document();
         document.setDocfilename("../generated-document.pdf");
         document.setDocumentNo(42);
+        String sourcePath = sourceDir.toString();
+        String destinationPath = destinationDir.toString();
 
-        assertThatThrownBy(() -> manager.moveDocument(loggedInInfo, document, sourceDir.toString(), destinationDir.toString()))
+        assertThatThrownBy(() -> manager.moveDocument(loggedInInfo, document, sourcePath, destinationPath))
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("Invalid document move path");
     }

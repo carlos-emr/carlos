@@ -19,7 +19,9 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -75,6 +77,9 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
     private static final Set<String> ALLOWED_INCOMING_DOC_FOLDERS = Set.of("Fax", "Mail", "File", "Refile");
     private static final String INVALID_INCOMING_DESTINATION_MESSAGE = "Invalid incoming document destination.";
     private static final String PREFERRED_QUEUE_SESSION_KEY = "preferredQueue";
+    private static final int MAX_DOCUMENT_FILENAME_ATTEMPTS = 100;
+    private static final String UNIQUE_DOCUMENT_FILENAME_ERROR =
+            "Unable to create a unique document filename. Please try again.";
     private static Logger logger = MiscUtils.getLogger();
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -233,7 +238,6 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                     }
 
                     fileName = newDoc.getFileName();
-                    String filePath = newDoc.getFilePath();
                     // save local file;
                     if (docFile.length() == 0) {
                         map.put("error", 4);
@@ -242,11 +246,14 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
 
                     // write file to local dir
                     copiedDocumentFile = writeLocalFile(docFile, fileName);
+                    fileName = copiedDocumentFile.getName();
+                    newDoc.setFileName(fileName);
+                    newDoc.setFilePath(copiedDocumentFile.getPath());
                     newDoc.setContentType(this.filedataContentType);
                     if (fileName.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
                         newDoc.setContentType("application/pdf");
                         // get number of pages when document is a PDF
-                        numberOfPages = countNumOfPages(filePath);
+                        numberOfPages = countNumOfPages(copiedDocumentFile.getPath());
                     }
                     newDoc.setNumberOfPages(numberOfPages);
                     String doc_no = EDocUtil.addDocumentSQL(newDoc);
@@ -268,10 +275,10 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                         } else {
                             WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
                             QueueDocumentLinkDao queueDocumentLinkDAO = (QueueDocumentLinkDao) ctx.getBean(QueueDocumentLinkDao.class);
-                            Integer qid = Integer.parseInt(queueId.trim());
+                            int qid = Integer.parseInt(queueId.trim());
                             Integer did = Integer.parseInt(doc_no.trim());
                             queueDocumentLinkDAO.addActiveQueueDocumentLink(qid, did);
-                            request.getSession().setAttribute(PREFERRED_QUEUE_SESSION_KEY, String.valueOf(qid)); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+                            storePreferredQueue(qid);
                         }
                     }
 
@@ -281,6 +288,10 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                     deleteCopiedDocumentIfUnpersisted(copiedDocumentFile, documentRecordCreated);
                     logger.warn("Rejected invalid document upload filename");
                     map.put("error", e.getMessage());
+                } catch (UniqueDocumentFilenameException e) {
+                    deleteCopiedDocumentIfUnpersisted(copiedDocumentFile, documentRecordCreated);
+                    logger.warn("Unable to create unique document upload filename", e);
+                    map.put("error", UNIQUE_DOCUMENT_FILENAME_ERROR);
                 } catch (Exception e) {
                     deleteCopiedDocumentIfUnpersisted(copiedDocumentFile, documentRecordCreated);
                     throw e;
@@ -301,8 +312,21 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
     }
 
     private void deleteUploadedTempFile(File uploadedFile) {
-        if (uploadedFile != null && uploadedFile.exists() && !uploadedFile.delete()) {
-            logger.warn("Unable to delete uploaded temp file: {}", LogSanitizer.sanitize(uploadedFile.getPath()));
+        if (uploadedFile == null) {
+            return;
+        }
+
+        try {
+            File validatedUpload = PathValidationUtils.validateUpload(uploadedFile);
+
+            // codeql[java/path-injection] -- validated Struts/Tomcat temp file; see PathValidationUtils.validateUpload.
+            if (!Files.deleteIfExists(validatedUpload.toPath())) {
+                logger.warn("Uploaded temp file was already removed: {}", LogSanitizer.sanitize(validatedUpload.getPath()));
+            }
+        } catch (FileValidationException e) {
+            logger.warn("Skipping invalid uploaded temp file cleanup: {}", LogSanitizer.sanitize(uploadedFile.getPath()));
+        } catch (IOException e) {
+            logger.warn("Unable to delete uploaded temp file: {}", LogSanitizer.sanitize(uploadedFile.getPath()), e);
         }
     }
 
@@ -324,40 +348,80 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
      * @throws Exception when an error occurs
      */
     private File writeLocalFile(File docFile, String fileName) throws Exception {
-        File destinationFile = null;
-        boolean writeSucceeded = false;
-        try {
-            String documentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
-            if (!documentDir.endsWith(File.separator)) {
-                documentDir += File.separator;
-            }
-            // Validate the destination path using PathValidationUtils
-            File baseDir = new File(documentDir);
-            destinationFile = PathValidationUtils.validatePath(fileName, baseDir);
+        File validatedUpload = PathValidationUtils.validateUpload(docFile);
+        String documentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        if (!documentDir.endsWith(File.separator)) {
+            documentDir += File.separator;
+        }
+        File baseDir = new File(documentDir);
+        IOException lastCollision = null;
 
-            try (InputStream fis = Files.newInputStream(docFile.toPath());
-                    OutputStream fos = Files.newOutputStream(destinationFile.toPath())) {
-                byte[] buf = new byte[128 * 1024];
-                int i = 0;
-                while ((i = fis.read(buf)) != -1) {
-                    fos.write(buf, 0, i);
+        for (int attempt = 0; attempt < MAX_DOCUMENT_FILENAME_ATTEMPTS; attempt++) {
+            File destinationFile = PathValidationUtils.validatePath(
+                    fileNameWithCollisionSuffix(fileName, attempt), baseDir);
+            boolean fileCreatedByRequest = false;
+            boolean writeSucceeded = false;
+
+            try {
+                // codeql[java/path-injection] -- destinationFile is validated under DOCUMENT_DIR.
+                try (OutputStream fos = Files.newOutputStream(destinationFile.toPath(),
+                        StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
+                    fileCreatedByRequest = true;
+                    // codeql[java/path-injection] -- validated Struts/Tomcat temp file; see PathValidationUtils.validateUpload.
+                    try (InputStream fis = Files.newInputStream(validatedUpload.toPath())) {
+                        byte[] buf = new byte[128 * 1024];
+                        int i = 0;
+                        while ((i = fis.read(buf)) != -1) {
+                            fos.write(buf, 0, i);
+                        }
+                    }
+                }
+                writeSucceeded = true;
+                return destinationFile;
+            } catch (FileAlreadyExistsException e) {
+                lastCollision = e;
+            } catch (Exception e) {
+                logger.error("Error writing local file", e);
+                throw e;
+            } finally {
+                if (!writeSucceeded && fileCreatedByRequest) {
+                    deleteCopiedDocumentIfUnpersisted(destinationFile, false);
                 }
             }
-            writeSucceeded = true;
-            return destinationFile;
-        } catch (Exception e) {
-            logger.error("Error writing local file", e);
-            throw e;
-        } finally {
-            if (!writeSucceeded) {
-                deleteCopiedDocumentIfUnpersisted(destinationFile, false);
-            }
+        }
+
+        throw new UniqueDocumentFilenameException(UNIQUE_DOCUMENT_FILENAME_ERROR, lastCollision);
+    }
+
+    private String fileNameWithCollisionSuffix(String fileName, int attempt) {
+        if (attempt == 0) {
+            return fileName;
+        }
+
+        int extensionIndex = fileName.lastIndexOf('.');
+        if (extensionIndex > 0) {
+            return fileName.substring(0, extensionIndex) + "_" + attempt + fileName.substring(extensionIndex);
+        }
+        return fileName + "_" + attempt;
+    }
+
+    private static final class UniqueDocumentFilenameException extends IOException {
+        private UniqueDocumentFilenameException(String message, Throwable cause) {
+            super(message, cause);
         }
     }
 
     private void deleteCopiedDocumentIfUnpersisted(File copiedDocumentFile, boolean documentRecordCreated) {
-        if (!documentRecordCreated && copiedDocumentFile != null && copiedDocumentFile.exists() && !copiedDocumentFile.delete()) {
-            logger.warn("Unable to delete unpersisted document file: {}", LogSanitizer.sanitize(copiedDocumentFile.getPath()));
+        if (documentRecordCreated || copiedDocumentFile == null || !copiedDocumentFile.exists()) {
+            return;
+        }
+
+        try {
+            Files.delete(copiedDocumentFile.toPath());
+        } catch (IOException e) {
+            if (logger.isWarnEnabled()) {
+                logger.warn("Unable to delete unpersisted document file: {}", LogSanitizer.sanitize(copiedDocumentFile.getPath()), e);
+            }
         }
     }
 
@@ -392,7 +456,9 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
 
         // Write the file - validate source file at point of use for static analysis visibility
         File validatedDocFile = PathValidationUtils.validateUpload(docFile);
+        // codeql[java/path-injection] -- validated temp upload source and incoming-docs destination.
         try (InputStream fis = Files.newInputStream(validatedDocFile.toPath());
+                // codeql[java/path-injection] -- destinationFile is validated under the incoming-docs directory before this sink.
                 OutputStream fos = Files.newOutputStream(destinationFile.toPath(),
                         StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
             IOUtils.copy(fis, fos);
@@ -430,11 +496,16 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             return;
         }
         try {
-            request.getSession().setAttribute(PREFERRED_QUEUE_SESSION_KEY, String.valueOf(Integer.parseInt(queueId.trim()))); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+            storePreferredQueue(Integer.parseInt(queueId.trim()));
         } catch (NumberFormatException e) {
             // Do not store an invalid queue ID in the session.
             logger.warn("Invalid queue ID format — skipping session attribute update");
         }
+    }
+
+    private void storePreferredQueue(int queueId) {
+        // nosemgrep: java.servlets.security.tainted-session-from-http-request.tainted-session-from-http-request, java.lang.security.audit.tainted-session-from-http-request.tainted-session-from-http-request -- queueId is parsed as an integer before storage
+        request.getSession().setAttribute(PREFERRED_QUEUE_SESSION_KEY, String.valueOf(queueId));
     }
 
     public String setUploadDestination() {
@@ -497,11 +568,11 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             for (UploadedFile uploaded : uploadedFiles) {
                 String inputName = uploaded.getInputName();
                 if ("filedata".equals(inputName)) {
-                    this.filedata = new File(uploaded.getAbsolutePath());
+                    this.filedata = Path.of(uploaded.getAbsolutePath()).toFile();
                     this.filedataContentType = uploaded.getContentType();
                     this.filedataFileName = uploaded.getOriginalName();
                 } else if ("docFile".equals(inputName)) {
-                    this.docFile = new File(uploaded.getAbsolutePath());
+                    this.docFile = Path.of(uploaded.getAbsolutePath()).toFile();
                 }
             }
         }

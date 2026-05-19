@@ -207,8 +207,9 @@ public class PathValidationUtilsTest {
         void shouldNormalizeFilename_thenValidateDestinationPath() {
             File result = PathValidationUtils.validateUserFilePath("nested/path/my report..<script>-final.pdf", allowedDir);
 
-            assertThat(result.getParentFile()).isEqualTo(allowedDir);
-            assertThat(result.getName()).isEqualTo("my_report.scriptfinal.pdf");
+            assertThat(result)
+                    .hasParent(allowedDir)
+                    .hasName("my_report.scriptfinal.pdf");
         }
 
         @Test
@@ -497,7 +498,7 @@ public class PathValidationUtilsTest {
 
             File result = PathValidationUtils.validateUpload(sourceFile, "my report (final).txt", tempDir.toFile());
 
-            assertThat(result.getName()).isEqualTo("my_report_final.txt");
+            assertThat(result).hasName("my_report_final.txt");
         }
 
         @Test

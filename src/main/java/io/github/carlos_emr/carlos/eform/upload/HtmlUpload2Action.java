@@ -47,6 +47,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 
 /**
@@ -114,7 +115,7 @@ public class HtmlUpload2Action extends ActionSupport implements UploadedFilesAwa
         if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
             try {
                 UploadedFile uploaded = uploadedFiles.get(0);
-                this.formHtml = PathValidationUtils.validateUpload(new File(uploaded.getAbsolutePath()));
+                this.formHtml = PathValidationUtils.validateUpload(Path.of(uploaded.getAbsolutePath()).toFile());
                 this.formHtmlContentType = uploaded.getContentType();
                 String rawName = uploaded.getOriginalName();
                 this.formHtmlFileName = PathValidationUtils.validateFileName(rawName);

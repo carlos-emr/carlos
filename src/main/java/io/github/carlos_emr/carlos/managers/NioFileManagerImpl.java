@@ -430,30 +430,28 @@ public class NioFileManagerImpl implements NioFileManager {
                 return false;
             }
 
-            // Parse and normalize the provided file path
-            Path tempfile = Paths.get(fileName).normalize().toAbsolutePath();
-            
-            // Resolve to real path to handle symlinks
-            if (Files.exists(tempfile)) {
-                tempfile = tempfile.toRealPath();
-            }
-            
             // Validate against the same temp allowlist used for uploads.
             // This includes java.io.tmpdir and Tomcat work directories.
-            if (!PathValidationUtils.isInAllowedTempDirectory(tempfile.toFile())) {
+            File tempFile = new File(fileName).getCanonicalFile();
+            if (!PathValidationUtils.isInAllowedTempDirectory(tempFile)) {
                 log.error("Attempt to delete file outside of allowed temp directories: {}", LogSanitizer.sanitize(fileName));
                 throw new SecurityException("Path traversal attempt detected");
             }
 
+            Path tempfile = tempFile.toPath();
+
+            // codeql[java/path-injection] -- tempFile is canonicalized and temp-dir allowlisted above.
             if (!Files.exists(tempfile)) {
                 return false;
             }
 
+            // codeql[java/path-injection] -- tempFile is canonicalized and temp-dir allowlisted above.
             if (!Files.isRegularFile(tempfile)) {
                 log.error("Attempt to delete a non-file temp path: {}", LogSanitizer.sanitize(fileName));
                 throw new SecurityException("Temp deletion target must be a regular file");
             }
             
+            // codeql[java/path-injection] -- tempFile is canonicalized and temp-dir allowlisted above.
             return Files.deleteIfExists(tempfile);
         } catch (SecurityException e) {
             log.error("Security violation while attempting to delete file: {}", LogSanitizer.sanitize(fileName), e);
@@ -514,11 +512,19 @@ public class NioFileManagerImpl implements NioFileManager {
 
             // Delete source file after successful copy
             if (destinationFile.exists()) {
-                deleteTempFile(sourceFile.getPath());
+                try {
+                    if (!deleteTempFile(sourceFile.getPath())) {
+                        log.warn("Copied file to OscarDocuments but could not delete temp source: {}",
+                                LogSanitizer.sanitize(sourceFile.getPath()));
+                    }
+                } catch (SecurityException e) {
+                    log.warn("Copied file to OscarDocuments but temp source cleanup was rejected: {}",
+                            LogSanitizer.sanitize(sourceFile.getPath()), e);
+                }
             }
 
             return destinationFile.getPath();
-        } catch (SecurityException | IOException e) {
+        } catch (FileValidationException | IOException e) {
             log.error("An error occurred while moving the PDF file", e);
             return null;
         }
