@@ -31,6 +31,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.hibernate.Hibernate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.transaction.annotation.Transactional;
@@ -382,6 +383,53 @@ public class CaseManagementIssueDAOIntegrationTest extends CarlosTestBase {
         }
 
         @Test
+        @Tag("read")
+        @DisplayName("should initialize issue when getting issues by demographic")
+        void shouldInitializeIssue_whenGettingIssuesByDemographic() {
+            // Given
+            createCaseManagementIssue("334", testIssue1);
+            hibernateTemplate.flush();
+            hibernateTemplate.clear();
+            entityManager.clear();
+
+            // When
+            List<CaseManagementIssue> results = caseManagementIssueDAO.getIssuesByDemographic("334");
+
+            // Then
+            assertThat(results).hasSize(1);
+            assertThat(Hibernate.isInitialized(results.get(0).getIssue())).isTrue();
+            assertThat(results.get(0).getIssue().getCode()).isEqualTo("TEST001");
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return CMI when joined issue row is missing")
+        void shouldReturnCmi_whenJoinedIssueRowIsMissing() {
+            // Given
+            CaseManagementIssue cmi = new CaseManagementIssue();
+            cmi.setDemographic_no(335);
+            // Intentionally references no Issue row to verify LEFT JOIN FETCH preserves the CMI.
+            cmi.setIssue_id(-1L);
+            cmi.setAcute(false);
+            cmi.setCertain(true);
+            cmi.setMajor(false);
+            cmi.setResolved(false);
+            cmi.setUpdate_date(new Date());
+            hibernateTemplate.save(cmi);
+            hibernateTemplate.flush();
+            hibernateTemplate.clear();
+            entityManager.clear();
+
+            // When
+            List<CaseManagementIssue> results = caseManagementIssueDAO.getIssuesByDemographic("335");
+
+            // Then
+            assertThat(results).hasSize(1);
+            assertThat(results.get(0).getId()).isEqualTo(cmi.getId());
+            assertThat(results.get(0).getIssue()).isNull();
+        }
+
+        @Test
         @Tag("filter")
         @DisplayName("should filter unresolved issues by boolean parameter")
         void shouldFilterUnresolvedIssues_byBooleanParameter() {
@@ -397,7 +445,9 @@ public class CaseManagementIssueDAOIntegrationTest extends CarlosTestBase {
             // Then
             assertThat(unresolvedResults)
                 .isNotEmpty()
-                .allMatch(i -> !i.isResolved());
+                .allMatch(i -> !i.isResolved() && Hibernate.isInitialized(i.getIssue()))
+                .extracting(i -> i.getIssue().getCode())
+                .containsExactly("TEST001");
         }
 
         @Test
@@ -516,39 +566,47 @@ public class CaseManagementIssueDAOIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("query")
-        @DisplayName("should throw IllegalArgumentException due to illegal collection dereference")
-        void shouldThrowIllegalArgumentException_whenDereferencingCollectionProperty() {
+        @DisplayName("should return issue-linked CMIs when note ID exists")
+        void shouldReturnIssueLinkedCmis_whenNoteIdExists() {
             // Given — create a note linked to testIssue1 via CMI
             CaseManagementIssue cmi = createCaseManagementIssue("20200", testIssue1);
             hibernateTemplate.flush();
             CaseManagementNote note = createAndLinkNote("20200", cmi);
+            hibernateTemplate.clear();
+            entityManager.clear();
 
-            // When/Then — the HQL "cmi.notes.id" illegally dereferences a collection
-            // property. Hibernate cannot navigate through a Set to access element
-            // properties without an explicit join. This documents the pre-change bug.
-            // Hibernate 5's ExceptionConverterImpl.convert() wraps QueryException as
-            // IllegalArgumentException (JPA convention) rather than HibernateQueryException.
-            assertThatThrownBy(() ->
-                caseManagementIssueDAO.getIssuesByNote(note.getId().intValue(), null)
-            ).isInstanceOf(IllegalArgumentException.class);
+            // When
+            List<CaseManagementIssue> results = caseManagementIssueDAO.getIssuesByNote(note.getId().intValue(), null);
+
+            // Then
+            assertThat(results).hasSize(1);
+            assertThat(results.get(0).getId()).isEqualTo(cmi.getId());
+            assertThat(Hibernate.isInitialized(results.get(0).getIssue())).isTrue();
+            assertThat(results.get(0).getIssue().getCode()).isEqualTo("TEST001");
         }
 
         @Test
         @Tag("filter")
-        @DisplayName("should throw IllegalArgumentException with resolved filter due to same collection bug")
-        void shouldThrowIllegalArgumentException_whenFilteringByResolved() {
+        @DisplayName("should filter note issues by resolved flag")
+        void shouldFilterNoteIssues_byResolvedFlag() {
             // Given — create resolved + unresolved CMIs linked to same note
             CaseManagementIssue unresolvedCmi = createCaseManagementIssue("20300", testIssue1);
             CaseManagementIssue resolvedCmi = createResolvedIssue("20300", testIssue2);
             hibernateTemplate.flush();
             CaseManagementNote note = createAndLinkNote("20300", unresolvedCmi, resolvedCmi);
+            hibernateTemplate.clear();
+            entityManager.clear();
 
-            // When/Then — same collection dereference bug regardless of resolved filter
-            // Hibernate 5's ExceptionConverterImpl.convert() wraps QueryException as
-            // IllegalArgumentException (JPA convention) rather than HibernateQueryException.
-            assertThatThrownBy(() ->
-                caseManagementIssueDAO.getIssuesByNote(note.getId().intValue(), false)
-            ).isInstanceOf(IllegalArgumentException.class);
+            // When
+            List<CaseManagementIssue> results = caseManagementIssueDAO.getIssuesByNote(note.getId().intValue(), false);
+
+            // Then
+            assertThat(results)
+                .hasSize(1)
+                .extracting(CaseManagementIssue::getId)
+                .containsExactly(unresolvedCmi.getId());
+            assertThat(results)
+                .allMatch(i -> !i.isResolved() && Hibernate.isInitialized(i.getIssue()));
         }
     }
 
