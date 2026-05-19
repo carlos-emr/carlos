@@ -11,7 +11,10 @@
     "clear": "docusaurus clear",
     "serve": "docusaurus serve",
     "write-translations": "docusaurus write-translations",
-    "write-heading-ids": "docusaurus write-heading-ids"
+    "write-heading-ids": "docusaurus write-heading-ids",
+    "test:login-playwright": "node scripts/login-playwright-checks.js",
+    "test:echart-playwright": "node scripts/echart-playwright-checks.js",
+    "test:browser-surfaces-playwright": "node scripts/browser-surface-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",
@@ -23,7 +26,8 @@
     "react-dom": "^18.0.0"
   },
   "devDependencies": {
-    "@docusaurus/module-type-aliases": "^3.9.2"
+    "@docusaurus/module-type-aliases": "^3.9.2",
+    "playwright": "^1.60.0"
   },
   "browserslist": {
     "production": [

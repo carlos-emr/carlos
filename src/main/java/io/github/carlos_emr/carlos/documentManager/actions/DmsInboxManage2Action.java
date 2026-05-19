@@ -68,7 +68,7 @@ import java.util.*;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class DmsInboxManage2Action extends ActionSupport {
@@ -422,7 +422,7 @@ public class DmsInboxManage2Action extends ActionSupport {
                 SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
                 newestLab = formatter.parse(request.getParameter("newestDate"));
             } catch (Exception e) {
-                logger.error("Couldn't parse date: {}", LogSanitizer.sanitize(request.getParameter("newestDate")), e);
+                logger.error("Couldn't parse date: {}", LogSafe.sanitize(request.getParameter("newestDate")), e);
             }
         }
 

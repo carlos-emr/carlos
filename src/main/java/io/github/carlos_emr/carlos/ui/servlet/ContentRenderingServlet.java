@@ -37,7 +37,7 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
 
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.web.PrescriptionQrCodeUIBean;
@@ -88,7 +88,7 @@ public final class ContentRenderingServlet extends HttpServlet {
             if (e.getCause() instanceof SocketException) {
                 logger.warn("An error we can't handle that's expected infrequently. " + e.getMessage());
             } else {
-                logger.error("Unexpected error. qs=" + LogSanitizer.sanitize(request.getQueryString()), e);
+                logger.error("Unexpected error. qs=" + LogSafe.sanitize(request.getQueryString()), e);
                 if (!response.isCommitted()) {
                     response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Internal Server Error");
                 }

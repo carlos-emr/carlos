@@ -51,12 +51,12 @@ public final class WebUtils {
     }
 
     public static void dumpParameters(HttpServletRequest request) {
-        logger.debug("--- Dump Request Parameters Start for {} Start ---", LogSanitizer.sanitize(request.getRequestURI())); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+        logger.debug("--- Dump Request Parameters Start for {} Start ---", LogSafe.sanitizeUri(request.getRequestURI())); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
         Enumeration e = request.getParameterNames();
 
         while (e.hasMoreElements()) {
             String key = (String) e.nextElement();
-            logger.debug("{}={}", LogSanitizer.sanitize(key), LogSanitizer.sanitize(request.getParameter(key))); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            logger.debug("{}={}", LogSafe.sanitize(key), LogSafe.sanitize(request.getParameter(key))); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
         }
 
         logger.debug("--- Dump Request Parameters End ---");

@@ -83,7 +83,7 @@ import java.util.*;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 /**
  * Struts2 action for document viewing, updating, routing, and incoming document processing
@@ -175,7 +175,7 @@ public class ManageDocument2Action extends ActionSupport {
             try {
                 return handler.handle(this);
             } catch (Exception e) {
-                log.error("Error in {}():", LogSanitizer.sanitize(method), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                log.error("Error in {}():", LogSafe.sanitize(method), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
                 addActionError("An error occurred while processing the document. Please try again or contact your system administrator.");
                 return "error";
             }
@@ -192,7 +192,7 @@ public class ManageDocument2Action extends ActionSupport {
             }
         }
 
-        log.error("No valid method found and insufficient parameters for documentUpdate. Method: {}", LogSanitizer.sanitize(method)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+        log.error("No valid method found and insufficient parameters for documentUpdate. Method: {}", LogSafe.sanitize(method)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs // NOSONAR javasecurity:S5145 — sanitized with LogSafe
         addActionError("Invalid request. The requested operation could not be performed.");
         return "error";
     }
@@ -246,16 +246,16 @@ public class ManageDocument2Action extends ActionSupport {
                     if (proNo != null && proNo.matches("^[a-zA-Z0-9_-]+$")) {
                         providerInboxRoutingDAO.addToProviderInbox(proNo, Integer.parseInt(documentId), LabResultData.DOCUMENT);
                     } else {
-                        log.warn("Invalid provider number format: {}", LogSanitizer.sanitize(proNo)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                        log.warn("Invalid provider number format: {}", LogSafe.sanitize(proNo)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                     }
                 }
 
                 // Removes the link to the "0" providers so that the document no longer shows up as "unclaimed"
                 providerInboxRoutingDAO.removeLinkFromDocument("DOC", Integer.parseInt(documentId), "0");
             } catch (NumberFormatException e) {
-                log.error("Invalid document ID format during provider routing: {}", LogSanitizer.sanitize(documentId), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                log.error("Invalid document ID format during provider routing: {}", LogSafe.sanitize(documentId), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
             } catch (Exception e) {
-                log.error("Failed to route document {} to providers", LogSanitizer.sanitize(documentId), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                log.error("Failed to route document {} to providers", LogSafe.sanitize(documentId), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
             }
         }
 
@@ -310,9 +310,9 @@ public class ManageDocument2Action extends ActionSupport {
                 }
             }
         } catch (NumberFormatException e) {
-            log.error("Invalid number format during CTL document update for documentId: {}", LogSanitizer.sanitize(documentId), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+            log.error("Invalid number format during CTL document update for documentId: {}", LogSafe.sanitize(documentId), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
         } catch (Exception e) {
-            log.error("Failed to update CTL document for documentId: {}", LogSanitizer.sanitize(documentId), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+            log.error("Failed to update CTL document for documentId: {}", LogSafe.sanitize(documentId), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
         }
 
         HashMap hm = new HashMap();
@@ -412,7 +412,7 @@ public class ManageDocument2Action extends ActionSupport {
         try {
             EDocUtil.refileDocument(documentId, queueId);
         } catch (Exception e) {
-            log.error("Failed to refile document {} to queue {}", LogSanitizer.sanitize(documentId), LogSanitizer.sanitize(queueId), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+            log.error("Failed to refile document {} to queue {}", LogSafe.sanitize(documentId), LogSafe.sanitize(queueId), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
         }
         return null;
     }
@@ -462,15 +462,15 @@ public class ManageDocument2Action extends ActionSupport {
                     if (proNo != null && proNo.matches("^[a-zA-Z0-9_-]+$")) {
                         providerInboxRoutingDAO.addToProviderInbox(proNo, Integer.parseInt(documentId), LabResultData.DOCUMENT);
                     } else {
-                        log.warn("Invalid provider number format: {}", LogSanitizer.sanitize(proNo)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                        log.warn("Invalid provider number format: {}", LogSafe.sanitize(proNo)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                     }
                 }
             } catch (NumberFormatException e) {
-                log.error("Invalid document ID format: {}", LogSanitizer.sanitize(documentId), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                log.error("Invalid document ID format: {}", LogSafe.sanitize(documentId), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
                 addActionError("Invalid document ID format. Please check the document ID and try again.");
                 return "error";
             } catch (Exception e) {
-                log.error("Failed to route document {} to providers", LogSanitizer.sanitize(documentId), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                log.error("Failed to route document {} to providers", LogSafe.sanitize(documentId), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
             }
         }
         Document d = documentDao.getDocument(documentId);
@@ -504,9 +504,9 @@ public class ManageDocument2Action extends ActionSupport {
                     }
                 }
             } catch (NumberFormatException e) {
-                log.error("Invalid number format for documentId: {} or demog: {}", LogSanitizer.sanitize(documentId), LogSanitizer.sanitize(demog), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                log.error("Invalid number format for documentId: {} or demog: {}", LogSafe.sanitize(documentId), LogSafe.sanitize(demog), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
             } catch (Exception e) {
-                log.error("Failed to update CTL document for documentId: {}", LogSanitizer.sanitize(documentId), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                log.error("Failed to update CTL document for documentId: {}", LogSafe.sanitize(documentId), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
             }
         } else {
             log.warn("Document ID is null or empty, skipping ctlDocument operations");
@@ -667,7 +667,7 @@ public class ManageDocument2Action extends ActionSupport {
             try {
                 Files.delete(documentCacheDir);
             } catch (IOException e) {
-                MiscUtils.getLogger().error("Failed to delete cache file: {}", LogSanitizer.sanitizeObject(documentCacheDir.getFileName()), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                MiscUtils.getLogger().error("Failed to delete cache file: {}", LogSafe.sanitizeObject(documentCacheDir.getFileName()), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
             }
         }
     }
@@ -700,14 +700,14 @@ public class ManageDocument2Action extends ActionSupport {
             try (PDDocument pdf = Loader.loadPDF(pdfPath.toFile(), IOUtils.createTempFileOnlyStreamCache())) {
                 // Validate page number is within bounds
                 if (pageNum == null) {
-                    log.error("Page number is null for document {}", LogSanitizer.sanitize(d.getDocfilename())); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                    log.error("Page number is null for document {}", LogSafe.sanitize(d.getDocfilename())); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
                     return null;
                 }
 
                 int pageIndex = pageNum - 1;
                 int totalPages = pdf.getNumberOfPages();
                 if (pageIndex < 0 || pageIndex >= totalPages) {
-                    log.error("Invalid page number {} for document {} with {} pages", pageNum, LogSanitizer.sanitize(d.getDocfilename()), totalPages); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                    log.error("Invalid page number {} for document {} with {} pages", pageNum, LogSafe.sanitize(d.getDocfilename()), totalPages); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
                     return null;
                 }
 
@@ -722,7 +722,7 @@ public class ManageDocument2Action extends ActionSupport {
 
             return baos.toByteArray();
         } catch (Exception e) {
-            log.error("Error decoding pdf file {}", LogSanitizer.sanitize(d.getDocfilename()), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+            log.error("Error decoding pdf file {}", LogSafe.sanitize(d.getDocfilename()), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
             return null;
         }
     }
@@ -752,12 +752,12 @@ public class ManageDocument2Action extends ActionSupport {
     public void getPage(int pageNum) {
 
         String doc_no = request.getParameter("doc_no");
-        log.debug("Document No :{}", LogSanitizer.sanitize(doc_no));
+        log.debug("Document No :{}", LogSafe.sanitize(doc_no));
         LoggedInInfo liPage = LoggedInInfo.getLoggedInInfoFromSession(request);
         LogAction.addLog(liPage != null ? liPage.getLoggedInProviderNo() : null, LogConst.READ, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
         Document d = documentDao.getDocument(doc_no);
 
-        log.debug("Document Name :{}", LogSanitizer.sanitize(d.getDocfilename())); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+        log.debug("Document Name :{}", LogSafe.sanitize(d.getDocfilename())); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
 
         File outfile = hasCacheVersion(d, pageNum);
 
@@ -791,12 +791,12 @@ public class ManageDocument2Action extends ActionSupport {
             pageNum = "1";
         }
         Integer pn = Integer.parseInt(pageNum);
-        log.debug("Document No :{}", LogSanitizer.sanitize(doc_no));
+        log.debug("Document No :{}", LogSafe.sanitize(doc_no));
         LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.READ, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
 
         Document d = documentDao.getDocument(doc_no);
         if (d == null) {
-            log.error("Document not found for ID: {}", LogSanitizer.sanitize(doc_no)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+            log.error("Document not found for ID: {}", LogSafe.sanitize(doc_no)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
             try {
                 response.sendError(HttpServletResponse.SC_NOT_FOUND, "Document not found");
             } catch (IOException e) {
@@ -805,7 +805,7 @@ public class ManageDocument2Action extends ActionSupport {
             return;
         }
 
-        log.debug("Document Name :{}", LogSanitizer.sanitize(d.getDocfilename())); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+        log.debug("Document Name :{}", LogSafe.sanitize(d.getDocfilename())); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
         //if the file is not a pdf, use display function
         if (!(d.getContenttype().equals("application/pdf") || d.getDocfilename().endsWith(".pdf"))) {
             try {
@@ -817,7 +817,7 @@ public class ManageDocument2Action extends ActionSupport {
         }
 
         String name = d.getDocfilename() + "_" + pn + ".png";
-        log.debug("name {}", LogSanitizer.sanitize(name)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+        log.debug("name {}", LogSafe.sanitize(name)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
 
         File outfile = hasCacheVersion2(d, pn);
         response.setContentType("image/png");
@@ -860,7 +860,7 @@ public class ManageDocument2Action extends ActionSupport {
             response.setContentType("application/json;charset=UTF-8");
             response.getOutputStream().write(jsonObject.toString().getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
-            MiscUtils.getLogger().error("IOException reading PDF page count for doc_no: " + LogSanitizer.sanitize(doc_no), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+            MiscUtils.getLogger().error("IOException reading PDF page count for doc_no: " + LogSafe.sanitize(doc_no), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
             if (!response.isCommitted()) {
                 response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             }
@@ -883,7 +883,7 @@ public class ManageDocument2Action extends ActionSupport {
         }
 
         String doc_no = request.getParameter("doc_no");
-        log.debug("Document No :{}", LogSanitizer.sanitize(doc_no)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+        log.debug("Document No :{}", LogSafe.sanitize(doc_no)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
         String demoNo = request.getParameter("demoNo");
 
         String docxml = null;
@@ -900,7 +900,7 @@ public class ManageDocument2Action extends ActionSupport {
 
         Document d = documentDao.getDocument(doc_no);
 
-        log.debug("Document Name :{}", LogSanitizer.sanitize(d.getDocfilename())); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+        log.debug("Document Name :{}", LogSafe.sanitize(d.getDocfilename())); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
 
         docxml = d.getDocxml();
         contentType = d.getContenttype();
@@ -1163,14 +1163,14 @@ public class ManageDocument2Action extends ActionSupport {
 
         boolean success = f1.renameTo(new File(destFilePath));
         if (!success) {
-            log.error("Not able to move {} to {}", LogSanitizer.sanitize(f1.getName()), LogSanitizer.sanitize(destFilePath)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+            log.error("Not able to move {} to {}", LogSafe.sanitize(f1.getName()), LogSafe.sanitize(destFilePath)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
             // File was not successfully moved - attempt to delete temp file to prevent orphaned files
             boolean deleted = f1.delete();
             if (!deleted) {
-                log.warn("Failed to delete temporary file: {}", LogSanitizer.sanitize(f1.getAbsolutePath())); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                log.warn("Failed to delete temporary file: {}", LogSafe.sanitize(f1.getAbsolutePath())); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
             }
             String documentId = request.getParameter("documentId");
-            log.error("Failed to save document file for document ID: {}", LogSanitizer.sanitize(documentId)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+            log.error("Failed to save document file for document ID: {}", LogSafe.sanitize(documentId)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
             addActionError("Failed to save document file. Please try again or contact your system administrator.");
             return "error";
         } else {
@@ -1193,7 +1193,7 @@ public class ManageDocument2Action extends ActionSupport {
                         if (proNo != null && proNo.matches("^[a-zA-Z0-9_-]+$")) {
                             providerInboxRoutingDAO.addToProviderInbox(proNo, Integer.parseInt(doc_no), LabResultData.DOCUMENT);
                         } else {
-                            log.warn("Invalid provider number format: {}", LogSanitizer.sanitize(proNo)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                            log.warn("Invalid provider number format: {}", LogSafe.sanitize(proNo)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
                         }
                     }
                 } catch (Exception e) {
@@ -1297,7 +1297,7 @@ public class ManageDocument2Action extends ActionSupport {
             int pageIndex = pageNumber - 1;
             int totalPages = reader.getNumberOfPages();
             if (pageIndex < 0 || pageIndex >= totalPages) {
-                log.error("Invalid page number {} for PDF {} with {} pages", pageNumber, LogSanitizer.sanitize(sanitizedPdfName), totalPages); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                log.error("Invalid page number {} for PDF {} with {} pages", pageNumber, LogSafe.sanitize(sanitizedPdfName), totalPages); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
                 response.setContentType("text/html;charset=UTF-8");
                 response.getWriter().print(props.getString("dms.incomingDocs.errorInOpening") + Encode.forHtml(sanitizedPdfName));
                 response.getWriter().print("<br>Invalid page number");
@@ -1477,7 +1477,7 @@ public class ManageDocument2Action extends ActionSupport {
                 outs.flush();
 
             } else {
-                log.info("Unable to retrieve content for {}/{}/{}", LogSanitizer.sanitize(queueId), LogSanitizer.sanitize(pdfDir), LogSanitizer.sanitize(pdfName)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                log.info("Unable to retrieve content for {}/{}/{}", LogSafe.sanitize(queueId), LogSafe.sanitize(pdfDir), LogSafe.sanitize(pdfName)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
             }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
@@ -1549,14 +1549,14 @@ public class ManageDocument2Action extends ActionSupport {
 
             // Validate page number is within bounds
             if (pageNum == null) {
-                log.error("Page number is null for PDF {}{}{}", LogSanitizer.sanitize(pdfDir), File.separator, LogSanitizer.sanitize(sanitizedPdfName)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                log.error("Page number is null for PDF {}{}{}", LogSafe.sanitize(pdfDir), File.separator, LogSafe.sanitize(sanitizedPdfName)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
                 return null;
             }
 
             int pageIndex = pageNum - 1;
             int totalPages = document.getNumberOfPages();
             if (pageIndex < 0 || pageIndex >= totalPages) {
-                log.error("Invalid page number {} for PDF {}{}{} with {} pages", pageNum, LogSanitizer.sanitize(pdfDir), File.separator, LogSanitizer.sanitize(sanitizedPdfName), totalPages); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                log.error("Invalid page number {} for PDF {}{}{} with {} pages", pageNum, LogSafe.sanitize(pdfDir), File.separator, LogSafe.sanitize(sanitizedPdfName), totalPages); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
                 return null;
             }
 
@@ -1574,7 +1574,7 @@ public class ManageDocument2Action extends ActionSupport {
 
             return cacheFile;
         } catch (Exception e) {
-            log.error("Error decoding pdf file {}{}{}", LogSanitizer.sanitize(pdfDir), File.separator, LogSanitizer.sanitize(sanitizedPdfName), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+            log.error("Error decoding pdf file {}{}{}", LogSafe.sanitize(pdfDir), File.separator, LogSafe.sanitize(sanitizedPdfName), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
             return null;
         }
     }
@@ -1609,7 +1609,7 @@ public class ManageDocument2Action extends ActionSupport {
         ) {
             org.apache.commons.io.IOUtils.copy(fileInputStream, outs);
         } catch (Exception e) {
-            log.error("Error retrieving document: {}", LogSanitizer.sanitize(output.getPath()), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+            log.error("Error retrieving document: {}", LogSafe.sanitize(output.getPath()), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
         }
         return response;
     }

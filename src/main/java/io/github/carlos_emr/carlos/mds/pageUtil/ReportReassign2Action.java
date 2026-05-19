@@ -55,7 +55,7 @@ import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.owasp.encoder.Encode;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 public class ReportReassign2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -111,7 +111,7 @@ public class ReportReassign2Action extends ActionSupport {
          * process.
          */
         String selectedProviders = request.getParameter("selectedProviders");
-        logger.info("selected providers to forward labs to {}", LogSanitizer.sanitize(selectedProviders)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+        logger.info("selected providers to forward labs to {}", LogSafe.sanitize(selectedProviders)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
 
         if (selectedProviders != null && !selectedProviders.isEmpty()) {
             try {

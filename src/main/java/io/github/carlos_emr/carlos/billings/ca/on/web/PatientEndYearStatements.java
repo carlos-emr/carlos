@@ -31,7 +31,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.apache.logging.log4j.Logger;
 
 import io.github.carlos_emr.carlos.billings.ca.on.service.PatientEndYearStatementService;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
@@ -83,7 +83,7 @@ final class PatientEndYearStatements {
      * {@code "failure"} — this just centralises the branch logging.
      */
     static void logFailure(PatientEndYearStatementService.Failure failure, String demographicNo) {
-        String safeDemographicNo = LogSanitizer.sanitize(demographicNo);
+        String safeDemographicNo = LogSafe.sanitize(demographicNo);
         switch (failure.reason()) {
             case PATIENT_NOT_FOUND:
                 LOG.info("end-year-statement: lookup returned no candidates for demographicNo={}",

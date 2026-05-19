@@ -41,7 +41,7 @@ import java.util.Locale;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 /**
@@ -129,7 +129,7 @@ public class DocumentPreview2Action extends ActionSupport {
                 requirePrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE);
                 return fetchConsultDocuments();
             default:
-                logger.warn("Unsupported previewDocs method requested: {}", LogSanitizer.sanitize(method));
+                logger.warn("Unsupported previewDocs method requested: {}", LogSafe.sanitize(method));
                 response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                 return NONE;
         }
@@ -343,14 +343,14 @@ public class DocumentPreview2Action extends ActionSupport {
             }
             
             if (!isValidPath) {
-                logger.error("Access denied: Path traversal attempt detected for path: {}", LogSanitizer.sanitize(pdfPathString)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                logger.error("Access denied: Path traversal attempt detected for path: {}", LogSafe.sanitize(pdfPathString)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                 return;
             }
             
             // Additional check: ensure the file exists and is a regular file
             if (!Files.exists(canonicalPdfPath) || !Files.isRegularFile(canonicalPdfPath)) {
-                logger.error("PDF file not found or is not a regular file: {}", LogSanitizer.sanitize(pdfPathString)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                logger.error("PDF file not found or is not a regular file: {}", LogSafe.sanitize(pdfPathString)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 response.setStatus(HttpServletResponse.SC_NOT_FOUND);
                 return;
             }
@@ -369,7 +369,7 @@ public class DocumentPreview2Action extends ActionSupport {
                 outs.flush();
             }
         } catch (IOException e) {
-            logger.error("Error processing PDF file: {}", LogSanitizer.sanitize(pdfPathString), e);
+            logger.error("Error processing PDF file: {}", LogSafe.sanitize(pdfPathString), e);
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         }
     }
@@ -402,7 +402,7 @@ public class DocumentPreview2Action extends ActionSupport {
         try {
             demographicId = Integer.valueOf(demographicNo);
         } catch (NumberFormatException e) {
-            logger.warn("Invalid demographicNo received: {}. Falling back to 0.", LogSanitizer.sanitize(demographicNo), e);
+            logger.warn("Invalid demographicNo received: {}. Falling back to 0.", LogSafe.sanitize(demographicNo), e);
             demographicNo = "0";
             demographicId = 0;
         }
@@ -532,7 +532,7 @@ public class DocumentPreview2Action extends ActionSupport {
         try {
             return Integer.parseInt(value);
         } catch (NumberFormatException e) {
-            logger.warn("Invalid {} received: {}. Falling back to {}.", parameterName, LogSanitizer.sanitize(value), defaultValue, e);
+            logger.warn("Invalid {} received: {}. Falling back to {}.", parameterName, LogSafe.sanitize(value), defaultValue, e);
             return defaultValue;
         }
     }
@@ -541,7 +541,7 @@ public class DocumentPreview2Action extends ActionSupport {
         try {
             return Integer.parseInt(value);
         } catch (NumberFormatException e) {
-            logger.warn("Invalid {} received: {}", parameterName, LogSanitizer.sanitize(value), e);
+            logger.warn("Invalid {} received: {}", parameterName, LogSafe.sanitize(value), e);
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             generateResponse(response, "Invalid " + parameterName);
             return null;

@@ -34,7 +34,7 @@ import io.github.carlos_emr.carlos.commn.model.BatchEligibility;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicCust;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
@@ -113,7 +113,7 @@ public class BillingObecOutputApplyService {
                 MiscUtils.getLogger().warn(
                         "Skipping OBEC output-spec {} with unparseable response code {}",
                         rowLabel,
-                        LogSanitizer.sanitize(responseCode), e);
+                        LogSafe.sanitize(responseCode), e);
                 skippedCount++;
                 reasons.add("Skipped " + rowLabel + ": unparseable response code " + safeValue(responseCode));
                 continue;

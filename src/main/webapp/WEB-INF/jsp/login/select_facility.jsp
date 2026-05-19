@@ -35,8 +35,8 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@include file="/WEB-INF/jsp/layouts/caisi_html_top.jspf" %>
 <%@ page import="io.github.carlos_emr.carlos.login.Login2Action" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>
 <h2>Please select which facility you would like to currently work in</h2>
 <%
     FacilityDao facilityDao = (FacilityDao) SpringUtils.getBean(FacilityDao.class);
@@ -45,13 +45,13 @@
     Provider provider = (Provider) session.getAttribute("provider");
     List<Integer> facilityIds = providerDao.getFacilityIds(provider.getProviderNo());
 
-    // Validate nextPage to prevent open redirect (CWE-601): allowlist of valid Struts2 result identifiers
+    // Empty nextPage means the action should use its provider default; non-empty values are allowlisted.
     java.util.Set<String> allowedNextPages = java.util.Set.of("provider", "caisiPMM", "programLocation", "failure");
     String rawNextPage = request.getParameter("nextPage");
     String safeNextPage = (rawNextPage != null && allowedNextPages.contains(rawNextPage)) ? rawNextPage : "";
     if (rawNextPage != null && safeNextPage.isEmpty()) {
         org.apache.logging.log4j.LogManager.getLogger("select_facility")
-            .warn("Rejected nextPage parameter: {}", io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(rawNextPage)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            .warn("Rejected nextPage parameter: {}", io.github.carlos_emr.carlos.utility.LogSafe.sanitize(rawNextPage)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
     }
 %>
 <ul>
@@ -60,8 +60,13 @@
             Facility facility = facilityDao.find(facilityId);
     %>
     <li>
-        <a href='?nextPage=<carlos:encode value='<%= safeNextPage %>' context="uriComponent"/>&<%=Login2Action.SELECTED_FACILITY_ID%>=<%=facility.getId()%>'><carlos:encode value='<%= facility.getName() %>' context="html"/>
-        </a></li>
+        <form method="post" action="${pageContext.request.contextPath}/select_facility">
+            <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
+            <input type="hidden" name="nextPage" value="<carlos:encode value='<%= safeNextPage %>' context="htmlAttribute"/>"/>
+            <input type="hidden" name="<%=Login2Action.SELECTED_FACILITY_ID%>" value="<%=facility.getId()%>"/>
+            <button type="submit"><carlos:encode value='<%= facility.getName() %>' context="html"/></button>
+        </form>
+    </li>
     <%
         }
     %>

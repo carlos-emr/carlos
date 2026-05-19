@@ -31,7 +31,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billing.CA.ON.util.EDTFolder;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingLegacyReportViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -109,7 +109,7 @@ public class BillingLegacyReport2Action extends ActionSupport {
                 // and stash a message on the request so the JSP can render an
                 // explicit banner instead of a silent blank report.
                 MiscUtils.getLogger().error("billingLreport: failed to read MOH response file {} from ONEDT_INBOX",
-                        LogSanitizer.sanitize(filename), e);
+                        LogSafe.sanitize(filename), e);
                 fileContents = "";
                 request.setAttribute("readError",
                         "Could not read MOH response file: " + filename);
