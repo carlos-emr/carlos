@@ -158,7 +158,7 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
     @ParameterizedTest
     @ValueSource(strings = {"null", "NULL"})
     @DisplayName("should return logout when user session attribute is literal null")
-    void shouldReturnLogout_whenUserSessionAttributeIsLiteralNull(String sessionUser) throws Exception {
+    void shouldReturnLogout_whenUserSessionAttributeIsLiteralNullString(String sessionUser) throws Exception {
         setSessionAttribute("user", sessionUser);
 
         String result = executeAction(action);
