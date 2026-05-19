@@ -36,6 +36,8 @@ import io.github.carlos_emr.carlos.casemgmt.print.OscarChartPrinter;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.managers.TicklerManagerImpl;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.webserv.rest.TicklerWebService;
+import io.github.carlos_emr.carlos.webserv.rest.conversion.TicklerConverter;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.ManyToOne;
@@ -193,6 +195,14 @@ class TicklerLazyFetchMigrationUnitTest extends CarlosUnitTestBase {
                 .contains("left join fetch t.assignee")
                 .doesNotContain("left join fetch t.comments")
                 .doesNotContain("left join fetch t.updates");
+    }
+
+    @Test
+    @DisplayName("should avoid shared converter include state for REST tickler responses")
+    void shouldAvoidSharedConverterIncludeState_forRestTicklerResponses() {
+        assertThat(Stream.of(TicklerWebService.class.getDeclaredFields())
+                .filter(field -> TicklerConverter.class.equals(field.getType()))
+                .toList()).isEmpty();
     }
 
     private FetchType relationshipFetchType(Field field) {

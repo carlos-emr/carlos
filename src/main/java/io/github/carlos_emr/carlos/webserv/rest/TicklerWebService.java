@@ -72,8 +72,6 @@ public class TicklerWebService extends AbstractServiceImpl {
     @Autowired
     private TicklerManager ticklerManager;
 
-    private TicklerConverter ticklerConverter = new TicklerConverter();
-
     @Autowired
     private SecurityInfoManager securityInfoManager;
 
@@ -136,7 +134,8 @@ public class TicklerWebService extends AbstractServiceImpl {
             result.setTotal(ticklers.size());
         }
 
-        result.getContent().addAll(ticklerConverter.getAllAsTransferObjects(getLoggedInInfo(), ticklers));
+        TicklerConverter converter = new TicklerConverter();
+        result.getContent().addAll(converter.getAllAsTransferObjects(getLoggedInInfo(), ticklers));
 
 
         return result;
@@ -159,7 +158,8 @@ public class TicklerWebService extends AbstractServiceImpl {
 
         TicklerResponse result = new TicklerResponse();
         result.setTotal(ticklers.size());
-        result.getContent().addAll(ticklerConverter.getAllAsTransferObjects(getLoggedInInfo(), ticklers));
+        TicklerConverter converter = new TicklerConverter();
+        result.getContent().addAll(converter.getAllAsTransferObjects(getLoggedInInfo(), ticklers));
 
 
         return result;
@@ -247,20 +247,13 @@ public class TicklerWebService extends AbstractServiceImpl {
         List<Tickler> ticklers = ticklerManager.getTicklers(getLoggedInInfo(), cf, ((page - 1) * count), count,
                 includeComments, includeUpdates, false, false);
 
-        if (includeLinks) {
-            ticklerConverter.setIncludeLinks(true);
-        }
-        if (includeComments) {
-            ticklerConverter.setIncludeComments(true);
-        }
-        if (includeUpdates) {
-            ticklerConverter.setIncludeUpdates(true);
-        }
-        if (includeProgram) {
-            ticklerConverter.setIncludeProgram(true);
-        }
+        TicklerConverter converter = new TicklerConverter();
+        converter.setIncludeLinks(includeLinks);
+        converter.setIncludeComments(includeComments);
+        converter.setIncludeUpdates(includeUpdates);
+        converter.setIncludeProgram(includeProgram);
 
-        result.getContent().addAll(ticklerConverter.getAllAsTransferObjects(getLoggedInInfo(), ticklers));
+        result.getContent().addAll(converter.getAllAsTransferObjects(getLoggedInInfo(), ticklers));
 
         return result;
     }
