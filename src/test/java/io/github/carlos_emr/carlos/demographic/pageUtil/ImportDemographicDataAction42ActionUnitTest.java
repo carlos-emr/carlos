@@ -53,8 +53,6 @@ import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for {@link ImportDemographicDataAction42Action}.
- *
- * @since 2026-05-03
  */
 @DisplayName("ImportDemographicDataAction42Action Tests")
 @Tag("unit")
