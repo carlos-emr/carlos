@@ -2036,6 +2036,9 @@
                 var doc_lab = checkType(current_first_doclab);
                 if (doc_lab == 'DOC') {
                     //oscarLog('docDesc_'+current_first_doclab);
+                    // $() is the Prototype-style shim defined above (document.getElementById),
+                    // which returns null when the element is not yet in the DOM — so a plain
+                    // truthiness check is the correct null guard here (do not change to .length).
                     var docDesc = $('docDesc_' + current_first_doclab);
                     if (docDesc) {
                         docDesc.focus();
