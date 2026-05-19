@@ -78,6 +78,19 @@ public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseMan
         return (List<CaseManagementNote>) JpqlQueryHelper.find(entityManager(), "FROM CaseManagementNote");
     }
 
+    private void initializeIssues(CaseManagementNote note) {
+        if (note != null) {
+            Hibernate.initialize(note.getIssues());
+        }
+    }
+
+    private <T extends Collection<CaseManagementNote>> T initializeIssues(T notes) {
+        for (CaseManagementNote note : notes) {
+            initializeIssues(note);
+        }
+        return notes;
+    }
+
     @SuppressWarnings("unchecked")
     @Override
     public List<Provider> getEditors(CaseManagementNote note) {
@@ -133,11 +146,8 @@ public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseMan
     @Override
     public CaseManagementNote getNote(Long id) {
         CaseManagementNote note = entityManager().find(CaseManagementNote.class, id);
-        // entityManager().find() returns null when no record exists for the given id;
-        // guard prevents NPE on lazy-collection initialization for deleted or missing notes
-        if (note != null) {
-            Hibernate.initialize(note.getIssues());
-        }
+        // entityManager().find() returns null when no record exists for the given id.
+        initializeIssues(note);
         return note;
     }
 
@@ -167,7 +177,9 @@ public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseMan
         if (tmp == null || tmp.isEmpty())
             return null;
 
-        return tmp.get(0);
+        CaseManagementNote note = tmp.get(0);
+        initializeIssues(note);
+        return note;
     }
 
     @Override
@@ -200,7 +212,7 @@ public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseMan
         @SuppressWarnings("unchecked")
         List<CaseManagementNote> result = (List<CaseManagementNote>) JpqlQueryHelper.find(entityManager(), hql,
                 issueId, demoNo, d, demoNo);
-        return result;
+        return initializeIssues(result);
     }
 
     @Override
@@ -229,7 +241,7 @@ public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseMan
 
         @SuppressWarnings("unchecked")
         List<CaseManagementNote> result = (List<CaseManagementNote>) JpqlQueryHelper.find(entityManager(), hql, params);
-        return result;
+        return initializeIssues(result);
     }
 
     @SuppressWarnings("unchecked")
@@ -238,7 +250,7 @@ public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseMan
         Query q = entityManager().createNamedQuery("mostRecentTime");
         q.setParameter("demographicNo", demographic_no);
         q.setParameter("staleDate", staleDate);
-        return (List<CaseManagementNote>) q.getResultList();
+        return initializeIssues((List<CaseManagementNote>) q.getResultList());
     }
 
     // This was created by OSCAR. if all notes' UUID are same like null, it will
@@ -247,7 +259,7 @@ public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseMan
     @Override
     public List<CaseManagementNote> getNotesByDemographic(String demographic_no) {
         String hql = "select cmn from CaseManagementNote cmn where cmn.demographic_no = ?1 and cmn.id = (select max(cmn2.id) from CaseManagementNote cmn2 where cmn2.uuid = cmn.uuid) order by cmn.observation_date";
-        return (List<CaseManagementNote>) JpqlQueryHelper.find(entityManager(), hql, demographic_no);
+        return initializeIssues((List<CaseManagementNote>) JpqlQueryHelper.find(entityManager(), hql, demographic_no));
     }
 
     @Override
@@ -288,7 +300,7 @@ public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseMan
     @Override
     public List<CaseManagementNote> getNotesByDemographic(String demographic_no, Integer maxNotes) {
         String hql = "select cmn from CaseManagementNote cmn where cmn.demographic_no = ?1 and cmn.id = (select max(cmn2.id) from CaseManagementNote cmn2 where cmn2.uuid = cmn.uuid) order by cmn.observation_date desc";
-        return (List<CaseManagementNote>) JpqlQueryHelper.findWithLimit(entityManager(), hql, maxNotes, demographic_no);
+        return initializeIssues((List<CaseManagementNote>) JpqlQueryHelper.findWithLimit(entityManager(), hql, maxNotes, demographic_no));
     }
 
     @SuppressWarnings("unchecked")
@@ -306,7 +318,7 @@ public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseMan
             Map<String, Object> params = new HashMap<>();
             params.put("issueIds", issueIdList);
             params.put("demoNo", demographic_no);
-            return (List<CaseManagementNote>) JpqlQueryHelper.find(entityManager(), hql, params);
+            return initializeIssues((List<CaseManagementNote>) JpqlQueryHelper.find(entityManager(), hql, params));
 
         } else {
             long id = Long.parseLong(issues[0]);
@@ -327,7 +339,7 @@ public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseMan
                     issueListReturn.add(issueNote);
                 }
             }
-            return issueListReturn;
+            return initializeIssues(issueListReturn);
         }
     }
 
@@ -343,7 +355,7 @@ public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseMan
         Map<String, Object> params = new HashMap<>();
         params.put("issueIds", issueIdList);
         params.put("demoNo", demographic_no);
-        return (List<CaseManagementNote>) JpqlQueryHelper.findWithLimit(entityManager(), hql, maxNotes, params);
+        return initializeIssues((List<CaseManagementNote>) JpqlQueryHelper.findWithLimit(entityManager(), hql, maxNotes, params));
     }
 
     @SuppressWarnings("unchecked")
@@ -358,7 +370,7 @@ public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseMan
         Map<String, Object> params = new HashMap<>();
         params.put("issueIds", issueIdList);
         params.put("demoNo", demographic_no);
-        return (List<CaseManagementNote>) JpqlQueryHelper.find(entityManager(), hql, params);
+        return initializeIssues((List<CaseManagementNote>) JpqlQueryHelper.find(entityManager(), hql, params));
     }
 
     @Override
@@ -409,7 +421,7 @@ public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseMan
             sortedResults.put(note.getObservation_date(), note);
         }
 
-        return (sortedResults.values());
+        return initializeIssues(sortedResults.values());
     }
 
 
@@ -432,7 +444,7 @@ public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseMan
         q.setParameter("demographicNo", demographic_no);
         q.setFirstResult(offset);
         q.setMaxResults(numToReturn);
-        return (List<CaseManagementNote>) q.getResultList();
+        return initializeIssues((List<CaseManagementNote>) q.getResultList());
     }
 
     @Override

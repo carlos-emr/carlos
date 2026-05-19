@@ -42,13 +42,13 @@
 		<property name="uuid" />
 		<many-to-one name="provider" class="io.github.carlos_emr.carlos.commn.model.Provider"
 			column="provider_no" update="false" not-found='ignore' insert="false"
-			lazy="false" />
-		<set name="issues" table="casemgmt_issue_notes" lazy="false">
+			lazy="proxy" />
+		<set name="issues" table="casemgmt_issue_notes" lazy="true">
 			<key column="note_id" />
 			<many-to-many column="id"
 				class="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue" />
 		</set>
-                <set name="extend" table="casemgmt_note_ext" lazy="false">
+                <set name="extend" table="casemgmt_note_ext" lazy="true">
                         <key column="note_id" update="false" />
                         <one-to-many class="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteExt"/>
                 </set>
