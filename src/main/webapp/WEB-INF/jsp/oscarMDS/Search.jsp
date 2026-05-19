@@ -36,7 +36,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%
-    // Double-encode: forJavaScript wraps forUriComponent for the URL parameter inside a JS string.
+    // Encode providerNo as a URI component first, then as a JavaScript string literal.
     String encodedProviderNo = SafeEncode.forJavaScript(
             SafeEncode.forUriComponent(StringUtils.noNull(request.getParameter("providerNo"))));
 %>

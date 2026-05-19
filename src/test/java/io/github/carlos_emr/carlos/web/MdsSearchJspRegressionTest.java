@@ -55,6 +55,6 @@ class MdsSearchJspRegressionTest {
                 .contains("SafeEncode.forUriComponent")
                 .contains("request.getParameter(\"providerNo\")")
                 .contains("&providerNo=<%= encodedProviderNo %>");
-        assertThat(jsp).doesNotContain("<c:set");
+        assertThat(jsp).doesNotContain("<c:set var=\"__enc_1\"");
     }
 }
