@@ -26,6 +26,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DisplayName;
@@ -74,15 +75,21 @@ class RemovedJspReferenceRegressionTest {
     }
 
     @Test
-    @DisplayName("demographic search results should not include Oscar.js twice")
-    void shouldNotDuplicateOscarJsInclude_inDemographicSearchResults() throws IOException {
-        String jsp = Files.readString(
-                Path.of("src/main/webapp/WEB-INF/jsp/demographic/demographicsearchresults.jsp"));
+    @DisplayName("JSPs using global head should not include Oscar.js directly")
+    void shouldNotDuplicateOscarJsInclude_inGlobalHeadJsps() throws IOException {
+        Path jspRoot = Path.of("src/main/webapp/WEB-INF/jsp");
 
-        assertThat(jsp)
-                .as("global-head.jspf already includes Oscar.js")
-                .contains("global-head.jspf")
-                .doesNotContain("/share/javascript/Oscar.js");
+        try (Stream<Path> paths = Files.walk(jspRoot)) {
+            List<Path> offenders = paths
+                    .filter(Files::isRegularFile)
+                    .filter(path -> path.toString().endsWith(".jsp"))
+                    .filter(RemovedJspReferenceRegressionTest::hasGlobalHeadIncludeAndOscarJsScript)
+                    .toList();
+
+            assertThat(offenders)
+                    .as("global-head.jspf already includes Oscar.js; JSPs that use it must not include Oscar.js again")
+                    .isEmpty();
+        }
     }
 
     @Test
@@ -128,6 +135,19 @@ class RemovedJspReferenceRegressionTest {
                 }
             }
             return false;
+        } catch (IOException e) {
+            throw new IllegalStateException("Unable to inspect " + path, e);
+        }
+    }
+
+    private static boolean hasGlobalHeadIncludeAndOscarJsScript(Path path) {
+        try {
+            String content = Files.readString(path, StandardCharsets.UTF_8);
+            return content.contains("<%@ include file=\"/WEB-INF/jsp/includes/global-head.jspf\" %>")
+                    && Pattern.compile("<script\\b[^>]*src=[\"'][^\"']*/share/javascript/Oscar\\.js[\"'][^>]*>",
+                            Pattern.CASE_INSENSITIVE)
+                    .matcher(content)
+                    .find();
         } catch (IOException e) {
             throw new IllegalStateException("Unable to inspect " + path, e);
         }
