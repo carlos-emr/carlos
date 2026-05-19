@@ -119,7 +119,7 @@ Suppresses known false positives:
 - Find Security Bugs: 1.13.0
 - Effort: `Max` (deepest analysis)
 - Threshold: `Low` (report everything, filter via exclude file)
-- Analyzer heap: `2048` MB via `spotbugs.maxHeap` in the Maven profile
+- Analyzer heap: `2048` MB via `spotbugs.maxHeapMb` in the Maven profile (override per-run with `-Dspotbugs.maxHeapMb=<MB>`)
 
 ### Triggers
 
@@ -191,17 +191,18 @@ In the devcontainer, compile first then run SpotBugs:
 # Build classes (no tests)
 make install
 
-# Run SpotBugs analysis
-mvn -q -DskipTests -Pspotbugs spotbugs:spotbugs
+# Run SpotBugs analysis (matches CI: skip-dependency-lock is already validated
+# in the build job, so it is not re-checked here)
+mvn -q -DskipTests -Pspotbugs,skip-dependency-lock spotbugs:spotbugs
 
 # View results
 # XML report: target/spotbugs-result.xml
 
-# Optional: override the analyzer heap in MB if a local branch needs more
-mvn -q -DskipTests -Pspotbugs -Dspotbugs.maxHeap=3072 spotbugs:spotbugs
+# Optional: override the analyzer heap (in MB) if a local branch needs more
+mvn -q -DskipTests -Pspotbugs,skip-dependency-lock -Dspotbugs.maxHeapMb=3072 spotbugs:spotbugs
 
 # Optional: open HTML report in browser
-mvn -Pspotbugs spotbugs:gui
+mvn -Pspotbugs,skip-dependency-lock spotbugs:gui
 ```
 
 ---
