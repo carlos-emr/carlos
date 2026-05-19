@@ -60,7 +60,11 @@ class MdsSearchJspRegressionTest {
                 .contains("SafeEncode.forUriComponent")
                 .contains("request.getParameter(\"providerNo\")")
                 .contains("&providerNo=<%= encodedProviderNo %>");
-        assertThat(onSubmitScriptBlock(jsp)).doesNotContain("<c:");
+        assertThat(onSubmitScriptBlock(jsp))
+                .doesNotContain("<c:")
+                .doesNotContain("<carlos:")
+                .doesNotContain("<fn:")
+                .doesNotContain("<jsp:");
     }
 
     private static Path repositoryRoot() {
