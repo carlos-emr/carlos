@@ -63,12 +63,12 @@ class JspJavaScriptEncodingRegressionTest {
     }
 
     @Test
-    void shouldContainEncodedInnerHtmlAssignments_inJavaScriptStrings() throws Exception {
+    void shouldNotLockInJavaScriptOnlyEncoding_forInnerHtmlAssignments() throws Exception {
         String viewScriptJsp = readJsp("rx/ViewScript2.jsp");
 
         assertThat(viewScriptJsp)
                 .doesNotContain("innerHTML = \"<%=vecAddress.get(i)%>\";")
-                .contains("innerHTML = \"<%=SafeEncode.forJavaScript(String.valueOf(vecAddress.get(i)))%>\";");
+                .doesNotContain("innerHTML = \"<%=SafeEncode.forJavaScript(String.valueOf(vecAddress.get(i)))%>\";");
     }
 
     @Test
