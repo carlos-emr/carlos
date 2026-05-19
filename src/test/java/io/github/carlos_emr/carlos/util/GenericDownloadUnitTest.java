@@ -55,6 +55,19 @@ class GenericDownloadUnitTest {
     }
 
     @Test
+    @DisplayName("should use stable content type for known document extensions")
+    void shouldUseStableContentType_forKnownDocumentExtensions() throws Exception {
+        String filename = "report.pdf";
+        Files.write(downloadDir.resolve(filename), new byte[]{1});
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        new TestGenericDownload().transfer(response, downloadDir.toString(), filename);
+
+        assertThat(response.getContentType()).isEqualTo("application/pdf");
+    }
+
+    @Test
     @DisplayName("should reject direct generic download endpoint")
     void shouldRejectDirectGenericDownloadEndpoint() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest();

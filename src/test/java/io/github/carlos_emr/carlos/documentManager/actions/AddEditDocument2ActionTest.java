@@ -232,8 +232,7 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
         action.setFunctionId("123");
         action.setDocDesc("Consult note");
         action.setDocType("Consultant Report");
-        action.setDocFile(outsideUploadSource);
-        action.setDocFileFileName("outside.pdf");
+        action.withUploadedFiles(List.of(uploadedFile("docFile", outsideUploadSource, "outside.pdf")));
 
         String result = action.execute2();
 
@@ -254,8 +253,7 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
         action.setFunctionId("123");
         action.setDocDesc("Consult note");
         action.setDocType("Consultant Report");
-        action.setDocFile(tempUploadFile);
-        action.setDocFileFileName(".hidden.pdf");
+        action.withUploadedFiles(List.of(uploadedFile("docFile", tempUploadFile, ".hidden.pdf")));
 
         String result = action.execute2();
 
@@ -276,8 +274,7 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
         action.setMode("42");
         action.setDocDesc("Consult note");
         action.setDocType("Consultant Report");
-        action.setDocFile(outsideUploadSource);
-        action.setDocFileFileName("outside.pdf");
+        action.withUploadedFiles(List.of(uploadedFile("docFile", outsideUploadSource, "outside.pdf")));
 
         try {
             CarlosProperties.getInstance().setProperty("ALLOW_UPDATE_DOCUMENT_CONTENT", "true");
@@ -309,8 +306,7 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
         action.setMode("42");
         action.setDocDesc("Consult note");
         action.setDocType("Consultant Report");
-        action.setDocFile(tempUploadFile);
-        action.setDocFileFileName(".hidden.pdf");
+        action.withUploadedFiles(List.of(uploadedFile("docFile", tempUploadFile, ".hidden.pdf")));
 
         try {
             CarlosProperties.getInstance().setProperty("ALLOW_UPDATE_DOCUMENT_CONTENT", "true");
@@ -336,8 +332,7 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
         File outsideUploadSource = new File("pom.xml").getAbsoluteFile();
         assertThat(outsideUploadSource).isFile();
 
-        action.setDocFile(outsideUploadSource);
-        action.setDocFileFileName("outside.pdf");
+        action.withUploadedFiles(List.of(uploadedFile("docFile", outsideUploadSource, "outside.pdf")));
 
         String result = action.html5MultiUpload();
 

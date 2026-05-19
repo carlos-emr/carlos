@@ -32,7 +32,6 @@ package io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil;
 
 import java.io.*;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -40,12 +39,9 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import org.apache.commons.io.FilenameUtils;
-
 import io.github.carlos_emr.carlos.commn.dao.MeasurementCSSLocationDao;
 import io.github.carlos_emr.carlos.commn.model.MeasurementCSSLocation;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -82,15 +78,22 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport implements
 
 
             ArrayList<String> messages = new ArrayList<String>();
-            String contextPath = request.getContextPath();
+            String validatedFileName;
+            try {
+                validatedFileName = PathValidationUtils.validateFileName(fileName);
+            } catch (SecurityException e) {
+                addActionError(getText("errors.fileNotAdded"));
+                request.setAttribute("actionErrors", new java.util.ArrayList<>(getActionErrors()));
+                return INPUT;
+            }
 
-            if (!saveFile(file, fileName)) {
+            if (!saveFile(fileUpload, validatedFileName)) {
                 addActionError(getText("errors.fileNotAdded"));
                 request.setAttribute("actionErrors", new java.util.ArrayList<>(getActionErrors()));
                 return INPUT;
             } else {
-                write2Database(fileName);
-                String msg = getText("encounter.oscarMeasurement.msgAddedStyleSheet", fileName);
+                write2Database(validatedFileName);
+                String msg = getText("encounter.oscarMeasurement.msgAddedStyleSheet", validatedFileName);
                 messages.add(msg);
                 request.setAttribute("messages", messages);
                 return SUCCESS;
@@ -104,33 +107,21 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport implements
     /**
      * Save an uploaded file to the configured measurement CSS upload directory.
      *
-     * @param file     File the uploaded temporary file from Struts2 file upload interceptor
+     * @param fileUpload UploadedFile the file from Struts2 file upload interceptor
      * @param fileName String the original filename of the uploaded file
      * @return boolean true if the file was saved successfully; false on failure or duplicate
      */
-    public boolean saveFile(File file, String fileName) {
+    public boolean saveFile(UploadedFile fileUpload, String fileName) {
         boolean isAdded = true;
 
         try {
-            if (file == null) {
+            if (fileUpload == null) {
                 MiscUtils.getLogger().debug("No file provided for measurement stylesheet upload");
                 return false;
             }
-            File validatedUpload = PathValidationUtils.validateUpload(file);
+            File validatedUpload = PathValidationUtils.validateUpload(uploadContentFile(fileUpload));
 
-            // Validate and sanitize the filename first
-            if (fileName == null || fileName.trim().isEmpty()) {
-                throw new IllegalArgumentException("fileName cannot be null or empty");
-            }
-            
-            // Sanitize filename to prevent path traversal - extract just the filename without any path
-            String sanitizedFileName = FilenameUtils.getName(fileName);
-            
-            // Additional validation: ensure no directory traversal characters
-            if (sanitizedFileName.contains("..") || sanitizedFileName.contains("/") || sanitizedFileName.contains("\\")) {
-                MiscUtils.getLogger().error("Attempted path traversal detected in filename: {}", LogSanitizer.sanitize(fileName));
-                throw new SecurityException("Invalid filename - path traversal detected");
-            }
+            String sanitizedFileName = PathValidationUtils.validateFileName(fileName);
             
             // Check if the file already exists in the database using sanitized filename
             List<MeasurementCSSLocation> locs = dao.findByLocation(sanitizedFileName);
@@ -150,7 +141,7 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport implements
             Files.createDirectories(uploadDir.toPath());
             
             // Create and validate the destination file using PathValidationUtils
-            File destinationFile = PathValidationUtils.validatePath(sanitizedFileName, uploadDir);
+            File destinationFile = PathValidationUtils.validateUserFilePath(sanitizedFileName, uploadDir);
 
             // Write the file to the validated destination
             Files.copy(validatedUpload.toPath(), destinationFile.toPath()); // codeql[java/path-injection] -- source and destination are canonicalized and allowlist validated.
@@ -175,19 +166,18 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport implements
      * @param fileName String the raw filename to sanitize and store as a CSS location record
      */
     private void write2Database(String fileName) {
-        // Sanitize the filename before storing in database
-        String sanitizedFileName = FilenameUtils.getName(fileName);
+        String sanitizedFileName = PathValidationUtils.validateFileName(fileName);
         
         MeasurementCSSLocation m = new MeasurementCSSLocation();
         m.setLocation(sanitizedFileName);
         dao.persist(m);
     }
 
-    private File file;
+    private UploadedFile fileUpload;
     private String fileName; // Name of the uploaded file
 
     public File getFile() {
-        return file;
+        return uploadContentFileOrNull(fileUpload);
     }
 
     @Override
@@ -197,15 +187,11 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport implements
         }
         for (UploadedFile uploaded : uploadedFiles) {
             if ("file".equals(uploaded.getInputName())) {
-                this.file = Path.of(uploaded.getAbsolutePath()).toFile();
+                this.fileUpload = uploaded;
                 this.fileName = uploaded.getOriginalName();
                 return;
             }
         }
-    }
-
-    public void setFile(File file) {
-        this.file = file;
     }
 
     public String getFileName() {
@@ -214,5 +200,24 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport implements
 
     public void setFileFileName(String fileName) {
         this.fileName = fileName;
+    }
+
+    private static File uploadContentFile(UploadedFile upload) {
+        if (upload == null) {
+            throw new IllegalArgumentException("Uploaded file cannot be null");
+        }
+        Object content = upload.getContent();
+        if (content instanceof File file) {
+            return file;
+        }
+        throw new IllegalArgumentException("Uploaded file content is not file-backed");
+    }
+
+    private static File uploadContentFileOrNull(UploadedFile upload) {
+        if (upload == null) {
+            return null;
+        }
+        Object content = upload.getContent();
+        return content instanceof File file ? file : null;
     }
 }

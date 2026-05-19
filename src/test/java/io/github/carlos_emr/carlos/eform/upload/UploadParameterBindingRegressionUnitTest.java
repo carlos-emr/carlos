@@ -25,9 +25,13 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
+import java.io.IOException;
 import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -92,13 +96,13 @@ class UploadParameterBindingRegressionUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("UploadedFilesAware actions should bind only their expected upload field")
-    void uploadedFilesAwareActionsShouldBindOnlyTheirExpectedUploadField() {
+    void uploadedFilesAwareActionsShouldBindOnlyTheirExpectedUploadField(@TempDir Path tempDir) throws IOException {
         registerMock(MeasurementCSSLocationDao.class, mock(MeasurementCSSLocationDao.class));
 
-        File ignoredFile = new File("/tmp/ignored-upload.tmp").getAbsoluteFile();
-        File measurementFile = new File("/tmp/measurement.css").getAbsoluteFile();
-        File importFile = new File("/tmp/import.zip").getAbsoluteFile();
-        File contentFile = new File("/tmp/content.bin").getAbsoluteFile();
+        File ignoredFile = Files.createFile(tempDir.resolve("ignored-upload.tmp")).toFile();
+        File measurementFile = Files.createFile(tempDir.resolve("measurement.css")).toFile();
+        File importFile = Files.createFile(tempDir.resolve("import.zip")).toFile();
+        File contentFile = Files.createFile(tempDir.resolve("content.bin")).toFile();
 
         EctAddMeasurementStyleSheet2Action measurementAction = mock(EctAddMeasurementStyleSheet2Action.class, CALLS_REAL_METHODS);
         measurementAction.withUploadedFiles(List.of(
@@ -118,12 +122,17 @@ class UploadParameterBindingRegressionUnitTest extends CarlosUnitTestBase {
         updateAction.withUploadedFiles(List.of(
                 uploadedFile("ignored", ignoredFile, "ignored.txt"),
                 uploadedFile("content", contentFile, "content.bin")));
-        assertThat(updateAction.getContent()).isEqualTo(contentFile);
+        assertThat(updateAction.getContent()).isEqualTo(contentFile.getCanonicalFile());
     }
 
     private static void assertNotParameterBound(Class<?> actionClass, String methodName, Class<?> parameterType)
             throws NoSuchMethodException {
-        Method method = actionClass.getMethod(methodName, parameterType);
+        Method method;
+        try {
+            method = actionClass.getMethod(methodName, parameterType);
+        } catch (NoSuchMethodException e) {
+            return;
+        }
         assertThat(method.isAnnotationPresent(StrutsParameter.class))
                 .as("%s#%s should only be populated by UploadedFilesAware", actionClass.getSimpleName(), methodName)
                 .isFalse();
@@ -141,6 +150,7 @@ class UploadParameterBindingRegressionUnitTest extends CarlosUnitTestBase {
         UploadedFile uploadedFile = mock(UploadedFile.class);
         when(uploadedFile.getInputName()).thenReturn(inputName);
         when(uploadedFile.getAbsolutePath()).thenReturn(file.getAbsolutePath());
+        when(uploadedFile.getContent()).thenReturn(file);
         when(uploadedFile.getOriginalName()).thenReturn(originalName);
         return uploadedFile;
     }

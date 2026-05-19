@@ -53,6 +53,7 @@ import org.owasp.encoder.Encode;
 import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -61,10 +62,15 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import org.apache.commons.io.FilenameUtils;
 
 public class Fax2Action extends ActionSupport {
+    private static final String FAX_PREVIEW_PATHS_SESSION_KEY = Fax2Action.class.getName() + ".faxPreviewPaths";
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -96,10 +102,7 @@ public class Fax2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String faxForward = transactionType;
 
-        if (faxFilePath != null && !faxFilePath.trim().isEmpty()) {
-            faxManager.validateFilePath(faxFilePath);
-        }
-        faxManager.flush(loggedInInfo, faxFilePath);
+        flushPreviewToken(loggedInInfo);
 
 
 
@@ -151,9 +154,6 @@ public class Fax2Action extends ActionSupport {
                 throw new SecurityException("Unauthorized access to patient record");
             }
         }
-
-        // Validate fax file path to prevent path traversal attacks
-        faxManager.validateFilePath(faxFilePath);
 
         // Validate recipient fax number format (required)
         if (recipientFaxNumber == null || recipientFaxNumber.trim().isEmpty()) {
@@ -210,6 +210,13 @@ public class Fax2Action extends ActionSupport {
 
         // Validate all inputs before processing
         validateFaxInputs(loggedInInfo);
+        Path faxDocument;
+        try {
+            faxDocument = resolveFaxPreviewPath(faxFileToken);
+        } catch (SecurityException | IOException e) {
+            logger.error("Invalid fax preview token while queueing fax", e);
+            throw new SecurityException("Invalid fax preview token", e);
+        }
 
         TransactionType transactionType = TransactionType.valueOf(getTransactionType().toUpperCase());
 
@@ -219,7 +226,7 @@ public class Fax2Action extends ActionSupport {
 
         // Build fax job parameters using builder pattern
         FaxJobParams params = FaxJobParams.builder()
-                .faxFilePath(faxFilePath)
+                .faxFilePath(faxDocument.toString())
                 .recipient(sanitizedRecipient)
                 .recipientFaxNumber(recipientFaxNumber)
                 .senderFaxNumber(senderFaxNumber)
@@ -265,10 +272,11 @@ public class Fax2Action extends ActionSupport {
             }
             return;
         }
-        String faxFilePath = request.getParameter("faxFilePath");
+        String faxFileToken = request.getParameter("faxFileToken");
         String pageNumber = request.getParameter("pageNumber");
         String showAs = request.getParameter("showAs");
         Path outfile = null;
+        Path faxDocument = null;
         int page = 1;
         String jobId = request.getParameter("jobId");
         FaxJob faxJob = null;
@@ -278,7 +286,21 @@ public class Fax2Action extends ActionSupport {
         }
 
         if (faxJob != null) {
-            faxFilePath = faxJob.getFile_name();
+            try {
+                faxDocument = faxManager.resolveAndValidateFilePath(faxJob.getFile_name());
+            } catch (SecurityException | IOException e) {
+                logger.error("Security validation failed for fax job file path", e);
+                sendPreviewError(HttpServletResponse.SC_FORBIDDEN, "Access denied");
+                return;
+            }
+        } else if (faxFileToken != null && !faxFileToken.isEmpty()) {
+            try {
+                faxDocument = resolveFaxPreviewPath(faxFileToken);
+            } catch (SecurityException | IOException e) {
+                logger.error("Security validation failed for fax preview token", e);
+                sendPreviewError(HttpServletResponse.SC_FORBIDDEN, "Access denied");
+                return;
+            }
         }
 
         if (pageNumber != null && !pageNumber.isEmpty()) {
@@ -289,10 +311,9 @@ public class Fax2Action extends ActionSupport {
          * Displaying the entire PDF using the default browser's view before faxing an EForm (in CoverPage.jsp),
          * and when viewing it in the fax records (Manage Faxes), it is shown as images.
          */
-        if (faxFilePath != null && !faxFilePath.isEmpty()) {
+        if (faxDocument != null) {
             if (showAs != null && showAs.equals("image")) {
-                // The faxManager.getFaxPreviewImage method already handles path validation
-                outfile = faxManager.getFaxPreviewImage(loggedInInfo, faxFilePath, page);
+                outfile = faxManager.getFaxPreviewImage(loggedInInfo, faxDocument, page);
                 if (outfile != null && outfile.getFileName() != null) {
                     response.setContentType("image/png");
                     String sanitizedFilename = FilenameUtils.getName(outfile.getFileName().toString());
@@ -302,27 +323,8 @@ public class Fax2Action extends ActionSupport {
                     response.setHeader("Content-Disposition", "attachment; filename=\"" + encodedFilename + "\"");
                 }
             } else {
-                // Validate and resolve the PDF path using FaxManager
-                try {
-                    outfile = faxManager.resolveAndValidateFilePath(faxFilePath);
-                    response.setContentType("application/pdf");
-                } catch (SecurityException e) {
-                    logger.error("Security validation failed for file path: " + faxFilePath, e);
-                    try {
-                        response.sendError(HttpServletResponse.SC_FORBIDDEN, "Access denied");
-                    } catch (IOException ex) {
-                        logger.error("Error sending error response", ex);
-                    }
-                    return;
-                } catch (IOException e) {
-                    logger.error("File not found or error processing file path: " + faxFilePath, e);
-                    try {
-                        response.sendError(HttpServletResponse.SC_NOT_FOUND, "File not found");
-                    } catch (IOException ex) {
-                        logger.error("Error sending error response", ex);
-                    }
-                    return;
-                }
+                outfile = faxDocument;
+                response.setContentType("application/pdf");
             }
         }
 
@@ -389,7 +391,7 @@ public class Fax2Action extends ActionSupport {
             request.setAttribute("documents", documents);
             request.setAttribute("transactionType", transactionType.name());
             request.setAttribute("transactionId", transactionId);
-            request.setAttribute("faxFilePath", pdfPath);
+            request.setAttribute("faxFileToken", registerFaxPreviewPath(pdfPath));
             request.setAttribute("letterheadFax", letterheadFax);
             request.setAttribute("professionalSpecialistName", recipient);
             request.setAttribute("fax", recipientFaxNumber);
@@ -420,7 +422,80 @@ public class Fax2Action extends ActionSupport {
         JSONUtil.jsonResponse(response, jsonObject);
     }
 
-    private String faxFilePath;
+    private String registerFaxPreviewPath(Path pdfPath) {
+        String token = UUID.randomUUID().toString();
+        faxPreviewPaths(true).put(token, pdfPath.toString());
+        return token;
+    }
+
+    private Path resolveFaxPreviewPath(String token) throws IOException {
+        if (token == null || token.trim().isEmpty()) {
+            throw new SecurityException("Missing fax preview token");
+        }
+        try {
+            UUID.fromString(token);
+        } catch (IllegalArgumentException e) {
+            throw new SecurityException("Invalid fax preview token", e);
+        }
+
+        Map<String, String> previewPaths = faxPreviewPaths(false);
+        String previewPath = previewPaths == null ? null : previewPaths.get(token);
+        if (previewPath == null) {
+            throw new SecurityException("Unknown fax preview token");
+        }
+        return faxManager.resolveAndValidateFilePath(previewPath);
+    }
+
+    private void flushPreviewToken(LoggedInInfo loggedInInfo) {
+        if (faxFileToken == null || faxFileToken.trim().isEmpty()) {
+            return;
+        }
+
+        try {
+            Path previewPath = resolveFaxPreviewPath(faxFileToken);
+            faxManager.flush(loggedInInfo, previewPath.toString());
+            removeFaxPreviewToken(faxFileToken);
+        } catch (SecurityException | IOException e) {
+            logger.warn("Skipping fax preview cleanup for invalid or expired token", e);
+        }
+    }
+
+    private void removeFaxPreviewToken(String token) {
+        Map<String, String> previewPaths = faxPreviewPaths(false);
+        if (previewPaths != null) {
+            previewPaths.remove(token);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, String> faxPreviewPaths(boolean create) {
+        HttpSession session = request.getSession(create);
+        if (session == null) {
+            return null;
+        }
+
+        Object existing = session.getAttribute(FAX_PREVIEW_PATHS_SESSION_KEY);
+        if (existing instanceof Map<?, ?> map) {
+            return (Map<String, String>) map;
+        }
+        if (!create) {
+            return null;
+        }
+
+        Map<String, String> previewPaths = new HashMap<>();
+        session.setAttribute(FAX_PREVIEW_PATHS_SESSION_KEY, previewPaths);
+        return previewPaths;
+    }
+
+    private void sendPreviewError(int statusCode, String message) {
+        try {
+            response.sendError(statusCode, message);
+        } catch (IOException e) {
+            logger.error("Error sending preview error response", e);
+        }
+    }
+
+    private String faxFileToken;
     private Integer transactionId;
     private Integer demographicNo;
     private String transactionType;
@@ -433,12 +508,21 @@ public class Fax2Action extends ActionSupport {
     private String[] copyToRecipients;
 
     public String getFaxFilePath() {
-        return faxFilePath;
+        return null;
     }
 
     @StrutsParameter
     public void setFaxFilePath(String faxFilePath) {
-        this.faxFilePath = faxFilePath;
+        // Raw preview paths are deliberately ignored. Fax previews are resolved from faxFileToken.
+    }
+
+    public String getFaxFileToken() {
+        return faxFileToken;
+    }
+
+    @StrutsParameter
+    public void setFaxFileToken(String faxFileToken) {
+        this.faxFileToken = faxFileToken;
     }
 
     public Integer getTransactionId() {

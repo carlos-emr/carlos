@@ -374,7 +374,7 @@ public final class MiscUtils {
 	 * {@link PathValidationUtils#validateUpload(java.io.File, String, java.io.File)} when
 	 * constructing or validating file paths.
 	 */
-	@Deprecated(since = "2026-05-06", forRemoval = false)
+	@Deprecated(since = "2026-05-06", forRemoval = true)
 	public static String sanitizeFileName(String fileName) {
         return fileName.replaceAll("\\s+", "_")
                 .replaceAll("[^a-zA-Z0-9._]", "")

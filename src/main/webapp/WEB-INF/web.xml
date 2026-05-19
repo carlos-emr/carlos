@@ -416,6 +416,7 @@
 		<servlet-class>io.github.carlos_emr.carlos.util.OscarDownload</servlet-class>
 		<load-on-startup>0</load-on-startup>
 	</servlet>
+	<!-- Legacy direct endpoint retained only to return HTTP 410 from GenericDownload. -->
 	<servlet>
 		<servlet-name>Download</servlet-name>
 		<servlet-class>io.github.carlos_emr.carlos.util.GenericDownload</servlet-class>
@@ -539,6 +540,7 @@
 		<servlet-name>OscarDownload</servlet-name>
 		<url-pattern>/servlet/OscarDownload</url-pattern>
 	</servlet-mapping>
+	<!-- GenericDownload intentionally rejects direct requests with HTTP 410. -->
 	<servlet-mapping>
 		<servlet-name>Download</servlet-name>
 		<url-pattern>/Download</url-pattern>

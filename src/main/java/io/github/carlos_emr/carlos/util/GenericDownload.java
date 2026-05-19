@@ -34,6 +34,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.Locale;
 
 
 import jakarta.servlet.ServletOutputStream;
@@ -57,6 +58,11 @@ public class GenericDownload extends HttpServlet {
     public GenericDownload() {
     }
 
+    /**
+     * Rejects direct requests to the legacy generic download servlet. Concrete
+     * download servlets must perform their own authorization and call
+     * {@link #download(boolean, HttpServletResponse, String, String)}.
+     */
     public void doGet(HttpServletRequest req, HttpServletResponse res) throws IOException {
         log.warn("Rejected direct GenericDownload request from {}", req.getRemoteAddr());
         sendErrorIfPossible(res, HttpServletResponse.SC_GONE, "This download endpoint is no longer available.");
@@ -114,6 +120,11 @@ public class GenericDownload extends HttpServlet {
     }
 
     private static String resolveContentType(File file) {
+        String knownType = resolveKnownContentType(file.getName());
+        if (knownType != null) {
+            return knownType;
+        }
+
         try {
             String detectedType = Files.probeContentType(file.toPath());
             if (detectedType != null && !detectedType.isBlank()) {
@@ -123,6 +134,38 @@ public class GenericDownload extends HttpServlet {
             log.debug("Could not detect content type for {}", file.getName(), e);
         }
         return DEFAULT_CONTENT_TYPE;
+    }
+
+    private static String resolveKnownContentType(String filename) {
+        String lowerName = filename == null ? "" : filename.toLowerCase(Locale.ROOT);
+        if (lowerName.endsWith(".pdf")) {
+            return "application/pdf";
+        }
+        if (lowerName.endsWith(".html") || lowerName.endsWith(".htm")) {
+            return "text/html";
+        }
+        if (lowerName.endsWith(".txt")) {
+            return "text/plain";
+        }
+        if (lowerName.endsWith(".csv")) {
+            return "text/csv";
+        }
+        if (lowerName.endsWith(".xml")) {
+            return "application/xml";
+        }
+        if (lowerName.endsWith(".zip")) {
+            return "application/zip";
+        }
+        if (lowerName.endsWith(".jpg") || lowerName.endsWith(".jpeg")) {
+            return "image/jpeg";
+        }
+        if (lowerName.endsWith(".png")) {
+            return "image/png";
+        }
+        if (lowerName.endsWith(".gif")) {
+            return "image/gif";
+        }
+        return null;
     }
 
     private static String sanitizeAttachmentFilename(String filename) {

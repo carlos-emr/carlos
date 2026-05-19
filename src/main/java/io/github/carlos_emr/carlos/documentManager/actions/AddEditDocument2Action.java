@@ -145,7 +145,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             throw new SecurityException("missing required sec object (_edoc)");
         }
 
-        File uploadedDocFile = this.getDocFile();
+        UploadedFile uploadedDocFile = this.getSelectedDocumentUpload();
         if (uploadedDocFile == null) {
             response.setHeader("oscar_error", props.getString("dms.addDocument.errorZeroSize"));
             response.sendError(500, props.getString("dms.addDocument.errorZeroSize"));
@@ -153,7 +153,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         }
 
         int numberOfPages = 0;
-        String originalFileName = filled(this.docFileFileName) ? this.docFileFileName : uploadedDocFile.getName();
+        String originalFileName = filled(this.docFileFileName) ? this.docFileFileName : uploadedDocFile.getOriginalName();
         String fileName;
         try {
             fileName = PathValidationUtils.validateFileName(originalFileName);
@@ -320,7 +320,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
                 errors.put("typemissing", "dms.error.typeMissing");
                 throw new Exception();
             }
-            File docFile = this.getDocFile();
+            UploadedFile docFile = this.getSelectedDocumentUpload();
             if (docFile == null) {
                 errors.put("uploaderror", "dms.error.uploadError");
                 throw new FileNotFoundException();
@@ -482,8 +482,8 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
 
             if (CarlosProperties.getInstance().getBooleanProperty("ALLOW_UPDATE_DOCUMENT_CONTENT", "true"))
             {
-                File docFile = this.getDocFile();
-                if (docFile != null && docFile.exists()) {
+                UploadedFile docFile = this.getSelectedDocumentUpload();
+                if (docFile != null) {
                     validatedDocFileForUpdate = validateUploadedDocumentSource(docFile, errors);
                     fileName = PathValidationUtils.validateFileName(this.docFileFileName);
                     updateFileContent = true; // set update to true
@@ -572,7 +572,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return "successEdit";
     }
 
-    private ValidatedDocumentUpload validateUploadedDocumentSource(File docFile, Hashtable<String, String> errors) {
+    private ValidatedDocumentUpload validateUploadedDocumentSource(UploadedFile docFile, Hashtable<String, String> errors) {
         try {
             return ValidatedDocumentUpload.from(docFile);
         } catch (FileValidationException e) {
@@ -588,8 +588,8 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             this.file = file;
         }
 
-        private static ValidatedDocumentUpload from(File uploadFile) {
-            File validatedUpload = PathValidationUtils.validateUpload(uploadFile);
+        private static ValidatedDocumentUpload from(UploadedFile uploadFile) {
+            File validatedUpload = PathValidationUtils.validateUpload(uploadContentFile(uploadFile));
             return new ValidatedDocumentUpload(validatedUpload);
         }
 
@@ -598,8 +598,31 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         }
 
         private InputStream openStream() throws IOException {
-            return Files.newInputStream(file.toPath()); // codeql[java/path-injection] -- validated Struts/Tomcat temp file; see ValidatedDocumentUpload.from.
+            return Files.newInputStream(file.toPath());
         }
+    }
+
+    private static File uploadContentFile(UploadedFile uploadFile) {
+        if (uploadFile == null) {
+            throw new FileValidationException("Uploaded file is null");
+        }
+        Object content = uploadFile.getContent();
+        if (content instanceof File file) {
+            return file;
+        }
+        throw new FileValidationException("Uploaded file content is not file-backed");
+    }
+
+    private static File uploadContentFileOrNull(UploadedFile uploadFile) {
+        if (uploadFile == null) {
+            return null;
+        }
+        Object content = uploadFile.getContent();
+        return content instanceof File file ? file : null;
+    }
+
+    private UploadedFile getSelectedDocumentUpload() {
+        return docFileUpload;
     }
 
 
@@ -691,11 +714,12 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             }
             if (selected == null && "filedata".equals(inputName)) {
                 selected = uploaded;
+                this.filedataUpload = uploaded;
             }
         }
 
         if (selected != null) {
-            this.docFile = Path.of(selected.getAbsolutePath()).toFile();
+            this.docFileUpload = selected;
             this.docFileFileName = selected.getOriginalName();
             this.docFileContentType = selected.getContentType();
         }
@@ -762,9 +786,9 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
     private String responsibleId = "";
     private String source = "";
     private String sourceFacility = "";
-    private File docFile;
+    private UploadedFile docFileUpload;
 
-    private File filedata;
+    private UploadedFile filedataUpload;
 
     private String docPublic = "";
     private String mode = "";
@@ -875,11 +899,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
     }
 
     public File getDocFile() {
-        return docFile;
-    }
-
-    public void setDocFile(File docFile) {
-        this.docFile = docFile;
+        return uploadContentFileOrNull(docFileUpload);
     }
 
     public String getMode() {
@@ -955,11 +975,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
     }
 
     public File getFiledata() {
-        return filedata;
-    }
-
-    public void setFiledata(File Filedata) {
-        this.filedata = Filedata;
+        return uploadContentFileOrNull(filedataUpload);
     }
 
     public String getAppointmentNo() {

@@ -230,7 +230,7 @@
 				<input type="hidden" name="transactionId" value="<carlos:encode value='${ not empty reqId ? reqId : transactionId }' context="htmlAttribute"/>" />
 				<input type="hidden" name="transactionType" value="<carlos:encode value='${ transactionType }' context="htmlAttribute"/>" />
 				<input type="hidden" name="demographicNo" value="<carlos:encode value='${ not empty demographicNo ? demographicNo : param.demographicNo }' context="htmlAttribute"/>" />
-		  		<input type="hidden" name="faxFilePath" value="<carlos:encode value='${ faxFilePath }' context="htmlAttribute"/>" />
+				<input type="hidden" name="faxFileToken" value="<carlos:encode value='${ faxFileToken }' context="htmlAttribute"/>" />
 		  		
 		  		<%-- to be removed soon below --%>
 		  		<input type="hidden" name="documents" value="<carlos:encode value='${ documents }' context="htmlAttribute"/>" />
@@ -428,7 +428,7 @@
                     <div class="card-body">
                         <div class="container">
                             <object id="previewPDF"
-                                    data="${ctx}/fax/faxAction?method=getPreview&faxFilePath=<carlos:encode value='${faxFilePath}' context="uriComponent"/>"
+                                    data="${ctx}/fax/faxAction?method=getPreview&faxFileToken=<carlos:encode value='${faxFileToken}' context="uriComponent"/>"
                                     type="application/pdf" width="100%" height="800">
                             </object>
                         </div>

@@ -486,7 +486,10 @@ public class DocumentManagerImpl implements DocumentManager {
                 }
                 return validatedSource;
             } catch (FileValidationException e) {
-                // Try the next configured document source root.
+                if (PathValidationUtils.PATH_OUTSIDE_ALLOWED_DIRECTORY_MESSAGE.equals(e.getMessage())) {
+                    continue;
+                }
+                throw e;
             }
         }
         throw new FileValidationException("Invalid document move source");
