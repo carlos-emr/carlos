@@ -34,9 +34,11 @@ import io.github.carlos_emr.CarlosProperties;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.EncryptionUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.WebappShutdownResources;
 
 import jakarta.servlet.ServletContextEvent;
 import jakarta.servlet.ServletContextListener;
+import jakarta.servlet.ServletContext;
 import java.io.File;
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
@@ -193,7 +195,17 @@ public class Startup implements ServletContextListener {
     }
 
     public void contextDestroyed(ServletContextEvent arg0) {
-        // nothing to do right now
+        WebappShutdownResources.releaseForContext(getWebappClassLoader(arg0));
+    }
+
+    private ClassLoader getWebappClassLoader(ServletContextEvent event) {
+        if (event != null) {
+            ServletContext servletContext = event.getServletContext();
+            if (servletContext != null) {
+                return servletContext.getClassLoader();
+            }
+        }
+        return Thread.currentThread().getContextClassLoader();
     }
 
 }

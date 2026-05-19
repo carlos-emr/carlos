@@ -104,6 +104,11 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
         connections.remove();
     }
 
+    static void clearTrackingState() {
+        releaseThreadConnections();
+        debugMap.clear();
+    }
+
     public static void logDebugMapToError() {
         String divider = "------------------------------";
 

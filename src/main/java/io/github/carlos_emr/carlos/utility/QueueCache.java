@@ -54,6 +54,16 @@ public final class QueueCache<K, V> {
         timer.schedule(new QueueCache.ShiftTimerTask(), maxTimeToCache / (long) pools, maxTimeToCache / (long) pools);
     }
 
+    static void shutdownSharedTimer() {
+        synchronized (QueueCache.class) {
+            if (timer != null) {
+                timer.cancel();
+                timer.purge();
+                timer = null;
+            }
+        }
+    }
+
     public QueueCache(int pools, int objectsToCache, QueueCacheValueCloner<V> cloner) {
         this.cloner = null;
         this.cloner = cloner;
