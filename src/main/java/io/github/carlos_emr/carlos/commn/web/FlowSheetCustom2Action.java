@@ -187,9 +187,9 @@ public class FlowSheetCustom2Action extends ActionSupport {
     public String execute() throws Exception {
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
             logger.warn("Rejected flowsheet customization request with method {} for demographic {} from {}",
-                    LogSanitizer.sanitize(String.valueOf(request.getMethod())),
-                    LogSanitizer.sanitize(String.valueOf(request.getParameter("demographic"))),
-                    LogSanitizer.sanitize(String.valueOf(request.getRemoteAddr())));
+                    LogSafe.sanitize(String.valueOf(request.getMethod())),
+                    LogSafe.sanitize(String.valueOf(request.getParameter("demographic"))),
+                    LogSafe.sanitize(String.valueOf(request.getRemoteAddr())));
             response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
@@ -198,9 +198,9 @@ public class FlowSheetCustom2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_flowsheet", "w", null)) {
             logger.warn("Denied flowsheet customization request with method {} for demographic {} from {}",
-                    LogSanitizer.sanitize(String.valueOf(request.getMethod())),
-                    LogSanitizer.sanitize(String.valueOf(request.getParameter("demographic"))),
-                    LogSanitizer.sanitize(String.valueOf(request.getRemoteAddr())));
+                    LogSafe.sanitize(String.valueOf(request.getMethod())),
+                    LogSafe.sanitize(String.valueOf(request.getParameter("demographic"))),
+                    LogSafe.sanitize(String.valueOf(request.getRemoteAddr())));
             throw new SecurityException("missing required sec object (_flowsheet)");
         }
 
@@ -221,9 +221,9 @@ public class FlowSheetCustom2Action extends ActionSupport {
             return revertUpdate();
         }
         logger.warn("Unknown flowsheet customization method {} for demographic {} from {}",
-                LogSanitizer.sanitize(String.valueOf(method)),
-                LogSanitizer.sanitize(String.valueOf(request.getParameter("demographic"))),
-                LogSanitizer.sanitize(String.valueOf(request.getRemoteAddr())));
+                LogSafe.sanitize(String.valueOf(method)),
+                LogSafe.sanitize(String.valueOf(request.getParameter("demographic"))),
+                LogSafe.sanitize(String.valueOf(request.getRemoteAddr())));
         return SUCCESS;
     }
 

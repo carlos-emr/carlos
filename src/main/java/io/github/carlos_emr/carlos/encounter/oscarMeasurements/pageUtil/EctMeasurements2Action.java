@@ -49,7 +49,7 @@ import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.commn.model.SecRole;
 import io.github.carlos_emr.carlos.commn.model.Validations;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -83,9 +83,9 @@ public class EctMeasurements2Action extends ActionSupport {
     public String execute() throws ServletException, IOException {
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
             logger.warn("Rejected measurement submission request with method {} for demographicNo {} from {}",
-                    LogSanitizer.sanitize(String.valueOf(request.getMethod())),
-                    LogSanitizer.sanitize(String.valueOf(request.getParameter("demographicNo"))),
-                    LogSanitizer.sanitize(String.valueOf(request.getRemoteAddr())));
+                    LogSafe.sanitize(String.valueOf(request.getMethod())),
+                    LogSafe.sanitize(String.valueOf(request.getParameter("demographicNo"))),
+                    LogSafe.sanitize(String.valueOf(request.getRemoteAddr())));
             response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
@@ -94,9 +94,9 @@ public class EctMeasurements2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_measurement", "w",
                 null)) {
             logger.warn("Denied measurement submission request with method {} for demographicNo {} from {}",
-                    LogSanitizer.sanitize(String.valueOf(request.getMethod())),
-                    LogSanitizer.sanitize(String.valueOf(request.getParameter("demographicNo"))),
-                    LogSanitizer.sanitize(String.valueOf(request.getRemoteAddr())));
+                    LogSafe.sanitize(String.valueOf(request.getMethod())),
+                    LogSafe.sanitize(String.valueOf(request.getParameter("demographicNo"))),
+                    LogSafe.sanitize(String.valueOf(request.getRemoteAddr())));
             throw new SecurityException("missing required sec object (_measurement)");
         }
 
