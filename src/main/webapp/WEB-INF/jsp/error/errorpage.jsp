@@ -88,14 +88,15 @@
 <%@ taglib uri='jakarta.tags.core' prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
+<%@ page contentType="text/html; charset=UTF-8" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:message key="messenger.config.MessengerAdmin.goBack" var="btnBackTitle"/>
 <fmt:message key="provider.appointmentProviderAdminDay.schedView" var="btnExitTitle"/>
 <jsp:useBean id="LoginResourceBean" beanName="io.github.carlos_emr.carlos.login.LoginResourceBean" type="io.github.carlos_emr.carlos.login.LoginResourceBean"/>
 <!DOCTYPE html>
 <html>
-
 <head>
+  <meta charset="UTF-8">
     <title>
         <fmt:message key="error.description"/>
     </title>
