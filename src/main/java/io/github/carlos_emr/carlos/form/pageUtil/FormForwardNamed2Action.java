@@ -20,7 +20,7 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.form.gate.FormViewRoutes;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -54,14 +54,14 @@ public class FormForwardNamed2Action extends ActionSupport {
         if (internalView == null) {
             MiscUtils.getLogger().warn(
                     "form/forwardname: blocked invalid form_link parameter: {}",
-                    LogSanitizer.sanitize(formLink));
+                    LogSafe.sanitize(formLink));
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid form link");
             return NONE;
         }
         if (demographicNo == null || !demographicNo.matches("\\d+")) {
             MiscUtils.getLogger().warn(
                     "form/forwardname: blocked invalid demographic_no parameter: {}",
-                    LogSanitizer.sanitize(demographicNo));
+                    LogSafe.sanitize(demographicNo));
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid demographic number");
             return NONE;
         }

@@ -39,7 +39,7 @@ import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingONExt;
 import io.github.carlos_emr.carlos.commn.model.BillingONPayment;
 import io.github.carlos_emr.carlos.commn.model.BillingPaymentType;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.stereotype.Repository;
@@ -134,8 +134,8 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
                 // exception so callers see the corruption rather than a
                 // misleading $0.00.
                 MiscUtils.getLogger().error("billing_on_ext.payment for paymentId={} billingNo={} is not a valid currency amount",
-                        LogSanitizer.sanitize(String.valueOf(paymentRecord.getId())),
-                        LogSanitizer.sanitize(String.valueOf(paymentRecord.getBillingNo())), e);
+                        LogSafe.sanitize(String.valueOf(paymentRecord.getId())),
+                        LogSafe.sanitize(String.valueOf(paymentRecord.getBillingNo())), e);
                 throw new BillingValidationException(
                         "Corrupt billing_on_ext.payment value; see logs for paymentId/billingNo", e);
             }
@@ -168,8 +168,8 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
                 // Same reasoning as getPayment: silently understated refund
                 // totals are worse than failing loudly. Rethrow.
                 MiscUtils.getLogger().error("billing_on_ext.refund for paymentId={} billingNo={} is not a valid currency amount",
-                        LogSanitizer.sanitize(String.valueOf(paymentRecord.getId())),
-                        LogSanitizer.sanitize(String.valueOf(paymentRecord.getBillingNo())), e);
+                        LogSafe.sanitize(String.valueOf(paymentRecord.getId())),
+                        LogSafe.sanitize(String.valueOf(paymentRecord.getBillingNo())), e);
                 throw new BillingValidationException(
                         "Corrupt billing_on_ext.refund value; see logs for paymentId/billingNo", e);
             }
@@ -251,8 +251,8 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
             String statusLabel = status == '1' ? "active" : "inactive";
             MiscUtils.getLogger().error("Duplicate {} billing_on_ext {} rows for invoice number: {}",
                     statusLabel,
-                    LogSanitizer.sanitize(key),
-                    LogSanitizer.sanitize(String.valueOf(billingNo)));
+                    LogSafe.sanitize(key),
+                    LogSafe.sanitize(String.valueOf(billingNo)));
             throw new BillingDataLoadException(
                     "duplicate " + statusLabel + " billing_on_ext " + key,
                     BillingDataLoadException.Phase.DAO_QUERY,
@@ -324,7 +324,7 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
             return Integer.parseInt(billingNo);
         } catch (NumberFormatException e) {
             throw new BillingValidationException(
-                    "BillingONExtDao: malformed billingNo [" + LogSanitizer.sanitize(billingNo) + "]",
+                    "BillingONExtDao: malformed billingNo [" + LogSafe.sanitize(billingNo) + "]",
                     e);
         }
     }
@@ -353,8 +353,8 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
             } catch (BillingValidationException e) {
                 MiscUtils.getLogger().error(
                         "billing_on_ext.{} for billingNo={} is not a valid currency amount",
-                        LogSanitizer.sanitize(key),
-                        LogSanitizer.sanitize(String.valueOf(billingNo)), e);
+                        LogSafe.sanitize(key),
+                        LogSafe.sanitize(String.valueOf(billingNo)), e);
                 throw new BillingValidationException(
                         "Corrupt billing_on_ext." + key + " value; see logs for billingNo", e);
             }

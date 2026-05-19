@@ -612,15 +612,15 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
      * Rapid Review auto-advance: opens the first item in the inbox table.
      * Called after an acknowledge refreshes the list, so the previously-acknowledged
      * item is gone and the "first" item is effectively the next one to review.
-     * Uses a short delay to let the DataTable finish rendering.
+     * Waits for the DataTable draw event so the next row is rendered before clicking.
      */
     function openNextInboxItem() {
-        setTimeout(function() {
+        jQuery('#inbox_table').one('draw.dt', function() {
             var nextLink = document.querySelector('#inbox_table tbody tr a');
             if (nextLink) {
                 nextLink.click();
             }
-        }, 500);
+        });
     }
 
     // State variables preserved across inbox refreshes (the toolbar HTML inside
@@ -773,14 +773,14 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     function addDataInInboxhubListTable(data) {
         if (page == 1) {
             jQuery("#inboxhubMode").html(data);
-            jQuery('#inbox_table').DataTable().draw(false); // `draw(false)` prevents resetting the scroll position
-            showInboxhubStats();
-            restoreToolbarState();
             // Rapid Review auto-open: after acknowledging an item, open the next one
             if (pendingRapidReviewOpen) {
                 pendingRapidReviewOpen = false;
                 openNextInboxItem();
             }
+            jQuery('#inbox_table').DataTable().draw(false); // `draw(false)` prevents resetting the scroll position
+            showInboxhubStats();
+            restoreToolbarState();
             startInboxhubListProgress();
             updateInboxhubListProgress();
             return;

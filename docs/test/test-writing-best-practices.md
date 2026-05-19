@@ -190,6 +190,26 @@ mvn test -DexcludedGroups="slow"
 mvn test -Dgroups="unit,fast"
 ```
 
+## Shared Test Utilities
+
+Prefer shared helpers for cross-cutting test mechanics. For Log4j2 assertions,
+use `io.github.carlos_emr.carlos.test.logging.LogCapture`:
+
+```java
+try (LogCapture capture = LogCapture.forLogger(MyService.class)) {
+    service.run();
+
+    assertThat(capture.messages()).anyMatch(message ->
+            message.contains("expected audit text"));
+}
+```
+
+Do not add one-off `AbstractAppender`, `CapturingAppender`, or manual
+`LoggerConfig` copies inside individual tests. Root or shared logger mutations
+are fragile under parallel Surefire execution, and local copies drift quickly.
+`LogCapture` scopes the appender to the target logger, snapshots immutable
+events, and restores the Log4j2 configuration on close.
+
 ## Test Data Management
 
 ### Test Data Creation Pattern

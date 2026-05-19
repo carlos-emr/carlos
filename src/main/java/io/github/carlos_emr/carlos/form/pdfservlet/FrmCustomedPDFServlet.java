@@ -58,7 +58,7 @@ import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.FaxManager.TransactionType;
 import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -619,9 +619,9 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         String fax = lst.get(4);
         fax = fax.replace("Fax: ", "");
         String clinicName = lst.get(0) + "\n" + lst.get(1) + "\n" + lst.get(2);
-        logger.debug("tel: {}", LogSanitizer.sanitize(tel));
-        logger.debug("fax: {}", LogSanitizer.sanitize(fax));
-        logger.debug("clinicName: {}", LogSanitizer.sanitize(clinicName));
+        logger.debug("tel: {}", LogSafe.sanitize(tel));
+        logger.debug("fax: {}", LogSafe.sanitize(fax));
+        logger.debug("clinicName: {}", LogSafe.sanitize(clinicName));
         hm.put("clinicName", clinicName);
         hm.put("clinicTel", tel);
         hm.put("clinicFax", fax);
@@ -658,16 +658,16 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             numPrint = req.getParameter("numPrints");
         }
 
-        logger.debug("method in generatePDFDocumentBytes {}", LogSanitizer.sanitize(method));
+        logger.debug("method in generatePDFDocumentBytes {}", LogSafe.sanitize(method));
         String clinicName;
         String clinicTel;
         String clinicFax;
         // check if satellite clinic is used
         String useSatelliteClinic = req.getParameter("useSC");
-        logger.debug("useSatelliteClinic: {}", LogSanitizer.sanitize(useSatelliteClinic));
+        logger.debug("useSatelliteClinic: {}", LogSafe.sanitize(useSatelliteClinic));
         if (useSatelliteClinic != null && useSatelliteClinic.equalsIgnoreCase("true")) {
             String scAddress = req.getParameter("scAddress");
-            logger.debug("clinic detail={}", LogSanitizer.sanitize(scAddress));
+            logger.debug("clinic detail={}", LogSafe.sanitize(scAddress));
             HashMap<String, String> hm = parseSCAddress(scAddress);
             clinicName = hm.get("clinicName");
             clinicTel = hm.get("clinicTel");
@@ -675,7 +675,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         } else {
             // parameters need to be passed to header and footer
             clinicName = req.getParameter("clinicName");
-            logger.debug("clinicName={}", LogSanitizer.sanitize(clinicName));
+            logger.debug("clinicName={}", LogSafe.sanitize(clinicName));
             clinicTel = req.getParameter("clinicPhone");
             clinicFax = req.getParameter("clinicFax");
         }

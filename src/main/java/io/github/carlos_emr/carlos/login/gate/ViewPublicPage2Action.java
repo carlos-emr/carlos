@@ -16,6 +16,10 @@ package io.github.carlos_emr.carlos.login.gate;
  * Gate for public login/error utility pages that only need GET/HEAD
  * enforcement before forwarding to a {@code WEB-INF} JSP.
  *
+ * <p>{@link io.github.carlos_emr.carlos.login.RootEntryRedirectFilter} forwards the root
+ * login entry directly to the JSP before Struts, so any future public-page gate added here
+ * must be mirrored there for that route.</p>
+ *
  * @since 2026-04-15
  */
 public final class ViewPublicPage2Action extends BaseLoginPageView2Action {

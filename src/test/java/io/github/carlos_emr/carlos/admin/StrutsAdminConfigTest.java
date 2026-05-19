@@ -63,6 +63,9 @@ class StrutsAdminConfigTest {
     private static final String LOOKUP_LIST_MANAGER_FRAGMENT =
             "/WEB-INF/jsp/admin/lookUpLists/manageLookUpLists.jsp";
     private static final String LOOKUP_LIST_ITEM_FRAGMENT = "/WEB-INF/jsp/admin/lookUpLists/lookupList.jsp";
+    private static final String LAB_FORWARDING_RULES_ACTION =
+            "io.github.carlos_emr.carlos.admin.gate.ViewLabForwardingRules2Action";
+    private static final String LAB_FORWARDING_RULES_JSP = "/WEB-INF/jsp/admin/labforwardingrules.jsp";
     private static final Pattern C_IMPORT_URL_PATTERN = Pattern.compile(
             "<c:import\\b[^>]*\\burl\\s*=\\s*\"([^\"]+)\"",
             Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
@@ -145,6 +148,20 @@ class StrutsAdminConfigTest {
                 .contains("objectName=\"_admin,_admin.userAdmin\" rights=\"w\"")
                 .as("result-only JSP should not load unused global JavaScript helpers")
                 .doesNotContain("/js/global.js");
+    }
+
+    @Test
+    @DisplayName("lab forwarding rules admin link should render the migrated WEB-INF JSP")
+    void shouldRenderMigratedWebInfJsp_forLabForwardingRulesAction() {
+        Element action = findAction("admin/labForwardingRules");
+
+        assertThat(action)
+                .as("struts-admin.xml must declare admin/labForwardingRules")
+                .isNotNull();
+        assertThat(action.getAttribute("class")).isEqualTo(LAB_FORWARDING_RULES_ACTION);
+        assertThat(extractSuccessResultPath(action))
+                .as("/admin/labForwardingRules should render the admin lab forwarding UI")
+                .isEqualTo(LAB_FORWARDING_RULES_JSP);
     }
 
     private Element findAction(String actionName) {

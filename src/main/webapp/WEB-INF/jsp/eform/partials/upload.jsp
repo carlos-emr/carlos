@@ -72,7 +72,7 @@
         </div>
 
         <script>
-            window.top.location.href = "<%=request.getContextPath()%>/administration/?show=Forms";
+            window.top.location.href = "<%=request.getContextPath()%>/administration?show=Forms";
         </script>
     </c:if>
 

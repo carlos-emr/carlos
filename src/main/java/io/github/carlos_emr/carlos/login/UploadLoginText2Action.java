@@ -53,7 +53,7 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.util.List;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 public class UploadLoginText2Action extends ActionSupport implements UploadedFilesAware {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -77,7 +77,7 @@ public class UploadLoginText2Action extends ActionSupport implements UploadedFil
         String validForever = request.getParameter("validForever");
         String foreverFrom = request.getParameter("foreverFrom");
 
-        _logger.debug("validDurationNumber={} validDurationPeriod={} validForever={} foreverFrom={}", LogSanitizer.sanitize(validDurationNumber), LogSanitizer.sanitize(validDurationPeriod), LogSanitizer.sanitize(validForever), LogSanitizer.sanitize(foreverFrom));
+        _logger.debug("validDurationNumber={} validDurationPeriod={} validForever={} foreverFrom={}", LogSafe.sanitize(validDurationNumber), LogSafe.sanitize(validDurationPeriod), LogSafe.sanitize(validForever), LogSafe.sanitize(foreverFrom));
 
         PropertyDao propertyDao = SpringUtils.getBean(PropertyDao.class);
         Property prop = null;
@@ -90,7 +90,7 @@ public class UploadLoginText2Action extends ActionSupport implements UploadedFil
             try {
                 Integer.parseInt(validDurationNumber);
             } catch (Exception e) {
-                _logger.error("Not an Int:{}", LogSanitizer.sanitize(validDurationNumber), e);
+                _logger.error("Not an Int:{}", LogSafe.sanitize(validDurationNumber), e);
             }
 
             if (validDurationPeriod != null && ("year".equals(validDurationPeriod) || "month".equals(validDurationPeriod) || "weeks".equals(validDurationPeriod) || "days".equals(validDurationPeriod))) {
@@ -98,7 +98,7 @@ public class UploadLoginText2Action extends ActionSupport implements UploadedFil
                 prop.setName("aua_valid_duration");
                 prop.setValue(validDurationNumber + " " + validDurationPeriod);
             } else {
-                _logger.error("Not a valid Period :{}", LogSanitizer.sanitize(validDurationPeriod)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                _logger.error("Not a valid Period :{}", LogSafe.sanitize(validDurationPeriod)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             }
         }
 

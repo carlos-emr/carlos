@@ -189,6 +189,7 @@ public class Logout2Action extends ActionSupport {
         // Invalidate session and log logout event if session exists
         if (session != null) {
             String user = (String) session.getAttribute("user");
+            PendingMfaChallenges.clearFromSession(session);
             // Invalidate session to prevent session fixation attacks
             session.invalidate();
             // Log logout event for audit trail (only if user was logged in)

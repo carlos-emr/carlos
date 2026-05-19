@@ -44,7 +44,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnHeaderCreatio
 import io.github.carlos_emr.carlos.commn.dao.BatchBillingDAO;
 import io.github.carlos_emr.carlos.commn.model.BatchBilling;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
@@ -271,8 +271,8 @@ public class BatchBill2Action extends ActionSupport {
                 // demographicNo=N serviceCode=C".
                 MiscUtils.getLogger().error(
                         "BatchBilling remove rolled back; row not found: demographicNo={} serviceCode={}",
-                        LogSanitizer.sanitize(String.valueOf(missing.row().demographicNo())),
-                        LogSanitizer.sanitize(missing.row().serviceCode()),
+                        LogSafe.sanitize(String.valueOf(missing.row().demographicNo())),
+                        LogSafe.sanitize(missing.row().serviceCode()),
                         missing);
                 addActionError(getText("batchbill.removeRowMissing",
                         new String[] {String.valueOf(missing.row().demographicNo()),
