@@ -198,7 +198,7 @@
 
 </head>
 <body>
-<jsp:include page="/images/spinner.jsp" flush="true"/>
+<jsp:include page="/WEB-INF/jsp/includes/spinner.jspf" flush="true"/>
 <div id="bodyrow" class="container-fluid">
 
     <div id="bodycolumn" class="col-sm-12">

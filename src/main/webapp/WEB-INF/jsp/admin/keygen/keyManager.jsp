@@ -90,7 +90,7 @@
 
         if (selectKeyList.options.length <= 0) return;
 
-        jQuery.getJSON("getPublicKey.json.jsp", {id: getSelectListValue(selectKeyList)},
+        jQuery.getJSON("<%=request.getContextPath()%>/admin/keygen/getPublicKey", {id: getSelectListValue(selectKeyList)},
             function (xml) {
                 var privateKeyField = document.getElementById("privateKey");
                 privateKeyField.innerHTML = xml.base64EncodedPrivateKey;

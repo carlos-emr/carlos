@@ -24,7 +24,7 @@
     <script src="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
 </head>
 <body>
-<jsp:include page="../images/spinner.jsp" flush="true"/>
+<jsp:include page="/WEB-INF/jsp/includes/spinner.jspf" flush="true"/>
 
 <div class="container py-5">
     <div class="card shadow-sm">

@@ -2551,7 +2551,7 @@
 
 
 </script>
-<jsp:include page="/images/spinner.jsp"/>
+<jsp:include page="/WEB-INF/jsp/includes/spinner.jspf"/>
 </div><%-- close container --%>
 </body>
 </html>

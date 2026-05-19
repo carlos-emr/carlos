@@ -80,7 +80,7 @@
 
             function listClients() {
                 $("#clientTable tbody").find("tr").remove();
-                jQuery.getJSON("clientManage.json.jsp", {method: "list"},
+                jQuery.getJSON("<%= request.getContextPath() %>/admin/api/clientManage", {method: "list"},
                     function (data, textStatus) {
                         for (var x = 0; x < data.length; x++) {
                             var id = data[x].id;
@@ -107,7 +107,7 @@
             function listTokens() {
                 $("#tokenTable tbody").find("tr").remove();
 
-                jQuery.getJSON("clientManage.json.jsp", {method: "listTokens"},
+                jQuery.getJSON("<%= request.getContextPath() %>/admin/api/clientManage", {method: "listTokens"},
                     function (data, textStatus) {
 
 
@@ -136,7 +136,7 @@
 
 
             function deleteClient(id) {
-                jQuery.post("clientManage.json.jsp", {
+                jQuery.post("<%= request.getContextPath() %>/admin/api/clientManage", {
                         method: "delete",
                         id: id
                     },
@@ -163,7 +163,7 @@
                             var name = $("#clientName").val();
                             var uri = $("#clientURI").val();
                             var lifetime = $("#lifetime").val();
-                            jQuery.post("clientManage.json.jsp",
+                            jQuery.post("<%= request.getContextPath() %>/admin/api/clientManage",
                                 {
                                     method: "add",
                                     name: name,

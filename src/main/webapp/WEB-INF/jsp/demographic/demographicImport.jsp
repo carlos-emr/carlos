@@ -180,7 +180,7 @@
         </script>
 
     </head>
-    <jsp:include page="/images/spinner.jsp" flush="true"/>
+    <jsp:include page="/WEB-INF/jsp/includes/spinner.jspf" flush="true"/>
     <body vlink="#0000FF">
 
     <%
