@@ -31,6 +31,7 @@ import java.util.Calendar;
 import java.util.List;
 
 @jakarta.persistence.Entity
+@org.hibernate.annotations.Immutable
 @jakarta.persistence.Table(name = "LookupCodeValue")
 @jakarta.persistence.Access(jakarta.persistence.AccessType.PROPERTY)
 public class LookupCodeValue {

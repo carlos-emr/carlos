@@ -131,13 +131,22 @@ public class SecUserRoleDaoImpl extends AbstractJpaDao implements SecUserRoleDao
     @Override
     public void save(SecUserRole sur) {
         sur.setLastUpdateDate(new Date());
-        Secuserrole entity = new Secuserrole();
+
+        String hql = "from Secuserrole s where s.roleName = ?1 and s.providerNo = ?2";
+        @SuppressWarnings("unchecked")
+        List<Secuserrole> existing = (List<Secuserrole>) JpqlQueryHelper.find(
+                entityManager(), hql, sur.getRoleName(), sur.getProviderNo());
+
+        Secuserrole entity = existing.isEmpty() ? new Secuserrole() : existing.get(0);
         entity.setProviderNo(sur.getProviderNo());
         entity.setRoleName(sur.getRoleName());
         entity.setActiveyn(sur.getActive() ? 1 : 0);
         entity.setOrgcd(sur.getOrgCd());
         entity.setLastUpdateDate(sur.getLastUpdateDate());
-        entityManager().persist(entity);
+
+        if (existing.isEmpty()) {
+            entityManager().persist(entity);
+        }
     }
 
     @Override

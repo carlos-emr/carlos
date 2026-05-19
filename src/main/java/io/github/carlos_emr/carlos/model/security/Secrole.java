@@ -122,7 +122,7 @@ public class Secrole implements java.io.Serializable {
     public void setRoleName(String roleName) {
         this.roleName = roleName;
     }
-    @jakarta.persistence.Column(name = "description")
+    @jakarta.persistence.Column(name = "description", length = 60)
 
     public String getDescription() {
         return this.description;
@@ -150,5 +150,9 @@ public class Secrole implements java.io.Serializable {
         if (this.getId().longValue() == r.getId().longValue()) return true;
 
         return false;
+    }
+
+    public int hashCode() {
+        return getId() == null ? 0 : Long.hashCode(getId());
     }
 }

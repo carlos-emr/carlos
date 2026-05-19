@@ -278,9 +278,8 @@ public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarL
             return mysqlFamilyCache;
         }
         try {
-            String product = entityManager.unwrap(java.sql.Connection.class)
-                    .getMetaData()
-                    .getDatabaseProductName();
+            String product = entityManager.unwrap(org.hibernate.Session.class)
+                    .doReturningWork(connection -> connection.getMetaData().getDatabaseProductName());
             mysqlFamilyCache = product != null
                     && (product.equalsIgnoreCase("MySQL") || product.equalsIgnoreCase("MariaDB"));
         } catch (Exception e) {

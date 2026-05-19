@@ -210,7 +210,7 @@ public class ProgramProvider implements Serializable {
      * Return the value associated with the column: teams
      */
     @jakarta.persistence.ManyToMany(fetch = jakarta.persistence.FetchType.EAGER)
-    @jakarta.persistence.JoinTable(name = "program_provider_team", joinColumns = @jakarta.persistence.JoinColumn(name = "id"), inverseJoinColumns = @jakarta.persistence.JoinColumn(name = "team_id"))
+    @jakarta.persistence.JoinTable(name = "program_provider_team", joinColumns = @jakarta.persistence.JoinColumn(name = "id"), inverseJoinColumns = @jakarta.persistence.JoinColumn(name = "elt"))
     public java.util.Set<ProgramTeam> getTeams() {
         return this._teams;
     }

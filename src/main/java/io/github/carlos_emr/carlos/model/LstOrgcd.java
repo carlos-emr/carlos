@@ -48,7 +48,7 @@ public class LstOrgcd implements java.io.Serializable {
     private String codecsv;
 
     // Constructors
-    @jakarta.persistence.Column(name = "codecsv")
+    @jakarta.persistence.Column(name = "codeCsv", length = 80)
 
     public String getCodecsv() {
         return codecsv;
@@ -88,7 +88,7 @@ public class LstOrgcd implements java.io.Serializable {
     // Property accessors
     @jakarta.persistence.Id
 
-    @jakarta.persistence.Column(name = "code")
+    @jakarta.persistence.Column(name = "code", length = 8)
 
     public String getCode() {
         return this.code;
@@ -97,7 +97,7 @@ public class LstOrgcd implements java.io.Serializable {
     public void setCode(String code) {
         this.code = code;
     }
-    @jakarta.persistence.Column(name = "description")
+    @jakarta.persistence.Column(name = "description", length = 240)
 
     public String getDescription() {
         return this.description;
@@ -124,7 +124,7 @@ public class LstOrgcd implements java.io.Serializable {
     public void setOrderbyindex(Integer orderbyindex) {
         this.orderbyindex = orderbyindex;
     }
-    @jakarta.persistence.Column(name = "codetree")
+    @jakarta.persistence.Column(name = "codetree", length = 80)
 
     public String getCodetree() {
         return this.codetree;
@@ -133,7 +133,7 @@ public class LstOrgcd implements java.io.Serializable {
     public void setCodetree(String codetree) {
         this.codetree = codetree;
     }
-    @jakarta.persistence.Column(name = "fullcode")
+    @jakarta.persistence.Column(name = "fullCode", length = 80)
 
     public String getFullcode() {
         return this.fullcode;

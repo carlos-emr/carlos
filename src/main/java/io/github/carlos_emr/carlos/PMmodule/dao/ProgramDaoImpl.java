@@ -653,7 +653,7 @@ public class ProgramDaoImpl extends AbstractDaoImpl<Program> implements ProgramD
     public void resetHoldingTank() {
         List<Program> programs = this.getAllPrograms();
         for (Program p : programs) {
-            if (p.getHoldingTank()) {
+            if (p.isHoldingTank()) {
                 p.setHoldingTank(false);
                 this.saveProgram(p);
             }

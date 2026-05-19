@@ -101,7 +101,7 @@ public class Secuserrole implements java.io.Serializable {
     public void setId(Integer id) {
         this.id = id;
     }
-    @jakarta.persistence.Column(name = "provider_no")
+    @jakarta.persistence.Column(name = "provider_no", length = 6, nullable = false)
 
     public String getProviderNo() {
         return this.providerNo;
@@ -110,7 +110,7 @@ public class Secuserrole implements java.io.Serializable {
     public void setProviderNo(String providerNo) {
         this.providerNo = providerNo;
     }
-    @jakarta.persistence.Column(name = "role_name")
+    @jakarta.persistence.Column(name = "role_name", length = 30, nullable = false)
 
     public String getRoleName() {
         return this.roleName;
@@ -119,7 +119,7 @@ public class Secuserrole implements java.io.Serializable {
     public void setRoleName(String roleName) {
         this.roleName = roleName;
     }
-    @jakarta.persistence.Column(name = "orgcd")
+    @jakarta.persistence.Column(name = "orgcd", length = 80)
 
     public String getOrgcd() {
         return this.orgcd;

@@ -29,6 +29,7 @@ package io.github.carlos_emr.carlos.PMmodule.model;
 
 import java.io.Serializable;
 import java.util.Date;
+import java.util.Objects;
 
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
@@ -188,16 +189,12 @@ public class ProgramClientRestriction implements Serializable {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-
         ProgramClientRestriction that = (ProgramClientRestriction) o;
-
-        if (id != that.id) return false;
-
-        return true;
+        return Objects.equals(id, that.id);
     }
 
     public int hashCode() {
-        return (id ^ (id >>> 32));
+        return Objects.hashCode(id);
     }
     @jakarta.persistence.Column(name = "comments", length = 255, nullable = false)
 

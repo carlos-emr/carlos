@@ -80,7 +80,7 @@ public class Secprivilege implements java.io.Serializable {
     public void setId(Integer id) {
         this.id = id;
     }
-    @jakarta.persistence.Column(name = "privilege")
+    @jakarta.persistence.Column(name = "privilege", length = 5, nullable = false, unique = true)
 
     public String getPrivilege() {
         return this.privilege;
@@ -89,7 +89,7 @@ public class Secprivilege implements java.io.Serializable {
     public void setPrivilege(String privilege) {
         this.privilege = privilege;
     }
-    @jakarta.persistence.Column(name = "description")
+    @jakarta.persistence.Column(name = "description", length = 80)
 
     public String getDescription() {
         return this.description;

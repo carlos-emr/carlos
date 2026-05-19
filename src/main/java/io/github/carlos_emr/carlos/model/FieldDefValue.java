@@ -28,9 +28,10 @@ package io.github.carlos_emr.carlos.model;
 import io.github.carlos_emr.carlos.commons.KeyConstants;
 
 @jakarta.persistence.Entity
+@org.hibernate.annotations.Immutable
 @jakarta.persistence.Table(name = "app_lookuptable_fields")
 @jakarta.persistence.Access(jakarta.persistence.AccessType.PROPERTY)
-@jakarta.persistence.IdClass(JpaId.class)
+@jakarta.persistence.IdClass(FieldDefValue.JpaId.class)
 public class FieldDefValue extends BaseObject {
     private String tableId;
     private String fieldName;
@@ -197,6 +198,22 @@ public class FieldDefValue extends BaseObject {
         public String fieldName;
 
         public JpaId() {
+        }
+
+        public String getTableId() {
+            return tableId;
+        }
+
+        public void setTableId(String tableId) {
+            this.tableId = tableId;
+        }
+
+        public String getFieldName() {
+            return fieldName;
+        }
+
+        public void setFieldName(String fieldName) {
+            this.fieldName = fieldName;
         }
 
         @Override

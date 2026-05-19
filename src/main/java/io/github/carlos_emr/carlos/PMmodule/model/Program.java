@@ -27,9 +27,7 @@
 
 package io.github.carlos_emr.carlos.PMmodule.model;
 
-import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
 import java.util.Date;
@@ -342,16 +340,6 @@ public class Program extends AbstractModel<Integer> {
     }
 
     /**
-     * Checks if this is a holding tank program.
-     * 
-     * @return true if this is a holding tank program, false otherwise
-     */
-    @jakarta.persistence.Column(name = "holdingTank")
-    public boolean getHoldingTank() {
-        return isHoldingTank();
-    }
-
-    /**
      * Gets the ID of this program.
      * 
      * @return the program ID
@@ -635,7 +623,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return true if this is a holding tank program, false otherwise
      */
-    @jakarta.persistence.Transient
+    @jakarta.persistence.Column(name = "holdingTank")
     public boolean isHoldingTank() {
         return holdingTank;
     }
@@ -1118,16 +1106,6 @@ public class Program extends AbstractModel<Integer> {
     }
 
     /**
-     * Checks if encounter time tracking is enabled for this program.
-     * 
-     * @return true if encounter time tracking is enabled, false otherwise
-     */
-    @jakarta.persistence.Transient
-    public Boolean isEnableEncounterTime() {
-        return enableEncounterTime;
-    }
-
-    /**
      * Gets the flag indicating if encounter time tracking is enabled for this program.
      * 
      * @return the enableEncounterTime flag
@@ -1146,16 +1124,6 @@ public class Program extends AbstractModel<Integer> {
         this.enableEncounterTime = enableEncounterTime;
     }
     
-    /**
-     * Checks if encounter transportation time tracking is enabled for this program.
-     * 
-     * @return true if encounter transportation time tracking is enabled, false otherwise
-     */
-    @jakarta.persistence.Transient
-    public Boolean isEnableEncounterTransportationTime() {
-        return enableEncounterTransportationTime;
-    }
-
     /**
      * Gets the flag indicating if encounter transportation time tracking is enabled for this program.
      * 

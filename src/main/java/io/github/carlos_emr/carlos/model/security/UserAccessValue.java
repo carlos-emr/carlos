@@ -26,11 +26,13 @@
 package io.github.carlos_emr.carlos.model.security;
 
 import java.io.Serializable;
+import java.util.Objects;
 
 @jakarta.persistence.Entity
+@org.hibernate.annotations.Immutable
 @jakarta.persistence.Table(name = "v_user_access")
 @jakarta.persistence.Access(jakarta.persistence.AccessType.PROPERTY)
-@jakarta.persistence.IdClass(JpaId.class)
+@jakarta.persistence.IdClass(UserAccessValue.JpaId.class)
 public class UserAccessValue implements Serializable {
 
     String providerNo;
@@ -79,7 +81,7 @@ public class UserAccessValue implements Serializable {
     public void setOrgCd(String cd) {
         orgCd = cd;
     }
-    @jakarta.persistence.Column(name = "orgCdcsv")
+    @jakarta.persistence.Column(name = "orgcdcsv")
 
     public String getOrgCdcsv() {
         return orgCdcsv;
@@ -99,12 +101,13 @@ public class UserAccessValue implements Serializable {
     }
 
     public int hashCode() {
-        return (functionCd + orgCd).hashCode();
+        return Objects.hash(functionCd, orgCd);
     }
 
     public boolean equals(Object uv) {
-        UserAccessValue uv1 = (UserAccessValue) uv;
-        return this.functionCd.equals(uv1.functionCd) && this.orgCd.equals(uv1.orgCd);
+        if (this == uv) return true;
+        if (!(uv instanceof UserAccessValue uv1)) return false;
+        return Objects.equals(this.functionCd, uv1.functionCd) && Objects.equals(this.orgCd, uv1.orgCd);
     }
 
     public static class JpaId implements java.io.Serializable {
@@ -112,6 +115,22 @@ public class UserAccessValue implements Serializable {
         public String orgCd;
 
         public JpaId() {
+        }
+
+        public String getFunctionCd() {
+            return functionCd;
+        }
+
+        public void setFunctionCd(String functionCd) {
+            this.functionCd = functionCd;
+        }
+
+        public String getOrgCd() {
+            return orgCd;
+        }
+
+        public void setOrgCd(String orgCd) {
+            this.orgCd = orgCd;
         }
 
         @Override

@@ -27,9 +27,7 @@
 
  package io.github.carlos_emr.carlos.PMmodule.model;
 
- import jakarta.persistence.Column;
  import jakarta.persistence.Entity;
- import jakarta.persistence.Id;
  import jakarta.persistence.Table;
  
  import java.util.Set;

@@ -50,9 +50,9 @@ import io.github.carlos_emr.carlos.model.security.Secrole;
 @jakarta.persistence.Access(jakarta.persistence.AccessType.PROPERTY)
 public class CaseManagementIssue extends BaseObject {
 
-    private ProgramProviderDAO programProviderDao = (ProgramProviderDAO) SpringUtils.getBean(ProgramProviderDAO.class);
-    private ProgramAccessDAO programAccessDao = (ProgramAccessDAO) SpringUtils.getBean(ProgramAccessDAO.class);
-    private RoleProgramAccessDAO roleProgramAccessDAO = (RoleProgramAccessDAO) SpringUtils.getBean(RoleProgramAccessDAO.class);
+    private transient ProgramProviderDAO programProviderDao;
+    private transient ProgramAccessDAO programAccessDao;
+    private transient RoleProgramAccessDAO roleProgramAccessDAO;
 
     protected Long id;
     protected Integer demographic_no;
@@ -98,6 +98,30 @@ public class CaseManagementIssue extends BaseObject {
 
     public CaseManagementIssue() {
         update_date = new Date();
+    }
+
+    @jakarta.persistence.Transient
+    private ProgramProviderDAO getProgramProviderDao() {
+        if (programProviderDao == null) {
+            programProviderDao = (ProgramProviderDAO) SpringUtils.getBean(ProgramProviderDAO.class);
+        }
+        return programProviderDao;
+    }
+
+    @jakarta.persistence.Transient
+    private ProgramAccessDAO getProgramAccessDao() {
+        if (programAccessDao == null) {
+            programAccessDao = (ProgramAccessDAO) SpringUtils.getBean(ProgramAccessDAO.class);
+        }
+        return programAccessDao;
+    }
+
+    @jakarta.persistence.Transient
+    private RoleProgramAccessDAO getRoleProgramAccessDAO() {
+        if (roleProgramAccessDAO == null) {
+            roleProgramAccessDAO = (RoleProgramAccessDAO) SpringUtils.getBean(RoleProgramAccessDAO.class);
+        }
+        return roleProgramAccessDAO;
     }
 
     /*
@@ -200,8 +224,7 @@ public class CaseManagementIssue extends BaseObject {
     /**
      * deprecated too inefficient and too many dependencies use CaseManagementIssueNotesDao
      */
-    @jakarta.persistence.ManyToMany(fetch = jakarta.persistence.FetchType.LAZY, targetEntity = CaseManagementNote.class)
-    @jakarta.persistence.JoinTable(name = "casemgmt_issue_notes", joinColumns = @jakarta.persistence.JoinColumn(name = "id"), inverseJoinColumns = @jakarta.persistence.JoinColumn(name = "note_id"))
+    @jakarta.persistence.ManyToMany(fetch = jakarta.persistence.FetchType.LAZY, targetEntity = CaseManagementNote.class, mappedBy = "issues")
     public Set getNotes() {
         return notes;
     }
@@ -256,7 +279,7 @@ public class CaseManagementIssue extends BaseObject {
     }
 
     private boolean calculateWriteAccess(String providerNo, int programId) {
-        List<ProgramProvider> ppList = programProviderDao.getProgramProviderByProviderProgramId(providerNo, Long.valueOf(programId));
+        List<ProgramProvider> ppList = getProgramProviderDao().getProgramProviderByProviderProgramId(providerNo, Long.valueOf(programId));
         if (ppList == null || ppList.isEmpty()) {
             return (false);
         }
@@ -264,7 +287,7 @@ public class CaseManagementIssue extends BaseObject {
         ProgramProvider pp = ppList.get(0);
         Secrole role = pp.getRole();
 
-        List<ProgramAccess> programAccessList = programAccessDao.getAccessListByProgramId(Long.valueOf(programId));
+        List<ProgramAccess> programAccessList = getProgramAccessDao().getAccessListByProgramId(Long.valueOf(programId));
         Map<String, ProgramAccess> programAccessMap = convertProgramAccessListToMap(programAccessList);
 
         String issueRole = getIssue().getRole().toLowerCase();
@@ -283,7 +306,7 @@ public class CaseManagementIssue extends BaseObject {
         }
 
         //global default role access
-        if (roleProgramAccessDAO.hasAccess(accessName, role.getId())) {
+        if (getRoleProgramAccessDAO().hasAccess(accessName, role.getId())) {
             return (true);
         }
         return (false);

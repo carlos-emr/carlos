@@ -71,7 +71,7 @@ public class Secobjectname implements java.io.Serializable {
     // Property accessors
     @jakarta.persistence.Id
 
-    @jakarta.persistence.Column(name = "objectName")
+    @jakarta.persistence.Column(name = "objectName", length = 100)
 
     public String getObjectname() {
         return this.objectname;
@@ -80,7 +80,7 @@ public class Secobjectname implements java.io.Serializable {
     public void setObjectname(String objectname) {
         this.objectname = objectname;
     }
-    @jakarta.persistence.Column(name = "description")
+    @jakarta.persistence.Column(name = "description", length = 60)
 
     public String getDescription() {
         return this.description;

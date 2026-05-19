@@ -48,6 +48,95 @@ import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 @jakarta.persistence.Entity
 @jakarta.persistence.Table(name = "casemgmt_note")
 @jakarta.persistence.Access(jakarta.persistence.AccessType.PROPERTY)
+@jakarta.persistence.SqlResultSetMapping(name = "CaseManagementNoteNativeMapping",
+        entities = @jakarta.persistence.EntityResult(entityClass = CaseManagementNote.class, fields = {
+                @jakarta.persistence.FieldResult(name = "id", column = "id"),
+                @jakarta.persistence.FieldResult(name = "update_date", column = "update_date"),
+                @jakarta.persistence.FieldResult(name = "create_date", column = "create_date"),
+                @jakarta.persistence.FieldResult(name = "observation_date", column = "observation_date"),
+                @jakarta.persistence.FieldResult(name = "demographic_no", column = "demographic_no"),
+                @jakarta.persistence.FieldResult(name = "note", column = "note"),
+                @jakarta.persistence.FieldResult(name = "signed", column = "signed"),
+                @jakarta.persistence.FieldResult(name = "includeissue", column = "includeissue"),
+                @jakarta.persistence.FieldResult(name = "providerNo", column = "providerNo"),
+                @jakarta.persistence.FieldResult(name = "signing_provider_no", column = "signing_provider_no"),
+                @jakarta.persistence.FieldResult(name = "encounter_type", column = "encounter_type"),
+                @jakarta.persistence.FieldResult(name = "billing_code", column = "billing_code"),
+                @jakarta.persistence.FieldResult(name = "program_no", column = "program_no"),
+                @jakarta.persistence.FieldResult(name = "reporter_caisi_role", column = "reporter_caisi_role"),
+                @jakarta.persistence.FieldResult(name = "reporter_program_team", column = "reporter_program_team"),
+                @jakarta.persistence.FieldResult(name = "history", column = "history"),
+                @jakarta.persistence.FieldResult(name = "roleName", column = "roleName"),
+                @jakarta.persistence.FieldResult(name = "programName", column = "programName"),
+                @jakarta.persistence.FieldResult(name = "uuid", column = "uuid"),
+                @jakarta.persistence.FieldResult(name = "revision", column = "revision"),
+                @jakarta.persistence.FieldResult(name = "locked", column = "locked"),
+                @jakarta.persistence.FieldResult(name = "archived", column = "archived"),
+                @jakarta.persistence.FieldResult(name = "position", column = "position"),
+                @jakarta.persistence.FieldResult(name = "appointmentNo", column = "appointmentNo"),
+                @jakarta.persistence.FieldResult(name = "hourOfEncounterTime", column = "hourOfEncounterTime"),
+                @jakarta.persistence.FieldResult(name = "minuteOfEncounterTime", column = "minuteOfEncounterTime"),
+                @jakarta.persistence.FieldResult(name = "hourOfEncTransportationTime", column = "hourOfEncTransportationTime"),
+                @jakarta.persistence.FieldResult(name = "minuteOfEncTransportationTime", column = "minuteOfEncTransportationTime")
+        }))
+@jakarta.persistence.NamedNativeQueries({
+        @jakarta.persistence.NamedNativeQuery(name = "mostRecentTime", resultSetMapping = "CaseManagementNoteNativeMapping", query = """
+                select cmn.note_id as id, cmn.update_date as update_date, cmn.observation_date as observation_date,
+                cmn.demographic_no as demographic_no, cmn.provider_no as providerNo, cmn.note as note, cmn.signed as signed,
+                cmn.include_issue_innote as includeissue, cmn.signing_provider_no as signing_provider_no,
+                cmn.encounter_type as encounter_type, cmn.billing_code as billing_code, cmn.program_no as program_no,
+                cmn.reporter_caisi_role as reporter_caisi_role, cmn.reporter_program_team as reporter_program_team,
+                cmn.history as history, cmn.uuid as uuid, cmn.locked as locked, cmn.archived as archived, cmn.position as position,
+                cmn.appointmentNo as appointmentNo, cmn.hourOfEncounterTime as hourOfEncounterTime,
+                cmn.minuteOfEncounterTime as minuteOfEncounterTime, cmn.hourOfEncTransportationTime as hourOfEncTransportationTime,
+                cmn.minuteOfEncTransportationTime as minuteOfEncTransportationTime,
+                (select r.role_name from secRole r where r.role_no = cmn.reporter_caisi_role) as roleName,
+                (select p.name from program p where p.id = cmn.program_no) as programName,
+                (select count(cmn2.uuid) from casemgmt_note cmn2 where cmn2.uuid = cmn.uuid) as revision,
+                (select min(cmn2.update_date) from casemgmt_note cmn2 where cmn2.uuid = cmn.uuid) as create_date
+                from casemgmt_note cmn
+                join (select max(note_id) as note_id from casemgmt_note
+                where demographic_no = :demographicNo and observation_date >= :staleDate group by uuid) recent on recent.note_id = cmn.note_id
+                order by cmn.observation_date asc
+                """),
+        @jakarta.persistence.NamedNativeQuery(name = "mostRecentDateRange", resultSetMapping = "CaseManagementNoteNativeMapping", query = """
+                select cmn.note_id as id, cmn.update_date as update_date, cmn.observation_date as observation_date,
+                cmn.demographic_no as demographic_no, cmn.provider_no as providerNo, cmn.note as note, cmn.signed as signed,
+                cmn.include_issue_innote as includeissue, cmn.signing_provider_no as signing_provider_no,
+                cmn.encounter_type as encounter_type, cmn.billing_code as billing_code, cmn.program_no as program_no,
+                cmn.reporter_caisi_role as reporter_caisi_role, cmn.reporter_program_team as reporter_program_team,
+                cmn.history as history, cmn.uuid as uuid, cmn.locked as locked, cmn.archived as archived, cmn.position as position,
+                cmn.appointmentNo as appointmentNo, cmn.hourOfEncounterTime as hourOfEncounterTime,
+                cmn.minuteOfEncounterTime as minuteOfEncounterTime, cmn.hourOfEncTransportationTime as hourOfEncTransportationTime,
+                cmn.minuteOfEncTransportationTime as minuteOfEncTransportationTime,
+                (select r.role_name from secRole r where r.role_no = cmn.reporter_caisi_role) as roleName,
+                (select p.name from program p where p.id = cmn.program_no) as programName,
+                (select count(cmn2.uuid) from casemgmt_note cmn2 where cmn2.uuid = cmn.uuid) as revision,
+                (select min(cmn2.update_date) from casemgmt_note cmn2 where cmn2.uuid = cmn.uuid) as create_date
+                from casemgmt_note cmn
+                join (select max(note_id) as note_id from casemgmt_note
+                where demographic_no = :demographicNo and observation_date >= :startDate and observation_date <= :endDate group by uuid) recent on recent.note_id = cmn.note_id
+                order by cmn.observation_date asc
+                """),
+        @jakarta.persistence.NamedNativeQuery(name = "mostRecentLimit", resultSetMapping = "CaseManagementNoteNativeMapping", query = """
+                select cmn.note_id as id, cmn.update_date as update_date, cmn.observation_date as observation_date,
+                cmn.demographic_no as demographic_no, cmn.provider_no as providerNo, cmn.note as note, cmn.signed as signed,
+                cmn.include_issue_innote as includeissue, cmn.signing_provider_no as signing_provider_no,
+                cmn.encounter_type as encounter_type, cmn.billing_code as billing_code, cmn.program_no as program_no,
+                cmn.reporter_caisi_role as reporter_caisi_role, cmn.reporter_program_team as reporter_program_team,
+                cmn.history as history, cmn.uuid as uuid, cmn.locked as locked, cmn.archived as archived, cmn.position as position,
+                cmn.appointmentNo as appointmentNo, cmn.hourOfEncounterTime as hourOfEncounterTime,
+                cmn.minuteOfEncounterTime as minuteOfEncounterTime, cmn.hourOfEncTransportationTime as hourOfEncTransportationTime,
+                cmn.minuteOfEncTransportationTime as minuteOfEncTransportationTime,
+                (select r.role_name from secRole r where r.role_no = cmn.reporter_caisi_role) as roleName,
+                (select p.name from program p where p.id = cmn.program_no) as programName,
+                (select count(cmn2.uuid) from casemgmt_note cmn2 where cmn2.uuid = cmn.uuid) as revision,
+                (select min(cmn2.update_date) from casemgmt_note cmn2 where cmn2.uuid = cmn.uuid) as create_date
+                from casemgmt_note cmn
+                join (select max(note_id) as note_id from casemgmt_note where demographic_no = :demographicNo group by uuid) recent on recent.note_id = cmn.note_id
+                order by cmn.observation_date desc
+                """)
+})
 public class CaseManagementNote extends BaseObject {
 
     private Long id;
@@ -90,7 +179,7 @@ public class CaseManagementNote extends BaseObject {
     private Integer hourOfEncTransportationTime;
     private Integer minuteOfEncTransportationTime;
 
-    CaseManagementNoteLinkDAO caseManagementNoteLinkDao = (CaseManagementNoteLinkDAO) SpringUtils.getBean(CaseManagementNoteLinkDAO.class);
+    private transient CaseManagementNoteLinkDAO caseManagementNoteLinkDao;
 
     private CaseManagementNoteLink cmnLink = null;
     private boolean cmnLinkRetrieved = false;
@@ -316,7 +405,7 @@ public class CaseManagementNote extends BaseObject {
     }
     @jakarta.persistence.OneToMany(fetch = jakarta.persistence.FetchType.EAGER, targetEntity = CaseManagementNoteExt.class)
 
-    @jakarta.persistence.JoinColumn(name = "note_id", insertable = false, updatable = false)
+    @jakarta.persistence.JoinColumn(name = "note_id", updatable = false)
 
     public Set<CaseManagementNoteExt> getExtend() {
         return extend;
@@ -573,9 +662,17 @@ public class CaseManagementNote extends BaseObject {
         return isLinkTo(CaseManagementNoteLink.EFORMDATA);
     }
 
+    @jakarta.persistence.Transient
+    private CaseManagementNoteLinkDAO getCaseManagementNoteLinkDao() {
+        if (caseManagementNoteLinkDao == null) {
+            caseManagementNoteLinkDao = (CaseManagementNoteLinkDAO) SpringUtils.getBean(CaseManagementNoteLinkDAO.class);
+        }
+        return caseManagementNoteLinkDao;
+    }
+
     private boolean isLinkTo(Integer tableName) {
         if (!cmnLinkRetrieved) {
-            cmnLink = caseManagementNoteLinkDao.getLastLinkByNote(this.id);
+            cmnLink = getCaseManagementNoteLinkDao().getLastLinkByNote(this.id);
             cmnLinkRetrieved = true;
         }
 

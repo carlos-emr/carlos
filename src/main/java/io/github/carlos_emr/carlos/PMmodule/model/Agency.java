@@ -128,6 +128,7 @@ public class Agency implements Serializable {
     /**
      * Return the value associated with the column: intake_quick_state
      */
+    // Schema update-2013-08-06 widened intake state columns to char(3) for values such as "HSC".
     @jakarta.persistence.Column(name = "intake_quick_state", length = 3, nullable = false)
     public String getIntakeQuickState() {
         return intakeQuickState;

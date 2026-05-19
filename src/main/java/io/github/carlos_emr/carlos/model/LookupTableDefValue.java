@@ -26,6 +26,7 @@
 package io.github.carlos_emr.carlos.model;
 
 @jakarta.persistence.Entity
+@org.hibernate.annotations.Immutable
 @jakarta.persistence.Table(name = "app_lookuptable")
 @jakarta.persistence.Access(jakarta.persistence.AccessType.PROPERTY)
 public class LookupTableDefValue {
@@ -68,8 +69,6 @@ public class LookupTableDefValue {
         this.description = description;
     }
     @jakarta.persistence.Id
-
-    @jakarta.persistence.GeneratedValue(strategy = jakarta.persistence.GenerationType.IDENTITY)
 
     @jakarta.persistence.Column(name = "tableId")
 
