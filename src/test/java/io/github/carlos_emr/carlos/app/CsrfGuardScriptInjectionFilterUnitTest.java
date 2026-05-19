@@ -21,11 +21,16 @@
  */
 package io.github.carlos_emr.carlos.app;
 
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.FilterConfig;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import java.io.PrintWriter;
+import java.io.Writer;
 import java.nio.charset.StandardCharsets;
+import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -39,6 +44,8 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -88,6 +95,69 @@ class CsrfGuardScriptInjectionFilterUnitTest {
     }
 
     @Test
+    @DisplayName("should pass through unchanged when CSRFGuard is disabled")
+    void shouldPassThroughUnchanged_whenCsrfGuardDisabled() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/provider/providercontrol");
+        request.setContextPath("/carlos");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        String body = "<html><head><title>Provider</title></head><body></body></html>";
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.setContentType("text/html;charset=UTF-8");
+            servletResponse.getWriter().write(body);
+        };
+
+        withDisabledCsrfGuard(() -> filter.doFilter(request, response, chain));
+
+        assertThat(response.getContentAsString()).isEqualTo(body);
+        assertThat(response.getContentAsString()).doesNotContain("/csrfguard");
+    }
+
+    @Test
+    @DisplayName("should skip AJAX request dispatch when request mapping is enabled")
+    void shouldSkipAjaxRequestDispatch_whenRequestMappingEnabled() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/clinical/AjaxEndpoint");
+        request.setContextPath("/carlos");
+        request.setDispatcherType(DispatcherType.REQUEST);
+        request.addHeader("X-Requested-With", "XMLHttpRequest");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FilterChain chain = mock(FilterChain.class);
+
+        filter.doFilter(request, response, chain);
+
+        verify(chain).doFilter(request, response);
+        assertThat(response.getContentAsString()).doesNotContain("/csrfguard");
+    }
+
+    @Test
+    @DisplayName("should fail closed when CsrfGuard cannot initialize")
+    void shouldFailClosed_whenCsrfGuardCannotInitialize() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/provider/providercontrol");
+        request.setContextPath("/carlos");
+        request.setRequestURI("/carlos/provider/providercontrol;jsessionid=secret-session");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FilterChain chain = mock(FilterChain.class);
+
+        try (MockedStatic<CsrfGuard> csrfGuardMock = mockStatic(CsrfGuard.class);
+             LogCapture capture = LogCapture.forLogger(CsrfGuardScriptInjectionFilter.class)) {
+            csrfGuardMock.when(CsrfGuard::getInstance).thenThrow(new IllegalStateException("csrf unavailable"));
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(capture.events()).anySatisfy(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.ERROR);
+                assertThat(event.getMessage().getFormattedMessage())
+                        .contains("uri=/carlos/provider/providercontrol")
+                        .doesNotContain("jsessionid")
+                        .doesNotContain("secret-session");
+            });
+        }
+
+        assertThat(response.getStatus()).isEqualTo(503);
+        verify(chain, never()).doFilter(request, response);
+    }
+
+    @Test
     @DisplayName("should not inject duplicate CSRFGuard script")
     void shouldNotInjectDuplicateCsrfGuardScript_whenScriptAlreadyExists() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/encounter/IncomingEncounter");
@@ -104,6 +174,38 @@ class CsrfGuardScriptInjectionFilterUnitTest {
 
         String content = response.getContentAsString();
         assertThat(countOccurrences(content, "/csrfguard")).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("should warn when writer fallback uses output stream")
+    void shouldWarn_whenWriterFallbackUsesOutputStream() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/provider/providercontrol");
+        request.setContextPath("/carlos");
+        request.setRequestURI("/carlos/provider/providercontrol;jsessionid=secret-session");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        response.getOutputStream();
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.setContentType("text/html;charset=UTF-8");
+            servletResponse.getWriter()
+                    .write("<html><head><title>Provider</title></head><body></body></html>");
+        };
+
+        try (LogCapture capture = LogCapture.forLogger(CsrfGuardScriptInjectionFilter.class)) {
+            withEnabledCsrfGuard(() -> filter.doFilter(request, response, chain));
+
+            assertThat(response.getContentAsString()).contains("/carlos/csrfguard");
+            assertThat(capture.events()).anySatisfy(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                assertThat(event.getMessage().getFormattedMessage())
+                        .contains("falling back to output stream")
+                        .contains("uri=/carlos/provider/providercontrol")
+                        .contains("contentType=text/html;charset=UTF-8")
+                        .contains("committed=false")
+                        .doesNotContain("jsessionid")
+                        .doesNotContain("secret-session");
+            });
+        }
     }
 
     @Test
@@ -126,6 +228,76 @@ class CsrfGuardScriptInjectionFilterUnitTest {
     }
 
     @Test
+    @DisplayName("should pass through redirect responses without injection")
+    void shouldPassThrough_whenDownstreamRedirects() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/provider/providercontrol");
+        request.setContextPath("/carlos");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        FilterChain chain = (servletRequest, servletResponse) ->
+                ((HttpServletResponse) servletResponse).sendRedirect("/carlos/index");
+
+        withEnabledCsrfGuard(() -> filter.doFilter(request, response, chain));
+
+        assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/index");
+        assertThat(response.getContentAsString()).doesNotContain("/csrfguard");
+    }
+
+    @Test
+    @DisplayName("should pass through error responses without injection")
+    void shouldPassThrough_whenDownstreamSendsError() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/provider/providercontrol");
+        request.setContextPath("/carlos");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        FilterChain chain = (servletRequest, servletResponse) ->
+                ((HttpServletResponse) servletResponse).sendError(403);
+
+        withEnabledCsrfGuard(() -> filter.doFilter(request, response, chain));
+
+        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(response.getContentAsString()).doesNotContain("/csrfguard");
+    }
+
+    @Test
+    @DisplayName("should not inject script into HTML fragments")
+    void shouldNotInjectScript_intoHtmlFragments() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/fragment");
+        request.setContextPath("/carlos");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        String fragment = "<tr><td>Partial row</td></tr>";
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.setContentType("text/html;charset=UTF-8");
+            servletResponse.getWriter().write(fragment);
+        };
+
+        withEnabledCsrfGuard(() -> filter.doFilter(request, response, chain));
+
+        assertThat(response.getContentAsString()).isEqualTo(fragment);
+    }
+
+    @Test
+    @DisplayName("should wrap forward dispatch even when AJAX header is present")
+    void shouldWrapForwardDispatch_whenAjaxHeaderPresent() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET",
+                "/WEB-INF/jsp/provider/providercontrol.jsp");
+        request.setContextPath("/carlos");
+        request.setDispatcherType(DispatcherType.FORWARD);
+        request.addHeader("X-Requested-With", "XMLHttpRequest");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.setContentType("text/html;charset=UTF-8");
+            servletResponse.getWriter().write("<html><head><title>Provider</title></head><body></body></html>");
+        };
+
+        withEnabledCsrfGuard(() -> filter.doFilter(request, response, chain));
+
+        assertThat(response.getContentAsString()).contains("/carlos/csrfguard");
+    }
+
+    @Test
     @DisplayName("should pass through non-HTML writer responses when content type is set before writer")
     void shouldPassThrough_whenNonHtmlContentTypePrecedesWriter() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/clinical/JsonEndpoint");
@@ -135,6 +307,27 @@ class CsrfGuardScriptInjectionFilterUnitTest {
 
         FilterChain chain = (servletRequest, servletResponse) -> {
             servletResponse.setContentType("application/json;charset=UTF-8");
+            servletResponse.getWriter().write(body);
+        };
+
+        withEnabledCsrfGuard(() -> filter.doFilter(request, response, chain));
+
+        assertThat(response.getContentAsString()).isEqualTo(body);
+        assertThat(response.getContentAsString()).doesNotContain("/csrfguard");
+    }
+
+    @Test
+    @DisplayName("should flush non-HTML passthrough writer response")
+    void shouldFlushNonHtmlPassthroughWriterResponse_whenContentTypePrecedesWriter() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET",
+                "/WEB-INF/jsp/provider/schedulePage.js.jsp");
+        request.setContextPath("/carlos");
+        request.setDispatcherType(DispatcherType.FORWARD);
+        BufferingWriterResponse response = new BufferingWriterResponse();
+        String body = "function schedulePage() { return 'ready'; }\n";
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.setContentType("application/javascript;charset=UTF-8");
             servletResponse.getWriter().write(body);
         };
 
@@ -166,9 +359,104 @@ class CsrfGuardScriptInjectionFilterUnitTest {
         assertThat(response.getContentLength()).isEqualTo(body.getBytes(StandardCharsets.UTF_8).length);
     }
 
+    @Test
+    @DisplayName("should drop stale content length header when injecting script")
+    void shouldDropStaleContentLengthHeader_whenInjectingScript() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/provider/providercontrol");
+        request.setContextPath("/carlos");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        String body = "<html><head><title>Provider</title></head><body></body></html>";
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            ((HttpServletResponse) servletResponse).setHeader("Content-Length",
+                    String.valueOf(body.getBytes(StandardCharsets.UTF_8).length));
+            servletResponse.setContentType("text/html;charset=UTF-8");
+            servletResponse.getWriter().write(body);
+        };
+
+        withEnabledCsrfGuard(() -> filter.doFilter(request, response, chain));
+
+        assertThat(response.getContentAsString()).contains("/carlos/csrfguard");
+        assertThat(response.getHeader("Content-Length")).isNull();
+    }
+
+    @Test
+    @DisplayName("should warn when non HTML content type contains full HTML")
+    void shouldWarn_whenNonHtmlContentTypeContainsFullHtml() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/clinical/JsonEndpoint");
+        request.setContextPath("/carlos");
+        request.setRequestURI("/carlos/clinical/JsonEndpoint;jsessionid=secret-session");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        String body = "<!DOCTYPE html><html><head><title>Wrong type</title></head><body></body></html>";
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.setContentType("application/json;charset=UTF-8");
+            servletResponse.getWriter().write(body);
+        };
+
+        try (LogCapture capture = LogCapture.forLogger(CsrfGuardScriptInjectionFilter.class)) {
+            withEnabledCsrfGuard(() -> filter.doFilter(request, response, chain));
+
+            assertThat(capture.events()).anySatisfy(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                assertThat(event.getMessage().getFormattedMessage())
+                        .contains("non-HTML Content-Type")
+                        .contains("/carlos/clinical/JsonEndpoint")
+                        .doesNotContain("jsessionid")
+                        .doesNotContain("secret-session");
+            });
+        }
+        assertThat(response.getContentAsString()).isEqualTo(body);
+    }
+
+    @Test
+    @DisplayName("should replay captured HTML when reset buffer fails after commit")
+    void shouldReplayCapturedHtml_whenResetBufferFailsAfterCommit() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/provider/providercontrol");
+        request.setContextPath("/carlos");
+        request.setRequestURI("/carlos/provider/providercontrol;jsessionid=secret-session");
+        MockHttpServletResponse response = new ResetBufferFailingResponse();
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.setContentType("text/html;charset=UTF-8");
+            servletResponse.getWriter()
+                    .write("<html><head><title>Provider</title></head><body></body></html>");
+        };
+
+        try (LogCapture capture = LogCapture.forLogger(CsrfGuardScriptInjectionFilter.class)) {
+            withEnabledCsrfGuard(() -> filter.doFilter(request, response, chain));
+
+            assertThat(response.getContentAsString()).contains("/carlos/csrfguard");
+            assertThat(capture.events()).anySatisfy(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                assertThat(event.getMessage().getFormattedMessage())
+                        .contains("writing captured content without reset")
+                        .contains("uri=/carlos/provider/providercontrol")
+                        .doesNotContain("jsessionid")
+                        .doesNotContain("secret-session");
+            });
+        }
+    }
+
     private void withEnabledCsrfGuard(Executable executable) throws Exception {
         CsrfGuard csrfGuard = mock(CsrfGuard.class);
         when(csrfGuard.isEnabled()).thenReturn(true);
+        try (MockedStatic<CsrfGuard> csrfGuardMock = mockStatic(CsrfGuard.class)) {
+            csrfGuardMock.when(CsrfGuard::getInstance).thenReturn(csrfGuard);
+            try {
+                executable.execute();
+            } catch (Throwable t) {
+                if (t instanceof Exception e) {
+                    throw e;
+                }
+                throw new AssertionError(t);
+            }
+        }
+    }
+
+    private void withDisabledCsrfGuard(Executable executable) throws Exception {
+        CsrfGuard csrfGuard = mock(CsrfGuard.class);
+        when(csrfGuard.isEnabled()).thenReturn(false);
         try (MockedStatic<CsrfGuard> csrfGuardMock = mockStatic(CsrfGuard.class)) {
             csrfGuardMock.when(CsrfGuard::getInstance).thenReturn(csrfGuard);
             try {
@@ -190,5 +478,48 @@ class CsrfGuardScriptInjectionFilterUnitTest {
             index += needle.length();
         }
         return count;
+    }
+
+    private static class ResetBufferFailingResponse extends MockHttpServletResponse {
+        @Override
+        public void resetBuffer() {
+            throw new IllegalStateException("already committed");
+        }
+    }
+
+    private static class BufferingWriterResponse extends MockHttpServletResponse {
+
+        private final StringBuilder pending = new StringBuilder();
+        private final StringBuilder flushed = new StringBuilder();
+        private PrintWriter bufferingWriter;
+
+        @Override
+        public PrintWriter getWriter() {
+            if (bufferingWriter == null) {
+                bufferingWriter = new PrintWriter(new Writer() {
+                    @Override
+                    public void write(char[] cbuf, int off, int len) {
+                        pending.append(cbuf, off, len);
+                    }
+
+                    @Override
+                    public void flush() {
+                        flushed.append(pending);
+                        pending.setLength(0);
+                    }
+
+                    @Override
+                    public void close() {
+                        flush();
+                    }
+                });
+            }
+            return bufferingWriter;
+        }
+
+        @Override
+        public String getContentAsString() {
+            return flushed.toString();
+        }
     }
 }

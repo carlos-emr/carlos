@@ -60,7 +60,7 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
@@ -174,7 +174,7 @@ public class BillingCreateBilling2Action extends ActionSupport {
             }
 
         }
-        log.debug("Ignore warnings ? {}", LogSanitizer.sanitize(request.getParameter("ignoreWarn")));
+        log.debug("Ignore warnings ? {}", LogSafe.sanitize(request.getParameter("ignoreWarn")));
         if (request.getParameter("ignoreWarn") == null) {
             validateServiceCodeList(billItem, demo, errors);
             validateDxCodeList(bean, errors);
@@ -207,7 +207,7 @@ public class BillingCreateBilling2Action extends ActionSupport {
         }
 
         if (request.getParameter("WCBid") != null) {
-            MiscUtils.getLogger().debug("WCB id is not null {}", LogSanitizer.sanitize(request.getParameter("WCBid")));
+            MiscUtils.getLogger().debug("WCB id is not null {}", LogSafe.sanitize(request.getParameter("WCBid")));
             List<String> errs = null;
             WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
             BillingmasterDAO billingmasterDAO = (BillingmasterDAO) ctx.getBean(BillingmasterDAO.class);

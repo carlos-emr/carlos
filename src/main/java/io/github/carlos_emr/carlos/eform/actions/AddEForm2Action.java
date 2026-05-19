@@ -44,7 +44,7 @@ import io.github.carlos_emr.carlos.match.IMatchManager;
 import io.github.carlos_emr.carlos.match.MatchManager;
 import io.github.carlos_emr.carlos.match.MatchManagerException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -98,7 +98,7 @@ public class AddEForm2Action extends ActionSupport {
      */
     static String validateEformLink(String eformLink) {
         if (eformLink != null && !EFORM_LINK_PATTERN.matcher(eformLink).matches()) {
-            logger.warn("Invalid eform_link parameter rejected: {}", LogSanitizer.sanitize(eformLink));
+            logger.warn("Invalid eform_link parameter rejected: {}", LogSafe.sanitize(eformLink));
             return null;
         }
         return eformLink;
@@ -256,7 +256,7 @@ public class AddEForm2Action extends ActionSupport {
                 if (eform_link.startsWith(expectedPrefix) && eform_link.length() <= 100) {
                     se.setAttribute(eform_link, fdid); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): fdid is Integer.parseInt-validated queue document ID; key validated by validateEformLink()
                 } else {
-                    logger.warn("Invalid eform_link rejected: {}", LogSanitizer.sanitize(eform_link)); // nosemgrep: crlf-injection-logs-deepsemgrep -- sanitized via LogSanitizer (OWASP Encode.forJava) // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                    logger.warn("Invalid eform_link rejected: {}", LogSafe.sanitize(eform_link)); // nosemgrep: crlf-injection-logs-deepsemgrep -- sanitized via LogSafe (OWASP Encode.forJava) // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 }
             }
 

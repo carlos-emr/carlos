@@ -48,6 +48,8 @@ class EFormJspMigrationRegressionTest {
 
     private static final Path PATIENT_FORM_LIST_JSP =
             Path.of("src/main/webapp/WEB-INF/jsp/eform/efmpatientformlist.jsp");
+    private static final Path IMPORT_PARTIAL_JSP =
+            Path.of("src/main/webapp/WEB-INF/jsp/eform/partials/import.jsp");
     private static final Path STRUTS_EFORM_XML =
             Path.of("src/main/webapp/WEB-INF/classes/struts-eform.xml");
     private static final Path STRUTS_FORM_XML =
@@ -113,5 +115,17 @@ class EFormJspMigrationRegressionTest {
         assertThat(struts).doesNotContainPattern("/WEB-INF/jsp/form/[^<\"]+\\.do");
         assertThat(struts).contains("<action name=\"form/xmlUpload\"");
         assertThat(struts).contains("<action name=\"form/formname\"");
+    }
+
+    @Test
+    @DisplayName("import partial should encode import and action errors")
+    void shouldEncodeImportErrors_whenRenderingUploadMetadata() throws IOException {
+        String jsp = Files.readString(IMPORT_PARTIAL_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp).contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>");
+        assertThat(jsp).contains("<carlos:encode value='<%= error %>' context=\"html\"/>");
+        assertThat(jsp).contains("<carlos:encode value='<%= importError %>' context=\"html\"/>");
+        assertThat(jsp).doesNotContain("<li><%= error %></li>");
+        assertThat(jsp).doesNotContain("<%=importError%>");
     }
 }

@@ -30,6 +30,7 @@ package io.github.carlos_emr.carlos.webserv.rest.conversion;
 
 import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DocumentReviewTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DocumentTo1;
@@ -79,6 +80,19 @@ public class DocumentConverter extends AbstractConverter<Document, DocumentTo1> 
         return d;
     }
 
+    /**
+     * Converts a document domain object into its REST transfer object.
+     *
+     * <p>Reviews are part of the transfer contract when the domain object exposes a non-null
+     * review collection. If Hibernate has not initialized that collection, conversion fails
+     * with {@link ConversionException} instead of silently returning a DTO that looks like it has
+     * no reviews.</p>
+     *
+     * @param loggedInInfo LoggedInInfo the current user context
+     * @param d            Document the domain object to convert
+     * @return DocumentTo1 the REST transfer object
+     * @throws ConversionException when a required associated collection is not initialized
+     */
     @Override
     public DocumentTo1 getAsTransferObject(LoggedInInfo loggedInInfo, Document d) throws ConversionException {
         DocumentTo1 t = new DocumentTo1();
@@ -112,7 +126,9 @@ public class DocumentConverter extends AbstractConverter<Document, DocumentTo1> 
             DocumentReviewConverter reviewConverter = new DocumentReviewConverter();
             t.setReviews(reviewConverter.getAllAsTransferObjects(loggedInInfo, d.getReviews()));
         } else if (d.getReviews() != null) {
-            logger.debug("reviews not initialized on document {}; skipping in REST response", d.getDocumentNo());
+            logger.warn("Reviews not initialized on document {}; failing REST conversion",
+                    LogSafe.sanitize(String.valueOf(d.getDocumentNo())));
+            throw new ConversionException("Document reviews were not initialized");
         }
 
         return t;

@@ -53,7 +53,7 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 public final class BillingView2Action
         extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -116,7 +116,7 @@ public final class BillingView2Action
         Demographic demo = demoData.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), bean.getPatientNo());
         if (demo == null) {
             log.warn("BillingView2Action: demographic not found for patientNo={}",
-                    LogSanitizer.sanitize(bean.getPatientNo()));
+                    LogSafe.sanitize(bean.getPatientNo()));
             response.sendError(HttpServletResponse.SC_NOT_FOUND);
             return NONE;
         }
@@ -131,7 +131,7 @@ public final class BillingView2Action
         bean.setPatientHCType(demo.getHcType());
         bean.setPatientAge(demo.getAge());
         this.setBillingNo(bean.getBillingNo());
-        log.debug("End Demo Call billing No{}", LogSanitizer.sanitize(request.getParameter("billing_no")));
+        log.debug("End Demo Call billing No{}", LogSafe.sanitize(request.getParameter("billing_no")));
         //Loading bill Recipient Data
         List<BillRecipient> billRecipList = bean.getBillRecipient(request.getParameter("billing_no"));
         if (!billRecipList.isEmpty()) {

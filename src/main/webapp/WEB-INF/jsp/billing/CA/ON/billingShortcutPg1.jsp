@@ -59,6 +59,7 @@
 
         <!--
         window.focus();
+        var billingContextPath = "<carlos:encode value='${ctx}' context='javaScriptBlock'/>";
 
         function checkSli() {
             var needsSli = false;
@@ -72,10 +73,11 @@
         }
 
         function gotoBillingOB() {
+            var a = "";
             if (self.location.href.lastIndexOf("?") > 0) {
                 a = self.location.href.substring(self.location.href.lastIndexOf("?"));
             }
-            self.location.href = "/billing" + a;
+            self.location.href = billingContextPath + "/billing" + a;
         }
 
         function findObj(n, d) { //v4.0

@@ -205,6 +205,9 @@
         <action name="admin/ViewLookupListsManageLookupLists" class="io.github.carlos_emr.carlos.admin.gate.ViewLookupListsManageLookupLists2Action">
             <result name="success">/WEB-INF/jsp/admin/lookUpLists/manageLookUpLists.jsp</result>
         </action>
+        <action name="admin/labForwardingRules" class="io.github.carlos_emr.carlos.admin.gate.ViewLabForwardingRules2Action">
+            <result name="success">/WEB-INF/jsp/admin/labforwardingrules.jsp</result>
+        </action>
         <action name="admin/ViewLotNrAddRecordHtm" class="io.github.carlos_emr.carlos.admin.gate.ViewLotNrAddRecordHtm2Action">
             <result name="success">/WEB-INF/jsp/admin/lotnraddrecordhtm.jsp</result>
         </action>

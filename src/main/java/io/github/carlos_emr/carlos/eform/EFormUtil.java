@@ -77,7 +77,7 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 public class EFormUtil {
     private static final Logger logger = MiscUtils.getLogger();
@@ -118,7 +118,7 @@ public class EFormUtil {
      */
     private static String validateSortBy(String sortBy) {
         if (sortBy == null || !ALLOWED_SORT_COLUMNS.contains(sortBy)) {
-            throw new IllegalArgumentException("Invalid sort column: " + LogSanitizer.sanitize(sortBy, 100));
+            throw new IllegalArgumentException("Invalid sort column: " + LogSafe.sanitize(sortBy, 100));
         }
         return sortBy;
     }
@@ -447,7 +447,7 @@ public class EFormUtil {
         io.github.carlos_emr.carlos.commn.model.EForm eform = eformDao.find(id);
         HashMap<String, Object> curht = new HashMap<String, Object>();
         if (eform == null) {
-            logger.error("Unable to find EForm with ID = {}", LogSanitizer.sanitize(fid)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            logger.error("Unable to find EForm with ID = {}", LogSafe.sanitize(fid)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             curht.put("formName", "");
             curht.put("formHtml", "No Such Form in Database");
             return curht;
@@ -1323,7 +1323,7 @@ public class EFormUtil {
 
         io.github.carlos_emr.carlos.commn.model.EForm eform = eformDao.find(ConversionUtils.fromIntString(fid));
         if (eform == null) {
-            logger.error("Unable to find EForm for {}", LogSanitizer.sanitize(fid)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            logger.error("Unable to find EForm for {}", LogSafe.sanitize(fid)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             return;
         }
         eform.setCurrent(status);

@@ -33,10 +33,9 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 
 /**
@@ -70,19 +69,17 @@ class DocumentConverterUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should skip reviews when collection uninitialized")
+    @DisplayName("should fail when collection uninitialized")
     @SuppressWarnings("unchecked")
-    void shouldSkipReviews_whenCollectionUninitialized() {
+    void shouldFail_whenCollectionUninitialized() {
         Document document = new Document(123);
         PersistentBag<DocumentReview> reviews = mock(PersistentBag.class);
         assertThat(Hibernate.isInitialized(reviews)).isFalse();
         document.setReviews(reviews);
-        AtomicReference<DocumentTo1> transfer = new AtomicReference<>();
 
-        assertThatCode(() -> transfer.set(converter.getAsTransferObject(null, document)))
-                .doesNotThrowAnyException();
-
-        assertThat(transfer.get().getReviews()).isEmpty();
+        assertThatThrownBy(() -> converter.getAsTransferObject(null, document))
+                .isInstanceOf(ConversionException.class)
+                .hasMessageContaining("reviews");
     }
 
     @Test
