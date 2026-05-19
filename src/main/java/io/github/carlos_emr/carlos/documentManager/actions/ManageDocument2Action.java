@@ -54,6 +54,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.RequestNegotiation;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
@@ -919,7 +920,8 @@ public class ManageDocument2Action extends ActionSupport {
         }
 
         if (docxml != null && !docxml.trim().equals("")) {
-            setResponse(response, docxml.getBytes());
+            response.setContentType("text/html;charset=UTF-8");
+            response.getWriter().write(docxml);
             return;
         }
 
@@ -932,8 +934,13 @@ public class ManageDocument2Action extends ActionSupport {
         LogAction.addLog(loggedInInfo, LogConst.READ, "Document", null, demoNo, data);
 
         response.setContentType(contentType);
-        response.setContentLength(contentBytes.length);
         response.setHeader("Content-Disposition", "inline; filename=\"" + sanitizeHeaderValue(filename) + "\"");
+        if (RequestNegotiation.isHtmlContentType(contentType)) {
+            response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+            response.getWriter().write(new String(contentBytes, StandardCharsets.UTF_8));
+            return;
+        }
+        response.setContentLength(contentBytes.length);
         log.debug("about to Print to stream");
         try (ServletOutputStream outs = response.getOutputStream()) {
             outs.write(contentBytes); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- binary document download with validated content-type

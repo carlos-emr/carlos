@@ -25,6 +25,8 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletRequest;
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -194,6 +196,27 @@ class DisplayImage2ActionTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should write HTML assets through writer when eform read privilege is granted")
+        void shouldWriteHtmlAssetsThroughWriter_whenEformReadPrivilegeGranted() throws Exception {
+            mockRequest.setParameter("imagefile", "custom.html");
+            Files.writeString(tempDir.resolve("custom.html"), "<html><body>form</body></html>", StandardCharsets.UTF_8);
+            TrackingMockHttpServletResponse trackingResponse = new TrackingMockHttpServletResponse();
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(trackingResponse);
+            action = new DisplayImage2Action();
+
+            when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_eform"), eq("r"), isNull()))
+                    .thenReturn(true);
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(trackingResponse.getContentType()).isEqualTo("text/html");
+            assertThat(trackingResponse.getContentAsString()).isEqualTo("<html><body>form</body></html>");
+            assertThat(trackingResponse.isWriterObtained()).isTrue();
+            assertThat(trackingResponse.isOutputStreamObtained()).isFalse();
+        }
+
+        @Test
         @DisplayName("should throw SecurityException when vaccine brands requested without either privilege")
         void shouldThrowSecurityException_whenVaccineBrandsRequestedWithoutEitherPrivilege() {
             mockRequest.setParameter("imagefile", DisplayImage2Action.VACCINE_BRANDS_FILE);
@@ -218,6 +241,31 @@ class DisplayImage2ActionTest extends CarlosUnitTestBase {
 
             assertThatThrownBy(() -> action.execute())
                     .isInstanceOf(SecurityException.class);
+        }
+    }
+
+    private static class TrackingMockHttpServletResponse extends MockHttpServletResponse {
+        private boolean writerObtained;
+        private boolean outputStreamObtained;
+
+        @Override
+        public PrintWriter getWriter() throws IOException {
+            writerObtained = true;
+            return super.getWriter();
+        }
+
+        @Override
+        public jakarta.servlet.ServletOutputStream getOutputStream() throws IOException {
+            outputStreamObtained = true;
+            return super.getOutputStream();
+        }
+
+        boolean isWriterObtained() {
+            return writerObtained;
+        }
+
+        boolean isOutputStreamObtained() {
+            return outputStreamObtained;
         }
     }
 }

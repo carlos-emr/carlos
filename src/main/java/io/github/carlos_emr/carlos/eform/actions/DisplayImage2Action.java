@@ -35,6 +35,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 
 import jakarta.activation.MimetypesFileTypeMap;
@@ -51,6 +52,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.RequestNegotiation;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
@@ -105,6 +107,11 @@ public class DisplayImage2Action extends ActionSupport {
 
         try {
             response.setContentType(contentType);
+            if (RequestNegotiation.isHtmlContentType(contentType)) {
+                response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+                IOUtils.copy(stream, response.getWriter(), StandardCharsets.UTF_8);
+                return NONE;
+            }
             OutputStream outputStream = response.getOutputStream();
             IOUtils.copy(stream, outputStream);
             return NONE;
