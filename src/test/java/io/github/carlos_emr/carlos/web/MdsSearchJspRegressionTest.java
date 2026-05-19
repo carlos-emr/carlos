@@ -41,6 +41,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @DisplayName("MDS search JSP regressions")
 @Tag("unit")
+@Tag("regression")
 class MdsSearchJspRegressionTest {
 
     private static final Pattern SCRIPT_BLOCK_PATTERN = Pattern.compile("(?is)<script\\b[^>]*>(.*?)</script>");
@@ -50,7 +51,7 @@ class MdsSearchJspRegressionTest {
 
     @Test
     @DisplayName("should precompute providerNo encoding before JavaScript builds search URL")
-    void shouldPrecomputeProviderNoEncoding_beforeJavaScriptBuildsSearchUrl() throws IOException {
+    void shouldPrecomputeProviderNoEncoding_beforeJavaScriptBuildsUrl() throws IOException {
         String jsp = Files.readString(SEARCH_JSP, StandardCharsets.UTF_8);
 
         assertThat(jsp)

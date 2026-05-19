@@ -36,6 +36,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%
+    // Keep the encoding outside the script block so server-side tags cannot leak into JavaScript.
     // providerNo becomes a URL query value inside a JavaScript variable assignment.
     // URI-component encoding must happen before JavaScript string encoding.
     String encodedProviderNo = SafeEncode.forJavaScript(
