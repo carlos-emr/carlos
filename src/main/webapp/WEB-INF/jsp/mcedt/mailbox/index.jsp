@@ -42,6 +42,7 @@
 <%@ page import="java.util.*,io.github.carlos_emr.carlos.integration.mcedt.mailbox.ActionUtils" %>
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <meta http-equiv="Content-type" content="text/html; charset=utf-8"/>
     <title>MCEDT</title>
     <link href="mailbox/css/mcedt.css" rel="stylesheet" type="text/css">

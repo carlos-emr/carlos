@@ -58,6 +58,8 @@
 <html>
     <head>
         <link rel="stylesheet" href="<%= request.getContextPath() %>/web.css"/>
+        <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
+        <script type="text/javascript" src="<%=request.getContextPath()%>/js/global.js"></script>
     </head>
     <body topmargin="0" leftmargin="0" rightmargin="0">
     <center>

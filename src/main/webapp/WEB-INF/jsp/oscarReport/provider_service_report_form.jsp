@@ -45,6 +45,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title>Provider Service Report</title>
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
     <script src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>

@@ -36,6 +36,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title>Look-Up List Manager</title>
 
     <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>

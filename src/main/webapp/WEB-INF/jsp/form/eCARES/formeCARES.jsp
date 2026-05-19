@@ -49,6 +49,7 @@
 <html>
 
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
 
     <title>Community Comprehensive Geriatric Assessment Form</title>
     <meta name="viewport" content="width=device-width, user-scalable=false;">

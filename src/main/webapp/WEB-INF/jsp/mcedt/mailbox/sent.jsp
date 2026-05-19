@@ -44,6 +44,7 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <style type="text/css">
         .web_dialog_overlay {

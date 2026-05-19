@@ -66,6 +66,7 @@
 
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/checkPassword.js.jsp"></script>
         <title><fmt:message key="provider.providerchangepassword.title"/></title>

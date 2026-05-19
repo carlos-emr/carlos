@@ -39,6 +39,7 @@
 <c:if test="${not empty model.raNo}">
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="<carlos:encode value='${pageContext.request.contextPath}' context='htmlAttribute'/>/js/global.js"></script>
     <script type="text/javascript" src="<carlos:encode value='${pageContext.request.contextPath}' context='htmlAttribute'/>/library/jquery/jquery-3.7.1.min.js"></script>
     <script type="text/javascript" src="<carlos:encode value='${pageContext.request.contextPath}' context='htmlAttribute'/>/library/DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js"></script>

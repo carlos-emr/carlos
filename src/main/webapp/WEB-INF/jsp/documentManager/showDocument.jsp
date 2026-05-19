@@ -295,6 +295,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title><fmt:message key="global.Document"/></title>
     <script type="text/javascript">
         const ctx = "${pageContext.servletContext.contextPath}";

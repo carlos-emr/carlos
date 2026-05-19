@@ -56,6 +56,7 @@
 
 <html lang="en">
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title><fmt:message key="admin.addQueue.title"/></title>
 
     <style type="text/css">
