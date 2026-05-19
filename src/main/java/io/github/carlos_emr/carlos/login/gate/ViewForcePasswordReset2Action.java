@@ -12,16 +12,99 @@
  */
 package io.github.carlos_emr.carlos.login.gate;
 
+import java.io.IOException;
+
+import io.github.carlos_emr.carlos.login.Login2Action;
+import io.github.carlos_emr.carlos.utility.LogSafe;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
+
+import org.apache.struts2.ServletActionContext;
+import org.apache.logging.log4j.Logger;
+
 /**
  * Gate for the forced-password-reset page, which depends on the staged login
- * credentials stored in session before the password change is completed.
+ * credential cache token before the password change is completed.
+ *
+ * <p>The view is intentionally GET/HEAD-only. The password update itself must go through the
+ * dedicated POST action, where CSRFGuard, old-password validation, server-side password policy,
+ * and terminal token consumption are enforced. This action is the canonical owner for the
+ * extensionless {@code /forcepasswordreset} route; do not add a filter-level direct JSP forward
+ * for this page.</p>
  *
  * @since 2026-04-15
  */
 public final class ViewForcePasswordReset2Action extends BaseLoginPageView2Action {
 
+    private static final Logger LOGGER = MiscUtils.getLogger();
+
     @Override
-    protected String requiredSessionAttribute() {
-        return "userName";
+    public String execute() throws Exception {
+        HttpServletRequest request = ServletActionContext.getRequest();
+        HttpServletResponse response = ServletActionContext.getResponse();
+
+        String method = request.getMethod();
+        if (!"GET".equalsIgnoreCase(method) && !"HEAD".equalsIgnoreCase(method)) {
+            LOGGER.info("Rejected /forcepasswordreset: unsupported method={}, uri={}, remote={}",
+                    LogSafe.sanitize(method),
+                    LogSafe.sanitizeUri(request.getRequestURI()),
+                    LogSafe.sanitize(request.getRemoteAddr()));
+            response.setHeader("Allow", "GET, HEAD");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
+        HttpSession session = request.getSession(false);
+        if (session == null) {
+            LOGGER.info("Rejected /forcepasswordreset: missing session, remote={}",
+                    LogSafe.sanitize(request.getRemoteAddr()));
+            return redirectToExpiredSession(request);
+        }
+        Object tokenAttr = session.getAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR);
+        if (!(tokenAttr instanceof String) || !Login2Action.hasValidLoginCredentialsToken(request)) {
+            session.removeAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR);
+            session.removeAttribute(Login2Action.FORCE_PASSWORD_RESET_ERROR_ATTR);
+            LOGGER.info("Rejected /forcepasswordreset: missing or stale credential token, remote={}",
+                    LogSafe.sanitize(request.getRemoteAddr()));
+            return redirectToExpiredSession(request);
+        }
+
+        copyForcePasswordResetError(request, session);
+        return SUCCESS;
+    }
+
+    /**
+     * Moves a retryable forced-reset validation error from session scope to request scope.
+     *
+     * <p>The reset POST redirects back to the GET view to avoid refresh resubmission. This gives
+     * the JSP one render of the error and then clears it so stale messages do not survive a later
+     * successful retry.</p>
+     */
+    private void copyForcePasswordResetError(HttpServletRequest request, HttpSession session) {
+        Object error = session.getAttribute(Login2Action.FORCE_PASSWORD_RESET_ERROR_ATTR);
+        if (error instanceof String) {
+            request.setAttribute("errormsg", error);
+            session.removeAttribute(Login2Action.FORCE_PASSWORD_RESET_ERROR_ATTR);
+        }
+    }
+
+    private String redirectToExpiredSession(HttpServletRequest request) throws IOException {
+        HttpServletResponse response = ServletActionContext.getResponse();
+        String redirectUrl = Login2Action.loginFailedRedirectUrl(request,
+                Login2Action.message(request, "provider.providerchangepassword.errorSessionExpired"));
+        try {
+            response.sendRedirect(redirectUrl);
+        } catch (IOException e) {
+            LOGGER.warn("Unable to redirect expired forced-password-reset session: remote={}",
+                    LogSafe.sanitize(request.getRemoteAddr()), e);
+            if (!response.isCommitted()) {
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            } else {
+                LOGGER.error("Forced-password-reset expired-session redirect failed after response commit", e);
+            }
+        }
+        return NONE;
     }
 }

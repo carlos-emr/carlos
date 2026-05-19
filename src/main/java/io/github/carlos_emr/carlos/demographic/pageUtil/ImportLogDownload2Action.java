@@ -54,7 +54,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 public class ImportLogDownload2Action extends ActionSupport {
     private static final Logger logger = MiscUtils.getLogger();
@@ -91,7 +91,7 @@ public class ImportLogDownload2Action extends ActionSupport {
             String sanitizedFilename = FilenameUtils.getName(importLogParam);
             
             if (sanitizedFilename == null || sanitizedFilename.isEmpty()) {
-                logger.warn("Invalid import log filename: {}", LogSanitizer.sanitize(importLogParam)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                logger.warn("Invalid import log filename: {}", LogSafe.sanitize(importLogParam)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 return "error";
             }
             
@@ -102,13 +102,13 @@ public class ImportLogDownload2Action extends ActionSupport {
             try {
                 importLogFile = PathValidationUtils.validateExistingPath(importLogFile, tempDir);
             } catch (SecurityException e) {
-                logger.error("Path is not in the correct directory: {}", LogSanitizer.sanitize(importLogParam), e);
+                logger.error("Path is not in the correct directory: {}", LogSafe.sanitize(importLogParam), e);
                 return "error";
             }
 
             // Check if file is readable
             if (!importLogFile.canRead()) {
-                logger.warn("Import log file not readable: {}", LogSanitizer.sanitize(sanitizedFilename)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                logger.warn("Import log file not readable: {}", LogSafe.sanitize(sanitizedFilename)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 return "error";
             }
             

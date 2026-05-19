@@ -31,6 +31,7 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 import java.util.regex.Matcher;
@@ -67,9 +68,12 @@ class TargetClinicalJspI18nTest {
     @Test
     @DisplayName("should declare oscarResources bundle in target clinical JSPs")
     void shouldDeclareOscarResourcesBundle_inTargetClinicalJsps() throws IOException {
-        List<Path> missingBundle = targetJsps()
-                .filter(path -> !read(path).contains("<fmt:setBundle basename=\"oscarResources\"/>"))
-                .toList();
+        List<Path> missingBundle = new ArrayList<>();
+        for (Path path : targetJsps().toList()) {
+            if (!read(path).contains("<fmt:setBundle basename=\"oscarResources\"/>")) {
+                missingBundle.add(path);
+            }
+        }
 
         assertThat(missingBundle)
                 .as("target clinical JSPs should initialize oscarResources for fmt:message lookups")

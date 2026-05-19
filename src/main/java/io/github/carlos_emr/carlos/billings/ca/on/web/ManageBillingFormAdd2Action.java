@@ -32,7 +32,7 @@ import io.github.carlos_emr.carlos.commn.model.CtlBillingService;
 import io.github.carlos_emr.carlos.commn.model.CtlDiagCode;
 import io.github.carlos_emr.carlos.commn.model.CtlBillingType;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -134,7 +134,7 @@ public class ManageBillingFormAdd2Action extends ActionSupport {
         try {
             billingFormConfigurationService.addBillingForm(services, seedDiagCode, optionalBillingType);
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Failed to add billing form for typeid={}", LogSanitizer.sanitize(typeid), e);
+            MiscUtils.getLogger().error("Failed to add billing form for typeid={}", LogSafe.sanitize(typeid), e);
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Failed to add billing form");
             return NONE;
         }

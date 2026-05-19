@@ -23,22 +23,63 @@ package io.github.carlos_emr.carlos.admin.web;
 
 import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
 import io.github.carlos_emr.carlos.commn.model.Security;
+import io.github.carlos_emr.carlos.config.MethodSecurityConfig;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.security.CarlosMethodSecurity;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import java.io.InputStream;
+import java.io.StringReader;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Map;
+
+import javax.xml.XMLConstants;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import org.junit.jupiter.api.*;
-import org.mockito.*;
+import org.apache.struts2.spring.StrutsSpringObjectFactory;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
+import org.mockito.MockedStatic;
+import org.mockito.MockitoAnnotations;
+import org.springframework.aop.support.AopUtils;
+import org.springframework.beans.factory.config.ConfigurableBeanFactory;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
+import org.xml.sax.InputSource;
 
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for {@link SecurityDelete2Action} covering privilege checks,
@@ -52,6 +93,7 @@ import static org.mockito.Mockito.*;
 @Tag("security")
 class SecurityDelete2ActionTest extends CarlosUnitTestBase {
 
+    private AutoCloseable mocks;
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
 
@@ -64,7 +106,7 @@ class SecurityDelete2ActionTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void setUp() {
-        MockitoAnnotations.openMocks(this);
+        mocks = MockitoAnnotations.openMocks(this);
 
         mockRequest = new MockHttpServletRequest();
         mockResponse = new MockHttpServletResponse();
@@ -83,16 +125,27 @@ class SecurityDelete2ActionTest extends CarlosUnitTestBase {
     }
 
     @AfterEach
-    void tearDown() {
-        if (loggedInInfoMock != null) loggedInInfoMock.close();
-        if (servletActionContextMock != null) servletActionContextMock.close();
+    void tearDown() throws Exception {
+        if (loggedInInfoMock != null) {
+            loggedInInfoMock.close();
+        }
+        if (servletActionContextMock != null) {
+            servletActionContextMock.close();
+        }
+        if (mocks != null) {
+            mocks.close();
+        }
     }
 
     private SecurityDelete2Action createActionWithPrivilege() {
         when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin"), eq("w"), isNull()))
             .thenReturn(true);
         mockRequest.setMethod("POST");
-        return new SecurityDelete2Action();
+        return createAction();
+    }
+
+    private SecurityDelete2Action createAction() {
+        return new SecurityDelete2Action(mockSecurityDao, new CarlosMethodSecurity(mockSecurityInfoManager));
     }
 
     @Nested
@@ -107,7 +160,7 @@ class SecurityDelete2ActionTest extends CarlosUnitTestBase {
             when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin.userAdmin"), eq("w"), isNull()))
                 .thenReturn(false);
 
-            SecurityDelete2Action action = new SecurityDelete2Action();
+            SecurityDelete2Action action = createAction();
             assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class);
         }
 
@@ -120,7 +173,7 @@ class SecurityDelete2ActionTest extends CarlosUnitTestBase {
                 .thenReturn(false);
             mockRequest.setMethod("POST");
 
-            SecurityDelete2Action action = new SecurityDelete2Action();
+            SecurityDelete2Action action = createAction();
             String result = action.execute();
 
             assertThat(result).isEqualTo(ActionSupport.SUCCESS);
@@ -135,11 +188,203 @@ class SecurityDelete2ActionTest extends CarlosUnitTestBase {
                 .thenReturn(true);
             mockRequest.setMethod("POST");
 
-            SecurityDelete2Action action = new SecurityDelete2Action();
+            SecurityDelete2Action action = createAction();
             String result = action.execute();
 
             assertThat(result).isEqualTo(ActionSupport.SUCCESS);
         }
+    }
+
+    @Nested
+    @DisplayName("Declarative method security proof of concept")
+    class DeclarativeMethodSecurityPoc {
+
+        @Test
+        @DisplayName("should block execute before action body when PreAuthorize denies")
+        void shouldBlockExecute_whenPreAuthorizeDenies() {
+            CarlosMethodSecurity methodSecurity = mock(CarlosMethodSecurity.class);
+            when(methodSecurity.hasAdminWrite()).thenReturn(false);
+
+            try (AnnotationConfigApplicationContext context = methodSecurityContext(methodSecurity)) {
+                SecurityDelete2Action action = context.getBean(
+                    SecurityDelete2Action.SPRING_BEAN_NAME, SecurityDelete2Action.class);
+
+                assertThatThrownBy(action::execute).isInstanceOf(AccessDeniedException.class);
+                verify(mockSecurityInfoManager, never()).hasPrivilege(any(), anyString(), anyString(), any());
+                verifyNoInteractions(mockSecurityDao);
+            }
+        }
+
+        @Test
+        @DisplayName("should allow execute when PreAuthorize grants admin privilege")
+        void shouldAllowExecute_whenPreAuthorizeGrantsAdminPrivilege() throws Exception {
+            CarlosMethodSecurity methodSecurity = mock(CarlosMethodSecurity.class);
+            when(methodSecurity.hasAdminWrite()).thenReturn(true);
+            mockRequest.setMethod("POST");
+
+            try (AnnotationConfigApplicationContext context = methodSecurityContext(methodSecurity)) {
+                SecurityDelete2Action action = context.getBean(
+                    SecurityDelete2Action.SPRING_BEAN_NAME, SecurityDelete2Action.class);
+
+                String result = action.execute();
+
+                assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+                assertThat((String) mockRequest.getAttribute("msg"))
+                    .isEqualTo("No security identifier was provided.");
+            }
+        }
+    }
+
+    @Nested
+    @DisplayName("Struts/Spring wiring guardrail")
+    class StrutsSpringWiringGuardrail {
+
+        private static final Path STRUTS_CONFIG = Path.of(
+            "src", "main", "webapp", "WEB-INF", "classes", "struts.xml");
+        private static final int MAX_PARENT_SEARCH_DEPTH = 8;
+
+        @Test
+        @DisplayName("should configure Struts to use Spring object factory")
+        void shouldConfigureStruts_toUseSpringObjectFactory() throws Exception {
+            assertThat(hasStrutsConstant("struts.objectFactory", "spring"))
+                .as("Method security depends on Struts obtaining actions from Spring")
+                .isTrue();
+        }
+
+        @Test
+        @DisplayName("should build Struts action class through Spring method-security proxy")
+        void shouldBuildStrutsActionClass_throughSpringMethodSecurityProxy() throws Exception {
+            mockRequest.setMethod("POST");
+            when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin"), eq("w"), isNull()))
+                .thenReturn(false);
+            when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin.userAdmin"), eq("w"), isNull()))
+                .thenReturn(false);
+
+            // StrutsAdminConfigTest pins that struts-admin.xml class="SPRING_BEAN_NAME"; here
+            // we prove Struts' Spring object factory resolves that class value to the AOP proxy.
+            try (AnnotationConfigApplicationContext context = methodSecurityComponentScanContext()) {
+                // init() configures the Struts container and type-mapper; neither is
+                // needed for a buildBean(beanName, ...) lookup against a test ApplicationContext.
+                StrutsSpringObjectFactory objectFactory = new StrutsSpringObjectFactory();
+                objectFactory.setApplicationContext(context);
+                Object action = objectFactory.buildBean(
+                    SecurityDelete2Action.SPRING_BEAN_NAME, Map.of(), false);
+
+                assertThat(AopUtils.isAopProxy(action)).isTrue();
+                assertThat(action).isInstanceOf(SecurityDelete2Action.class);
+                assertThatThrownBy(((SecurityDelete2Action) action)::execute)
+                    .isInstanceOf(AccessDeniedException.class);
+                verify(mockSecurityInfoManager, times(1))
+                    .hasPrivilege(mockLoggedInInfo, "_admin", "w", null);
+                verify(mockSecurityInfoManager, times(1))
+                    .hasPrivilege(mockLoggedInInfo, "_admin.userAdmin", "w", null);
+                verifyNoInteractions(mockSecurityDao);
+            }
+        }
+
+        private boolean hasStrutsConstant(String name, String value) throws Exception {
+            NodeList constants = parseStrutsConfig().getElementsByTagName("constant");
+            for (int i = 0; i < constants.getLength(); i++) {
+                Element constant = (Element) constants.item(i);
+                if (name.equals(constant.getAttribute("name"))
+                        && value.equals(constant.getAttribute("value"))) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private Document parseStrutsConfig() throws Exception {
+            DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+            dbf.setValidating(false);
+            dbf.setNamespaceAware(false);
+            dbf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+            dbf.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+            dbf.setFeature("http://xml.org/sax/features/external-general-entities", false);
+            dbf.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+            // Struts config files declare a DOCTYPE; external DTD loading and all
+            // external entities stay disabled above, and the resolver below returns
+            // an empty local source so the parser never performs network access.
+            dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", false);
+            dbf.setXIncludeAware(false);
+            dbf.setExpandEntityReferences(false);
+            DocumentBuilder db = dbf.newDocumentBuilder();
+            db.setEntityResolver((_publicId, _systemId) -> new InputSource(new StringReader("")));
+
+            try (InputStream in = Files.newInputStream(resolveProjectPath(STRUTS_CONFIG))) {
+                return db.parse(in);
+            }
+        }
+
+        private static Path resolveProjectPath(Path relativePath) {
+            Path current = Path.of(System.getProperty("user.dir")).toAbsolutePath();
+            int checked = 0;
+            while (current != null && checked < MAX_PARENT_SEARCH_DEPTH) {
+                Path candidate = current.resolve(relativePath);
+                if (Files.isRegularFile(candidate)) {
+                    return candidate;
+                }
+                current = current.getParent();
+                checked++;
+            }
+            throw new IllegalStateException(
+                "Unable to locate " + relativePath + " in " + MAX_PARENT_SEARCH_DEPTH
+                + " ancestor directories of " + System.getProperty("user.dir"));
+        }
+    }
+
+    @Nested
+    @DisplayName("Targeted method-security context")
+    class TargetedMethodSecurityContext {
+
+        @Test
+        @DisplayName("should expose method-security beans and proxied prototype action")
+        void shouldExposeMethodSecurityBeans_andProxiedPrototypeAction() {
+            try (AnnotationConfigApplicationContext context = methodSecurityComponentScanContext()) {
+                assertThat(context.getBeansOfType(MethodSecurityConfig.class)).isNotEmpty();
+                assertThat(context.containsBean("carlosMethodSecurity")).isTrue();
+                assertThat(context.containsBean(SecurityDelete2Action.SPRING_BEAN_NAME)).isTrue();
+
+                Object firstAction = context.getBean(SecurityDelete2Action.SPRING_BEAN_NAME);
+                Object secondAction = context.getBean(SecurityDelete2Action.SPRING_BEAN_NAME);
+
+                assertThat(AopUtils.isAopProxy(firstAction)).isTrue();
+                assertThat(firstAction).isInstanceOf(SecurityDelete2Action.class);
+                assertThat(secondAction).isInstanceOf(SecurityDelete2Action.class);
+                assertThat(firstAction).isNotSameAs(secondAction);
+
+                assertThatThrownBy(((SecurityDelete2Action) firstAction)::execute)
+                    .as("method-security proxy must intercept execute() and deny unauthenticated calls")
+                    .isInstanceOf(AccessDeniedException.class);
+            }
+        }
+    }
+
+    private AnnotationConfigApplicationContext methodSecurityComponentScanContext() {
+        AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext();
+        context.getBeanFactory().registerSingleton("securityInfoManager", mockSecurityInfoManager);
+        context.getBeanFactory().registerSingleton("securityDao", mockSecurityDao);
+        context.register(MethodSecurityConfig.class, CarlosMethodSecurity.class, SecurityDelete2Action.class);
+        context.refresh();
+        return context;
+    }
+
+    private AnnotationConfigApplicationContext methodSecurityContext(CarlosMethodSecurity methodSecurity) {
+        AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext();
+        context.getBeanFactory().registerSingleton("carlosMethodSecurity", methodSecurity);
+        context.getBeanFactory().registerSingleton("securityDao", mockSecurityDao);
+        context.registerBean(
+            SecurityDelete2Action.SPRING_BEAN_NAME,
+            SecurityDelete2Action.class,
+            definition -> definition.setScope(ConfigurableBeanFactory.SCOPE_PROTOTYPE));
+        context.register(MethodSecurityProxyTestConfig.class);
+        context.refresh();
+        return context;
+    }
+
+    @Configuration
+    @EnableMethodSecurity(prePostEnabled = true, proxyTargetClass = true)
+    static class MethodSecurityProxyTestConfig {
     }
 
     @Nested
@@ -153,7 +398,7 @@ class SecurityDelete2ActionTest extends CarlosUnitTestBase {
                 .thenReturn(true);
             mockRequest.setMethod("GET");
 
-            SecurityDelete2Action action = new SecurityDelete2Action();
+            SecurityDelete2Action action = createAction();
             String result = action.execute();
 
             assertThat(result).isEqualTo(ActionSupport.NONE);
