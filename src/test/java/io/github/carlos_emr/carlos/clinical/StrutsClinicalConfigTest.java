@@ -27,7 +27,9 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.FileInputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -215,7 +217,7 @@ class StrutsClinicalConfigTest {
     void shouldRouteMeasurementSubmissionThroughPostOnlyActions() throws Exception {
         Document clinical = parse(CLINICAL_CONFIG);
         NodeList clinicalActions = clinical.getElementsByTagName("action");
-        List<String> sharedGateOffenders = new ArrayList<>();
+        Set<String> sharedGateOffenders = new LinkedHashSet<>();
         for (int i = 0; i < clinicalActions.getLength(); i++) {
             Element action = (Element) clinicalActions.item(i);
             if (!VIEW_CLINICAL_CLASS.equals(action.getAttribute("class"))) {

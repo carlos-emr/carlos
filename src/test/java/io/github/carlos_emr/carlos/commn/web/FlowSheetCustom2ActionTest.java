@@ -27,6 +27,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -35,6 +36,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -177,7 +179,7 @@ class FlowSheetCustom2ActionTest extends CarlosWebTestBase {
 
         assertThatThrownBy(() -> executeAction(new FlowSheetCustom2Action()))
                 .isInstanceOf(SecurityException.class)
-                .hasMessageContaining("_demographic");
+                .hasMessageContaining("(_demographic)");
         verify(mockFlowSheetCustomizationService, never()).validateScopePermission(any(LoggedInInfo.class), anyString());
         verify(mockFlowSheetUserCreatedDao, never()).persist(any(FlowSheetUserCreated.class));
     }
@@ -198,8 +200,9 @@ class FlowSheetCustom2ActionTest extends CarlosWebTestBase {
         String result = executeAction(new TestableCreateNewFlowSheetAction());
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-        verify(mockFlowSheetCustomizationService).validateScopePermission(any(LoggedInInfo.class), eq("clinic"));
-        verify(mockFlowSheetUserCreatedDao).persist(any(FlowSheetUserCreated.class));
+        InOrder inOrder = inOrder(mockFlowSheetCustomizationService, mockFlowSheetUserCreatedDao);
+        inOrder.verify(mockFlowSheetCustomizationService).validateScopePermission(any(LoggedInInfo.class), eq("clinic"));
+        inOrder.verify(mockFlowSheetUserCreatedDao).persist(any(FlowSheetUserCreated.class));
     }
 
     private static final class TestableFlowSheetCustom2Action extends FlowSheetCustom2Action {

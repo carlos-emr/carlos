@@ -218,6 +218,20 @@
     String encodedDisplayNameForUri = SafeEncode.forUriComponent(displayNameValue);
     String encodedDisplayNameForJsUri = SafeEncode.forJavaScript(SafeEncode.forUriComponent(displayNameValue));
     String demographic = request.getParameter("demographic");
+    Object demographicAttribute = request.getAttribute("demographic");
+    if ((demographic == null || demographic.trim().isEmpty()) && demographicAttribute != null) {
+        demographic = String.valueOf(demographicAttribute);
+    }
+    if (demographic != null) {
+        demographic = demographic.trim();
+    }
+    boolean hasErrorMessage = request.getAttribute("errorMessage") != null;
+    boolean hasDemographic = demographic != null && !demographic.isEmpty();
+    boolean demographicIsNumeric = !hasDemographic || demographic.matches("\\d+");
+    if (hasDemographic && !demographicIsNumeric && !hasErrorMessage) {
+        %> <script> alert("Invalid demographic number. Please enter a valid number."); </script> <%
+        return;
+    }
     String scope = request.getParameter("scope");
     MeasurementTemplateFlowSheetConfig templateConfig = MeasurementTemplateFlowSheetConfig.getInstance();
     Hashtable<String, String> flowsheetNames = templateConfig.getFlowsheetDisplayNames();
@@ -228,7 +242,7 @@
     if ("clinic".equals(scope)) {
         custList = flowSheetCustomizationDao.getFlowSheetCustomizations(flowsheet);
     } else {
-        if (demographic == null || demographic.isEmpty()) {
+        if (!hasDemographic || !demographicIsNumeric) {
             custList = flowSheetCustomizationDao.getFlowSheetCustomizations(flowsheet, (String) session.getAttribute("user"));
         } else {
             custList = flowSheetCustomizationDao.getFlowSheetCustomizations(flowsheet, (String) session.getAttribute("user"), Integer.parseInt(demographic));
@@ -239,7 +253,7 @@
     EctMeasurementTypesBeanHandler hd = new EctMeasurementTypesBeanHandler();
     Vector<EctMeasurementTypesBean> vec = hd.getMeasurementTypeVector();
     String demographicStr = new String();
-    if (demographic != null) {
+    if (hasDemographic && demographicIsNumeric) {
         demographicStr = "&demographic=" + SafeEncode.forUriComponent(demographic);
     }
 
@@ -247,11 +261,14 @@
     outp.setFormat(Format.getPrettyFormat());
 
     DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
-    Demographic demo = demographicDao.getDemographic(demographic);
-	if (demographic != null && demo == null) {
-		%> <script> alert("Invalid demographic number. Please enter a valid number."); </script> <%
-		return;
-	}
+    Demographic demo = null;
+    if (hasDemographic && demographicIsNumeric) {
+        demo = demographicDao.getDemographic(demographic);
+    }
+    if (hasDemographic && demographicIsNumeric && demo == null && !hasErrorMessage) {
+        %> <script> alert("Invalid demographic number. Please enter a valid number."); </script> <%
+        return;
+    }
 %>
 <!DOCTYPE html>
 <html lang="${pageContext.request.locale.language}">

@@ -38,7 +38,6 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.context.annotation.Scope;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Component;
 
 /**
@@ -64,10 +63,9 @@ public class SecurityDelete2Action extends ActionSupport {
     /**
      * Creates the Spring-managed action.
      *
-     * <p>This action now participates in Spring method-security proxying, so it
-     * uses constructor injection instead of the older {@code SpringUtils}
-     * service-locator style. That keeps the proxied bean wiring explicit and
-     * easier to verify in tests.</p>
+     * <p>This action uses constructor injection instead of the older
+     * {@code SpringUtils} service-locator style. That keeps security and DAO
+     * wiring explicit and easier to verify in tests.</p>
      *
      * @param securityDao the DAO used to find and remove security records
      * @param methodSecurity the helper that evaluates the shared admin write policy
@@ -78,17 +76,9 @@ public class SecurityDelete2Action extends ActionSupport {
     }
 
     @Override
-    @PreAuthorize("@carlosMethodSecurity.hasAdminWrite()")
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-
-        // Defense-in-depth: @PreAuthorize above is the primary gate. Remove this check once
-        // method-security coverage is broad enough to drop the per-action fallback.
-        if (!methodSecurity.hasAdminWrite()) {
-            throw new SecurityException("missing required sec object (_admin or _admin.userAdmin)");
-        }
 
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
             logger.warn("Rejected security delete request with method {} from {}",
@@ -97,6 +87,11 @@ public class SecurityDelete2Action extends ActionSupport {
             response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
             return NONE;
+        }
+
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!methodSecurity.hasAdminWrite()) {
+            throw new SecurityException("missing required sec object (_admin or _admin.userAdmin)");
         }
 
         String securityNoStr = request.getParameter("keyword");

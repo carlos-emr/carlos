@@ -186,9 +186,8 @@ public class FlowSheetCustom2Action extends ActionSupport {
 
     public String execute() throws Exception {
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
-            logger.warn("Rejected flowsheet customization request with method {} for demographic {} from {}",
+            logger.warn("Rejected flowsheet customization request with method {} from {}",
                     LogSafe.sanitize(String.valueOf(request.getMethod())),
-                    LogSafe.sanitize(String.valueOf(request.getParameter("demographic"))),
                     LogSafe.sanitize(String.valueOf(request.getRemoteAddr())));
             response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
@@ -197,9 +196,8 @@ public class FlowSheetCustom2Action extends ActionSupport {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_flowsheet", "w", null)) {
-            logger.warn("Denied flowsheet customization request with method {} for demographic {} from {}",
+            logger.warn("Denied flowsheet customization request with method {} from {}",
                     LogSafe.sanitize(String.valueOf(request.getMethod())),
-                    LogSafe.sanitize(String.valueOf(request.getParameter("demographic"))),
                     LogSafe.sanitize(String.valueOf(request.getRemoteAddr())));
             throw new SecurityException("missing required sec object (_flowsheet)");
         }
@@ -220,9 +218,8 @@ public class FlowSheetCustom2Action extends ActionSupport {
         } else if ("revertUpdate".equals(method)) {
             return revertUpdate();
         }
-        logger.warn("Unknown flowsheet customization method {} for demographic {} from {}",
+        logger.warn("Unknown flowsheet customization method {} from {}",
                 LogSafe.sanitize(String.valueOf(method)),
-                LogSafe.sanitize(String.valueOf(request.getParameter("demographic"))),
                 LogSafe.sanitize(String.valueOf(request.getRemoteAddr())));
         request.setAttribute("errorMessage", "Unknown flowsheet customization method.");
         request.setAttribute("demographic", Optional.ofNullable(request.getParameter("demographic")).orElse("0"));
@@ -239,9 +236,8 @@ public class FlowSheetCustom2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = validateCustomizationPermissions(scope, demographicNo);
 
         if (measurement == null || measurement.trim().isEmpty()) {
-            logger.warn("Rejected flowsheet save without measurement for flowsheet {} demographic {} from {}",
+            logger.warn("Rejected flowsheet save without measurement for flowsheet {} from {}",
                     LogSafe.sanitize(String.valueOf(flowsheet)),
-                    LogSafe.sanitize(String.valueOf(demographicNo)),
                     LogSafe.sanitize(String.valueOf(request.getRemoteAddr())));
             request.setAttribute("errorMessage", "Measurement is required to save a flowsheet customization.");
             request.setAttribute("demographic", demographicNo);
@@ -346,7 +342,7 @@ public class FlowSheetCustom2Action extends ActionSupport {
 
         LoggedInInfo loggedInInfo = validateCustomizationPermissions(scope, demographicNo);
 
-        logger.debug("UPDATING FOR demographic {}", LogSafe.sanitize(demographicNo));
+        logger.debug("Updating flowsheet customization for demographic-scoped request");
 
         if (request.getParameter("updater") != null) {
             Hashtable<String, String> h = new Hashtable<String, String>();

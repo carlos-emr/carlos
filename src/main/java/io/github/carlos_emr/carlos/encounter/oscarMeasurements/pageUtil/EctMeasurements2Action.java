@@ -82,9 +82,8 @@ public class EctMeasurements2Action extends ActionSupport {
 
     public String execute() throws ServletException, IOException {
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
-            logger.warn("Rejected measurement submission request with method {} for demographicNo {} from {}",
+            logger.warn("Rejected measurement submission request with method {} from {}",
                     LogSafe.sanitize(String.valueOf(request.getMethod())),
-                    LogSafe.sanitize(String.valueOf(request.getParameter("demographicNo"))),
                     LogSafe.sanitize(String.valueOf(request.getRemoteAddr())));
             response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
@@ -93,9 +92,8 @@ public class EctMeasurements2Action extends ActionSupport {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_measurement", "w",
                 null)) {
-            logger.warn("Denied measurement submission request with method {} for demographicNo {} from {}",
+            logger.warn("Denied measurement submission request with method {} from {}",
                     LogSafe.sanitize(String.valueOf(request.getMethod())),
-                    LogSafe.sanitize(String.valueOf(request.getParameter("demographicNo"))),
                     LogSafe.sanitize(String.valueOf(request.getRemoteAddr())));
             throw new SecurityException("missing required sec object (_measurement)");
         }
