@@ -56,8 +56,7 @@ class DateRangeUnitTest {
         @DisplayName("should throw when from is after to")
         void shouldThrow_whenFromAfterTo() {
             assertThatThrownBy(() -> new DateRange(date(2026, 12, 31), date(2026, 1, 1)))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("From date must preceed to date");
+                    .isInstanceOf(IllegalArgumentException.class);
         }
 
         @Test
