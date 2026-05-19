@@ -54,10 +54,10 @@ class SqlUtilsUnitTest {
         }
 
         @Test
-        @DisplayName("should handle empty array")
-        void shouldHandleEmptyArray() {
-            String result = SqlUtils.constructInClauseString(new String[]{}, true);
-            assertThat(result).isEqualTo(")");
+        @DisplayName("should throw for empty array")
+        void shouldThrow_forEmptyArray() {
+            assertThatThrownBy(() -> SqlUtils.constructInClauseString(new String[]{}, true))
+                    .isInstanceOf(IllegalArgumentException.class);
         }
     }
 
