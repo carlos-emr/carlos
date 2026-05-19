@@ -76,7 +76,7 @@ import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 /**
  *
@@ -2651,14 +2651,14 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
 
         String demographicQuery = generateDemographicSearchQuery(loggedInInfo, searchRequest, params, "count(*)");
 
-        MiscUtils.getLogger().debug("demographicQuery: {}", LogSanitizer.sanitize(demographicQuery, 1000));
+        MiscUtils.getLogger().debug("demographicQuery: {}", LogSafe.sanitize(demographicQuery, 1000));
 
         EntityManager session = entityManager();
             Query sqlQuery = session.createNativeQuery(demographicQuery);
             for (String key : params.keySet()) {
                 sqlQuery.setParameter(key, params.get(key));
-                MiscUtils.getLogger().debug("query param: {}={}", LogSanitizer.sanitize(key),
-                    PHI_PARAM_KEYS.contains(key) ? "[REDACTED]" : LogSanitizer.sanitize(String.valueOf(params.get(key))));
+                MiscUtils.getLogger().debug("query param: {}={}", LogSafe.sanitize(key),
+                    PHI_PARAM_KEYS.contains(key) ? "[REDACTED]" : LogSafe.sanitize(String.valueOf(params.get(key))));
             }
             Integer result = ((Number) sqlQuery.getSingleResult()).intValue();
             return result;

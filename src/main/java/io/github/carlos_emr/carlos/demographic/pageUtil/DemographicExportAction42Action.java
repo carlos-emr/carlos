@@ -122,7 +122,7 @@ import io.github.carlos_emr.carlos.commn.model.OscarLog;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -1332,7 +1332,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                                                     : ALLOWED_CODE_SYSTEM_DAOS.get(codingSystem.toLowerCase());
                                     AbstractCodeSystemDao dao = (daoClass == null) ? null : SpringUtils.getBean(daoClass);
                                     if (dao == null) {
-                                        logger.warn("Unknown coding system: {}", LogSanitizer.sanitize(codingSystem));
+                                        logger.warn("Unknown coding system: {}", LogSafe.sanitize(codingSystem));
                                     }
                                     if (dao != null) {
                                         AbstractCodeSystemModel result = dao.findByCode(dx.getDxresearchCode());

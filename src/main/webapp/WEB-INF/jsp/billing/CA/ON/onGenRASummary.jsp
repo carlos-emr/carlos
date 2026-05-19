@@ -30,6 +30,8 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%-- Data assembly + RaHeader audit merge run in ViewOnGenRaSummary2Action via
      OnRaSummaryViewModelAssembler. The view model is stashed on the request as
      ${model}; this JSP only renders. The "no rano" early return in the legacy

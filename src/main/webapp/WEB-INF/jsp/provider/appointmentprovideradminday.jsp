@@ -671,7 +671,7 @@
     <%
     } else {
     %>
-    <body onLoad="refreshAllTabAlerts();scrollOnLoad();">
+    <body onLoad="showPasswordExpiryWarning();refreshAllTabAlerts();scrollOnLoad();">
     <%
         }
     %>

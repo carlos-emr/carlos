@@ -33,14 +33,13 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>"
-                   objectName="_admin,_admin.userAdmin" rights="r"
+                   objectName="_admin,_admin.userAdmin" rights="w"
                    reverse="<%=true%>">
     <%authed = false; %>
     <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.userAdmin");%>
@@ -58,9 +57,8 @@
 %>
 <html>
     <head>
-        <script type="text/javascript" src="<%=request.getContextPath()%>/js/global.js"></script>
+        <link rel="stylesheet" href="<%= request.getContextPath() %>/web.css"/>
     </head>
-    <link rel="stylesheet" href="<%= request.getContextPath() %>/web.css"/>
     <body topmargin="0" leftmargin="0" rightmargin="0">
     <center>
         <table border="0" cellspacing="0" cellpadding="0" width="100%">

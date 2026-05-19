@@ -81,7 +81,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
 import java.util.regex.Pattern;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 public class CaseManagementView2Action extends ActionSupport {
 
@@ -285,7 +285,7 @@ public class CaseManagementView2Action extends ActionSupport {
 
         String demoNo = getDemographicNo();
         if (demoNo == null || !demoNo.matches("\\d{1,9}")) {
-            logger.warn("Invalid demographicNo from Struts parameter: {}", LogSanitizer.sanitize(demoNo));
+            logger.warn("Invalid demographicNo from Struts parameter: {}", LogSafe.sanitize(demoNo));
             return "error";
         }
 
@@ -346,7 +346,7 @@ public class CaseManagementView2Action extends ActionSupport {
             try {
                 admission = admissionMgr.getCurrentAdmission(programId, Integer.valueOf(demoNo));
             } catch (Exception e) {
-                logger.debug("No admission found for programId: {} and demoNo: {}", LogSanitizer.sanitize(programId), LogSanitizer.sanitize(demoNo), e);
+                logger.debug("No admission found for programId: {} and demoNo: {}", LogSafe.sanitize(programId), LogSafe.sanitize(demoNo), e);
             }
         } else {
             logger.debug("No valid programId available - skipping admission lookup");
@@ -384,7 +384,7 @@ public class CaseManagementView2Action extends ActionSupport {
                 try {
                     ps = programMgr.getProgramProviders(programId);
                 } catch (Exception e) {
-                    logger.debug("Unable to get program providers for programId: {}", LogSanitizer.sanitize(programId), e);
+                    logger.debug("Unable to get program providers for programId: {}", LogSafe.sanitize(programId), e);
                 }
             }
             current = System.currentTimeMillis();
@@ -581,7 +581,7 @@ public class CaseManagementView2Action extends ActionSupport {
             for (String s : checkedIssues) {
                 String[] temp = s.split("\\.");
                 if (temp.length == 2) checkedCodeList.add(temp[1]);
-                else logger.warn("Unexpected parameter, wrong format : {}", LogSanitizer.sanitize(s));
+                else logger.warn("Unexpected parameter, wrong format : {}", LogSafe.sanitize(s));
             }
         }
 
@@ -610,7 +610,7 @@ public class CaseManagementView2Action extends ActionSupport {
 
         // not sure what everything else is after this
         String resetFilter = request.getParameter("resetFilter");
-        logger.debug("RESET FILTER {}", LogSanitizer.sanitize(resetFilter));
+        logger.debug("RESET FILTER {}", LogSafe.sanitize(resetFilter));
         if (resetFilter != null && resetFilter.equals("true")) {
             logger.debug("CASEMGMTVIEW RESET FILTER");
             this.setFilter_providers(null);
@@ -710,7 +710,7 @@ public class CaseManagementView2Action extends ActionSupport {
 
         startTime = System.currentTimeMillis();
         String resetFilter = request.getParameter("resetFilter");
-        logger.debug("RESET FILTER {}", LogSanitizer.sanitize(resetFilter));
+        logger.debug("RESET FILTER {}", LogSafe.sanitize(resetFilter));
         if (resetFilter != null && resetFilter.equals("true")) {
             logger.debug("CASEMGMTVIEW RESET FILTER");
             this.setFilter_providers(null);
@@ -902,10 +902,10 @@ public class CaseManagementView2Action extends ActionSupport {
     private static boolean hasRole(List<SecUserRole> roles, String role) {
         if (roles == null) return (false);
 
-        logger.debug("Note Role : {}", LogSanitizer.sanitize(role));
+        logger.debug("Note Role : {}", LogSafe.sanitize(role));
 
         for (SecUserRole roleTmp : roles) {
-            logger.debug("Provider Roles : {}", LogSanitizer.sanitize(roleTmp.getRoleName()));
+            logger.debug("Provider Roles : {}", LogSafe.sanitize(roleTmp.getRoleName()));
             if (roleTmp.getRoleName().equals(role)) return (true);
         }
 
@@ -960,7 +960,7 @@ public class CaseManagementView2Action extends ActionSupport {
             for (GroupNoteLink link : links) {
                 int noteId = link.getNoteId();
                 List<CaseManagementIssue> issues = this.caseManagementMgr.getIssuesByNote(noteId);
-                logger.warn("we are doing nothing with this: {}", LogSanitizer.sanitize(String.valueOf(issues)));
+                logger.warn("we are doing nothing with this: {}", LogSafe.sanitize(String.valueOf(issues)));
             }
         } catch (Exception e) {
             logger.error("Unexpected error.", e);
@@ -1094,8 +1094,8 @@ public class CaseManagementView2Action extends ActionSupport {
         notes = caseManagementMgr.getActiveNotes(demoNo, issueIds);
         // Password/unlock flows have been removed, so legacy locked notes remain visible.
 
-        logger.debug("FETCHED {} NOTES filtered by {}", notes.size(), LogSanitizer.sanitize(StringUtils.join(issueIds, ",")));
-        logger.debug("REFERER {}", LogSanitizer.sanitize(request.getRequestURL().toString()));
+        logger.debug("FETCHED {} NOTES filtered by {}", notes.size(), LogSafe.sanitize(StringUtils.join(issueIds, ",")));
+        logger.debug("REFERER {}", LogSafe.sanitize(request.getRequestURL().toString()));
 
         String programId = (String) request.getSession().getAttribute("case_program_id");
 
@@ -1186,7 +1186,7 @@ public class CaseManagementView2Action extends ActionSupport {
     }
 
     private List<CaseManagementNote> sortNotes_old(Collection<CaseManagementNote> notes, String field) {
-        logger.debug("Sorting notes by field: {}", LogSanitizer.sanitize(field));
+        logger.debug("Sorting notes by field: {}", LogSafe.sanitize(field));
 
         ArrayList<CaseManagementNote> resultsSorted = new ArrayList<CaseManagementNote>(notes);
 
@@ -1215,7 +1215,7 @@ public class CaseManagementView2Action extends ActionSupport {
     }
 
     private ArrayList<NoteDisplay> sortNotes(ArrayList<NoteDisplay> notes, String field) {
-        logger.debug("Sorting notes by field: {}", LogSanitizer.sanitize(field));
+        logger.debug("Sorting notes by field: {}", LogSafe.sanitize(field));
 
         if (field == null || field.equals("") || field.equals("update_date")) {
             return notes;
@@ -1565,15 +1565,15 @@ public class CaseManagementView2Action extends ActionSupport {
         }
 
         if (logger.isDebugEnabled()) {
-            logger.debug("SEARCHING FOR NOTES WITH CRITERIA: {}", LogSanitizer.sanitize(String.valueOf(criteria)));
+            logger.debug("SEARCHING FOR NOTES WITH CRITERIA: {}", LogSafe.sanitize(String.valueOf(criteria)));
         }
 
         NoteSelectionResult result = noteService.findNotes(loggedInInfo, criteria);
 
         if (logger.isDebugEnabled()) {
-            logger.debug("FOUND: {}", LogSanitizer.sanitize(String.valueOf(result)));
+            logger.debug("FOUND: {}", LogSafe.sanitize(String.valueOf(result)));
             for (NoteDisplay nd : result.getNotes()) {
-                logger.debug("   {} noteId={}", nd.getClass().getSimpleName(), LogSanitizer.sanitize(String.valueOf(nd.getNoteId())));
+                logger.debug("   {} noteId={}", nd.getClass().getSimpleName(), LogSafe.sanitize(String.valueOf(nd.getNoteId())));
             }
         }
 
@@ -1898,7 +1898,7 @@ public class CaseManagementView2Action extends ActionSupport {
         } else if (!demono.matches("\\d+")) {
             // Reject tainted value (don't store in session) but fall back to session value
             // to avoid crashing 36+ callers that pass the return value to Integer.parseInt()
-            logger.error("Invalid non-numeric demographicNo rejected, falling back to session: {}", LogSanitizer.sanitize(demono));
+            logger.error("Invalid non-numeric demographicNo rejected, falling back to session: {}", LogSafe.sanitize(demono));
             demono = (String) request.getSession().getAttribute("casemgmt_DemoNo"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): fallback read of own-session demographic scope (regex-validated on store)
         } else {
             // demographicNo validated as numeric

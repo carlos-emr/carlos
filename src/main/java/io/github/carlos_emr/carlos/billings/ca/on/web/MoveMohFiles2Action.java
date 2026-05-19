@@ -42,6 +42,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import org.apache.struts2.ServletActionContext;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billing.CA.ON.util.EDTFolder;
@@ -54,7 +55,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.WebUtils;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 
 /**
@@ -181,7 +182,7 @@ public class MoveMohFiles2Action extends ActionSupport {
                 for (String fileName : fileNames) {
                     File file = getFile(folderPath, fileName);
                     if (file == null) {
-                        logger.warn("Unable to get file {}{}{}", LogSanitizer.sanitize(folderPath), File.separator, LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                        logger.warn("Unable to get file {}{}{}", LogSafe.sanitize(folderPath), File.separator, LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
 
                         errors.append("Unable to find file ").append(SafeEncode.forHtml(fileName)).append(".<br/>");
                         continue;
@@ -189,7 +190,7 @@ public class MoveMohFiles2Action extends ActionSupport {
 
                     boolean isValidFileLocation = validateFileLocation(file);
                     if (!isValidFileLocation) {
-                        logger.warn("Invalid file location {}", LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                        logger.warn("Invalid file location {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
 
                         errors.append("File is not in a valid location: ").append(SafeEncode.forHtml(fileName)).append(".<br/>");
                         continue;
@@ -287,7 +288,8 @@ public class MoveMohFiles2Action extends ActionSupport {
         String zname = req.getParameter("unzipfile");
         try {
             if (zname != null && !zname.isEmpty()) {
-                File safeZipFile = PathValidationUtils.validatePath(zname, new File(folderPath));
+                String safeZipName = FilenameUtils.getName(zname);
+                File safeZipFile = PathValidationUtils.validatePath(safeZipName, new File(folderPath));
                 Boolean unzipDone = zip.unzipXML(folderPath, safeZipFile.getName());
                 if (!unzipDone) {
                     unzipMSG = "(Cannot unzip)";
@@ -368,8 +370,8 @@ public class MoveMohFiles2Action extends ActionSupport {
                 // calls that hit the right folder break out before more
                 // than one DEBUG fires.
                 logger.debug("EDT folder {} rejected file path during validation: {}",
-                        io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(folder.name()),
-                        io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(
+                        io.github.carlos_emr.carlos.utility.LogSafe.sanitize(folder.name()),
+                        io.github.carlos_emr.carlos.utility.LogSafe.sanitize(
                                 file == null ? "null" : file.getPath()));
             }
         }
@@ -396,13 +398,14 @@ public class MoveMohFiles2Action extends ActionSupport {
         try {
             fileName = URLDecoder.decode(fileName, "UTF-8");
         } catch (UnsupportedEncodingException e) {
-            logger.error("Unable to decode {}", LogSanitizer.sanitize(fileName), e);
+            logger.error("Unable to decode {}", LogSafe.sanitize(fileName), e);
             return null;
         }
         if (fileName.contains("/") || fileName.contains("\\") || fileName.contains("..")) {
-            logger.warn("Rejected decoded file path: {}", LogSanitizer.sanitize(fileName));
+            logger.warn("Rejected decoded file path: {}", LogSafe.sanitize(fileName));
             return null;
         }
+        String safeFileName = FilenameUtils.getName(fileName);
 
         // Sanitize + validate-within-allowed-directory in one step rather than
         // constructing the File from raw user input and validating after-the-
@@ -411,10 +414,10 @@ public class MoveMohFiles2Action extends ActionSupport {
         // File construction. validateFileLocation() below remains as a
         // defence-in-depth check.
         try {
-            return PathValidationUtils.validatePath(fileName, new File(folderPath));
+            return PathValidationUtils.validatePath(safeFileName, new File(folderPath));
         } catch (SecurityException e) {
             logger.warn("Rejected file path: {} in {}",
-                    LogSanitizer.sanitize(fileName), LogSanitizer.sanitize(folderPath), e);
+                    LogSafe.sanitize(fileName), LogSafe.sanitize(folderPath), e);
             return null;
         }
     }
@@ -464,7 +467,7 @@ public class MoveMohFiles2Action extends ActionSupport {
     private String getFolderPath(String folderName) {
     EDTFolder folder = EDTFolder.getFolder(folderName);
     if (folder == null) {
-        logger.warn("moveMOHFiles: invalid folder parameter '{}'", LogSanitizer.sanitize(folderName));
+        logger.warn("moveMOHFiles: invalid folder parameter '{}'", LogSafe.sanitize(folderName));
         return null;
     }
     return folder.getPath();

@@ -204,8 +204,8 @@ public class BillingRaReportService {
                 unreadableRowCount++;
                 MiscUtils.getLogger().error(
                         "RA summary: account {} has unreadable amountsubmit [{}]; excluded from submitted total",
-                        io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(account),
-                        io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(amountsubmit), e);
+                        io.github.carlos_emr.carlos.utility.LogSafe.sanitize(account),
+                        io.github.carlos_emr.carlos.utility.LogSafe.sanitize(amountsubmit), e);
                 bdCFee = BillingMoney.zeroAmount();
             }
             BigCTotal = BigCTotal.add(bdCFee);

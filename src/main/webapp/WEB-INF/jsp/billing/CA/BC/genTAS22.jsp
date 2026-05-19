@@ -57,6 +57,8 @@
 <%@page import="io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanS23" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.BC.dao.TeleplanS25Dao" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanS25" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     TeleplanS00Dao teleplanS00Dao = SpringUtils.getBean(TeleplanS00Dao.class);
     TeleplanS22Dao teleplanS22Dao = SpringUtils.getBean(TeleplanS22Dao.class);

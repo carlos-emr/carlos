@@ -440,7 +440,7 @@
 */
 
             if (ret == true) {
-                popupFixedPage(650, 850, 'formbcar2wt.jsp' + param);
+                // popupFixedPage(650, 850, 'formbcar2wt.jsp' + param); // Link removed as formbcar2wt.jsp no longer exists
             }
 
         }

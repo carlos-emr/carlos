@@ -41,6 +41,8 @@
     @since 2026-04-26
 --%>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <html>
 <head>
     <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
