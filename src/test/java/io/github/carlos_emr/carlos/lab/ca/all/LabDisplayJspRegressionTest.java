@@ -61,7 +61,7 @@ class LabDisplayJspRegressionTest {
 
     private void assertAcknowledgementHandlerUsesHtmlAttributeEncoding(String jsp) {
         assertThat(jsp)
-                .as("ackLabFunc is already JavaScript code with dynamic values encoded for a JS event attribute")
+                .as("ackLabFunc is already executable JavaScript; only the enclosing HTML attribute needs encoding")
                 .contains("onclick=\"<carlos:encode value='<%= ackLabFunc %>' context=\"htmlAttribute\"/>")
                 .doesNotContain("onclick=\"<carlos:encode value='<%= ackLabFunc %>' context=\"javaScriptAttribute\"/>");
     }
