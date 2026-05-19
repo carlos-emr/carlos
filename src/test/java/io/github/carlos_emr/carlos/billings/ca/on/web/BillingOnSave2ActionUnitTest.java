@@ -119,7 +119,7 @@ class BillingOnSave2ActionUnitTest extends CarlosUnitTestBase {
     @ValueSource(strings = {"GET", "HEAD"})
     void shouldRejectNonPostMethods_beforeSaving(String method) {
         mockRequest.setMethod(method);
-        mockRequest.setParameter("submit", "Save");
+        mockRequest.setParameter("billingAction", "SAVE");
 
         String result = newAction().execute();
 
@@ -134,7 +134,7 @@ class BillingOnSave2ActionUnitTest extends CarlosUnitTestBase {
     void shouldDelegateToSaveBillingWithExtAndPayee_onPrivateBillingPath() {
         mockRequest.setParameter("appointment_no", "");
         mockRequest.setParameter("url_back", "");
-        mockRequest.setParameter("submit", "Save");
+        mockRequest.setParameter("billingAction", "SAVE");
         mockRequest.setParameter("xml_billtype", "PAT");
         mockRequest.setParameter("payeename", "Acme Payee");
         mockRequest.setParameter("billNo_old", "");
@@ -165,7 +165,7 @@ class BillingOnSave2ActionUnitTest extends CarlosUnitTestBase {
         // Service throws BillingValidationException → action treats save as
         // failed and returns "failure" with billingFailed flag set so the JSP
         // renders the error path. No billingNo set, no exception escapes.
-        mockRequest.setParameter("submit", "Save");
+        mockRequest.setParameter("billingAction", "SAVE");
         mockRequest.setParameter("xml_billtype", "PAT");
         mockRequest.setParameter("payeename", "Acme Payee");
         mockRequest.setParameter("curBillForm", "ON");
@@ -196,7 +196,7 @@ class BillingOnSave2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldReturnFailure_whenSubmissionBuildFailsValidation() {
-        mockRequest.setParameter("submit", "Save");
+        mockRequest.setParameter("billingAction", "SAVE");
         mockRequest.setParameter("xml_billtype", "HCP");
         mockRequest.setParameter("curBillForm", "ON");
         when(mockSaveService.getSubmission(mockRequest))
@@ -219,7 +219,7 @@ class BillingOnSave2ActionUnitTest extends CarlosUnitTestBase {
     void shouldThrowSecurityException_whenPrivilegeMissing() {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
                 .thenReturn(false);
-        mockRequest.setParameter("submit", "Save");
+        mockRequest.setParameter("billingAction", "SAVE");
 
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> newAction().execute())
                 .isInstanceOf(SecurityException.class)
@@ -241,10 +241,9 @@ class BillingOnSave2ActionUnitTest extends CarlosUnitTestBase {
             "/path\nwith\nlf"          // LF injection
     })
     void shouldRejectMaliciousUrlBack_andSetEmptySafeUrlBack(String maliciousUrlBack) {
-        mockRequest.setParameter("submit", "Save");
         mockRequest.setParameter("url_back", maliciousUrlBack);
-        // Make submit fail-fast so we don't need to stub the whole save path.
-        mockRequest.setParameter("submit", "");
+        // Make action validation fail-fast so we don't need to stub the whole save path.
+        mockRequest.setParameter("billingAction", "UNKNOWN");
 
         newAction().execute();
 
@@ -255,7 +254,7 @@ class BillingOnSave2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldAcceptSafeRelativeUrlBack_forValidInput() {
-        mockRequest.setParameter("submit", "");
+        mockRequest.setParameter("billingAction", "UNKNOWN");
         mockRequest.setParameter("url_back", "/billing/CA/ON/billingON");
 
         newAction().execute();
@@ -266,8 +265,8 @@ class BillingOnSave2ActionUnitTest extends CarlosUnitTestBase {
     // -- Submit-value branch matrix ------------------------------------
 
     @Test
-    void shouldReturnBackToEdit_onBackButton() {
-        mockRequest.setParameter("button", "Back to Edit");
+    void shouldReturnBackToEdit_whenBillingActionBackToEdit() {
+        mockRequest.setParameter("billingAction", "BACK_TO_EDIT");
 
         String result = newAction().execute();
 
@@ -276,21 +275,21 @@ class BillingOnSave2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldReturnSuccess_andSkipSaveWhenSubmitParameterIsUnknown() {
-        // Empty/unknown submit value → action renders the form again
-        // without saving. Pins the contract that a stray POST without a
-        // recognized submit-button value never persists.
-        mockRequest.setParameter("submit", "Unknown");
+    void shouldReturnFailure_andSkipSaveWhenBillingActionIsUnknown() {
+        mockRequest.setParameter("billingAction", "Unknown");
 
         String result = newAction().execute();
 
-        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(result).isEqualTo("failure");
+        assertThat(mockRequest.getAttribute("billingFailed")).isEqualTo(Boolean.TRUE);
+        assertThat(mockRequest.getAttribute("billingFailureReason"))
+                .isEqualTo("Invalid billing action. Please try again.");
         verifyNoInteractions(mockSaveService);
     }
 
     @Test
     void shouldDelegateToSaveBillingWithExtAndPayee_onOhipPath() {
-        mockRequest.setParameter("submit", "Save");
+        mockRequest.setParameter("billingAction", "SAVE");
         mockRequest.setParameter("xml_billtype", "HCP");  // not 3rd-party
         mockRequest.setParameter("payeename", "");
         mockRequest.setParameter("curBillForm", "ON");
@@ -315,8 +314,8 @@ class BillingOnSave2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldReturnPrintInvoice_onSaveAndPrintInvoiceButton() {
-        mockRequest.setParameter("submit", "Save & Print Invoice");
+    void shouldReturnPrintInvoice_whenSavePrintAction() {
+        mockRequest.setParameter("billingAction", "SAVE_PRINT");
         mockRequest.setParameter("xml_billtype", "HCP");
         mockRequest.setParameter("payeename", "");
         mockRequest.setParameter("curBillForm", "ON");
@@ -337,8 +336,8 @@ class BillingOnSave2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldReturnAddAnother_onSaveAndAddAnotherBillButton() {
-        mockRequest.setParameter("submit", "Save & Add Another Bill");
+    void shouldReturnAddAnother_whenSaveAddAnotherAction() {
+        mockRequest.setParameter("billingAction", "SAVE_ADD_ANOTHER");
         mockRequest.setParameter("xml_billtype", "HCP");
         mockRequest.setParameter("payeename", "");
         mockRequest.setParameter("curBillForm", "ON");
