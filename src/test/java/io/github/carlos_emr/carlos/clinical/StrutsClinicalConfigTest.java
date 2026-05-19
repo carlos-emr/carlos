@@ -241,6 +241,20 @@ class StrutsClinicalConfigTest {
                 FLOWSHEET_CUSTOM_CLASS);
     }
 
+    @Test
+    @DisplayName("flowsheet customization errors should re-render the flowsheet editor")
+    void shouldRouteFlowsheetCustomizationErrors_toEditorJsp() throws Exception {
+        Element action = findAction(SCHEDULING_CONFIG,
+                "encounter/oscarMeasurements/adminFlowsheet/FlowSheetCustomAction");
+
+        assertThat(action.getAttribute("class")).isEqualTo(FLOWSHEET_CUSTOM_CLASS);
+        assertThat(resultPath(action, "success"))
+                .isEqualTo("/WEB-INF/jsp/encounter/oscarMeasurements/adminFlowsheet/EditFlowsheet.jsp");
+        assertThat(resultPath(action, "error"))
+                .as("FlowSheetCustom2Action sets request attribute errorMessage; EditFlowsheet.jsp renders it")
+                .isEqualTo("/WEB-INF/jsp/encounter/oscarMeasurements/adminFlowsheet/EditFlowsheet.jsp");
+    }
+
     private String extractResultPath(Element result) {
         // Results may specify their location either as element text or via
         // <param name="location">. Prefer the param form when present since
@@ -272,18 +286,33 @@ class StrutsClinicalConfigTest {
     }
 
     private void assertActionClass(String configPath, String actionName, String expectedClass) throws Exception {
+        Element action = findAction(configPath, actionName);
+        assertThat(action.getAttribute("class"))
+                .as("%s should route through %s", actionName, expectedClass)
+                .isEqualTo(expectedClass);
+    }
+
+    private Element findAction(String configPath, String actionName) throws Exception {
         Document doc = parse(configPath);
         NodeList actions = doc.getElementsByTagName("action");
         for (int i = 0; i < actions.getLength(); i++) {
             Element action = (Element) actions.item(i);
             if (actionName.equals(action.getAttribute("name"))) {
-                assertThat(action.getAttribute("class"))
-                        .as("%s should route through %s", actionName, expectedClass)
-                        .isEqualTo(expectedClass);
-                return;
+                return action;
             }
         }
         throw new AssertionError("Missing action " + actionName + " in " + configPath);
+    }
+
+    private String resultPath(Element action, String resultName) {
+        NodeList results = action.getElementsByTagName("result");
+        for (int i = 0; i < results.getLength(); i++) {
+            Element result = (Element) results.item(i);
+            if (resultName.equals(result.getAttribute("name"))) {
+                return extractResultPath(result);
+            }
+        }
+        return null;
     }
 
     private Document parse(String configPath) throws Exception {
