@@ -41,7 +41,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -94,7 +94,7 @@ public class PDFHandler implements MessageHandler {
             return null;
         }
         if (!(fileName.endsWith(".pdf") || fileName.endsWith(".PDF"))) {
-            logger.error("Document {} does not have pdf extension", LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            logger.error("Document {} does not have pdf extension", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             return null;
         } else {
             int fileNameIdx = fileName.lastIndexOf("/");
@@ -117,7 +117,7 @@ public class PDFHandler implements MessageHandler {
 
             // Verify the file exists and is a regular file
             if (!targetFile.exists() || !targetFile.isFile()) {
-                logger.error("File does not exist or is not a regular file: {}", LogSanitizer.sanitize(filePath)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                logger.error("File does not exist or is not a regular file: {}", LogSafe.sanitize(filePath)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 return null;
             }
 
@@ -125,13 +125,13 @@ public class PDFHandler implements MessageHandler {
             filePath = targetFile.getCanonicalPath();
 
         } catch (SecurityException e) {
-            logger.error("Path traversal attempt detected: {}", LogSanitizer.sanitize(filePath)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            logger.error("Path traversal attempt detected: {}", LogSafe.sanitize(filePath)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             return null;
         } catch (IOException e) {
-            logger.error("Error validating file path: {}", LogSanitizer.sanitize(filePath), e); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            logger.error("Error validating file path: {}", LogSafe.sanitize(filePath), e); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             return null;
         } catch (Exception e) {
-            logger.error("Unexpected error validating file path: {}", LogSanitizer.sanitize(filePath), e); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            logger.error("Unexpected error validating file path: {}", LogSafe.sanitize(filePath), e); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             return null;
         }
 
@@ -174,10 +174,10 @@ public class PDFHandler implements MessageHandler {
                 }
             }
         } catch (FileNotFoundException e) {
-            logger.error("File not found: {}", LogSanitizer.sanitize(filePath), e);
+            logger.error("File not found: {}", LogSafe.sanitize(filePath), e);
             return null;
         } catch (Exception e) {
-            logger.error("Error uploading PDF: {}", LogSanitizer.sanitize(filePath), e);
+            logger.error("Error uploading PDF: {}", LogSafe.sanitize(filePath), e);
             return null;
         }
 

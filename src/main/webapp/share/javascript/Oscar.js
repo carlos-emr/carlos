@@ -41,7 +41,7 @@
  * @param {string} url - URL to test
  * @returns {boolean} true if the URL must always open as a popup window
  */
-const forceWindowPaths = [
+var forceWindowPaths = [
     'addappointment',
     'editappointment',
     'appointmentsearch',

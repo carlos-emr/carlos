@@ -99,4 +99,14 @@ class ReportObjectGenericUnitTest {
         assertThat(sql.getSql()).isEmpty();
         assertThat(sql.getParams()).isEmpty();
     }
+
+    @Test
+    @DisplayName("should split sequenced SQL only on semicolons outside literals")
+    void shouldSplitSequencedSqlOnlyOutsideLiterals() {
+        assertThat(ReportObjectGeneric.splitSequencedSql(
+                "select group_concat(name separator ';') from provider;select 'it'';works' as value"))
+                .containsExactly(
+                        "select group_concat(name separator ';') from provider",
+                        "select 'it'';works' as value");
+    }
 }

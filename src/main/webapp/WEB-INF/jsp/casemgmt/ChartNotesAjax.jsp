@@ -75,7 +75,7 @@
 <%@page import="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteLinkDAO" %>
 <%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
-<%@page import="io.github.carlos_emr.carlos.utility.LogSanitizer" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LogSafe" %>
 <%@page import="java.util.Objects" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
@@ -152,7 +152,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
         // visible error so the clinician doesn't mistake a broken render for an empty chart.
         MiscUtils.getLogger().error(
                 "notesToDisplay request attribute missing for demographic {} — upstream action misconfigured",
-                LogSanitizer.sanitize(demographicNo));
+                LogSafe.sanitize(demographicNo));
 %>
 <div class="alert alert-danger" role="alert">
     Unable to load encounter notes. Please refresh the page.

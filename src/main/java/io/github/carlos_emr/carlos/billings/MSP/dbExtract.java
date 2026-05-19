@@ -65,18 +65,34 @@ public class dbExtract implements AutoCloseable {
 
     public ResultSet executeQuery(String sql, Object... params) throws SQLException {
         closeQuietly(resultSet, "ResultSet");
+        resultSet = null;
         closeQuietly(stmt, "PreparedStatement");
+        stmt = null;
         stmt = prepare(sql, params);
-        resultSet = stmt.executeQuery();
-        return resultSet;
+        try {
+            resultSet = stmt.executeQuery();
+            return resultSet;
+        } catch (SQLException e) {
+            closeQuietly(stmt, "PreparedStatement");
+            stmt = null;
+            throw e;
+        }
     }
 
     public ResultSet executeQuery2(String sql, Object... params) throws SQLException {
         closeQuietly(resultSet2, "ResultSet");
+        resultSet2 = null;
         closeQuietly(stmt2, "PreparedStatement");
+        stmt2 = null;
         stmt2 = prepare(sql, params);
-        resultSet2 = stmt2.executeQuery();
-        return resultSet2;
+        try {
+            resultSet2 = stmt2.executeQuery();
+            return resultSet2;
+        } catch (SQLException e) {
+            closeQuietly(stmt2, "PreparedStatement");
+            stmt2 = null;
+            throw e;
+        }
     }
 
     private PreparedStatement prepare(String sql, Object... params) throws SQLException {

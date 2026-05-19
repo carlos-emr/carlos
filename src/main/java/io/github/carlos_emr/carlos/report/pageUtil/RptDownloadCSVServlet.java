@@ -318,11 +318,14 @@ public class RptDownloadCSVServlet extends HttpServlet {
                 bARFilter = true;
                 //"formBCAR.demographic_no in (select distinct demographic_no from formBCBirthSumMo)"
                 if (strFilter.indexOf("formBCBirthSumMo") > 0) {
-                    ResultSet rs = DBHelp.searchDBRecord(new ParameterizedSql(
-                            "select distinct demographic_no from formBCBirthSumMo", List.of()));
                     String sBirthSumNo = "";
-                    if (rs != null) while (rs.next()) {
-                        sBirthSumNo += (sBirthSumNo.length() > 0 ? "," : "") + rs.getInt("demographic_no");
+                    try (ResultSet rs = DBHelp.searchDBRecord(new ParameterizedSql(
+                            "select distinct demographic_no from formBCBirthSumMo", List.of()))) {
+                        if (rs != null) {
+                            while (rs.next()) {
+                                sBirthSumNo += (sBirthSumNo.length() > 0 ? "," : "") + rs.getInt("demographic_no");
+                            }
+                        }
                     }
                     sBirthSumNo = sBirthSumNo.length() > 0 ? sBirthSumNo : "0";
                     strFilter = " " + ARTYPE + ".demographic_no in (" + sBirthSumNo + ")";
@@ -390,9 +393,10 @@ public class RptDownloadCSVServlet extends HttpServlet {
                         for (int k = 0; k < demoNoList.size(); k++) {
                             params[k + 1] = demoNoList.get(k);
                         }
-                        ResultSet rs = DBHelp.searchDBRecord(new ParameterizedSql(sql, Arrays.asList(params)));
-                        if (rs != null) while (rs.next()) {
-                            propSpecValue.setProperty(rs.getString("demographic_no") + temp[i], rs.getString("value"));
+                        try (ResultSet rs = DBHelp.searchDBRecord(new ParameterizedSql(sql, Arrays.asList(params)))) {
+                            if (rs != null) while (rs.next()) {
+                                propSpecValue.setProperty(rs.getString("demographic_no") + temp[i], rs.getString("value"));
+                            }
                         }
                     }
                 } else {
@@ -406,7 +410,6 @@ public class RptDownloadCSVServlet extends HttpServlet {
                 vecFieldName.add("demographic_no");
                 // get demoNo
                 String sql = null;
-                ResultSet rs = null;
                 String subQuery = "select distinct(demographic.demographic_no) from demographicExt, demographic where demographic.demographic_no=demographicExt.demographic_no ";
                 String joined = RptReportCreator.joinPredicates(sDemoFilter, sSpecFilter);
                 if (!joined.isEmpty()) subQuery += " and " + joined + "  ";
@@ -415,9 +418,10 @@ public class RptDownloadCSVServlet extends HttpServlet {
                 List<Object> subQueryParams = new ArrayList<>();
                 subQueryParams.addAll(demoFilterParams);
                 subQueryParams.addAll(specFilterParams);
-                rs = DBHelp.searchDBRecord(new ParameterizedSql(subQuery, subQueryParams));
-                if (rs != null) while (rs.next()) {
-                    subDemoNoList.add(String.valueOf(rs.getInt("demographic.demographic_no")));
+                try (ResultSet rs = DBHelp.searchDBRecord(new ParameterizedSql(subQuery, subQueryParams))) {
+                    if (rs != null) while (rs.next()) {
+                        subDemoNoList.add(String.valueOf(rs.getInt("demographic.demographic_no")));
+                    }
                 }
                 // Build comma-separated string — subFormDemoNo built from rs.getInt() (integer-only)
                 String subFormDemoNo = subDemoNoList.isEmpty() ? "0" : String.join(",", subDemoNoList);
@@ -434,9 +438,10 @@ public class RptDownloadCSVServlet extends HttpServlet {
                             params[k + 1] = subDemoNoList.get(k);
                         }
                         MiscUtils.getLogger().debug(" demographic and demographicExt: " + sql);
-                        rs = DBHelp.searchDBRecord(new ParameterizedSql(sql, Arrays.asList(params)));
-                        if (rs != null) while (rs.next()) {
-                            propSpecValue.setProperty(rs.getString("demographic_no") + temp[i], rs.getString("value"));
+                        try (ResultSet rs = DBHelp.searchDBRecord(new ParameterizedSql(sql, Arrays.asList(params)))) {
+                            if (rs != null) while (rs.next()) {
+                                propSpecValue.setProperty(rs.getString("demographic_no") + temp[i], rs.getString("value"));
+                            }
                         }
                     }
                 } else {
@@ -484,9 +489,10 @@ public class RptDownloadCSVServlet extends HttpServlet {
             List<Object> subQueryParams = new ArrayList<>();
             subQueryParams.addAll(demoFilterParams);
             subQueryParams.addAll(arFilterParams);
-            ResultSet rs = DBHelp.searchDBRecord(new ParameterizedSql(subQuery, subQueryParams));
-            if (rs != null) while (rs.next()) {
-                subFormId += (subFormId.length() > 0 ? "," : "") + rs.getInt("max(ID)");
+            try (ResultSet rs = DBHelp.searchDBRecord(new ParameterizedSql(subQuery, subQueryParams))) {
+                if (rs != null) while (rs.next()) {
+                    subFormId += (subFormId.length() > 0 ? "," : "") + rs.getInt("max(ID)");
+                }
             }
 
             sTempEle = sARSelect.length() > 0 ? ("," + sARSelect) : "";
@@ -527,9 +533,10 @@ public class RptDownloadCSVServlet extends HttpServlet {
                 List<Object> subQueryParams = new ArrayList<>();
                 subQueryParams.addAll(demoFilterParams);
                 subQueryParams.addAll(arFilterParams);
-                ResultSet rs = DBHelp.searchDBRecord(new ParameterizedSql(subQuery, subQueryParams));
-                if (rs != null) while (rs.next()) {
-                    subFormId += (subFormId.length() > 0 ? "," : "") + rs.getInt("max(ID)");
+                try (ResultSet rs = DBHelp.searchDBRecord(new ParameterizedSql(subQuery, subQueryParams))) {
+                    if (rs != null) while (rs.next()) {
+                        subFormId += (subFormId.length() > 0 ? "," : "") + rs.getInt("max(ID)");
+                    }
                 }
 
                 sTempEle = sARSelect.length() > 0 ? ("," + sARSelect) : "";
@@ -572,9 +579,10 @@ public class RptDownloadCSVServlet extends HttpServlet {
                         for (int k = 0; k < demoNoList.size(); k++) {
                             params[k + 1] = demoNoList.get(k);
                         }
-                        rs = DBHelp.searchDBRecord(new ParameterizedSql(sql, Arrays.asList(params)));
-                        if (rs != null) while (rs.next()) {
-                            propSpecValue.setProperty(rs.getString("demographic_no") + temp[i], rs.getString("value"));
+                        try (ResultSet rs = DBHelp.searchDBRecord(new ParameterizedSql(sql, Arrays.asList(params)))) {
+                            if (rs != null) while (rs.next()) {
+                                propSpecValue.setProperty(rs.getString("demographic_no") + temp[i], rs.getString("value"));
+                            }
                         }
                     }
                 } else {
@@ -590,7 +598,6 @@ public class RptDownloadCSVServlet extends HttpServlet {
                 vecFieldName.add("demographic_no");
                 // get demoNo
                 String sql = null;
-                ResultSet rs = null;
                 String joinedSpec1 = RptReportCreator.joinPredicates(sDemoFilter, sSpecFilter);
                 String subQuery = "select distinct(demographic.demographic_no) from demographicExt, demographic where demographic.demographic_no=demographicExt.demographic_no ";
                 if (!joinedSpec1.isEmpty()) subQuery += " and " + joinedSpec1 + "  ";
@@ -599,9 +606,10 @@ public class RptDownloadCSVServlet extends HttpServlet {
                 List<Object> subQueryParams1 = new ArrayList<>();
                 subQueryParams1.addAll(demoFilterParams);
                 subQueryParams1.addAll(specFilterParams);
-                rs = DBHelp.searchDBRecord(new ParameterizedSql(subQuery, subQueryParams1));
-                if (rs != null) while (rs.next()) {
-                    subDemoNoList.add(String.valueOf(rs.getInt("demographic.demographic_no")));
+                try (ResultSet rs = DBHelp.searchDBRecord(new ParameterizedSql(subQuery, subQueryParams1))) {
+                    if (rs != null) while (rs.next()) {
+                        subDemoNoList.add(String.valueOf(rs.getInt("demographic.demographic_no")));
+                    }
                 }
                 // get value for spec
                 String[] temp = sSpecSelect.replaceAll("demographicExt.", "").split(",");
@@ -615,9 +623,10 @@ public class RptDownloadCSVServlet extends HttpServlet {
                         for (int k = 0; k < subDemoNoList.size(); k++) {
                             params[k + 1] = subDemoNoList.get(k);
                         }
-                        rs = DBHelp.searchDBRecord(new ParameterizedSql(sql, Arrays.asList(params)));
-                        if (rs != null) while (rs.next()) {
-                            propSpecValue.setProperty(rs.getString("demographic_no") + temp[i], rs.getString("value"));
+                        try (ResultSet rs = DBHelp.searchDBRecord(new ParameterizedSql(sql, Arrays.asList(params)))) {
+                            if (rs != null) while (rs.next()) {
+                                propSpecValue.setProperty(rs.getString("demographic_no") + temp[i], rs.getString("value"));
+                            }
                         }
                     }
                 } else {
@@ -636,9 +645,10 @@ public class RptDownloadCSVServlet extends HttpServlet {
                 List<Object> subQueryParams2 = new ArrayList<>();
                 subQueryParams2.addAll(demoFilterParams);
                 subQueryParams2.addAll(arFilterParams);
-                rs = DBHelp.searchDBRecord(new ParameterizedSql(subQuery, subQueryParams2));
-                if (rs != null) while (rs.next()) {
-                    subFormId += (subFormId.length() > 0 ? "," : "") + rs.getInt("max(ID)");
+                try (ResultSet rs = DBHelp.searchDBRecord(new ParameterizedSql(subQuery, subQueryParams2))) {
+                    if (rs != null) while (rs.next()) {
+                        subFormId += (subFormId.length() > 0 ? "," : "") + rs.getInt("max(ID)");
+                    }
                 }
 
                 // total — subFormDemoNo and subFormId built from rs.getInt() (integer-only)

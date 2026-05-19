@@ -52,13 +52,14 @@ import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
 import io.github.carlos_emr.carlos.commn.model.EncounterForm;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 public class EctFormData {
 
     private static final Pattern FORM_TABLE_NAME = Pattern.compile("^[A-Za-z0-9_]+$");
+    // Legacy built-in form table that is valid but not registered in encounterForm.
     private static final Set<String> INTERNAL_FORM_TABLES = Set.of("formGrowth0_36");
     private static Logger logger = MiscUtils.getLogger();
     private static EncounterFormDao encounterFormDao = (EncounterFormDao) SpringUtils.getBean(EncounterFormDao.class);
@@ -273,7 +274,7 @@ public class EctFormData {
         try {
             return Integer.valueOf(demoNo);
         } catch (NumberFormatException e) {
-            logger.warn("Invalid demographic_no for form lookup: {}", LogSanitizer.sanitize(demoNo));
+            logger.warn("Invalid demographic_no for form lookup: {}", LogSafe.sanitize(demoNo));
             return null;
         }
     }
@@ -284,17 +285,18 @@ public class EctFormData {
             return null;
         }
         if (!FORM_TABLE_NAME.matcher(table).matches()) {
-            logger.warn("Rejected invalid encounter form table name: {}", LogSanitizer.sanitize(table));
+            logger.warn("Rejected invalid encounter form table name: {}", LogSafe.sanitize(table));
             return null;
         }
         if ("form".equals(table) || INTERNAL_FORM_TABLES.contains(table) || isKnownEncounterFormTable(table)) {
             return table;
         }
-        logger.warn("Rejected unknown encounter form table name: {}", LogSanitizer.sanitize(table));
+        logger.warn("Rejected unknown encounter form table name: {}", LogSafe.sanitize(table));
         return null;
     }
 
     private static boolean isKnownEncounterFormTable(String table) {
+        // EncounterFormDaoImpl caches form-table lookups; keep validation here as the boundary.
         return !encounterFormDao.findByFormTable(table).isEmpty();
     }
 

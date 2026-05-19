@@ -44,8 +44,8 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.commons.io.FilenameUtils;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.OscarDocumentCreator;
@@ -119,7 +119,7 @@ public class printLabDaySheet2Action extends ActionSupport {
                     if (resolved != null) {
                         safeXmlStyleFile = resolved;
                     } else {
-                        logger.error("Invalid xmlStyle parameter rejected: {}", LogSanitizer.sanitize(baseName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                        logger.error("Invalid xmlStyle parameter rejected: {}", LogSafe.sanitize(baseName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                     }
                 }
                 

@@ -37,7 +37,7 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.billings.ca.bc.decisionSupport.BillingGuidelines;
 import io.github.carlos_emr.carlos.decisionSupport.model.DSConsequence;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -143,7 +143,7 @@ public final class BillingBCSetup2Action extends ActionSupport {
                 // billing-setup screen, but it must surface to ops with patient context so a
                 // broken ruleset doesn't fail silently for every claim.
                 MiscUtils.getLogger().error("BC billing-guideline rules failed for demoNo {}: setup will continue without consequences",
-                        LogSanitizer.sanitize(demoNo), e);
+                        LogSafe.sanitize(demoNo), e);
             }
         }
         return SUCCESS;

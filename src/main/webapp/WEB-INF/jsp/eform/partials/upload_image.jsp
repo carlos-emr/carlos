@@ -100,11 +100,11 @@
                 <c:when test="${ not empty sanitizedFileName }">
                     // Delay redirect so user can see the sanitized filename
                     setTimeout(function() {
-                        window.top.location.href = "<%=request.getContextPath()%>/administration/?show=ImageUpload";
+                        window.top.location.href = "<%=request.getContextPath()%>/administration?show=ImageUpload";
                     }, 2500);
                 </c:when>
                 <c:otherwise>
-                    window.top.location.href = "<%=request.getContextPath()%>/administration/?show=ImageUpload";
+                    window.top.location.href = "<%=request.getContextPath()%>/administration?show=ImageUpload";
                 </c:otherwise>
             </c:choose>
         </script>

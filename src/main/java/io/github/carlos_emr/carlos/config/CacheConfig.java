@@ -65,6 +65,9 @@ public class CacheConfig {
     public static final String APPOINTMENT_STATUSES = "appointmentStatuses";
     public static final String MEASUREMENT_TYPES = "measurementTypes";
     public static final String LOOKUP_LISTS = "lookupLists";
+    public static final String APPOINTMENT_TYPES = "appointmentTypes";
+    public static final String SCHEDULE_TEMPLATE_CODES = "scheduleTemplateCodes";
+    public static final String FACILITIES = "facilities";
     public static final String ENCOUNTER_FORMS = "encounterForms";
 
     /**
@@ -91,6 +94,12 @@ public class CacheConfig {
      *       <td>{@code 'allByType'}, {@code 'allByName'}, {@code 'allById'}</td></tr>
      *   <tr><td>{@code lookupLists}</td><td>50</td><td>30 min</td>
      *       <td>{@code 'allActive'}, {@code 'name:...'}</td></tr>
+     *   <tr><td>{@code appointmentTypes}</td><td>20</td><td>30 min</td>
+     *       <td>{@code 'all'}, {@code 'name:...'}</td></tr>
+     *   <tr><td>{@code scheduleTemplateCodes}</td><td>50</td><td>30 min</td>
+     *       <td>{@code 'all'}, {@code 'templateCodes'}, {@code 'codeChar:...'}</td></tr>
+     *   <tr><td>{@code facilities}</td><td>3</td><td>15 min</td>
+     *       <td>{@code 'active:true|false|null'}</td></tr>
      *   <tr><td>{@code encounterForms}</td><td>200</td><td>5 min</td>
      *       <td>Rarely changing form-table allowlist lookups keyed by form table</td></tr>
      * </table>
@@ -107,6 +116,9 @@ public class CacheConfig {
                 buildCache(APPOINTMENT_STATUSES, 5, Duration.ofMinutes(30)),
                 buildCache(MEASUREMENT_TYPES, 10, Duration.ofMinutes(60)),
                 buildCache(LOOKUP_LISTS, 50, Duration.ofMinutes(30)),
+                buildCache(APPOINTMENT_TYPES, 20, Duration.ofMinutes(30)),
+                buildCache(SCHEDULE_TEMPLATE_CODES, 50, Duration.ofMinutes(30)),
+                buildCache(FACILITIES, 3, Duration.ofMinutes(15)),
                 buildCache(ENCOUNTER_FORMS, 200, Duration.ofMinutes(5))
         ));
         delegate.afterPropertiesSet();

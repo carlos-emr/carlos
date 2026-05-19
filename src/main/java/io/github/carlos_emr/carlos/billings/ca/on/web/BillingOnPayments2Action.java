@@ -50,7 +50,7 @@ import io.github.carlos_emr.carlos.commn.model.BillingONItem;
 import io.github.carlos_emr.carlos.commn.model.BillingONPayment;
 import io.github.carlos_emr.carlos.commn.model.BillingOnItemPayment;
 import io.github.carlos_emr.carlos.commn.model.BillingPaymentType;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -402,7 +402,7 @@ public class BillingOnPayments2Action extends ActionSupport {
         } catch (NumberFormatException e) {
             MiscUtils.getLogger().warn(
                     "BillingOnPayments view: rendering 0.00 for unparseable amount [{}] (length={}); amountUnreadable=true",
-                    LogSanitizer.sanitize(s), s.length(), e);
+                    LogSafe.sanitize(s), s.length(), e);
             return new ParsedAmount(BigDecimal.ZERO, true);
         }
     }
@@ -602,7 +602,7 @@ public class BillingOnPayments2Action extends ActionSupport {
             billingPaymentDeletionService.deletePayment(paymentId);
         } catch (NumberFormatException nfe) {
             logger.warn("deletePayment: invalid id parameter: {}",
-                    io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(request.getParameter("id")), nfe);
+                    io.github.carlos_emr.carlos.utility.LogSafe.sanitize(request.getParameter("id")), nfe);
             return "failure";
         } catch (io.github.carlos_emr.carlos.billings.ca.on.service.BillingPaymentDeletionService.PaymentNotFoundException notFound) {
             // Distinct outcome — operator hit "delete" on a row that's
@@ -610,11 +610,11 @@ public class BillingOnPayments2Action extends ActionSupport {
             // current payment list rather than the generic failure page so
             // they see the up-to-date state.
             logger.warn("deletePayment: paymentId not found: {}",
-                    io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(request.getParameter("id")), notFound);
+                    io.github.carlos_emr.carlos.utility.LogSafe.sanitize(request.getParameter("id")), notFound);
             return listPayments();
         } catch (Exception ex) {
             logger.error("Failed to delete payment: {}",
-                    io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(request.getParameter("id")), ex);
+                    io.github.carlos_emr.carlos.utility.LogSafe.sanitize(request.getParameter("id")), ex);
             return "failure";
         }
 
@@ -632,7 +632,7 @@ public class BillingOnPayments2Action extends ActionSupport {
                 return "failure";
             }
         } catch (NumberFormatException e) {
-            logger.error("Invalid paymentId parameter {}", LogSanitizer.sanitize(id), e);
+            logger.error("Invalid paymentId parameter {}", LogSafe.sanitize(id), e);
             return "failure";
         }
         BillingONPayment billPayment = billingONPaymentDao.find(paymentId);
@@ -694,13 +694,13 @@ public class BillingOnPayments2Action extends ActionSupport {
             // Forward to the failure result so the user sees an error
             // instead of a silent empty render. Returning null here would
             // produce a blank page with no operator feedback.
-            logger.error("Invalid billPaymentId parameter {}", LogSanitizer.sanitize(billPaymentIdRaw), e);
+            logger.error("Invalid billPaymentId parameter {}", LogSafe.sanitize(billPaymentIdRaw), e);
             return "failure";
         }
         BillingONPayment billPayment = billingONPaymentDao.find(billPaymentId);
         if (billPayment == null) {
             logger.warn("viewPayment_ext: billPaymentId not found: {}",
-                    LogSanitizer.sanitize(billPaymentIdRaw));
+                    LogSafe.sanitize(billPaymentIdRaw));
             return "failure";
         }
         request.setAttribute("billPayment", billPayment);

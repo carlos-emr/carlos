@@ -38,7 +38,7 @@ import java.util.Map;
 
 import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
 import io.github.carlos_emr.carlos.util.StringUtils;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /*
@@ -218,7 +218,7 @@ public class ReportObjectGeneric implements ReportObject {
     public ParameterizedSql getParameterizedSql(Map parameters) {
         String sql = (new ReportManager()).getSQL(this.templateId);
         if (sql == null) {
-            MiscUtils.getLogger().error("Template SQL not found for templateId: {}", LogSanitizer.sanitize(this.templateId)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            MiscUtils.getLogger().error("Template SQL not found for templateId: {}", LogSafe.sanitize(this.templateId)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             return new ParameterizedSql("", List.of());
         }
         return parameterizeTemplateSql(sql, parameters);
@@ -241,14 +241,61 @@ public class ReportObjectGeneric implements ReportObject {
     public ParameterizedSql getParameterizedSql(int sequenceNo, Map parameters) {
         String sql = (new ReportManager()).getSQL(this.templateId);
         if (sql == null) {
-            MiscUtils.getLogger().error("Template SQL not found for templateId: {}", LogSanitizer.sanitize(this.templateId)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            MiscUtils.getLogger().error("Template SQL not found for templateId: {}", LogSafe.sanitize(this.templateId)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             return new ParameterizedSql("", List.of());
         }
-        String[] parts = sql.split(";");
-        if (parts.length <= sequenceNo) {
+        List<String> parts = splitSequencedSql(sql);
+        if (parts.size() <= sequenceNo) {
             return null;
         }
-        return parameterizeTemplateSql(parts[sequenceNo], parameters);
+        return parameterizeTemplateSql(parts.get(sequenceNo), parameters);
+    }
+
+    static List<String> splitSequencedSql(String sql) {
+        List<String> parts = new ArrayList<>();
+        StringBuilder currentPart = new StringBuilder();
+        boolean inSingleQuote = false;
+        boolean inDoubleQuote = false;
+
+        for (int i = 0; i < sql.length(); i++) {
+            char current = sql.charAt(i);
+            char next = i + 1 < sql.length() ? sql.charAt(i + 1) : '\0';
+
+            if (inSingleQuote) {
+                currentPart.append(current);
+                if (current == '\'' && next == '\'') {
+                    currentPart.append(next);
+                    i++;
+                } else if (current == '\'') {
+                    inSingleQuote = false;
+                }
+            } else if (inDoubleQuote) {
+                currentPart.append(current);
+                if (current == '"' && next == '"') {
+                    currentPart.append(next);
+                    i++;
+                } else if (current == '"') {
+                    inDoubleQuote = false;
+                }
+            } else if (current == '\'') {
+                inSingleQuote = true;
+                currentPart.append(current);
+            } else if (current == '"') {
+                inDoubleQuote = true;
+                currentPart.append(current);
+            } else if (current == ';') {
+                parts.add(currentPart.toString());
+                currentPart.setLength(0);
+            } else {
+                currentPart.append(current);
+            }
+        }
+
+        parts.add(currentPart.toString());
+        while (parts.size() > 1 && parts.get(parts.size() - 1).isEmpty()) {
+            parts.remove(parts.size() - 1);
+        }
+        return parts;
     }
 
     /**

@@ -13,8 +13,10 @@
 package io.github.carlos_emr.carlos.report.pageUtil;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.lang.reflect.InvocationTargetException;
@@ -176,6 +178,19 @@ class RptDownloadCSVServletTest {
 
         assertSqlShape(subQuery);
         assertThat(subQuery.params()).containsExactly("Smith", "French");
+    }
+
+    @Test
+    @DisplayName("should close DBHelp result sets during report generation")
+    void shouldCloseDbHelpResultSets() throws Exception {
+        MockHttpServletRequest request = baseRequest();
+        request.addParameter("last_name", "on");
+        request.addParameter("c_EDD", "on");
+        addFilter(request, 1, "formBCAR.c_EDD>='${edd}'", "edd", "2026-01-01");
+
+        invokeDemoReport(request);
+
+        verify(emptyResultSet, atLeastOnce()).close();
     }
 
     private MockHttpServletRequest baseRequest() {

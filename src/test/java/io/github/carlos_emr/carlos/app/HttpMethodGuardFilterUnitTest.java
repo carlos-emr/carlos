@@ -248,6 +248,19 @@ class HttpMethodGuardFilterUnitTest {
         }
 
         @Test
+        @DisplayName("should block GET when path parameter appears before mutator action")
+        void shouldBlock_whenPathParameterAppearsBeforeMutatorAction() throws Exception {
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/billing;v=1/CA/ON/SaveBilling");
+            when(request.getParameter("method")).thenReturn(null);
+
+            filter.doFilter(request, response, chain);
+
+            verify(response).sendError(anyInt(), anyString());
+            verify(chain, never()).doFilter(request, response);
+        }
+
+        @Test
         @DisplayName("should block GET to Submit* action")
         void shouldBlock_forGetToSubmitAction() throws Exception {
             when(request.getMethod()).thenReturn("GET");
@@ -805,6 +818,20 @@ class HttpMethodGuardFilterUnitTest {
         void shouldReturnNull_forNullPath() {
             assertThat(HttpMethodGuardFilter.extractActionName(null))
                     .isNull();
+        }
+
+        @Test
+        @DisplayName("should keep action segment when earlier path segment has parameters")
+        void shouldKeepActionSegment_whenEarlierPathSegmentHasParameters() {
+            assertThat(HttpMethodGuardFilter.extractActionName("/billing;v=1/CA/ON/SaveBilling"))
+                    .isEqualTo("SaveBilling");
+        }
+
+        @Test
+        @DisplayName("should strip path parameters from mutator action segment")
+        void shouldStripPathParameters_fromMutatorActionSegment() {
+            assertThat(HttpMethodGuardFilter.extractActionName("/admin/ProviderDelete;jsessionid=secret"))
+                    .isEqualTo("ProviderDelete");
         }
     }
 
