@@ -199,7 +199,7 @@ class TicklerLazyFetchMigrationUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should avoid shared converter include state for REST tickler responses")
-    void shouldAvoidSharedConverterIncludeState_forRestTicklerResponses() {
+    void shouldAvoidSharedConverterIncludeState_inRestTicklerResponses() {
         assertThat(Stream.of(TicklerWebService.class.getDeclaredFields())
                 .filter(field -> TicklerConverter.class.equals(field.getType()))
                 .toList()).isEmpty();
