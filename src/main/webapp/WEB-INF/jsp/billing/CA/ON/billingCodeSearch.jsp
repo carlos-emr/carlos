@@ -29,6 +29,8 @@
 <%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     // ViewBillingCodeSearch2Action enforces _billing r and assembles the
     // view model with the BillingServiceDao lookup + nameF validation
