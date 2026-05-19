@@ -60,7 +60,7 @@ class BackupDownloadUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should reject GET when filename is missing")
-    void shouldRejectGet_whenFilenameMissing() throws Exception {
+    void shouldRejectGet_whenFilenameIsMissing() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/servlet/BackupDownload");
         MockHttpServletResponse response = new MockHttpServletResponse();
         RecordingBackupDownload servlet = new RecordingBackupDownload();
@@ -74,7 +74,7 @@ class BackupDownloadUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should reject GET when sanitized filename is blank")
-    void shouldRejectGet_whenSanitizedFilenameBlank() throws Exception {
+    void shouldRejectGet_whenSanitizedFilenameIsBlank() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/servlet/BackupDownload");
         request.addParameter("filename", "///");
         MockHttpServletResponse response = new MockHttpServletResponse();
@@ -89,7 +89,7 @@ class BackupDownloadUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should reject GET when session is missing")
-    void shouldRejectGet_whenSessionMissing() throws Exception {
+    void shouldRejectGet_whenSessionIsMissing() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/servlet/BackupDownload");
         request.addParameter("filename", "backup.sql");
         MockHttpServletResponse response = new MockHttpServletResponse();
@@ -104,7 +104,7 @@ class BackupDownloadUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should reject GET when backup download privilege is missing")
-    void shouldRejectGet_whenBackupDownloadPrivilegeMissing() throws Exception {
+    void shouldRejectGet_whenBackupDownloadPrivilegeIsMissing() throws Exception {
         MockHttpServletRequest request = authorizedRequest();
         MockHttpServletResponse response = new MockHttpServletResponse();
         RecordingBackupDownload servlet = new RecordingBackupDownload();
@@ -124,7 +124,7 @@ class BackupDownloadUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should download when admin read privilege is granted")
-    void shouldDownload_whenAdminReadPrivilegeGranted() throws Exception {
+    void shouldDownload_whenAdminReadPrivilegeIsGranted() throws Exception {
         MockHttpServletRequest request = authorizedRequest();
         MockHttpServletResponse response = new MockHttpServletResponse();
         RecordingBackupDownload servlet = new RecordingBackupDownload();
@@ -145,7 +145,7 @@ class BackupDownloadUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should download when backup read privilege is granted")
-    void shouldDownload_whenBackupReadPrivilegeGranted() throws Exception {
+    void shouldDownload_whenBackupReadPrivilegeIsGranted() throws Exception {
         MockHttpServletRequest request = authorizedRequest();
         MockHttpServletResponse response = new MockHttpServletResponse();
         RecordingBackupDownload servlet = new RecordingBackupDownload();
