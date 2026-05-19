@@ -42,6 +42,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DisplayName("MDS search JSP regressions")
 @Tag("unit")
 @Tag("regression")
+@Tag("security")
 class MdsSearchJspRegressionTest {
 
     private static final Pattern SCRIPT_BLOCK_PATTERN = Pattern.compile("(?is)<script\\b[^>]*>(.*?)</script>");
@@ -63,6 +64,7 @@ class MdsSearchJspRegressionTest {
         assertThat(onSubmitScriptBlock(jsp))
                 .doesNotContain("<c:")
                 .doesNotContain("<carlos:")
+                .doesNotContain("<e:")
                 .doesNotContain("<fn:")
                 .doesNotContain("<jsp:");
     }
