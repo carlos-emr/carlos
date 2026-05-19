@@ -101,7 +101,7 @@ class JpqlQueryHelperUnitTest {
 
         @Test
         @DisplayName("should bind params and set limit together")
-        void shouldBindParamsAndSetLimit_whenLimitProvided() {
+        void shouldBindParamsAndSetLimit_withLimitAndParams() {
             JpqlQueryHelper.findWithLimit(mockEntityManager, "from Entity where x = ?1", 5, "value");
             verify(mockQuery).setParameter(1, "value");
             verify(mockQuery).setMaxResults(5);
