@@ -36,6 +36,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @DisplayName("Removed JSP reference regression tests")
 class RemovedJspReferenceRegressionTest {
+    private static final Pattern OSCAR_JS_SCRIPT =
+            Pattern.compile("<script\\b[^>]*src=[\"'][^\"']*/share/javascript/Oscar\\.js[\"'][^>]*>",
+                    Pattern.CASE_INSENSITIVE);
 
     @Test
     @DisplayName("Appointment admin day should not link to removed PMmodule popup JSPs")
@@ -144,10 +147,7 @@ class RemovedJspReferenceRegressionTest {
         try {
             String content = Files.readString(path, StandardCharsets.UTF_8);
             return content.contains("<%@ include file=\"/WEB-INF/jsp/includes/global-head.jspf\" %>")
-                    && Pattern.compile("<script\\b[^>]*src=[\"'][^\"']*/share/javascript/Oscar\\.js[\"'][^>]*>",
-                            Pattern.CASE_INSENSITIVE)
-                    .matcher(content)
-                    .find();
+                    && OSCAR_JS_SCRIPT.matcher(content).find();
         } catch (IOException e) {
             throw new IllegalStateException("Unable to inspect " + path, e);
         }
