@@ -131,6 +131,7 @@ class LogoutBroadcastFilterUnitTest {
 
         String content = response.getContentAsString();
         assertThat(content).contains("function hL(){if(done)return;done=true;dL()}");
+        assertThat(content).contains("bc.onmessage=function(e){hL()");
         assertThat(content).doesNotContain("ready=false");
         assertThat(content).doesNotContain("||!ready");
     }
