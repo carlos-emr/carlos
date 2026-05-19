@@ -123,11 +123,16 @@
                 msgInvalidDOB:           '<%= SafeEncode.forJavaScript(oscarResources.getString("demographic.add.msgInvalidDOB")) %>',
                 msgInvalidDOBDate:       '<%= SafeEncode.forJavaScript(oscarResources.getString("demographic.add.msgInvalidDOBDate")) %>',
                 msgInvalidHIN:           '<%= SafeEncode.forJavaScript(oscarResources.getString("demographic.add.msgInvalidHIN")) %>',
+                msgWrongDate:            '<%= SafeEncode.forJavaScript(oscarResources.getString("demographic.demographiceditdemographic.msgWrongDate")) %>',
                 msgSexRequired:          '<%= SafeEncode.forJavaScript(oscarResources.getString("demographic.add.msgSexRequired")) %>',
                 msgInvalidPostalCode:    '<%= SafeEncode.forJavaScript(oscarResources.getString("demographic.add.msgInvalidPostalCode")) %>',
                 confirmDuplicatePatient: '<%= SafeEncode.forJavaScript(oscarResources.getString("demographic.add.confirmDuplicatePatient")) %>',
                 confirmClearConsent:     '<%= SafeEncode.forJavaScript(oscarResources.getString("demographic.add.confirmClearConsent")) %>'
             };
+
+            function showAlert(message) {
+                alert(String(message).replace(/<br\s*\/?>/gi, '\n'));
+            }
 
             function aSubmit() {
                 syncInputDobParts();

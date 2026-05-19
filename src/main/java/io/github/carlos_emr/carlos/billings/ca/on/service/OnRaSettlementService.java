@@ -31,7 +31,7 @@ import io.github.carlos_emr.carlos.commn.dao.RaDetailDao;
 import io.github.carlos_emr.carlos.commn.dao.RaHeaderDao;
 import io.github.carlos_emr.carlos.commn.model.RaDetail;
 import io.github.carlos_emr.carlos.commn.model.RaHeader;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 /**
  * Mutation service for the two RA settlement popups —
@@ -160,7 +160,7 @@ public class OnRaSettlementService {
                     failedStatusUpdates.size(), raNo);
             throw new BillingValidationException(
                     "RA settlement failed for " + failedStatusUpdates.size()
-                            + " bill(s): " + LogSanitizer.sanitize(String.join(", ", failedStatusUpdates)));
+                            + " bill(s): " + LogSafe.sanitize(String.join(", ", failedStatusUpdates)));
         }
 
         RaHeader raHeader = raHeaderDao.find(raNo);
@@ -191,7 +191,7 @@ public class OnRaSettlementService {
         // Log the offending raw value with sanitisation so we keep diagnostic
         // context out of the user-facing exception message.
         MiscUtils.getLogger().warn("RA settle: rano parse rejected, raw value: {}",
-                io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(raNoStr));
+                io.github.carlos_emr.carlos.utility.LogSafe.sanitize(raNoStr));
         return new io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException(
                 "RA settle rejected: rano parameter is missing or not a valid integer");
     }

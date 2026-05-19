@@ -246,7 +246,7 @@ public class PersonaService extends AbstractServiceImpl {
                 .addWithState(idCounter++, bundle.getString("navbar.menu.tickler"), null, "ticklers")
 
                 //.add(0,"K2A",null,"#/k2a")
-                .add(idCounter++, bundle.getString("navbar.menu.admin"), null, "../administration/", "admin");
+                .add(idCounter++, bundle.getString("navbar.menu.admin"), null, "../administration", "admin");
 
         MenuItemTo1 moreMenu = new MenuItemTo1(idCounter++, bundle.getString("navbar.menu.more"), null);
         moreMenu.setDropdown(true);

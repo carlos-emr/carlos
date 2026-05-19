@@ -69,10 +69,9 @@ public final class ErrorPageLogger {
         // hierarchy is supposed to produce, and a stack-trace log loop is
         // possible if errorpage.jsp is itself the next page Tomcat tries to
         // render. Wrap the entire body in a defensive try/catch and swallow
-        // anything that escapes the log call (corrupted servlet attribute
-        // bound to a non-Throwable, log4j2 ConfigurationException at runtime,
-        // ClassCastException on a buggy filter that stashed a String under
-        // jakarta.servlet.error.exception, etc.).
+        // anything that escapes the log call (for example, a logging backend
+        // failure while formatting a throwable, or an unexpected servlet
+        // container attribute state during error-page dispatch).
         try {
             Throwable t = explicitException;
             if (t == null && request != null) {
@@ -94,15 +93,15 @@ public final class ErrorPageLogger {
             Object uri = sanitizeUri(request != null
                     ? request.getAttribute("jakarta.servlet.error.request_uri")
                     : null);
-            Object status = request != null
+            Object status = sanitizeForLog(request != null
                     ? request.getAttribute("jakarta.servlet.error.status_code")
-                    : null;
+                    : null);
             // For HttpServletRequest, also attempt to log the original request
             // method when available — useful for distinguishing GET vs POST
             // failures on the same URI.
-            Object method = (request instanceof HttpServletRequest)
+            Object method = sanitizeForLog((request instanceof HttpServletRequest)
                     ? ((HttpServletRequest) request).getMethod()
-                    : null;
+                    : null);
 
             if (t == null) {
                 // No exception is available. This happens when sendError() is called
@@ -118,6 +117,7 @@ public final class ErrorPageLogger {
                 Object message = request != null
                         ? request.getAttribute("jakarta.servlet.error.message")
                         : null;
+                Object safeMessage = sanitizeForLog(message);
                 if (status != null || uri != null || message != null) {
                     String sanitizationProp = CarlosProperties.getInstance().getProperty(ResponseSanitizationFilter.ENABLED_PROPERTY, "").trim();
                     boolean sanitizationEnabled = sanitizationProp.isEmpty() || Boolean.parseBoolean(sanitizationProp);
@@ -127,7 +127,7 @@ public final class ErrorPageLogger {
                             + "(method={}, uri={}, status={}, message={}) "
                             + "— sendError() was called without propagating the exception",
                             method, uri, status,
-                            displayError ? message : (message != null ? "[present — set DISPLAY_ERROR=true, response.sanitization.enabled=false to log]" : null));
+                            displayError ? safeMessage : (message != null ? "[present — set DISPLAY_ERROR=true, response.sanitization.enabled=false to log]" : null));
                 }
                 return;
             }
@@ -136,13 +136,14 @@ public final class ErrorPageLogger {
                     "errorpage.jsp captured exception (method={}, uri={}, status={})",
                     method, uri, status, t);
         } catch (Throwable suppressed) { // NOSONAR — error page must never throw
-            // Last-ditch: best-effort write to System.err so a logging-config
-            // failure doesn't leave operations entirely blind.
+            // Last-ditch: this is the exception raised while trying to log the original error.
+            // Log only its class; calling toString() can expose PHI from exception messages when
+            // the normal logging pipeline has already failed.
             try {
-                String suppressedType = suppressed == null ? "unknown" : suppressed.getClass().getName();
-                System.err.println("ErrorPageLogger: suppressed exception during error logging (" + suppressedType + ")");
+                String suppressedSummary = suppressed.getClass().getName();
+                System.err.println("ErrorPageLogger: suppressed exception during error logging (" + suppressedSummary + ")");
             } catch (Throwable ignored) {
-                // truly nothing more we can do
+                // Last-ditch logging must never make the error page fail.
             }
         }
     }
@@ -153,17 +154,17 @@ public final class ErrorPageLogger {
      */
     private static Object sanitizeUri(Object rawUri) {
         if (!(rawUri instanceof String)) {
-            return rawUri;
+            return sanitizeForLog(rawUri);
         }
         String s = (String) rawUri;
         int q = s.indexOf('?');
         if (q >= 0) {
             s = s.substring(0, q);
         }
-        int sc = s.indexOf(';');
-        if (sc >= 0) {
-            s = s.substring(0, sc);
-        }
-        return s;
+        return LogSafe.sanitizeUri(s);
+    }
+
+    private static Object sanitizeForLog(Object raw) {
+        return raw == null ? null : LogSafe.sanitize(String.valueOf(raw));
     }
 }

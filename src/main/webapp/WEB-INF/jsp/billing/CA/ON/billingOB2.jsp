@@ -30,6 +30,8 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@page import="io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOhipBillingHistoryViewModel" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     // BillingOB2View2Action enforces _billing r and assembles the view model
     // with the 6 DAO lookups the JSP body used to perform. "OB" = OHIP

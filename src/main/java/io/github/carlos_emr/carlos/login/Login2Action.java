@@ -45,32 +45,38 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.service.ProviderManager;
 import io.github.carlos_emr.carlos.PMmodule.web.utils.UserRoleUtils;
-import io.github.carlos_emr.carlos.decisionSupport.service.DSService;
-import io.github.carlos_emr.carlos.managers.AppManager;
 import io.github.carlos_emr.carlos.managers.MfaManager;
 import io.github.carlos_emr.carlos.managers.SecurityManager;
 import io.github.carlos_emr.carlos.managers.UserSessionManager;
-import org.owasp.encoder.Encode;
 import org.springframework.context.ApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.util.AlertTimer;
+import io.github.carlos_emr.carlos.webserv.oauth.OAuthAuthorizationSessionState;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.security.InvalidKeyException;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
+import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.MissingResourceException;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.ResourceBundle;
 import java.util.regex.Pattern;
 
 /**
@@ -94,6 +100,8 @@ import java.util.regex.Pattern;
  *   <li>Input validation for username, password, and PIN formats</li>
  *   <li>Protection against brute force attacks via IP blocking</li>
  *   <li>Secure session regeneration after successful authentication</li>
+ *   <li>Server-side password policy enforcement for forced password resets</li>
+ *   <li>Short-lived opaque credential-cache tokens for multi-request login state</li>
  *   <li>OWASP encoding for all user-provided output</li>
  *   <li>TOTP-based MFA support (RFC 6238)</li>
  *   <li>PHI-compliant audit logging</li>
@@ -109,6 +117,9 @@ import java.util.regex.Pattern;
  *
  * <p>CRITICAL: This action ONLY accepts POST requests for security reasons.
  * GET requests are rejected to prevent credential exposure in URL parameters or server logs.
+ * Forced password reset uses a dedicated POST endpoint that remains behind CSRFGuard even though
+ * it is exempt from the authenticated-session filter; do not move password updates back onto a
+ * public GET/JSP route.
  *
  * <p>This action integrates with Spring-managed services for:
  * <ul>
@@ -116,7 +127,6 @@ import java.util.regex.Pattern;
  *   <li>Security operations ({@link SecurityManager})</li>
  *   <li>MFA operations ({@link MfaManager})</li>
  *   <li>Session tracking ({@link UserSessionManager})</li>
- *   <li>Decision support ({@link DSService})</li>
  * </ul>
  *
  * @see LoginCheckLogin for authentication business logic
@@ -139,28 +149,91 @@ public final class Login2Action extends ActionSupport {
      * and must select which facility context to work in. The selected facility ID
      * is passed as a request parameter using this key.
      *
-     * @see #execute() for facility selection logic
+     * @see io.github.carlos_emr.carlos.login.gate.SelectFacility2Action for the CSRF-protected
+     *      facility selection POST flow
      */
     public static final String SELECTED_FACILITY_ID = "selectedFacilityId";
 
-    /** Logger instance for authentication events and errors */
     private static final Logger logger = MiscUtils.getLogger();
 
-    /** Log message prefix for authentication-related log entries */
+    /**
+     * Legacy authentication grep anchor mirroring the same literal in {@link LoginCheckLoginBean}.
+     *
+     * <p>Operational log searches still use this distinctive prefix to separate credential
+     * decisions from general login controller flow. Keep the token stable unless log dashboards
+     * and runbooks are migrated at the same time.</p>
+     */
     private static final String LOG_PRE = "Login!@#$: ";
+    /** Default for {@code password_min_length} when the property is absent or malformed. */
+    private static final int DEFAULT_POLICY_MIN_LENGTH = 8;
+    /** Default for {@code password_min_groups} when the property is absent or malformed. */
+    private static final int DEFAULT_POLICY_MIN_GROUPS = 3;
+    /** Default for {@code password_group_lower_chars} when the property is absent. */
+    private static final String DEFAULT_POLICY_LOWER_CHARS = "abcdefghijklmnopqrstuvwxyz";
+    /** Default for {@code password_group_upper_chars} when the property is absent. */
+    private static final String DEFAULT_POLICY_UPPER_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    /** Default for {@code password_group_digits} when the property is absent. */
+    private static final String DEFAULT_POLICY_DIGIT_CHARS = "0123456789";
+    /** Default for {@code password_group_special} when the property is absent. */
+    private static final String DEFAULT_POLICY_SPECIAL_CHARS = "! @#$%^&*()_+|~-=`{}[]\\:\";'<>?,./";
+    private static final Pattern OAUTH_TOKEN_ID_PATTERN =
+            Pattern.compile("[A-Za-z0-9._~\\-]{1,200}");
 
     /**
      * Session attribute name holding an opaque random token that references credential
      * material stashed in {@link LoginCredentialCache}. The token itself contains no
      * credential information; credential hashes and PINs are never placed in the session.
      */
-    private static final String LOGIN_CREDENTIALS_TOKEN_ATTR = "loginCredentialsToken";
+    public static final String LOGIN_CREDENTIALS_TOKEN_ATTR = "loginCredentialsToken";
+
+    /**
+     * Session-scoped, one-request error message used by the forced-reset retry redirect.
+     *
+     * <p>Validation failures intentionally redirect back to the GET-only reset page instead of
+     * forwarding after POST. That keeps browser refresh/back behavior safe while preserving the
+     * still-valid credential-cache token for retryable mistakes such as a bad old password.</p>
+     */
+    public static final String FORCE_PASSWORD_RESET_ERROR_ATTR = "forcePasswordResetError";
+
+    private static final String FORCE_PASSWORD_RESET_OLD_PASSWORD_ATTEMPTS_ATTR =
+            "forcePasswordResetOldPasswordAttempts";
+
+    private static final int MAX_FORCE_PASSWORD_RESET_OLD_PASSWORD_ATTEMPTS = 5;
+
+    /**
+     * Session marker for the short-lived MFA challenge state.
+     *
+     * <p>The normal {@code user} session attribute is intentionally not set until the
+     * MFA code has been validated. LoginFilter treats {@code user} as an authenticated
+     * session, so MFA state must use distinct attributes that grant no application access.</p>
+     */
+    public static final String PENDING_MFA_AUTH_ATTR = PendingMfaChallenges.AUTH_ATTR;
+
+    /** Session key for counting retryable MFA code failures inside one pending challenge. */
+    private static final String PENDING_MFA_ATTEMPTS_ATTR = PendingMfaChallenges.ATTEMPTS_ATTR;
+
+    /** Maximum invalid OTP submissions allowed before pending MFA state is cleared. */
+    private static final int MAX_PENDING_MFA_ATTEMPTS = 5;
+
+    /**
+     * Session key for the provider number associated with the pending MFA challenge.
+     *
+     * <p>This is useful for audit context when a cache entry expires. It is not sufficient to
+     * complete login; the opaque cache token must still resolve to server-side pending state.</p>
+     */
+    private static final String PENDING_MFA_PROVIDER_NO_ATTR = PendingMfaChallenges.PROVIDER_NO_ATTR;
+
+    /**
+     * Session key for the opaque pending-MFA cache token.
+     *
+     * <p>The token references {@link PendingMfaChallengeCache}; the session must never store the
+     * full {@link Security} entity, the {@link LoginCheckLogin#auth} result, or an MFA registration
+     * secret while OTP validation is still pending.</p>
+     */
+    private static final String PENDING_MFA_TOKEN_ATTR = PendingMfaChallenges.TOKEN_ATTR;
 
     /** Spring-managed service for provider data access and management */
     private final ProviderManager providerManager = SpringUtils.getBean(ProviderManager.class);
-
-    /** Spring-managed service for application-level operations */
-    private final AppManager appManager = SpringUtils.getBean(AppManager.class);
 
     /** DAO for facility data access */
     private final FacilityDao facilityDao = SpringUtils.getBean(FacilityDao.class);
@@ -173,9 +246,6 @@ public final class Login2Action extends ActionSupport {
 
     /** DAO for user property data access */
     private final UserPropertyDAO propDao = SpringUtils.getBean(UserPropertyDAO.class);
-
-    /** Decision support service for clinical decision support features */
-    private final DSService dsService = SpringUtils.getBean(DSService.class);
 
     /** DAO for OAuth service request token management */
     private final ServiceRequestTokenDao serviceRequestTokenDao = SpringUtils.getBean(ServiceRequestTokenDao.class);
@@ -243,6 +313,7 @@ public final class Login2Action extends ActionSupport {
      *   <li>"programLocation" - Program location selection interface</li>
      *   <li>"patientIntake" - Patient intake role interface</li>
      *   <li>"mfaHandler" - MFA validation/registration interface</li>
+     *   <li>"error" - Authentication cannot continue safely and a login failure page should render</li>
      *   <li>NONE - Processing complete (redirect already sent)</li>
      *   <li>null - AJAX response sent (no forward needed)</li>
      * </ul>
@@ -252,15 +323,15 @@ public final class Login2Action extends ActionSupport {
      * @throws IOException if I/O error occurs during redirect or response writing
      * @see LoginCheckLogin#auth for authentication logic
      * @see MfaManager#getQRCodeImageData for MFA QR code generation
-     * @see #resumePostAuthenticationFlow for MFA continuation logic
+     * @see #validateMfaAndCompleteLogin for MFA continuation logic
      */
     public String execute() throws ServletException, IOException {
 
-        // >> 1. Initial Checks and Mobile Detection
-        // SECURITY: Reject GET requests to prevent credential exposure in URLs/logs
         if (!"POST".equals(request.getMethod())) {
-            MiscUtils.getLogger().error("Someone is trying to login with a GET request.", new Exception());
-            String newURL = request.getContextPath() + "/loginfailed?errormsg=Application Error. See Log.";
+            MiscUtils.getLogger().info("Rejected non-POST login request: method={}, remote={}, uri={}",
+                    LogSafe.sanitize(request.getMethod()), LogSafe.sanitize(request.getRemoteAddr()),
+                    LogSafe.sanitizeUri(request.getRequestURI()));
+            String newURL = loginFailedRedirectUrl(message("login.errorApplicationError"));
             response.sendRedirect(newURL);
             return NONE;
         }
@@ -287,104 +358,42 @@ public final class Login2Action extends ActionSupport {
 
         LoginCheckLogin cl;
 
-        // Determine if this is MFA code validation flow vs. initial authentication
-        boolean isMfaVerifyFlow = (this.code != null && !this.code.isEmpty());
-        
-        if (isMfaVerifyFlow) {
-            cl = request.getSession().getAttribute("cl") == null ? new LoginCheckLogin()
-                    : (LoginCheckLogin) request.getSession().getAttribute("cl");
-            
-            // Handle MFA validation
-            String mfaSecret;
-            if (this.mfaRegistrationFlow) {
-                Object mfaSecretAttr = request.getSession().getAttribute("mfaSecret");
-                if (mfaSecretAttr == null) {
-                    // Session expired or attribute missing during MFA registration flow
-                    request.setAttribute("errMsg", "Session expired. Please log in again.");
-                    return "failure";
-                }
-                mfaSecret = mfaSecretAttr.toString();
-            } else {
-                Security security = cl.getSecurity();
-                try {
-                    mfaSecret = this.mfaManager.getMfaSecret(security);
-                } catch (Exception e) {
-                    request.setAttribute("errMsg", "Something went wrong while processing, please try again or contact support.");
-                    throw new RuntimeException(e);
-                }
-            }
-            
-            // Verify TOTP code with ±1 time step tolerance for clock skew (RFC 6238)
-            boolean validCode;
-            try {
-                TimeBasedOneTimePasswordGenerator totpGenerator = new TimeBasedOneTimePasswordGenerator();
-                byte[] decodedKey = new Base32().decode(mfaSecret);
-                SecretKeySpec key = new SecretKeySpec(decodedKey, totpGenerator.getAlgorithm());
-                java.time.Instant now = java.time.Instant.now();
-                java.time.Duration timeStep = totpGenerator.getTimeStep();
-
-                validCode = totpGenerator.generateOneTimePasswordString(key, now).equals(this.code)
-                        || totpGenerator.generateOneTimePasswordString(key, now.minus(timeStep)).equals(this.code)
-                        || totpGenerator.generateOneTimePasswordString(key, now.plus(timeStep)).equals(this.code);
-            } catch (java.security.InvalidKeyException e) {
-                request.setAttribute("errMsg", "Something went wrong while processing, please try again or contact support.");
-                throw new RuntimeException(e);
-            }
-
-            if (validCode) {
-                LogAction.addLog(cl.getSecurity().getProviderNo(), "login", "mfa_success", "mfa", ip);
-                if (this.mfaRegistrationFlow) {
-                    Security security = cl.getSecurity();
-                    LoggedInInfo loggedInInfo = LoggedInUserFilter.generateLoggedInInfoFromSession(request);
-                    try {
-                        this.mfaManager.saveMfaSecret(loggedInInfo, security, mfaSecret);
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
-                    }
-                }
-                // MFA verification succeeded: the original login credentials are no longer
-                // needed on subsequent requests, so invalidate the credential-cache entry
-                // and clear the session token. This ensures credential material cannot
-                // outlive the successful login (it would otherwise sit in the cache until
-                // its 5-minute TTL expired).
-                removeAttributesFromSession(request);
-                // Continue with post-authentication flow after successful MFA
-                return resumePostAuthenticationFlow(cl, ip, isMobileOptimized, submitType, ajaxResponse);
-            } else {
-                LogAction.addLog(cl.getSecurity().getProviderNo(), "login", "mfa_failed", "mfa", ip);
-                if (this.mfaRegistrationFlow) {
-                    request.setAttribute("mfaRegistrationRequired", true);
-                    request.setAttribute("qrData", this.mfaManager.getQRCodeImageData(cl.getSecurity().getId(), mfaSecret));
-                }
-                request.setAttribute("mfaValidateCodeErr", "Invalid MFA Code");
-                request.setAttribute("securityId", String.valueOf(cl.getSecurity().getSecurityNo()));
-                return "mfaHandler";
-            }
-        }
-        
         cl = new LoginCheckLogin();
         String userName = "";
         String password = "";
         String pin = "";
         String nextPage = "";
         boolean forcedpasswordchange = true;
-        String where = "failure";
+        boolean forcedPasswordChangeRequest = request.getParameter("forcedpasswordchange") != null
+                && request.getParameter("forcedpasswordchange").equalsIgnoreCase("true")
+                && (this.oldPassword != null || this.newPassword != null || this.confirmPassword != null);
+        if (forcedPasswordChangeRequest && !isForcedPasswordResetSubmitPath(request)) {
+            logger.warn("Rejected forced password reset payload on non-reset route: uri={}, remote={}",
+                    LogSafe.sanitizeUri(request.getRequestURI()), LogSafe.sanitize(ip));
+            LogAction.addLog("", LogConst.LOGIN, LogConst.CON_LOGIN,
+                    "forced_password_reset_wrong_route", ip);
+            response.sendRedirect(loginFailedRedirectUrl(message("login.errorUnableToProcess")));
+            return NONE;
+        }
 
-        // >> 2. Forced Password Change Handling
-        if (request.getParameter("forcedpasswordchange") != null
-                && request.getParameter("forcedpasswordchange").equalsIgnoreCase("true")) {
-            // Coming back from force password change. Credentials are held in the
-            // server-side LoginCredentialCache, referenced by an opaque one-time token
-            // in the session (the credentials themselves are NEVER placed in the session).
-            String credsToken = (String) request.getSession().getAttribute(LOGIN_CREDENTIALS_TOKEN_ATTR);
+        if (!forcedPasswordChangeRequest && this.code != null && !this.code.isEmpty()) {
+            return validateMfaAndCompleteLogin(ip, isMobileOptimized, submitType, ajaxResponse);
+        }
+
+        // Forced password reset submit path.
+        if (forcedPasswordChangeRequest) {
+            // Credentials remain server-side; the session carries only the opaque cache token.
+            HttpSession pendingResetSession = request.getSession(false);
+            Object credsTokenAttr = pendingResetSession == null
+                    ? null
+                    : pendingResetSession.getAttribute(LOGIN_CREDENTIALS_TOKEN_ATTR);
+            String credsToken = credsTokenAttr instanceof String ? (String) credsTokenAttr : null;
             LoginCredentialCache.LoginCredentials cached = LoginCredentialCache.getInstance().peek(credsToken);
             if (cached == null) {
-                // Token missing or expired (>5 min, or already consumed). Treat as a
-                // session-timeout and send the user back to the login screen rather than
-                // proceeding with empty credentials.
+                // Expired, missing, or consumed token means no staged credentials remain.
                 logger.info("Forced password reset submitted without valid credential-cache token; redirecting to login");
                 removeAttributesFromSession(request);
-                response.sendRedirect(request.getContextPath() + "/loginfailed?errormsg=Session expired. Please log in again.");
+                response.sendRedirect(loginFailedRedirectUrl(message("provider.providerchangepassword.errorSessionExpired")));
                 return NONE;
             }
 
@@ -404,10 +413,10 @@ public final class Login2Action extends ActionSupport {
                 pin = "";
             }
             nextPage = cached.getNextPage();
-            // Validate nextPage retrieved from cache to prevent open redirect (CWE-601 defense in depth)
+            // Validate cached nextPage as defense in depth against open redirects.
             if (!RedirectValidationUtils.isValidRelativeRedirect(nextPage)) {
                 if (nextPage != null) {
-                    logger.warn("Rejected invalid nextPage from credential cache: {}", LogSanitizer.sanitize(nextPage));
+                    logger.warn("Rejected invalid nextPage from credential cache: {}", LogSafe.sanitize(nextPage));
                 }
                 nextPage = null;
             }
@@ -416,39 +425,84 @@ public final class Login2Action extends ActionSupport {
             String confirmPassword = this.getConfirmPassword();
             String oldPassword = this.getOldPassword();
 
-            try {
-                String errorStr = errorHandling(password, newPassword, confirmPassword, oldPassword);
-
-                // Error Handling
-                if (errorStr != null && !errorStr.isEmpty()) {
-                    String newURL = request.getContextPath() + "/forcepasswordreset";
-                    newURL = newURL + errorStr;
-                    response.sendRedirect(newURL);
+            boolean oldPasswordMatched = oldPasswordMatches(oldPassword, password);
+            if (!oldPasswordMatched) {
+                int failedAttempts = incrementForcedResetOldPasswordAttempts();
+                if (failedAttempts >= MAX_FORCE_PASSWORD_RESET_OLD_PASSWORD_ATTEMPTS) {
+                    auditForcedPasswordResetFailure(userName, "old_password_mismatch_limit");
+                    LoginCredentialCache.getInstance().invalidate(credsToken);
+                    removeAttributesFromSession(request);
+                    response.sendRedirect(loginFailedRedirectUrl(message(
+                            "provider.providerchangepassword.errorSessionExpired")));
                     return NONE;
                 }
+            } else {
+                clearForcedResetOldPasswordAttempts();
+            }
 
+            String errorStr = errorHandling(userName, newPassword, confirmPassword, oldPassword,
+                    oldPasswordMatched);
+
+            // Retryable validation failures keep the token; terminal submits consume it.
+            if (errorStr != null && !errorStr.isEmpty()) {
+                return redirectForcePasswordResetRetry(errorStr);
+            }
+
+            LoginCredentialCache.LoginCredentials terminalCredentials =
+                    LoginCredentialCache.getInstance().consume(credsToken);
+            if (terminalCredentials == null) {
+                logger.info("Forced password reset credential-cache token was replayed or expired before persistence");
+                removeAttributesFromSession(request);
+                response.sendRedirect(loginFailedRedirectUrl(message("provider.providerchangepassword.errorSessionExpired")));
+                return NONE;
+            }
+            userName = terminalCredentials.getUserName();
+
+            try {
                 persistNewPassword(userName, newPassword);
+            } catch (RuntimeException e) {
+                logger.error("Forced password reset failed before password persistence completed", e);
+                try {
+                    auditForcedPasswordResetFailure(userName, "persistence_failure");
+                    removeAttributesFromSession(request);
+                } catch (RuntimeException secondary) {
+                    logger.error("Unable to cleanly report forced password reset persistence failure: user={}",
+                            LogSafe.sanitize(userName), secondary);
+                }
+                response.sendRedirect(loginFailedRedirectUrl(message("login.errorResetPersistence")));
+                return NONE;
+            }
 
-                password = newPassword;
+            password = newPassword;
 
-                // Remove the attributes from session
+            try {
                 removeAttributesFromSession(request);
-            } catch (Exception e) {
-                logger.error("Error", e);
-                String newURL = request.getContextPath() + "/loginfailed?errormsg=Setting values to the session.";
-
-                // Remove the attributes from session
-                removeAttributesFromSession(request);
-
-                response.sendRedirect(newURL);
+            } catch (IllegalStateException | UnsupportedOperationException cleanupFailure) {
+                logger.warn("Forced password reset persisted, but session cleanup failed with {}; ending current login flow",
+                        cleanupFailure.getClass().getName(), cleanupFailure);
+                // The password is already changed; re-authenticating in a damaged session can mislead
+                // users into retrying the old password and tripping lockout counters.
+                try {
+                    auditForcedPasswordResetCompletion(userName, "cleanup_failure_relogin");
+                } catch (RuntimeException auditFailure) {
+                    logger.error("Unable to audit forced password reset cleanup failure: user={}",
+                            LogSafe.sanitize(userName), auditFailure);
+                }
+                HttpSession session = request.getSession(false);
+                if (session != null) {
+                    session.invalidate();
+                }
+                response.sendRedirect(loginFailedRedirectUrl(message("login.passwordUpdatedLoginAgain")));
                 return NONE;
             }
 
             // make sure this checking doesn't happen again
             forcedpasswordchange = false;
+            // Re-authentication below intentionally uses the cached username/PIN plus the new
+            // password; the reset form never accepts fresh username/PIN request parameters.
 
         } else {
-            // >> 3. Standard Login Attempt
+            // Standard login attempt.
             userName = this.getUsername();
 
             // Username is only letters and numbers
@@ -464,59 +518,26 @@ public final class Login2Action extends ActionSupport {
             }
             nextPage = request.getParameter("nextPage");
 
-            logger.debug("nextPage: {}", LogSanitizer.sanitize(nextPage));
-            if (nextPage != null) {
-                if (!RedirectValidationUtils.isValidRelativeRedirect(nextPage)) {
-                    logger.warn("Rejected redirect URL: {}", LogSanitizer.sanitize(nextPage));
-                    response.sendRedirect(request.getContextPath() + "/loginfailed");
-                    return NONE;
-                } else {
-                    // set current facility - validate format and verify the authenticated user has access
-                    String facilityIdString = request.getParameter(SELECTED_FACILITY_ID);
-                    // Validate format: must be non-null positive integer (max 9 digits to stay within Integer range)
-                    if (facilityIdString == null || !facilityIdString.matches("\\d{1,9}")) {
-                        logger.warn("Invalid or missing facility ID in facility selection request");
-                        response.sendRedirect(request.getContextPath() + "/loginfailed");
-                        return NONE;
-                    }
-                    int facilityId = Integer.parseInt(facilityIdString);
-                    String username = (String) request.getSession().getAttribute("user");
-                    // Authorization check: verify the authenticated provider is permitted to access this facility (CWE-501)
-                    List<Integer> allowedFacilityIds = providerDao.getFacilityIds(username);
-                    if (!allowedFacilityIds.contains(facilityId)) {
-                        logger.warn("Provider {} attempted unauthorized facility selection: {}", LogSanitizer.sanitize(username), facilityId);
-                        response.sendRedirect(request.getContextPath() + "/loginfailed");
-                        return NONE;
-                    }
-                    Facility facility = facilityDao.find(facilityId);
-                    if (facility == null) {
-                        logger.warn("Selected facility not found: {}", facilityId);
-                        response.sendRedirect(request.getContextPath() + "/loginfailed");
-                        return NONE;
-                    }
-                    // facilityId validated via Integer.parseInt() and facilityDao.find() above
-                    request.getSession().setAttribute(SessionConstants.CURRENT_FACILITY, facility); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-                    LogAction.addLog(username, LogConst.LOGIN, LogConst.CON_LOGIN, "facilityId=" + facilityId, ip);
-                    // FP for open-redirect scanners (CodeQL java/unvalidated-url-redirection #5909):
-                    // nextPage is validated by RedirectValidationUtils.isValidRelativeRedirect()
-                    // immediately above before entering this branch; it rejects absolute URIs,
-                    // protocol-relative URLs, backslash bypasses, control characters, and
-                    // path-traversal sequences — only safe relative paths reach here.
-                    response.sendRedirect(nextPage); // nosemgrep: javasecurity.S5146, java.lang.security.audit.servlets.unvalidated-redirect.unvalidated-redirect-java -- gated by RedirectValidationUtils.isValidRelativeRedirect() before entering this branch // lgtm[java/unvalidated-url-redirection]
-                    return NONE;
-                }
+            logger.debug("nextPage: {}", LogSafe.sanitize(nextPage));
+            // Empty hidden nextPage fields are absent; facility choices post to /select_facility.
+            if (nextPage != null && !nextPage.isEmpty()) {
+                logger.warn("Rejected facility selection on CSRF-exempt login route: user={}, nextPage={}",
+                        LogSafe.sanitize(userName), LogSafe.sanitize(nextPage));
+                LogAction.addLog(userName, LogConst.LOGIN, LogConst.CON_LOGIN,
+                        "facility_selection_on_login_rejected", ip);
+                response.sendRedirect(loginFailedRedirectUrl(message("login.errorUnableToProcess")));
+                return NONE;
             }
 
             if (cl.isBlock(ip, userName)) {
-                logger.info("{} Blocked: {}", LOG_PRE, LogSanitizer.sanitize(userName));
-                // return mapping.findForward(where); //go to block page
-                // change to block page
-                String newURL = request.getContextPath() + "/loginfailed?errormsg=Oops! Your account is now locked due to incorrect password attempts!";
+                logger.info("{} Blocked: {}", LOG_PRE, LogSafe.sanitize(userName));
+                String lockedMessage = message("login.errorAccountLocked");
+                String newURL = loginFailedRedirectUrl(lockedMessage);
 
                 if (ajaxResponse) {
                     ObjectNode json = objectMapper.createObjectNode();
                     json.put("success", false);
-                    json.put("error", "Oops! Your account is now locked due to incorrect password attempts!");
+                    json.put("error", lockedMessage);
                     response.setContentType("application/json");
                     response.getWriter().write(json.toString());
                     return null;
@@ -526,26 +547,24 @@ public final class Login2Action extends ActionSupport {
                 return NONE;
             }
 
-            logger.debug("ip was not blocked: {}", LogSanitizer.sanitize(ip));
+            logger.debug("ip was not blocked: {}", LogSafe.sanitize(ip));
         }
 
-        // >> 4. Authentication
-        /*
-         * THIS IS THE GATEWAY.
-         */
+        // Credential provider authentication boundary.
         String[] strAuth;
         try {
             strAuth = cl.auth(userName, password, pin, ip);
         } catch (Exception e) {
-            logger.error("Error", e);
-            String newURL = request.getContextPath() + "/loginfailed"
-                    + "?errormsg=Unable to process login at this time. Please try again.";
+            logger.error("Authentication provider failed during login: user={}, remote={}, ajax={}",
+                    LogSafe.sanitize(userName), LogSafe.sanitize(ip), ajaxResponse, e);
+            recordAuthenticationExceptionFailure(cl, ip, userName);
+            String unableToProcessMessage = message("login.errorUnableToProcess");
+            String newURL = loginFailedRedirectUrl(unableToProcessMessage);
 
             if (ajaxResponse) {
                 ObjectNode json = objectMapper.createObjectNode();
                 json.put("success", false);
-                json.put("error", "Unable to process login at this time. Please try again.");
-                logger.error("Database connection error during login", e);
+                json.put("error", unableToProcessMessage);
                 response.setContentType("application/json");
                 response.getWriter().write(json.toString());
                 return null;
@@ -555,18 +574,18 @@ public final class Login2Action extends ActionSupport {
             return NONE;
         }
         
-        logger.debug("strAuth : {}", LogSanitizer.sanitize(Arrays.toString(strAuth)));
+        logger.debug("strAuth : {}", LogSafe.sanitize(Arrays.toString(strAuth)));
         
-        // >> 5. Successful Login Handling
+        // Successful login handling.
         if (strAuth != null && strAuth.length != 1) { // login successfully
 
             // is the providers record inactive?
             Provider p = providerDao.getProvider(strAuth[0]);
             if (p == null || (p.getStatus() != null && p.getStatus().equals("0"))) {
-                logger.info("{} Inactive: {}", LOG_PRE, LogSanitizer.sanitize(userName));
+                logger.info("{} Inactive: {}", LOG_PRE, LogSafe.sanitize(userName));
                 LogAction.addLog(strAuth[0], "login", "failed", "inactive");
 
-                String newURL = request.getContextPath() + "/loginfailed?errormsg=Your account is inactive. Please contact your administrator to activate.";
+                String newURL = loginFailedRedirectUrl(message("login.errorAccountInactive"));
 
                 response.sendRedirect(newURL);
                 return NONE;
@@ -576,217 +595,53 @@ public final class Login2Action extends ActionSupport {
              * This section is added for forcing the initial password change.
              */
             Security security = getSecurity(userName);
-            if (!CarlosProperties.getInstance().getBooleanProperty("mandatory_password_reset", "false") &&
+            if (security == null) {
+                logger.error("Authenticated user has no security record: {}", LogSafe.sanitize(userName));
+                response.sendRedirect(loginFailedRedirectUrl(message("login.errorSecurityRecordMissing")));
+                return NONE;
+            }
+            // Default mandatory password-reset enforcement to enabled. Older deployments that did
+            // not define the property still need server-side forced-reset handling when the
+            // Security row is flagged, otherwise a missing config key silently bypasses a security
+            // control.
+            if (isMandatoryPasswordResetEnabled() &&
                     security.isForcePasswordReset() != null && security.isForcePasswordReset()
                     && forcedpasswordchange) {
-
-                String newURL = request.getContextPath() + "/forcepasswordreset";
 
                 try {
                     setUserInfoToSession(request, userName, password, pin, nextPage);
                 } catch (Exception e) {
-                    logger.error("Error", e);
-                    newURL = request.getContextPath() + "/loginfailed?errormsg=Setting values to the session.";
+                    logger.error("Unable to stage forced password reset credentials", e);
+                    String newURL = loginFailedRedirectUrl(message("login.errorResetStaging"));
+                    removeAttributesFromSession(request);
+                    response.sendRedirect(newURL);
+                    return NONE;
                 }
 
-                response.sendRedirect(newURL);
+                response.sendRedirect(request.getContextPath() + "/forcepasswordreset");
                 return NONE;
             }
 
-            // invalidate the existing session
-            HttpSession session = request.getSession(false);
-            if (session != null) {
-                if (request.getParameter("invalidate_session") != null
-                        && request.getParameter("invalidate_session").equals("false")) {
-                    // don't invalidate in this case it messes up authenticity of OAUTH
-                } else {
-                    session.invalidate();
-                }
-            }
-            session = request.getSession(); // Create a new session for this user
-            session.setMaxInactiveInterval(7200); // 2 hours
-
-            if (cl.getSecurity() != null) {
-                this.userSessionManager.registerUserSession(cl.getSecurity().getSecurityNo(), session);
+            if (MfaManager.isOscarMfaEnabled() && security.isUsingMfa()) {
+                return beginPendingMfaChallenge(strAuth, security, ip);
             }
 
-            logger.debug("Assigned new session for: {} : {} : {}", LogSanitizer.sanitize(strAuth[0]), LogSanitizer.sanitize(strAuth[3]), LogSanitizer.sanitize(strAuth[4]));
-            LogAction.addLog(strAuth[0], LogConst.LOGIN, LogConst.CON_LOGIN, "", ip);
-
-            // initial db setting
-            Properties pvar = CarlosProperties.getInstance();
-
-            String providerNo = strAuth[0] != null ? strAuth[0].trim() : "";
-            session.setAttribute("user", providerNo); // nosemgrep: tainted-session-from-http-request
-            session.setAttribute("userfirstname", strAuth[1] != null ? strAuth[1].trim() : ""); // nosemgrep: tainted-session-from-http-request
-            session.setAttribute("userlastname", strAuth[2] != null ? strAuth[2].trim() : ""); // nosemgrep: tainted-session-from-http-request
-            session.setAttribute("userrole", strAuth[4] != null ? strAuth[4].trim() : ""); // nosemgrep: tainted-session-from-http-request
-            session.setAttribute("oscar_context_path", request.getContextPath()); // nosemgrep: tainted-session-from-http-request
-            session.setAttribute("expired_days", strAuth[5] != null ? strAuth[5].trim() : ""); // nosemgrep: tainted-session-from-http-request
-            // If a new session has been created, we must set the mobile attribute again
-            if (isMobileOptimized) {
-                if ("Full".equalsIgnoreCase(submitType)) {
-                    session.setAttribute("fullSite", "true"); // nosemgrep: tainted-session-from-http-request
-                } else {
-                    session.setAttribute("mobileOptimized", "true"); // nosemgrep: tainted-session-from-http-request
-                }
-            }
-
-            // Check for MFA if enabled
-            if (MfaManager.isOscarMfaEnabled()) {
-                Security sec = this.getSecurity(userName);
-                if (Objects.nonNull(sec) && sec.isUsingMfa()) {
-                    // MFA Enabled
-                    try {
-                        setUserInfoToSession(request, userName, password, pin, nextPage);
-                        request.getSession().setAttribute("cl", cl); // nosemgrep: tainted-session-from-http-request
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
-                    }
-
-                    try {
-                        if (this.mfaManager.isMfaRegistrationRequired(sec.getId())) {
-                            Object mfaSecret = request.getSession().getAttribute("mfaSecret");
-                            if (mfaSecret == null) {
-                                mfaSecret = MfaManager.generateMfaSecret();
-                                request.getSession().setAttribute("mfaSecret", mfaSecret); // nosemgrep: tainted-session-from-http-request
-                            }
-                            request.setAttribute("mfaRegistrationRequired", true);
-                            request.setAttribute("qrData", this.mfaManager.getQRCodeImageData(sec.getId(), mfaSecret.toString()));
-                        }
-                    } catch (IllegalStateException e) {
-                        request.setAttribute("errMsg", "Something went wrong while processing, please try again or contact support.");
-                    }
-                    request.setAttribute("securityId", String.valueOf(sec.getSecurityNo()));
-                    return "mfaHandler";
-                }
-            }
-
-            // Continue with the rest of authentication flow
-            // initiate sec manager
-            String default_pmm = null;
-
-            // get preferences from preference table
-            ProviderPreference providerPreference = providerPreferenceDao.find(providerNo);
-
-            if (providerPreference == null)
-                providerPreference = new ProviderPreference();
-
-            session.setAttribute(SessionConstants.LOGGED_IN_PROVIDER_PREFERENCE, providerPreference); // nosemgrep: tainted-session-from-http-request
-
-            if (IsPropertiesOn.isCaisiEnable()) {
-                String tklerProviderNo = null;
-                UserProperty prop = propDao.getProp(providerNo, UserProperty.PROVIDER_FOR_TICKLER_WARNING);
-                if (prop == null) {
-                    tklerProviderNo = providerNo;
-                } else {
-                    tklerProviderNo = prop.getValue();
-                }
-                session.setAttribute("tklerProviderNo", tklerProviderNo); // nosemgrep: tainted-session-from-http-request
-
-                session.setAttribute("newticklerwarningwindow", providerPreference.getNewTicklerWarningWindow()); // nosemgrep: tainted-session-from-http-request
-                session.setAttribute("default_pmm", providerPreference.getDefaultCaisiPmm()); // nosemgrep: tainted-session-from-http-request
-                session.setAttribute("caisiBillingPreferenceNotDelete", // nosemgrep: tainted-session-from-http-request
-                        String.valueOf(providerPreference.getDefaultDoNotDeleteBilling()));
-
-                default_pmm = providerPreference.getDefaultCaisiPmm();
-                @SuppressWarnings("unchecked")
-                ArrayList<String> newDocArr = (ArrayList<String>) request.getSession().getServletContext()
-                        .getAttribute("CaseMgmtUsers");
-                if ("enabled".equals(providerPreference.getDefaultNewOscarCme())) {
-                    newDocArr.add(providerNo);
-                    session.setAttribute("CaseMgmtUsers", newDocArr); // nosemgrep: tainted-session-from-http-request
-                }
-            }
-            session.setAttribute("starthour", providerPreference.getStartHour().toString()); // nosemgrep: tainted-session-from-http-request
-            session.setAttribute("endhour", providerPreference.getEndHour().toString()); // nosemgrep: tainted-session-from-http-request
-            session.setAttribute("everymin", providerPreference.getEveryMin().toString()); // nosemgrep: tainted-session-from-http-request
-            session.setAttribute("groupno", providerPreference.getMyGroupNo()); // nosemgrep: tainted-session-from-http-request
-
-            where = "provider";
-
-            if (where.equals("provider") && default_pmm != null && "enabled".equals(default_pmm)) {
-                where = "caisiPMM";
-            }
-
-            if (where.equals("provider")
-                    && CarlosProperties.getInstance().getProperty("useProgramLocation", "false").equals("true")) {
-                where = "programLocation";
-            }
-
-
-            /*
-             * if (CarlosProperties.getInstance().isTorontoRFQ()) { where = "caisiPMM"; }
-             */
-            // Lazy Loads AlertTimer instance only once, will run as daemon for duration of
-            // server runtime
-            if (pvar.getProperty("billregion").equals("BC")) {
-                String alertFreq = pvar.getProperty("ALERT_POLL_FREQUENCY");
-                if (alertFreq != null) {
-                    Long longFreq = Long.valueOf(alertFreq);
-                    String[] alertCodes = CarlosProperties.getInstance().getProperty("CDM_ALERTS").split(",");
-                    AlertTimer.getInstance(alertCodes, longFreq.longValue());
-                }
-            }
-
-            String username = (String) session.getAttribute("user");
-            Provider provider = providerManager.getProvider(username);
-            session.setAttribute("provider", provider); // nosemgrep: tainted-session-from-http-request
-            session.setAttribute(SessionConstants.LOGGED_IN_PROVIDER, provider); // nosemgrep: tainted-session-from-http-request
-            session.setAttribute(SessionConstants.LOGGED_IN_SECURITY, cl.getSecurity()); // nosemgrep: tainted-session-from-http-request
-
-            if (where.equals("provider")) {
-            }
-
-            List<Integer> facilityIds = providerDao.getFacilityIds(provider.getProviderNo());
-            if (facilityIds.size() > 1) {
-                String facilityPath = "/select_facility?nextPage=";
-                String newURL = request.getContextPath() + facilityPath + Encode.forUriComponent(where);
-
-                response.sendRedirect(newURL);
-                return NONE;
-            } else if (facilityIds.size() == 1) {
-                // set current facility
-                Facility facility = facilityDao.find(facilityIds.get(0));
-                request.getSession().setAttribute("currentFacility", facility); // nosemgrep: tainted-session-from-http-request
-                LogAction.addLog(strAuth[0], LogConst.LOGIN, LogConst.CON_LOGIN, "facilityId=" + facilityIds.get(0),
-                        ip);
-            } else {
-                List<Facility> facilities = facilityDao.findAll(true);
-                if (facilities != null && facilities.size() >= 1) {
-                    Facility fac = facilities.get(0);
-                    int first_id = fac.getId();
-                    providerDao.addProviderToFacility(providerNo, first_id);
-                    Facility facility = facilityDao.find(first_id);
-                    request.getSession().setAttribute("currentFacility", facility); // nosemgrep: tainted-session-from-http-request
-                    LogAction.addLog(strAuth[0], LogConst.LOGIN, LogConst.CON_LOGIN, "facilityId=" + first_id, ip);
-                }
-            }
-
-            LoggedInInfo loggedInInfo = LoggedInUserFilter.generateLoggedInInfoFromSession(request);
-            LoggedInInfo.setLoggedInInfoIntoSession(session, loggedInInfo);
-
-            if (UserRoleUtils.hasRole(request, "Patient Intake")) {
-                return "patientIntake";
-            }
-
-            if ("provider".equals(where)) {
-                response.sendRedirect(buildDefaultProviderSchedulePath());
-                return NONE;
-            }
+            return completeAuthenticatedLogin(security, strAuth, ip, isMobileOptimized, submitType, ajaxResponse);
 
         }
-        // >> 6. Authentication Failure Handling
+        // Authentication failure handling.
         // expired password
         else if (strAuth != null && strAuth.length == 1 && strAuth[0].equals("expired")) {
-            logger.warn("Expired password");
+            logger.warn("Expired password: user={}, remote={}",
+                    LogSafe.sanitize(userName), LogSafe.sanitize(ip));
             cl.updateLoginList(ip, userName);
-            String newURL = request.getContextPath() + "/loginfailed?errormsg=Your account is expired. Please contact your administrator.";
+            String expiredMessage = message("login.errorAccountExpired");
+            String newURL = loginFailedRedirectUrl(expiredMessage);
 
             if (ajaxResponse) {
                 ObjectNode json = objectMapper.createObjectNode();
                 json.put("success", false);
-                json.put("error", "Your account is expired. Please contact your administrator.");
+                json.put("error", expiredMessage);
                 response.setContentType("application/json");
                 response.getWriter().write(json.toString());
                 return null;
@@ -803,115 +658,640 @@ public final class Login2Action extends ActionSupport {
                 ObjectNode json = objectMapper.createObjectNode();
                 json.put("success", false);
                 response.setContentType("application/json");
-                json.put("error", "Invalid Credentials");
+                json.put("error", message("login.errorInvalidCredentials"));
                 response.getWriter().write(json.toString());
                 return null;
             }
 
             String oneIdKey = request.getParameter("nameId");
-            String newURL = request.getContextPath() + "/logout?login=failed";
+            String newURL = request.getContextPath() + "/index?login=failed";
             if (oneIdKey != null && !oneIdKey.equals("")) {
-                newURL += "&nameId=" + Encode.forUriComponent(oneIdKey);
+                newURL += "&nameId=" + SafeEncode.forUriComponent(oneIdKey);
             }
             response.sendRedirect(newURL);
             return NONE;
         }
 
-        if (request.getParameter("oauth_token") != null) {
-            logger.debug("checking oauth_token");
-            String proNo = (String) request.getSession().getAttribute("user");
-            ServiceRequestToken srt = serviceRequestTokenDao.findByTokenId(request.getParameter("oauth_token"));
-            if (srt != null) {
-                srt.setProviderNo(proNo);
-                serviceRequestTokenDao.merge(srt);
+    }
+
+    /**
+     * Starts an MFA challenge without granting an authenticated application session.
+     *
+     * <p>The HTTP session receives only a marker, provider number, retry counter, and opaque cache
+     * token. The canonical {@code user} session attribute is set by
+     * {@link #completeAuthenticatedLogin} after the OTP validates.</p>
+     *
+     * @param strAuth authentication result fields returned by {@link LoginCheckLogin#auth}
+     * @param security security row for the authenticated provider
+     * @param ip remote address used for audit logging
+     * @return {@code mfaHandler} when the challenge view is ready, or {@code error} when
+     *         registration setup cannot safely continue
+     */
+    private String beginPendingMfaChallenge(String[] strAuth, Security security, String ip) {
+        HttpSession session = request.getSession(false);
+        if (session != null) {
+            session.invalidate();
+        }
+        session = request.getSession();
+        session.setMaxInactiveInterval(300);
+        String registrationSecret = null;
+        try {
+            if (this.mfaManager.isMfaRegistrationRequired(security.getId())) {
+                registrationSecret = MfaManager.generateMfaSecret();
+                request.setAttribute("mfaRegistrationRequired", true);
+                request.setAttribute("qrData", this.mfaManager.getQRCodeImageData(security.getId(), registrationSecret));
+            }
+        } catch (RuntimeException e) {
+            session.invalidate();
+            logger.error("Unable to prepare MFA registration: providerNo={}, securityId={}, remote={}",
+                    LogSafe.sanitize(security.getProviderNo()),
+                    LogSafe.sanitize(String.valueOf(security.getSecurityNo())),
+                    LogSafe.sanitize(ip),
+                    e);
+            LogAction.addLog(security.getProviderNo(), "login", "mfa_failed", "mfa_setup_failure", ip);
+            return loginFailureResult(message("login.errorUnableToProcess"));
+        }
+
+        PendingMfaChallengeCache.PendingMfaChallenge challenge =
+                new PendingMfaChallengeCache.PendingMfaChallenge(
+                        security.getSecurityNo(), security.getProviderNo(), strAuth, registrationSecret);
+        String challengeToken = PendingMfaChallengeCache.getInstance().store(challenge);
+        PendingMfaChallenges.stage(session, security.getProviderNo(), challengeToken, 0);
+        request.setAttribute("securityId", String.valueOf(security.getSecurityNo()));
+        return "mfaHandler";
+    }
+
+    /**
+     * Validates a submitted MFA code, then completes the normal authenticated login flow.
+     *
+     * <p>The pending-MFA session is the boundary between password/PIN success and an authenticated
+     * application session. Fatal validation failures clear that pending state so the staged
+     * opaque cache token cannot survive after a corrupted secret, missing security record, or
+     * broken TOTP key. Retryable user-code failures intentionally keep the pending state so the
+     * user can enter a new OTP.</p>
+     *
+     * @param ip remote address used for logging and final login audit
+     * @param isMobileOptimized whether mobile session flags should be applied after success
+     * @param submitType mobile/full-site submit mode from the original request
+     * @param ajaxResponse whether the final response should be JSON instead of a Struts result
+     * @return Struts result name, {@link #NONE}, or null for direct AJAX responses
+     * @throws IOException if redirecting or writing the final response fails
+     */
+    private String validateMfaAndCompleteLogin(String ip, boolean isMobileOptimized, String submitType,
+                                               boolean ajaxResponse) throws IOException {
+        HttpSession session = request.getSession(false);
+        if (!hasPendingMfaSession(session)) {
+            logger.info("Rejected MFA verification without valid pending challenge: remote={}",
+                    LogSafe.sanitize(ip));
+            if (session != null) {
+                clearPendingMfaSession(session);
+            }
+            response.sendRedirect(loginFailedRedirectUrl(message("provider.providerchangepassword.errorSessionExpired")));
+            return NONE;
+        }
+
+        String challengeToken = PendingMfaChallenges.getToken(session);
+        String pendingProviderNo = (String) session.getAttribute(PENDING_MFA_PROVIDER_NO_ATTR);
+        PendingMfaChallengeCache.PendingMfaChallenge challenge =
+                PendingMfaChallengeCache.getInstance().peek(challengeToken);
+        if (challenge == null) {
+            logger.info("Rejected MFA verification because pending challenge token was missing or expired: providerNo={}, remote={}",
+                    LogSafe.sanitize(pendingProviderNo), LogSafe.sanitize(ip));
+            clearPendingMfaSession(session);
+            response.sendRedirect(loginFailedRedirectUrl(message("provider.providerchangepassword.errorSessionExpired")));
+            return NONE;
+        }
+
+        String[] strAuth = challenge.authResult();
+        Security security;
+        try {
+            security = securityDao.find(challenge.securityNo());
+        } catch (RuntimeException e) {
+            logger.error("Unable to load security record for pending MFA challenge: providerNo={}, securityId={}, remote={}",
+                    LogSafe.sanitize(challenge.providerNo()),
+                    LogSafe.sanitize(String.valueOf(challenge.securityNo())),
+                    LogSafe.sanitize(ip),
+                    e);
+            clearPendingMfaSession(session);
+            return loginFailureResult(message("login.errorUnableToProcess"));
+        }
+        if (security == null) {
+            logger.error("Rejected MFA verification because pending challenge has no security record: providerNo={}, securityId={}, remote={}",
+                    LogSafe.sanitize(challenge.providerNo()),
+                    LogSafe.sanitize(String.valueOf(challenge.securityNo())),
+                    LogSafe.sanitize(ip));
+            clearPendingMfaSession(session);
+            response.sendRedirect(loginFailedRedirectUrl(message("login.errorSecurityRecordMissing")));
+            return NONE;
+        }
+
+        boolean registrationChallenge = challenge.registrationSecret() != null;
+        String mfaSecret;
+        if (registrationChallenge) {
+            mfaSecret = challenge.registrationSecret();
+            if (mfaSecret == null || mfaSecret.isEmpty()) {
+                logger.warn("Rejected MFA registration submit without a staged secret: providerNo={}, securityId={}, remote={}",
+                        LogSafe.sanitize(security.getProviderNo()),
+                        LogSafe.sanitize(String.valueOf(security.getSecurityNo())),
+                        LogSafe.sanitize(ip));
+                clearPendingMfaSession(session);
+                response.sendRedirect(loginFailedRedirectUrl(message("provider.providerchangepassword.errorSessionExpired")));
+                return NONE;
+            }
+        } else {
+            try {
+                mfaSecret = this.mfaManager.getMfaSecret(security);
+            } catch (Exception e) {
+                logger.error("Unable to retrieve MFA secret: providerNo={}, securityId={}, remote={}",
+                        LogSafe.sanitize(security.getProviderNo()),
+                        LogSafe.sanitize(String.valueOf(security.getSecurityNo())),
+                        LogSafe.sanitize(ip),
+                        e);
+                clearPendingMfaSession(session);
+                return loginFailureResult(message("login.errorUnableToProcess"));
             }
         }
 
+        boolean validCode;
+        try {
+            validCode = isValidTotpCode(mfaSecret, this.code);
+        } catch (InvalidKeyException e) {
+            logger.error("Unable to validate MFA code: providerNo={}, securityId={}, remote={}",
+                    LogSafe.sanitize(security.getProviderNo()),
+                    LogSafe.sanitize(String.valueOf(security.getSecurityNo())),
+                    LogSafe.sanitize(ip),
+                    e);
+            clearPendingMfaSession(session);
+            return loginFailureResult(message("login.errorUnableToProcess"));
+        }
+
+        if (!validCode) {
+            LogAction.addLog(security.getProviderNo(), "login", "mfa_failed", "mfa", ip);
+            int failedAttempts = incrementPendingMfaAttempts(session);
+            if (failedAttempts >= MAX_PENDING_MFA_ATTEMPTS) {
+                LogAction.addLog(security.getProviderNo(), "login", "mfa_locked", "mfa", ip);
+                logger.warn("MFA challenge exhausted retry limit: providerNo={}, securityId={}, remote={}, attempts={}",
+                        LogSafe.sanitize(security.getProviderNo()),
+                        LogSafe.sanitize(String.valueOf(security.getSecurityNo())),
+                        LogSafe.sanitize(ip),
+                        failedAttempts);
+                clearPendingMfaSession(session);
+                return loginFailureResult(message("login.errorUnableToProcess"));
+            }
+            if (registrationChallenge) {
+                request.setAttribute("mfaRegistrationRequired", true);
+                request.setAttribute("qrData", this.mfaManager.getQRCodeImageData(security.getId(), mfaSecret));
+            }
+            request.setAttribute("mfaValidateCodeErr", "Invalid MFA Code");
+            request.setAttribute("securityId", String.valueOf(security.getSecurityNo()));
+            return "mfaHandler";
+        }
+
+        PendingMfaChallengeCache.PendingMfaChallenge terminalChallenge =
+                PendingMfaChallengeCache.getInstance().consume(challengeToken);
+        if (terminalChallenge == null) {
+            logger.info("Rejected MFA verification because pending challenge token was already consumed: providerNo={}, remote={}",
+                    LogSafe.sanitize(pendingProviderNo), LogSafe.sanitize(ip));
+            clearPendingMfaSession(session);
+            response.sendRedirect(loginFailedRedirectUrl(message("provider.providerchangepassword.errorSessionExpired")));
+            return NONE;
+        }
+        strAuth = terminalChallenge.authResult();
+        registrationChallenge = terminalChallenge.registrationSecret() != null;
+        if (registrationChallenge) {
+            mfaSecret = terminalChallenge.registrationSecret();
+        }
+
+        if (registrationChallenge) {
+            try {
+                this.mfaManager.saveMfaSecret(buildLoggedInInfoForPendingMfa(session, strAuth, security), security, mfaSecret);
+            } catch (Exception e) {
+                logger.error("Unable to persist MFA registration secret: providerNo={}, securityId={}, remote={}",
+                        LogSafe.sanitize(security.getProviderNo()),
+                        LogSafe.sanitize(String.valueOf(security.getSecurityNo())),
+                        LogSafe.sanitize(ip),
+                        e);
+                LogAction.addLog(security.getProviderNo(), "login", "mfa_failed", "mfa_registration_persist", ip);
+                clearPendingMfaSession(session);
+                return loginFailureResult(message("login.errorMfaRegistrationPersistence"));
+            }
+        }
+
+        // Success audit follows registration persistence so operators do not see a false success row
+        // when the OTP was correct but the new secret could not be stored.
+        LogAction.addLog(security.getProviderNo(), "login", "mfa_success", "mfa", ip);
+        return completeAuthenticatedLogin(security, strAuth, ip, isMobileOptimized, submitType, ajaxResponse);
+    }
+
+    /**
+     * Returns whether the session contains all state required to validate a pending MFA challenge.
+     *
+     * <p>Every attribute is required and type-checked. Missing or wrong-typed state is treated as an
+     * expired challenge rather than reconstructing login state from request parameters. The method
+     * deliberately checks only session markers; the cache token is resolved separately so the
+     * caller can log a clearer expired-token reason.</p>
+     *
+     * @param session candidate HTTP session
+     * @return true when the session contains the pending-MFA marker and opaque token
+     */
+    private boolean hasPendingMfaSession(HttpSession session) {
+        return session != null
+                && Boolean.TRUE.equals(session.getAttribute(PENDING_MFA_AUTH_ATTR))
+                && session.getAttribute(PENDING_MFA_PROVIDER_NO_ATTR) instanceof String
+                && session.getAttribute(PENDING_MFA_TOKEN_ATTR) instanceof String;
+    }
+
+    /**
+     * Validates an RFC 6238 TOTP code with one time-step of clock skew tolerance.
+     *
+     * <p>Authenticator apps and server clocks can differ briefly. Accepting the current, previous,
+     * or next time step preserves the usual +/- one-step tolerance without accepting an unbounded
+     * replay window.</p>
+     *
+     * @param mfaSecret Base32-encoded MFA secret
+     * @param submittedCode user-submitted TOTP code; length validation is performed by the TOTP
+     *        comparison rather than this helper
+     * @return true when the submitted code matches the current, previous, or next time step
+     * @throws InvalidKeyException when the Base32 secret is null, empty, malformed, or cannot
+     *         create a valid TOTP key
+     */
+    private boolean isValidTotpCode(String mfaSecret, String submittedCode) throws InvalidKeyException {
+        TimeBasedOneTimePasswordGenerator totpGenerator = new TimeBasedOneTimePasswordGenerator();
+        SecretKeySpec key;
+        try {
+            byte[] decodedKey = new Base32().decode(mfaSecret);
+            if (decodedKey == null || decodedKey.length == 0) {
+                throw new IllegalArgumentException("empty decoded MFA secret");
+            }
+            key = new SecretKeySpec(decodedKey, totpGenerator.getAlgorithm());
+        } catch (IllegalArgumentException | NullPointerException e) {
+            throw new InvalidKeyException("malformed MFA secret", e);
+        }
+        java.time.Instant now = java.time.Instant.now();
+        java.time.Duration timeStep = totpGenerator.getTimeStep();
+
+        return constantTimeEquals(totpGenerator.generateOneTimePasswordString(key, now), submittedCode)
+                || constantTimeEquals(totpGenerator.generateOneTimePasswordString(key, now.minus(timeStep)), submittedCode)
+                || constantTimeEquals(totpGenerator.generateOneTimePasswordString(key, now.plus(timeStep)), submittedCode);
+    }
+
+    private static boolean constantTimeEquals(String expected, String actual) {
+        if (expected == null || actual == null) {
+            return false;
+        }
+        return MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8),
+                actual.getBytes(StandardCharsets.UTF_8));
+    }
+
+    /**
+     * Removes all pre-authentication MFA state from the session.
+     *
+     * <p>The pending-MFA cache payload represents a successful password/PIN check and must be
+     * invalidated before any fatal MFA failure returns control to Struts. During MFA registration
+     * this also removes the cached registration secret, which is sensitive material and must not
+     * survive a failed or abandoned challenge.</p>
+     *
+     * @param session session containing pending-MFA state
+     */
+    private void clearPendingMfaSession(HttpSession session) {
+        PendingMfaChallenges.clearFromSession(session);
+    }
+
+    /**
+     * Increments the server-side failed-code counter for the current pending MFA challenge.
+     *
+     * <p>The counter deliberately lives in the pending-MFA session rather than relying only on the
+     * WAF rate limiter, which may run in detect-only mode in development or legacy deployments.</p>
+     */
+    private int incrementPendingMfaAttempts(HttpSession session) {
+        synchronized (session) {
+            Object attemptsAttr = session.getAttribute(PENDING_MFA_ATTEMPTS_ATTR);
+            int attempts = attemptsAttr instanceof Number ? ((Number) attemptsAttr).intValue() : 0;
+            attempts++;
+            session.setAttribute(PENDING_MFA_ATTEMPTS_ATTR, attempts);
+            return attempts;
+        }
+    }
+
+    /**
+     * Builds the minimal authenticated context needed to persist a newly registered MFA secret.
+     *
+     * <p>MFA registration happens before the normal {@code user}-authenticated session is created,
+     * so this context is derived from pending-MFA state rather than the canonical logged-in session
+     * attributes.</p>
+     *
+     * @param session pending-MFA session that will become the authenticated session on success
+     * @param strAuth authentication result fields returned by {@link LoginCheckLogin#auth}
+     * @param security security row for the authenticated provider
+     * @return minimal {@link LoggedInInfo} context required by {@link MfaManager#saveMfaSecret}
+     */
+    private LoggedInInfo buildLoggedInInfoForPendingMfa(HttpSession session, String[] strAuth, Security security) {
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        loggedInInfo.setSession(session);
+        loggedInInfo.setLoggedInProvider(providerDao.getProvider(strAuth[0]));
+        loggedInInfo.setLoggedInSecurity(security);
+        loggedInInfo.setLocale(request.getLocale());
+        loggedInInfo.setIp(request.getRemoteAddr());
+        loggedInInfo.setInitiatingCode(request.getRequestURI());
+        return loggedInInfo;
+    }
+
+    /**
+     * Returns the servlet-context CAISI user list, tolerating a missing startup attribute.
+     *
+     * <p>Older startup paths are expected to seed {@code CaseMgmtUsers}, but login must not fail if
+     * that context attribute is absent after a partial startup or test container bootstrap. Mixed
+     * legacy lists are copied defensively: only provider-number {@link String} entries are retained,
+     * and only the class name for non-String entries is logged at WARN, never the value itself.
+     * A non-list context value is logged at WARN because it means shared CAISI state was seeded with
+     * an incompatible type and will be rebuilt.</p>
+     *
+     * @return mutable provider-number list safe to store back into servlet context/session
+     */
+    private List<String> caseManagementUsers() {
+        Object caseMgmtUsersAttr = request.getSession().getServletContext().getAttribute("CaseMgmtUsers");
+        List<String> caseMgmtUsers = new ArrayList<String>();
+        if (caseMgmtUsersAttr instanceof List<?>) {
+            for (Object providerNo : (List<?>) caseMgmtUsersAttr) {
+                if (providerNo instanceof String) {
+                    caseMgmtUsers.add((String) providerNo);
+                } else {
+                    logger.warn("Ignoring non-String CaseMgmtUsers entry during login session setup: type={}",
+                            providerNo == null ? "null" : LogSafe.sanitize(providerNo.getClass().getName()));
+                }
+            }
+        } else if (caseMgmtUsersAttr != null) {
+            logger.warn("CaseMgmtUsers context attribute is not a List: type={}",
+                    LogSafe.sanitize(caseMgmtUsersAttr.getClass().getName()));
+        }
+        return caseMgmtUsers;
+    }
+
+    /**
+     * Starts the BC alert timer when configured without blocking successful login.
+     *
+     * <p>BC alert polling is a post-login convenience subsystem. Malformed polling frequency or
+     * missing alert-code configuration should be operator-visible in logs, but should not prevent
+     * a user who has already authenticated from reaching the application.</p>
+     *
+     * @param properties CARLOS runtime properties
+     */
+    private void startBcAlertTimerIfConfigured(Properties properties) {
+        if (!"BC".equals(properties.getProperty("billregion"))) {
+            return;
+        }
+
+        String alertFreq = properties.getProperty("ALERT_POLL_FREQUENCY");
+        if (alertFreq == null || alertFreq.trim().isEmpty()) {
+            logger.info("Skipping BC alert timer setup because ALERT_POLL_FREQUENCY is not configured");
+            return;
+        }
+
+        String configuredAlerts = CarlosProperties.getInstance().getProperty("CDM_ALERTS");
+        if (configuredAlerts == null || configuredAlerts.trim().isEmpty()) {
+            logger.warn("Skipping BC alert timer setup because CDM_ALERTS is not configured");
+            return;
+        }
+
+        try {
+            Long longFreq = Long.valueOf(alertFreq);
+            AlertTimer.getInstance(configuredAlerts.split(","), longFreq.longValue());
+        } catch (NumberFormatException e) {
+            logger.warn("Skipping BC alert timer setup because ALERT_POLL_FREQUENCY is invalid: value={}",
+                    LogSafe.sanitize(alertFreq), e);
+        } catch (RuntimeException e) {
+            // The alert timer is post-login convenience work; startup defects must be visible but
+            // cannot strand an otherwise authenticated BC user at the login boundary.
+            logger.warn("Skipping BC alert timer setup because AlertTimer startup failed", e);
+        }
+    }
+
+    /**
+     * Completes session setup after password/PIN authentication and any required MFA have succeeded.
+     *
+     * <p>This is the only path that creates the canonical authenticated session marker
+     * ({@code user}). Callers must complete forced password reset and MFA checks before invoking it,
+     * because {@link io.github.carlos_emr.carlos.sec.LoginFilter} treats that marker as logged-in
+     * state. If the provider row cannot be loaded after authentication, the new session is
+     * invalidated and the method returns {@code error} rather than leaving a partial session.</p>
+     *
+     * @param security authenticated security row
+     * @param strAuth authentication result fields returned by {@link LoginCheckLogin#auth}
+     * @param ip remote address used for audit logging
+     * @param isMobileOptimized whether mobile session flags should be applied
+     * @param submitType mobile/full-site submit mode
+     * @param ajaxResponse whether to write the final provider JSON response directly
+     * @return Struts result name, {@link #NONE} after redirect, {@code error}, or null for AJAX
+     * @throws IOException if redirecting or writing the response fails
+     */
+    private String completeAuthenticatedLogin(Security security, String[] strAuth, String ip,
+                                              boolean isMobileOptimized, String submitType,
+                                              boolean ajaxResponse) throws IOException {
+        HttpSession session = request.getSession(false);
+        Map<String, String> oauthAuthorizationNonces =
+                OAuthAuthorizationSessionState.snapshotNonces(session);
+        if (session != null) {
+            session.invalidate();
+        }
+        session = request.getSession();
+        OAuthAuthorizationSessionState.restoreNonces(session, oauthAuthorizationNonces);
+        session.setMaxInactiveInterval(7200);
+
+        if (security != null) {
+            this.userSessionManager.registerUserSession(security.getSecurityNo(), session);
+        }
+
+        logger.debug("Assigned new session for: {} : {} : {}", LogSafe.sanitize(strAuth[0]), LogSafe.sanitize(strAuth[3]), LogSafe.sanitize(strAuth[4]));
+        LogAction.addLog(strAuth[0], LogConst.LOGIN, LogConst.CON_LOGIN, "", ip);
+
+        Properties pvar = CarlosProperties.getInstance();
+
+        String providerNo = strAuth[0] != null ? strAuth[0].trim() : "";
+        // Session values stay as raw domain data. JSP, JSON, and redirect sinks must apply the
+        // correct context-specific encoding when these values are rendered.
+        session.setAttribute("user", providerNo); // nosemgrep: tainted-session-from-http-request -- provider number is the authenticated LoginCheckLogin result
+        session.setAttribute("userfirstname", strAuth[1] != null ? strAuth[1].trim() : ""); // nosemgrep: tainted-session-from-http-request -- display name comes from authenticated LoginCheckLogin result
+        session.setAttribute("userlastname", strAuth[2] != null ? strAuth[2].trim() : ""); // nosemgrep: tainted-session-from-http-request -- display name comes from authenticated LoginCheckLogin result
+        session.setAttribute("userrole", strAuth[4] != null ? strAuth[4].trim() : ""); // nosemgrep: tainted-session-from-http-request -- role comes from authenticated LoginCheckLogin result
+        session.setAttribute("oscar_context_path", request.getContextPath()); // nosemgrep: tainted-session-from-http-request -- servlet context path is container-provided routing state
+        session.setAttribute("expired_days", strAuth[5] != null ? strAuth[5].trim() : ""); // nosemgrep: tainted-session-from-http-request -- password-expiry metadata comes from authenticated LoginCheckLogin result
+        if (isMobileOptimized) {
+            if ("Full".equalsIgnoreCase(submitType)) {
+                session.setAttribute("fullSite", "true"); // nosemgrep: tainted-session-from-http-request -- constant session mode marker selected by validated mobile flow
+            } else {
+                session.setAttribute("mobileOptimized", "true"); // nosemgrep: tainted-session-from-http-request -- constant session mode marker selected by validated mobile flow
+            }
+        }
+
+        String default_pmm = null;
+        ProviderPreference providerPreference = providerPreferenceDao.find(providerNo);
+
+        if (providerPreference == null) {
+            providerPreference = new ProviderPreference();
+        }
+
+        session.setAttribute(SessionConstants.LOGGED_IN_PROVIDER_PREFERENCE, providerPreference); // nosemgrep: tainted-session-from-http-request -- provider preferences are DAO-loaded server-side state
+
+        if (IsPropertiesOn.isCaisiEnable()) {
+            String tklerProviderNo;
+            UserProperty prop = propDao.getProp(providerNo, UserProperty.PROVIDER_FOR_TICKLER_WARNING);
+            if (prop == null) {
+                tklerProviderNo = providerNo;
+            } else {
+                tklerProviderNo = prop.getValue();
+            }
+            session.setAttribute("tklerProviderNo", tklerProviderNo); // nosemgrep: tainted-session-from-http-request -- tickler provider comes from DAO-loaded provider preference
+
+            session.setAttribute("newticklerwarningwindow", providerPreference.getNewTicklerWarningWindow()); // nosemgrep: tainted-session-from-http-request -- CAISI value comes from DAO-loaded provider preference
+            session.setAttribute("default_pmm", providerPreference.getDefaultCaisiPmm()); // nosemgrep: tainted-session-from-http-request -- CAISI value comes from DAO-loaded provider preference
+            session.setAttribute("caisiBillingPreferenceNotDelete", // nosemgrep: tainted-session-from-http-request -- CAISI billing preference is DAO-loaded server-side state
+                    String.valueOf(providerPreference.getDefaultDoNotDeleteBilling()));
+
+            default_pmm = providerPreference.getDefaultCaisiPmm();
+            if ("enabled".equals(providerPreference.getDefaultNewOscarCme())) {
+                List<String> sessionCaseMgmtUsers;
+                // CaseMgmtUsers is servlet-context state shared by every CAISI session. Hold the
+                // context lock across read-modify-write so concurrent first logins do not lose a
+                // provider number, then store a session snapshot so later context changes cannot
+                // mutate this user's view.
+                synchronized (request.getSession().getServletContext()) {
+                    List<String> contextCaseMgmtUsers = caseManagementUsers();
+                    if (!contextCaseMgmtUsers.contains(providerNo)) {
+                        contextCaseMgmtUsers.add(providerNo);
+                    }
+                    List<String> contextSnapshot = new ArrayList<String>(contextCaseMgmtUsers);
+                    request.getSession().getServletContext().setAttribute("CaseMgmtUsers", contextSnapshot); // nosemgrep: tainted-session-from-http-request -- context snapshot contains DAO/auth-derived provider numbers, not raw request values
+                    sessionCaseMgmtUsers = new ArrayList<String>(contextSnapshot);
+                }
+                session.setAttribute("CaseMgmtUsers", sessionCaseMgmtUsers); // nosemgrep: tainted-session-from-http-request -- defensive copy of servlet-context provider-number list
+            }
+        }
+        session.setAttribute("starthour", providerPreference.getStartHour().toString()); // nosemgrep: tainted-session-from-http-request -- schedule preference is DAO-loaded server-side state
+        session.setAttribute("endhour", providerPreference.getEndHour().toString()); // nosemgrep: tainted-session-from-http-request -- schedule preference is DAO-loaded server-side state
+        session.setAttribute("everymin", providerPreference.getEveryMin().toString()); // nosemgrep: tainted-session-from-http-request -- schedule preference is DAO-loaded server-side state
+        session.setAttribute("groupno", providerPreference.getMyGroupNo()); // nosemgrep: tainted-session-from-http-request -- group preference is DAO-loaded server-side state
+
+        String where = "provider";
+
+        if (where.equals("provider") && default_pmm != null && "enabled".equals(default_pmm)) {
+            where = "caisiPMM";
+        }
+
+        if (where.equals("provider")
+                && CarlosProperties.getInstance().getProperty("useProgramLocation", "false").equals("true")) {
+            where = "programLocation";
+        }
+
+        startBcAlertTimerIfConfigured(pvar);
+
+        Provider provider = providerManager.getProvider(providerNo);
+        if (provider == null) {
+            logger.error("Authenticated login could not load provider record: providerNo={}, remote={}",
+                    LogSafe.sanitize(providerNo), LogSafe.sanitize(ip));
+            session.invalidate();
+            return loginFailureResult(message("login.errorUnableToProcess"));
+        }
+        session.setAttribute("provider", provider); // nosemgrep: tainted-session-from-http-request -- provider entity is DAO-loaded after successful authentication
+        session.setAttribute(SessionConstants.LOGGED_IN_PROVIDER, provider); // nosemgrep: tainted-session-from-http-request -- provider entity is DAO-loaded after successful authentication
+        session.setAttribute(SessionConstants.LOGGED_IN_SECURITY, security); // nosemgrep: tainted-session-from-http-request -- security entity is DAO-loaded after successful authentication
+
+        List<Integer> facilityIds = providerDao.getFacilityIds(provider.getProviderNo());
+        if (facilityIds.size() > 1) {
+            session.setAttribute(SessionConstants.PENDING_FACILITY_SELECTION, Boolean.TRUE);
+            String facilityPath = "/select_facility?nextPage=";
+            String newURL = request.getContextPath() + facilityPath + SafeEncode.forUriComponent(where);
+
+            response.sendRedirect(newURL);
+            return NONE;
+        } else if (facilityIds.size() == 1) {
+            Facility facility = facilityDao.find(facilityIds.get(0));
+            request.getSession().setAttribute("currentFacility", facility); // nosemgrep: tainted-session-from-http-request -- facility entity is DAO-loaded by authorized facility id
+            session.removeAttribute(SessionConstants.PENDING_FACILITY_SELECTION);
+            LogAction.addLog(strAuth[0], LogConst.LOGIN, LogConst.CON_LOGIN, "facilityId=" + facilityIds.get(0),
+                    ip);
+        } else {
+            List<Facility> facilities = facilityDao.findAll(true);
+            if (facilities != null && facilities.size() >= 1) {
+                Facility fac = facilities.get(0);
+                int first_id = fac.getId();
+                providerDao.addProviderToFacility(providerNo, first_id);
+                Facility facility = facilityDao.find(first_id);
+                request.getSession().setAttribute("currentFacility", facility); // nosemgrep: tainted-session-from-http-request -- fallback facility entity is DAO-loaded from active facility list
+                session.removeAttribute(SessionConstants.PENDING_FACILITY_SELECTION);
+                LogAction.addLog(strAuth[0], LogConst.LOGIN, LogConst.CON_LOGIN, "facilityId=" + first_id, ip);
+            }
+        }
+
+        LoggedInInfo loggedInInfo = LoggedInUserFilter.generateLoggedInInfoFromSession(request);
+        LoggedInInfo.setLoggedInInfoIntoSession(session, loggedInInfo);
+
+        String oauthBindingResult = bindOauthTokenForAuthenticatedSession(provider, ajaxResponse, where, providerNo, ip);
+        if (oauthBindingResult != null) {
+            return oauthBindingResult;
+        }
+
+        if (UserRoleUtils.hasRole(request, "Patient Intake")) {
+            return "patientIntake";
+        }
+
+        if ("provider".equals(where)) {
+            response.sendRedirect(buildDefaultProviderSchedulePath());
+            return NONE;
+        }
+
+        return buildPostAuthenticationResponse(provider, ajaxResponse, where);
+    }
+
+    private String bindOauthTokenForAuthenticatedSession(Provider provider, boolean ajaxResponse,
+                                                        String where, String providerNo, String ip)
+            throws IOException {
+        String oauthToken = request.getParameter("oauth_token");
+        if (oauthToken == null) {
+            return null;
+        }
+        if (!isValidOauthTokenId(oauthToken)) {
+            logger.warn("Rejected malformed oauth_token during login completion: providerNo={}, remote={}",
+                    LogSafe.sanitize(providerNo), LogSafe.sanitize(ip));
+            LogAction.addLog(providerNo, LogConst.LOGIN, LogConst.CON_LOGIN, "invalid_oauth_token", ip);
+            return buildPostAuthenticationResponse(provider, ajaxResponse, where);
+        }
+        logger.debug("checking oauth_token");
+        ServiceRequestToken srt = serviceRequestTokenDao.findByTokenId(oauthToken);
+        if (srt != null) {
+            srt.setProviderNo(providerNo);
+            serviceRequestTokenDao.merge(srt);
+        }
+        return null;
+    }
+
+    private String buildPostAuthenticationResponse(Provider provider, boolean ajaxResponse, String where)
+            throws IOException {
+
         if (ajaxResponse) {
             logger.debug("rendering ajax response");
-            Provider prov = providerDao.getProvider((String) request.getSession().getAttribute("user"));
             ObjectNode json = objectMapper.createObjectNode();
             json.put("success", true);
-            json.put("providerName", Encode.forJavaScript(prov.getFormattedName()));
-            json.put("providerNo", prov.getProviderNo());
+            json.put("providerName", SafeEncode.forJavaScript(provider.getFormattedName()));
+            json.put("providerNo", provider.getProviderNo());
             response.setContentType("application/json");
             response.getWriter().write(json.toString());
             return null;
         }
 
         logger.debug("rendering standard response : {}", where);
-        if ("provider".equals(where)) {
-            response.sendRedirect(buildDefaultProviderSchedulePath());
-            return NONE;
-        }
-
         return where;
     }
 
-    /**
-     * Resumes the post-authentication flow after successful MFA validation.
-     *
-     * <p>This method is called after a user has successfully validated their MFA code
-     * (either during MFA registration or during standard MFA login). It completes the
-     * login process by setting up the user's session and determining the appropriate
-     * landing page.
-     *
-     * <p>NOTE: This is currently a simplified stub implementation. A complete implementation
-     * would need to include all the session setup from the main execute() flow:
-     * <ul>
-     *   <li>Provider preference loading and session attribute setting</li>
-     *   <li>Facility assignment and selection logic</li>
-     *   <li>CAISI program management settings (if enabled)</li>
-     *   <li>Start hour, end hour, appointment interval settings</li>
-     *   <li>Alert timer initialization for BC MSP alerts</li>
-     *   <li>LoggedInInfo object creation and session registration</li>
-     *   <li>User role checking for specialized interfaces</li>
-     * </ul>
-     *
-     * @param cl LoginCheckLogin object containing authenticated user security information
-     * @param ip String the client IP address for audit logging
-     * @param isMobileOptimized boolean whether mobile-optimized interface was detected
-     * @param submitType String the submit button type ("full" or null) for desktop/mobile preference
-     * @param ajaxResponse boolean whether to return JSON response instead of Struts forward
-     * @return String Struts2 result name ("provider", "caisiPMM", etc.) or null for AJAX response
-     * @throws IOException if error occurs writing AJAX response to output stream
-     * @see #execute() for complete session setup logic that should be extracted to shared helper
-     */
-    private String resumePostAuthenticationFlow(LoginCheckLogin cl, String ip, boolean isMobileOptimized,
-                                               String submitType, boolean ajaxResponse) throws IOException {
-        HttpSession session = request.getSession();
-
-        // Retrieve provider number from session (set during initial authentication)
-        String providerNo = (String) session.getAttribute("user");
-        String where = "provider";
-
-        // TODO: Extract full session setup logic from execute() into shared helper method
-        // Currently missing: provider preferences, facility assignment, CAISI settings,
-        // scheduling preferences, alert timers, LoggedInInfo creation, role-based routing
-
-        // Handle AJAX response for mobile/API clients
-        if (ajaxResponse) {
-            logger.debug("rendering ajax response");
-            Provider prov = providerDao.getProvider(providerNo);
-            ObjectNode json = objectMapper.createObjectNode();
-            json.put("success", true);
-            // SECURITY: OWASP encode provider name for JavaScript context
-            json.put("providerName", Encode.forJavaScript(prov.getFormattedName()));
-            json.put("providerNo", prov.getProviderNo());
-            response.setContentType("application/json");
-            response.getWriter().write(json.toString());
-            return null;
-        }
-
-        return where;
+    private static boolean isValidOauthTokenId(String token) {
+        return token != null && OAUTH_TOKEN_ID_PATTERN.matcher(token).matches();
     }
 
     /**
      * Builds the canonical post-login schedule landing path.
      *
-     * <p>This bypasses the legacy {@code provider/providercontrol} dispatcher
-     * and sends authenticated users directly to the day-view schedule action
-     * with today's date and the configured default {@code viewall} mode.</p>
+     * <p>This sends authenticated users to the provider-control router with
+     * today's day-view parameters. Provider-control performs the active
+     * in-page schedule checks before including the day-view JSP.</p>
      *
      * @return internal application path for the default provider schedule view
      */
@@ -923,10 +1303,139 @@ public final class Login2Action extends ActionSupport {
         }
 
         return request.getContextPath()
-                + "/provider/ViewAppointmentAdminDay?year=" + now.get(Calendar.YEAR)
+                + "/provider/providercontrol?year=" + now.get(Calendar.YEAR)
                 + "&month=" + (now.get(Calendar.MONTH) + 1)
                 + "&day=" + now.get(Calendar.DAY_OF_MONTH)
                 + "&view=0&displaymode=day&dboperation=searchappointmentday&viewall=" + viewAll;
+    }
+
+    /**
+     * Returns whether flagged accounts must be routed through forced password reset.
+     *
+     * <p>This setting is a security control, so an omitted key is treated as enabled. The shared
+     * {@code getBooleanProperty(key, "true")} helper only checks whether the configured value is
+     * active and therefore returns false for missing positive-valued keys.</p>
+     *
+     * @return true when {@code mandatory_password_reset} is missing, set to true/yes/on/1, or
+     *         contains an unrecognized value; false only for explicit false/no/off/0
+     */
+    private boolean isMandatoryPasswordResetEnabled() {
+        String value = CarlosProperties.getInstance().getProperty("mandatory_password_reset", "true");
+        if (value == null || value.trim().isEmpty()) {
+            return true;
+        }
+        String normalized = value.trim().toLowerCase(Locale.ROOT);
+        if ("true".equals(normalized) || "yes".equals(normalized)
+                || "on".equals(normalized) || "1".equals(normalized)) {
+            return true;
+        }
+        if ("false".equals(normalized) || "no".equals(normalized)
+                || "off".equals(normalized) || "0".equals(normalized)) {
+            return false;
+        }
+        logger.warn("Unrecognized mandatory_password_reset value {}; defaulting to enabled",
+                LogSafe.sanitize(value));
+        return true;
+    }
+
+    /**
+     * Redirects a retryable forced-reset validation failure back to the GET view.
+     *
+     * <p>The credential token remains live for this path by design: the user has not yet passed
+     * validation, so there is no terminal password-change attempt to consume. The next view render
+     * copies the session error to the request and removes it from the session.</p>
+     *
+     * @param errorMessage localized message to show on the forced reset form
+     * @return {@link #NONE} because the response has already been redirected
+     * @throws IOException if the servlet container cannot issue the redirect
+     */
+    private String redirectForcePasswordResetRetry(String errorMessage) throws IOException {
+        HttpSession session = request.getSession(false);
+        if (session != null) {
+            session.setAttribute(FORCE_PASSWORD_RESET_ERROR_ATTR, errorMessage);
+        }
+        response.sendRedirect(request.getContextPath() + "/forcepasswordreset");
+        return NONE;
+    }
+
+    /**
+     * Builds the extensionless login failure redirect URL with an encoded error
+     * message parameter.
+     *
+     * @param request servlet request used to resolve the application context path
+     * @param errorMessage localized error message to include in the redirect
+     * @return context-relative login failure URL including an encoded errormsg parameter
+     */
+    public static String loginFailedRedirectUrl(HttpServletRequest request, String errorMessage) {
+        return request.getContextPath() + "/loginfailed?errormsg="
+                + URLEncoder.encode(errorMessage, StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Looks up a localized message from the CARLOS EMR oscarResources bundle
+     * using the current request locale, then falling back to English, then to a hardcoded generic
+     * message if even the English bundle is missing the requested key.
+     *
+     * <p>A null request is tolerated for static helper call sites and uses English directly.</p>
+     *
+     * @param request servlet request carrying the active locale
+     * @param key resource bundle key to resolve
+     * @return localized resource bundle message
+     */
+    public static String message(HttpServletRequest request, String key) {
+        Locale locale = request == null ? Locale.ENGLISH : request.getLocale();
+        try {
+            return ResourceBundle.getBundle("oscarResources", locale).getString(key);
+        } catch (MissingResourceException e) {
+            logger.warn("Missing localized message: bundle=oscarResources locale={} key={}", locale, key);
+            try {
+                return ResourceBundle.getBundle("oscarResources", Locale.ENGLISH).getString(key);
+            } catch (MissingResourceException fallbackException) {
+                logger.error("Missing default message: bundle=oscarResources locale={} key={}",
+                        Locale.ENGLISH, key, fallbackException);
+                return "Unable to process your request. Please try again.";
+            }
+        }
+    }
+
+    /**
+     * Checks whether the request session holds a live credential-cache token for
+     * a pending multi-step login flow.
+     *
+     * @param request HttpServletRequest carrying the candidate session
+     * @return true when the session contains a token that still maps to cached credentials
+     */
+    public static boolean hasValidLoginCredentialsToken(HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        if (session == null) {
+            return false;
+        }
+        Object tokenAttr = session.getAttribute(LOGIN_CREDENTIALS_TOKEN_ATTR);
+        return tokenAttr instanceof String token
+                && LoginCredentialCache.getInstance().peek(token) != null;
+    }
+
+    private String loginFailedRedirectUrl(String errorMessage) {
+        return loginFailedRedirectUrl(request, errorMessage);
+    }
+
+    /**
+     * Routes fatal in-action login failures to the login failure view with a request-scoped message.
+     *
+     * <p>Do not use the {@code failure} result for these paths: the Struts mapping sends that result
+     * to {@code /WEB-INF/jsp/login/logout.jsp}, which intentionally does not render login error
+     * details. The {@code error} result maps to {@code /WEB-INF/jsp/login/loginfailed.jsp}.</p>
+     *
+     * @param errorMessage localized, display-safe error message
+     * @return {@code error} so Struts renders {@code loginfailed.jsp}
+     */
+    private String loginFailureResult(String errorMessage) {
+        request.setAttribute("errormsg", errorMessage);
+        return "error";
+    }
+
+    private String message(String key) {
+        return message(request, key);
     }
 
     /**
@@ -939,24 +1448,27 @@ public final class Login2Action extends ActionSupport {
      * <p>The session attribute removed is the opaque credential-cache token (see
      * {@link LoginCredentialCache}); if it is present the corresponding cache entry is
      * also invalidated so that credential material cannot outlive the login attempt.
-     * The {@code nextPage} attribute is also cleared.
+     * The retry-display attribute {@link #FORCE_PASSWORD_RESET_ERROR_ATTR} is cleared at the same
+     * time so stale retry messages cannot influence a later attempt.
      *
      * @param request HttpServletRequest containing the session to clean
      */
     private void removeAttributesFromSession(HttpServletRequest request) {
-        HttpSession session = request.getSession();
+        HttpSession session = request.getSession(false);
+        if (session == null) {
+            return;
+        }
         Object tokenAttr = session.getAttribute(LOGIN_CREDENTIALS_TOKEN_ATTR);
         if (tokenAttr instanceof String) {
             LoginCredentialCache.getInstance().invalidate((String) tokenAttr);
         }
         session.removeAttribute(LOGIN_CREDENTIALS_TOKEN_ATTR);
-        session.removeAttribute("nextPage");
-        session.removeAttribute("userName");
+        session.removeAttribute(FORCE_PASSWORD_RESET_ERROR_ATTR);
     }
 
     /**
      * Stores user authentication information in a short-lived server-side cache for the
-     * forced password reset and MFA flows, and records only an opaque one-time token in
+     * forced password reset and MFA flows, and records only an opaque cache token in
      * the session.
      *
      * <p>During multi-step login (MFA verification or forced password reset), the user's
@@ -990,121 +1502,328 @@ public final class Login2Action extends ActionSupport {
      * @param password String the plain-text password (will be encoded before caching)
      * @param pin String the 4-digit PIN (must match [0-9]{4} pattern)
      * @param nextPage String the relative URL to redirect to after password reset (validated before caching)
-     * @throws Exception if password encoding fails
-     * @see #encodePassword for password encoding algorithm
+     * @see SecurityManager#encodePassword for password encoding algorithm
      * @see #removeAttributesFromSession for cleanup after password reset
      * @see RedirectValidationUtils#isValidRelativeRedirect for redirect URL validation logic
      * @see LoginCredentialCache for the server-side credential store
      */
     private void setUserInfoToSession(HttpServletRequest request, String userName, String password, String pin,
-                                      String nextPage) throws Exception {
+                                      String nextPage) {
         // Validate nextPage before caching to prevent open redirect (CWE-601 defense in depth)
-        if (!RedirectValidationUtils.isValidRelativeRedirect(nextPage)) {
-            if (nextPage != null) {
-                logger.warn("Rejected invalid nextPage before credential cache: {}", LogSanitizer.sanitize(nextPage));
+        String validatedNextPage = nextPage;
+        if (!RedirectValidationUtils.isValidRelativeRedirect(validatedNextPage)) {
+            if (validatedNextPage != null) {
+                logger.warn("Rejected invalid nextPage before credential cache: {}",
+                        LogSafe.sanitize(validatedNextPage));
             }
-            nextPage = null;
+            validatedNextPage = null;
         }
 
         // SECURITY: Do NOT place credential material (password hash, PIN) in the HTTP session.
         // Sessions can be serialized to disk, replicated across nodes, dumped for debugging,
         // or read by any session-aware code. Instead, stash credentials in a short-lived
-        // server-side cache keyed by a cryptographically random one-time token, and store
+        // server-side cache keyed by a cryptographically random opaque token, and store
         // only the opaque token in the session. See LoginCredentialCache for details.
         LoginCredentialCache.LoginCredentials credentials = new LoginCredentialCache.LoginCredentials(
-                userName, encodePassword(password), pin, nextPage);
+                userName, securityManager.encodePassword(password), pin, validatedNextPage);
 
         // Invalidate any previously issued token on this session before minting a new one,
         // so that stale cache entries do not outlive the current login attempt.
-        HttpSession session = request.getSession();
-        Object existingToken = session.getAttribute(LOGIN_CREDENTIALS_TOKEN_ATTR);
+        HttpSession session = request.getSession(false);
+        Object existingToken = session == null ? null : session.getAttribute(LOGIN_CREDENTIALS_TOKEN_ATTR);
         if (existingToken instanceof String) {
             LoginCredentialCache.getInstance().invalidate((String) existingToken);
         }
+        if (session != null) {
+            session.invalidate();
+        }
+        session = request.getSession();
+        session.setMaxInactiveInterval(300);
 
         String token = LoginCredentialCache.getInstance().store(credentials);
         // Use an opaque random token, not user-controlled; no credential material in session
-        session.setAttribute(LOGIN_CREDENTIALS_TOKEN_ATTR, token); // nosemgrep: tainted-session-from-http-request
-        // Only login name in sesssion; gate checks on forcepasswordreset and MFA pages depend on this
-        session.setAttribute("userName", userName); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute(LOGIN_CREDENTIALS_TOKEN_ATTR, token); // nosemgrep: tainted-session-from-http-request -- opaque server-generated cache token, not raw credentials
     }
 
     /**
      * Validates password change requirements during forced password reset flow.
      *
-     * <p>This method performs three validation checks:
+     * <p>This method performs four validation checks:
      * <ol>
-     *   <li>Old password matches the current password in the database</li>
+     *   <li>Old password matches the password from the staged successful login</li>
      *   <li>New password and confirmation password match each other</li>
      *   <li>New password is different from old password (unless IGNORE_PASSWORD_REQUIREMENTS is true)</li>
+     *   <li>New password satisfies the configured password complexity policy</li>
      * </ol>
      *
-     * <p>The method returns a URL query string fragment containing an error message if
-     * validation fails, or an empty string if all validations pass.
+     * <p>The method returns a display-safe error message if validation fails, or an empty string if
+     * all validations pass. Each rejection emits a PHI-safe audit reason so direct POST probing is
+     * visible to operators without recording password material.
      *
-     * @param oldEncodedPassword String the current password hash from the database
+     * @param userName provider login name used only for PHI-safe audit context
      * @param newPassword String the new password entered by the user
      * @param confirmPassword String the confirmation of the new password
      * @param oldPassword String the old password entered by the user for verification
-     * @return String empty string if validation passes, or URL query parameter with error message if validation fails
+     * @param oldPasswordMatched true when the staged old-password check already passed
+     * @return String empty string if validation passes, or an error message if validation fails
      * @see SecurityManager#matchesPassword for password comparison logic
      */
-    private String errorHandling(String oldEncodedPassword, String newPassword, String confirmPassword,
-                                 String oldPassword) {
+    private String errorHandling(String userName, String newPassword, String confirmPassword,
+                                 String oldPassword, boolean oldPasswordMatched) {
 
-        String newURL = "";
-
-        // Verify old password matches current password in database
-        if (!this.securityManager.matchesPassword(oldPassword, oldEncodedPassword)) {
-            newURL = newURL
-                    + "?errormsg=Your old password, does NOT match the password in the system. Please enter your old password.";
+        // Verify old password matches the password from the staged successful login.
+        if (!oldPasswordMatched) {
+            return rejectForcedPasswordReset(userName, "old_password_mismatch",
+                    "provider.providerchangepassword.errorOldPasswordMismatch");
         }
         // Verify new password and confirmation match
-        else if (!newPassword.equals(confirmPassword)) {
-            newURL = newURL + "?errormsg=Your new password, does NOT match the confirmed password. Please try again.";
+        else if (newPassword == null || confirmPassword == null || !Objects.equals(newPassword, confirmPassword)) {
+            return rejectForcedPasswordReset(userName, "confirm_password_mismatch",
+                    "provider.providerchangepassword.errorConfirmPasswordMismatch");
         }
         // Verify new password is different from old password (unless requirement is disabled)
         else if (!Boolean.parseBoolean(CarlosProperties.getInstance().getProperty("IGNORE_PASSWORD_REQUIREMENTS"))
-                && newPassword.equals(oldPassword)) {
-            newURL = newURL
-                    + "?errormsg=Your new password, is the same as your old password. Please choose a new password.";
+                && Objects.equals(newPassword, oldPassword)) {
+            return rejectForcedPasswordReset(userName, "new_password_same_as_old",
+                    "provider.providerchangepassword.errorNewPasswordSameAsOld");
         }
 
-        return newURL;
+        PasswordPolicyResult policyResult = validatePasswordPolicy(newPassword);
+        if (!policyResult.isValid()) {
+            auditForcedPasswordResetFailure(userName, policyResult.auditReason());
+        }
+        return policyResult.errorMessage();
     }
 
     /**
-     * Encodes a plain-text password using SHA-1 hashing algorithm.
+     * Builds the localized forced-reset rejection message while recording the shared audit event.
      *
-     * <p>This method creates a SHA-1 digest of the password and converts each byte
-     * to a string representation. The resulting hash is stored in the session during
-     * the forced password reset flow.
+     * <p>Keep password material out of {@code auditReason}; callers pass stable symbolic reasons so
+     * operators can distinguish probing patterns without exposing submitted credentials.</p>
      *
-     * <p>SECURITY NOTE: SHA-1 is deprecated for cryptographic use. This legacy encoding
-     * is maintained for backward compatibility but should be migrated to BCrypt or
-     * PBKDF2 in the future.
-     *
-     * <p>TODO: Consider using {@link SecurityManager#encodePassword} if it provides
-     * the same encoding format, or migrate to modern password hashing algorithms.
-     *
-     * @param password String the plain-text password to encode
-     * @return String the SHA-1 encoded password as concatenated byte string
-     * @throws Exception if SHA MessageDigest algorithm is not available
-     * @deprecated SHA-1 is cryptographically weak; migrate to BCrypt or PBKDF2
+     * @param userName provider login name used only for PHI-safe audit context
+     * @param auditReason stable symbolic rejection reason
+     * @param messageKey resource-bundle key for the user-facing rejection message
+     * @return localized display-safe rejection message
      */
-    @Deprecated
-    private String encodePassword(String password) throws Exception {
+    private String rejectForcedPasswordReset(String userName, String auditReason, String messageKey) {
+        auditForcedPasswordResetFailure(userName, auditReason);
+        return message(messageKey);
+    }
 
-        MessageDigest md = MessageDigest.getInstance("SHA");
+    private boolean oldPasswordMatches(String oldPassword, String oldEncodedPassword) {
+        return oldPassword != null
+                && oldEncodedPassword != null
+                && this.securityManager.matchesPassword(oldPassword, oldEncodedPassword);
+    }
 
-        StringBuilder sbTemp = new StringBuilder();
-        byte[] btNewPasswd = md.digest(password.getBytes());
-        // Convert each byte to string representation
-        for (int i = 0; i < btNewPasswd.length; i++)
-            sbTemp = sbTemp.append(btNewPasswd[i]);
+    private static boolean isForcedPasswordResetSubmitPath(HttpServletRequest request) {
+        String uri = request.getRequestURI();
+        if (uri == null) {
+            return false;
+        }
+        String contextPath = request.getContextPath();
+        String path = contextPath != null && !contextPath.isEmpty() && uri.startsWith(contextPath)
+                ? uri.substring(contextPath.length())
+                : uri;
+        return "/forcepasswordresetSubmit".equals(path);
+    }
 
-        return sbTemp.toString();
+    private int incrementForcedResetOldPasswordAttempts() {
+        HttpSession session = request.getSession(false);
+        if (session == null) {
+            return MAX_FORCE_PASSWORD_RESET_OLD_PASSWORD_ATTEMPTS;
+        }
+        synchronized (session) {
+            Object attemptsAttr = session.getAttribute(FORCE_PASSWORD_RESET_OLD_PASSWORD_ATTEMPTS_ATTR);
+            int attempts = attemptsAttr instanceof Number ? ((Number) attemptsAttr).intValue() : 0;
+            attempts++;
+            session.setAttribute(FORCE_PASSWORD_RESET_OLD_PASSWORD_ATTEMPTS_ATTR, attempts);
+            return attempts;
+        }
+    }
 
+    private void clearForcedResetOldPasswordAttempts() {
+        HttpSession session = request.getSession(false);
+        if (session != null) {
+            try {
+                session.removeAttribute(FORCE_PASSWORD_RESET_OLD_PASSWORD_ATTEMPTS_ATTR);
+            } catch (IllegalStateException | UnsupportedOperationException e) {
+                logger.warn("Unable to clear forced-reset old-password retry counter", e);
+            }
+        }
+    }
+
+    /**
+     * Records forced password-reset validation failures through both the application log and audit log.
+     *
+     * <p>The audit event intentionally stores only the provider login name and a symbolic reason.
+     * Old/new password values and password-policy details beyond the failure class must never be
+     * logged.</p>
+     *
+     * @param userName provider login name associated with the staged reset attempt
+     * @param auditReason stable symbolic rejection reason
+     */
+    private void auditForcedPasswordResetFailure(String userName, String auditReason) {
+        logger.info("Forced password reset rejected: user={}, reason={}",
+                LogSafe.sanitize(userName), auditReason);
+        LogAction.addLog(userName, "login", "forced_password_reset_failed", auditReason);
+    }
+
+    /**
+     * Records forced password-reset completion events that need a forensic marker.
+     *
+     * @param userName provider login name associated with the staged reset attempt
+     * @param auditReason stable symbolic completion condition
+     */
+    private void auditForcedPasswordResetCompletion(String userName, String auditReason) {
+        logger.info("Forced password reset completed with follow-up action: user={}, reason={}",
+                LogSafe.sanitize(userName), auditReason);
+        LogAction.addLog(userName, "login", "forced_password_reset_completed", auditReason);
+    }
+
+    /**
+     * Counts authentication-provider exceptions as failed attempts so exception-triggering probes do
+     * not bypass the same lockout path as ordinary credential failures.
+     */
+    private void recordAuthenticationExceptionFailure(LoginCheckLogin cl, String ip, String userName) {
+        try {
+            cl.updateLoginList(ip, userName);
+        } catch (RuntimeException updateFailure) {
+            logger.warn("Unable to update login-failure counter after authentication exception: user={}, remote={}",
+                    LogSafe.sanitize(userName), LogSafe.sanitize(ip), updateFailure);
+        }
+    }
+
+    /**
+     * Applies the server-side forced-reset password complexity policy.
+     *
+     * <p>The JSP performs the same checks for immediate user feedback, but browser JavaScript is
+     * advisory. This method is the authoritative policy gate for direct POSTs and scripted clients.
+     * It mirrors the configurable length/group settings used by the legacy password-change UI.</p>
+     *
+     * @param newPassword candidate password submitted from the forced reset form
+     * @return validation result containing the display message and audit reason when rejected
+     */
+    private PasswordPolicyResult validatePasswordPolicy(String newPassword) {
+        CarlosProperties properties = CarlosProperties.getInstance();
+        if (Boolean.parseBoolean(properties.getProperty("IGNORE_PASSWORD_REQUIREMENTS"))) {
+            return PasswordPolicyResult.valid();
+        }
+
+        int minLength = intProperty(properties, "password_min_length", DEFAULT_POLICY_MIN_LENGTH);
+        if (newPassword == null || newPassword.length() < minLength) {
+            return PasswordPolicyResult.invalid(message("password.policy.violation.msgPasswordLengthError") + " "
+                    + minLength + " " + message("password.policy.violation.msgSymbols"),
+                    "password_policy_min_length");
+        }
+
+        int minGroups = intProperty(properties, "password_min_groups", DEFAULT_POLICY_MIN_GROUPS);
+        int groupsUsed = countPasswordGroups(newPassword,
+                properties.getProperty("password_group_lower_chars", DEFAULT_POLICY_LOWER_CHARS),
+                properties.getProperty("password_group_upper_chars", DEFAULT_POLICY_UPPER_CHARS),
+                properties.getProperty("password_group_digits", DEFAULT_POLICY_DIGIT_CHARS),
+                properties.getProperty("password_group_special", DEFAULT_POLICY_SPECIAL_CHARS));
+        if (groupsUsed < minGroups) {
+            return PasswordPolicyResult.invalid(message("password.policy.violation.msgPasswordStrengthError") + " "
+                    + minGroups + " " + message("password.policy.violation.msgPasswordGroups"),
+                    "password_policy_min_groups");
+        }
+
+        return PasswordPolicyResult.valid();
+    }
+
+    /**
+     * Carries both halves of a password-policy decision.
+     *
+     * <p>The display message stays localized for the reset page while {@code auditReason} remains a
+     * stable, non-sensitive token for audit logging. Valid results use an empty message and no audit
+     * reason.</p>
+     */
+    private record PasswordPolicyResult(String errorMessage, String auditReason) {
+        private static PasswordPolicyResult valid() {
+            return new PasswordPolicyResult("", null);
+        }
+
+        private static PasswordPolicyResult invalid(String errorMessage, String auditReason) {
+            return new PasswordPolicyResult(errorMessage, auditReason);
+        }
+
+        private boolean isValid() {
+            return (errorMessage == null || errorMessage.isEmpty()) && auditReason == null;
+        }
+    }
+
+    /**
+     * Counts how many configured character groups appear in a password candidate.
+     *
+     * <p>Package visibility exists for focused policy tests. Keep this helper deterministic and
+     * side-effect free so tests can cover policy behavior without driving the whole login action.</p>
+     */
+    static int countPasswordGroups(String password, String lowerChars, String upperChars, String digitChars,
+                                   String specialChars) {
+        if (password == null || password.isEmpty()) {
+            return 0;
+        }
+
+        boolean lower = false;
+        boolean upper = false;
+        boolean digit = false;
+        boolean special = false;
+        for (int i = 0; i < password.length(); i++) {
+            char ch = password.charAt(i);
+            if (!lower && containsChar(lowerChars, ch)) {
+                lower = true;
+            }
+            if (!upper && containsChar(upperChars, ch)) {
+                upper = true;
+            }
+            if (!digit && containsChar(digitChars, ch)) {
+                digit = true;
+            }
+            if (!special && containsChar(specialChars, ch)) {
+                special = true;
+            }
+        }
+
+        int groups = 0;
+        if (lower) {
+            groups++;
+        }
+        if (upper) {
+            groups++;
+        }
+        if (digit) {
+            groups++;
+        }
+        if (special) {
+            groups++;
+        }
+        return groups;
+    }
+
+    private static boolean containsChar(String chars, char ch) {
+        return chars != null && chars.indexOf(ch) >= 0;
+    }
+
+    /**
+     * Reads an integer password-policy property with a safe fallback.
+     *
+     * <p>Misconfigured policy values should not make password changes impossible. Invalid values
+     * are logged for operators and the conservative application default remains in force.</p>
+     */
+    private static int intProperty(CarlosProperties properties, String key, int defaultValue) {
+        String value = properties.getProperty(key);
+        if (value == null) {
+            return defaultValue;
+        }
+        try {
+            return Integer.parseInt(value.trim());
+        } catch (NumberFormatException e) {
+            logger.warn("Invalid integer property {}={}, using default {}", key, LogSafe.sanitize(value),
+                    defaultValue);
+            return defaultValue;
+        }
     }
 
     /**
@@ -1118,8 +1837,9 @@ public final class Login2Action extends ActionSupport {
 
         List<Security> results = securityDao.findByUserName(username);
         Security security = null;
-        if (results.size() > 0)
+        if (results.size() > 0) {
             security = results.get(0);
+        }
 
         return security;
     }
@@ -1128,29 +1848,27 @@ public final class Login2Action extends ActionSupport {
      * Persists a new password for a user after forced password reset.
      *
      * <p>This method updates the user's password in the database and clears the
-     * forcePasswordReset flag so the user won't be prompted again on next login.
-     *
-     * <p>Steps performed:
-     * <ol>
-     *   <li>Retrieve the user's Security record via {@link #getSecurity}</li>
-     *   <li>Encode the new password using {@link #encodePassword}</li>
-     *   <li>Update the password field in the Security record</li>
-     *   <li>Clear the forcePasswordReset flag</li>
-     *   <li>Persist changes to the database</li>
-     * </ol>
+     * forcePasswordReset flag so the user won't be prompted again on next login. It assumes the
+     * caller has already validated the old password, confirmation match, reuse rule, complexity
+     * policy, CSRF token, and credential-cache token. Do not call this helper directly from a new
+     * endpoint without preserving those gates.
      *
      * @param userName String the username of the account to update
      * @param newPassword String the new plain-text password (will be encoded before storage)
-     * @throws Exception if password encoding fails or database update fails
+     * @throws IllegalStateException if the user's security record cannot be found
      * @see #getSecurity for retrieving the Security record
-     * @see #encodePassword for password hashing
+     * @see SecurityManager#encodePassword for password hashing
      * @see SecurityDao#saveEntity for database persistence
      */
-    private void persistNewPassword(String userName, String newPassword) throws Exception {
+    private void persistNewPassword(String userName, String newPassword) {
 
         Security security = getSecurity(userName);
-        security.setPassword(encodePassword(newPassword));
+        if (security == null) {
+            throw new IllegalStateException("Security record not found for forced password reset user.");
+        }
+        security.setPassword(securityManager.encodePassword(newPassword));
         security.setForcePasswordReset(Boolean.FALSE);
+        security.setPasswordUpdateDate(new Date());
         securityDao.saveEntity(security);
 
     }
@@ -1263,11 +1981,6 @@ public final class Login2Action extends ActionSupport {
         this.pin = pin;
     }
 
-    /**
-     * Gets the property name for user property operations.
-     *
-     * @return String the property name (legacy field, usage unclear)
-     */
     public String getPropname() {
         return propname;
     }
@@ -1371,21 +2084,21 @@ public final class Login2Action extends ActionSupport {
     }
 
     /**
-     * Checks if this is an MFA registration flow.
+     * Returns the request's MFA registration hint.
      *
-     * @return boolean true if registering MFA for first time, false if validating existing MFA
+     * @return request hint only; server-side challenge state decides registration behavior
      */
     public boolean isMfaRegistrationFlow() {
         return mfaRegistrationFlow;
     }
 
     /**
-     * Sets whether this is an MFA registration flow.
+     * Sets the request's MFA registration hint.
      *
-     * <p>Struts2 automatically calls this method to populate the mfaRegistrationFlow field
-     * from the "mfaRegistrationFlow" request parameter.
+     * <p>Struts2 populates this from the form, but validation derives registration mode from the
+     * server-side pending challenge so clients cannot choose the security branch.</p>
      *
-     * @param mfaRegistrationFlow boolean true for MFA registration, false for standard MFA validation
+     * @param mfaRegistrationFlow boolean request hint from the MFA form
      */
     @StrutsParameter
     public void setMfaRegistrationFlow(boolean mfaRegistrationFlow) {

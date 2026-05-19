@@ -32,7 +32,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnHistorySpecialistViewModel;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnClaimLoader;
 import io.github.carlos_emr.carlos.utility.DateRange;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
@@ -86,7 +86,7 @@ public class BillingOnHistorySpecialistViewModelAssembler {
             daysInt = Integer.parseInt(safeDay);
         } catch (NumberFormatException e) {
             MiscUtils.getLogger().warn("BillingOnHistorySpecialist: invalid day range [{}]; using 0",
-                    LogSanitizer.sanitize(safeDay), e);
+                    LogSafe.sanitize(safeDay), e);
             daysInt = 0;
         }
         calendar.add(Calendar.DATE, daysInt * (-1));
@@ -132,7 +132,7 @@ public class BillingOnHistorySpecialistViewModelAssembler {
             partial = true;
             MiscUtils.getLogger().error(
                     "Error loading billing history (spec) for demographic_no={}",
-                    io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(safeDemoNo), e);
+                    io.github.carlos_emr.carlos.utility.LogSafe.sanitize(safeDemoNo), e);
         }
 
         return BillingOnHistorySpecialistViewModel.builder()
