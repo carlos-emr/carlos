@@ -24,20 +24,20 @@ package io.github.carlos_emr.carlos.demographic.pageUtil;
 import io.github.carlos_emr.carlos.encounter.data.EctProgramManager;
 import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.dao.ProviderDao;
+import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.util.LabelValueBean;
 
 import org.apache.struts2.ActionSupport;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
 import org.springframework.web.context.WebApplicationContext;
 
 import java.io.File;
@@ -76,13 +76,10 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
     @Mock
     private ProviderDao mockProviderDao;
 
-    private AutoCloseable mockitoCloseable;
     private ImportDemographicDataAction42Action action;
 
     @BeforeEach
     void setUp() throws Exception {
-        mockitoCloseable = MockitoAnnotations.openMocks(this);
-
         replaceSpringUtilsBean(EctProgramManager.class, mockEctProgramManager);
         replaceSpringUtilsBean(NioFileManager.class, mockNioFileManager);
         replaceSpringUtilsBean(ProviderDao.class, mockProviderDao);
@@ -102,13 +99,6 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
         when(mockProviderDao.getActiveProviders()).thenReturn(List.of());
 
         action = new ImportDemographicDataAction42Action();
-    }
-
-    @AfterEach
-    void tearDown() throws Exception {
-        if (mockitoCloseable != null) {
-            mockitoCloseable.close();
-        }
     }
 
     @Test
@@ -159,6 +149,17 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
     @DisplayName("should return logout when user session attribute is whitespace only")
     void shouldReturnLogout_whenUserSessionAttributeIsWhitespaceOnly() throws Exception {
         setSessionAttribute("user", "   ");
+
+        String result = executeAction(action);
+
+        assertThat(result).isEqualTo("logout");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"null", "NULL"})
+    @DisplayName("should return logout when user session attribute is literal null")
+    void shouldReturnLogout_whenUserSessionAttributeIsLiteralNull(String sessionUser) throws Exception {
+        setSessionAttribute("user", sessionUser);
 
         String result = executeAction(action);
 
