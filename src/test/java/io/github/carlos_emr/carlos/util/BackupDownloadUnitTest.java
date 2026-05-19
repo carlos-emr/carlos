@@ -181,6 +181,9 @@ class BackupDownloadUnitTest extends CarlosUnitTestBase {
         return loggedInInfo;
     }
 
+    /**
+     * Test spy that records download parameters without touching the filesystem.
+     */
     private static final class RecordingBackupDownload extends BackupDownload {
         private boolean downloadCalled;
         private boolean bDownloadValue;
