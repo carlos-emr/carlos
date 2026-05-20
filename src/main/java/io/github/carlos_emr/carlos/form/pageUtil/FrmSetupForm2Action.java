@@ -360,6 +360,7 @@ public final class FrmSetupForm2Action extends ActionSupport {
             return "SELECT * FROM " + tableName + " WHERE ID=? AND demographic_no=?";
         }
 
+        @SuppressWarnings("java:S2077")
         private PreparedStatement prepareRecordQuery(
                 Connection connection,
                 String formId,

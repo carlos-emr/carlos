@@ -305,6 +305,7 @@ public class CategoryData {
         return !statusFilterIsEmpty();
     }
 
+    @SuppressWarnings("java:S2077")
     public int getLabCountForUnmatched()
             throws SQLException {
         String dateSearchType = getDateSearchType();
@@ -334,6 +335,7 @@ public class CategoryData {
         }
     }
 
+    @SuppressWarnings("java:S2077")
     public int getAbnormalCount(boolean isAbnormal) throws SQLException {
         try (Connection c = DbConnectionFilter.getThreadLocalDbConnection()) {
             if (patientSearch) {
@@ -391,6 +393,7 @@ public class CategoryData {
         }
     }
 
+    @SuppressWarnings("java:S2077")
     public int getDocumentCountForUnmatched()
             throws SQLException {
         String sql = " SELECT HIGH_PRIORITY COUNT(1) as count "
@@ -415,6 +418,7 @@ public class CategoryData {
         }
     }
 
+    @SuppressWarnings("java:S2077")
     public int getLabCountForPatientSearch() throws SQLException {
         PatientInfo info;
         String dateSearchType = getDateSearchType();
@@ -520,6 +524,7 @@ public class CategoryData {
      * it will also add to the patients map (demographicNo, PatientInfo) with a document count for the patient.
      *
      */
+    @SuppressWarnings("java:S2077")
     public int getDocumentCountForPatientSearch() throws SQLException {
         PatientInfo info;
 
