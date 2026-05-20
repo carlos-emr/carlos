@@ -21,24 +21,75 @@
 package io.github.carlos_emr.carlos.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
 
+import org.apache.struts2.ServletActionContext;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
+
+import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
+import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
+import io.github.carlos_emr.carlos.commn.dao.TicklerDao;
+import io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao;
+import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
+import io.github.carlos_emr.carlos.commn.model.Measurement;
+import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.commn.model.UserProperty;
+import io.github.carlos_emr.carlos.mds.pageUtil.ReportMacro2Action;
+import io.github.carlos_emr.carlos.measurements.web.MeasurementData2Action;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 @DisplayName("JSON response header regression tests")
 @Tag("unit")
 @Tag("web")
-class JsonResponseHeaderRegressionTest {
-    private static final Path REPORT_MACRO_ACTION = Path.of(
+class JsonResponseHeaderRegressionTest extends CarlosUnitTestBase {
+    private static final Path PROJECT_ROOT = Path.of(System.getProperty("user.dir"));
+    private static final Path REPORT_MACRO_ACTION = PROJECT_ROOT.resolve(
             "src/main/java/io/github/carlos_emr/carlos/mds/pageUtil/ReportMacro2Action.java");
-    private static final Path MEASUREMENT_DATA_ACTION = Path.of(
+    private static final Path MEASUREMENT_DATA_ACTION = PROJECT_ROOT.resolve(
             "src/main/java/io/github/carlos_emr/carlos/measurements/web/MeasurementData2Action.java");
+    private static final String JSON_CONTENT_TYPE_PATTERN =
+            "private\\s+static\\s+final\\s+String\\s+JSON_CONTENT_TYPE\\s*=\\s*"
+                    + "\"application/json;\\s*charset=UTF-8\";";
+    private static final String JACKSON_WRITER_PATTERN =
+            "(?s)response\\.setContentType\\(JSON_CONTENT_TYPE\\);\\s*"
+                    + "objectMapper\\.writeValue\\(response\\.getWriter\\(\\),\\s*json\\);";
+    private static final String SCRIPT_JSON_WRITER_PATTERN =
+            "response\\.setContentType\\(JSON_CONTENT_TYPE\\);\\s*"
+                    + "response\\.getWriter\\(\\)\\.print\\(script\\)";
+    private static final String JSON_WRITE_HELPER_PATTERN = "(?s)private\\s+void\\s+writeJson"
+            + "\\s*\\(\\s*String\\s+json\\s*\\)"
+            + "\\s+throws\\s+IOException\\s*\\{\\s*response\\.setContentType\\(JSON_CONTENT_TYPE\\);"
+            + "\\s*response\\.getOutputStream\\(\\)\\.write\\(json\\.getBytes\\(StandardCharsets\\.UTF_8\\)\\);\\s*\\}";
+
+    private MockedStatic<ServletActionContext> servletActionContextMock;
+
+    @AfterEach
+    void tearDownServletActionContext() {
+        if (servletActionContextMock != null) {
+            servletActionContextMock.close();
+        }
+    }
 
     @Test
     @DisplayName("should set JSON content type before report macro writes")
@@ -48,7 +99,7 @@ class JsonResponseHeaderRegressionTest {
         int contentTypeIndex = source.indexOf("response.setContentType(JSON_CONTENT_TYPE);");
         int firstWriteIndex = source.indexOf("response.getWriter().write");
 
-        assertThat(source).contains("application/json; charset=UTF-8");
+        assertThat(source).containsPattern(JSON_CONTENT_TYPE_PATTERN);
         assertThat(contentTypeIndex).isNotNegative();
         assertThat(firstWriteIndex).isNotNegative();
         assertThat(contentTypeIndex).isLessThan(firstWriteIndex);
@@ -59,11 +110,7 @@ class JsonResponseHeaderRegressionTest {
     void shouldUseUtf8_forMeasurementJsonBytes() throws IOException {
         String source = Files.readString(MEASUREMENT_DATA_ACTION, StandardCharsets.UTF_8);
 
-        assertThat(source).contains("import java.nio.charset.StandardCharsets;");
-        assertThat(source).contains("json.getBytes(StandardCharsets.UTF_8)");
-        // Ensure we don't use an unsafe getBytes() call specifically in the response-writing path
-        assertThat(source)
-                .doesNotContainPattern("response\\.getOutputStream\\(\\)\\.write\\(.*\\.getBytes\\s*\\(\\s*\\)");
+        assertThat(source).containsPattern(JSON_WRITE_HELPER_PATTERN);
     }
 
     @Test
@@ -71,22 +118,130 @@ class JsonResponseHeaderRegressionTest {
     void shouldSetJsonContentType_forMeasurementWritePaths() throws IOException {
         String source = Files.readString(MEASUREMENT_DATA_ACTION, StandardCharsets.UTF_8);
 
-        assertThat(source).contains(
-                "private static final String JSON_CONTENT_TYPE = \"application/json; charset=UTF-8\";");
-        assertThat(source).contains("""
-                response.setContentType(JSON_CONTENT_TYPE);
-                response.getWriter().print(script);
-                """);
-        assertThat(source).contains("""
-                response.setContentType(JSON_CONTENT_TYPE);
+        assertThat(source).containsPattern(JSON_CONTENT_TYPE_PATTERN);
+        assertThat(source)
+                .containsPattern(JACKSON_WRITER_PATTERN)
+                .containsPattern(JSON_WRITE_HELPER_PATTERN);
+        assertThat(source).doesNotContainPattern(SCRIPT_JSON_WRITER_PATTERN);
+    }
 
-                objectMapper.writeValue(response.getWriter(), json);
-                """);
-        assertThat(source).contains("""
-                private void writeJson(String json) throws IOException {
-                    response.setContentType(JSON_CONTENT_TYPE);
-                    response.getOutputStream().write(json.getBytes(StandardCharsets.UTF_8));
-                }
-                """);
+    @Test
+    @DisplayName("should emit UTF-8 JSON for report macro")
+    void shouldEmitUtf8Json_forReportMacro() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        response.setCharacterEncoding(StandardCharsets.ISO_8859_1.name());
+        request.setParameter("name", "東京");
+        addLoggedInInfo(request);
+        configureServletActionContext(request, response);
+
+        SecurityInfoManager securityInfoManager = createAndRegisterMock(SecurityInfoManager.class);
+        registerMock(TicklerDao.class, mock(TicklerDao.class));
+        registerMock(TicklerLinkDao.class, mock(TicklerLinkDao.class));
+        UserPropertyDAO userPropertyDAO = createAndRegisterMock(UserPropertyDAO.class);
+        UserProperty macroProperty = new UserProperty();
+        macroProperty.setValue("[{\"name\":\"東京\"}]");
+
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_lab"), eq("w"), isNull()))
+                .thenReturn(true);
+        when(userPropertyDAO.getProp(eq("999998"), eq(UserProperty.LAB_MACRO_JSON))).thenReturn(macroProperty);
+
+        new ReportMacro2Action().execute();
+
+        assertThat(response.getContentType()).isEqualTo("application/json; charset=UTF-8");
+        assertThat(response.getCharacterEncoding()).isEqualTo(StandardCharsets.UTF_8.name());
+        assertThat(new String(response.getContentAsByteArray(), StandardCharsets.UTF_8)).contains("\"success\":true");
+    }
+
+    @Test
+    @DisplayName("should emit UTF-8 JSON for measurement data")
+    void shouldEmitUtf8Json_forMeasurementData() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        response.setCharacterEncoding(StandardCharsets.ISO_8859_1.name());
+        request.setParameter("demoNo", "123");
+        request.setParameter("typeList", "bp");
+        request.setParameter("searchDate", "");
+        configureServletActionContext(request, response);
+
+        MeasurementDao measurementDao = createAndRegisterMock(MeasurementDao.class);
+        createAndRegisterMock(OscarAppointmentDao.class);
+        SecurityInfoManager securityInfoManager = createAndRegisterMock(SecurityInfoManager.class);
+        Measurement measurement = newMeasurement("bp", "José 東京");
+
+        when(measurementDao.findMeasurementByTypeAndDate(eq(123), eq("bp"), any(), any()))
+                .thenReturn(List.of(measurement));
+
+        MeasurementData2Action action = new MeasurementData2Action();
+        injectDependency(action, "measurementDao", measurementDao);
+        injectDependency(action, "securityInfoManager", securityInfoManager);
+
+        action.getDataByType();
+
+        String body = new String(response.getContentAsByteArray(), StandardCharsets.UTF_8);
+        assertThat(response.getContentType()).isEqualTo("application/json; charset=UTF-8");
+        assertThat(response.getCharacterEncoding()).isEqualTo(StandardCharsets.UTF_8.name());
+        assertThat(body).contains("José 東京");
+    }
+
+    @Test
+    @DisplayName("should emit UTF-8 JavaScript for latest measurement values")
+    void shouldEmitUtf8JavaScript_forLatestMeasurementValues() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        response.setCharacterEncoding(StandardCharsets.ISO_8859_1.name());
+        request.setParameter("demographicNo", "123");
+        request.setParameter("types", "bp");
+        request.setParameter("appointmentNo", "1");
+        addLoggedInInfo(request);
+        configureServletActionContext(request, response);
+
+        MeasurementDao measurementDao = createAndRegisterMock(MeasurementDao.class);
+        OscarAppointmentDao appointmentDao = createAndRegisterMock(OscarAppointmentDao.class);
+        SecurityInfoManager securityInfoManager = createAndRegisterMock(SecurityInfoManager.class);
+        HashMap<String, Measurement> measurements = new HashMap<>();
+        measurements.put("bp", newMeasurement("bp", "José 東京"));
+
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("r"), eq("123")))
+                .thenReturn(true);
+        when(appointmentDao.getAppointmentHistory(123)).thenReturn(List.of());
+        when(measurementDao.getMeasurements(eq(123), any(String[].class))).thenReturn(measurements);
+
+        MeasurementData2Action action = new MeasurementData2Action();
+        injectDependency(action, "measurementDao", measurementDao);
+        injectDependency(action, "appointmentDao", appointmentDao);
+        injectDependency(action, "securityInfoManager", securityInfoManager);
+
+        action.getLatestValues();
+
+        String body = new String(response.getContentAsByteArray(), StandardCharsets.UTF_8);
+        assertThat(response.getContentType()).isEqualTo("application/javascript; charset=UTF-8");
+        assertThat(response.getCharacterEncoding()).isEqualTo(StandardCharsets.UTF_8.name());
+        assertThat(body).contains("jQuery");
+    }
+
+    private void configureServletActionContext(MockHttpServletRequest request, MockHttpServletResponse response) {
+        servletActionContextMock = mockStatic(ServletActionContext.class);
+        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+    }
+
+    private void addLoggedInInfo(MockHttpServletRequest request) {
+        Provider provider = new Provider();
+        provider.setProviderNo("999998");
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        loggedInInfo.setLoggedInProvider(provider);
+        loggedInInfo.setIp("127.0.0.1");
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+    }
+
+    private Measurement newMeasurement(String type, String dataField) {
+        Measurement measurement = new Measurement();
+        measurement.setType(type);
+        measurement.setDataField(dataField);
+        measurement.setAppointmentNo(1);
+        measurement.setCreateDate(new Date());
+        measurement.setDateObserved(new Date());
+        return measurement;
     }
 }
