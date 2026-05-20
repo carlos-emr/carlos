@@ -85,7 +85,7 @@ class RemovedJspReferenceRegressionTest {
         try (Stream<Path> paths = Files.walk(jspRoot)) {
             List<Path> offenders = paths
                     .filter(Files::isRegularFile)
-                    .filter(path -> path.toString().endsWith(".jsp"))
+                    .filter(path -> path.toString().endsWith(".jsp") || path.toString().endsWith(".jspf"))
                     .filter(RemovedJspReferenceRegressionTest::hasGlobalHeadIncludeAndOscarJsScript)
                     .toList();
 
