@@ -47,6 +47,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Query;
+import jakarta.persistence.TypedQuery;
 import org.hibernate.annotations.NotFound;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -58,9 +59,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.io.ByteArrayOutputStream;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -97,8 +98,13 @@ class TicklerLazyFetchMigrationUnitTest extends CarlosUnitTestBase {
                 .toList()).contains(
                         "updates", "comments", "ticklerCategory", "demographic", "provider", "assignee", "program");
         assertThat(relationshipFetchTypes).isNotEmpty().allMatch(FetchType.LAZY::equals);
-        assertThat(Stream.of(Tickler.class.getDeclaredFields())
+        List<Field> manyToOneFields = Stream.of(Tickler.class.getDeclaredFields())
                 .filter(field -> field.getAnnotation(ManyToOne.class) != null)
+                .toList();
+        assertThat(manyToOneFields)
+                .extracting(field -> field.getAnnotation(ManyToOne.class).fetch())
+                .containsOnly(FetchType.LAZY);
+        assertThat(manyToOneFields.stream()
                 .map(field -> field.getAnnotation(NotFound.class))
                 .filter(Objects::nonNull)
                 .toList()).isEmpty();
@@ -162,10 +168,10 @@ class TicklerLazyFetchMigrationUnitTest extends CarlosUnitTestBase {
     @DisplayName("should join fetch detail graph for Tickler find")
     void shouldJoinFetchDetailGraph_forTicklerFind() {
         EntityManager entityManager = mock(EntityManager.class);
-        Query query = mock(Query.class);
+        TypedQuery<Tickler> query = mock(TypedQuery.class);
         TicklerDaoImpl ticklerDao = new TicklerDaoImpl();
         ReflectionTestUtils.setField(ticklerDao, "entityManager", entityManager);
-        when(entityManager.createQuery(contains("left join fetch t.comments"))).thenReturn(query);
+        when(entityManager.createQuery(contains("left join fetch t.comments"), eq(Tickler.class))).thenReturn(query);
         when(query.setParameter(eq("id"), eq(123))).thenReturn(query);
         when(query.getResultList()).thenReturn(List.of(new Tickler()));
 
@@ -233,10 +239,10 @@ class TicklerLazyFetchMigrationUnitTest extends CarlosUnitTestBase {
         TicklerComment comment = new TicklerComment();
         comment.setProviderNo("101");
         comment.setMessage("comment");
-        tickler.setComments(new HashSet<>(List.of(comment)));
+        tickler.setComments(Set.of(comment));
         TicklerUpdate update = new TicklerUpdate();
         update.setProviderNo("101");
-        tickler.setUpdates(new HashSet<>(List.of(update)));
+        tickler.setUpdates(Set.of(update));
         Demographic demographic = new Demographic();
         demographic.setLastName("Patient");
         demographic.setFirstName("Test");

@@ -43,6 +43,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import jakarta.persistence.Query;
+import jakarta.persistence.TypedQuery;
 
 import io.github.carlos_emr.carlos.commn.model.CustomFilter;
 import io.github.carlos_emr.carlos.commn.model.Provider;
@@ -96,7 +97,7 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
 
     @Override
     public Tickler find(Integer id) {
-        Query query = entityManager.createQuery(
+        TypedQuery<Tickler> query = entityManager.createQuery(
                 "select distinct t from Tickler t "
                         + "left join fetch t.comments "
                         + "left join fetch t.demographic "
@@ -104,9 +105,9 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
                         + "left join fetch t.assignee "
                         + "left join fetch t.ticklerCategory "
                         + "left join fetch t.program "
-                        + "where t.id = :id");
+                        + "where t.id = :id",
+                Tickler.class);
         query.setParameter("id", id);
-        @SuppressWarnings("unchecked")
         List<Tickler> ticklers = query.getResultList();
         Tickler tickler = ticklers.isEmpty() ? null : ticklers.get(0);
         if (tickler != null) {
