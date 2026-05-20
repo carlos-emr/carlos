@@ -286,7 +286,8 @@ class LoginFilterUnitTest extends CarlosUnitTestBase {
                 "/images/favicon.ico",
                 "/library/jquery/jquery-ui-1.14.2.min.css",
                 "/library/jquery/jquery-ui-1.14.2.min.js",
-                "/library/future-library/future-asset.min.js",
+                "/library/jquery/jquery-3.7.1.min.js",
+                "/library/jquery/jquery-compat.js",
                 "/library/bootstrap/5.3.8/css/bootstrap.min.css",
                 "/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js",
                 "/share/css/global.css",
@@ -312,6 +313,18 @@ class LoginFilterUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should redirect protected library action when unauthenticated")
+        void shouldRedirectProtectedLibraryAction_whenUnauthenticated()
+                throws ServletException, IOException {
+            MockHttpServletRequest request = request("GET", CONTEXT_PATH + "/library/eforms/signatureControl");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            filter.doFilter(request, response, new MockFilterChain());
+
+            assertThat(response.getRedirectedUrl()).isEqualTo(CONTEXT_PATH + "/logoutPage");
+        }
+
+        @Test
         @DisplayName("should not pass dynamic JavaScript JSP when unauthenticated")
         void shouldNotPassDynamicJavascriptJsp_whenUnauthenticated()
                 throws ServletException, IOException {
@@ -324,9 +337,13 @@ class LoginFilterUnitTest extends CarlosUnitTestBase {
         }
 
         @ParameterizedTest
-        @ValueSource(strings = {"/js/bootstrap", "/css/bootstrap"})
-        @DisplayName("should redirect stale Bootstrap routes when unauthenticated")
-        void shouldRedirectStaleBootstrapRoutes_whenUnauthenticated(String assetPath)
+        @ValueSource(strings = {
+                "/js/bootstrap",
+                "/css/bootstrap",
+                "/library/future-library/future-asset.min.js"
+        })
+        @DisplayName("should redirect non-exempt asset routes when unauthenticated")
+        void shouldRedirectNonExemptAssetRoutes_whenUnauthenticated(String assetPath)
                 throws ServletException, IOException {
             MockHttpServletRequest request = request("GET", CONTEXT_PATH + assetPath);
             MockHttpServletResponse response = new MockHttpServletResponse();
@@ -426,6 +443,7 @@ class LoginFilterUnitTest extends CarlosUnitTestBase {
 
         @ParameterizedTest
         @ValueSource(strings = {
+                "/library/bootstrap/5.3.8/css/bootstrap.min.css",
                 "/library/jquery/jquery-ui-1.14.2.min.js",
                 "/share/css/future-login.css",
                 "/share/javascript/Oscar.js",
