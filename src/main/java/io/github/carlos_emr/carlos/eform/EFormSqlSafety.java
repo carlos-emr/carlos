@@ -8,6 +8,8 @@
  */
 package io.github.carlos_emr.carlos.eform;
 
+import java.sql.SQLException;
+
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 
 final class EFormSqlSafety {
@@ -28,6 +30,11 @@ final class EFormSqlSafety {
         }
         if (LegacyJdbcQuery.containsUnsafeSqlControlToken(sql)) {
             throw new SecurityException("Unsafe SQL control characters detected");
+        }
+        try {
+            LegacyJdbcQuery.validateReportSelectQuery(sql);
+        } catch (SQLException e) {
+            throw new SecurityException(e.getMessage(), e);
         }
     }
 }

@@ -34,21 +34,23 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
-import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.UploadedFileUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.JDBCUtil;
 
+import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.*;
 import java.util.Enumeration;
 import java.util.List;
+import java.nio.file.Files;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
@@ -61,32 +63,26 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
 
     public String execute()
             throws ServletException, IOException {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(
-                loggedInInfo, "_form", SecurityInfoManager.WRITE, null)) {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_form", "r", null)) {
             throw new SecurityException("missing required sec object (_form)");
         }
 
         int BUFFER = 2048;
 
-        if (file1 == null) {
-            return reportImportError("Select a form XML archive to import.");
-        }
-
-        File normalizedFile;
-        try {
-            normalizedFile = PathValidationUtils.validateUpload(file1);
-        } catch (SecurityException e) {
-            MiscUtils.getLogger().warn(
-                    "Rejected form XML archive path {}",
-                    LogSafe.sanitize(file1.getPath()), e);
-            return reportImportError("Unable to import form data. Check the uploaded archive and try again.");
-        }
-
         // Temporary file handling
         File tmpFile = File.createTempFile("tmp", ".zip");
+        tmpFile.deleteOnExit();
+
+        File validatedFile;
         try {
-            try (InputStream is = new FileInputStream(normalizedFile);
+            validatedFile = PathValidationUtils.validateUpload(file1);
+        } catch (SecurityException e) {
+            throw new IllegalArgumentException("Invalid file path: " + file1.getAbsolutePath(), e);
+        }
+
+        try {
+            // codeql[java/path-injection] -- validatedFile is validated by PathValidationUtils.validateUpload(file1)
+            try (InputStream is = Files.newInputStream(validatedFile.toPath());
                  OutputStream fos = new FileOutputStream(tmpFile)) {
                 byte[] data = new byte[BUFFER];
                 int count;
@@ -100,52 +96,28 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
                 Enumeration<? extends ZipEntry> entries = zf.entries();
                 while (entries.hasMoreElements()) {
                     ZipEntry entry = entries.nextElement();
+                    String entryName = entry.getName();
                     if (entry.isDirectory()) {
                         continue;
                     }
-                    JDBCUtil.FormImportTarget target;
+                    String safeEntryName;
                     try {
-                        target = JDBCUtil.parseImportFileName(entry.getName());
+                        JDBCUtil.FormImportTarget importTarget = JDBCUtil.parseImportFileName(entryName);
+                        safeEntryName = String.format("%s_%s_%s.xml", importTarget.formName(), importTarget.demographicNo(),
+                                importTarget.timeStamp());
                     } catch (JDBCUtil.XmlImportException e) {
-                        MiscUtils.getLogger().warn(
-                                "Rejected form XML import entry {}",
-                                LogSafe.sanitize(entry.getName()), e);
-                        return reportImportError("Unable to import form data. Check the uploaded archive and try again.");
-                    }
-                    if (!securityInfoManager.hasPrivilege(
-                            loggedInInfo, "_form", SecurityInfoManager.WRITE, target.demographicNo())) {
-                        MiscUtils.getLogger().warn(
-                                "Rejected form XML import entry {} due to missing demographic form write privilege",
-                                LogSafe.sanitize(entry.getName()));
-                        return reportImportError("Unable to import form data. Check the uploaded archive and try again.");
+                        MiscUtils.getLogger().warn("Skipping invalid form import entry: {}", LogSanitizer.sanitize(entryName), e);
+                        throw e;
                     }
                     try (InputStream zis = zf.getInputStream(entry)) {
-                        JDBCUtil.toDataBase(zis, entry.getName());
-                    } catch (JDBCUtil.XmlImportException e) {
-                        MiscUtils.getLogger().warn(
-                                "Rejected form XML import entry {}",
-                                LogSafe.sanitize(entry.getName()), e);
-                        return reportImportError("Unable to import form data. Check the uploaded archive and try again.");
+                        JDBCUtil.toDataBase(zis, safeEntryName);
                     }
                 }
             }
-        } catch (IOException e) {
-            MiscUtils.getLogger().warn(
-                    "Unable to read form XML archive {}",
-                    LogSafe.sanitize(file1FileName), e);
-            return reportImportError("Unable to import form data. Check the uploaded archive and try again.");
-        } finally {
-            if (tmpFile.exists() && !tmpFile.delete()) {
-                tmpFile.deleteOnExit();
-            }
+        } catch (JDBCUtil.XmlImportException e) {
+            throw new ServletException("Error importing XML form data", e);
         }
 
-        return SUCCESS;
-    }
-
-    private String reportImportError(String message) {
-        addActionError(message);
-        request.setAttribute("actionErrors", List.of(message));
         return SUCCESS;
     }
 
@@ -158,7 +130,7 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
     public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
         if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
             UploadedFile uploaded = uploadedFiles.get(0);
-            this.file1 = new File(uploaded.getAbsolutePath());
+            this.file1 = UploadedFileUtils.getUploadedFile(uploaded);
             this.file1ContentType = uploaded.getContentType();
             this.file1FileName = uploaded.getOriginalName();
         }
@@ -169,11 +141,14 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
         return file1;
     }
 
+    public void setFile1(File file1) {
+        this.file1 = file1;
+    }
+
     public String getFile1FileName() {
         return file1FileName;
     }
 
-    @StrutsParameter
     public void setFile1FileName(String file1FileName) {
         this.file1FileName = file1FileName;
     }
@@ -182,7 +157,6 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
         return file1ContentType;
     }
 
-    @StrutsParameter
     public void setFile1ContentType(String file1ContentType) {
         this.file1ContentType = file1ContentType;
     }

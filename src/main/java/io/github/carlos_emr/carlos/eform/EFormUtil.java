@@ -576,7 +576,6 @@ public class EFormUtil {
                 for (int i = 0; i < names.size(); i++) {
                     try {
                         values.add(Misc.getString(rs, names.get(i)));
-                        logger.debug("VALUE ====" + rs.getObject(names.get(i)) + "|");
                     } catch (Exception sqe) {
                         values.add("<(" + names.get(i) + ")NotFound>");
                         logger.error("Error", sqe);

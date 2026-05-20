@@ -42,8 +42,8 @@ import io.github.carlos_emr.carlos.PMmodule.dao.SecUserRoleDao;
 import io.github.carlos_emr.carlos.PMmodule.model.SecUserRole;
 import io.github.carlos_emr.carlos.report.bean.RptByExampleQueryBeanHandler;
 import io.github.carlos_emr.carlos.report.data.RptByExampleData;
-import io.github.carlos_emr.carlos.services.security.SecurityManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
@@ -75,12 +75,12 @@ public class RptByExample2Action extends ActionSupport {
             return NONE;
         }
 
-        String roleName$ = userrole + "," + (String) request.getSession().getAttribute("user");
-        if (!SecurityManager.hasPrivilege("_admin", roleName$) && !SecurityManager.hasPrivilege("_report", roleName$)) {
+        LoggedInInfo loggedInInfo = loggedInInfo();
+        if (!securityInfoManager().hasPrivilege(loggedInInfo, "_admin", "r", null)
+                && !securityInfoManager().hasPrivilege(loggedInInfo, "_report", "r", null)) {
             throw new SecurityException("Insufficient Privileges");
         }
 
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         SecUserRoleDao secUserRoleDao = SpringUtils.getBean(SecUserRoleDao.class);
@@ -118,6 +118,14 @@ public class RptByExample2Action extends ActionSupport {
 
     private String sql;
     private String selectedRecentSearch;
+
+    private SecurityInfoManager securityInfoManager() {
+        return SpringUtils.getBean(SecurityInfoManager.class);
+    }
+
+    private LoggedInInfo loggedInInfo() {
+        return LoggedInInfo.getLoggedInInfoFromSession(request);
+    }
 
     public String getSql() {
         return sql;

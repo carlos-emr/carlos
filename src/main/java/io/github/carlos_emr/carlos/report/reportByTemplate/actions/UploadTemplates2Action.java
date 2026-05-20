@@ -39,8 +39,7 @@
 
 package io.github.carlos_emr.carlos.report.reportByTemplate.actions;
 
-
-import io.github.carlos_emr.carlos.services.security.SecurityManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.action.UploadedFilesAware;
@@ -50,6 +49,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.report.reportByTemplate.ReportManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -64,8 +64,10 @@ public class UploadTemplates2Action extends ActionSupport implements UploadedFil
 
     public String execute() {
 
-        String roleName$ = request.getSession().getAttribute("userrole") + "," + request.getSession().getAttribute("user");
-        if (!SecurityManager.hasPrivilege("_admin", roleName$) && !SecurityManager.hasPrivilege("_report", roleName$)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)
+                && !securityInfoManager.hasPrivilege(loggedInInfo, "_report", "r", null)) {
             throw new SecurityException("Insufficient Privileges");
         }
 

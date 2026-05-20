@@ -132,6 +132,104 @@ public class PathValidationUtilsTest {
     }
 
     // ========================================================================
+    // FILENAME-ONLY VALIDATION
+    // ========================================================================
+
+    @Nested
+    @DisplayName("Filename-Only Validation Tests")
+    class FilenameOnlyValidationTests {
+
+        @Test
+        @DisplayName("should return filename component when path is provided")
+        void shouldReturnFilenameComponent_whenPathIsProvided() {
+            assertThat(PathValidationUtils.validateFileName("nested/path/report.pdf"))
+                .isEqualTo("report.pdf");
+        }
+
+        @Test
+        @DisplayName("should normalize unsafe filename characters")
+        void shouldNormalizeUnsafeCharacters_whenFilenameContainsLegacyUnsafeCharacters() {
+            String result = PathValidationUtils.validateFileName("my report..<script>-final.pdf");
+
+            assertThat(result).isEqualTo("my_report.scriptfinal.pdf");
+        }
+
+        @Test
+        @DisplayName("should collapse repeated dots")
+        void shouldCollapseRepeatedDots_whenFilenameContainsMultipleDotRuns() {
+            assertThat(PathValidationUtils.validateFileName("my..file..pdf"))
+                .isEqualTo("my.file.pdf");
+        }
+
+        @Test
+        @DisplayName("should reject hidden filename")
+        void shouldRejectHiddenFilename_whenNameStartsWithDot() {
+            assertThatThrownBy(() -> PathValidationUtils.validateFileName(".env"))
+                .isInstanceOf(FileValidationException.class)
+                .hasMessageContaining("hidden files not allowed");
+        }
+
+        @Test
+        @DisplayName("should reject null filename")
+        void shouldRejectNullFilename_withNullInput() {
+            assertThatThrownBy(() -> PathValidationUtils.validateFileName(null))
+                .isInstanceOf(FileValidationException.class)
+                .hasMessageContaining(PathValidationUtils.INVALID_FILENAME_MESSAGE);
+        }
+
+        @Test
+        @DisplayName("should reject empty filename")
+        void shouldRejectEmptyFilename_withEmptyString() {
+            assertThatThrownBy(() -> PathValidationUtils.validateFileName(""))
+                .isInstanceOf(FileValidationException.class)
+                .hasMessageContaining(PathValidationUtils.INVALID_FILENAME_MESSAGE);
+        }
+
+        @Test
+        @DisplayName("should reject filename that becomes empty after normalization")
+        void shouldRejectFilename_whenNormalizationLeavesNoCharacters() {
+            assertThatThrownBy(() -> PathValidationUtils.validateFileName("---"))
+                .isInstanceOf(FileValidationException.class)
+                .hasMessageContaining(PathValidationUtils.INVALID_FILENAME_MESSAGE);
+        }
+    }
+
+    // ========================================================================
+    // USER FILE PATH VALIDATION
+    // ========================================================================
+
+    @Nested
+    @DisplayName("User File Path Validation Tests")
+    class UserFilePathValidationTests {
+
+        @Test
+        @DisplayName("should normalize filename then validate destination path")
+        void shouldNormalizeFilename_thenValidateDestinationPath() {
+            File result = PathValidationUtils.validateUserFilePath("nested/path/my report..<script>-final.pdf", allowedDir);
+
+            assertThat(result)
+                    .hasParent(allowedDir)
+                    .hasName("my_report.scriptfinal.pdf");
+        }
+
+        @Test
+        @DisplayName("should reject hidden filename")
+        void shouldRejectHiddenFilename_whenNameStartsWithDot() {
+            assertThatThrownBy(() -> PathValidationUtils.validateUserFilePath(".env", allowedDir))
+                .isInstanceOf(FileValidationException.class)
+                .hasMessageContaining("hidden files not allowed");
+        }
+
+        @Test
+        @DisplayName("should reject filename that becomes empty after normalization")
+        void shouldRejectFilename_whenNormalizationLeavesNoCharacters() {
+            assertThatThrownBy(() -> PathValidationUtils.validateUserFilePath("<<<>>>", allowedDir))
+                .isInstanceOf(FileValidationException.class)
+                .hasMessageContaining(PathValidationUtils.INVALID_FILENAME_MESSAGE);
+        }
+    }
+
+    // ========================================================================
     // PATH TRAVERSAL PREVENTION
     // ========================================================================
 
@@ -195,7 +293,7 @@ public class PathValidationUtilsTest {
         void shouldRejectHiddenFiles(String hiddenFile) {
             // When/Then
             assertThatThrownBy(() -> PathValidationUtils.validatePath(hiddenFile, allowedDir))
-                .isInstanceOf(SecurityException.class)
+                .isInstanceOf(FileValidationException.class)
                 .hasMessageContaining("hidden files not allowed");
         }
 
@@ -236,37 +334,38 @@ public class PathValidationUtilsTest {
     class NullEmptyInputTests {
 
         @Test
-        @DisplayName("should throw SecurityException when filename is null")
-        void shouldThrowSecurityException_whenFilenameIsNull() {
+        @DisplayName("should throw FileValidationException when filename is null")
+        void shouldThrowFileValidationException_whenFilenameIsNull() {
             // When/Then
             assertThatThrownBy(() -> PathValidationUtils.validatePath(null, allowedDir))
-                .isInstanceOf(SecurityException.class)
-                .hasMessageContaining("null or empty");
+                .isInstanceOf(FileValidationException.class)
+                .hasMessageContaining(PathValidationUtils.INVALID_FILENAME_MESSAGE);
         }
 
         @Test
-        @DisplayName("should throw SecurityException when filename is empty")
-        void shouldThrowSecurityException_whenFilenameIsEmpty() {
+        @DisplayName("should throw FileValidationException when filename is empty")
+        void shouldThrowFileValidationException_whenFilenameIsEmpty() {
             // When/Then
             assertThatThrownBy(() -> PathValidationUtils.validatePath("", allowedDir))
-                .isInstanceOf(SecurityException.class)
-                .hasMessageContaining("null or empty");
+                .isInstanceOf(FileValidationException.class)
+                .hasMessageContaining(PathValidationUtils.INVALID_FILENAME_MESSAGE);
         }
 
         @Test
-        @DisplayName("should throw SecurityException when filename is whitespace only")
-        void shouldThrowSecurityException_whenFilenameIsWhitespaceOnly() {
+        @DisplayName("should throw FileValidationException when filename is whitespace only")
+        void shouldThrowFileValidationException_whenFilenameIsWhitespaceOnly() {
             // When/Then
             assertThatThrownBy(() -> PathValidationUtils.validatePath("   ", allowedDir))
-                .isInstanceOf(SecurityException.class);
+                .isInstanceOf(FileValidationException.class)
+                .hasMessageContaining(PathValidationUtils.INVALID_FILENAME_MESSAGE);
         }
 
         @Test
-        @DisplayName("should throw SecurityException when allowedDir is null")
-        void shouldThrowSecurityException_whenAllowedDirIsNull() {
+        @DisplayName("should throw FileValidationException when allowedDir is null")
+        void shouldThrowFileValidationException_whenAllowedDirIsNull() {
             // When/Then
             assertThatThrownBy(() -> PathValidationUtils.validatePath("test.txt", null))
-                .isInstanceOf(SecurityException.class)
+                .isInstanceOf(FileValidationException.class)
                 .hasMessageContaining("null");
         }
     }
@@ -280,36 +379,36 @@ public class PathValidationUtilsTest {
     class UploadSourceValidationTests {
 
         @Test
-        @DisplayName("should throw SecurityException when source file is null")
-        void shouldThrowSecurityException_whenSourceFileIsNull() {
+        @DisplayName("should throw FileValidationException when source file is null")
+        void shouldThrowFileValidationException_whenSourceFileIsNull() {
             // When/Then
             assertThatThrownBy(() -> PathValidationUtils.validateUpload(null))
-                .isInstanceOf(SecurityException.class)
+                .isInstanceOf(FileValidationException.class)
                 .hasMessageContaining("null");
         }
 
         @Test
-        @DisplayName("should throw SecurityException when source file does not exist")
-        void shouldThrowSecurityException_whenSourceFileDoesNotExist() {
+        @DisplayName("should throw FileValidationException when source file does not exist")
+        void shouldThrowFileValidationException_whenSourceFileDoesNotExist() {
             // Given
             File nonExistentFile = new File(tempDir.toFile(), "nonexistent.tmp");
 
             // When/Then
             assertThatThrownBy(() -> PathValidationUtils.validateUpload(nonExistentFile))
-                .isInstanceOf(SecurityException.class)
+                .isInstanceOf(FileValidationException.class)
                 .hasMessageContaining("does not exist");
         }
 
         @Test
-        @DisplayName("should throw SecurityException when source is a directory")
-        void shouldThrowSecurityException_whenSourceIsDirectory() throws IOException {
+        @DisplayName("should throw FileValidationException when source is a directory")
+        void shouldThrowFileValidationException_whenSourceIsDirectory() {
             // Given
             File directory = tempDir.resolve("subdir").toFile();
             directory.mkdir();
 
             // When/Then
             assertThatThrownBy(() -> PathValidationUtils.validateUpload(directory))
-                .isInstanceOf(SecurityException.class)
+                .isInstanceOf(FileValidationException.class)
                 .hasMessageContaining("not a regular file");
         }
     }
@@ -341,6 +440,38 @@ public class PathValidationUtilsTest {
             // When/Then - should not throw (file is in allowed temp directory)
             assertThatCode(() -> PathValidationUtils.validateUpload(tempFile))
                 .doesNotThrowAnyException();
+        }
+
+        @Test
+        @DisplayName("should validate temp path for cleanup")
+        void shouldValidateTempPathForCleanup() throws Exception {
+            Path tempRoot = Path.of(System.getProperty("java.io.tmpdir"));
+            Path cleanupFile = Files.createTempFile(tempRoot, "carlos-cleanup-", ".tmp");
+            try {
+                File validatedFile = PathValidationUtils.validateTempPathForCleanup(cleanupFile.toString());
+                assertThat(validatedFile.getCanonicalPath()).isEqualTo(cleanupFile.toRealPath().toString());
+            } finally {
+                Files.deleteIfExists(cleanupFile);
+            }
+        }
+
+        @Test
+        @DisplayName("should reject temp cleanup path outside allowed directories")
+        void shouldRejectTempPathForCleanupOutsideAllowedDirectories() {
+            Path outsideRoot = Path.of(System.getProperty("user.dir"));
+            Path outsidePath = outsideRoot.resolve("carlos-cleanup-outside-" + System.nanoTime() + ".tmp");
+
+            assertThatThrownBy(() -> PathValidationUtils.validateTempPathForCleanup(outsidePath.toString()))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("Path traversal attempt detected");
+        }
+
+        @Test
+        @DisplayName("should reject blank temp cleanup path")
+        void shouldRejectBlankTempPathForCleanup() {
+            assertThatThrownBy(() -> PathValidationUtils.validateTempPathForCleanup("   "))
+                .isInstanceOf(FileValidationException.class)
+                .hasMessageContaining("null or empty");
         }
     }
 
@@ -385,8 +516,28 @@ public class PathValidationUtilsTest {
             // When/Then
             assertThatThrownBy(() ->
                 PathValidationUtils.validateUpload(sourceFile, ".htaccess", tempDir.toFile()))
-                .isInstanceOf(SecurityException.class)
+                .isInstanceOf(FileValidationException.class)
                 .hasMessageContaining("hidden files not allowed");
+        }
+
+        @Test
+        @DisplayName("should normalize upload destination filename using strict filename rules")
+        void shouldNormalizeUploadDestinationFilename_whenNameHasSpecialChars() throws IOException {
+            String systemTempDir = System.getProperty("java.io.tmpdir");
+            File sourceFile = new File(systemTempDir, "upload_b1b2c3d4_5678_90ab_cdef_123456789abc_00000000.tmp");
+            assertThat(sourceFile.createNewFile()).isTrue();
+            sourceFile.deleteOnExit();
+
+            File result = PathValidationUtils.validateUpload(sourceFile, "my report (final).txt", tempDir.toFile());
+
+            assertThat(result).hasName("my_report_final.txt");
+        }
+
+        @Test
+        @DisplayName("should expose validation failures as security exceptions")
+        void shouldExposeValidationFailures_asSecurityExceptions() {
+            assertThat(new FileValidationException("invalid"))
+                    .isInstanceOf(SecurityException.class);
         }
 
         @Test
@@ -490,35 +641,35 @@ public class PathValidationUtilsTest {
         Path secondTempDir;
 
         @Test
-        @DisplayName("should throw SecurityException when filename is dot-dot")
-        void shouldThrowSecurityException_whenFilenameContainsDotDot() {
+        @DisplayName("should throw FileValidationException when filename is dot-dot")
+        void shouldThrowFileValidationException_whenFilenameContainsDotDot() {
             // ".." starts with '.' so sanitizeFileName rejects it as a hidden file,
             // preventing dot-dot directory traversal at the sanitization layer.
             assertThatThrownBy(() -> PathValidationUtils.validatePath("..", allowedDir))
-                .isInstanceOf(SecurityException.class);
+                .isInstanceOf(FileValidationException.class);
         }
 
         @Test
-        @DisplayName("should throw SecurityException when filename starts with dot")
-        void shouldThrowSecurityException_whenFilenameStartsWithDot() {
+        @DisplayName("should throw FileValidationException when filename starts with dot")
+        void shouldThrowFileValidationException_whenFilenameStartsWithDot() {
             assertThatThrownBy(() -> PathValidationUtils.validatePath(".hidden", allowedDir))
-                .isInstanceOf(SecurityException.class)
+                .isInstanceOf(FileValidationException.class)
                 .hasMessageContaining("hidden files not allowed");
         }
 
         @Test
-        @DisplayName("should throw SecurityException when absolute path escapes base directory")
-        void shouldThrowSecurityException_whenAbsolutePathEscapesBaseDir() throws IOException {
+        @DisplayName("should throw FileValidationException when absolute path escapes base directory")
+        void shouldThrowFileValidationException_whenAbsolutePathEscapesBaseDir() throws IOException {
             // File resides in a separate temp directory that is not allowedDir
             File outsideFile = Files.createTempFile(secondTempDir, "outside", ".txt").toFile();
 
             assertThatThrownBy(() -> PathValidationUtils.validateExistingPath(outsideFile, allowedDir))
-                .isInstanceOf(SecurityException.class);
+                .isInstanceOf(FileValidationException.class);
         }
 
         @Test
-        @DisplayName("should throw SecurityException when uploaded file is outside allowed temp directories")
-        void shouldThrowSecurityException_whenUploadedFileOutsideTempDirs() {
+        @DisplayName("should throw FileValidationException when uploaded file is outside allowed temp directories")
+        void shouldThrowFileValidationException_whenUploadedFileOutsideTempDirs() {
             // /etc/hostname is a standard Linux file that exists outside java.io.tmpdir
             // and any Tomcat work directory, so validateUpload must reject it.
             File outsideFile = new File("/etc/hostname");
@@ -526,7 +677,7 @@ public class PathValidationUtilsTest {
                 "Test requires /etc/hostname to exist (Linux-specific)");
 
             assertThatThrownBy(() -> PathValidationUtils.validateUpload(outsideFile))
-                .isInstanceOf(SecurityException.class)
+                .isInstanceOf(FileValidationException.class)
                 .hasMessageContaining("Invalid upload source");
         }
 
@@ -599,7 +750,7 @@ public class PathValidationUtilsTest {
             File symlinkFile = symlink.toFile();
 
             assertThatThrownBy(() -> PathValidationUtils.validateUpload(symlinkFile))
-                .isInstanceOf(SecurityException.class);
+                .isInstanceOf(FileValidationException.class);
         }
 
         @Test

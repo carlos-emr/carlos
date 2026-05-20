@@ -57,6 +57,7 @@ import io.github.carlos_emr.carlos.util.UtilDict;
  * @see UtilDict
  */
 public class AppointmentMainBean {
+    private static final DBPreparedHandlerParam[] EMPTY_DB_PARAMS = new DBPreparedHandlerParam[0];
 
     private UtilDict toFile = null;
     private UtilDict dbSQL = null;
@@ -146,7 +147,8 @@ public class AppointmentMainBean {
         ResultSet rs = null;
         if (aKeyword[0].equals("*")) {
             sqlQuery = dbSQL.getDef("search*", "");
-            rs = LegacyJdbcQuery.queryResults(sqlQuery, new DBPreparedHandlerParam[0]);
+            // SQL from UtilDict constants is server-owned; empty parameters are part of an established template path.
+            rs = LegacyJdbcQuery.queryResults(sqlQuery, EMPTY_DB_PARAMS);
         } else {
             sqlQuery = dbSQL.getDef(dboperation, "");
             rs = LegacyJdbcQuery.queryResults(sqlQuery, aKeyword);
@@ -161,7 +163,7 @@ public class AppointmentMainBean {
         ResultSet rs = null;
         if (aKeyword[0].equals("*")) {
             sqlQuery = dbSQL.getDef("search*", "");
-            rs = LegacyJdbcQuery.queryResultsPaged(sqlQuery, new DBPreparedHandlerParam[0], iOffSet);
+            rs = LegacyJdbcQuery.queryResultsPaged(sqlQuery, EMPTY_DB_PARAMS, iOffSet);
         } else {
             sqlQuery = dbSQL.getDef(dboperation, "");
             rs = LegacyJdbcQuery.queryResultsPaged(sqlQuery, aKeyword, iOffSet);
@@ -177,7 +179,7 @@ public class AppointmentMainBean {
         if (aKeyword[0].getParamType().equals(DBPreparedHandlerParam.PARAM_STRING) &&
                 aKeyword[0].getStringValue().equals("*")) {
             sqlQuery = dbSQL.getDef("search*", "");
-            rs = LegacyJdbcQuery.queryResultsPaged(sqlQuery, new DBPreparedHandlerParam[0], iOffSet);
+            rs = LegacyJdbcQuery.queryResultsPaged(sqlQuery, EMPTY_DB_PARAMS, iOffSet);
         } else {
             sqlQuery = dbSQL.getDef(dboperation, "");
             rs = LegacyJdbcQuery.queryResultsPaged(sqlQuery, aKeyword, iOffSet);
@@ -227,7 +229,7 @@ public class AppointmentMainBean {
         ResultSet rs = null;
         if (aKeyword.equals("*")) {
             sqlQuery = dbSQL.getDef("search*", "");
-            rs = LegacyJdbcQuery.queryResults(sqlQuery, new DBPreparedHandlerParam[0]);
+            rs = LegacyJdbcQuery.queryResults(sqlQuery, EMPTY_DB_PARAMS);
         } else {
             sqlQuery = dbSQL.getDef(dboperation, "");
             rs = LegacyJdbcQuery.queryResults(sqlQuery, aKeyword);
@@ -240,7 +242,7 @@ public class AppointmentMainBean {
         ResultSet rs = null;
         if (aKeyword.equals("*")) {
             sqlQuery = dbSQL.getDef("search*", "");
-            rs = LegacyJdbcQuery.queryResultsPaged(sqlQuery, new DBPreparedHandlerParam[0], iOffSet);
+            rs = LegacyJdbcQuery.queryResultsPaged(sqlQuery, EMPTY_DB_PARAMS, iOffSet);
         } else {
             sqlQuery = dbSQL.getDef(dboperation, "");
             //works with only one " like ?"
@@ -254,7 +256,7 @@ public class AppointmentMainBean {
 //            if(str3.indexOf("and")>iIndex2) iIndex2=str3.indexOf("and") + 3;
                     sqlQuery = str2 + " 1=1 " + str3.substring(iIndex2 + 1, str3.length());
                 }
-                rs = LegacyJdbcQuery.queryResultsPaged(sqlQuery, new DBPreparedHandlerParam[0], iOffSet);
+                rs = LegacyJdbcQuery.queryResultsPaged(sqlQuery, EMPTY_DB_PARAMS, iOffSet);
             } else {
                 rs = LegacyJdbcQuery.queryResultsPaged(sqlQuery, aKeyword, iOffSet);
             }
@@ -286,7 +288,7 @@ public class AppointmentMainBean {
     /* This method is called by querys that dont need to set a PreparedStatement */
     public ResultSet queryResults(String dboperation) throws Exception {
         String sqlQuery = dbSQL.getDef(dboperation);
-        return LegacyJdbcQuery.queryResults(sqlQuery, new DBPreparedHandlerParam[0]);
+        return LegacyJdbcQuery.queryResults(sqlQuery, EMPTY_DB_PARAMS);
     }
 
     public String getString(ResultSet rs, java.lang.String columnName) throws SQLException {

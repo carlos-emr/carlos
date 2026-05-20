@@ -37,6 +37,7 @@ import java.io.InputStream;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.net.URL;
+import java.nio.file.Path;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -122,14 +123,16 @@ import io.github.carlos_emr.carlos.commn.model.OscarLog;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.WebUtils;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
-import org.owasp.encoder.Encode;
 import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
 
@@ -230,6 +233,7 @@ public class DemographicExportAction42Action extends ActionSupport {
     private static final String REPORTTEXT = "Text";
     private static final String RISKFACTOR = "Risk";
     private static final String HTTP_METHOD_POST = "POST";
+    private static final String DOCUMENT_EXPORT_ERROR_PREFIX = "Error! Document \"";
     public static final int CMS4 = 0;
     public static final int E2E = 1;
 
@@ -2062,15 +2066,15 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     f = PathValidationUtils.validateExistingPath(
                                             new File(edoc.getFilePath()),
                                             new File(oscarProperties.getProperty("DOCUMENT_DIR")));
-                                } catch (SecurityException e) {
-                                    exportError.add("Error! Document \"" + Encode.forHtml(edoc.getFileName()) + "\" path is invalid or outside the allowed directory. Skipping.");
-                                    logger.error("Path traversal attempt on document export: {}", Encode.forJava(edoc.getFilePath()));
+                                } catch (FileValidationException e) {
+                                    exportError.add(DOCUMENT_EXPORT_ERROR_PREFIX + SafeEncode.forHtmlContent(edoc.getFileName()) + "\" path is invalid or outside the allowed directory. Skipping.");
+                                    logger.error("Path traversal attempt on document export: {}", LogSanitizer.sanitize(edoc.getFilePath()));
                                     continue;
                                 }
                                 if (!f.exists()) {
-                                    exportError.add("Error! Document \"" + f.getName() + "\" does not exist!");
+                                    exportError.add(DOCUMENT_EXPORT_ERROR_PREFIX + f.getName() + "\" does not exist!");
                                 } else if (f.length() > Runtime.getRuntime().freeMemory()) {
-                                    exportError.add("Error! Document \"" + f.getName() + "\" too big to be exported. Not enough memory!");
+                                    exportError.add(DOCUMENT_EXPORT_ERROR_PREFIX + f.getName() + "\" too big to be exported. Not enough memory!");
                                 } else {
                                     Reports rpr = patientRec.addNewReports();
                                     if (edoc.getType() != null) {
@@ -2181,9 +2185,9 @@ public class DemographicExportAction42Action extends ActionSupport {
 
                                     try {
                                         hrmFile = PathValidationUtils.validateExistingPath(hrmFile, documentDir);
-                                    } catch (SecurityException e) {
-                                        exportError.add("Error! HRM report file '" + Encode.forHtml(reportFile) + "' is outside the allowed directory. HRM report not exported.");
-                                        logger.error("HRM report file path traversal attempt: {}", Encode.forJava(reportFile));
+                                    } catch (FileValidationException e) {
+                                        exportError.add("Error! HRM report file '" + SafeEncode.forHtmlContent(reportFile) + "' is outside the allowed directory. HRM report not exported.");
+                                        logger.error("HRM report file path traversal attempt: {}", LogSanitizer.sanitize(reportFile));
                                         continue;
                                     }
 
@@ -2665,8 +2669,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                     }
 //
 //	if (setName!=null) zipName = "export_"+setName.replace(" ","")+"_"+UtilDateUtilities.getToday("yyyyMMddHHmmss")+".pgp";
-                    // Sanitize zipName to prevent path traversal
-                    zipName = MiscUtils.sanitizeFileName(zipName);
+                    zipName = PathValidationUtils.validateUserFilePath(zipName, Path.of(tmpDir).toFile()).getName();
                     if (!Util.zipFiles(files, dirs, zipName, tmpDir)) {
                         logger.debug("Error! Failed to zip export files");
                     }

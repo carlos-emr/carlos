@@ -57,6 +57,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  */
 public final class LegacyJdbcQuery {
     private static final int MAX_THREAD_RESOURCES_BEFORE_WARNING = 10;
+    private static final int MAX_THREAD_RESOURCES_BEFORE_EXCEPTION = 50;
     private static final ThreadLocal<Deque<AutoCloseable>> THREAD_RESOURCES = new ThreadLocal<>();
 
     private LegacyJdbcQuery() {
@@ -513,6 +514,9 @@ public final class LegacyJdbcQuery {
         if (resources == null) {
             resources = new ArrayDeque<>();
             THREAD_RESOURCES.set(resources);
+        }
+        if (resources.size() >= MAX_THREAD_RESOURCES_BEFORE_EXCEPTION) {
+            throw new IllegalStateException("Legacy JDBC thread resource limit exceeded; refusing to register additional resources");
         }
         resources.add(resource);
         if (resources.size() == MAX_THREAD_RESOURCES_BEFORE_WARNING + 1) {

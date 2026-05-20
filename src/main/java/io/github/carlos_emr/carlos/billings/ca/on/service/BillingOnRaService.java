@@ -26,6 +26,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStreamReader;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -48,7 +49,9 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.RaDetail;
 import io.github.carlos_emr.carlos.commn.model.RaHeader;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 
@@ -143,21 +146,23 @@ public class BillingOnRaService {
         if (documentDir.isEmpty()) {
             throw new BillingValidationException("Cannot import RA file: DOCUMENT_DIR is not configured");
         }
-        File safeFile = PathValidationUtils.validateExistingPath(new File(filePathName), new File(documentDir));
-        filePathName = safeFile.getPath();
-
-        if (filePathName.indexOf("/") >= 0) {
-            filename = filePathName.substring(filePathName.lastIndexOf("/") + 1);
-        } else if (filePathName.indexOf("\\") >= 0) {
-            filename = filePathName.substring(filePathName.lastIndexOf("\\") + 1);
+        File safeFile;
+        try {
+            safeFile = PathValidationUtils.validateExistingPath(
+                    Path.of(filePathName).toFile(),
+                    Path.of(documentDir).toFile());
+        } catch (FileValidationException e) {
+            _logger.error("RA import rejected invalid path: {}", LogSanitizer.sanitize(filePathName), e);
+            throw new SecurityException("Invalid RA import path", e);
         }
+        filename = safeFile.getName();
 
         // try-with-resources: any throw in the parse loop below must close
         // the file handle. Without this, an IOException from readLine
         // (or any RuntimeException downstream) leaks the FD AND with the
         // class-level rollbackFor=Exception.class above, the transaction
         // rolls back so partial RaHeader/RaDetail rows are not committed.
-        try (FileInputStream file = new FileInputStream(filePathName);
+        try (FileInputStream file = new FileInputStream(safeFile);
              InputStreamReader reader = new InputStreamReader(file);
              BufferedReader input = new BufferedReader(reader)) {
         String nextline;

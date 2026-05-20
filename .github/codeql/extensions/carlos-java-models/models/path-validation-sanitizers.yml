@@ -20,6 +20,23 @@
 
 extensions:
 
+  # barrierModel entries mark validated return values as sanitizers for
+  # path-injection queries. These helpers canonicalize paths, enforce allowed
+  # directories, and throw before returning unsafe values.
+  - addsTo:
+      pack: codeql/java-all
+      extensible: barrierModel
+    data:
+      # validateUpload(File sourceFile) -> File
+      # The returned File has been canonicalized and constrained to configured
+      # upload/temp locations.
+      - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", false, "validateUpload", "(java.io.File)", "", "ReturnValue", "path-injection", "manual"]
+
+      # validateTempPathForCleanup(String filePath) -> File
+      # The returned File has been canonicalized and constrained to configured
+      # temp locations before callers perform cleanup operations.
+      - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", false, "validateTempPathForCleanup", "(java.lang.String)", "", "ReturnValue", "path-injection", "manual"]
+
   # summaryModel entries replace body analysis for these methods.
   # By only modelling flows from safe (application-controlled) arguments to the
   # return value — and deliberately omitting user-controlled arguments — CodeQL

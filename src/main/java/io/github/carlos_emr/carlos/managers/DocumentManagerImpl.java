@@ -35,18 +35,19 @@ package io.github.carlos_emr.carlos.managers;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.file.*;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
 import io.github.carlos_emr.carlos.documentManager.dto.DocumentListItemDTO;
 import org.openpdf.text.DocumentException;
-import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.pdfbox.Loader;
@@ -56,7 +57,6 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
-import org.owasp.encoder.Encode;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -66,6 +66,8 @@ import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ImagePDFCreator;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 /**
  * Spring-managed implementation of the {@link DocumentManager} interface for managing
@@ -90,7 +92,9 @@ import io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.I
 @Service
 public class DocumentManagerImpl implements DocumentManager {
 
+    private static final int MAX_DOCUMENT_FILENAME_ATTEMPTS = PathValidationUtils.MAX_UPLOAD_FILENAME_COLLISION_RETRIES;
     private static final String PARENT_DIR = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+    private static final String MOVE_DOCUMENT_LOG_ACTION = "EformDataManager.moveDocument";
     private final Logger logger = MiscUtils.getLogger();
 
     @Autowired
@@ -171,8 +175,10 @@ public class DocumentManagerImpl implements DocumentManager {
      * @param providerNo    The optional provider number to route the document to
      * @param documentData  The document byte data
      * @return Document record from the database once it has been created
+     * @throws FileValidationException If the provided document filename is invalid
      * @throws IOException If actions related to getting document data fail
      */
+    @Override
     public Document createDocument(LoggedInInfo loggedInInfo, Document document, Integer demographicNo, String providerNo, byte[] documentData) throws IOException {
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "w", "")) {
@@ -180,30 +186,34 @@ public class DocumentManagerImpl implements DocumentManager {
         }
 
         SimpleDateFormat dateTimeFormat = new SimpleDateFormat("yyyyMMddHHmmss");
-        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
         Date today = new Date();
         // Generates filename and path data and saves the document data to the file system
         String documentPath = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
-        String fileName = dateTimeFormat.format(today) + "_" + document.getDocfilename();
-		fileName = MiscUtils.sanitizeFileName(fileName);
+        String originalFileName = document.getDocfilename();
+        String fileName;
         File file;
         try {
-            file = PathValidationUtils.validatePath(fileName, new File(documentPath));
-        } catch (SecurityException e) {
-            logger.error("Document filename failed path validation: {}", Encode.forJava(fileName));
-            throw new IOException("Document filename failed path validation", e);
+            // Normalize the original filename, then validate the final timestamped storage path.
+            String normalizedFileName = PathValidationUtils.validateFileName(originalFileName);
+            String storageFileName = dateTimeFormat.format(today) + "_" + normalizedFileName;
+            File documentDir = new File(documentPath);
+            file = writeNewDocumentFile(documentDir, storageFileName, documentData);
+            fileName = file.getName();
+        } catch (FileValidationException e) {
+            logger.warn("Document filename failed validation");
+            throw e;
         }
-        FileUtils.writeByteArrayToFile(file, documentData);
 
         // Gets the number of pages for the document
         int numberOfPages = 1;
-        if (fileName.toLowerCase().endsWith("pdf")) {
+        String lowerFileName = fileName.toLowerCase(Locale.ROOT);
+        if (lowerFileName.endsWith(".pdf")) {
 			try (PDDocument pdDocument = Loader.loadPDF(file)) {
             numberOfPages = pdDocument.getNumberOfPages();
 			} catch (IOException e) {
 				numberOfPages = 0;
 			}
-        } else if (fileName.toLowerCase().endsWith("html")) {
+        } else if (lowerFileName.endsWith(".html")) {
             numberOfPages = 0;
         }
         document.setNumberofpages(numberOfPages);
@@ -211,12 +221,76 @@ public class DocumentManagerImpl implements DocumentManager {
         document.setDocfilename(fileName);
 		if (document.getDocdesc() == null || document.getDocdesc().isEmpty()) { document.setDocdesc(fileName); }
 
-        // Creates and saves the document
-        saveDocument(document, demographicNo, providerNo);
+        // Creates and saves the document. If persistence fails before a document
+        // record exists, remove the file copied for this failed request.
+        try {
+            saveDocument(document, demographicNo, providerNo);
+        } catch (RuntimeException e) {
+            if (document.getId() == null) {
+                deleteUnpersistedDocumentFile(file);
+            }
+            throw e;
+        }
 
 		LogAction.addLogSynchronous(loggedInInfo, "DocumentManager.createDocument()", "Document ID: " + document.getId().toString() + " Demographic: " + (demographicNo != null ? demographicNo.toString() : "N/A") + " FileName: " + document.getDocfilename());
 
         return document;
+    }
+
+    private void deleteUnpersistedDocumentFile(File file) {
+        if (file == null) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(file.toPath());
+        } catch (IOException e) {
+            logger.warn("Unable to delete unpersisted document file: {}", LogSanitizer.sanitize(file.getPath()), e);
+        }
+    }
+
+    private File writeNewDocumentFile(File documentDir, String storageFileName, byte[] documentData) throws IOException {
+        if (documentData == null) {
+            throw new IOException("Document data is required");
+        }
+
+        IOException lastCollision = null;
+        for (int attempt = 0; attempt < MAX_DOCUMENT_FILENAME_ATTEMPTS; attempt++) {
+            File file = PathValidationUtils.validatePath(storageFileNameWithCollisionSuffix(storageFileName, attempt), documentDir);
+            boolean fileCreatedByRequest = false;
+            Path filePath = file.toPath();
+            Path parentPath = filePath.getParent();
+            if (parentPath != null) {
+                Files.createDirectories(parentPath);
+            }
+
+            try (OutputStream outputStream = Files.newOutputStream(filePath, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
+                fileCreatedByRequest = true;
+                outputStream.write(documentData);
+                return file;
+            } catch (FileAlreadyExistsException e) {
+                lastCollision = e;
+            } catch (IOException | RuntimeException e) {
+                if (fileCreatedByRequest) {
+                    deleteUnpersistedDocumentFile(file);
+                }
+                throw e;
+            }
+        }
+
+        throw new IOException("Unable to create a unique document filename after "
+                + MAX_DOCUMENT_FILENAME_ATTEMPTS + " attempts", lastCollision);
+    }
+
+    private String storageFileNameWithCollisionSuffix(String storageFileName, int attempt) {
+        if (attempt == 0) {
+            return storageFileName;
+        }
+
+        int extensionIndex = storageFileName.lastIndexOf('.');
+        if (extensionIndex > 0) {
+            return storageFileName.substring(0, extensionIndex) + "_" + attempt + storageFileName.substring(extensionIndex);
+        }
+        return storageFileName + "_" + attempt;
     }
 
     public List<Document> getDocumentsUpdateAfterDate(LoggedInInfo loggedInInfo, Date updatedAfterThisDateExclusive, int itemsToReturn) {
@@ -362,16 +436,85 @@ public class DocumentManagerImpl implements DocumentManager {
             if (toPath == null) {
                 toPath = getParentDirectory();
             }
-            Path from = FileSystems.getDefault().getPath(fromPath, document.getDocfilename());
-            Path to = FileSystems.getDefault().getPath(toPath, document.getDocfilename());
+            String docFilename = validateStoredDocumentFilename(document.getDocfilename());
+            Path from = validateMoveSourceDocument(fromPath, docFilename);
+            Path to = validateDocumentDestination(toPath, docFilename);
             Files.move(from, to, StandardCopyOption.REPLACE_EXISTING);
 
-            LogAction.addLog(loggedInInfo, "EformDataManager.moveDocument", "Document was moved", "Document No." + document.getDocumentNo(), "", fromPath + " to " + toPath);
+            LogAction.addLog(loggedInInfo, MOVE_DOCUMENT_LOG_ACTION, "Document was moved", "Document No." + document.getDocumentNo(), "", fromPath + " to " + toPath);
 
         } catch (IOException e) {
             MiscUtils.getLogger().error("Document failed move. Id: " + document.getDocumentNo() + " From: " + fromPath + " To: " + toPath, e);
-            LogAction.addLog(loggedInInfo, "EformDataManager.moveDocument", "Document failed move ", "Document No." + document.getDocumentNo(), "", fromPath + " to " + toPath);
+            LogAction.addLog(loggedInInfo, MOVE_DOCUMENT_LOG_ACTION, "Document failed move ", "Document No." + document.getDocumentNo(), "", fromPath + " to " + toPath);
+        } catch (FileValidationException | InvalidPathException e) {
+            logger.error("Document move rejected for invalid path. Document No. {}", document.getDocumentNo(), e);
+            LogAction.addLog(loggedInInfo, MOVE_DOCUMENT_LOG_ACTION, "Document failed move ", "Document No." + document.getDocumentNo(), "", fromPath + " to " + toPath);
+            throw new SecurityException("Invalid document move path", e);
         }
+    }
+
+    private String validateStoredDocumentFilename(String filename) {
+        if (filename == null || filename.isEmpty()) {
+            throw new FileValidationException(PathValidationUtils.INVALID_FILENAME_MESSAGE);
+        }
+        if (filename.contains("/") || filename.contains("\\")) {
+            throw new FileValidationException(PathValidationUtils.INVALID_FILENAME_MESSAGE);
+        }
+        return filename;
+    }
+
+    private Path validateMoveSourceDocument(String fromPath, String docFilename) {
+        if (fromPath == null || fromPath.trim().isEmpty()) {
+            throw new FileValidationException("Source path is required");
+        }
+        File sourceFile = FileSystems.getDefault().getPath(fromPath, docFilename).toFile();
+        if (PathValidationUtils.isInAllowedTempDirectory(sourceFile)) {
+            return PathValidationUtils.validateUpload(sourceFile).toPath();
+        }
+        return validateStoredDocumentSource(sourceFile).toPath();
+    }
+
+    private File validateStoredDocumentSource(File sourceFile) {
+        for (File allowedSourceDir : getDocumentMoveSourceDirectories()) {
+            try {
+                File validatedSource = PathValidationUtils.validateExistingPath(sourceFile, allowedSourceDir);
+                if (!validatedSource.exists()) {
+                    throw new FileValidationException("Source document does not exist");
+                }
+                if (!validatedSource.isFile()) {
+                    throw new FileValidationException("Source document is not a regular file");
+                }
+                return validatedSource;
+            } catch (FileValidationException e) {
+                if (PathValidationUtils.PATH_OUTSIDE_ALLOWED_DIRECTORY_MESSAGE.equals(e.getMessage())) {
+                    continue;
+                }
+                throw e;
+            }
+        }
+        throw new FileValidationException("Invalid document move source");
+    }
+
+    private List<File> getDocumentMoveSourceDirectories() {
+        List<File> sourceDirectories = new ArrayList<>();
+        addConfiguredDirectory(sourceDirectories, CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
+        addConfiguredDirectory(sourceDirectories, CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR"));
+        return sourceDirectories;
+    }
+
+    private void addConfiguredDirectory(List<File> directories, String directoryPath) {
+        if (directoryPath != null && !directoryPath.trim().isEmpty()) {
+            directories.add(new File(directoryPath));
+        }
+    }
+
+    private Path validateDocumentDestination(String toPath, String docFilename) {
+        if (toPath == null || toPath.trim().isEmpty()) {
+            throw new FileValidationException("Destination path is required");
+        }
+        File destinationDir = FileSystems.getDefault().getPath(toPath).toFile();
+        File destinationFile = FileSystems.getDefault().getPath(toPath, docFilename).toFile();
+        return PathValidationUtils.validateExistingPath(destinationFile, destinationDir).toPath();
     }
 
     /** @return String the configured parent document directory path */
@@ -413,7 +556,7 @@ public class DocumentManagerImpl implements DocumentManager {
         // Reject filenames containing path separators. Stored filenames are plain basenames;
         // silently stripping a subdirectory component could resolve to a different file.
         if (filename.contains("/") || filename.contains("\\")) {
-            logger.error("Document filename contains path separator, rejected: {}", Encode.forJava(filename));
+            logger.error("Document filename contains path separator, rejected: {}", LogSanitizer.sanitize(filename));
             return null;
         }
 
@@ -422,8 +565,8 @@ public class DocumentManagerImpl implements DocumentManager {
         File validatedFile;
         try {
             validatedFile = PathValidationUtils.validatePath(filename, new File(documentDir));
-        } catch (SecurityException e) {
-            logger.error("Invalid document filename rejected: {}", Encode.forJava(filename));
+        } catch (FileValidationException e) {
+            logger.error("Invalid document filename rejected: {}", LogSanitizer.sanitize(filename));
             return null;
         }
 

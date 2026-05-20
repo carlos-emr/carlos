@@ -84,7 +84,6 @@ public class APExecute {
         replacements.put("demographic", demographicNo);
         ParameterizedSql query = DatabaseAP.parameterizeSql(dap.getApSQL(), replacements);
         String output = dap.getApOutput();
-        MiscUtils.getLogger().debug("SQL----" + query.getSql());
         ArrayList<String> names = DatabaseAP.parserGetNames(output); //a list of ${apName} --> apName
 
         if (dap.isJsonOutput()) {
@@ -127,8 +126,6 @@ public class APExecute {
         ParameterizedSql query = DatabaseAP.parameterizeSql(dap.getApSQL(), replacements);
 
         String output = dap.getApOutput();
-        MiscUtils.getLogger().debug("SQL----" + query.getSql());
-
         ArrayList<String> names = DatabaseAP.parserGetNames(output);
 
         ArrayList<String> values = EFormUtil.getValues(names, query);
