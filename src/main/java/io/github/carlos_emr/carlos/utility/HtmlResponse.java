@@ -41,6 +41,9 @@ import java.util.List;
  * @since 2026-05-20
  */
 public final class HtmlResponse {
+    /** Default HTML Content-Type used when callers have decoded HTML text but no stored content type. */
+    public static final String DEFAULT_HTML_CONTENT_TYPE_WITH_CHARSET = "text/html;charset=UTF-8";
+
     /** Fallback for stored HTML that has no charset declaration or declares an unsupported charset. */
     private static final Charset DEFAULT_HTML_CHARSET = StandardCharsets.UTF_8;
     private static final String DEFAULT_HTML_CONTENT_TYPE = "text/html";
@@ -175,7 +178,12 @@ public final class HtmlResponse {
         boolean escaped = false;
         char quote = 0;
 
-        for (int i = contentType.indexOf(';') + 1; i > 0 && i < contentType.length(); i++) {
+        int firstParameter = contentType.indexOf(';');
+        if (firstParameter < 0) {
+            return List.of();
+        }
+
+        for (int i = firstParameter + 1; i < contentType.length(); i++) {
             char c = contentType.charAt(i);
             if (escaped) {
                 current.append(c);

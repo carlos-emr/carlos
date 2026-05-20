@@ -927,7 +927,7 @@ public class ManageDocument2Action extends ActionSupport {
             // cross-window logout listener.
             String docxmlContentType = RequestNegotiation.isHtmlContentType(contentType)
                     ? contentType
-                    : "text/html;charset=UTF-8";
+                    : HtmlResponse.DEFAULT_HTML_CONTENT_TYPE_WITH_CHARSET;
             HtmlResponse.writeStoredHtml(response, docxmlContentType, docxml);
             return;
         }
