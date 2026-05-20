@@ -34,10 +34,10 @@ class JspJavaScriptEncodingRegressionTest {
 
         assertThat(sentJsp)
                 .doesNotContain("'<%= session.getAttribute(\"info\") %>'")
-                .contains("SafeEncode.forJavaScript(String.valueOf(session.getAttribute(\"info\")))");
+                .contains("SafeEncode.forJavaScript(session.getAttribute(\"info\"))");
         assertThat(autoDownloadJsp)
                 .doesNotContain("'<%= session.getAttribute(\"resourceID\") %>'")
-                .contains("SafeEncode.forJavaScript(String.valueOf(session.getAttribute(\"resourceID\")))");
+                .contains("SafeEncode.forJavaScript(session.getAttribute(\"resourceID\"))");
     }
 
     @Test
