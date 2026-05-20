@@ -183,7 +183,10 @@ class StrutsGlobalConfigUnitTest extends CarlosUnitTestBase {
         for (int i = 0; i < packages.getLength(); i++) {
             if (packages.item(i) instanceof Element packageElement) {
                 String strictMethodInvocation = packageElement.getAttribute("strict-method-invocation");
-                if (!"true".equals(strictMethodInvocation.trim())) {
+                if (strictMethodInvocation.isBlank()) {
+                    violations.add(fileName + " package " + packageElement.getAttribute("name")
+                            + " is missing strict-method-invocation");
+                } else if (!"true".equals(strictMethodInvocation.trim())) {
                     violations.add(fileName + " package " + packageElement.getAttribute("name")
                             + " sets strict-method-invocation=" + strictMethodInvocation);
                 }
