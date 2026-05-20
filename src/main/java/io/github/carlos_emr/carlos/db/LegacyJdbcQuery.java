@@ -74,34 +74,20 @@ public final class LegacyJdbcQuery {
         }
     }
 
-    public record CaisiResult(ResultSet resultSet, PreparedStatement statement) implements AutoCloseable {
-        public CaisiResult {
-            Objects.requireNonNull(resultSet, "resultSet");
-            Objects.requireNonNull(statement, "statement");
+    public static final class CaisiResult implements AutoCloseable {
+        private final ResultSet resultSet;
+
+        public CaisiResult(ResultSet resultSet) {
+            this.resultSet = Objects.requireNonNull(resultSet, "resultSet");
+        }
+
+        public ResultSet resultSet() {
+            return resultSet;
         }
 
         @Override
         public void close() throws SQLException {
-            SQLException failure = null;
-            try {
-                resultSet.close();
-            } catch (SQLException e) {
-                failure = e;
-            }
-
-            try {
-                statement.close();
-            } catch (SQLException e) {
-                if (failure == null) {
-                    failure = e;
-                } else {
-                    failure.addSuppressed(e);
-                }
-            }
-
-            if (failure != null) {
-                throw failure;
-            }
+            resultSet.close();
         }
     }
 
@@ -465,43 +451,13 @@ public final class LegacyJdbcQuery {
             ps = connection.prepareStatement(preparedSQL);
             bindParams(ps, params);
             ResultSet rs = ps.executeQuery();
-            return new CaisiResult(rs, registerThreadResource(releasingPreparedStatement(ps, connection, dataSource)));
+            ResultSet releasingResultSet = StatementClosingResultSet.wrap(rs, ps, connection, dataSource);
+            return new CaisiResult(registerThreadResource(releasingResultSet));
         } catch (SQLException | RuntimeException e) {
             closeStatement(ps);
             DataSourceUtils.releaseConnection(connection, dataSource);
             throw e;
         }
-    }
-
-    private static PreparedStatement releasingPreparedStatement(PreparedStatement delegate, Connection connection, DataSource dataSource) {
-        AtomicBoolean released = new AtomicBoolean(false);
-        InvocationHandler handler = new InvocationHandler() {
-            @Override
-            public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-                if ("close".equals(method.getName())) {
-                    try {
-                        return method.invoke(delegate, args);
-                    } catch (InvocationTargetException e) {
-                        throw e.getCause();
-                    } finally {
-                        if (released.compareAndSet(false, true)) {
-                            try {
-                                DataSourceUtils.releaseConnection(connection, dataSource);
-                            } finally {
-                                unregisterThreadResource((AutoCloseable) proxy);
-                            }
-                        }
-                    }
-                }
-                try {
-                    return method.invoke(delegate, args);
-                } catch (InvocationTargetException e) {
-                    throw e.getCause();
-                }
-            }
-        };
-        return (PreparedStatement) Proxy.newProxyInstance(delegate.getClass().getClassLoader(),
-                new Class<?>[] { PreparedStatement.class }, handler);
     }
 
     private static Connection releasingConnection(Connection delegate, DataSource dataSource) {

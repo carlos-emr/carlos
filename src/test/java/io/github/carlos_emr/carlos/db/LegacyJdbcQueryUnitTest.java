@@ -226,14 +226,22 @@ class LegacyJdbcQueryUnitTest extends CarlosUnitTestBase {
     void shouldClose_caisiResultSetAndStatementTogether() throws Exception {
         ResultSet rs = mock(ResultSet.class);
         PreparedStatement ps = mock(PreparedStatement.class);
+        ResultSet releasingResultSet = StatementClosingResultSet.wrap(rs, ps);
 
-        try (LegacyJdbcQuery.CaisiResult ignored = new LegacyJdbcQuery.CaisiResult(rs, ps)) {
+        try (LegacyJdbcQuery.CaisiResult ignored = new LegacyJdbcQuery.CaisiResult(releasingResultSet)) {
             // Resource ownership belongs to the holder.
         }
 
         InOrder order = inOrder(rs, ps);
         order.verify(rs).close();
         order.verify(ps).close();
+    }
+
+    @Test
+    @DisplayName("should not expose CAISI statement")
+    void shouldNotExpose_caisiStatement() {
+        assertThat(LegacyJdbcQuery.CaisiResult.class.getMethods())
+                .noneMatch(method -> "statement".equals(method.getName()));
     }
 
     private boolean usesDeprecatedDatabaseBoundary(Path path) {

@@ -43,7 +43,6 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.JDBCUtil;
 
-import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -69,29 +68,17 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
 
         int BUFFER = 2048;
 
-        // Get context of the temp directory, get the file path to the the temp directory
-        ServletContext servletContext = ServletActionContext.getServletContext();
-
-        // Validate the paths
-        File safeDir = (File) servletContext.getAttribute("jakarta.servlet.context.tempdir"); // Use a safe directory
-        
-        if (safeDir == null) {
-            throw new IllegalStateException("Temporary directory attribute is not set.");
-        }
-
         if (file1 == null) {
             return reportImportError("Select a form XML archive to import.");
         }
-        
-        File normalizedFile = file1.toPath().normalize().toFile();
 
-        // Validate file path using PathValidationUtils
+        File normalizedFile;
         try {
-            normalizedFile = PathValidationUtils.validateExistingPath(normalizedFile, safeDir);
+            normalizedFile = PathValidationUtils.validateUpload(file1);
         } catch (SecurityException e) {
             MiscUtils.getLogger().warn(
                     "Rejected form XML archive path {}",
-                    LogSafe.sanitize(normalizedFile.getPath()), e);
+                    LogSafe.sanitize(file1.getPath()), e);
             return reportImportError("Unable to import form data. Check the uploaded archive and try again.");
         }
 
