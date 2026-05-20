@@ -77,11 +77,12 @@ class JspJavaScriptEncodingRegressionTest {
     }
 
     @Test
-    void shouldGuardMissingNoteLock_forChartNotesAjaxRendering() throws Exception {
+    void shouldUseGuardedIpAddressVariable_forChartNotesAjaxRendering() throws Exception {
         String chartNotesJsp = readJsp("casemgmt/ChartNotesAjax.jsp");
 
         assertThat(chartNotesJsp)
-                .contains("String noteLockIpAddress = noteLockedBySameUser ? casemgmtNoteLock.getIpAddress() : \"\";")
+                .contains("String noteLockIpAddress = hasNoteLock && noteLockedBySameUser "
+                        + "? casemgmtNoteLock.getIpAddress() : \"\";")
                 .contains("<%= noteLockIpAddress %>")
                 .doesNotContain("<%= casemgmtNoteLock.getIpAddress() %>");
     }

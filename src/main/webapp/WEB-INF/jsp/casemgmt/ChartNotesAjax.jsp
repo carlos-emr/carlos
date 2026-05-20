@@ -866,7 +866,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
             && !noteLocked
             && casemgmtNoteLock.isLockedBySameUser()
             && !Objects.equals(casemgmtNoteLock.getSessionId(), request.getRequestedSessionId());
-    String noteLockIpAddress = noteLockedBySameUser ? casemgmtNoteLock.getIpAddress() : "";
+    String noteLockIpAddress = hasNoteLock && noteLockedBySameUser ? casemgmtNoteLock.getIpAddress() : "";
 
     String singleLineFormat = "false";
     if (renderMoreNotesScript) {
