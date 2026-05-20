@@ -44,17 +44,21 @@
     // screens open encounters, so the old flag remains true only in "tab" mode.
     String curProviderNo = (String) session.getAttribute("user");
     boolean openEncounterInTab = false;
-    String scheduleNavigationMode = UserProperty.SCHEDULE_NAVIGATION_MODE_POPUP;
+    String scheduleNavigationMode = UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED;
     if (curProviderNo != null) {
         UserPropertyDAO upDao = SpringUtils.getBean(UserPropertyDAO.class);
         UserProperty tabProp = upDao.getProp(curProviderNo, UserProperty.ENCOUNTER_OPEN_IN_TAB);
         UserProperty navProp = upDao.getProp(curProviderNo, UserProperty.SCHEDULE_NAVIGATION_MODE);
-        scheduleNavigationMode = navProp != null ? navProp.getValue() : null;
-        if (!UserProperty.SCHEDULE_NAVIGATION_MODE_TAB.equals(scheduleNavigationMode)
-                && !UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED.equals(scheduleNavigationMode)) {
+        String savedScheduleNavigationMode = navProp != null ? navProp.getValue() : null;
+        if (UserProperty.SCHEDULE_NAVIGATION_MODE_TAB.equals(savedScheduleNavigationMode)
+                || UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED.equals(savedScheduleNavigationMode)) {
+            scheduleNavigationMode = savedScheduleNavigationMode;
+        } else if (navProp == null) {
             scheduleNavigationMode = tabProp != null && "yes".equalsIgnoreCase(tabProp.getValue())
                     ? UserProperty.SCHEDULE_NAVIGATION_MODE_TAB
-                    : UserProperty.SCHEDULE_NAVIGATION_MODE_POPUP;
+                    : UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED;
+        } else {
+            scheduleNavigationMode = UserProperty.SCHEDULE_NAVIGATION_MODE_POPUP;
         }
         openEncounterInTab = UserProperty.SCHEDULE_NAVIGATION_MODE_TAB.equals(scheduleNavigationMode);
     }

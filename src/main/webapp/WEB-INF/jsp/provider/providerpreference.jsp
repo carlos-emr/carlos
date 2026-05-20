@@ -173,7 +173,7 @@
     boolean encWinMax = "yes".equalsIgnoreCase(props.getOrDefault("encounterWindowMaximize", "no"));
     boolean encOpenInTab = "yes".equalsIgnoreCase(props.getOrDefault(UserProperty.ENCOUNTER_OPEN_IN_TAB, "no"));
     String scheduleNavigationMode = props.getOrDefault(UserProperty.SCHEDULE_NAVIGATION_MODE,
-            encOpenInTab ? UserProperty.SCHEDULE_NAVIGATION_MODE_TAB : UserProperty.SCHEDULE_NAVIGATION_MODE_POPUP);
+            encOpenInTab ? UserProperty.SCHEDULE_NAVIGATION_MODE_TAB : UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED);
     if (!UserProperty.SCHEDULE_NAVIGATION_MODE_TAB.equals(scheduleNavigationMode)
             && !UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED.equals(scheduleNavigationMode)) {
         scheduleNavigationMode = UserProperty.SCHEDULE_NAVIGATION_MODE_POPUP;
