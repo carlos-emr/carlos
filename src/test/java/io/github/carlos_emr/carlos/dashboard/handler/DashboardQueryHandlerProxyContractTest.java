@@ -67,7 +67,9 @@ class DashboardQueryHandlerProxyContractTest {
         int modifiers = method.getModifiers();
         return Modifier.isFinal(modifiers)
                 && !Modifier.isStatic(modifiers)
-                && !Modifier.isPrivate(modifiers);
+                && !Modifier.isPrivate(modifiers)
+                && !method.isSynthetic()
+                && !method.isBridge();
     }
 
     private static Stream<String> findCglibVisibleFinalMethods(Class<?> handlerType) {
