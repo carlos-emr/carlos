@@ -37,11 +37,11 @@ import org.junit.jupiter.api.parallel.Isolated;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * Unit tests for {@link WebappShutdownResources}.
- * {@link Isolated} keeps the DriverManager mutation test from running beside
- * connection-opening tests that depend on JVM-global driver registrations.
- *
+ /**
+  * Unit tests for {@link WebappShutdownResources}.
+ * The @Isolated annotation keeps the DriverManager mutation test from running beside
+  * connection-opening tests that depend on JVM-global driver registrations.
+  *
  * @since 2026-05-19
  */
 @Tag("unit")

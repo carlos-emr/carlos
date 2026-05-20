@@ -113,6 +113,14 @@ public final class WebappShutdownResources {
         return isAncestor(owningWebappClassLoader, resourceClassLoader);
     }
 
+    /**
+     * Walks from a resource ClassLoader toward its parents to determine whether it
+     * is nested beneath the supplied webapp ClassLoader.
+     *
+     * @param possibleAncestor The webapp ClassLoader that may own the resource
+     * @param classLoader The resource ClassLoader to inspect
+     * @return True when the resource ClassLoader is a child of the webapp ClassLoader
+     */
     private static boolean isAncestor(ClassLoader possibleAncestor, ClassLoader classLoader) {
         // Shutdown checks a small DriverManager snapshot; avoid caching class-loader
         // relationships so this cleanup path never retains loaders after redeploy.
