@@ -32,6 +32,7 @@ package io.github.carlos_emr.carlos.form;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -175,7 +176,8 @@ public class FrmRecordHelp {
                     String archiveFileName = formClass + "_" + demographicNo + "_" + now + ".xml";
 
                     try {
-                        String fileName = PathValidationUtils.validatePath(archiveFileName, new File(place)).getPath();
+                        File archiveDir = Path.of(place).toAbsolutePath().normalize().toFile();
+                        String fileName = PathValidationUtils.validatePath(archiveFileName, archiveDir).getPath();
                         Document doc = JDBCUtil.toDocument(rs);
                         JDBCUtil.saveAsXML(doc, fileName);
                     } catch (SQLException | ParserConfigurationException | TransformerException | IOException |
@@ -195,8 +197,17 @@ public class FrmRecordHelp {
             Object... params) throws SQLException {
         PreparedStatement ps = connection.prepareStatement(sql, ResultSet.TYPE_SCROLL_SENSITIVE,
                 updatable ? ResultSet.CONCUR_UPDATABLE : ResultSet.CONCUR_READ_ONLY);
-        bindParams(ps, params);
-        return ps;
+        try {
+            bindParams(ps, params);
+            return ps;
+        } catch (SQLException | RuntimeException e) {
+            try {
+                ps.close();
+            } catch (SQLException closeFailure) {
+                e.addSuppressed(closeFailure);
+            }
+            throw e;
+        }
     }
 
     private void bindParams(PreparedStatement ps, Object... params) throws SQLException {

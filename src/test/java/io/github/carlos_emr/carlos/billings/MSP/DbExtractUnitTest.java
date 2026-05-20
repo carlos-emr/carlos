@@ -10,6 +10,7 @@ package io.github.carlos_emr.carlos.billings.MSP;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -69,6 +70,26 @@ class DbExtractUnitTest extends CarlosUnitTestBase {
         verify(statement).setObject(1, "42");
         verify(statement).close();
         assertThat(getField(extract, "stmt2")).isNull();
+    }
+
+    @Test
+    @DisplayName("should close prepared statement when parameter binding fails")
+    void shouldClosePreparedStatement_whenParameterBindingFails() throws Exception {
+        Connection connection = mock(Connection.class);
+        PreparedStatement statement = mock(PreparedStatement.class);
+        SQLException failure = new SQLException("bind failed");
+        when(connection.prepareStatement("select * from billing where provider_ohip_no=?"))
+                .thenReturn(statement);
+        doThrow(failure).when(statement).setObject(1, "123456");
+        dbExtract extract = new dbExtract();
+        setField(extract, "con", connection);
+
+        assertThatThrownBy(() -> extract.executeQuery(
+                "select * from billing where provider_ohip_no=?", "123456"))
+                .isSameAs(failure);
+
+        verify(statement).close();
+        assertThat(getField(extract, "stmt")).isNull();
     }
 
     private static void setField(Object target, String fieldName, Object value) throws Exception {

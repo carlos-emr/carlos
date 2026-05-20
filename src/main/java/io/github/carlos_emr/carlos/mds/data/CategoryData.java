@@ -37,8 +37,6 @@ import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -322,65 +320,51 @@ public class CategoryData {
                 + " OR plr2.demographic_no = '0')";
 
 
-        try (Connection c = LegacyJdbcQuery.getConnection();
-             PreparedStatement ps = c.prepareStatement(sql)) {
-            int paramIndex = 1;
-            if (providerSearch) ps.setString(paramIndex++, searchProviderNo);
-            if (bindsStatusParameter()) ps.setString(paramIndex++, status);
-            for (String p : labDateParams) ps.setString(paramIndex++, p);
+        List<Object> params = new ArrayList<>();
+        if (providerSearch) params.add(searchProviderNo);
+        if (bindsStatusParameter()) params.add(status);
+        params.addAll(labDateParams);
 
-            return readCount(ps);
-        }
+        return queryTrustedCount(sql, params);
     }
 
     public int getAbnormalCount(boolean isAbnormal) throws SQLException {
         String sql;
-        try (Connection c = LegacyJdbcQuery.getConnection()) {
-            if (patientSearch) {
-                sql = " SELECT HIGH_PRIORITY COUNT(1) as count "
-                        + " FROM patientLabRouting cd, demographic d, providerLabRouting plr, hl7TextInfo info "
-                        + " WHERE d.last_name" + (StringUtils.isEmpty(patientLastName) ? " IS NOT NULL " : " like ?  ")
-                        + " 	AND d.first_name" + (StringUtils.isEmpty(patientFirstName) ? " IS NOT NULL " : " like ? ")
-                        + " 	AND d.hin" + (StringUtils.isEmpty(patientHealthNumber) ? " IS NOT NULL " : " like ? ")
-                        + " 	AND plr.status " + (matchesAnyStatus() ? " IS NOT NULL " : " = ? ")
-                        + (providerSearch ? "AND plr.provider_no = ? " : "")
-                        + " 	AND plr.lab_type = 'HL7' "
-                        + " 	AND cd.lab_type = 'HL7' "
-                        + " 	AND cd.lab_no = plr.lab_no "
-                        + " 	AND cd.demographic_no = d.demographic_no "
-                        + " 	AND info.lab_no = plr.lab_no "
-                        + " 	AND result_status " + (isAbnormal ? "" : "!") + "= 'A' ";
-                try (PreparedStatement ps = c.prepareStatement(sql)) {
-                    int paramIndex = 1;
-                    if (!StringUtils.isEmpty(patientLastName)) ps.setString(paramIndex++, "%" + patientLastName + "%");
-                    if (!StringUtils.isEmpty(patientFirstName)) ps.setString(paramIndex++, "%" + patientFirstName + "%");
-                    if (!StringUtils.isEmpty(patientHealthNumber)) ps.setString(paramIndex++, "%" + patientHealthNumber + "%");
-                    if (bindsStatusParameter()) ps.setString(paramIndex++, status);
-                    if (providerSearch) ps.setString(paramIndex++, searchProviderNo);
-                    return readCount(ps);
-                }
-            } else if (providerSearch || bindsStatusParameter()) { // providerSearch
-                sql = "SELECT HIGH_PRIORITY COUNT(1) as count "
-                        + " FROM providerLabRouting plr, hl7TextInfo info "
-                        + " WHERE plr.status " + (matchesAnyStatus() ? " IS NOT NULL " : " = ?")
-                        + (providerSearch ? " AND plr.provider_no = ? " : " ")
-                        + " AND plr.lab_type = 'HL7'  "
-                        + " AND info.lab_no = plr.lab_no"
-                        + " AND result_status " + (isAbnormal ? "" : "!") + "= 'A' ";
-                try (PreparedStatement ps = c.prepareStatement(sql)) {
-                    int paramIndex = 1;
-                    if (bindsStatusParameter()) ps.setString(paramIndex++, status);
-                    if (providerSearch) ps.setString(paramIndex++, searchProviderNo);
-                    return readCount(ps);
-                }
-            } else {
-                sql = " SELECT HIGH_PRIORITY COUNT(1) as count "
-                        + " FROM hl7TextInfo info "
-                        + " WHERE result_status " + (isAbnormal ? "" : "!") + "= 'A' ";
-                try (PreparedStatement ps = c.prepareStatement(sql)) {
-                    return readCount(ps);
-                }
-            }
+        List<Object> params = new ArrayList<>();
+        if (patientSearch) {
+            sql = " SELECT HIGH_PRIORITY COUNT(1) as count "
+                    + " FROM patientLabRouting cd, demographic d, providerLabRouting plr, hl7TextInfo info "
+                    + " WHERE d.last_name" + (StringUtils.isEmpty(patientLastName) ? " IS NOT NULL " : " like ?  ")
+                    + " AND d.first_name" + (StringUtils.isEmpty(patientFirstName) ? " IS NOT NULL " : " like ? ")
+                    + " AND d.hin" + (StringUtils.isEmpty(patientHealthNumber) ? " IS NOT NULL " : " like ? ")
+                    + " AND plr.status " + (matchesAnyStatus() ? " IS NOT NULL " : " = ? ")
+                    + (providerSearch ? "AND plr.provider_no = ? " : "")
+                    + " AND plr.lab_type = 'HL7' "
+                    + " AND cd.lab_type = 'HL7' "
+                    + " AND cd.lab_no = plr.lab_no "
+                    + " AND cd.demographic_no = d.demographic_no "
+                    + " AND info.lab_no = plr.lab_no "
+                    + " AND result_status " + (isAbnormal ? "" : "!") + "= 'A' ";
+            addPatientSearchParams(params);
+            if (bindsStatusParameter()) params.add(status);
+            if (providerSearch) params.add(searchProviderNo);
+            return queryTrustedCount(sql, params);
+        } else if (providerSearch || bindsStatusParameter()) {
+            sql = "SELECT HIGH_PRIORITY COUNT(1) as count "
+                    + " FROM providerLabRouting plr, hl7TextInfo info "
+                    + " WHERE plr.status " + (matchesAnyStatus() ? " IS NOT NULL " : " = ?")
+                    + (providerSearch ? " AND plr.provider_no = ? " : " ")
+                    + " AND plr.lab_type = 'HL7'  "
+                    + " AND info.lab_no = plr.lab_no"
+                    + " AND result_status " + (isAbnormal ? "" : "!") + "= 'A' ";
+            if (bindsStatusParameter()) params.add(status);
+            if (providerSearch) params.add(searchProviderNo);
+            return queryTrustedCount(sql, params);
+        } else {
+            sql = " SELECT HIGH_PRIORITY COUNT(1) as count "
+                    + " FROM hl7TextInfo info "
+                    + " WHERE result_status " + (isAbnormal ? "" : "!") + "= 'A' ";
+            return queryTrustedCount(sql, params);
         }
     }
 
@@ -393,18 +377,15 @@ public class CategoryData {
                 + " WHERE plr.lab_type = 'DOC' "
                 + " AND plr.status " + (matchesAnyStatus() ? " IS NOT NULL " : " = ? ")
                 + (providerSearch ? " AND plr.provider_no = ? " : "")
-                + " AND 	cd.module_id = -1 "
+                + " AND cd.module_id = -1 "
                 + documentAbnormalSql
                 + documentDateSql;
-        try (Connection c = LegacyJdbcQuery.getConnection();
-             PreparedStatement ps = c.prepareStatement(sql)) {
-            int paramIndex = 1;
-            if (bindsStatusParameter()) ps.setString(paramIndex++, status);
-            if (providerSearch) ps.setString(paramIndex++, searchProviderNo);
-            for (String p : documentDateParams) ps.setString(paramIndex++, p);
+        List<Object> params = new ArrayList<>();
+        if (bindsStatusParameter()) params.add(status);
+        if (providerSearch) params.add(searchProviderNo);
+        params.addAll(documentDateParams);
 
-            return readCount(ps);
-        }
+        return queryTrustedCount(sql, params);
     }
 
     public int getLabCountForPatientSearch() throws SQLException {
@@ -417,45 +398,41 @@ public class CategoryData {
                 + " LEFT JOIN hl7TextInfo info ON cd.lab_no = info.lab_no"
                 + (dateSearchType.equals("receivedCreated") ? " LEFT JOIN hl7TextMessage message ON cd.lab_no = message.lab_id" : "")
                 + " WHERE   d.last_name" + (StringUtils.isEmpty(patientLastName) ? " IS NOT NULL " : "  like ? ")
-                + " 	AND d.first_name" + (StringUtils.isEmpty(patientFirstName) ? " IS NOT NULL " : " like ? ")
-                + " 	AND d.hin" + (StringUtils.isEmpty(patientHealthNumber) ? " IS NOT NULL " : " like ? ")
-                + " 	AND plr.lab_type = 'HL7' "
-                + " 	AND cd.lab_type = 'HL7' "
-                + " 	AND plr.status " + (matchesAnyStatus() ? " IS NOT NULL " : " = ? ")
+                + " AND d.first_name" + (StringUtils.isEmpty(patientFirstName) ? " IS NOT NULL " : " like ? ")
+                + " AND d.hin" + (StringUtils.isEmpty(patientHealthNumber) ? " IS NOT NULL " : " like ? ")
+                + " AND plr.lab_type = 'HL7' "
+                + " AND cd.lab_type = 'HL7' "
+                + " AND plr.status " + (matchesAnyStatus() ? " IS NOT NULL " : " = ? ")
                 + (dateSearchType.equals("receivedCreated") ? " AND message.lab_id IS NOT NULL " : " AND info.lab_no IS NOT NULL ")
                 + (providerSearch ? " AND plr.provider_no = ? " : "")
                 + labAbnormalSql
                 + labDateSql
                 + " GROUP BY demographic_no, info.accessionNum ";
 
-        try (Connection c = LegacyJdbcQuery.getConnection();
-             PreparedStatement ps = c.prepareStatement(sql)) {
-            int paramIndex = 1;
-            if (!StringUtils.isEmpty(patientLastName)) ps.setString(paramIndex++, "%" + patientLastName + "%");
-            if (!StringUtils.isEmpty(patientFirstName)) ps.setString(paramIndex++, "%" + patientFirstName + "%");
-            if (!StringUtils.isEmpty(patientHealthNumber)) ps.setString(paramIndex++, "%" + patientHealthNumber + "%");
-            if (bindsStatusParameter()) ps.setString(paramIndex++, status);
-            if (providerSearch) ps.setString(paramIndex++, searchProviderNo);
-            for (String p : labDateParams) ps.setString(paramIndex++, p);
+        List<Object> params = new ArrayList<>();
+        addPatientSearchParams(params);
+        if (bindsStatusParameter()) params.add(status);
+        if (providerSearch) params.add(searchProviderNo);
+        params.addAll(labDateParams);
 
+        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(
+                LegacyJdbcQuery.trustedSelectSql(sql), params.toArray())) {
             int totalCount = 0;
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    int id = rs.getInt("demographic_no");
-                    int count = rs.getInt("count");
-                    // Updating patient info if it already exists.
-                    if (patients.containsKey(id)) {
-                        info = patients.get(id);
-                        info.setLabCount(count);
-                    }
-                    // Otherwise adding a new patient record.
-                    else {
-                        info = new PatientInfo(id, rs.getString("first_name"), rs.getString("last_name"));
-                        info.setLabCount(count);
-                        patients.put(info.getId(), info);
-                    }
-                    totalCount += count;
+            while (rs.next()) {
+                int id = rs.getInt("demographic_no");
+                int count = rs.getInt("count");
+                // Updating patient info if it already exists.
+                if (patients.containsKey(id)) {
+                    info = patients.get(id);
+                    info.setLabCount(count);
                 }
+                // Otherwise adding a new patient record.
+                else {
+                    info = new PatientInfo(id, rs.getString("first_name"), rs.getString("last_name"));
+                    info.setLabCount(count);
+                    patients.put(info.getId(), info);
+                }
+                totalCount += count;
             }
             return totalCount;
         }
@@ -488,23 +465,16 @@ public class CategoryData {
         
         sql.append(" GROUP BY demographic_no ");
         
-        try (Connection c = LegacyJdbcQuery.getConnection();
-             PreparedStatement ps = c.prepareStatement(sql.toString())) {
-            int paramIndex = 1;
-            ps.setString(paramIndex++, demographicNo);
-            
-            if (bindsStatusParameter()) {
-                ps.setString(paramIndex++, status);
-            }
-            
-            if (providerSearch) {
-                ps.setString(paramIndex++, searchProviderNo);
-            }
-            
-            try (ResultSet rs = ps.executeQuery()) {
-                return (rs.next() ? rs.getInt("count") : 0);
-            }
+        List<Object> params = new ArrayList<>();
+        params.add(demographicNo);
+        if (bindsStatusParameter()) {
+            params.add(status);
         }
+        if (providerSearch) {
+            params.add(searchProviderNo);
+        }
+
+        return queryTrustedCount(sql.toString(), params);
     }
 
     /*
@@ -521,42 +491,51 @@ public class CategoryData {
                 + "LEFT JOIN providerLabRouting plr ON cd.document_no = plr.lab_no "
                 + documentJoinSql
                 + " WHERE   d.last_name" + (StringUtils.isEmpty(patientLastName) ? " IS NOT NULL " : " like ?  ")
-                + " 	AND d.hin" + (StringUtils.isEmpty(patientHealthNumber) ? " IS NOT NULL " : " like ? ")
-                + " 	AND d.first_name" + (StringUtils.isEmpty(patientFirstName) ? " IS NOT NULL " : " like ? ")
-                + " 	AND plr.lab_type = 'DOC' "
-                + " 	AND plr.status " + (matchesAnyStatus() ? " IS NOT NULL " : " = ? ")
+                + " AND d.hin" + (StringUtils.isEmpty(patientHealthNumber) ? " IS NOT NULL " : " like ? ")
+                + " AND d.first_name" + (StringUtils.isEmpty(patientFirstName) ? " IS NOT NULL " : " like ? ")
+                + " AND plr.lab_type = 'DOC' "
+                + " AND plr.status " + (matchesAnyStatus() ? " IS NOT NULL " : " = ? ")
                 + (providerSearch ? "AND plr.provider_no = ? " : "")
                 + documentAbnormalSql
                 + documentDateSql
                 + " GROUP BY demographic_no ";
-        try (Connection c = LegacyJdbcQuery.getConnection();
-             PreparedStatement ps = c.prepareStatement(sql)) {
-            int paramIndex = 1;
-            if (!StringUtils.isEmpty(patientLastName)) ps.setString(paramIndex++, "%" + patientLastName + "%");
-            if (!StringUtils.isEmpty(patientHealthNumber)) ps.setString(paramIndex++, "%" + patientHealthNumber + "%");
-            if (!StringUtils.isEmpty(patientFirstName)) ps.setString(paramIndex++, "%" + patientFirstName + "%");
-            if (bindsStatusParameter()) ps.setString(paramIndex++, status);
-            if (providerSearch) ps.setString(paramIndex++, searchProviderNo);
-            for (String p : documentDateParams) ps.setString(paramIndex++, p);
+        List<Object> params = new ArrayList<>();
+        if (!StringUtils.isEmpty(patientLastName)) params.add("%" + patientLastName + "%");
+        if (!StringUtils.isEmpty(patientHealthNumber)) params.add("%" + patientHealthNumber + "%");
+        if (!StringUtils.isEmpty(patientFirstName)) params.add("%" + patientFirstName + "%");
+        if (bindsStatusParameter()) params.add(status);
+        if (providerSearch) params.add(searchProviderNo);
+        params.addAll(documentDateParams);
 
+        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(
+                LegacyJdbcQuery.trustedSelectSql(sql), params.toArray())) {
             int count = 0;
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    info = new PatientInfo(rs.getInt("demographic_no"), rs.getString("first_name"), rs.getString("last_name"));
-                    info.setDocCount(rs.getInt("count"));
-                    patients.put(info.getId(), info);
-                    count += info.getDocCount();
-                }
+            while (rs.next()) {
+                info = new PatientInfo(rs.getInt("demographic_no"), rs.getString("first_name"), rs.getString("last_name"));
+                info.setDocCount(rs.getInt("count"));
+                patients.put(info.getId(), info);
+                count += info.getDocCount();
             }
 
             return count;
         }
     }
 
-    private int readCount(PreparedStatement ps) throws SQLException {
-        try (ResultSet rs = ps.executeQuery()) {
-            return rs.next() ? rs.getInt("count") : 0;
+    private int queryTrustedCount(String sql, List<Object> params) throws SQLException {
+        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(
+                LegacyJdbcQuery.trustedSelectSql(sql), params.toArray())) {
+            return readCount(rs);
         }
+    }
+
+    private int readCount(ResultSet rs) throws SQLException {
+        return rs.next() ? rs.getInt("count") : 0;
+    }
+
+    private void addPatientSearchParams(List<Object> params) {
+        if (!StringUtils.isEmpty(patientLastName)) params.add("%" + patientLastName + "%");
+        if (!StringUtils.isEmpty(patientFirstName)) params.add("%" + patientFirstName + "%");
+        if (!StringUtils.isEmpty(patientHealthNumber)) params.add("%" + patientHealthNumber + "%");
     }
 
     public int getHRMDocumentCountForPatient() throws SQLException {

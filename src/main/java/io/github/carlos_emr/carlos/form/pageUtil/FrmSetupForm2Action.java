@@ -33,8 +33,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -56,7 +54,6 @@ import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -78,13 +75,13 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public final class FrmSetupForm2Action extends ActionSupport {
-    HttpServletRequest request = ServletActionContext.getRequest();
-    HttpServletResponse response = ServletActionContext.getResponse();
+    private transient HttpServletRequest request = ServletActionContext.getRequest();
+    private transient HttpServletResponse response = ServletActionContext.getResponse();
 
 
     private String _dateFormat = "yyyy-MM-dd";
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private EncounterFormDao encounterFormDao = SpringUtils.getBean(EncounterFormDao.class);
+    private transient SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private transient EncounterFormDao encounterFormDao = SpringUtils.getBean(EncounterFormDao.class);
     
     // Pattern to validate form names - only alphanumeric characters and underscores allowed
     private static final Pattern VALID_FORM_NAME_PATTERN = Pattern.compile("^[a-zA-Z0-9_]+$");
@@ -92,7 +89,7 @@ public final class FrmSetupForm2Action extends ActionSupport {
     public String execute() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "w", null)) {
+        if (!securityInfoManager().hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "w", null)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
 
@@ -113,7 +110,6 @@ public final class FrmSetupForm2Action extends ActionSupport {
         String formId = request.getParameter("formId");
         this.setValue("formId", formId == null ? "0" : formId);
         String demo = request.getParameter("demographic_no");
-        String providerNo = (String) session.getAttribute("user");
         if (demo == null || bean != null) {
             demo = bean.getDemographicNo();
         }
@@ -122,12 +118,11 @@ public final class FrmSetupForm2Action extends ActionSupport {
             chartBean.setEChartBean(demo);
         }
 
-        String ongoingConcern = chartBean.ongoingConcerns;
         String formName = request.getParameter("formName");
         
         // Validate formName before using it as a file stem, redirect target, or table suffix.
         if (formName == null || !isAllowedSetupFormName(formName)) {
-            MiscUtils.getLogger().warn("Invalid form name attempted: {}", LogSafe.sanitize(formName));
+            MiscUtils.getLogger().warn("Invalid form name attempted");
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid form name");
             return NONE;
         }
@@ -168,8 +163,6 @@ public final class FrmSetupForm2Action extends ActionSupport {
             try (InputStream is = new FileInputStream(validatedForm)) {
             Vector measurementTypes = EctFindMeasurementTypeUtil.checkMeasurmentTypes(is, formName); // deepcode ignore java/XXE: XXE protection applied internally via XmlUtils.createSecureJaxbSource()
             EctMeasurementTypesBean mt;
-
-            ResultSet rs;
 
             for (int i = 0; i < measurementTypes.size(); i++) {
                 mt = (EctMeasurementTypesBean) measurementTypes.elementAt(i);
@@ -278,15 +271,16 @@ public final class FrmSetupForm2Action extends ActionSupport {
                 if (Integer.parseInt(formId) > 0) {
                     String trustedFormName = validateSetupFormName(formName);
                     if (trustedFormName == null) {
-                        MiscUtils.getLogger().warn("Invalid form name in getFormRecord: {}", LogSafe.sanitize(formName));
+                        MiscUtils.getLogger().warn("Invalid form name in getFormRecord");
                         return null;
                     }
                     
                     // Using parameterized values for formId and demographicNo
                     String sql = setupFormRecordSql(trustedFormName);
-                    try (Connection connection = LegacyJdbcQuery.getConnection();
-                         PreparedStatement ps = connection.prepareStatement(sql); // nosemgrep: java.lang.security.audit.sqli.tainted-sql-from-http-request.tainted-sql-from-http-request, java.lang.security.audit.formatted-sql-string-deepsemgrep.formatted-sql-string-deepsemgrep -- SQL contains only a validateSetupFormName()-verified table suffix; values are JDBC-bound.
-                         ResultSet rs = configureAndExecuteGetFormRecordQuery(ps, formId, demographicNo)) {
+                    try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(
+                            LegacyJdbcQuery.trustedSelectSql(sql),
+                            Integer.parseInt(formId),
+                            Integer.parseInt(demographicNo))) {
 
                         if (rs.next()) {
                             ResultSetMetaData md = rs.getMetaData();
@@ -306,12 +300,6 @@ public final class FrmSetupForm2Action extends ActionSupport {
             MiscUtils.getLogger().error("Error", e);
         }
         return props;
-    }
-
-    private ResultSet configureAndExecuteGetFormRecordQuery(PreparedStatement ps, String formId, String demographicNo) throws SQLException {
-        ps.setInt(1, Integer.parseInt(formId));
-        ps.setInt(2, Integer.parseInt(demographicNo));
-        return ps.executeQuery();
     }
 
     private void addLastData(EctMeasurementTypesBean mt, String demo) {
@@ -364,7 +352,7 @@ public final class FrmSetupForm2Action extends ActionSupport {
         }
 
         String expectedTable = "form" + formName;
-        List<EncounterForm> configuredForms = encounterFormDao.findByFormTable(expectedTable);
+        List<EncounterForm> configuredForms = encounterFormDao().findByFormTable(expectedTable);
         for (EncounterForm configuredForm : configuredForms) {
             String formValue = configuredForm.getFormValue();
             if (formValue != null && formValue.contains("SetupForm") && containsFormNameParameter(formValue, formName)) {
@@ -378,8 +366,21 @@ public final class FrmSetupForm2Action extends ActionSupport {
         // Table identifiers cannot be JDBC-bound. trustedFormName comes only from
         // validateSetupFormName(), which enforces a bare suffix and confirms the
         // corresponding form table is registered for SetupForm; values stay bound.
-        // nosemgrep: java.lang.security.audit.formatted-sql-string-deepsemgrep.formatted-sql-string-deepsemgrep
         return "SELECT * FROM form" + trustedFormName + " WHERE ID=? AND demographic_no=?";
+    }
+
+    private SecurityInfoManager securityInfoManager() {
+        if (securityInfoManager == null) {
+            securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+        }
+        return securityInfoManager;
+    }
+
+    private EncounterFormDao encounterFormDao() {
+        if (encounterFormDao == null) {
+            encounterFormDao = SpringUtils.getBean(EncounterFormDao.class);
+        }
+        return encounterFormDao;
     }
 
     private boolean containsFormNameParameter(String formValue, String formName) {

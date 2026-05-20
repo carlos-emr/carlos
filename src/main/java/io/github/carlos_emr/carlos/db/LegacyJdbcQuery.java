@@ -379,63 +379,62 @@ public final class LegacyJdbcQuery {
         if (sql == null) {
             return false;
         }
+        return new SqlControlTokenScanner(sql).containsUnsafeControlToken();
+    }
 
-        boolean inSingleQuote = false;
-        boolean inDoubleQuote = false;
-        boolean inBacktick = false;
+    private static final class SqlControlTokenScanner {
+        private final String sql;
+        private int position;
+        private char quote;
 
-        for (int i = 0; i < sql.length(); i++) {
-            char current = sql.charAt(i);
-            char next = i + 1 < sql.length() ? sql.charAt(i + 1) : '\0';
+        private SqlControlTokenScanner(String sql) {
+            this.sql = sql;
+        }
 
-            if (inSingleQuote) {
-                if (current == '\\' && next != '\0') {
-                    i++;
-                } else if (current == '\'' && next == '\'') {
-                    i++;
-                } else if (current == '\'') {
-                    inSingleQuote = false;
+        private boolean containsUnsafeControlToken() {
+            for (position = 0; position < sql.length(); position++) {
+                char current = sql.charAt(position);
+                char next = nextChar();
+                if (insideQuotedLiteral()) {
+                    skipQuotedLiteralToken(current, next);
+                } else if (opensQuotedLiteral(current)) {
+                    quote = current;
+                } else if (isUnsafeControlToken(current, next)) {
+                    return true;
                 }
-                continue;
             }
-            if (inDoubleQuote) {
-                if (current == '\\' && next != '\0') {
-                    i++;
-                } else if (current == '"' && next == '"') {
-                    i++;
-                } else if (current == '"') {
-                    inDoubleQuote = false;
-                }
-                continue;
-            }
-            if (inBacktick) {
-                if (current == '`' && next == '`') {
-                    i++;
-                } else if (current == '`') {
-                    inBacktick = false;
-                }
-                continue;
-            }
+            return false;
+        }
 
-            if (current == '\'') {
-                inSingleQuote = true;
-            } else if (current == '"') {
-                inDoubleQuote = true;
-            } else if (current == '`') {
-                inBacktick = true;
-            } else if (current == '-' && next == '-') {
-                return true;
-            } else if (current == '#') {
-                return true;
-            } else if (current == '/' && next == '*') {
-                return true;
-            } else if (current == '*' && next == '/') {
-                return true;
-            } else if (current == ';' && hasNonWhitespaceAfter(sql, i + 1)) {
-                return true;
+        private char nextChar() {
+            return position + 1 < sql.length() ? sql.charAt(position + 1) : '\0';
+        }
+
+        private boolean insideQuotedLiteral() {
+            return quote != '\0';
+        }
+
+        private void skipQuotedLiteralToken(char current, char next) {
+            if (quote != '`' && current == '\\' && next != '\0') {
+                position++;
+            } else if (current == quote && next == quote) {
+                position++;
+            } else if (current == quote) {
+                quote = '\0';
             }
         }
-        return false;
+
+        private static boolean opensQuotedLiteral(char current) {
+            return current == '\'' || current == '"' || current == '`';
+        }
+
+        private boolean isUnsafeControlToken(char current, char next) {
+            return (current == '-' && next == '-')
+                    || current == '#'
+                    || (current == '/' && next == '*')
+                    || (current == '*' && next == '/')
+                    || (current == ';' && hasNonWhitespaceAfter(sql, position + 1));
+        }
     }
 
     private static boolean hasNonWhitespaceAfter(String sql, int start) {

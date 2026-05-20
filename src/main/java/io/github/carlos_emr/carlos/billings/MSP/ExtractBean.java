@@ -52,13 +52,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Properties;
-import java.util.regex.Pattern;
+import java.util.Set;
 
 
 public class ExtractBean extends Object implements Serializable {
-    private static final Pattern SAFE_DATE_RANGE_CONDITION = Pattern.compile(
-            "\\s*and\\s+\\(?\\s*(?:to_days\\s*\\(\\s*)?(billing_date|service_date)(?:\\s*\\))?\\s*(>=|<=|=|>|<)\\s*(?:to_days\\s*\\(\\s*)?'(\\d{4}-\\d{2}-\\d{2})'\\s*\\)?\\s*\\)?",
-            Pattern.CASE_INSENSITIVE);
+    private static final Set<String> SAFE_DATE_RANGE_COLUMNS = Set.of("billing_date", "service_date");
+    private static final List<String> SAFE_DATE_RANGE_OPERATORS = List.of(">=", "<=", "=", ">", "<");
     private static Logger logger = MiscUtils.getLogger();
     private LogTeleplanTxDao logTeleplanTxDao = SpringUtils.getBean(LogTeleplanTxDao.class);
     private BillingDao billingDao = SpringUtils.getBean(BillingDao.class);
@@ -163,7 +162,7 @@ public class ExtractBean extends Object implements Serializable {
 
             BillingDateFilter dateFilter;
             try {
-                dateFilter = parseDateRangeFragment(dateRange);
+                dateFilter = parseDateRangeFragment(getDateRange());
             } catch (IllegalArgumentException e) {
                 reportDateRangeError(e);
                 return;
@@ -363,21 +362,13 @@ public class ExtractBean extends Object implements Serializable {
         }
         StringBuilder sql = new StringBuilder();
         ArrayList<String> params = new ArrayList<String>();
-        int position = 0;
-        while (position < fragment.length()) {
-            var matcher = SAFE_DATE_RANGE_CONDITION.matcher(fragment);
-            matcher.region(position, fragment.length());
-            if (!matcher.lookingAt()) {
-                if (fragment.substring(position).trim().isEmpty()) {
-                    break;
-                }
-                throw new IllegalArgumentException("Unsupported billing date range filter");
-            }
-            String column = matcher.group(1).toLowerCase(Locale.ROOT);
-            String operator = matcher.group(2);
+        DateRangeConditionParser parser = new DateRangeConditionParser(fragment);
+        while (parser.hasMore()) {
+            BillingDateCondition condition = parser.nextCondition();
+            String column = condition.column();
+            String operator = condition.operator();
             sql.append(" and to_days(").append(column).append(") ").append(operator).append(" to_days(?)");
-            params.add(parseIsoDate(matcher.group(3)));
-            position = matcher.end();
+            params.add(parseIsoDate(condition.date()));
         }
         return new BillingDateFilter(sql.toString(), List.copyOf(params));
     }
@@ -398,6 +389,149 @@ public class ExtractBean extends Object implements Serializable {
                 allParams[i + 1] = params.get(i);
             }
             return allParams;
+        }
+    }
+
+    private record BillingDateCondition(String column, String operator, String date) {
+    }
+
+    private static final class DateRangeConditionParser {
+        private final String fragment;
+        private int position;
+
+        private DateRangeConditionParser(String fragment) {
+            this.fragment = fragment;
+        }
+
+        private boolean hasMore() {
+            skipWhitespace();
+            return position < fragment.length();
+        }
+
+        private BillingDateCondition nextCondition() {
+            requireWord("and");
+            skipWhitespace();
+            boolean wrapped = consume('(');
+            String column = readColumnExpression();
+            String operator = readOperator();
+            String date = readDateExpression();
+            if (wrapped) {
+                require(')');
+            }
+            return new BillingDateCondition(column, operator, date);
+        }
+
+        private String readColumnExpression() {
+            boolean wrappedInFunction = consumeFunctionStart("to_days");
+            String column = readIdentifier().toLowerCase(Locale.ROOT);
+            if (!SAFE_DATE_RANGE_COLUMNS.contains(column)) {
+                throw unsupportedDateRangeFilter();
+            }
+            if (wrappedInFunction) {
+                require(')');
+            }
+            return column;
+        }
+
+        private String readOperator() {
+            skipWhitespace();
+            for (String operator : SAFE_DATE_RANGE_OPERATORS) {
+                if (fragment.startsWith(operator, position)) {
+                    position += operator.length();
+                    return operator;
+                }
+            }
+            throw unsupportedDateRangeFilter();
+        }
+
+        private String readDateExpression() {
+            boolean wrappedInFunction = consumeFunctionStart("to_days");
+            skipWhitespace();
+            require('\'');
+            int start = position;
+            while (position < fragment.length() && fragment.charAt(position) != '\'') {
+                position++;
+            }
+            if (position >= fragment.length()) {
+                throw unsupportedDateRangeFilter();
+            }
+            String date = fragment.substring(start, position);
+            require('\'');
+            if (wrappedInFunction) {
+                require(')');
+            }
+            return date;
+        }
+
+        private boolean consumeFunctionStart(String functionName) {
+            skipWhitespace();
+            if (!startsWithWord(functionName)) {
+                return false;
+            }
+            position += functionName.length();
+            skipWhitespace();
+            require('(');
+            return true;
+        }
+
+        private String readIdentifier() {
+            skipWhitespace();
+            int start = position;
+            while (position < fragment.length() && isIdentifierPart(fragment.charAt(position))) {
+                position++;
+            }
+            if (start == position) {
+                throw unsupportedDateRangeFilter();
+            }
+            return fragment.substring(start, position);
+        }
+
+        private void requireWord(String word) {
+            skipWhitespace();
+            if (!startsWithWord(word)) {
+                throw unsupportedDateRangeFilter();
+            }
+            position += word.length();
+            if (position < fragment.length() && isIdentifierPart(fragment.charAt(position))) {
+                throw unsupportedDateRangeFilter();
+            }
+        }
+
+        private boolean startsWithWord(String word) {
+            if (!fragment.regionMatches(true, position, word, 0, word.length())) {
+                return false;
+            }
+            int end = position + word.length();
+            return end >= fragment.length() || !isIdentifierPart(fragment.charAt(end));
+        }
+
+        private boolean consume(char expected) {
+            skipWhitespace();
+            if (position < fragment.length() && fragment.charAt(position) == expected) {
+                position++;
+                return true;
+            }
+            return false;
+        }
+
+        private void require(char expected) {
+            if (!consume(expected)) {
+                throw unsupportedDateRangeFilter();
+            }
+        }
+
+        private void skipWhitespace() {
+            while (position < fragment.length() && Character.isWhitespace(fragment.charAt(position))) {
+                position++;
+            }
+        }
+
+        private static boolean isIdentifierPart(char value) {
+            return Character.isLetterOrDigit(value) || value == '_';
+        }
+
+        private static IllegalArgumentException unsupportedDateRangeFilter() {
+            return new IllegalArgumentException("Unsupported billing date range filter");
         }
     }
 
@@ -637,6 +771,10 @@ public class ExtractBean extends Object implements Serializable {
 
     public synchronized void setDateRange(String newDateRange) {
         dateRange = newDateRange;
+    }
+
+    private synchronized String getDateRange() {
+        return dateRange;
     }
 
 

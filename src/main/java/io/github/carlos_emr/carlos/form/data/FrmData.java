@@ -158,14 +158,16 @@ public class FrmData {
         }
 
         // table comes from DB (trusted source); validate identifier and parameterize demoNo
-        if (!table.isEmpty() && !table.matches("[a-zA-Z][a-zA-Z0-9_]*")) {
+        if (table.isEmpty()) {
+            return null;
+        }
+        if (!table.matches("[a-zA-Z][a-zA-Z0-9_]*")) {
             throw new IllegalArgumentException("Invalid form table name returned from database");
         }
         String selectClause = "SELECT ID, demographic_no, formCreated, formEdited FROM ";
         String whereClause = " WHERE demographic_no=? ORDER BY ID DESC limit 0,1";
         sql = selectClause + table + whereClause;
-        // deepcode ignore SqlInjection: table validated by regex [a-zA-Z][a-zA-Z0-9_]*; demoNo is JDBC-bound
-        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demoNo)) {
+        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(LegacyJdbcQuery.trustedSelectSql(sql), demoNo)) {
             while (rs.next()) {
                 frm = new PatientForm(Misc.getString(rs, "ID"), Misc.getString(rs, "demographic_no"),
                         UtilDateUtilities.DateToString(rs.getDate("formCreated"), "yy/MM/dd"), UtilDateUtilities.DateToString(rs.getDate("formEdited"), "yy/MM/dd"));

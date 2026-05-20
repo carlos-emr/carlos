@@ -215,48 +215,67 @@ public class DatabaseAP {
         return strb.toString();
     }
 
+    /**
+     * Parameterizes request-backed AP placeholders. Unknown placeholders are
+     * preserved for {@link #parserClean(String)} because legacy AP templates use
+     * {@code ${name}} both for request inputs and output column aliases.
+     */
     public static ParameterizedSql parameterizeSql(String sql, Map<String, ?> replacements) {
         StringBuilder parameterized = new StringBuilder();
         List<Object> params = new ArrayList<>();
         int position = 0;
         while (position < sql.length()) {
-            int start = sql.indexOf("${", position);
-            if (start < 0) {
-                parameterized.append(sql.substring(position));
-                break;
-            }
-
-            int end = sql.indexOf("}", start);
-            if (end < 0) {
-                parameterized.append(sql.substring(position));
-                break;
-            }
-
-            String name = sql.substring(start + 2, end);
-            if (replacements.containsKey(name)) {
-                Object value = replacements.get(name);
-                QuotedPlaceholder quotedPlaceholder = findQuotedPlaceholder(sql, start, end);
-                if (quotedPlaceholder != null) {
-                    parameterized.append(sql, position, quotedPlaceholder.start());
-                    position = quotedPlaceholder.end();
-                    String prefix = unescapeSqlLiteralPart(quotedPlaceholder.prefix(), quotedPlaceholder.quote());
-                    String suffix = unescapeSqlLiteralPart(quotedPlaceholder.suffix(), quotedPlaceholder.quote());
-                    params.add(prefix.isEmpty() && suffix.isEmpty() ? value : prefix + nullSafeSqlLiteralValue(value) + suffix);
-                } else {
-                    parameterized.append(sql, position, start);
-                    position = end + 1;
-                    params.add(value);
-                }
-                parameterized.append("?");
-            } else {
-                parameterized.append(sql, position, end + 1);
-                position = end + 1;
-            }
+            position = appendNextParameterizedSegment(sql, replacements, parameterized, params, position);
         }
 
         // Unknown placeholders are legacy AP output names, not request values.
         // parserClean preserves the old behavior by turning ${name} into "name".
         return new ParameterizedSql(parserClean(parameterized.toString()), params);
+    }
+
+    private static int appendNextParameterizedSegment(String sql, Map<String, ?> replacements,
+            StringBuilder parameterized, List<Object> params, int position) {
+        int start = sql.indexOf("${", position);
+        if (start < 0) {
+            parameterized.append(sql.substring(position));
+            return sql.length();
+        }
+
+        int end = sql.indexOf("}", start);
+        if (end < 0) {
+            parameterized.append(sql.substring(position));
+            return sql.length();
+        }
+
+        String name = sql.substring(start + 2, end);
+        if (!replacements.containsKey(name)) {
+            parameterized.append(sql, position, end + 1);
+            return end + 1;
+        }
+
+        return appendKnownPlaceholder(sql, parameterized, params, position, start, end, replacements.get(name));
+    }
+
+    private static int appendKnownPlaceholder(String sql, StringBuilder parameterized, List<Object> params,
+            int position, int start, int end, Object value) {
+        QuotedPlaceholder quotedPlaceholder = findQuotedPlaceholder(sql, start, end);
+        if (quotedPlaceholder == null) {
+            parameterized.append(sql, position, start);
+            parameterized.append("?");
+            params.add(value);
+            return end + 1;
+        }
+
+        parameterized.append(sql, position, quotedPlaceholder.start());
+        parameterized.append("?");
+        params.add(placeholderValue(value, quotedPlaceholder));
+        return quotedPlaceholder.end();
+    }
+
+    private static Object placeholderValue(Object value, QuotedPlaceholder quotedPlaceholder) {
+        String prefix = unescapeSqlLiteralPart(quotedPlaceholder.prefix(), quotedPlaceholder.quote());
+        String suffix = unescapeSqlLiteralPart(quotedPlaceholder.suffix(), quotedPlaceholder.quote());
+        return prefix.isEmpty() && suffix.isEmpty() ? value : prefix + nullSafeSqlLiteralValue(value) + suffix;
     }
 
     private static QuotedPlaceholder findQuotedPlaceholder(String sql, int placeholderStart, int placeholderEnd) {
@@ -279,41 +298,15 @@ public class DatabaseAP {
     }
 
     private static QuoteContext quoteContext(String sql, int position) {
-        boolean inSingleQuote = false;
-        boolean inDoubleQuote = false;
-        int openQuote = -1;
+        QuoteTracker tracker = new QuoteTracker();
         for (int i = 0; i < position; i++) {
             char current = sql.charAt(i);
             char next = i + 1 < sql.length() ? sql.charAt(i + 1) : '\0';
-            if (inSingleQuote) {
-                if (current == '\'' && next == '\'') {
-                    i++;
-                } else if (current == '\'') {
-                    inSingleQuote = false;
-                    openQuote = -1;
-                }
-            } else if (inDoubleQuote) {
-                if (current == '"' && next == '"') {
-                    i++;
-                } else if (current == '"') {
-                    inDoubleQuote = false;
-                    openQuote = -1;
-                }
-            } else if (current == '\'') {
-                inSingleQuote = true;
-                openQuote = i;
-            } else if (current == '"') {
-                inDoubleQuote = true;
-                openQuote = i;
+            if (tracker.consume(current, next, i)) {
+                i++;
             }
         }
-        if (inSingleQuote) {
-            return new QuoteContext('\'', openQuote);
-        }
-        if (inDoubleQuote) {
-            return new QuoteContext('"', openQuote);
-        }
-        return null;
+        return tracker.context();
     }
 
     private static int findClosingQuote(String sql, int after, char quote) {
@@ -342,6 +335,41 @@ public class DatabaseAP {
     }
 
     private record QuoteContext(char quote, int openQuote) {
+    }
+
+    private static final class QuoteTracker {
+        private char quote;
+        private int openQuote = -1;
+
+        private boolean consume(char current, char next, int index) {
+            if (quote == '\0') {
+                openQuote(current, index);
+                return false;
+            }
+            if (current == quote && next == quote) {
+                return true;
+            }
+            if (current == quote) {
+                closeQuote();
+            }
+            return false;
+        }
+
+        private void openQuote(char current, int index) {
+            if (current == '\'' || current == '"') {
+                quote = current;
+                openQuote = index;
+            }
+        }
+
+        private void closeQuote() {
+            quote = '\0';
+            openQuote = -1;
+        }
+
+        private QuoteContext context() {
+            return quote == '\0' ? null : new QuoteContext(quote, openQuote);
+        }
     }
 
 }

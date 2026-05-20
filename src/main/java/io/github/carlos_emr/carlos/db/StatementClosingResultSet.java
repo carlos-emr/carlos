@@ -150,41 +150,7 @@ final class StatementClosingResultSet implements InvocationHandler {
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
         if ("close".equals(method.getName())) {
-            if (!released.compareAndSet(false, true)) {
-                return null;
-            }
-            Throwable rsThrowable = null;
-            try {
-                delegate.close();
-            } catch (Throwable t) {
-                rsThrowable = t;
-            }
-            try {
-                try {
-                    statement.close();
-                } catch (Throwable stmtThrowable) {
-                    if (rsThrowable != null) {
-                        // rs.close() already failed — attach stmt failure as suppressed
-                        rsThrowable.addSuppressed(stmtThrowable);
-                    } else {
-                        // rs.close() succeeded — propagate the stmt failure
-                        throw stmtThrowable;
-                    }
-                }
-            } finally {
-                // connection/dataSource are null for the legacy wrap(rs, stmt) factory,
-                // where there is no Spring-managed connection to release.
-                // For Spring-managed wrappers, always release the connection even
-                // when closing the result set or statement throws.
-                if (connection != null && dataSource != null) {
-                    DataSourceUtils.releaseConnection(connection, dataSource);
-                }
-                LegacyJdbcQuery.unregisterThreadResource((AutoCloseable) proxy);
-            }
-            if (rsThrowable != null) {
-                throw rsThrowable;
-            }
-            return null;
+            return close(proxy);
         }
         try {
             return method.invoke(delegate, args);
@@ -192,5 +158,51 @@ final class StatementClosingResultSet implements InvocationHandler {
             // Unwrap so callers see the real SQLException, not a reflection wrapper
             throw e.getCause();
         }
+    }
+
+    private Object close(Object proxy) throws Throwable {
+        if (!released.compareAndSet(false, true)) {
+            return null;
+        }
+
+        Throwable closeFailure = closeDelegate();
+        try {
+            closeStatement(closeFailure);
+        } finally {
+            releaseConnection(proxy);
+        }
+        if (closeFailure != null) {
+            throw closeFailure;
+        }
+        return null;
+    }
+
+    private Throwable closeDelegate() {
+        try {
+            delegate.close();
+            return null;
+        } catch (Throwable t) {
+            return t;
+        }
+    }
+
+    private void closeStatement(Throwable resultSetFailure) throws Throwable {
+        try {
+            statement.close();
+        } catch (Throwable statementFailure) {
+            if (resultSetFailure == null) {
+                throw statementFailure;
+            }
+            resultSetFailure.addSuppressed(statementFailure);
+        }
+    }
+
+    private void releaseConnection(Object proxy) {
+        // connection/dataSource are null for the legacy wrap(rs, stmt) factory,
+        // where there is no Spring-managed connection to release.
+        if (connection != null && dataSource != null) {
+            DataSourceUtils.releaseConnection(connection, dataSource);
+        }
+        LegacyJdbcQuery.unregisterThreadResource((AutoCloseable) proxy);
     }
 }

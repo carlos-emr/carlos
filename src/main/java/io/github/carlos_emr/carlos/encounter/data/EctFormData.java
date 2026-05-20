@@ -30,8 +30,6 @@
 
 package io.github.carlos_emr.carlos.encounter.data;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
@@ -160,31 +158,24 @@ public class EctFormData {
         Integer demographicNo = parseDemographicNo(demoNo);
         if (demographicNo == null) return forms;
 
-        try (Connection c = LegacyJdbcQuery.getConnection()) {
+        try {
             if (!trustedTable.equals("form")) {
                 String sql = groupedFormTableSql(trustedTable);
 
-                try (PreparedStatement ps = c.prepareStatement(sql)) {
-                    ps.setInt(1, demographicNo);
-
-                    try (ResultSet rs = ps.executeQuery()) { // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string -- SQL table identifier is validateFormTable()-allowlisted; demographic_no is JDBC-bound.
-                        while (rs.next()) {
-                            PatientForm frm = new PatientForm(formName, rs.getInt("ID"), rs.getInt("demographic_no"), rs.getDate("formCreated"), rs.getTimestamp("frmEdited"), jsp);
-                            forms.add(frm);
-                        }
+                try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(
+                        LegacyJdbcQuery.trustedSelectSql(sql), demographicNo)) {
+                    while (rs.next()) {
+                        PatientForm frm = new PatientForm(formName, rs.getInt("ID"), rs.getInt("demographic_no"), rs.getDate("formCreated"), rs.getTimestamp("frmEdited"), jsp);
+                        forms.add(frm);
                     }
                 }
             } else {
                 String sql = groupedLegacyFormSql();
 
-                try (PreparedStatement ps = c.prepareStatement(sql)) {
-                    ps.setInt(1, demographicNo);
-
-                    try (ResultSet rs = ps.executeQuery()) {
-                        while (rs.next()) {
-                            PatientForm frm = new PatientForm(formName, rs.getInt("form_no"), rs.getInt("demographic_no"), rs.getDate("form_date"), rs.getDate("form_date"));
-                            forms.add(frm);
-                        }
+                try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo)) {
+                    while (rs.next()) {
+                        PatientForm frm = new PatientForm(formName, rs.getInt("form_no"), rs.getInt("demographic_no"), rs.getDate("form_date"), rs.getDate("form_date"));
+                        forms.add(frm);
                     }
                 }
             }
@@ -226,39 +217,32 @@ public class EctFormData {
         Integer demographicNo = parseDemographicNo(demoNo);
         if (demographicNo == null) return forms;
 
-        try (Connection c = LegacyJdbcQuery.getConnection()) {
+        try {
             if (!trustedTable.equals("form")) {
                 String sql = patientFormTableSql(trustedTable);
 
-                try (PreparedStatement ps = c.prepareStatement(sql)) {
-                    ps.setInt(1, demographicNo);
+                try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(
+                        LegacyJdbcQuery.trustedSelectSql(sql), demographicNo)) {
+                    while (rs.next()) {
+                        PatientForm frm = new PatientForm(formName, rs.getInt("ID"), rs.getInt("demographic_no"), rs.getDate("formCreated"), rs.getTimestamp("formEdited"));
 
-                    try (ResultSet rs = ps.executeQuery()) { // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string -- SQL table identifier is validateFormTable()-allowlisted; demographic_no is JDBC-bound.
-                        while (rs.next()) {
-                            PatientForm frm = new PatientForm(formName, rs.getInt("ID"), rs.getInt("demographic_no"), rs.getDate("formCreated"), rs.getTimestamp("formEdited"));
+                        // identify the source table for this form
+                        frm.setTable(trustedTable);
 
-                            // identify the source table for this form
-                            frm.setTable(trustedTable);
-
-                            forms.add(frm);
-                        }
+                        forms.add(frm);
                     }
                 }
             } else {
                 String sql = patientLegacyFormSql();
 
-                try (PreparedStatement ps = c.prepareStatement(sql)) {
-                    ps.setInt(1, demographicNo);
+                try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo)) {
+                    while (rs.next()) {
+                        PatientForm frm = new PatientForm(formName, rs.getInt("form_no"), rs.getInt("demographic_no"), rs.getDate("form_date"), rs.getDate("form_date"));
 
-                    try (ResultSet rs = ps.executeQuery()) {
-                        while (rs.next()) {
-                            PatientForm frm = new PatientForm(formName, rs.getInt("form_no"), rs.getInt("demographic_no"), rs.getDate("form_date"), rs.getDate("form_date"));
+                        // identify the source table for this form
+                        frm.setTable(trustedTable);
 
-                            // identify the source table for this form
-                            frm.setTable(trustedTable);
-
-                            forms.add(frm);
-                        }
+                        forms.add(frm);
                     }
                 }
             }
@@ -296,10 +280,6 @@ public class EctFormData {
     }
 
     private static String groupedFormTableSql(String trustedTable) {
-        // Table identifiers cannot be JDBC-bound. trustedTable comes only from
-        // validateFormTable(), which enforces bare identifier characters and the
-        // encounterForm/internal allowlist; demographic_no remains a bind value.
-        // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string
         return "SELECT max(ID) ID, demographic_no, formCreated, date(formEdited) 'lastEdited', max(formEdited) 'frmEdited' FROM " + trustedTable + " WHERE demographic_no=? group by lastEdited";
     }
 
@@ -308,10 +288,6 @@ public class EctFormData {
     }
 
     private static String patientFormTableSql(String trustedTable) {
-        // Table identifiers cannot be JDBC-bound. trustedTable comes only from
-        // validateFormTable(), which enforces bare identifier characters and the
-        // encounterForm/internal allowlist; demographic_no remains a bind value.
-        // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string
         return "SELECT ID, demographic_no, formCreated, formEdited FROM " + trustedTable + " WHERE demographic_no=? ORDER BY ID DESC";
     }
 

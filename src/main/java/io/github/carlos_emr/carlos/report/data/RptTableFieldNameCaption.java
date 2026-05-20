@@ -170,9 +170,7 @@ public class RptTableFieldNameCaption {
         }
 
         String sql = metaNameListSql(trustedTableName);
-        try (Connection conn = LegacyJdbcQuery.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) { // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string -- SQL contains only a validateEncounterFormTableName()-verified encounterForm table identifier.
+        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(LegacyJdbcQuery.trustedSelectSql(sql))) {
             ResultSetMetaData md = rs.getMetaData();
             for (int i = 1; i <= md.getColumnCount(); i++) {
                 ret.add(md.getColumnName(i));
@@ -212,7 +210,6 @@ public class RptTableFieldNameCaption {
         // Table identifiers cannot be JDBC-bound. trustedTableName has passed
         // validateEncounterFormTableName(), including the bare-identifier check
         // and encounterForm allowlist.
-        // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string
         return "select * from " + trustedTableName + " limit 1";
     }
 

@@ -720,7 +720,9 @@ public class EForm extends EFormBase {
         Map<String, Object> replacements = new LinkedHashMap<>();
         replacements.put("demographic", requireDigitsOnly("demographic", demographicNo));
         replacements.put("appt_no", requireDigitsOnly("appt_no", appointment_no));
-        replacements.put(EFORM_DEMOGRAPHIC, requireDigitsOrWildcard(EFORM_DEMOGRAPHIC, getSqlParams(EFORM_DEMOGRAPHIC)));
+        String eformDemographic = getSqlParams(EFORM_DEMOGRAPHIC);
+        validateDigitsOrWildcard(EFORM_DEMOGRAPHIC, eformDemographic);
+        replacements.put(EFORM_DEMOGRAPHIC, eformDemographic);
         replacements.put(REF_FID, requireDigitsOnly(REF_FID, getSqlParams(REF_FID)));
         replacements.put(TABLE_ID, requireDigitsOnly(TABLE_ID, getSqlParams(TABLE_ID)));
         replacements.put("provider", stringParam(providerNo));
@@ -753,11 +755,10 @@ public class EForm extends EFormBase {
         return value;
     }
 
-    private static String requireDigitsOrWildcard(String placeholderName, String value) {
-        if ("%".equals(value)) {
-            return value;
+    private static void validateDigitsOrWildcard(String placeholderName, String value) {
+        if (!"%".equals(value)) {
+            requireDigitsOnly(placeholderName, value);
         }
-        return requireDigitsOnly(placeholderName, value);
     }
 
     private static String stringParam(String value) {

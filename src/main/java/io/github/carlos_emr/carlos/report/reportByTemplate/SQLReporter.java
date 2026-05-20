@@ -113,7 +113,7 @@ public class SQLReporter implements Reporter {
         ParameterizedSql query;
 
         if (curReport instanceof ReportObjectGeneric) {
-            query = ((ReportObjectGeneric) curReport).getParameterizedSql(parameterMap);
+            query = ((ReportObjectGeneric) curReport).buildParameterizedSql(parameterMap);
             if (query == null || query.getSql().trim().isEmpty()) {
                 request.setAttribute("errormsg", "Error: Cannot find all parameters for the query.  Check the template.");
                 request.setAttribute("templateid", templateId);
@@ -161,7 +161,7 @@ public class SQLReporter implements Reporter {
         if (curReport instanceof ReportObjectGeneric) {
             ReportObjectGeneric genericReport = (ReportObjectGeneric) curReport;
             ParameterizedSql query;
-            while ((query = genericReport.getParameterizedSql(x, parameterMap)) != null) {
+            while ((query = genericReport.buildParameterizedSql(x, parameterMap)) != null) {
                 if (query.getSql().isEmpty()) {
                     request.setAttribute("errormsg", "Error: Cannot find all parameters for the query.  Check the template.");
                     request.setAttribute("templateid", templateId);

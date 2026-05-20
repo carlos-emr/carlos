@@ -37,6 +37,8 @@ import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.JDBCUtil;
@@ -60,15 +62,12 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
 
     public String execute()
             throws ServletException, IOException {
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_form", "r", null)) {
+        if (!securityInfoManager.hasPrivilege(
+                LoggedInInfo.getLoggedInInfoFromSession(request), "_form", SecurityInfoManager.WRITE, null)) {
             throw new SecurityException("missing required sec object (_form)");
         }
 
         int BUFFER = 2048;
-
-        // Temporary file handling
-        File tmpFile = File.createTempFile("tmp", ".zip");
-        tmpFile.deleteOnExit();
 
         // Get context of the temp directory, get the file path to the the temp directory
         ServletContext servletContext = ServletActionContext.getServletContext();
@@ -79,6 +78,10 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
         if (safeDir == null) {
             throw new IllegalStateException("Temporary directory attribute is not set.");
         }
+
+        if (file1 == null) {
+            return reportImportError("Select a form XML archive to import.");
+        }
         
         File normalizedFile = file1.toPath().normalize().toFile();
 
@@ -86,29 +89,59 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
         try {
             normalizedFile = PathValidationUtils.validateExistingPath(normalizedFile, safeDir);
         } catch (SecurityException e) {
-            throw new IllegalArgumentException("Invalid file path: " + normalizedFile.getPath());
+            MiscUtils.getLogger().warn(
+                    "Rejected form XML archive path {}",
+                    LogSafe.sanitize(normalizedFile.getPath()), e);
+            return reportImportError("Unable to import form data. Check the uploaded archive and try again.");
         }
 
-       try (InputStream is = new FileInputStream(normalizedFile);
-            OutputStream fos = new FileOutputStream(tmpFile)) {
-            byte[] data = new byte[BUFFER];
-            int count;
-            while ((count = is.read(data)) != -1) {
-                fos.write(data, 0, count);
-            }
-        }
-
-        // Unzip and process entries
-        try (ZipFile zf = new ZipFile(tmpFile)) {
-            Enumeration<? extends ZipEntry> entries = zf.entries();
-            while (entries.hasMoreElements()) {
-                ZipEntry entry = entries.nextElement();
-                try (InputStream zis = zf.getInputStream(entry)) {
-                    JDBCUtil.toDataBase(zis, entry.getName());
+        // Temporary file handling
+        File tmpFile = File.createTempFile("tmp", ".zip");
+        try {
+            try (InputStream is = new FileInputStream(normalizedFile);
+                 OutputStream fos = new FileOutputStream(tmpFile)) {
+                byte[] data = new byte[BUFFER];
+                int count;
+                while ((count = is.read(data)) != -1) {
+                    fos.write(data, 0, count);
                 }
             }
+
+            // Unzip and process entries
+            try (ZipFile zf = new ZipFile(tmpFile)) {
+                Enumeration<? extends ZipEntry> entries = zf.entries();
+                while (entries.hasMoreElements()) {
+                    ZipEntry entry = entries.nextElement();
+                    if (entry.isDirectory()) {
+                        continue;
+                    }
+                    try (InputStream zis = zf.getInputStream(entry)) {
+                        JDBCUtil.toDataBase(zis, entry.getName());
+                    } catch (JDBCUtil.XmlImportException e) {
+                        MiscUtils.getLogger().warn(
+                                "Rejected form XML import entry {}",
+                                LogSafe.sanitize(entry.getName()), e);
+                        return reportImportError("Unable to import form data. Check the uploaded archive and try again.");
+                    }
+                }
+            }
+        } catch (IOException e) {
+            MiscUtils.getLogger().warn(
+                    "Unable to read form XML archive {}",
+                    LogSafe.sanitize(file1FileName), e);
+            return reportImportError("Unable to import form data. Check the uploaded archive and try again.");
+        } finally {
+            if (tmpFile.exists() && !tmpFile.delete()) {
+                tmpFile.deleteOnExit();
+            }
         }
 
+        return SUCCESS;
+    }
+
+    private String reportImportError(String message) {
+        addActionError(message);
+        request.setAttribute("actionErrors", List.of(message));
         return SUCCESS;
     }
 

@@ -212,10 +212,10 @@ public class ReportObjectGeneric implements ReportObject {
      *         SQL cannot be found for the configured templateId (an error is logged in that case)
      */
     public String[] getParameterizedSQL(Map parameters) {
-        return toLegacyArray(getParameterizedSql(parameters));
+        return toLegacyArray(buildParameterizedSql(parameters));
     }
 
-    public ParameterizedSql getParameterizedSql(Map parameters) {
+    public ParameterizedSql buildParameterizedSql(Map parameters) {
         String sql = (new ReportManager()).getSQL(this.templateId);
         if (sql == null) {
             MiscUtils.getLogger().error("Template SQL not found for templateId: {}", LogSafe.sanitize(this.templateId)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
@@ -234,11 +234,11 @@ public class ReportObjectGeneric implements ReportObject {
      *         if {@code sequenceNo} is out of range
      */
     public String[] getParameterizedSQL(int sequenceNo, Map parameters) {
-        ParameterizedSql parameterizedSql = getParameterizedSql(sequenceNo, parameters);
+        ParameterizedSql parameterizedSql = buildParameterizedSql(sequenceNo, parameters);
         return parameterizedSql == null ? null : toLegacyArray(parameterizedSql);
     }
 
-    public ParameterizedSql getParameterizedSql(int sequenceNo, Map parameters) {
+    public ParameterizedSql buildParameterizedSql(int sequenceNo, Map parameters) {
         String sql = (new ReportManager()).getSQL(this.templateId);
         if (sql == null) {
             MiscUtils.getLogger().error("Template SQL not found for templateId: {}", LogSafe.sanitize(this.templateId)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe

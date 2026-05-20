@@ -37,6 +37,10 @@ import java.io.InputStream;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.util.List;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -49,16 +53,24 @@ import javax.xml.transform.stream.StreamResult;
 
 import io.github.carlos_emr.Misc;
 import org.owasp.encoder.Encode;
+import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
 
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 
 public class JDBCUtil {
+    private static final Pattern FORM_IMPORT_FILE_NAME =
+            Pattern.compile("^([A-Za-z][A-Za-z0-9_]*)_(\\d+)_([A-Za-z0-9:-]+)\\.xml$");
+    // Legacy built-in form table that is valid but not registered in encounterForm.
+    private static final Set<String> INTERNAL_FORM_TABLES = Set.of("formGrowth0_36");
+
     /**
      * Converts the remaining rows in the given result set to XML.
      *
@@ -117,47 +129,73 @@ public class JDBCUtil {
         }
     }
 
-    public static void toDataBase(InputStream inputStream, String fileName) {
-        Document doc;
+    public static void toDataBase(InputStream inputStream, String fileName) throws XmlImportException {
+        FormImportTarget target = parseImportFileName(fileName);
+        String formName = validateImportFormTable(target.formName());
+        Document doc = parseImportDocument(inputStream);
 
-        try {
-            //InputStream inputStream = file.getInputStream();
-            InputSource source = new InputSource(inputStream);
-            //String fileName = file.getFileName();
-            int indexForm = fileName.indexOf("_");
-            int indexDemo = fileName.indexOf("_", indexForm + 1);
-            int indexTimeStamp = fileName.indexOf(".", indexDemo);
-            String formName = fileName.substring(0, indexForm);
-            String demographicNo = fileName.substring(indexForm + 1, indexDemo);
-            String timeStamp = fileName.substring(indexDemo + 1, indexTimeStamp);
-
-
-            //check if the data existed in the database already...
-            if (!formName.matches("[a-zA-Z][a-zA-Z0-9_]*")) {
-                throw new IllegalArgumentException("Invalid form table name");
+        // Table identifiers cannot be JDBC-bound. formName is accepted only after
+        // strict filename parsing plus the encounterForm/internal table allowlist.
+        String existsSql = "SELECT * FROM " + formName + " WHERE demographic_no=? AND formEdited=?";
+        MiscUtils.getLogger().debug(existsSql);
+        try (ResultSet existing = LegacyJdbcQuery.getPreparedResultSet(
+                LegacyJdbcQuery.trustedSelectSql(existsSql), target.demographicNo(), target.timeStamp())) {
+            if (existing.first()) {
+                return;
             }
-            String sql = "SELECT * FROM " + formName + " WHERE demographic_no=? AND formEdited=?";
-            MiscUtils.getLogger().debug(sql);
-            ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo, timeStamp);
-            if (!rs.first()) {
-                rs.close();
-                sql = "SELECT * FROM " + formName + " WHERE demographic_no=? AND ID='0'";
-                MiscUtils.getLogger().debug("sql: " + sql);
-                rs = LegacyJdbcQuery.getPreparedResultSet(sql, true, new Object[]{demographicNo});
-                rs.moveToInsertRow();
-                // setValidating(true) was removed — incompatible with disallow-doctype-decl which rejects all DOCTYPEs
-                DocumentBuilderFactory factory = XmlUtils.createSecureDocumentBuilderFactory();
-                DocumentBuilder builder = factory.newDocumentBuilder();
-                doc = builder.parse(source);
-                rs = toResultSet(doc, rs);
-                rs.insertRow();
-            }
-            rs.close();
-        } catch (Exception e) {
-            MiscUtils.getLogger().debug("Errors " + e);
-
+        } catch (SQLException e) {
+            throw new XmlImportException("Unable to check existing form XML import row", e);
         }
 
+        String insertSql = "SELECT * FROM " + formName + " WHERE demographic_no=? AND ID='0'";
+        MiscUtils.getLogger().debug("sql: " + insertSql);
+        try (ResultSet insert = LegacyJdbcQuery.getPreparedResultSet(
+                LegacyJdbcQuery.trustedSelectSql(insertSql), true, new Object[]{target.demographicNo()})) {
+            insert.moveToInsertRow();
+            toResultSet(doc, insert);
+            insert.insertRow();
+        } catch (SQLException e) {
+            throw new XmlImportException("Unable to insert form XML import row", e);
+        }
+    }
+
+    static FormImportTarget parseImportFileName(String fileName) throws XmlImportException {
+        if (fileName == null || fileName.contains("/") || fileName.contains("\\")) {
+            throw new XmlImportException("Invalid form XML import entry name");
+        }
+
+        Matcher matcher = FORM_IMPORT_FILE_NAME.matcher(fileName);
+        if (!matcher.matches()) {
+            throw new XmlImportException("Invalid form XML import entry name");
+        }
+        return new FormImportTarget(matcher.group(1), matcher.group(2), matcher.group(3));
+    }
+
+    static String validateImportFormTable(String formName) throws XmlImportException {
+        if (formName == null) {
+            throw new XmlImportException("Unknown encounter form table name");
+        }
+        if ("form".equals(formName) || INTERNAL_FORM_TABLES.contains(formName)) {
+            return formName;
+        }
+
+        EncounterFormDao encounterFormDao = SpringUtils.getBean(EncounterFormDao.class);
+        List<?> configuredForms = encounterFormDao.findByFormTable(formName);
+        if (configuredForms != null && !configuredForms.isEmpty()) {
+            return formName;
+        }
+        throw new XmlImportException("Unknown encounter form table name");
+    }
+
+    private static Document parseImportDocument(InputStream inputStream) throws XmlImportException {
+        try {
+            InputSource source = new InputSource(inputStream);
+            DocumentBuilderFactory factory = XmlUtils.createSecureDocumentBuilderFactory();
+            DocumentBuilder builder = factory.newDocumentBuilder();
+            return builder.parse(source);
+        } catch (ParserConfigurationException | SAXException | IOException e) {
+            throw new XmlImportException("Unable to parse form XML import entry", e);
+        }
     }
 
     private static ResultSet toResultSet(Node node, ResultSet rs) throws SQLException {
@@ -188,6 +226,19 @@ public class JDBCUtil {
 
         return rs;
 
+    }
+
+    record FormImportTarget(String formName, String demographicNo, String timeStamp) {
+    }
+
+    public static class XmlImportException extends Exception {
+        public XmlImportException(String message) {
+            super(message);
+        }
+
+        public XmlImportException(String message, Throwable cause) {
+            super(message, cause);
+        }
     }
 
 }
