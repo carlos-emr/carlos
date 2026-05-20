@@ -265,7 +265,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
                 throw new SecurityException("missing required sec object (_edoc)");
             }
 
-            if (this.getMode().equals("") && this.getFunction().equals("") && this.getFunctionId().equals("")) {
+            if (this.getMode().isEmpty() && this.getFunction().isEmpty() && this.getFunctionId().isEmpty()) {
                 // file size exceeds the upload limit
                 Hashtable errors = new Hashtable();
                 errors.put("uploaderror", "dms.error.uploadError");
@@ -284,7 +284,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
                     redirect.append("&appointmentNo").append(request.getParameter("appointmentNo"));
                     String parentAjaxId = request.getParameter("parentAjaxId");
                     // if we're called with parent ajax id inform jsp that parent needs to be updated
-                    if (!parentAjaxId.equals("")) {
+                    if (!parentAjaxId.isEmpty()) {
                         redirect.append("&parentAjaxId").append(parentAjaxId);
                         redirect.append("&updateParent").append("true");
                     }
