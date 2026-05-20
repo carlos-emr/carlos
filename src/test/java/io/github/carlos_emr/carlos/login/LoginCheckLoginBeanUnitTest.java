@@ -47,6 +47,9 @@ import static org.mockito.Mockito.when;
 @DisplayName("LoginCheckLoginBean")
 class LoginCheckLoginBeanUnitTest extends CarlosUnitTestBase {
 
+    private static final String EXPECTED_MISSING_USER_DUMMY_PASSWORD_HASH =
+            "{bcrypt}$2b$10$YzOXP.2axkRiYS07sVHWkuyvQjcuwR.bGeZd5WHQVJ23py57UES8C";
+
     private SecurityDao securityDao;
     private SecurityManager securityManager;
 
@@ -60,7 +63,7 @@ class LoginCheckLoginBeanUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should validate dummy password hash when user is missing")
-    void shouldValidateDummyPasswordHash_forMissingUser() {
+    void shouldValidateDummyPasswordHash_whenUserIsMissing() {
         String username = "nonexistentUser";
         String password = "WRONGPASS";
         when(securityDao.findByUserName(username)).thenReturn(Collections.emptyList());
@@ -74,7 +77,6 @@ class LoginCheckLoginBeanUnitTest extends CarlosUnitTestBase {
         verify(securityManager).validatePassword(
                 password,
                 argThat(security -> security != null
-                        && security.getPassword() != null
-                        && security.getPassword().startsWith("{bcrypt}")));
+                        && EXPECTED_MISSING_USER_DUMMY_PASSWORD_HASH.equals(security.getPassword())));
     }
 }
