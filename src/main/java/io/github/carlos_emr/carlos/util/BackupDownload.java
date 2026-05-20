@@ -108,7 +108,7 @@ public class BackupDownload extends GenericDownload {
         try {
             res.sendError(statusCode, message);
         } catch (IOException e) {
-            log.warn("Unable to send BackupDownload error response", e);
+            log.warn("Unable to send BackupDownload error response (status: {}, message: {})", statusCode, message, e);
         }
     }
 }
