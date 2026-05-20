@@ -90,7 +90,7 @@ public class IndicatorQueryHandler extends AbstractQueryHandler {
     }
 
     @Override
-    public final String filterQueryString(String queryString) {
+    public String filterQueryString(String queryString) {
         return super.filterQueryString(queryString);
     }
 
