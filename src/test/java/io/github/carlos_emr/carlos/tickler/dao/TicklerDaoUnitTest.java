@@ -121,7 +121,8 @@ public class TicklerDaoUnitTest extends TicklerUnitTestBase {
         // Given
         Integer ticklerId = 789;
         Tickler mockTickler = mock(Tickler.class);
-        TypedQuery<Tickler> mockTypedQuery = mock(TypedQuery.class);
+        @SuppressWarnings("unchecked")
+        TypedQuery<Tickler> mockTypedQuery = (TypedQuery<Tickler>) mock(TypedQuery.class);
         Set<TicklerUpdate> mockUpdates = new HashSet<>();
         mockUpdates.add(new TicklerUpdate());
 
