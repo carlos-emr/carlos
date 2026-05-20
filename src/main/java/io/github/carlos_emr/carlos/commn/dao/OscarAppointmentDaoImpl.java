@@ -47,6 +47,7 @@ import jakarta.persistence.NoResultException;
 import jakarta.persistence.NonUniqueResultException;
 import jakarta.persistence.PersistenceException;
 import jakarta.persistence.Query;
+import jakarta.persistence.TypedQuery;
 import java.util.*;
 
 @Repository
@@ -390,18 +391,19 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
     @Override
     public Appointment findDemoAppointmentToday(Integer demographicNo) {
         String sql = "SELECT a FROM Appointment a WHERE a.demographicNo = ?1 AND a.appointmentDate = CURRENT_DATE";
-        Query query = entityManager.createQuery(sql);
+        String orderedSql = "SELECT a FROM Appointment a WHERE a.demographicNo = ?1 AND a.appointmentDate = CURRENT_DATE ORDER BY a.startTime ASC, a.id ASC";
+        TypedQuery<Appointment> query = entityManager.createQuery(sql, Appointment.class);
         query.setParameter(1, demographicNo);
 
         try {
-            return (Appointment) query.getSingleResult();
+            return query.getSingleResult();
         } catch (NoResultException e) {
             MiscUtils.getLogger().info("Couldn't find appointment for demographic " + demographicNo + " today.");
             return null;
         } catch (NonUniqueResultException e) {
             MiscUtils.getLogger().error(
                     "Multiple appointments found for demographic {} today; returning earliest appointment", demographicNo, e);
-            Query fallbackQuery = entityManager.createQuery(sql + " ORDER BY a.startTime ASC, a.id ASC");
+            TypedQuery<Appointment> fallbackQuery = entityManager.createQuery(orderedSql, Appointment.class);
             fallbackQuery.setParameter(1, demographicNo);
             fallbackQuery.setMaxResults(1);
             List<Appointment> results = fallbackQuery.getResultList();
