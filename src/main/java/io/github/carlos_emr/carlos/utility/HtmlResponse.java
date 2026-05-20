@@ -112,7 +112,7 @@ public final class HtmlResponse {
         if (htmlBytes == null) {
             return;
         }
-        writeStoredHtml(response, new String(htmlBytes, charset));
+        writeDecodedHtml(response, new String(htmlBytes, charset));
     }
 
     /**
@@ -153,7 +153,7 @@ public final class HtmlResponse {
     }
 
     @SuppressWarnings({"XSS_SERVLET", "findsecbugs:XSS_SERVLET"})
-    private static void writeStoredHtml(HttpServletResponse response, String html) throws IOException {
+    private static void writeDecodedHtml(HttpServletResponse response, String html) throws IOException {
         PrintWriter writer = response.getWriter();
         // nosemgrep: java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss, java.servlets.security.servletresponse-writer-xss-deepsemgrep.servletresponse-writer-xss-deepsemgrep, java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- intentional stored HTML rendering; callers must authorize routes before invoking
         writer.write(html);

@@ -925,7 +925,10 @@ public class ManageDocument2Action extends ActionSupport {
             // behaviour for this _edoc-gated display route; encoding would defeat the feature.
             // Writer (not OutputStream) is required so LogoutBroadcastFilter can append the
             // cross-window logout listener.
-            HtmlResponse.writeStoredHtml(response, "text/html;charset=UTF-8", docxml);
+            String docxmlContentType = RequestNegotiation.isHtmlContentType(contentType)
+                    ? contentType
+                    : "text/html;charset=UTF-8";
+            HtmlResponse.writeStoredHtml(response, docxmlContentType, docxml);
             return;
         }
 
