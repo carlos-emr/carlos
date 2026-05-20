@@ -57,6 +57,8 @@ class FormViewRoutesTest {
 
     @Test
     void shouldReturnNull_forRemovedEcaresRoute() {
+        // eCARES was removed; legacy form links must no longer resolve to the
+        // deleted Struts route.
         assertThat(FormViewRoutes.resolveActionPath("/form/eCARES/formeCARES.jsp")).isNull();
     }
 

@@ -64,7 +64,9 @@ class StrutsActionClassReferenceTest {
     private List<Path> strutsConfigPaths() throws Exception {
         try (Stream<Path> paths = Files.list(STRUTS_CONFIG_DIR)) {
             return paths
-                    .filter(path -> path.getFileName().toString().matches("struts(?:-[A-Za-z]+)?\\.xml"))
+                    // CARLOS Struts modules use lowercase alphabetic names:
+                    // struts.xml plus struts-{module}.xml.
+                    .filter(path -> path.getFileName().toString().matches("struts(?:-[a-z]+)?\\.xml"))
                     .sorted()
                     .toList();
         }
@@ -98,6 +100,7 @@ class StrutsActionClassReferenceTest {
         return className != null
                 && className.contains(".")
                 && !className.contains("*")
+                // Struts actions must be top-level classes, not nested classes.
                 && !className.contains("$");
     }
 
