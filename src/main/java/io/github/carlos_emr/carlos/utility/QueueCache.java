@@ -67,6 +67,8 @@ public final class QueueCache<K, V> {
 
     private static void scheduleAfterConcurrentShutdown(Timer scheduledTimer, long delay, long period, IllegalStateException cause) {
         synchronized (QueueCache.class) {
+            // Reference equality distinguishes an unexpectedly cancelled live timer
+            // from the normal shutdown path, which replaces the shared timer slot.
             if (timer == scheduledTimer) {
                 throw cause;
             }

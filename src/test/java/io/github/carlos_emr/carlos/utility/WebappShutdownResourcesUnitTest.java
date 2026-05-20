@@ -72,19 +72,19 @@ class WebappShutdownResourcesUnitTest {
     @Test
     void shouldTreatChildClassLoaderResource_asWebappOwned() {
         ClassLoader webappClassLoader = getClass().getClassLoader();
-        ClassLoader childClassLoader = new ClassLoader(webappClassLoader) {
+        ClassLoader scopedChildLoader = new ClassLoader(webappClassLoader) {
         };
 
-        assertThat(WebappShutdownResources.isOwnedByWebappClassLoader(childClassLoader, webappClassLoader)).isTrue();
+        assertThat(WebappShutdownResources.isOwnedByWebappClassLoader(scopedChildLoader, webappClassLoader)).isTrue();
     }
 
     @Test
     void shouldLeaveParentClassLoaderResource_registeredForSharedContainerUse() {
         ClassLoader parentClassLoader = getClass().getClassLoader();
-        ClassLoader webappWrapperClassLoader = new ClassLoader(parentClassLoader) {
+        ClassLoader testWebappLoader = new ClassLoader(parentClassLoader) {
         };
 
-        assertThat(WebappShutdownResources.isOwnedByWebappClassLoader(parentClassLoader, webappWrapperClassLoader)).isFalse();
+        assertThat(WebappShutdownResources.isOwnedByWebappClassLoader(parentClassLoader, testWebappLoader)).isFalse();
     }
 
     private static final class TestDriver implements Driver {

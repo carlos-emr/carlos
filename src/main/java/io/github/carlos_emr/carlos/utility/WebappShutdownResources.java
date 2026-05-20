@@ -100,12 +100,15 @@ public final class WebappShutdownResources {
      * @return boolean true when the resource should be treated as CARLOS webapp-owned
      */
     static boolean isOwnedByWebappClassLoader(ClassLoader resourceClassLoader, ClassLoader webappClassLoader) {
+        // Bootstrap or missing loaders are not webapp-owned JDBC resources.
         if (resourceClassLoader == null || webappClassLoader == null) {
             return false;
         }
+        // Direct match covers the standard Tomcat webapp class-loader case.
         if (resourceClassLoader == webappClassLoader) {
             return true;
         }
+        // Nested library loaders below the webapp are owned by the stopping webapp.
         return isAncestor(webappClassLoader, resourceClassLoader);
     }
 
