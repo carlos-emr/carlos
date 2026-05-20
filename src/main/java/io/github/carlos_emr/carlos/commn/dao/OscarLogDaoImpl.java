@@ -37,14 +37,19 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
+import jakarta.persistence.PersistenceException;
 import jakarta.persistence.Query;
 
+import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.stereotype.Repository;
 
 @Repository
 public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarLogDao {
+
+    private static final Logger logger = MiscUtils.getLogger();
 
     public OscarLogDaoImpl() {
         super(OscarLog.class);
@@ -282,10 +287,11 @@ public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarL
                     .doReturningWork(connection -> connection.getMetaData().getDatabaseProductName());
             mysqlFamilyCache = product != null
                     && (product.equalsIgnoreCase("MySQL") || product.equalsIgnoreCase("MariaDB"));
-        } catch (Exception e) {
-            mysqlFamilyCache = false;
+            return mysqlFamilyCache;
+        } catch (PersistenceException e) {
+            logger.warn("Unable to determine database product for OscarLog query selection; using portable log table", e);
+            return false;
         }
-        return mysqlFamilyCache;
     }
 
     /*

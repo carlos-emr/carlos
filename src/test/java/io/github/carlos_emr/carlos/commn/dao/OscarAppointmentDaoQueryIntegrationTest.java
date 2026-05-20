@@ -1092,6 +1092,30 @@ public class OscarAppointmentDaoQueryIntegrationTest extends CarlosTestBase {
             // Then
             assertThat(result).isNull();
         }
+
+        @Test
+        @DisplayName("should return earliest appointment when multiple appointments exist today")
+        void shouldReturnEarliestAppointment_whenMultipleAppointmentsToday() {
+            // Given
+            Calendar cal = Calendar.getInstance();
+            cal.set(Calendar.HOUR_OF_DAY, 0);
+            cal.set(Calendar.MINUTE, 0);
+            cal.set(Calendar.SECOND, 0);
+            cal.set(Calendar.MILLISECOND, 0);
+            Date currentDate = cal.getTime();
+
+            Appointment later = createAndPersistWithTimes(currentDate, PROVIDER_NO, 12345, "A", time1100, time1200);
+            Appointment earlier = createAndPersistWithTimes(currentDate, PROVIDER_NO, 12345, "A", time0900, time1000);
+            entityManager.clear();
+
+            // When
+            Appointment result = oscarAppointmentDao.findDemoAppointmentToday(12345);
+
+            // Then
+            assertThat(result).isNotNull();
+            assertThat(result.getId()).isEqualTo(earlier.getId());
+            assertThat(result.getId()).isNotEqualTo(later.getId());
+        }
     }
 
     /**

@@ -328,6 +328,7 @@ public class CaseManagementNote extends BaseObject {
     public void setSigning_provider_no(String signing_provider_no) {
         this.signing_provider_no = signing_provider_no;
     }
+    @jakarta.persistence.Temporal(jakarta.persistence.TemporalType.TIMESTAMP)
     @jakarta.persistence.Column(name = "update_date")
 
     public Date getUpdate_date() {
@@ -346,6 +347,7 @@ public class CaseManagementNote extends BaseObject {
     public void setCreate_date(Date create_date) {
         this.create_date = create_date;
     }
+    @jakarta.persistence.Temporal(jakarta.persistence.TemporalType.TIMESTAMP)
     @jakarta.persistence.Column(name = "observation_date")
 
     public Date getObservation_date() {
@@ -662,8 +664,7 @@ public class CaseManagementNote extends BaseObject {
         return isLinkTo(CaseManagementNoteLink.EFORMDATA);
     }
 
-    @jakarta.persistence.Transient
-    private CaseManagementNoteLinkDAO getCaseManagementNoteLinkDao() {
+    private CaseManagementNoteLinkDAO lookupNoteLinkDao() {
         if (caseManagementNoteLinkDao == null) {
             caseManagementNoteLinkDao = (CaseManagementNoteLinkDAO) SpringUtils.getBean(CaseManagementNoteLinkDAO.class);
         }
@@ -672,7 +673,7 @@ public class CaseManagementNote extends BaseObject {
 
     private boolean isLinkTo(Integer tableName) {
         if (!cmnLinkRetrieved) {
-            cmnLink = getCaseManagementNoteLinkDao().getLastLinkByNote(this.id);
+            cmnLink = lookupNoteLinkDao().getLastLinkByNote(this.id);
             cmnLinkRetrieved = true;
         }
 

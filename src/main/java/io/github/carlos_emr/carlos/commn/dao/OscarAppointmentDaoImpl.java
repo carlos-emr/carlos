@@ -43,6 +43,9 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Repository;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
+import jakarta.persistence.NoResultException;
+import jakarta.persistence.NonUniqueResultException;
+import jakarta.persistence.PersistenceException;
 import jakarta.persistence.Query;
 import java.util.*;
 
@@ -389,19 +392,26 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
 
     @Override
     public Appointment findDemoAppointmentToday(Integer demographicNo) {
-        Appointment appointment = null;
-
         String sql = "SELECT a FROM Appointment a WHERE a.demographicNo = ?1 AND a.appointmentDate = CURRENT_DATE";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, demographicNo);
 
         try {
-            appointment = (Appointment) query.getSingleResult();
-        } catch (Exception e) {
+            return (Appointment) query.getSingleResult();
+        } catch (NoResultException e) {
             MiscUtils.getLogger().info("Couldn't find appointment for demographic " + demographicNo + " today.");
+            return null;
+        } catch (NonUniqueResultException e) {
+            MiscUtils.getLogger().error(
+                    "Multiple appointments found for demographic {} today; returning earliest appointment", demographicNo, e);
+            Query fallbackQuery = entityManager.createQuery(sql + " ORDER BY a.startTime ASC, a.id ASC");
+            fallbackQuery.setParameter(1, demographicNo);
+            fallbackQuery.setMaxResults(1);
+            List<Appointment> results = fallbackQuery.getResultList();
+            return results.isEmpty() ? null : results.get(0);
+        } catch (PersistenceException e) {
+            throw e;
         }
-
-        return appointment;
     }
 
     @Override

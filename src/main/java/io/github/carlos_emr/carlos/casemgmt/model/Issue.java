@@ -109,6 +109,7 @@ public class Issue extends BaseObject {
     public void setRole(String role) {
         this.role = role;
     }
+    @jakarta.persistence.Temporal(jakarta.persistence.TemporalType.TIMESTAMP)
     @jakarta.persistence.Column(name = "update_date")
 
     public Date getUpdate_date() {

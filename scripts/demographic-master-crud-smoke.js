@@ -187,7 +187,7 @@ async function createDemographic(searchPage) {
   await selectIfPresent(searchPage, 'select[name="sex"]', patient.sex);
   await selectIfPresent(searchPage, 'select[name="province"]', 'ON', { optional: true });
   await selectIfPresent(searchPage, 'select[name="patient_status"]', 'AC');
-  await selectIfPresent(searchPage, 'select[name="roster_status"]', 'RO');
+  await selectIfPresent(searchPage, 'select[name="roster_status"]', 'FS');
 
   await Promise.all([
     searchPage.waitForLoadState('domcontentloaded').catch(() => {}),
@@ -323,6 +323,21 @@ async function inactivateDemographic(searchPage, demographicNo) {
   return true;
 }
 
+async function returnToDemographicSearch(searchPage) {
+  const backLink = searchPage.locator('a', { hasText: /Back to Demographic Search Page/i }).first();
+  if (await backLink.count()) {
+    await Promise.all([
+      searchPage.waitForLoadState('domcontentloaded').catch(() => {}),
+      backLink.click(),
+    ]);
+  } else {
+    await searchPage.goto(`${config.baseUrl}/demographic/ViewSearch`, { waitUntil: 'domcontentloaded' });
+  }
+  await searchPage.waitForTimeout(1000);
+  await expectNoErrorPage(searchPage, 'return to demographic search form');
+  record('OK', 'return to demographic search form', searchPage.url());
+}
+
 async function main() {
   const launchOptions = { headless: config.headless };
   if (config.chromiumPath) {
@@ -336,7 +351,7 @@ async function main() {
   context.on('page', page => {
     page.on('console', msg => {
       const text = msg.text();
-      if (msg.type() === 'error' || /404|DataTable is not a function|redeclaration|Cannot read/i.test(text)) {
+      if (msg.type() === 'error' || /\b404\b|DataTable is not a function|redeclaration|Cannot read|Cannot set/i.test(text)) {
         findings.push({ label: 'browser console', detail: `${msg.type()}: ${text}` });
       }
     });
@@ -359,6 +374,7 @@ async function main() {
     await searchByName(searchPage, patient.lastName);
     demographicNo = await createDemographic(searchPage);
     if (demographicNo) {
+      await returnToDemographicSearch(searchPage);
       await searchByName(searchPage, patient.lastName);
       await readDemographic(searchPage, demographicNo);
       await updateDemographic(searchPage, demographicNo);

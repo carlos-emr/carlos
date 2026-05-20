@@ -1,5 +1,6 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
@@ -96,8 +97,8 @@ public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailL
         Date startDate = org.apache.commons.lang3.time.DateUtils.truncate(dateBegin, Calendar.DAY_OF_MONTH);
         Date exclusiveEndDate = org.apache.commons.lang3.time.DateUtils.addDays(
                 org.apache.commons.lang3.time.DateUtils.truncate(dateEnd, Calendar.DAY_OF_MONTH), 1);
-        Integer demographicId = demographicNo == null || demographicNo.isBlank() ? null : Integer.valueOf(demographicNo);
-        EmailLog.EmailStatus status = emailStatus == null || emailStatus.isBlank() ? null : EmailLog.EmailStatus.valueOf(emailStatus);
+        Integer demographicId = parseDemographicNo(demographicNo);
+        EmailLog.EmailStatus status = parseEmailStatus(emailStatus);
 
         Query query = entityManager.createQuery(hql);
         query.setParameter(1, demographicId);
@@ -107,6 +108,29 @@ public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailL
         query.setParameter(5, exclusiveEndDate);
 
         return query.getResultList();
+    }
+
+    private Integer parseDemographicNo(String demographicNo) {
+        if (demographicNo == null || demographicNo.isBlank()) {
+            return null;
+        }
+        try {
+            return Integer.valueOf(demographicNo.trim());
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("demographicNo must be numeric", e);
+        }
+    }
+
+    private EmailLog.EmailStatus parseEmailStatus(String emailStatus) {
+        if (emailStatus == null || emailStatus.isBlank()) {
+            return null;
+        }
+        try {
+            return EmailLog.EmailStatus.valueOf(emailStatus.trim());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("emailStatus must be one of: "
+                    + Arrays.toString(EmailLog.EmailStatus.values()), e);
+        }
     }
 
     /**

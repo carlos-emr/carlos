@@ -47,9 +47,8 @@ import static org.assertj.core.api.Assertions.*;
  * {@code orderByIndex} exist in the Java class but are <b>commented out</b> in the
  * HBM mapping and are therefore not persisted.</p>
  *
- * <p><b>Note:</b> The {@code getDefaultRoles()} method is intentionally NOT tested
- * because it queries the {@code userDefined} property, which is not present in the
- * HBM mapping. Calling it would result in a Hibernate mapping exception.</p>
+ * <p><b>Note:</b> The {@code getDefaultRoles()} method is tested as a fail-fast
+ * schema-gap guard because {@code userDefined} is not mapped on {@code Secrole}.</p>
  *
  * <p>This test class extends {@link CarlosTestBase}, which provides the full Spring
  * application context, an H2 in-memory database, and SpringUtils initialization
@@ -407,14 +406,17 @@ public class SecroleDaoIntegrationTest extends CarlosTestBase {
         }
     }
 
-    /*
-     * NOTE: getDefaultRoles() is intentionally NOT tested.
-     *
-     * The method executes the HQL query "from Secrole r where r.userDefined=0",
-     * but the 'userDefined' property is commented out in the Hibernate mapping
-     * file (Secrole.hbm.xml). Executing this query would result in a
-     * QuerySyntaxException because Hibernate does not know about the
-     * 'userDefined' property. This is a pre-existing issue in the DAO
-     * implementation that predates the Hibernate migration.
-     */
+    @Nested
+    @DisplayName("getDefaultRoles")
+    class GetDefaultRoles {
+
+        @Test
+        @Tag("read")
+        @DisplayName("should fail fast because userDefined is not mapped")
+        void shouldFailFast_whenSchemaGapExists() {
+            assertThatThrownBy(() -> secroleDao.getDefaultRoles())
+                    .isInstanceOf(UnsupportedOperationException.class)
+                    .hasMessageContaining("schema gap: Secrole.userDefined removed in JPA migration");
+        }
+    }
 }

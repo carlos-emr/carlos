@@ -111,7 +111,12 @@ public class SecObjPrivilegeDaoImpl extends AbstractDaoImpl<SecObjPrivilege> imp
 
     @Override
     public List<Object[]> findByFormNamePrivilegeAndProviderNo(String formName, String privilege, String providerNo) {
-        String sql = "SELECT p, r FROM SecObjPrivilege p, Secuserrole r WHERE p.id.roleUserGroup = r.roleName AND p.id.objectName = ?1 AND p.privilege = ?2 AND r.providerNo = ?3";
+        String sql = "SELECT p, r FROM SecObjPrivilege p, Secuserrole r "
+                + "WHERE p.id.roleUserGroup = r.roleName "
+                + "AND p.id.objectName = ?1 "
+                + "AND p.privilege = ?2 "
+                + "AND r.providerNo = ?3 "
+                + "AND r.activeyn = 1";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, formName);
         query.setParameter(2, privilege);
