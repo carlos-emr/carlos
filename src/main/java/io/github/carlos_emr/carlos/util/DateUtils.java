@@ -62,6 +62,8 @@ public final class DateUtils {
             createCachedFormatterIfPresent(dateFormatString);
     private static final DateTimeFormatter DEFAULT_DATE_TIME_FORMATTER =
             createCachedFormatterIfPresent(dateFormatString, timeFormatString);
+    private static final ThreadLocal<DateFormat> DEFAULT_DATE_TIME_FORMAT =
+            ThreadLocal.withInitial(() -> DateFormat.getDateTimeInstance(DateFormat.DEFAULT, DateFormat.DEFAULT));
 
     private static ZonedDateTime toZoned(Date date) {
         return date.toInstant().atZone(ZoneId.systemDefault());
@@ -236,7 +238,7 @@ public final class DateUtils {
 
     public static String getDate(Date date) {
 
-        return DateFormat.getDateTimeInstance(DateFormat.DEFAULT, DateFormat.DEFAULT).format(date);
+        return DEFAULT_DATE_TIME_FORMAT.get().format(date);
 
     }
 

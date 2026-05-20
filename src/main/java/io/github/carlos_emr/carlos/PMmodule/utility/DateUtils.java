@@ -51,6 +51,8 @@ public class DateUtils {
 
     private static String formatDate = "dd/MM/yyyy";
     public final static String intakeADelimiter = "/";
+    private static final ThreadLocal<DateFormat> DEFAULT_DATE_TIME_FORMAT =
+            ThreadLocal.withInitial(() -> DateFormat.getDateTimeInstance(DateFormat.DEFAULT, DateFormat.DEFAULT));
 
     private static ZonedDateTime toZoned(Date date) {
         return date.toInstant().atZone(ZoneId.systemDefault());
@@ -71,7 +73,7 @@ public class DateUtils {
     public static String getDate(Date date) {
 
         // Preserves legacy behaviour of {@code new SimpleDateFormat()} (default date/time style in the default locale).
-        return DateFormat.getDateTimeInstance(DateFormat.DEFAULT, DateFormat.DEFAULT).format(date);
+        return DEFAULT_DATE_TIME_FORMAT.get().format(date);
 
     }
 

@@ -255,7 +255,11 @@
         } else {
     %>
 
-    <% scheduleRscheduleBean.clear(); %>
+    <%
+        scheduleRscheduleBean.clear();
+        String providerNoForDelete = StringUtils.noNull(request.getParameter("provider_no"));
+        String providerNameForDelete = StringUtils.noNull(request.getParameter("provider_name"));
+    %>
 
     <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
@@ -320,8 +324,8 @@
                     var form = document.forms['schedule'];
                     form.method = 'post';
                     form.action = "${pageContext.request.contextPath}/schedule/TemplateApplying";
-                    setHiddenField(form, 'provider_no', '<carlos:encode value='<%= request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "" %>' context="javaScriptBlock"/>');
-                    setHiddenField(form, 'provider_name', '<carlos:encode value='<%= request.getParameter("provider_name") != null ? request.getParameter("provider_name") : "" %>' context="javaScriptBlock"/>');
+                    setHiddenField(form, 'provider_no', '<%= SafeEncode.forJavaScriptBlock(providerNoForDelete) %>');
+                    setHiddenField(form, 'provider_name', '<%= SafeEncode.forJavaScriptBlock(providerNameForDelete) %>');
                     setHiddenField(form, 'sdate', s.options[s.selectedIndex].value);
                     setHiddenField(form, 'delete', '1');
                     setHiddenField(form, 'deldate', 'all');
