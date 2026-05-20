@@ -81,7 +81,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
-<html lang="${pageContext.request.locale.language}">
+<html lang="<%= SafeEncode.forHtmlAttribute(request.getLocale().toLanguageTag()) %>">
 
     <%
         if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
@@ -304,26 +304,27 @@
                 window.location.href = ref;
             }
 
+            function setHiddenField(form, name, value) {
+                var input = form.elements[name];
+                if (!input || input.type !== 'hidden') {
+                    input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = name;
+                    form.appendChild(input);
+                }
+                input.value = value;
+            }
+
             function onBtnDelete(s) {
                 if (confirm(i18n.msgDeleteConfirmation)) {
-                    var form = document.createElement('form');
+                    var form = document.forms['schedule'];
                     form.method = 'post';
                     form.action = "${pageContext.request.contextPath}/schedule/TemplateApplying";
-                    var fields = {
-                        'provider_no': '<carlos:encode value='<%= request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "" %>' context="javaScriptBlock"/>',
-                        'provider_name': '<carlos:encode value='<%= request.getParameter("provider_name") != null ? request.getParameter("provider_name") : "" %>' context="javaScriptBlock"/>',
-                        'sdate': s.options[s.selectedIndex].value,
-                        'delete': '1',
-                        'deldate': 'all'
-                    };
-                    for (var key in fields) {
-                        var input = document.createElement('input');
-                        input.type = 'hidden';
-                        input.name = key;
-                        input.value = fields[key];
-                        form.appendChild(input);
-                    }
-                    document.body.appendChild(form);
+                    setHiddenField(form, 'provider_no', '<carlos:encode value='<%= request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "" %>' context="javaScriptBlock"/>');
+                    setHiddenField(form, 'provider_name', '<carlos:encode value='<%= request.getParameter("provider_name") != null ? request.getParameter("provider_name") : "" %>' context="javaScriptBlock"/>');
+                    setHiddenField(form, 'sdate', s.options[s.selectedIndex].value);
+                    setHiddenField(form, 'delete', '1');
+                    setHiddenField(form, 'deldate', 'all');
                     form.submit();
                 }
             }

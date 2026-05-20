@@ -68,7 +68,7 @@ import io.github.carlos_emr.CarlosProperties;
  */
 public final class DateUtils {
     /** JavaScript-compatible ISO date format pattern */
-    public static final String JS_ISO_DATE_FORMAT = "yyyy-MM-dd";
+    public static final String JS_ISO_DATE_FORMAT = "yy-MM-dd";
 
     /** Cached, thread-safe formatters for fixed patterns used internally. */
     private static final DateTimeFormatter ISO_DATE_FORMATTER =
