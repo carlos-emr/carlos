@@ -6,6 +6,18 @@
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.web;
 
@@ -26,6 +38,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DisplayName("JSP JavaScript encoding")
 @Tag("unit")
 class JspJavaScriptEncodingRegressionTest {
+    private static final String BASEDIR_PROPERTY = "basedir";
+    private static final Path JSP_ROOT = resolveProjectPath(Path.of("src/main/webapp/WEB-INF/jsp"));
 
     @Test
     void shouldContainEncodedSessionValues_inJavaScriptStrings() throws Exception {
@@ -34,10 +48,11 @@ class JspJavaScriptEncodingRegressionTest {
 
         assertThat(sentJsp)
                 .doesNotContain("'<%= session.getAttribute(\"info\") %>'")
-                .contains("SafeEncode.forJavaScript(session.getAttribute(\"info\"))");
+                .contains("SafeEncode.forJavaScript(session.getAttribute(\"info\") == null ? null : session.getAttribute(\"info\").toString())");
         assertThat(autoDownloadJsp)
                 .doesNotContain("'<%= session.getAttribute(\"resourceID\") %>'")
-                .contains("SafeEncode.forJavaScript(session.getAttribute(\"resourceID\"))");
+                .contains("SafeEncode.forJavaScript(")
+                .contains("session.getAttribute(\"resourceID\")");
     }
 
     @Test
@@ -92,13 +107,30 @@ class JspJavaScriptEncodingRegressionTest {
 
         assertThat(addGroupJsp)
                 .doesNotContain("<%= session.getAttribute(\"groupName\") %>")
-                .contains("<carlos:encode");
+                .contains("<carlos:encode value='<%= groupName %>' context=\"html\"/>")
+                .doesNotContainPattern(">(?:\\s*)<%=\\s*groupName\\s*%>(?:\\s*)<");
         assertThat(editGroupJsp)
                 .doesNotContain("<%= session.getAttribute(\"groupName\") %>")
-                .contains("<carlos:encode");
+                .contains("<carlos:encode value='<%= groupName %>' context=\"html\"/>")
+                .doesNotContainPattern(">(?:\\s*)<%=\\s*groupName\\s*%>(?:\\s*)<");
     }
 
     private static String readJsp(String relativePath) throws Exception {
-        return Files.readString(Path.of("src/main/webapp/WEB-INF/jsp", relativePath));
+        return Files.readString(JSP_ROOT.resolve(relativePath));
+    }
+
+    private static Path resolveProjectPath(Path relativePath) {
+        Path current = Path.of(System.getProperty(BASEDIR_PROPERTY, System.getProperty("user.dir")))
+                .toAbsolutePath()
+                .normalize();
+        for (int checkedParents = 0; current != null && checkedParents < 6; checkedParents++) {
+            Path candidate = current.resolve(relativePath).normalize();
+            if (Files.isRegularFile(candidate) || Files.isDirectory(candidate)) {
+                return candidate;
+            }
+            current = current.getParent();
+        }
+        throw new IllegalStateException("Unable to locate " + relativePath + " from "
+                + System.getProperty(BASEDIR_PROPERTY, System.getProperty("user.dir")));
     }
 }

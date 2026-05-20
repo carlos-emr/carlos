@@ -176,10 +176,24 @@
                 SiteDao siteDao = (SiteDao) WebApplicationContextUtils.getWebApplicationContext(application).getBean(SiteDao.class);
                 List<Site> sites = siteDao.getActiveSitesByProviderNo((String) session.getAttribute("user"));
 
+                String encodedDoctorName = SafeEncode.forHtml(doctorName);
+                String encodedTelLabel = SafeEncode.forHtml(rb.getString("RxPreview.msgTel"));
+                String encodedFaxLabel = SafeEncode.forHtml(rb.getString("RxPreview.msgFax"));
+
                 for (int i = 0; i < sites.size(); i++) {
                     Site s = sites.get(i);
                     vecAddressName.add(s.getName());
-                    vecAddress.add("<b>" + SafeEncode.forHtml(doctorName) + "</b><br>" + SafeEncode.forHtml(s.getName()) + "<br>" + SafeEncode.forHtml(s.getAddress()) + "<br>" + SafeEncode.forHtml(s.getCity()) + ", " + SafeEncode.forHtml(s.getProvince()) + " " + SafeEncode.forHtml(s.getPostal()) + "<br>" + SafeEncode.forHtml(rb.getString("RxPreview.msgTel")) + ": " + SafeEncode.forHtml(s.getPhone()) + "<br>" + SafeEncode.forHtml(rb.getString("RxPreview.msgFax")) + ": " + SafeEncode.forHtml(s.getFax()));
+                    String addressHtml = "<b>" + encodedDoctorName + "</b><br>"
+                            + SafeEncode.forHtml(s.getName()) + "<br>"
+                            + SafeEncode.forHtml(s.getAddress()) + "<br>"
+                            + SafeEncode.forHtml(s.getCity()) + ", "
+                            + SafeEncode.forHtml(s.getProvince()) + " "
+                            + SafeEncode.forHtml(s.getPostal()) + "<br>"
+                            + encodedTelLabel + ": "
+                            + SafeEncode.forHtml(s.getPhone()) + "<br>"
+                            + encodedFaxLabel + ": "
+                            + SafeEncode.forHtml(s.getFax());
+                    vecAddress.add(addressHtml);
                     if (s.getName().equals(location))
                         session.setAttribute("RX_ADDR", String.valueOf(i));
                 }
@@ -210,9 +224,23 @@
                 String[] temp6 = props.getProperty("clinicSatelliteFax", "").split("\\|");
                 java.util.ResourceBundle rb = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
 
+                String encodedDoctorName = SafeEncode.forHtml(doctorName);
+                String encodedTelLabel = SafeEncode.forHtml(rb.getString("RxPreview.msgTel"));
+                String encodedFaxLabel = SafeEncode.forHtml(rb.getString("RxPreview.msgFax"));
+
                 for (int i = 0; i < temp0.length; i++) {
                     vecAddressName.add(temp0[i]);
-                    vecAddress.add("<b>" + SafeEncode.forHtml(doctorName) + "</b><br>" + SafeEncode.forHtml(temp0[i]) + "<br>" + SafeEncode.forHtml(temp1[i]) + "<br>" + SafeEncode.forHtml(temp2[i]) + ", " + SafeEncode.forHtml(temp3[i]) + " " + SafeEncode.forHtml(temp4[i]) + "<br>" + SafeEncode.forHtml(rb.getString("RxPreview.msgTel")) + ": " + SafeEncode.forHtml(temp5[i]) + "<br>" + SafeEncode.forHtml(rb.getString("RxPreview.msgFax")) + ": " + SafeEncode.forHtml(temp6[i]));
+                    String addressHtml = "<b>" + encodedDoctorName + "</b><br>"
+                            + SafeEncode.forHtml(temp0[i]) + "<br>"
+                            + SafeEncode.forHtml(temp1[i]) + "<br>"
+                            + SafeEncode.forHtml(temp2[i]) + ", "
+                            + SafeEncode.forHtml(temp3[i]) + " "
+                            + SafeEncode.forHtml(temp4[i]) + "<br>"
+                            + encodedTelLabel + ": "
+                            + SafeEncode.forHtml(temp5[i]) + "<br>"
+                            + encodedFaxLabel + ": "
+                            + SafeEncode.forHtml(temp6[i]);
+                    vecAddress.add(addressHtml);
                 }
             }
             String comment = request.getSession().getAttribute("comment") != null ? request.getSession().getAttribute("comment").toString() : "";

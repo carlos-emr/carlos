@@ -137,7 +137,7 @@
         }
 
         function displayInfo() {
-            var info = '<%= SafeEncode.forJavaScript(String.valueOf(session.getAttribute("info"))) %>';
+            var info = '<%= SafeEncode.forJavaScript(session.getAttribute("info") == null ? null : session.getAttribute("info").toString()) %>';
             if (info == 'true') {
                 ShowDialog(true);
             }
