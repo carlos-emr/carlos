@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ * Copyright (c) 2026 CARLOS Contributors.
  *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
@@ -24,13 +24,14 @@ package io.github.carlos_emr.carlos.config;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Properties;
 
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -42,16 +43,17 @@ import org.junit.jupiter.api.Test;
  */
 @DisplayName("CARLOS runtime property defaults")
 @Tag("unit")
-class CarlosPropertiesRuntimeDefaultsTest {
+@Tag("read")
+class CarlosPropertiesRuntimeDefaultsTest extends CarlosUnitTestBase {
 
-    private static final Path CARLOS_PROPERTIES =
-            Path.of("src", "main", "resources", "carlos.properties");
+    /**
+     * Classpath resource name for the runtime defaults properties.
+     * Loaded via the test's ClassLoader rather than a filesystem path to
+     * keep this test independent of the working directory and build layout.
+     */
+    private static final String CARLOS_PROPERTIES_RESOURCE = "carlos.properties";
 
     private static final List<String> SMOKE_TEST_DEFAULT_KEYS = List.of(
-            "DOCUMENT_CACHE_DIR",
-            "TMP_DIR",
-            "OMD_hrm",
-            "OMD_downloads",
             "FAX_INCOMING_DIR",
             "log.purge.outputdir",
             "log.purge.daysfromnowtopurge",
@@ -68,25 +70,31 @@ class CarlosPropertiesRuntimeDefaultsTest {
             "WORKFLOW",
             "view.appointmentdaysheetbutton");
 
+    private static final List<String> STARTUP_DERIVED_DOCUMENT_PATH_KEYS = List.of(
+            "DOCUMENT_CACHE_DIR",
+            "TMP_DIR",
+            "OMD_hrm",
+            "OMD_downloads");
+
     @Test
     @DisplayName("should declare smoke-test runtime defaults in carlos properties")
     void shouldDeclareSmokeTestRuntimeDefaults_inCarlosProperties() throws IOException {
-        String content = Files.readString(CARLOS_PROPERTIES, StandardCharsets.UTF_8);
+        String content = readCarlosPropertiesContent();
         Properties properties = loadCarlosProperties();
 
         assertThat(content).contains("# Smoke-test runtime defaults");
         assertThat(properties.stringPropertyNames()).containsAll(SMOKE_TEST_DEFAULT_KEYS);
-        assertThat(properties.getProperty("DOCUMENT_CACHE_DIR"))
-                .isEqualTo("/var/lib/OscarDocument/carlos/document_cache/");
-        assertThat(properties.getProperty("TMP_DIR"))
-                .isEqualTo("/var/lib/OscarDocument/carlos/export/");
-        assertThat(properties.getProperty("OMD_hrm"))
-                .isEqualTo("/var/lib/OscarDocument/carlos/hrm/");
-        assertThat(properties.getProperty("OMD_downloads"))
-                .isEqualTo("/var/lib/OscarDocument/carlos/hrm/sftp_downloads/");
+        assertThat(properties.stringPropertyNames())
+                .doesNotContainAnyElementsOf(STARTUP_DERIVED_DOCUMENT_PATH_KEYS);
         assertThat(properties.getProperty("log.purge.outputdir"))
                 .isEqualTo("/var/lib/OscarDocument/carlos/document/");
+        assertThat(properties.getProperty("FAX_INCOMING_DIR")).isEmpty();
+        assertThat(properties.getProperty("log.purge.daysfromnowtopurge")).isEmpty();
+        assertThat(properties.getProperty("PREVENTION_FILE")).isEmpty();
+        assertThat(properties.getProperty("WAF_TRUSTED_PROXY_IPS")).isEmpty();
+        assertThat(properties.getProperty("WAF_TRUSTED_PROXY_CIDRS")).isEmpty();
         assertThat(properties.getProperty("INACTIVITY_LIMIT_MINS")).isEqualTo("60");
+        assertThat(properties.getProperty("sec.token.manager")).isEmpty();
         assertThat(properties.getProperty("caisi")).isEqualTo("off");
         assertThat(properties.getProperty("useProgramLocation")).isEqualTo("false");
         assertThat(properties.getProperty("APPT_SHOW_FULL_NAME")).isEqualTo("false");
@@ -96,11 +104,27 @@ class CarlosPropertiesRuntimeDefaultsTest {
         assertThat(properties.getProperty("view.appointmentdaysheetbutton")).isEqualTo("off");
     }
 
+    private String readCarlosPropertiesContent() throws IOException {
+        try (InputStream inputStream = openCarlosProperties()) {
+            return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
+        }
+    }
+
     private Properties loadCarlosProperties() throws IOException {
         Properties properties = new Properties();
-        try (Reader reader = Files.newBufferedReader(CARLOS_PROPERTIES, StandardCharsets.UTF_8)) {
+        try (Reader reader = new InputStreamReader(openCarlosProperties(), StandardCharsets.UTF_8)) {
             properties.load(reader);
         }
         return properties;
+    }
+
+    private InputStream openCarlosProperties() {
+        InputStream inputStream = Thread.currentThread()
+                .getContextClassLoader()
+                .getResourceAsStream(CARLOS_PROPERTIES_RESOURCE);
+        if (inputStream == null) {
+            throw new IllegalStateException("Missing classpath resource: " + CARLOS_PROPERTIES_RESOURCE);
+        }
+        return inputStream;
     }
 }

@@ -61,6 +61,10 @@ class SecurityTokenManagerUnitTest {
         CarlosProperties.getInstance().setProperty("sec.token.manager", "");
 
         assertThat(SecurityTokenManager.getInstance()).isNull();
+
+        SecurityTokenManager.resetForTesting();
+        CarlosProperties.getInstance().setProperty("sec.token.manager", "   \t");
+        assertThat(SecurityTokenManager.getInstance()).isNull();
     }
 
     @Test
