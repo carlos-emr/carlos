@@ -276,6 +276,7 @@ public final class FrmSetupForm2Action extends ActionSupport {
                     }
                     
                     // Using parameterized values for formId and demographicNo
+                    // nosemgrep: java.lang.security.audit.formatted-sql-string-deepsemgrep.formatted-sql-string-deepsemgrep, java.lang.security.audit.sqli.tainted-sql-from-http-request.tainted-sql-from-http-request -- table suffix is allowlisted by validateSetupFormName(); values remain JDBC-bound.
                     String sql = setupFormRecordSql(trustedFormName);
                     try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(
                             LegacyJdbcQuery.trustedSelectSql(sql),

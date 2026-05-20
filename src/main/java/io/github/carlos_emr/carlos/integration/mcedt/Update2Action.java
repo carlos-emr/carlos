@@ -32,9 +32,12 @@ import ca.ontario.health.edt.*;
 import org.apache.struts2.ActionSupport;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.action.UploadedFilesAware;
+import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.UploadedFileUtils;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -47,7 +50,7 @@ import java.util.List;
 import static io.github.carlos_emr.carlos.integration.mcedt.ActionUtils.*;
 import static io.github.carlos_emr.carlos.integration.mcedt.McedtConstants.SESSION_KEY_UPLOAD_DETAILS;
 
-public class Update2Action extends ActionSupport {
+public class Update2Action extends ActionSupport implements UploadedFilesAware {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -145,6 +148,7 @@ public class Update2Action extends ActionSupport {
 
     private String resourceId;
     private File content;
+    private String uploadValidationError;
 
     public String getResourceId() {
         return resourceId;
@@ -159,7 +163,6 @@ public class Update2Action extends ActionSupport {
         return content;
     }
 
-    @StrutsParameter
     public void setContent(File content) {
         this.content = content;
     }
@@ -167,6 +170,9 @@ public class Update2Action extends ActionSupport {
     public UpdateRequest toUpdateRequest() {
         UpdateRequest result = new UpdateRequest();
         result.setResourceID(BigInteger.valueOf(ConversionUtils.fromIntString(resourceId)));
+        if (uploadValidationError != null) {
+            throw new SecurityException(uploadValidationError);
+        }
         try {
             File validatedContent = PathValidationUtils.validateUpload(content);
             result.setContent(Files.readAllBytes(validatedContent.toPath()));
@@ -176,5 +182,25 @@ public class Update2Action extends ActionSupport {
             throw new RuntimeException("Unable to read upload data", e);
         }
         return result;
+    }
+
+    @Override
+    public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
+        if (uploadedFiles == null) {
+            return;
+        }
+        for (UploadedFile uploaded : uploadedFiles) {
+            if (!"content".equals(uploaded.getInputName())) {
+                continue;
+            }
+            try {
+                this.content = PathValidationUtils.validateUpload(UploadedFileUtils.getUploadedFile(uploaded));
+                this.uploadValidationError = null;
+            } catch (SecurityException e) {
+                this.content = null;
+                this.uploadValidationError = "Invalid upload file path";
+            }
+            break;
+        }
     }
 }

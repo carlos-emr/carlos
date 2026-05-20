@@ -59,6 +59,7 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
 
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private String uploadValidationError;
 
     public String execute()
             throws ServletException, IOException {
@@ -72,16 +73,16 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
         File tmpFile = File.createTempFile("tmp", ".zip");
         tmpFile.deleteOnExit();
 
-        File validatedFile;
-        try {
-            validatedFile = PathValidationUtils.validateUpload(file1);
-        } catch (SecurityException e) {
-            throw new IllegalArgumentException("Invalid file path: " + file1.getAbsolutePath(), e);
+        if (uploadValidationError != null) {
+            throw new IllegalArgumentException(uploadValidationError);
+        }
+        if (file1 == null) {
+            throw new IllegalArgumentException("Invalid file upload");
         }
 
         try {
-            // codeql[java/path-injection] -- validatedFile is validated by PathValidationUtils.validateUpload(file1)
-            try (InputStream is = Files.newInputStream(validatedFile.toPath());
+            // codeql[java/path-injection] -- file1 is validated in withUploadedFiles() before storage.
+            try (InputStream is = Files.newInputStream(file1.toPath());
                  OutputStream fos = new FileOutputStream(tmpFile)) {
                 byte[] data = new byte[BUFFER];
                 int count;
@@ -129,7 +130,13 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
     public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
         if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
             UploadedFile uploaded = uploadedFiles.get(0);
-            this.file1 = UploadedFileUtils.getUploadedFile(uploaded);
+            try {
+                this.file1 = PathValidationUtils.validateUpload(UploadedFileUtils.getUploadedFile(uploaded));
+                this.uploadValidationError = null;
+            } catch (SecurityException e) {
+                this.file1 = null;
+                this.uploadValidationError = "Invalid file upload";
+            }
             this.file1ContentType = uploaded.getContentType();
             this.file1FileName = uploaded.getOriginalName();
         }
