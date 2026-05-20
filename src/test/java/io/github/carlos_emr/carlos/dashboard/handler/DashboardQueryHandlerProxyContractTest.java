@@ -112,9 +112,13 @@ class DashboardQueryHandlerProxyContractTest {
         scanner.addIncludeFilter(new AssignableTypeFilter(AbstractQueryHandler.class));
 
         for (var beanDefinition : scanner.findCandidateComponents(DASHBOARD_HANDLER_PACKAGE)) {
-            Class<?> handlerType = Class.forName(beanDefinition.getBeanClassName());
-            if (AbstractQueryHandler.class.isAssignableFrom(handlerType)
-                    && isProductionHandlerType(handlerType)) {
+            String handlerTypeName = beanDefinition.getBeanClassName();
+            if (handlerTypeName.contains("$")) {
+                continue;
+            }
+
+            Class<?> handlerType = Class.forName(handlerTypeName);
+            if (AbstractQueryHandler.class.isAssignableFrom(handlerType)) {
                 handlerTypes.add((Class<? extends AbstractQueryHandler>) handlerType);
             }
         }
@@ -129,11 +133,6 @@ class DashboardQueryHandlerProxyContractTest {
                 .containsAll(EXPECTED_PROXIED_HANDLER_TYPES);
 
         return handlerTypes;
-    }
-
-    private static boolean isProductionHandlerType(Class<?> handlerType) {
-        return !handlerType.getName().contains("$")
-                && !handlerType.getName().contains("Test");
     }
 
     private static Stream<Class<?>> proxiedHandlerHierarchy(Class<?> handlerType) {
