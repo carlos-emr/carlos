@@ -236,4 +236,49 @@ public class OscarLogDaoIntegrationTest extends CarlosTestBase {
                     .containsExactly(exactMatch.getId());
         }
     }
+
+    @Nested
+    @DisplayName("JPA migration regressions")
+    class JpaMigrationRegressions {
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return demographic IDs opened since cutoff")
+        void shouldReturnDemographicIdsOpenedSinceCutoff() throws Exception {
+            Date cutoff = new Date(System.currentTimeMillis() - 10_000);
+
+            OscarLog matchingLog = createOscarLog(401, "prov1", "read", "demographic", "401",
+                    new Date(cutoff.getTime() + 1_000));
+            createOscarLog(402, "prov1", "read", "demographic", "402",
+                    new Date(cutoff.getTime() - 1_000));
+
+            List<Integer> result = dao.getDemographicIdsOpenedSinceTime(cutoff);
+
+            assertThat(result).contains(matchingLog.getDemographicId());
+            assertThat(result).doesNotContain(402);
+        }
+
+        @Test
+        @Tag("write")
+        @DisplayName("should purge logs by Date parameter")
+        void shouldPurgeLogsByDateParameter() throws Exception {
+            Date cutoff = new Date(System.currentTimeMillis() - 10_000);
+
+            OscarLog oldLog = createOscarLog(501, "prov1", "read", "old", "501",
+                    new Date(cutoff.getTime() - 1_000));
+            OscarLog cutoffLog = createOscarLog(502, "prov1", "read", "cutoff", "502", cutoff);
+            OscarLog newLog = createOscarLog(503, "prov1", "read", "new", "503",
+                    new Date(cutoff.getTime() + 1_000));
+
+            int deleted = dao.purgeLogEntries(cutoff);
+            entityManager.flush();
+            entityManager.clear();
+
+            assertThat(deleted).isGreaterThanOrEqualTo(2);
+            assertThat(dao.find(oldLog.getId())).isNull();
+            assertThat(dao.find(cutoffLog.getId())).isNull();
+            assertThat(dao.find(newLog.getId())).isNotNull();
+        }
+    }
+
 }

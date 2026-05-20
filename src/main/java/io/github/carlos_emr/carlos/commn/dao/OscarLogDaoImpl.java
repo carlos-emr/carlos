@@ -31,7 +31,6 @@
 
 package io.github.carlos_emr.carlos.commn.dao;
 
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
@@ -156,7 +155,7 @@ public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarL
 
     @Override
     public List<Integer> getDemographicIdsOpenedSinceTime(Date value) {
-        String sqlCommand = "select distinct demographicId from " + modelClass.getSimpleName() + " where dateTime >= ?1";
+        String sqlCommand = "select distinct x.demographicId from " + modelClass.getSimpleName() + " x where x.created >= ?1";
 
         Query query = entityManager.createQuery(sqlCommand);
         query.setParameter(1, value);
@@ -299,12 +298,10 @@ public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarL
      */
     @Override
     public int purgeLogEntries(Date maxDateToRemove) {
-        SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-
-        String sqlCommand = "delete from " + modelClass.getSimpleName() + " WHERE dateTime <= ?1";
+        String sqlCommand = "delete from " + modelClass.getSimpleName() + " WHERE created <= ?1";
 
         Query query = entityManager.createQuery(sqlCommand);
-        query.setParameter(1, formatter.format(maxDateToRemove));
+        query.setParameter(1, maxDateToRemove);
         int ret = query.executeUpdate();
 
         return ret;

@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
+import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.MyGroup;
@@ -1049,21 +1050,42 @@ public class OscarAppointmentDaoQueryIntegrationTest extends CarlosTestBase {
     class GetAllDemographicNoSince {
 
         @Test
-        @DisplayName("should return demographic numbers for appointments updated since date")
-        void shouldReturnDemographicNos_whenAppointmentsUpdatedSinceDate() {
-            // Given
-            Appointment appt = createAndPersist(today, PROVIDER_NO, 400, "A");
+        @DisplayName("should bind program IDs as a collection")
+        void shouldBindProgramIdsAsCollection() {
+            Date cutoff = new Date(System.currentTimeMillis() - 60_000);
 
-            // Note: This method accepts List<Program> and constructs a comma-separated
-            // string of program IDs. Due to the unusual parameter binding pattern
-            // (passing string of IDs as ?2), this test may need adjustment after
-            // Hibernate 6 migration.
-            // Note: This method's unusual parameter binding (comma-separated program IDs as
-            // a single string parameter) may behave differently in Hibernate 6.
-            // Verifying the DAO interface is available and the method signature is correct.
-            assertThat(oscarAppointmentDao).isNotNull();
-            assertThat(appt).isNotNull();
-            assertThat(appt.getDemographicNo()).isEqualTo(400);
+            Appointment programOneAppointment = createTestAppointment(today, PROVIDER_NO, 54321, "A");
+            programOneAppointment.setProgramId(PROGRAM_ID);
+            entityManager.persist(programOneAppointment);
+
+            Appointment programTwoAppointment = createTestAppointment(today, PROVIDER_NO, 54322, "A");
+            programTwoAppointment.setProgramId(PROGRAM_ID + 1);
+            entityManager.persist(programTwoAppointment);
+
+            Appointment otherProgramAppointment = createTestAppointment(today, PROVIDER_NO, 54323, "A");
+            otherProgramAppointment.setProgramId(PROGRAM_ID + 2);
+            entityManager.persist(otherProgramAppointment);
+
+            entityManager.flush();
+            entityManager.clear();
+
+            Program programOne = new Program();
+            programOne.setId(PROGRAM_ID);
+            Program programTwo = new Program();
+            programTwo.setId(PROGRAM_ID + 1);
+
+            List<Integer> result = oscarAppointmentDao.getAllDemographicNoSince(cutoff, List.of(programOne, programTwo));
+
+            assertThat(result).contains(54321, 54322);
+            assertThat(result).doesNotContain(54323);
+        }
+
+        @Test
+        @DisplayName("should return empty list when programs are empty")
+        void shouldReturnEmptyList_whenProgramsAreEmpty() {
+            List<Integer> result = oscarAppointmentDao.getAllDemographicNoSince(new Date(), List.of());
+
+            assertThat(result).isEmpty();
         }
     }
 

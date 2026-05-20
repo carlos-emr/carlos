@@ -200,17 +200,14 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
 
     @Override
     public List<Integer> getAllDemographicNoSince(Date lastUpdateDate, List<Program> programs) {
-        StringBuilder sb = new StringBuilder();
-        int i = 0;
-        for (Program p : programs) {
-            if (i++ > 0)
-                sb.append(",");
-            sb.append(p.getId());
+        if (programs == null || programs.isEmpty()) {
+            return Collections.emptyList();
         }
+
         String sql = "select a.demographicNo FROM Appointment a WHERE a.updateDateTime > ?1 and a.programId in (?2) ORDER BY a.id";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, lastUpdateDate);
-        query.setParameter(2, sb.toString());
+        query.setParameter(2, programs.stream().map(Program::getId).toList());
 
         List<Integer> rs = query.getResultList();
         return rs;

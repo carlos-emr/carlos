@@ -86,9 +86,9 @@ public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailL
     @Override
     @SuppressWarnings("unchecked")
     public List<EmailLog> getEmailStatusByDateDemographicSenderStatus(Date dateBegin, Date dateEnd, String demographicNo, String senderEmailAddress, String emailStatus) {
-        String hql = "SELECT el FROM EmailLog el JOIN el.emailConfig ec JOIN el.demographic d JOIN el.provider p " +
+        String hql = "SELECT el FROM EmailLog el LEFT JOIN el.emailConfig ec LEFT JOIN el.demographic d LEFT JOIN el.provider p " +
                 "WHERE 1=1 " +
-                "AND (?1 IS NULL OR el.demographic.demographicNo = ?1) " +
+                "AND (?1 IS NULL OR d.demographicNo = ?1) " +
                 "AND (?2 IS NULL OR el.status = ?2) " +
                 "AND (?3 IS NULL OR el.fromEmail = ?3) " +
                 "AND el.timestamp >= ?4 AND el.timestamp < ?5 " +

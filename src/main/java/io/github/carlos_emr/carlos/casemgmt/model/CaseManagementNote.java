@@ -338,6 +338,7 @@ public class CaseManagementNote extends BaseObject {
     public void setUpdate_date(Date update_date) {
         this.update_date = update_date;
     }
+    @jakarta.persistence.Temporal(jakarta.persistence.TemporalType.TIMESTAMP)
     @org.hibernate.annotations.Formula("(select min(cmn.update_date) from casemgmt_note cmn where cmn.uuid = uuid)")
 
     public Date getCreate_date() {

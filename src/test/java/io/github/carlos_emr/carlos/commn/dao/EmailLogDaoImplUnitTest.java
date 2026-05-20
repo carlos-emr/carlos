@@ -5,6 +5,7 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -13,7 +14,7 @@ import java.util.Date;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @DisplayName("EmailLogDaoImpl Unit Tests")
-class EmailLogDaoImplUnitTest {
+class EmailLogDaoImplUnitTest extends CarlosUnitTestBase {
 
     private final EmailLogDaoImpl dao = new EmailLogDaoImpl();
 
