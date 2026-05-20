@@ -123,6 +123,19 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return formatter.format(date.toInstant().atZone(ZoneId.systemDefault()));
     }
 
+    private static String appendRemovedIssueMessage(String noteText, Locale locale, ResourceBundle props, CharSequence issueNames) {
+        String originalNote = String.valueOf(noteText);
+        return new StringBuilder(originalNote.length() + issueNames.length() + 64)
+                .append(originalNote)
+                .append('\n')
+                .append(formatZoned(DD_MMM_YYYY_FORMATTER_BASE.withLocale(locale), new Date()))
+                .append(' ')
+                .append(props.getString("encounter.removedIssue.Msg"))
+                .append(":\n")
+                .append(issueNames)
+                .toString();
+    }
+
     private static Date parseAsDate(String text, DateTimeFormatter formatter) throws ParseException {
         return DateTimeParseUtils.parseToDate(text, formatter);
     }
@@ -1115,14 +1128,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 issueNames.append(cIssue.getIssue().getDescription() + "\n");
             }
 
-            strNote = new StringBuilder(strNote)
-                    .append('\n')
-                    .append(formatZoned(DD_MMM_YYYY_FORMATTER_BASE.withLocale(request.getLocale()), new Date()))
-                    .append(' ')
-                    .append(props.getString("encounter.removedIssue.Msg"))
-                    .append(":\n")
-                    .append(issueNames)
-                    .toString();
+            strNote = appendRemovedIssueMessage(strNote, request.getLocale(), props, issueNames);
             note.setNote(strNote);
             removed = true;
         } else {
@@ -1147,14 +1153,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
             // if we have removed an issue add it to message body
             if (issueNames.length() > 0) {
-                strNote = new StringBuilder(strNote)
-                        .append('\n')
-                        .append(formatZoned(DD_MMM_YYYY_FORMATTER_BASE.withLocale(request.getLocale()), new Date()))
-                        .append(' ')
-                        .append(props.getString("encounter.removedIssue.Msg"))
-                        .append(":\n")
-                        .append(issueNames)
-                        .toString();
+                strNote = appendRemovedIssueMessage(strNote, request.getLocale(), props, issueNames);
                 note.setNote(strNote);
             }
 
