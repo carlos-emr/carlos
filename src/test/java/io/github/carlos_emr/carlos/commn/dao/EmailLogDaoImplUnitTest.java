@@ -20,7 +20,7 @@ class EmailLogDaoImplUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should reject non-numeric demographicNo before querying")
-    void shouldRejectNonNumericDemographicNo() {
+    void shouldReject_whenDemographicNoIsNonNumeric() {
         Date now = new Date();
 
         assertThatThrownBy(() -> dao.getEmailStatusByDateDemographicSenderStatus(
@@ -31,7 +31,7 @@ class EmailLogDaoImplUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should reject invalid emailStatus before querying")
-    void shouldRejectInvalidEmailStatus() {
+    void shouldReject_whenEmailStatusIsInvalid() {
         Date now = new Date();
 
         assertThatThrownBy(() -> dao.getEmailStatusByDateDemographicSenderStatus(

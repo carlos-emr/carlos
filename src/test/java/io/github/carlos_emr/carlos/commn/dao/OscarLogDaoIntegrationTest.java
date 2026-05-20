@@ -244,7 +244,7 @@ public class OscarLogDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return demographic IDs opened since cutoff")
-        void shouldReturnDemographicIdsOpenedSinceCutoff() throws Exception {
+        void shouldReturnDemographicIds_whenOpenedSinceCutoff() throws Exception {
             Date cutoff = new Date(System.currentTimeMillis() - 10_000);
 
             OscarLog matchingLog = createOscarLog(401, "prov1", "read", "demographic", "401",
@@ -261,7 +261,7 @@ public class OscarLogDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("write")
         @DisplayName("should purge logs by Date parameter")
-        void shouldPurgeLogsByDateParameter() throws Exception {
+        void shouldPurgeLogs_whenDateParameterBound() throws Exception {
             Date cutoff = new Date(System.currentTimeMillis() - 10_000);
 
             OscarLog oldLog = createOscarLog(501, "prov1", "read", "old", "501",

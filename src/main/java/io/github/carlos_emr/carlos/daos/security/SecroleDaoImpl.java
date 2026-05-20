@@ -88,7 +88,7 @@ public class SecroleDaoImpl extends AbstractJpaDao implements SecroleDao {
     @Override
     public List getDefaultRoles() {
         throw new UnsupportedOperationException(
-                "schema gap: Secrole.userDefined removed in JPA migration; reconcile schema before reintroducing");
+                "schema gap: Secrole.userDefined is not present in the secRole schema or mapping; reconcile schema before reintroducing");
     }
 
     @Override

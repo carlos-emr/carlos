@@ -37,7 +37,7 @@ class SecObjPrivilegeDaoIntegrationTest extends CarlosTestBase {
 
     @Test
     @DisplayName("findByFormNamePrivilegeAndProviderNo should ignore inactive provider roles")
-    void shouldIgnoreInactiveProviderRoles() {
+    void shouldIgnoreProviderRoles_whenInactive() {
         createRole("inactiveRole", "999901", 0);
         createPrivilege("inactiveRole", "testFormInactive", "|r|");
         entityManager.flush();
@@ -51,7 +51,7 @@ class SecObjPrivilegeDaoIntegrationTest extends CarlosTestBase {
 
     @Test
     @DisplayName("findByFormNamePrivilegeAndProviderNo should return active provider roles")
-    void shouldReturnActiveProviderRoles() {
+    void shouldReturnProviderRoles_whenActive() {
         createRole("activeRole", "999902", 1);
         createPrivilege("activeRole", "testFormActive", "|w|");
         entityManager.flush();

@@ -34,7 +34,7 @@ class EmailLogDaoIntegrationTest extends CarlosTestBase {
 
     @Test
     @DisplayName("should include logs with null optional associations")
-    void shouldIncludeLogsWithNullOptionalAssociations() {
+    void shouldIncludeLogs_whenOptionalAssociationsAreNull() {
         Date timestamp = new Date();
         EmailLog log = new EmailLog();
         log.setFromEmail("smoke.sender@example.org");

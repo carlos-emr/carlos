@@ -289,7 +289,8 @@ public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarL
             return mysqlFamilyCache;
         } catch (PersistenceException e) {
             logger.warn("Unable to determine database product for OscarLog query selection; using portable log table", e);
-            return false;
+            mysqlFamilyCache = false;
+            return mysqlFamilyCache;
         }
     }
 

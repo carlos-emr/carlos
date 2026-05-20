@@ -416,7 +416,7 @@ public class SecroleDaoIntegrationTest extends CarlosTestBase {
         void shouldFailFast_whenSchemaGapExists() {
             assertThatThrownBy(() -> secroleDao.getDefaultRoles())
                     .isInstanceOf(UnsupportedOperationException.class)
-                    .hasMessageContaining("schema gap: Secrole.userDefined removed in JPA migration");
+                    .hasMessageContaining("schema gap: Secrole.userDefined is not present in the secRole schema or mapping");
         }
     }
 }
