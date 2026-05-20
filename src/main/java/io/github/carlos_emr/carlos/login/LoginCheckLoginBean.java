@@ -118,6 +118,10 @@ public final class LoginCheckLoginBean {
      */
     private static final String LOG_PRE = "Login!@#$: ";
 
+    /**
+     * Pre-computed BCrypt hash of a random decoy password, used only to equalize missing-user
+     * authentication timing with the normal password-validation path.
+     */
     private static final String MISSING_USER_DUMMY_PASSWORD_HASH =
             "{bcrypt}$2b$10$YzOXP.2axkRiYS07sVHWkuyvQjcuwR.bGeZd5WHQVJ23py57UES8C";
 
