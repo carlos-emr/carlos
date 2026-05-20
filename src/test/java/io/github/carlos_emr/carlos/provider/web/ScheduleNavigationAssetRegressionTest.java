@@ -66,6 +66,10 @@ class ScheduleNavigationAssetRegressionTest {
                         + " : UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED");
     }
 
+    /**
+     * Collapses JSP whitespace sequences to single spaces so assertions focus
+     * on defaulting behavior instead of indentation or line wrapping.
+     */
     private static String normalizeWhitespace(String content) {
         return content.replaceAll("\\s+", " ").trim();
     }
