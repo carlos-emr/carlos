@@ -98,7 +98,7 @@ public final class WebappShutdownResources {
      *
      * @param resourceClassLoader ClassLoader that loaded a shutdown-sensitive resource
      * @param owningWebappClassLoader The stopping web application ClassLoader
-     * @return True when the resource should be treated as CARLOS webapp-owned
+     * @return true when the resource should be treated as CARLOS webapp-owned
      */
     static boolean isOwnedByWebappClassLoader(ClassLoader resourceClassLoader, ClassLoader owningWebappClassLoader) {
         // Bootstrap or missing loaders are not webapp-owned JDBC resources.
@@ -119,7 +119,7 @@ public final class WebappShutdownResources {
      *
      * @param possibleAncestor The webapp ClassLoader that may own the resource
      * @param classLoader The resource ClassLoader to inspect
-     * @return True when the resource ClassLoader is a child of the webapp ClassLoader
+     * @return true when the resource ClassLoader is a child of the webapp ClassLoader
      */
     private static boolean isAncestor(ClassLoader possibleAncestor, ClassLoader classLoader) {
         // Shutdown checks a small DriverManager snapshot; avoid caching class-loader

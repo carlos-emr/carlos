@@ -45,7 +45,7 @@ public final class QueueCache<K, V> {
     public QueueCache(int pools, int objectsToCache, long maxTimeToCache, QueueCacheValueCloner<V> cloner) {
         this(pools, objectsToCache, cloner);
         long shiftPeriod = maxTimeToCache / (long) pools;
-        scheduleShiftTask(shiftPeriod, shiftPeriod);
+        schedulePeriodicPoolShift(shiftPeriod, shiftPeriod);
     }
 
     /**
@@ -56,7 +56,7 @@ public final class QueueCache<K, V> {
      * {@link IllegalStateException} and the retry path coordinates with the shared
      * timer slot.
      */
-    private static void scheduleShiftTask(long delay, long period) {
+    private static void schedulePeriodicPoolShift(long delay, long period) {
         Timer sharedTimer = getOrCreateSharedTimer();
         try {
             sharedTimer.schedule(new QueueCache.ShiftTimerTask(), delay, period);
