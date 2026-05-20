@@ -331,7 +331,6 @@ Clinical forms and data import functionality.
 | form/AddRHWorkFlow | io.github.carlos_emr.carlos.form.pageUtil.FrmFormAddRHWorkFlow2Action | Adds reproductive health workflows |
 | form/BCAR2020 | io.github.carlos_emr.carlos.form.FrmBCAR20202Action | Processes BC AR 2020 forms |
 | formBPMH | io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.web.BpmhFormRetrieve2Action | Retrieves Best Possible Medication History forms |
-| formeCARES | io.github.carlos_emr.carlos.form.eCARES.EcaresForm2Action | Processes eCARES forms |
 | form/formname | io.github.carlos_emr.carlos.form.Frm2Action | Generic form processor |
 | form/forwardshortcutname | io.github.carlos_emr.carlos.form.pageUtil.FormForward2Action | Forwards form shortcuts |
 | form/importLogDownload | io.github.carlos_emr.carlos.demographic.pageUtil.ImportLogDownload2Action | Downloads import logs |
