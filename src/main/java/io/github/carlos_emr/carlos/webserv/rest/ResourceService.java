@@ -85,7 +85,7 @@ public class ResourceService extends AbstractServiceImpl {
         ResourceBundle bundle = getResourceBundle();
 
         String preventionPath = CarlosProperties.getInstance().getProperty("PREVENTION_FILE");
-        if (preventionPath != null) {
+        if (preventionPath != null && !preventionPath.trim().isEmpty()) {
             return bundle.getString("prevention.currentrules.propertyfile");
         } else {
             ResourceStorage resourceStorage = resourceStorageDao.findActive(ResourceStorage.PREVENTION_RULES);

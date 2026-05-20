@@ -129,7 +129,7 @@ public class MsgWriteToEncounter2Action extends ActionSupport {
 
         // Security check: requires "_msg" read privilege
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", "r", null)) {
-            throw new SecurityException("missing required sec object: _msg");
+            throw new SecurityException("missing required sec object (_msg r)");
         }
 
         // Generate current date for the encounter

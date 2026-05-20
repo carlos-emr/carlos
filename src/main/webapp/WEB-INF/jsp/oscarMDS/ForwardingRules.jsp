@@ -45,6 +45,7 @@
 
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <link href="<%= request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/css/global.css"/>
     <link rel="stylesheet" type="text/css" href="encounterStyles.css">

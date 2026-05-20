@@ -75,7 +75,7 @@
 <%@page import="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteLinkDAO" %>
 <%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
-<%@page import="io.github.carlos_emr.carlos.utility.LogSanitizer" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LogSafe" %>
 <%@page import="java.util.Objects" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
@@ -152,7 +152,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
         // visible error so the clinician doesn't mistake a broken render for an empty chart.
         MiscUtils.getLogger().error(
                 "notesToDisplay request attribute missing for demographic {} — upstream action misconfigured",
-                LogSanitizer.sanitize(demographicNo));
+                LogSafe.sanitize(demographicNo));
 %>
 <div class="alert alert-danger" role="alert">
     Unable to load encounter notes. Please refresh the page.
@@ -580,7 +580,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
             } else if (note.isInvoice()) {
                 String winName = "invoice" + demographicNo;
                 int hash = Math.abs(winName.hashCode());
-                String url = "popupPage(700,800,'" + hash + "','" + request.getContextPath() + SafeEncode.forHtml(((NoteDisplayNonNote) note).getLinkInfo()) + "'); return false;";
+                String url = "popupPage(700,800,'" + hash + "','" + request.getContextPath() + SafeEncode.forJavaScriptAttribute(((NoteDisplayNonNote) note).getLinkInfo()) + "'); return false;";
             %>
             <div class="view-links"
                  style="<%=(note.isDocument()||note.isCpp()||note.isEformData()||note.isEncounterForm()||note.isInvoice())?(bgColour):""%>">
@@ -744,7 +744,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
 
 
                     <%
-                        if (facility.isEnableEncounterTime() || (program != null && program.isEnableEncounterTime())) {
+                        if (facility.isEnableEncounterTime() || (program != null && program.getEnableEncounterTime())) {
                     %>
                     <div style="clear: right; margin-right: 3px; float: right;">
                         <fmt:message key="encounter.encounterTime.title"/>:&nbsp;<span
@@ -752,7 +752,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
                     </div>
                     <% } %>
                     <%
-                        if (facility.isEnableEncounterTransportationTime() || (program != null && program.isEnableEncounterTransportationTime())) {
+                        if (facility.isEnableEncounterTransportationTime() || (program != null && program.getEnableEncounterTransportationTime())) {
                     %>
                     <div style="clear: right; margin-right: 3px; float: right;">
                         <fmt:message key="encounter.encounterTransportation.title"/>:&nbsp;<span

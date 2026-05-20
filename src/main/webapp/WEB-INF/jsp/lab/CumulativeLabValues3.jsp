@@ -218,6 +218,7 @@
 <!DOCTYPE html>
 <html lang="${pageContext.request.locale.language}">
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <meta charset="UTF-8">
     <title><fmt:message key="lab.cumulativeLab3.pageTitle"/></title>
     <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
@@ -248,9 +249,9 @@
         <oscar:nameage demographicNo="${carlos:forHtmlAttribute(demographicNo)}"/>
     </span>
     <span class="small text-muted">
-        <a href="javascript:popupStart(300,400,'About.jsp')"><fmt:message key="global.about"/></a>
+        <a href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')"><fmt:message key="global.about"/></a>
         &nbsp;|&nbsp;
-        <a href="javascript:popupStart(300,400,'License.jsp')"><fmt:message key="global.license"/></a>
+        <a href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')"><fmt:message key="global.license"/></a>
     </span>
 </div>
 

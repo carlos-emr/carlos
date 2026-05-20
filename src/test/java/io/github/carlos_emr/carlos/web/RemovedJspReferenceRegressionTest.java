@@ -22,8 +22,13 @@
 package io.github.carlos_emr.carlos.web;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -32,6 +37,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @DisplayName("Removed JSP reference regression tests")
 class RemovedJspReferenceRegressionTest {
+    private static final Pattern OSCAR_JS_SCRIPT =
+            Pattern.compile("<script\\b[^>]*src=[\"'][^\"']*/share/javascript/Oscar\\.js[\"'][^>]*>",
+                    Pattern.CASE_INSENSITIVE);
 
     @Test
     @DisplayName("Appointment admin day should not link to removed PMmodule popup JSPs")
@@ -49,5 +57,118 @@ class RemovedJspReferenceRegressionTest {
         String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/rx/SearchDrug3.jsp"));
 
         assertThat(jsp).doesNotContain("/rx/TreatmentMyD.jsp");
+    }
+
+    @Test
+    @DisplayName("WEB-INF JSPs should not reference removed DataTables assets")
+    void shouldNotReferenceRemovedDataTablesAssets_inWebInfJsps() throws IOException {
+        Path jspRoot = Path.of("src/main/webapp/WEB-INF/jsp");
+
+        try (Stream<Path> paths = Files.walk(jspRoot)) {
+            List<Path> offenders = paths
+                    .filter(Files::isRegularFile)
+                    .filter(path -> path.toString().endsWith(".jsp") || path.toString().endsWith(".jspf"))
+                    .filter(path -> containsAny(path, "/library/DataTables/datatables.min.js",
+                            "/library/DataTables/DataTables-1.13.11/css/jquery.dataTables.min.css"))
+                    .toList();
+
+            assertThat(offenders)
+                    .as("JSPs must reference shipped DataTables-1.13.11 assets, not removed compatibility paths")
+                    .isEmpty();
+        }
+    }
+
+    @Test
+    @DisplayName("JSPs using global head should not include Oscar.js directly")
+    void shouldNotDuplicateOscarJsInclude_inGlobalHeadJsps() throws IOException {
+        Path jspRoot = Path.of("src/main/webapp/WEB-INF/jsp");
+
+        try (Stream<Path> paths = Files.walk(jspRoot)) {
+            List<Path> offenders = paths
+                    .filter(Files::isRegularFile)
+                    .filter(path -> path.toString().endsWith(".jsp") || path.toString().endsWith(".jspf"))
+                    .filter(path -> !path.endsWith("global-head.jspf"))
+                    .filter(RemovedJspReferenceRegressionTest::hasGlobalHeadIncludeAndOscarJsScript)
+                    .toList();
+
+            assertThat(offenders)
+                    .withFailMessage(() -> formatOffenderMessage(
+                            "global-head.jspf already includes Oscar.js; JSPs that use it must not include Oscar.js again",
+                            offenders))
+                    .isEmpty();
+        }
+    }
+
+    @Test
+    @DisplayName("Oscar.js force-window list should tolerate duplicate script includes")
+    void shouldUseRedeclarableForceWindowList_inOscarJs() throws IOException {
+        String oscarJs = Files.readString(Path.of("src/main/webapp/share/javascript/Oscar.js"));
+
+        assertThat(oscarJs)
+                .as("legacy JSPs can still include Oscar.js more than once on the same page")
+                .contains("var forceWindowPaths = [")
+                .doesNotContain("const forceWindowPaths = [")
+                .doesNotContain("let forceWindowPaths = [");
+    }
+
+    @Test
+    @DisplayName("Standalone admin JSPs should guard admin-chrome helper calls")
+    void shouldGuardAdminChromeHelpers_inStandaloneAdminJsps() throws IOException {
+        String myGroup = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/admin/admindisplaymygroup.jsp"));
+        String labForwarding = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/admin/labforwardingrules.jsp"));
+
+        assertThat(myGroup)
+                .doesNotContain("if it is")
+                .contains("typeof parent.parent.resizeIframe === 'function'");
+        assertThat(labForwarding).contains("typeof registerFormSubmit === 'function'");
+    }
+
+    @Test
+    @DisplayName("Lab forwarding JSP should load jQuery for standalone popup use")
+    void shouldLoadJqueryBeforeInlineScript_inLabForwardingJsp() throws IOException {
+        String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/admin/labforwardingrules.jsp"));
+
+        assertThat(jsp.indexOf("/library/jquery/jquery-3.7.1.min.js"))
+                .isPositive()
+                .isLessThan(jsp.indexOf("$(\"#providers-selection\")"));
+    }
+
+    private static boolean containsAny(Path path, String... needles) {
+        try {
+            String content = Files.readString(path, StandardCharsets.UTF_8);
+            for (String needle : needles) {
+                if (content.contains(needle)) {
+                    return true;
+                }
+            }
+            return false;
+        } catch (IOException e) {
+            throw new IllegalStateException("Unable to inspect " + path, e);
+        }
+    }
+
+    private static final Pattern GLOBAL_HEAD_INCLUDE = Pattern.compile(
+            "<%@\\s*include\\s+file\\s*=\\s*(['\"])(?:/?(?:WEB-INF/jsp/)?)?(?:[^\"']+/)*includes/global-head\\.jspf\\1\\s*%>",
+            Pattern.CASE_INSENSITIVE);
+
+    private static boolean hasGlobalHeadIncludeAndOscarJsScript(Path path) {
+        try {
+            String content = Files.readString(path, StandardCharsets.UTF_8);
+            if (!content.contains("global-head.jspf") || !content.contains("Oscar.js")) {
+                return false;
+            }
+            return GLOBAL_HEAD_INCLUDE.matcher(content).find()
+                    && OSCAR_JS_SCRIPT.matcher(content).find();
+        } catch (IOException e) {
+            throw new IllegalStateException("Unable to inspect " + path, e);
+        }
+    }
+
+    private static String formatOffenderMessage(String baseMessage, List<Path> offenders) {
+        return baseMessage + System.lineSeparator()
+                + offenders.stream()
+                .map(Path::toString)
+                .sorted()
+                .collect(Collectors.joining(System.lineSeparator()));
     }
 }

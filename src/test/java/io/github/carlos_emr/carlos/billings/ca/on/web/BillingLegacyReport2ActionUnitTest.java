@@ -45,6 +45,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingLegacyReportViewModel;
@@ -61,6 +62,7 @@ class BillingLegacyReport2ActionUnitTest extends CarlosUnitTestBase {
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
     private MockHttpServletRequest request;
+    private MockHttpServletResponse response;
     private LoggedInInfo loggedInInfo;
     private SecurityInfoManager securityInfoManager;
 
@@ -70,6 +72,7 @@ class BillingLegacyReport2ActionUnitTest extends CarlosUnitTestBase {
     @BeforeEach
     void setUp() {
         request = new MockHttpServletRequest();
+        response = new MockHttpServletResponse();
         loggedInInfo = mock(LoggedInInfo.class);
         securityInfoManager = mock(SecurityInfoManager.class);
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.billing"), eq("w"), isNull()))
@@ -77,6 +80,7 @@ class BillingLegacyReport2ActionUnitTest extends CarlosUnitTestBase {
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
 
         loggedInInfoMock = mockStatic(LoggedInInfo.class);
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
@@ -115,6 +119,31 @@ class BillingLegacyReport2ActionUnitTest extends CarlosUnitTestBase {
             BillingLegacyReportViewModel model =
                     (BillingLegacyReportViewModel) request.getAttribute("lreportModel");
             assertThat(model.getFileContents()).isEqualTo("archive-report");
+        }
+    }
+
+    @Test
+    void shouldReturnBadRequest_whenFilenameContainsPathTraversal() throws Exception {
+        Path inbox = Files.createDirectory(tempDir.resolve("inbox"));
+        Files.writeString(inbox.resolve("outside.txt"), "inbox-report");
+        Files.writeString(tempDir.resolve("outside.txt"), "outside-report");
+
+        CarlosProperties props = mock(CarlosProperties.class);
+        when(props.getProperty("ONEDT_INBOX")).thenReturn(inbox.toString());
+
+        request.setParameter("filename", "../outside.txt");
+        request.setParameter("folder", "inbox");
+
+        try (MockedStatic<CarlosProperties> propsMock = mockStatic(CarlosProperties.class)) {
+            propsMock.when(CarlosProperties::getInstance).thenReturn(props);
+
+            String result = new BillingLegacyReport2Action(securityInfoManager).execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(400);
+            assertThat(response.getErrorMessage()).isEqualTo("Invalid report filename.");
+            assertThat(request.getAttribute("lreportModel")).isNull();
+            assertThat(request.getAttribute("readError")).isNull();
         }
     }
 }

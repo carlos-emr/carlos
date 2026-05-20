@@ -121,6 +121,7 @@
 <!DOCTYPE html>
 <html lang="${pageContext.request.locale.language}">
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <meta charset="UTF-8">
     <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
     <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/messenger/encounterStyles.css">
@@ -379,10 +380,10 @@
             <span class="text-muted small">
                 <fmt:message key="messenger.generatePreviewPDF.attachDocFor"/>
             </span>
-            <a href="javascript:popupStart(300,400,'About.jsp')" class="small text-decoration-none">
+            <a href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')" class="small text-decoration-none">
                 <fmt:message key="global.about"/>
             </a>
-            <a href="javascript:popupStart(300,400,'License.jsp')" class="small text-decoration-none">
+            <a href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')" class="small text-decoration-none">
                 <fmt:message key="global.license"/>
             </a>
         </div>

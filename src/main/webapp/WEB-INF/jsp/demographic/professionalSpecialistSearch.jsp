@@ -95,6 +95,7 @@
 
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:message key="demographic.contactSearch.titleProfessional"/></title>
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
@@ -228,7 +229,7 @@
             //-->
         </SCRIPT>
 
-        <form method="post" name="nextform" action="searchRefDoc.jsp">
+        <form method="post" name="nextform" action="<%= request.getContextPath() %>/demographic/ViewProfessionalSpecialistSearch">
             <%
                 if (nLastPage >= 0) {
             %> <input type="submit" class="mbttn" name="submit"

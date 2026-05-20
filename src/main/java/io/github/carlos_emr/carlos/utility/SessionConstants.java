@@ -51,6 +51,9 @@ public class SessionConstants {
     
     /** Session key for the currently selected facility */
     public static final String CURRENT_FACILITY = "currentFacility";
+
+    /** Session key requiring facility selection before protected authenticated routes can run */
+    public static final String PENDING_FACILITY_SELECTION = "pendingFacilitySelection";
     
     /** Session key indicating if intake client is dependent of a family */
     public static final String INTAKE_CLIENT_IS_DEPENDENT_OF_FAMILY = "isClientDependentOfFamily";

@@ -176,6 +176,7 @@
 <html>
 
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
 <title><carlos:encode value='<%= flowSheet %>' context="html"/> - <oscar:nameage demographicNo="<%= safeDemoNoHtml %>"/></title><!--I18n-->
 
 <script type="text/javascript" src="${ pageContext.request.contextPath }/share/javascript/Oscar.js"></script>

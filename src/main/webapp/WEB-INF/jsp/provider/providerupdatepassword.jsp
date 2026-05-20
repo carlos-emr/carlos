@@ -140,6 +140,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title><fmt:message key='provider.updatePassword.title'/></title>
     <script language='javascript'>self.close();</script>
 </head>

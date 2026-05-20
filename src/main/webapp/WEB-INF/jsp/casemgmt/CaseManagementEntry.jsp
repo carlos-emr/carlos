@@ -57,6 +57,7 @@
 %>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <title>Case Management</title>
     <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>

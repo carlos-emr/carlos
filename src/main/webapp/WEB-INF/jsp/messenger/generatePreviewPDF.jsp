@@ -199,6 +199,7 @@
 <!DOCTYPE html>
 <html lang="${carlos:forHtmlAttribute(pageContext.request.locale.language)}">
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <meta charset="UTF-8">
     <title>CARLOS - <fmt:message key="messenger.generatePreviewPDF.title"/></title>
     <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
@@ -350,10 +351,10 @@
                 <fmt:message key="messenger.generatePreviewPDF.attachDocFor"/>
                 ${carlos:forHtml(demoName)}
             </span>
-            <a href="javascript:popupStart(300,400,'About.jsp')" class="small text-decoration-none">
+            <a href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')" class="small text-decoration-none">
                 <fmt:message key="global.about"/>
             </a>
-            <a href="javascript:popupStart(300,400,'License.jsp')" class="small text-decoration-none">
+            <a href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')" class="small text-decoration-none">
                 <fmt:message key="global.license"/>
             </a>
         </div>
