@@ -31,7 +31,7 @@
 --%>
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="java.util.ResourceBundle" %>
-
+<%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
@@ -186,8 +186,8 @@
                     <div class="d-flex align-items-center gap-1 flex-wrap">
                         <input class="form-control form-control-sm fav-dx" type="text" name="dx"
                                value="<carlos:encode value='${favouriteModel.formFields[\"dx\"]}' context='htmlAttribute'/>"
-                               maxlength="4"
-                               placeholder="<fmt:message key='billing.billingOnFavourite.dxHint'/>"/>
+                               maxlength="4"/>
+                        <span class="text-muted small"><fmt:message key="billing.billingOnFavourite.dxHint"/></span>
                         <label class="fw-semibold mb-0 ms-2">
                             <fmt:message key="billing.billingOnFavourite.labelDx1"/>
                         </label>
