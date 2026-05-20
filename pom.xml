@@ -1185,6 +1185,14 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- Playwright for Java — browser-based end-to-end tests (@Tag("e2e")) -->
+        <dependency>
+            <groupId>com.microsoft.playwright</groupId>
+            <artifactId>playwright</artifactId>
+            <version>1.44.0</version>
+            <scope>test</scope>
+        </dependency>
+
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
@@ -1584,6 +1592,8 @@
                         <include>**/managers/**/*Test.java</include>
                         <include>**/*IntegrationTest.java</include>
                         <include>**/*UnitTest.java</include>
+                        <!-- Browser-based end-to-end tests (require running server; auto-skipped if server absent) -->
+                        <include>**/*PlaywrightTest.java</include>
                     </includes>
                     <excludes>
                         <exclude>**/archive/**/*Test.java</exclude>
