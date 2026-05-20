@@ -33,6 +33,7 @@
 
 
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <title>Coronary Artery Disease Risk Prediction</title>
     <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/encounterStyles.css">

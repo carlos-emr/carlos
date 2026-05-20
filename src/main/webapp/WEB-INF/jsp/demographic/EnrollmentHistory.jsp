@@ -174,12 +174,13 @@
 <!DOCTYPE html>
 <html lang="${pageContext.request.locale.language}">
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <meta charset="UTF-8">
     <title><fmt:message key="demographic.enrollementhistory.enrollmentHistory"/></title>
     <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
-    <link rel="stylesheet" type="text/css" href="${ctx}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css">
-    <script type="text/javascript" src="${ctx}/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
-    <script type="text/javascript" src="${ctx}/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="${ctx}/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css">
+    <script type="text/javascript" src="${ctx}/library/DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js"></script>
+    <script type="text/javascript" src="${ctx}/library/DataTables/DataTables-1.13.11/js/dataTables.bootstrap5.min.js"></script>
     <script>
         jQuery(document).ready(function () {
             jQuery('#enrollmentHistoryTbl').DataTable({

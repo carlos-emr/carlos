@@ -154,6 +154,7 @@
 <!DOCTYPE html>
 <html lang="${flatpickrLanguage}">
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title><fmt:message key="tickler.ticklerMain.managerHeading"/></title>
 
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>

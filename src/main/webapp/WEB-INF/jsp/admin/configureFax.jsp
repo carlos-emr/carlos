@@ -96,6 +96,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title><fmt:message key="admin.configureFax.title"/></title>
 
     <meta name="viewport" content="width=device-width,initial-scale=1.0">

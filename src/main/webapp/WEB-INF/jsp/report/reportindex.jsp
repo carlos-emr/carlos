@@ -129,6 +129,7 @@
 <!DOCTYPE html>
 <html lang="${flatpickrLanguage}">
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <% if (showScheduleNav) { %>
         <link rel="stylesheet" href="<%=request.getContextPath()%>/css/topnav.css">

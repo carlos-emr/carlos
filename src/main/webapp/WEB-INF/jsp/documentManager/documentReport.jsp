@@ -159,6 +159,7 @@
 %>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title><fmt:message key="dms.documentReport.titleDocumentManager"/></title>
 
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
@@ -599,7 +600,7 @@
                                             href="javascript:void(0);"
                                             title="<carlos:encode value='<%= curdoc.getDescription() %>' context="htmlAttribute"/>"
                                             style="word-break: break-word;overflow-wrap: anywhere;overflow: hidden;text-overflow: ellipsis;text-decoration: none;"
-                                            onclick="popupFocusPage(500,700,'<%=url%>','demographic_document');">
+                                            onclick="popupFocusPage(500,700,'<carlos:encode value="<%= url %>" context='javaScriptAttribute'/>','demographic_document');">
                                         <carlos:encode value='<%= curdoc.getDescription() %>' context="html"/>
                                     </a>
                                 </td>

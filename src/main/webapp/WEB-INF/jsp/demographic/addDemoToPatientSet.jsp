@@ -70,6 +70,7 @@
 
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title>Add Demographic to Patient Set</title>
 </head>
 <body>

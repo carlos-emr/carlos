@@ -187,6 +187,7 @@
 <!DOCTYPE html>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title><fmt:message key="messenger.CreateMessage.title"/></title>
     <style>
         summary {

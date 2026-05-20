@@ -227,6 +227,7 @@
 <!DOCTYPE html>
 <html lang="${carlos:forHtmlAttribute(pageContext.request.locale.language)}">
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <meta charset="utf-8">
     <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
     <c:set var="ctx" value="${pageContext.request.contextPath}"/>

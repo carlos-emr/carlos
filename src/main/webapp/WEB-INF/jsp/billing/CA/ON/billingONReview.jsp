@@ -53,6 +53,7 @@
 <fmt:message var="msgBtnAddDxRegistry" key="oscar.billing.ca.on.billingON.review.btnAddDxRegistry"/>
 
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title>CARLOS Billing</title>
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0">

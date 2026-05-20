@@ -429,7 +429,7 @@
                                 <% if (!ackFlag) { %>
                                 <input type="button"
                                        value="<fmt:message key="oscarMDS.segmentDisplay.btnAcknowledge"/>"
-                                       onclick="<carlos:encode value='<%= ackLabFunc %>' context="javaScriptAttribute"/>">
+                                       onclick="<carlos:encode value='<%= ackLabFunc %>' context="htmlAttribute"/>">
                                 <input type="button" value="<fmt:message key="oscarMDS.segmentDisplay.btnComment"/>"
                                        onclick="return getComment('<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>','addComment');">
                                 <% } %>
@@ -1302,7 +1302,7 @@ bgcolor="#003399">
                     <td align="left" width="50%">
                         <% if (!ackFlag) { %>
                         <input type="button" value="<fmt:message key="oscarMDS.segmentDisplay.btnAcknowledge"/>"
-                               onclick="<carlos:encode value='<%= ackLabFunc %>' context="javaScriptAttribute"/>">
+                               onclick="<carlos:encode value='<%= ackLabFunc %>' context="htmlAttribute"/>">
                         <input type="button" value="<fmt:message key="oscarMDS.segmentDisplay.btnComment"/>"
                                onclick="getComment('<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>','addComment')">
                         <% } %>

@@ -66,7 +66,7 @@ public class ProgramProviderDAOImpl extends AbstractJpaDao implements ProgramPro
         List<ProgramProvider> results = programProviderByProviderProgramIdCache.get(cacheKey);
 
         if (results == null) {
-            String q = "select pp from ProgramProvider pp where pp.ProgramId=?1 and pp.ProviderNo=?2";
+            String q = "select pp from ProgramProvider pp where pp.programId=?1 and pp.providerNo=?2";
             results = (List<ProgramProvider>) JpqlQueryHelper.find(entityManager(), q, programId, providerNo);
             if (results != null)
                 programProviderByProviderProgramIdCache.put(cacheKey, results);
@@ -84,7 +84,7 @@ public class ProgramProviderDAOImpl extends AbstractJpaDao implements ProgramPro
     @SuppressWarnings("unchecked")
     @Override
     public List<ProgramProvider> getProgramProviderByProviderNo(String providerNo) {
-        String q = "select pp from ProgramProvider pp where pp.ProviderNo=?1";
+        String q = "select pp from ProgramProvider pp where pp.providerNo=?1";
         return (List<ProgramProvider>) JpqlQueryHelper.find(entityManager(), q, providerNo);
     }
 
@@ -96,7 +96,7 @@ public class ProgramProviderDAOImpl extends AbstractJpaDao implements ProgramPro
 
         @SuppressWarnings("unchecked")
         List<ProgramProvider> results = (List<ProgramProvider>) JpqlQueryHelper.find(entityManager(),
-                "from ProgramProvider pp where pp.ProgramId = ?1", programId);
+                "from ProgramProvider pp where pp.programId = ?1", programId);
 
         if (log.isDebugEnabled()) {
             log.debug("getProgramProviders: programId=" + programId + ",# of results=" + results.size());
@@ -110,7 +110,7 @@ public class ProgramProviderDAOImpl extends AbstractJpaDao implements ProgramPro
             throw new IllegalArgumentException();
         }
 
-        String sSQL = "from ProgramProvider pp where pp.ProviderNo = ?1";
+        String sSQL = "from ProgramProvider pp where pp.providerNo = ?1";
         List<ProgramProvider> results = (List<ProgramProvider>) JpqlQueryHelper.find(entityManager(), sSQL, providerNo);
 
         if (log.isDebugEnabled()) {
@@ -125,7 +125,7 @@ public class ProgramProviderDAOImpl extends AbstractJpaDao implements ProgramPro
             throw new IllegalArgumentException();
         }
 
-        String hql = "from ProgramProvider pp where pp.ProviderNo = :providerNo and pp.ProgramId in (select s.id from Program s where s.facilityId = :facilityId or s.facilityId is null)";
+        String hql = "from ProgramProvider pp where pp.providerNo = :providerNo and pp.programId in (select s.id from Program s where s.facilityId = :facilityId or s.facilityId is null)";
         Map<String, Object> params = new HashMap<>();
         params.put("providerNo", providerNo);
         params.put("facilityId", facilityId);
@@ -167,7 +167,7 @@ public class ProgramProviderDAOImpl extends AbstractJpaDao implements ProgramPro
 
 
         ProgramProvider result = null;
-        String queryStr = "from ProgramProvider pp where pp.ProviderNo = ?1 and pp.ProgramId = ?2 and pp.RoleId = ?3";
+        String queryStr = "from ProgramProvider pp where pp.providerNo = ?1 and pp.programId = ?2 and pp.roleId = ?3";
         List results = JpqlQueryHelper.find(entityManager(), queryStr, providerNo, programId, roleId);
 
         if (!results.isEmpty()) {
@@ -193,7 +193,7 @@ public class ProgramProviderDAOImpl extends AbstractJpaDao implements ProgramPro
         }
 
         ProgramProvider result = null;
-        String sSQL = "from ProgramProvider pp where pp.ProviderNo = ?1 and pp.ProgramId = ?2";
+        String sSQL = "from ProgramProvider pp where pp.providerNo = ?1 and pp.programId = ?2";
         List results = JpqlQueryHelper.find(entityManager(), sSQL, providerNo, programId);
         if (!results.isEmpty()) {
             result = (ProgramProvider) results.get(0);
@@ -271,7 +271,7 @@ public class ProgramProviderDAOImpl extends AbstractJpaDao implements ProgramPro
         }
         Long pId = programId.longValue();
 
-        String sSQL = "select pp from ProgramProvider pp left join pp.teams as team where pp.ProgramId = ?1 and team.id = ?2";
+        String sSQL = "select pp from ProgramProvider pp left join pp.teams as team where pp.programId = ?1 and team.id = ?2";
         List<ProgramProvider> results = (List<ProgramProvider>) JpqlQueryHelper.find(entityManager(), sSQL, pId, teamId);
 
         if (log.isDebugEnabled()) {
@@ -289,7 +289,7 @@ public class ProgramProviderDAOImpl extends AbstractJpaDao implements ProgramPro
             throw new IllegalArgumentException();
         }
 
-        String sSQL = "from ProgramProvider pp where pp.ProviderNo = ?1";
+        String sSQL = "from ProgramProvider pp where pp.providerNo = ?1";
         List results = JpqlQueryHelper.find(entityManager(), sSQL, providerNo);
 
         if (log.isDebugEnabled()) {
@@ -304,7 +304,7 @@ public class ProgramProviderDAOImpl extends AbstractJpaDao implements ProgramPro
             throw new IllegalArgumentException();
         }
 
-        String sSQL = "select pp from ProgramProvider pp, Program p where pp.ProgramId=p.id and p.programStatus='active' and pp.ProviderNo = ?1";
+        String sSQL = "select pp from ProgramProvider pp, Program p where pp.programId=p.id and p.programStatus='active' and pp.providerNo = ?1";
         List results = JpqlQueryHelper.find(entityManager(), sSQL, providerNo);
 
         if (log.isDebugEnabled()) {
@@ -319,7 +319,7 @@ public class ProgramProviderDAOImpl extends AbstractJpaDao implements ProgramPro
             throw new IllegalArgumentException();
         }
 
-        String hql = "from ProgramProvider pp where pp.ProviderNo = :providerNo and pp.ProgramId in (select s.id from Program s where s.facilityId = :facilityId or s.facilityId is null)";
+        String hql = "from ProgramProvider pp where pp.providerNo = :providerNo and pp.programId in (select s.id from Program s where s.facilityId = :facilityId or s.facilityId is null)";
         Map<String, Object> params = new HashMap<>();
         params.put("providerNo", providerNo);
         params.put("facilityId", facilityId);
@@ -337,7 +337,7 @@ public class ProgramProviderDAOImpl extends AbstractJpaDao implements ProgramPro
             throw new IllegalArgumentException();
         }
 
-        String queryStr = "from ProgramProvider pp where pp.ProviderNo = ?1 and pp.ProgramId = ?2";
+        String queryStr = "from ProgramProvider pp where pp.providerNo = ?1 and pp.programId = ?2";
         List results = JpqlQueryHelper.find(entityManager(), queryStr,
                 providerNo, Long.valueOf(programId.longValue()));
         if (results != null && results.size() > 0) {
@@ -354,7 +354,7 @@ public class ProgramProviderDAOImpl extends AbstractJpaDao implements ProgramPro
         if (providerNo == null || Long.valueOf(providerNo) == null) {
             throw new IllegalArgumentException();
         }
-        String sSQL = "select distinct f from Facility f, Program p, ProgramProvider pp where pp.ProgramId = p.id and f.id = p.facilityId and pp.ProviderNo = ?1";
+        String sSQL = "select distinct f from Facility f, Program p, ProgramProvider pp where pp.programId = p.id and f.id = p.facilityId and pp.providerNo = ?1";
         List results = JpqlQueryHelper.find(entityManager(), sSQL, providerNo);
 
         return results;

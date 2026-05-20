@@ -39,7 +39,7 @@
     - LoginResourceBean.supportText: Support contact descriptive text or HTML (optional)
   @since 2026-03
 --%>
-<%@ page isErrorPage="true" %>
+<%@ page isErrorPage="true" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%-- Log the captured exception so JSP-render failures don't disappear into a
      generic "CARLOS Error" page with nothing in catalina.out. The logic
      lives in ErrorPageLogger so it can be unit-tested without a JSP
@@ -94,8 +94,8 @@
 <jsp:useBean id="LoginResourceBean" beanName="io.github.carlos_emr.carlos.login.LoginResourceBean" type="io.github.carlos_emr.carlos.login.LoginResourceBean"/>
 <!DOCTYPE html>
 <html>
-
 <head>
+  <meta charset="UTF-8">
     <title>
         <fmt:message key="error.description"/>
     </title>

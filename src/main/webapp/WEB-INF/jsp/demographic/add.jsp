@@ -33,6 +33,7 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>
 <c:set var="ctx" value="${ pageContext.request.contextPath }"/>
 <%-- Retrieve variables from request attributes (set by DemographicAdd2Action) --%>
 <%
@@ -80,6 +81,7 @@
 <!DOCTYPE html>
 <html lang="${pageContext.request.locale.language}">
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title><fmt:message key="demographic.demographicaddrecordhtm.title"/></title>
@@ -137,7 +139,10 @@
             function aSubmit() {
                 syncInputDobParts();
                 if (document.getElementById("eform_iframe") != null) {
-                    document.getElementById("eform_iframe").contentWindow.document.forms[0].submit();
+                    var eformDocument = document.getElementById("eform_iframe").contentWindow.document;
+                    if (eformDocument.forms && eformDocument.forms.length > 0) {
+                        eformDocument.forms[0].submit();
+                    }
                 }
 
                 if (!checkFormTypeIn()) {
@@ -154,12 +159,12 @@
                 }
                 <% } %>
 
-                var rosterStatus = document.adddemographic.roster_status.value;
+                var rosterStatus = document.adddemographic.roster_status ? document.adddemographic.roster_status.value : '';
                 if (rosterStatus == 'RO') {
-                    var rosterEnrolledTo = document.adddemographic.roster_enrolled_to.value;
-                    var rosterDateYear = document.adddemographic.roster_date_year.value;
-                    var rosterDateMonth = document.adddemographic.roster_date_month.value;
-                    var rosterDateDate = document.adddemographic.roster_date_date.value;
+                    var rosterEnrolledTo = document.adddemographic.roster_enrolled_to ? document.adddemographic.roster_enrolled_to.value : '';
+                    var rosterDateYear = document.adddemographic.roster_date_year ? document.adddemographic.roster_date_year.value : '';
+                    var rosterDateMonth = document.adddemographic.roster_date_month ? document.adddemographic.roster_date_month.value : '';
+                    var rosterDateDate = document.adddemographic.roster_date_date ? document.adddemographic.roster_date_date.value : '';
 
                     if (rosterEnrolledTo == '') {
                         alert(i18n.msgEnrolledToRequired);
@@ -337,35 +342,41 @@
             }
 
             function checkResidentStatus() {
-                // If OSCAR program exists (ID 10034), make sure it or another program is selected
-                var rs = document.adddemographic.rsid.value;
-                var oscarOption = document.querySelector('#rsid option[value="10034"]');
+                var rsid = document.adddemographic.rsid;
+                if (!rsid) {
+                    return true;
+                }
 
-                if (oscarOption && rs == "") {
-                    // If OSCAR program exists but nothing selected, select OSCAR
-                    document.adddemographic.rsid.value = "10034";
+                var oscarOption = document.querySelector('#rsid option[value="10034"]');
+                if (oscarOption && rsid.value == "") {
+                    rsid.value = "10034";
                 }
                 return true;
             }
 
             function checkAllDate() {
                 var typeInOK = false;
-                typeInOK = checkDateYMD(document.adddemographic.date_joined_year.value, document.adddemographic.date_joined_month.value, document.adddemographic.date_joined_date.value, "Date Joined");
+                function formValue(name) {
+                    var field = document.adddemographic[name];
+                    return field ? field.value : "";
+                }
+
+                typeInOK = checkDateYMD(formValue("date_joined_year"), formValue("date_joined_month"), formValue("date_joined_date"), "Date Joined");
                 if (!typeInOK) {
                     return false;
                 }
 
-                typeInOK = checkDateYMD(document.adddemographic.end_date_year.value, document.adddemographic.end_date_month.value, document.adddemographic.end_date_date.value, "End Date");
+                typeInOK = checkDateYMD(formValue("end_date_year"), formValue("end_date_month"), formValue("end_date_date"), "End Date");
                 if (!typeInOK) {
                     return false;
                 }
 
-                typeInOK = checkDateYMD(document.adddemographic.hc_renew_date_year.value, document.adddemographic.hc_renew_date_month.value, document.adddemographic.hc_renew_date_date.value, "PCN Date");
+                typeInOK = checkDateYMD(formValue("hc_renew_date_year"), formValue("hc_renew_date_month"), formValue("hc_renew_date_date"), "PCN Date");
                 if (!typeInOK) {
                     return false;
                 }
 
-                typeInOK = checkDateYMD(document.adddemographic.eff_date_year.value, document.adddemographic.eff_date_month.value, document.adddemographic.eff_date_date.value, "EFF Date");
+                typeInOK = checkDateYMD(formValue("eff_date_year"), formValue("eff_date_month"), formValue("eff_date_date"), "EFF Date");
                 if (!typeInOK) {
                     return false;
                 }
@@ -405,7 +416,12 @@
             }
 
             function checkFormTypeIn() {
-                if (document.getElementById("eform_iframe") != null) document.getElementById("eform_iframe").contentWindow.document.forms[0].submit();
+                if (document.getElementById("eform_iframe") != null) {
+                    var eformDocument = document.getElementById("eform_iframe").contentWindow.document;
+                    if (eformDocument.forms && eformDocument.forms.length > 0) {
+                        eformDocument.forms[0].submit();
+                    }
+                }
                 if (!checkName()) return false;
                 if (!checkDob()) return false;
                 if (!checkHin()) return false;
@@ -436,7 +452,8 @@
 
             function autoFillHin() {
                 var hcType = document.getElementById('hc_type').value;
-                var hin = document.getElementById('hin').value;
+                var hinField = document.getElementById('hin');
+                var hin = hinField ? hinField.value : '';
                 if (hcType == 'QC' && hin == '') {
                     var last = document.getElementById('last_name').value;
                     var first = document.getElementById('first_name').value;
@@ -453,9 +470,10 @@
                         mob = parseInt(mob) + 50;
                     }
 
-                    document.getElementById('hin').value = last + first + yob + mob + dob;
-                    hin.focus();
-                    hin.value = hin.value;
+                    if (hinField) {
+                        hinField.value = last + first + yob + mob + dob;
+                        hinField.focus();
+                    }
                 }
             }
 
@@ -469,7 +487,7 @@
                 }
                 jQuery.ajaxSetup({async: false});
                 let findDuplicate = jQuery.post("<%=request.getContextPath()%>/demographicSupport", { method: "checkForDuplicates", lastName: lastName, firstName: firstName });
-                findDuplicate.success(function (data) {
+                findDuplicate.done(function (data) {
                     if (data.hasDuplicates) {
                         console.log(data);
                         ignore = confirm(i18n.confirmDuplicatePatient);
@@ -657,6 +675,7 @@
                 <jsp:include page="/demographic/ViewZdemographicFullTitleSearch" />
 
                 <form method="post" id="adddemographic" name="adddemographic" action="${ctx}/demographic/DemographicAddRecord" novalidate class="needs-validation" onsubmit="return aSubmit()" autocomplete="off">
+                    <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
 
                     <jsp:include page="add-form-personal.jsp"/>
                     <jsp:include page="add-form-clinical.jsp"/>
