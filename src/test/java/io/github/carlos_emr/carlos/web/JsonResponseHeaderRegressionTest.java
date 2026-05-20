@@ -68,19 +68,6 @@ class JsonResponseHeaderRegressionTest extends CarlosUnitTestBase {
             "src/main/java/io/github/carlos_emr/carlos/mds/pageUtil/ReportMacro2Action.java");
     private static final Path MEASUREMENT_DATA_ACTION = PROJECT_ROOT.resolve(
             "src/main/java/io/github/carlos_emr/carlos/measurements/web/MeasurementData2Action.java");
-    private static final String JSON_CONTENT_TYPE_PATTERN =
-            "private\\s+static\\s+final\\s+String\\s+JSON_CONTENT_TYPE\\s*=\\s*"
-                    + "\"application/json;\\s*charset=UTF-8\";";
-    private static final String JACKSON_WRITER_PATTERN =
-            "(?s)response\\.setContentType\\(JSON_CONTENT_TYPE\\);\\s*"
-                    + "objectMapper\\.writeValue\\(response\\.getWriter\\(\\),\\s*json\\);";
-    private static final String SCRIPT_JSON_WRITER_PATTERN =
-            "response\\.setContentType\\(JSON_CONTENT_TYPE\\);\\s*"
-                    + "response\\.getWriter\\(\\)\\.print\\(script\\)";
-    private static final String JSON_WRITE_HELPER_PATTERN = "(?s)private\\s+void\\s+writeJson"
-            + "\\s*\\(\\s*String\\s+json\\s*\\)"
-            + "\\s+throws\\s+IOException\\s*\\{\\s*response\\.setContentType\\(JSON_CONTENT_TYPE\\);"
-            + "\\s*response\\.getOutputStream\\(\\)\\.write\\(json\\.getBytes\\(StandardCharsets\\.UTF_8\\)\\);\\s*\\}";
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
 
@@ -99,18 +86,10 @@ class JsonResponseHeaderRegressionTest extends CarlosUnitTestBase {
         int contentTypeIndex = source.indexOf("response.setContentType(JSON_CONTENT_TYPE);");
         int firstWriteIndex = source.indexOf("response.getWriter().write");
 
-        assertThat(source).containsPattern(JSON_CONTENT_TYPE_PATTERN);
+        assertThat(source).contains("application/json; charset=UTF-8");
         assertThat(contentTypeIndex).isNotNegative();
         assertThat(firstWriteIndex).isNotNegative();
         assertThat(contentTypeIndex).isLessThan(firstWriteIndex);
-    }
-
-    @Test
-    @DisplayName("should use UTF-8 for measurement JSON bytes")
-    void shouldUseUtf8_forMeasurementJsonBytes() throws IOException {
-        String source = Files.readString(MEASUREMENT_DATA_ACTION, StandardCharsets.UTF_8);
-
-        assertThat(source).containsPattern(JSON_WRITE_HELPER_PATTERN);
     }
 
     @Test
@@ -118,11 +97,8 @@ class JsonResponseHeaderRegressionTest extends CarlosUnitTestBase {
     void shouldSetJsonContentType_forMeasurementWritePaths() throws IOException {
         String source = Files.readString(MEASUREMENT_DATA_ACTION, StandardCharsets.UTF_8);
 
-        assertThat(source).containsPattern(JSON_CONTENT_TYPE_PATTERN);
-        assertThat(source)
-                .containsPattern(JACKSON_WRITER_PATTERN)
-                .containsPattern(JSON_WRITE_HELPER_PATTERN);
-        assertThat(source).doesNotContainPattern(SCRIPT_JSON_WRITER_PATTERN);
+        assertThat(source).contains("application/json; charset=UTF-8");
+        assertThat(source).contains("application/javascript; charset=UTF-8");
     }
 
     @Test
@@ -177,6 +153,34 @@ class JsonResponseHeaderRegressionTest extends CarlosUnitTestBase {
         injectDependency(action, "securityInfoManager", securityInfoManager);
 
         action.getDataByType();
+
+        String body = new String(response.getContentAsByteArray(), StandardCharsets.UTF_8);
+        assertThat(response.getContentType()).isEqualTo("application/json; charset=UTF-8");
+        assertThat(response.getCharacterEncoding()).isEqualTo(StandardCharsets.UTF_8.name());
+        assertThat(body).contains("José 東京");
+    }
+
+    @Test
+    @DisplayName("should emit UTF-8 JSON for measurement output stream")
+    void shouldEmitUtf8Json_forMeasurementOutputStream() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        response.setCharacterEncoding(StandardCharsets.ISO_8859_1.name());
+        request.setParameter("demographicNo", "123");
+        request.setParameter("measurementType", "bp");
+        configureServletActionContext(request, response);
+
+        MeasurementDao measurementDao = createAndRegisterMock(MeasurementDao.class);
+        createAndRegisterMock(OscarAppointmentDao.class);
+        createAndRegisterMock(SecurityInfoManager.class);
+        Measurement measurement = newMeasurement("bp", "José 東京");
+
+        when(measurementDao.findByType(eq(123), eq("bp"))).thenReturn(List.of(measurement));
+
+        MeasurementData2Action action = new MeasurementData2Action();
+        injectDependency(action, "measurementDao", measurementDao);
+
+        action.getMeasurementsByType();
 
         String body = new String(response.getContentAsByteArray(), StandardCharsets.UTF_8);
         assertThat(response.getContentType()).isEqualTo("application/json; charset=UTF-8");
