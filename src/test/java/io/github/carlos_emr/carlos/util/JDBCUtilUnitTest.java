@@ -15,6 +15,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.util.Collections;
@@ -28,6 +30,7 @@ import org.w3c.dom.Document;
 import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
 import io.github.carlos_emr.carlos.commn.model.EncounterForm;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 
 @Tag("unit")
 @DisplayName("JDBC XML utilities")
@@ -100,5 +103,35 @@ class JDBCUtilUnitTest extends CarlosUnitTestBase {
 
         assertThatThrownBy(() -> JDBCUtil.validateImportFormTable("provider"))
                 .isInstanceOf(JDBCUtil.XmlImportException.class);
+    }
+
+    @Test
+    @DisplayName("should take XML import patient identity from archive entry name")
+    void shouldTakeXmlImportPatientIdentity_fromArchiveEntryName() throws Exception {
+        ResultSet rs = mock(ResultSet.class);
+        Document document = XmlUtils.createSecureDocumentBuilderFactory()
+                .newDocumentBuilder()
+                .parse(new ByteArrayInputStream("""
+                        <Results>
+                          <Row>
+                            <ID>99</ID>
+                            <demographic_no>999</demographic_no>
+                            <formEdited>attacker-controlled</formEdited>
+                            <notes>trusted body field</notes>
+                          </Row>
+                        </Results>
+                        """.getBytes(StandardCharsets.UTF_8)));
+        JDBCUtil.FormImportTarget target =
+                new JDBCUtil.FormImportTarget("formFoo", "123", "20260520145500");
+
+        JDBCUtil.toResultSet(document, rs);
+        JDBCUtil.applyTrustedImportTarget(target, rs);
+
+        verify(rs, never()).updateString("ID", "99");
+        verify(rs, never()).updateString("demographic_no", "999");
+        verify(rs, never()).updateString("formEdited", "attacker-controlled");
+        verify(rs).updateString("notes", "trusted body field");
+        verify(rs).updateString("demographic_no", "123");
+        verify(rs).updateString("formEdited", "20260520145500");
     }
 }

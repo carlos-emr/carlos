@@ -12,6 +12,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.sql.SQLException;
+import java.util.Properties;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -43,5 +44,13 @@ class FrmRecordHelpUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(() -> FrmRecordHelp.lastInsertedIdSql("oracle"))
                 .isInstanceOf(SQLException.class)
                 .hasMessageContaining("oracle");
+    }
+
+    @Test
+    @DisplayName("should reject non-parameterized form save SQL")
+    void shouldReject_nonParameterizedFormSaveSql() {
+        assertThatThrownBy(() -> new FrmRecordHelp().saveFormRecord(new Properties(), "SELECT * FROM formFoo"))
+                .isInstanceOf(UnsupportedOperationException.class)
+                .hasMessageContaining("parameterized");
     }
 }

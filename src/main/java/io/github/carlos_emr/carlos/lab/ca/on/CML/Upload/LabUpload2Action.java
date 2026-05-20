@@ -37,7 +37,6 @@ import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
-import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -245,8 +244,4 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         return importFile;
     }
 
-    @StrutsParameter
-    public void setImportFile(File importFile) {
-        this.importFile = importFile;
-    }
 }

@@ -61,8 +61,9 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
 
     public String execute()
             throws ServletException, IOException {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(
-                LoggedInInfo.getLoggedInInfoFromSession(request), "_form", SecurityInfoManager.WRITE, null)) {
+                loggedInInfo, "_form", SecurityInfoManager.WRITE, null)) {
             throw new SecurityException("missing required sec object (_form)");
         }
 
@@ -101,6 +102,22 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
                     ZipEntry entry = entries.nextElement();
                     if (entry.isDirectory()) {
                         continue;
+                    }
+                    JDBCUtil.FormImportTarget target;
+                    try {
+                        target = JDBCUtil.parseImportFileName(entry.getName());
+                    } catch (JDBCUtil.XmlImportException e) {
+                        MiscUtils.getLogger().warn(
+                                "Rejected form XML import entry {}",
+                                LogSafe.sanitize(entry.getName()), e);
+                        return reportImportError("Unable to import form data. Check the uploaded archive and try again.");
+                    }
+                    if (!securityInfoManager.hasPrivilege(
+                            loggedInInfo, "_form", SecurityInfoManager.WRITE, target.demographicNo())) {
+                        MiscUtils.getLogger().warn(
+                                "Rejected form XML import entry {} due to missing demographic form write privilege",
+                                LogSafe.sanitize(entry.getName()));
+                        return reportImportError("Unable to import form data. Check the uploaded archive and try again.");
                     }
                     try (InputStream zis = zf.getInputStream(entry)) {
                         JDBCUtil.toDataBase(zis, entry.getName());
@@ -150,11 +167,6 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
     // Setters and Getters for file upload properties
     public File getFile1() {
         return file1;
-    }
-
-    @StrutsParameter
-    public void setFile1(File file1) {
-        this.file1 = file1;
     }
 
     public String getFile1FileName() {

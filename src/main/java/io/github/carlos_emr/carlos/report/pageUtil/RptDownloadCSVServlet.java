@@ -47,12 +47,15 @@ import org.apache.logging.log4j.Logger;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.login.DBHelp;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
 import io.github.carlos_emr.carlos.report.data.RptReportConfigData;
 import io.github.carlos_emr.carlos.report.data.RptReportCreator;
 import io.github.carlos_emr.carlos.report.data.RptReportFilter;
 import io.github.carlos_emr.carlos.report.data.RptReportItem;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 public class RptDownloadCSVServlet extends HttpServlet {
 
@@ -64,6 +67,10 @@ public class RptDownloadCSVServlet extends HttpServlet {
         HttpSession session = request.getSession(false);
         if (session == null)
             return;
+        if (!hasReportDownloadPrivilege(request)) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return;
+        }
         String in = "";
         try {
             in = request.getParameter("demoReport") != null ? demoReport(request) : formReport(request);
@@ -102,6 +109,13 @@ public class RptDownloadCSVServlet extends HttpServlet {
                 }
         }
 
+    }
+
+    boolean hasReportDownloadPrivilege(HttpServletRequest request) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+        return securityInfoManager.hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.READ, null)
+                || securityInfoManager.hasPrivilege(loggedInInfo, "_admin.reporting", SecurityInfoManager.READ, null);
     }
 
     public void init(ServletConfig config) throws ServletException {

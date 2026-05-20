@@ -142,7 +142,7 @@ public class FrmRecordHelp {
      */
     @Deprecated
     public synchronized int saveFormRecord(Properties props, String sql) throws SQLException {
-        return saveFormRecord(props, sql, new Object[0]);
+        throw new UnsupportedOperationException("Form record SQL must be parameterized");
     }
 
     /**

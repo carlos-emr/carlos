@@ -37,6 +37,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
 
 import io.github.carlos_emr.carlos.login.DBHelp;
 import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
@@ -193,6 +194,18 @@ class RptDownloadCSVServletTest {
         verify(emptyResultSet, atLeastOnce()).close();
     }
 
+    @Test
+    @DisplayName("should reject direct CSV download when report privilege is missing")
+    void shouldRejectDirectCsvDownload_withoutReportPrivilege() throws Exception {
+        MockHttpServletRequest request = baseRequest();
+        request.getSession(true);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        new AuthCheckingRptDownloadCSVServlet(false).service(request, response);
+
+        assertThat(response.getStatus()).isEqualTo(jakarta.servlet.http.HttpServletResponse.SC_FORBIDDEN);
+    }
+
     private MockHttpServletRequest baseRequest() {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setMethod("POST");
@@ -276,6 +289,19 @@ class RptDownloadCSVServletTest {
         @Override
         Vector[] getConfiguredFilterValues(String reportId, jakarta.servlet.http.HttpServletRequest request) {
             return RptFormQuery.getValueParam((Vector) request.getAttribute(CONFIGURED_FILTERS_ATTR), request);
+        }
+    }
+
+    private static final class AuthCheckingRptDownloadCSVServlet extends RptDownloadCSVServlet {
+        private final boolean allowed;
+
+        private AuthCheckingRptDownloadCSVServlet(boolean allowed) {
+            this.allowed = allowed;
+        }
+
+        @Override
+        boolean hasReportDownloadPrivilege(jakarta.servlet.http.HttpServletRequest request) {
+            return allowed;
         }
     }
 }

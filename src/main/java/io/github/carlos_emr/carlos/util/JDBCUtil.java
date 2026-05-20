@@ -70,6 +70,7 @@ public class JDBCUtil {
             Pattern.compile("^([A-Za-z][A-Za-z0-9_]*)_(\\d+)_([A-Za-z0-9:-]+)\\.xml$");
     // Legacy built-in form table that is valid but not registered in encounterForm.
     private static final Set<String> INTERNAL_FORM_TABLES = Set.of("formGrowth0_36");
+    private static final Set<String> IMPORT_TARGET_MANAGED_FIELDS = Set.of("demographic_no", "formEdited");
 
     /**
      * Converts the remaining rows in the given result set to XML.
@@ -153,13 +154,14 @@ public class JDBCUtil {
                 LegacyJdbcQuery.trustedSelectSql(insertSql), true, new Object[]{target.demographicNo()})) {
             insert.moveToInsertRow();
             toResultSet(doc, insert);
+            applyTrustedImportTarget(target, insert);
             insert.insertRow();
         } catch (SQLException e) {
             throw new XmlImportException("Unable to insert form XML import row", e);
         }
     }
 
-    static FormImportTarget parseImportFileName(String fileName) throws XmlImportException {
+    public static FormImportTarget parseImportFileName(String fileName) throws XmlImportException {
         if (fileName == null || fileName.contains("/") || fileName.contains("\\")) {
             throw new XmlImportException("Invalid form XML import entry name");
         }
@@ -198,7 +200,7 @@ public class JDBCUtil {
         }
     }
 
-    private static ResultSet toResultSet(Node node, ResultSet rs) throws SQLException {
+    static ResultSet toResultSet(Node node, ResultSet rs) throws SQLException {
         int type = node.getNodeType();
 
         if (type == Node.ELEMENT_NODE) {
@@ -215,7 +217,10 @@ public class JDBCUtil {
                 }
             }
 
-            if (!name.equalsIgnoreCase("Results") && !name.equalsIgnoreCase("Row") && !name.equalsIgnoreCase("ID"))
+            if (!name.equalsIgnoreCase("Results")
+                    && !name.equalsIgnoreCase("Row")
+                    && !name.equalsIgnoreCase("ID")
+                    && !isImportTargetManagedField(name))
                 rs.updateString(name, value);
         }
 
@@ -228,7 +233,18 @@ public class JDBCUtil {
 
     }
 
-    record FormImportTarget(String formName, String demographicNo, String timeStamp) {
+    private static boolean isImportTargetManagedField(String name) {
+        return IMPORT_TARGET_MANAGED_FIELDS.stream().anyMatch(field -> field.equalsIgnoreCase(name));
+    }
+
+    static void applyTrustedImportTarget(FormImportTarget target, ResultSet rs) throws SQLException {
+        // The archive entry name is the import boundary. Do not let XML body fields
+        // choose the patient or edited timestamp for the row being inserted.
+        rs.updateString("demographic_no", target.demographicNo());
+        rs.updateString("formEdited", target.timeStamp());
+    }
+
+    public record FormImportTarget(String formName, String demographicNo, String timeStamp) {
     }
 
     public static class XmlImportException extends Exception {

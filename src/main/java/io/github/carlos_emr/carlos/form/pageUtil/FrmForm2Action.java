@@ -269,10 +269,10 @@ public class FrmForm2Action extends ActionSupport {
             // Store the the form table for keeping the current record
             logger.debug("current mem 8 " + currentMem());
             try {
-                String sql = "SELECT * FROM form" + formName + " WHERE demographic_no='" + demographicNo + "' AND ID=0";
+                String sql = "SELECT * FROM form" + formName + " WHERE demographic_no=? AND ID=0";
                 FrmRecordHelp frh = new FrmRecordHelp();
                 frh.setDateFormat(_dateFormat);
-                (frh).saveFormRecord(props, sql);
+                frh.saveFormRecord(props, sql, demographicNo);
             } catch (SQLException e) {
                 logger.error("Error", e);
             }
