@@ -122,9 +122,8 @@ public class HL7Handler implements MessageHandler {
                     }
                     i++;
                 }
+                n--;
             }
-            n--;
-        }
         }
     }
 

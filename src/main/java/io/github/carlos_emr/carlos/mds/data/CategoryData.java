@@ -381,7 +381,6 @@ public class CategoryData {
                 }
             }
         }
-        return 0;
     }
 
     public int getDocumentCountForUnmatched()

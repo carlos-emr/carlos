@@ -160,32 +160,18 @@ public class Update2Action extends ActionSupport implements UploadedFilesAware {
         return content;
     }
 
-    @Override
-    public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
-        if (uploadedFiles == null) {
-            return;
-        }
-        for (UploadedFile uploaded : uploadedFiles) {
-            if ("content".equals(uploaded.getInputName())) {
-                try {
-                    this.content = PathValidationUtils.validateUpload(UploadedFileUtils.getUploadedFile(uploaded));
-                    this.uploadValidationError = null;
-                } catch (SecurityException e) {
-                    this.content = null;
-                    this.uploadValidationError = e.getMessage();
-                }
-                return;
-            }
-        }
+    public void setContent(File content) {
+        this.content = PathValidationUtils.validateUpload(content);
+        this.uploadValidationError = null;
     }
 
     public UpdateRequest toUpdateRequest() {
         UpdateRequest result = new UpdateRequest();
         result.setResourceID(BigInteger.valueOf(ConversionUtils.fromIntString(resourceId)));
+        if (uploadValidationError != null) {
+            throw new SecurityException(uploadValidationError);
+        }
         try {
-            if (uploadValidationError != null) {
-                throw new SecurityException("Invalid upload file path", new SecurityException(uploadValidationError));
-            }
             if (content == null) {
                 throw new SecurityException("Invalid upload file path", new FileValidationException("Uploaded file is null"));
             }
@@ -196,5 +182,25 @@ public class Update2Action extends ActionSupport implements UploadedFilesAware {
             throw new RuntimeException("Unable to read upload data", e);
         }
         return result;
+    }
+
+    @Override
+    public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
+        if (uploadedFiles == null) {
+            return;
+        }
+        for (UploadedFile uploaded : uploadedFiles) {
+            if (!"content".equals(uploaded.getInputName())) {
+                continue;
+            }
+            try {
+                this.content = PathValidationUtils.validateUpload(UploadedFileUtils.getUploadedFile(uploaded));
+                this.uploadValidationError = null;
+            } catch (SecurityException e) {
+                this.content = null;
+                this.uploadValidationError = "Invalid upload file path";
+            }
+            break;
+        }
     }
 }
