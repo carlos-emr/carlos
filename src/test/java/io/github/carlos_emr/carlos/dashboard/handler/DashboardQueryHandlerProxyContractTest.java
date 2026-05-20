@@ -48,6 +48,8 @@ class DashboardQueryHandlerProxyContractTest {
 
     private static final String DASHBOARD_HANDLER_PACKAGE =
             AbstractQueryHandler.class.getPackageName();
+    private static final Set<Class<? extends AbstractQueryHandler>> EXPECTED_PROXIED_HANDLER_TYPES =
+            Set.of(DrilldownQueryHandler.class, ExportQueryHandler.class, IndicatorQueryHandler.class);
 
     @Test
     @DisplayName("should not declare final methods visible to CGLIB proxies")
@@ -121,17 +123,17 @@ class DashboardQueryHandlerProxyContractTest {
                 .as("Expected to discover at least one concrete production AbstractQueryHandler implementation under package '%s', but only the abstract base type was found. Check the scanner package (%s) and handler locations.",
                         DASHBOARD_HANDLER_PACKAGE, DASHBOARD_HANDLER_PACKAGE)
                 .hasSizeGreaterThan(1);
+        assertThat(handlerTypes)
+                .as("Expected to discover the production dashboard query handlers under package '%s'",
+                        DASHBOARD_HANDLER_PACKAGE)
+                .containsAll(EXPECTED_PROXIED_HANDLER_TYPES);
 
         return handlerTypes;
     }
 
     private static boolean isProductionHandlerType(Class<?> handlerType) {
-        var codeSource = handlerType.getProtectionDomain().getCodeSource();
-        String classOutputLocation = codeSource == null || codeSource.getLocation() == null
-                ? ""
-                : codeSource.getLocation().toExternalForm();
         return !handlerType.getName().contains("$")
-                && !classOutputLocation.contains("/test-classes/");
+                && !handlerType.getName().contains("Test");
     }
 
     private static Stream<Class<?>> proxiedHandlerHierarchy(Class<?> handlerType) {
