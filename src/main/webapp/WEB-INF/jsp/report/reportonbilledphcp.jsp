@@ -48,7 +48,6 @@
 
 <%
     try {
-        DBPreparedHandler dbObj = new DBPreparedHandler();
         ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
         // select provider list
         Properties prop = new Properties();
@@ -56,29 +55,29 @@
 
         sql += "where u.provider_no=p.provider_no  order by p.first_name, p.last_name";
 
-        ResultSet rs = dbObj.queryResults(sql, new DBPreparedHandlerParam[0]);
+        try (ResultSet rs = LegacyJdbcQuery.queryResults(sql, new DBPreparedHandlerParam[0])) {
+            while (rs.next()) {
+                prop = new Properties();
 
-        while (rs.next()) {
-            prop = new Properties();
+                prop.setProperty("providerNo", Misc.getString(rs, "provider_no"));
+                prop.setProperty("firstName", Misc.getString(rs, "first_name"));
+                prop.setProperty("lastName", Misc.getString(rs, "last_name"));
 
-            prop.setProperty("providerNo", Misc.getString(rs, "provider_no"));
-            prop.setProperty("firstName", Misc.getString(rs, "first_name"));
-            prop.setProperty("lastName", Misc.getString(rs, "last_name"));
+                String roleName = Misc.getString(rs, "role_name");
 
-            String roleName = Misc.getString(rs, "role_name");
-
-            for (int i = 0; i < ROLE.length; i++) {
-                if (ROLE[i].equals(roleName)) {
-                    VEC_PROVIDER[i].add(prop);
+                for (int i = 0; i < ROLE.length; i++) {
+                    if (ROLE[i].equals(roleName)) {
+                        VEC_PROVIDER[i].add(prop);
+                    }
                 }
-            }
 
-            if (Misc.getString(rs, "provider_no").equals(providerNo))
-                providerName = Misc.getString(rs, "first_name") + " " + Misc.getString(rs, "last_name");
+                if (Misc.getString(rs, "provider_no").equals(providerNo))
+                    providerName = Misc.getString(rs, "first_name") + " " + Misc.getString(rs, "last_name");
+            }
         }
 %>
-<%@page import="io.github.carlos_emr.carlos.db.DBPreparedHandler" %>
 <%@page import="io.github.carlos_emr.carlos.db.DBPreparedHandlerParam" %>
+<%@page import="io.github.carlos_emr.carlos.db.LegacyJdbcQuery" %>
 
 <%@page import="io.github.carlos_emr.Misc" %>
 <html>
@@ -223,33 +222,36 @@
                 int indexNum = 0;
                 Vector vec = new Vector();
                 sql = "select * from dxphcpgroup order by dxcode, level1, level2 ";
-                rs = dbObj.queryResults(sql, new DBPreparedHandlerParam[0]);
-                while (rs.next()) {
-                    prop = new Properties();
-                    prop.setProperty("dxcode", "" + rs.getInt("dxcode"));
-                    prop.setProperty("level1", Misc.getString(rs, "level1"));
-                    prop.setProperty("level2", Misc.getString(rs, "level2"));
-                    vec.add(prop);
-                    propCatCode.setProperty("" + rs.getInt("dxcode"), "" + indexNum);
-                    indexNum++;
+                try (ResultSet rs = LegacyJdbcQuery.queryResults(sql, new DBPreparedHandlerParam[0])) {
+                    while (rs.next()) {
+                        prop = new Properties();
+                        prop.setProperty("dxcode", "" + rs.getInt("dxcode"));
+                        prop.setProperty("level1", Misc.getString(rs, "level1"));
+                        prop.setProperty("level2", Misc.getString(rs, "level2"));
+                        vec.add(prop);
+                        propCatCode.setProperty("" + rs.getInt("dxcode"), "" + indexNum);
+                        indexNum++;
+                    }
                 }
 
                 if (bDx) {
                     sql =
                             "select distinct(bd.diagnostic_code), dt.description from billingdetail bd, diagnosticcode dt where bd.status!='D' and bd.diagnostic_code = dt.diagnostic_code and bd.appointment_date>=?"
                                     + " and bd.appointment_date<=? order by diagnostic_code";
-                    rs = dbObj.queryResults(sql, new String[]{startDate, endDate});
-                    while (rs.next()) {
-                        vServiceCode.add(Misc.getString(rs, "bd.diagnostic_code"));
-                        vServiceDesc.add(Misc.getString(rs, "dt.description"));
+                    try (ResultSet rs = LegacyJdbcQuery.queryResults(sql, new String[]{startDate, endDate})) {
+                        while (rs.next()) {
+                            vServiceCode.add(Misc.getString(rs, "bd.diagnostic_code"));
+                            vServiceDesc.add(Misc.getString(rs, "dt.description"));
+                        }
                     }
                 } else {
                     // get service code list
                     sql = "select distinct(service_code), service_desc from billingdetail bd where bd.status!='D' and bd.appointment_date>=? and bd.appointment_date<=? order by service_code";
-                    rs = dbObj.queryResults(sql, new String[]{startDate, endDate});
-                    while (rs.next()) {
-                        vServiceCode.add(Misc.getString(rs, "service_code"));
-                        vServiceDesc.add(Misc.getString(rs, "service_desc"));
+                    try (ResultSet rs = LegacyJdbcQuery.queryResults(sql, new String[]{startDate, endDate})) {
+                        while (rs.next()) {
+                            vServiceCode.add(Misc.getString(rs, "service_code"));
+                            vServiceDesc.add(Misc.getString(rs, "service_desc"));
+                        }
                     }
                 }
 
@@ -267,10 +269,11 @@
                                 + " and b.billing_date<=? and b.creator=? and b.status!='D' and bd.status!='D' and bd.service_code=? and bd.service_desc=?";
                         sqlParams = new String[]{startDate, endDate, providerNo, (String) vServiceCode.get(i), (String) vServiceDesc.get(i)};
                     }
-                    rs = dbObj.queryResults(sql, sqlParams);
-                    while (rs.next()) {
-                        props.setProperty(vServiceCode.get(i) + "pat" + vServiceDesc.get(i), Misc.getString(rs,
-                                "count(distinct(b.demographic_no))"));
+                    try (ResultSet rs = LegacyJdbcQuery.queryResults(sql, sqlParams)) {
+                        while (rs.next()) {
+                            props.setProperty(vServiceCode.get(i) + "pat" + vServiceDesc.get(i), Misc.getString(rs,
+                                    "count(distinct(b.demographic_no))"));
+                        }
                     }
 
 
@@ -286,10 +289,11 @@
                                 + " and b.billing_date<=? and b.creator=? and b.status!='D' and bd.status!='D' and bd.service_code=? and bd.service_desc=?";
                         sqlParams = new String[]{startDate, endDate, providerNo, (String) vServiceCode.get(i), (String) vServiceDesc.get(i)};
                     }
-                    rs = dbObj.queryResults(sql, sqlParams);
-                    while (rs.next()) {
-                        props.setProperty(vServiceCode.get(i) + "vis" + vServiceDesc.get(i), Misc.getString(rs, "count(distinct(b.billing_no))"
-                        ));
+                    try (ResultSet rs = LegacyJdbcQuery.queryResults(sql, sqlParams)) {
+                        while (rs.next()) {
+                            props.setProperty(vServiceCode.get(i) + "vis" + vServiceDesc.get(i), Misc.getString(rs, "count(distinct(b.billing_no))"
+                            ));
+                        }
                     }
 
                     // get sex f
@@ -304,10 +308,11 @@
                                 + " and b.billing_date<=? and b.creator=? and b.status!='D' and bd.status!='D' and bd.service_code=? and bd.service_desc=?" + " and d.sex='F'";
                         sqlParams = new String[]{startDate, endDate, providerNo, (String) vServiceCode.get(i), (String) vServiceDesc.get(i)};
                     }
-                    rs = dbObj.queryResults(sql, sqlParams);
-                    while (rs.next()) {
-                        props.setProperty(vServiceCode.get(i) + "patSexF" + vServiceDesc.get(i), Misc.getString(rs,
-                                "count(distinct(b.demographic_no))"));
+                    try (ResultSet rs = LegacyJdbcQuery.queryResults(sql, sqlParams)) {
+                        while (rs.next()) {
+                            props.setProperty(vServiceCode.get(i) + "patSexF" + vServiceDesc.get(i), Misc.getString(rs,
+                                    "count(distinct(b.demographic_no))"));
+                        }
                     }
 
                     if (bDx) {
@@ -321,10 +326,11 @@
                                 + " and b.billing_date<=? and b.creator=? and b.status!='D' and bd.status!='D' and bd.service_code=? and bd.service_desc=?" + " and d.sex='M'";
                         sqlParams = new String[]{startDate, endDate, providerNo, (String) vServiceCode.get(i), (String) vServiceDesc.get(i)};
                     }
-                    rs = dbObj.queryResults(sql, sqlParams);
-                    while (rs.next()) {
-                        props.setProperty(vServiceCode.get(i) + "patSexM" + vServiceDesc.get(i), Misc.getString(rs,
-                                "count(distinct(b.demographic_no))"));
+                    try (ResultSet rs = LegacyJdbcQuery.queryResults(sql, sqlParams)) {
+                        while (rs.next()) {
+                            props.setProperty(vServiceCode.get(i) + "patSexM" + vServiceDesc.get(i), Misc.getString(rs,
+                                    "count(distinct(b.demographic_no))"));
+                        }
                     }
 
                     // get visit sex m
@@ -339,10 +345,11 @@
                                 + " and b.billing_date<=? and b.creator=? and b.status!='D' and bd.status!='D' and bd.service_code=? and bd.service_desc=?" + " and d.sex='F'";
                         sqlParams = new String[]{startDate, endDate, providerNo, (String) vServiceCode.get(i), (String) vServiceDesc.get(i)};
                     }
-                    rs = dbObj.queryResults(sql, sqlParams);
-                    while (rs.next()) {
-                        props.setProperty(vServiceCode.get(i) + "visSexF" + vServiceDesc.get(i), Misc.getString(rs,
-                                "count(distinct(b.billing_no))"));
+                    try (ResultSet rs = LegacyJdbcQuery.queryResults(sql, sqlParams)) {
+                        while (rs.next()) {
+                            props.setProperty(vServiceCode.get(i) + "visSexF" + vServiceDesc.get(i), Misc.getString(rs,
+                                    "count(distinct(b.billing_no))"));
+                        }
                     }
 
                     if (bDx) {
@@ -356,10 +363,11 @@
                                 + " and b.billing_date<=? and b.creator=? and b.status!='D' and bd.status!='D' and bd.service_code=? and bd.service_desc=?" + " and d.sex='M'";
                         sqlParams = new String[]{startDate, endDate, providerNo, (String) vServiceCode.get(i), (String) vServiceDesc.get(i)};
                     }
-                    rs = dbObj.queryResults(sql, sqlParams);
-                    while (rs.next()) {
-                        props.setProperty(vServiceCode.get(i) + "visSexM" + vServiceDesc.get(i), Misc.getString(rs,
-                                "count(distinct(b.billing_no))"));
+                    try (ResultSet rs = LegacyJdbcQuery.queryResults(sql, sqlParams)) {
+                        while (rs.next()) {
+                            props.setProperty(vServiceCode.get(i) + "visSexM" + vServiceDesc.get(i), Misc.getString(rs,
+                                    "count(distinct(b.billing_no))"));
+                        }
                     }
 
                     // get age 0-1
@@ -376,11 +384,11 @@
                                 + " and (YEAR(CURRENT_DATE)-YEAR(DATE_FORMAT(CONCAT((d.year_of_birth),'-',(d.month_of_birth),'-',(d.date_of_birth)),'%Y-%m-%d'))) - (RIGHT(CURRENT_DATE,5)<RIGHT(DATE_FORMAT(CONCAT((d.year_of_birth), '-', (d.month_of_birth), '-', (d.date_of_birth)), '%Y-%m-%d'),5)) <=1 ";
                         sqlParams = new String[]{startDate, endDate, providerNo, (String) vServiceCode.get(i), (String) vServiceDesc.get(i)};
                     }
-                    rs = dbObj.queryResults(sql, sqlParams);
-
-                    while (rs.next()) {
-                        props.setProperty(vServiceCode.get(i) + "pat0_1" + vServiceDesc.get(i), Misc.getString(rs,
-                                "count(distinct(b.demographic_no))"));
+                    try (ResultSet rs = LegacyJdbcQuery.queryResults(sql, sqlParams)) {
+                        while (rs.next()) {
+                            props.setProperty(vServiceCode.get(i) + "pat0_1" + vServiceDesc.get(i), Misc.getString(rs,
+                                    "count(distinct(b.demographic_no))"));
+                        }
                     }
 
                     if (bDx) {
@@ -396,11 +404,11 @@
                                 + " and (YEAR(CURRENT_DATE)-YEAR(DATE_FORMAT(CONCAT((d.year_of_birth),'-',(d.month_of_birth),'-',(d.date_of_birth)),'%Y-%m-%d'))) - (RIGHT(CURRENT_DATE,5)<RIGHT(DATE_FORMAT(CONCAT((d.year_of_birth), '-', (d.month_of_birth), '-', (d.date_of_birth)), '%Y-%m-%d'),5)) <=1 ";
                         sqlParams = new String[]{startDate, endDate, providerNo, (String) vServiceCode.get(i), (String) vServiceDesc.get(i)};
                     }
-                    rs = dbObj.queryResults(sql, sqlParams);
-
-                    while (rs.next()) {
-                        props.setProperty(vServiceCode.get(i) + "vis0_1" + vServiceDesc.get(i), Misc.getString(rs,
-                                "count(distinct(b.billing_no))"));
+                    try (ResultSet rs = LegacyJdbcQuery.queryResults(sql, sqlParams)) {
+                        while (rs.next()) {
+                            props.setProperty(vServiceCode.get(i) + "vis0_1" + vServiceDesc.get(i), Misc.getString(rs,
+                                    "count(distinct(b.billing_no))"));
+                        }
                     }
 
                     // get age 2-11
@@ -421,10 +429,11 @@
                                 " and (YEAR(CURRENT_DATE)-YEAR(DATE_FORMAT(CONCAT((d.year_of_birth), '-', (d.month_of_birth), '-', (d.date_of_birth)), '%Y-%m-%d'))) - (RIGHT(CURRENT_DATE,5)<RIGHT(DATE_FORMAT(CONCAT((d.year_of_birth), '-', (d.month_of_birth), '-', (d.date_of_birth)), '%Y-%m-%d'),5)) >=2 ";
                         sqlParams = new String[]{startDate, endDate, providerNo, (String) vServiceCode.get(i), (String) vServiceDesc.get(i)};
                     }
-                    rs = dbObj.queryResults(sql, sqlParams);
-                    while (rs.next()) {
-                        props.setProperty(vServiceCode.get(i) + "pat2_11" + vServiceDesc.get(i), Misc.getString(rs,
-                                "count(distinct(b.demographic_no))"));
+                    try (ResultSet rs = LegacyJdbcQuery.queryResults(sql, sqlParams)) {
+                        while (rs.next()) {
+                            props.setProperty(vServiceCode.get(i) + "pat2_11" + vServiceDesc.get(i), Misc.getString(rs,
+                                    "count(distinct(b.demographic_no))"));
+                        }
                     }
 
                     if (bDx) {
@@ -444,10 +453,11 @@
                                 " and (YEAR(CURRENT_DATE)-YEAR(DATE_FORMAT(CONCAT((d.year_of_birth), '-', (d.month_of_birth), '-', (d.date_of_birth)), '%Y-%m-%d'))) - (RIGHT(CURRENT_DATE,5)<RIGHT(DATE_FORMAT(CONCAT((d.year_of_birth), '-', (d.month_of_birth), '-', (d.date_of_birth)), '%Y-%m-%d'),5)) >=2 ";
                         sqlParams = new String[]{startDate, endDate, providerNo, (String) vServiceCode.get(i), (String) vServiceDesc.get(i)};
                     }
-                    rs = dbObj.queryResults(sql, sqlParams);
-                    while (rs.next()) {
-                        props.setProperty(vServiceCode.get(i) + "vis2_11" + vServiceDesc.get(i), Misc.getString(rs,
-                                "count(distinct(b.billing_no))"));
+                    try (ResultSet rs = LegacyJdbcQuery.queryResults(sql, sqlParams)) {
+                        while (rs.next()) {
+                            props.setProperty(vServiceCode.get(i) + "vis2_11" + vServiceDesc.get(i), Misc.getString(rs,
+                                    "count(distinct(b.billing_no))"));
+                        }
                     }
 
                     // get age 12-20
@@ -468,10 +478,11 @@
                                 " and (YEAR(CURRENT_DATE)-YEAR(DATE_FORMAT(CONCAT((d.year_of_birth), '-', (d.month_of_birth), '-', (d.date_of_birth)), '%Y-%m-%d'))) - (RIGHT(CURRENT_DATE,5)<RIGHT(DATE_FORMAT(CONCAT((d.year_of_birth), '-', (d.month_of_birth), '-', (d.date_of_birth)), '%Y-%m-%d'),5)) >=12 ";
                         sqlParams = new String[]{startDate, endDate, providerNo, (String) vServiceCode.get(i), (String) vServiceDesc.get(i)};
                     }
-                    rs = dbObj.queryResults(sql, sqlParams);
-                    while (rs.next()) {
-                        props.setProperty(vServiceCode.get(i) + "pat12_20" + vServiceDesc.get(i), Misc.getString(rs,
-                                "count(distinct(b.demographic_no))"));
+                    try (ResultSet rs = LegacyJdbcQuery.queryResults(sql, sqlParams)) {
+                        while (rs.next()) {
+                            props.setProperty(vServiceCode.get(i) + "pat12_20" + vServiceDesc.get(i), Misc.getString(rs,
+                                    "count(distinct(b.demographic_no))"));
+                        }
                     }
 
                     if (bDx) {
@@ -491,10 +502,11 @@
                                 " and (YEAR(CURRENT_DATE)-YEAR(DATE_FORMAT(CONCAT((d.year_of_birth), '-', (d.month_of_birth), '-', (d.date_of_birth)), '%Y-%m-%d'))) - (RIGHT(CURRENT_DATE,5)<RIGHT(DATE_FORMAT(CONCAT((d.year_of_birth), '-', (d.month_of_birth), '-', (d.date_of_birth)), '%Y-%m-%d'),5)) >=12 ";
                         sqlParams = new String[]{startDate, endDate, providerNo, (String) vServiceCode.get(i), (String) vServiceDesc.get(i)};
                     }
-                    rs = dbObj.queryResults(sql, sqlParams);
-                    while (rs.next()) {
-                        props.setProperty(vServiceCode.get(i) + "vis12_20" + vServiceDesc.get(i), Misc.getString(rs,
-                                "count(distinct(b.billing_no))"));
+                    try (ResultSet rs = LegacyJdbcQuery.queryResults(sql, sqlParams)) {
+                        while (rs.next()) {
+                            props.setProperty(vServiceCode.get(i) + "vis12_20" + vServiceDesc.get(i), Misc.getString(rs,
+                                    "count(distinct(b.billing_no))"));
+                        }
                     }
 
                     // get age 21-34
@@ -515,10 +527,11 @@
                                 " and (YEAR(CURRENT_DATE)-YEAR(DATE_FORMAT(CONCAT((d.year_of_birth), '-', (d.month_of_birth), '-', (d.date_of_birth)), '%Y-%m-%d'))) - (RIGHT(CURRENT_DATE,5)<RIGHT(DATE_FORMAT(CONCAT((d.year_of_birth), '-', (d.month_of_birth), '-', (d.date_of_birth)), '%Y-%m-%d'),5)) >=21 ";
                         sqlParams = new String[]{startDate, endDate, providerNo, (String) vServiceCode.get(i), (String) vServiceDesc.get(i)};
                     }
-                    rs = dbObj.queryResults(sql, sqlParams);
-                    while (rs.next()) {
-                        props.setProperty(vServiceCode.get(i) + "pat21_34" + vServiceDesc.get(i), Misc.getString(rs,
-                                "count(distinct(b.demographic_no))"));
+                    try (ResultSet rs = LegacyJdbcQuery.queryResults(sql, sqlParams)) {
+                        while (rs.next()) {
+                            props.setProperty(vServiceCode.get(i) + "pat21_34" + vServiceDesc.get(i), Misc.getString(rs,
+                                    "count(distinct(b.demographic_no))"));
+                        }
                     }
 
                     if (bDx) {
@@ -538,10 +551,11 @@
                                 " and (YEAR(CURRENT_DATE)-YEAR(DATE_FORMAT(CONCAT((d.year_of_birth), '-', (d.month_of_birth), '-', (d.date_of_birth)), '%Y-%m-%d'))) - (RIGHT(CURRENT_DATE,5)<RIGHT(DATE_FORMAT(CONCAT((d.year_of_birth), '-', (d.month_of_birth), '-', (d.date_of_birth)), '%Y-%m-%d'),5)) >=21 ";
                         sqlParams = new String[]{startDate, endDate, providerNo, (String) vServiceCode.get(i), (String) vServiceDesc.get(i)};
                     }
-                    rs = dbObj.queryResults(sql, sqlParams);
-                    while (rs.next()) {
-                        props.setProperty(vServiceCode.get(i) + "vis21_34" + vServiceDesc.get(i), Misc.getString(rs,
-                                "count(distinct(b.billing_no))"));
+                    try (ResultSet rs = LegacyJdbcQuery.queryResults(sql, sqlParams)) {
+                        while (rs.next()) {
+                            props.setProperty(vServiceCode.get(i) + "vis21_34" + vServiceDesc.get(i), Misc.getString(rs,
+                                    "count(distinct(b.billing_no))"));
+                        }
                     }
 
                     // get age 35-50
@@ -562,10 +576,11 @@
                                 " and (YEAR(CURRENT_DATE)-YEAR(DATE_FORMAT(CONCAT((d.year_of_birth), '-', (d.month_of_birth), '-', (d.date_of_birth)), '%Y-%m-%d'))) - (RIGHT(CURRENT_DATE,5)<RIGHT(DATE_FORMAT(CONCAT((d.year_of_birth), '-', (d.month_of_birth), '-', (d.date_of_birth)), '%Y-%m-%d'),5)) >=35 ";
                         sqlParams = new String[]{startDate, endDate, providerNo, (String) vServiceCode.get(i), (String) vServiceDesc.get(i)};
                     }
-                    rs = dbObj.queryResults(sql, sqlParams);
-                    while (rs.next()) {
-                        props.setProperty(vServiceCode.get(i) + "pat35_50" + vServiceDesc.get(i), Misc.getString(rs,
-                                "count(distinct(b.demographic_no))"));
+                    try (ResultSet rs = LegacyJdbcQuery.queryResults(sql, sqlParams)) {
+                        while (rs.next()) {
+                            props.setProperty(vServiceCode.get(i) + "pat35_50" + vServiceDesc.get(i), Misc.getString(rs,
+                                    "count(distinct(b.demographic_no))"));
+                        }
                     }
 
                     if (bDx) {
@@ -585,10 +600,11 @@
                                 " and (YEAR(CURRENT_DATE)-YEAR(DATE_FORMAT(CONCAT((d.year_of_birth), '-', (d.month_of_birth), '-', (d.date_of_birth)), '%Y-%m-%d'))) - (RIGHT(CURRENT_DATE,5)<RIGHT(DATE_FORMAT(CONCAT((d.year_of_birth), '-', (d.month_of_birth), '-', (d.date_of_birth)), '%Y-%m-%d'),5)) >=35 ";
                         sqlParams = new String[]{startDate, endDate, providerNo, (String) vServiceCode.get(i), (String) vServiceDesc.get(i)};
                     }
-                    rs = dbObj.queryResults(sql, sqlParams);
-                    while (rs.next()) {
-                        props.setProperty(vServiceCode.get(i) + "vis35_50" + vServiceDesc.get(i), Misc.getString(rs,
-                                "count(distinct(b.billing_no))"));
+                    try (ResultSet rs = LegacyJdbcQuery.queryResults(sql, sqlParams)) {
+                        while (rs.next()) {
+                            props.setProperty(vServiceCode.get(i) + "vis35_50" + vServiceDesc.get(i), Misc.getString(rs,
+                                    "count(distinct(b.billing_no))"));
+                        }
                     }
 
                     // get age 51-64
@@ -609,10 +625,11 @@
                                 " and (YEAR(CURRENT_DATE)-YEAR(DATE_FORMAT(CONCAT((d.year_of_birth), '-', (d.month_of_birth), '-', (d.date_of_birth)), '%Y-%m-%d'))) - (RIGHT(CURRENT_DATE,5)<RIGHT(DATE_FORMAT(CONCAT((d.year_of_birth), '-', (d.month_of_birth), '-', (d.date_of_birth)), '%Y-%m-%d'),5)) >=51 ";
                         sqlParams = new String[]{startDate, endDate, providerNo, (String) vServiceCode.get(i), (String) vServiceDesc.get(i)};
                     }
-                    rs = dbObj.queryResults(sql, sqlParams);
-                    while (rs.next()) {
-                        props.setProperty(vServiceCode.get(i) + "pat51_64" + vServiceDesc.get(i), Misc.getString(rs,
-                                "count(distinct(b.demographic_no))"));
+                    try (ResultSet rs = LegacyJdbcQuery.queryResults(sql, sqlParams)) {
+                        while (rs.next()) {
+                            props.setProperty(vServiceCode.get(i) + "pat51_64" + vServiceDesc.get(i), Misc.getString(rs,
+                                    "count(distinct(b.demographic_no))"));
+                        }
                     }
 
                     if (bDx) {
@@ -632,10 +649,11 @@
                                 " and (YEAR(CURRENT_DATE)-YEAR(DATE_FORMAT(CONCAT((d.year_of_birth), '-', (d.month_of_birth), '-', (d.date_of_birth)), '%Y-%m-%d'))) - (RIGHT(CURRENT_DATE,5)<RIGHT(DATE_FORMAT(CONCAT((d.year_of_birth), '-', (d.month_of_birth), '-', (d.date_of_birth)), '%Y-%m-%d'),5)) >=51 ";
                         sqlParams = new String[]{startDate, endDate, providerNo, (String) vServiceCode.get(i), (String) vServiceDesc.get(i)};
                     }
-                    rs = dbObj.queryResults(sql, sqlParams);
-                    while (rs.next()) {
-                        props.setProperty(vServiceCode.get(i) + "vis51_64" + vServiceDesc.get(i), Misc.getString(rs,
-                                "count(distinct(b.billing_no))"));
+                    try (ResultSet rs = LegacyJdbcQuery.queryResults(sql, sqlParams)) {
+                        while (rs.next()) {
+                            props.setProperty(vServiceCode.get(i) + "vis51_64" + vServiceDesc.get(i), Misc.getString(rs,
+                                    "count(distinct(b.billing_no))"));
+                        }
                     }
 
                     // get age 65-70
@@ -656,10 +674,11 @@
                                 " and (YEAR(CURRENT_DATE)-YEAR(DATE_FORMAT(CONCAT((d.year_of_birth), '-', (d.month_of_birth), '-', (d.date_of_birth)), '%Y-%m-%d'))) - (RIGHT(CURRENT_DATE,5)<RIGHT(DATE_FORMAT(CONCAT((d.year_of_birth), '-', (d.month_of_birth), '-', (d.date_of_birth)), '%Y-%m-%d'),5)) >=65 ";
                         sqlParams = new String[]{startDate, endDate, providerNo, (String) vServiceCode.get(i), (String) vServiceDesc.get(i)};
                     }
-                    rs = dbObj.queryResults(sql, sqlParams);
-                    while (rs.next()) {
-                        props.setProperty(vServiceCode.get(i) + "pat65_70" + vServiceDesc.get(i), Misc.getString(rs,
-                                "count(distinct(b.demographic_no))"));
+                    try (ResultSet rs = LegacyJdbcQuery.queryResults(sql, sqlParams)) {
+                        while (rs.next()) {
+                            props.setProperty(vServiceCode.get(i) + "pat65_70" + vServiceDesc.get(i), Misc.getString(rs,
+                                    "count(distinct(b.demographic_no))"));
+                        }
                     }
 
                     if (bDx) {
@@ -679,10 +698,11 @@
                                 " and (YEAR(CURRENT_DATE)-YEAR(DATE_FORMAT(CONCAT((d.year_of_birth), '-', (d.month_of_birth), '-', (d.date_of_birth)), '%Y-%m-%d'))) - (RIGHT(CURRENT_DATE,5)<RIGHT(DATE_FORMAT(CONCAT((d.year_of_birth), '-', (d.month_of_birth), '-', (d.date_of_birth)), '%Y-%m-%d'),5)) >=65 ";
                         sqlParams = new String[]{startDate, endDate, providerNo, (String) vServiceCode.get(i), (String) vServiceDesc.get(i)};
                     }
-                    rs = dbObj.queryResults(sql, sqlParams);
-                    while (rs.next()) {
-                        props.setProperty(vServiceCode.get(i) + "vis65_70" + vServiceDesc.get(i), Misc.getString(rs,
-                                "count(distinct(b.billing_no))"));
+                    try (ResultSet rs = LegacyJdbcQuery.queryResults(sql, sqlParams)) {
+                        while (rs.next()) {
+                            props.setProperty(vServiceCode.get(i) + "vis65_70" + vServiceDesc.get(i), Misc.getString(rs,
+                                    "count(distinct(b.billing_no))"));
+                        }
                     }
 
                     // get age 71-
@@ -699,10 +719,11 @@
                                 " and (YEAR(CURRENT_DATE)-YEAR(DATE_FORMAT(CONCAT((d.year_of_birth), '-', (d.month_of_birth), '-', (d.date_of_birth)), '%Y-%m-%d'))) - (RIGHT(CURRENT_DATE,5)<RIGHT(DATE_FORMAT(CONCAT((d.year_of_birth), '-', (d.month_of_birth), '-', (d.date_of_birth)), '%Y-%m-%d'),5)) >=71 ";
                         sqlParams = new String[]{startDate, endDate, providerNo, (String) vServiceCode.get(i), (String) vServiceDesc.get(i)};
                     }
-                    rs = dbObj.queryResults(sql, sqlParams);
-                    while (rs.next()) {
-                        props.setProperty(vServiceCode.get(i) + "pat71_" + vServiceDesc.get(i), Misc.getString(rs,
-                                "count(distinct(b.demographic_no))"));
+                    try (ResultSet rs = LegacyJdbcQuery.queryResults(sql, sqlParams)) {
+                        while (rs.next()) {
+                            props.setProperty(vServiceCode.get(i) + "pat71_" + vServiceDesc.get(i), Misc.getString(rs,
+                                    "count(distinct(b.demographic_no))"));
+                        }
                     }
 
                     if (bDx) {
@@ -718,10 +739,11 @@
                                 " and (YEAR(CURRENT_DATE)-YEAR(DATE_FORMAT(CONCAT((d.year_of_birth), '-', (d.month_of_birth), '-', (d.date_of_birth)), '%Y-%m-%d'))) - (RIGHT(CURRENT_DATE,5)<RIGHT(DATE_FORMAT(CONCAT((d.year_of_birth), '-', (d.month_of_birth), '-', (d.date_of_birth)), '%Y-%m-%d'),5)) >=71 ";
                         sqlParams = new String[]{startDate, endDate, providerNo, (String) vServiceCode.get(i), (String) vServiceDesc.get(i)};
                     }
-                    rs = dbObj.queryResults(sql, sqlParams);
-                    while (rs.next()) {
-                        props.setProperty(vServiceCode.get(i) + "vis71_" + vServiceDesc.get(i), Misc.getString(rs,
-                                "count(distinct(b.billing_no))"));
+                    try (ResultSet rs = LegacyJdbcQuery.queryResults(sql, sqlParams)) {
+                        while (rs.next()) {
+                            props.setProperty(vServiceCode.get(i) + "vis71_" + vServiceDesc.get(i), Misc.getString(rs,
+                                    "count(distinct(b.billing_no))"));
+                        }
                     }
                 }
     %>

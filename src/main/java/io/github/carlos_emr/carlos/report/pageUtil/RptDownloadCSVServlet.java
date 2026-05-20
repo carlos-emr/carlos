@@ -29,7 +29,7 @@ import java.io.OutputStream;
 import java.io.StringWriter;
 import java.sql.ResultSet;
 import java.util.ArrayList;
-import java.util.Enumeration;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 import java.util.Vector;
@@ -41,18 +41,18 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVPrinter;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.login.DBHelp;
 import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
 import io.github.carlos_emr.carlos.report.data.RptReportConfigData;
 import io.github.carlos_emr.carlos.report.data.RptReportCreator;
+import io.github.carlos_emr.carlos.report.data.RptReportFilter;
 import io.github.carlos_emr.carlos.report.data.RptReportItem;
-
-import org.apache.commons.csv.CSVFormat;
-import org.apache.commons.csv.CSVPrinter;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 public class RptDownloadCSVServlet extends HttpServlet {
 
@@ -126,7 +126,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
             Vector vecFieldCaption = vecField[1];
 
 
-            Vector vecFieldValue = (new RptReportCreator()).query(psql.getSql(), vecFieldCaption, psql.getParamsArray());
+            Vector vecFieldValue = (new RptReportCreator()).query(psql, vecFieldCaption);
 
             StringWriter swr = new StringWriter();
             CSVFormat format = CSVFormat.Builder.create(CSVFormat.DEFAULT)
@@ -158,6 +158,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
     private String demoReport(HttpServletRequest request) throws Exception {
         reportName = "clientDatabaseReport";
         String in = "";
+        String reportId = request.getParameter("id") != null ? request.getParameter("id") : "0";
 
 
         String ARTYPE = "formBCAR";
@@ -227,54 +228,42 @@ public class RptDownloadCSVServlet extends HttpServlet {
         String sARSelect = "";
 
 
-        String CHECK_BOX = "filter_";
-        String VALUE = "value_";
-        String DATE_FORMAT = "dateFormat_";
         String VARNAME_FORMAT = "startDate\\d|endDate\\d";
-        Vector vecValue = new Vector();
-        Vector vecDateFormat = new Vector();
+        Vector[] valueParams = getConfiguredFilterValues(reportId, request);
+        Vector vecValue = valueParams[0];
+        Vector vecDateFormat = valueParams[1];
         Properties propTempDemoSelect = new Properties();
-        Properties propTempARSelect = new Properties();
         Properties propTempSpecSelect = new Properties();
 
-        Enumeration varEnum = request.getParameterNames();
-        while (varEnum.hasMoreElements()) {
-            String name = (String) varEnum.nextElement();
-            if (propDemoSelect.containsKey(name)) {
+        // Build SQL column selections from server-owned allowlists. The request
+        // only supplies "selected/not selected"; column names never come from
+        // request parameter names or hidden fields.
+        for (Object field : vecSeqDemoSelect) {
+            String name = (String) field;
+            if (request.getParameter(name) != null) {
                 bDemoSelect = true;
                 propTempDemoSelect.setProperty(name, "");
             }
-            if (propARSelect.containsKey(name)) {
+        }
+        for (Object field : vecSeqARSelect) {
+            String name = (String) field;
+            if (request.getParameter(name) != null) {
                 bARSelect = true;
-
-
                 if (!name.equals("ga") && !name.equals("b_primiparous"))
                     sARSelect += (sARSelect.length() < 1 ? "" : ",") + ARTYPE + "." + name;
             }
-            if (propSpecSelect.containsKey(name)) {
+        }
+        for (Object field : vecSeqSpecSelect) {
+            String name = (String) field;
+            if (request.getParameter(name) != null) {
                 bSpecSelect = true;
-                sSpecSelect += (sSpecSelect.length() < 1 ? "" : ",") + "demographicExt." + name;
-            }
-
-            if (name.startsWith(VALUE)) {
-                String serialNo = name.substring(VALUE.length());
-                if (request.getParameter(CHECK_BOX + serialNo) == null)
-                    continue;
-
-                vecValue.add(request.getParameter(name));
-                vecDateFormat.add(request.getParameter(DATE_FORMAT + serialNo));
-
+                propTempSpecSelect.setProperty(name, "");
             }
         }
 //         get seq. select string
         for (int i = 0; i < vecSeqDemoSelect.size(); i++) {
             if (propTempDemoSelect.getProperty((String) vecSeqDemoSelect.get(i)) != null) {
                 sDemoSelect += (sDemoSelect.length() < 1 ? "" : ",") + "demographic." + vecSeqDemoSelect.get(i);
-            }
-        }
-        for (int i = 0; i < vecSeqARSelect.size(); i++) {
-            if (propTempARSelect.getProperty((String) vecSeqARSelect.get(i)) != null) {
-                sARSelect += (sARSelect.length() < 1 ? "" : ",") + ARTYPE + "." + vecSeqARSelect.get(i);
             }
         }
         for (int i = 0; i < vecSeqSpecSelect.size(); i++) {
@@ -329,10 +318,14 @@ public class RptDownloadCSVServlet extends HttpServlet {
                 bARFilter = true;
                 //"formBCAR.demographic_no in (select distinct demographic_no from formBCBirthSumMo)"
                 if (strFilter.indexOf("formBCBirthSumMo") > 0) {
-                    ResultSet rs = DBHelp.searchDBRecord("select distinct demographic_no from formBCBirthSumMo");
                     String sBirthSumNo = "";
-                    if (rs != null) while (rs.next()) {
-                        sBirthSumNo += (sBirthSumNo.length() > 0 ? "," : "") + rs.getInt("demographic_no");
+                    try (ResultSet rs = DBHelp.searchDBRecord(new ParameterizedSql(
+                            "select distinct demographic_no from formBCBirthSumMo", List.of()))) {
+                        if (rs != null) {
+                            while (rs.next()) {
+                                sBirthSumNo += (sBirthSumNo.length() > 0 ? "," : "") + rs.getInt("demographic_no");
+                            }
+                        }
                     }
                     sBirthSumNo = sBirthSumNo.length() > 0 ? sBirthSumNo : "0";
                     strFilter = " " + ARTYPE + ".demographic_no in (" + sBirthSumNo + ")";
@@ -400,9 +393,10 @@ public class RptDownloadCSVServlet extends HttpServlet {
                         for (int k = 0; k < demoNoList.size(); k++) {
                             params[k + 1] = demoNoList.get(k);
                         }
-                        ResultSet rs = DBHelp.searchDBRecord(sql, params);
-                        if (rs != null) while (rs.next()) {
-                            propSpecValue.setProperty(rs.getString("demographic_no") + temp[i], rs.getString("value"));
+                        try (ResultSet rs = DBHelp.searchDBRecord(new ParameterizedSql(sql, Arrays.asList(params)))) {
+                            if (rs != null) while (rs.next()) {
+                                propSpecValue.setProperty(rs.getString("demographic_no") + temp[i], rs.getString("value"));
+                            }
                         }
                     }
                 } else {
@@ -416,7 +410,6 @@ public class RptDownloadCSVServlet extends HttpServlet {
                 vecFieldName.add("demographic_no");
                 // get demoNo
                 String sql = null;
-                ResultSet rs = null;
                 String subQuery = "select distinct(demographic.demographic_no) from demographicExt, demographic where demographic.demographic_no=demographicExt.demographic_no ";
                 String joined = RptReportCreator.joinPredicates(sDemoFilter, sSpecFilter);
                 if (!joined.isEmpty()) subQuery += " and " + joined + "  ";
@@ -425,9 +418,10 @@ public class RptDownloadCSVServlet extends HttpServlet {
                 List<Object> subQueryParams = new ArrayList<>();
                 subQueryParams.addAll(demoFilterParams);
                 subQueryParams.addAll(specFilterParams);
-                rs = DBHelp.searchDBRecord(subQuery, subQueryParams.toArray());
-                if (rs != null) while (rs.next()) {
-                    subDemoNoList.add(String.valueOf(rs.getInt("demographic.demographic_no")));
+                try (ResultSet rs = DBHelp.searchDBRecord(new ParameterizedSql(subQuery, subQueryParams))) {
+                    if (rs != null) while (rs.next()) {
+                        subDemoNoList.add(String.valueOf(rs.getInt("demographic.demographic_no")));
+                    }
                 }
                 // Build comma-separated string — subFormDemoNo built from rs.getInt() (integer-only)
                 String subFormDemoNo = subDemoNoList.isEmpty() ? "0" : String.join(",", subDemoNoList);
@@ -444,9 +438,10 @@ public class RptDownloadCSVServlet extends HttpServlet {
                             params[k + 1] = subDemoNoList.get(k);
                         }
                         MiscUtils.getLogger().debug(" demographic and demographicExt: " + sql);
-                        rs = DBHelp.searchDBRecord(sql, params);
-                        if (rs != null) while (rs.next()) {
-                            propSpecValue.setProperty(rs.getString("demographic_no") + temp[i], rs.getString("value"));
+                        try (ResultSet rs = DBHelp.searchDBRecord(new ParameterizedSql(sql, Arrays.asList(params)))) {
+                            if (rs != null) while (rs.next()) {
+                                propSpecValue.setProperty(rs.getString("demographic_no") + temp[i], rs.getString("value"));
+                            }
                         }
                     }
                 } else {
@@ -494,9 +489,10 @@ public class RptDownloadCSVServlet extends HttpServlet {
             List<Object> subQueryParams = new ArrayList<>();
             subQueryParams.addAll(demoFilterParams);
             subQueryParams.addAll(arFilterParams);
-            ResultSet rs = DBHelp.searchDBRecord(subQuery, subQueryParams.toArray());
-            if (rs != null) while (rs.next()) {
-                subFormId += (subFormId.length() > 0 ? "," : "") + rs.getInt("max(ID)");
+            try (ResultSet rs = DBHelp.searchDBRecord(new ParameterizedSql(subQuery, subQueryParams))) {
+                if (rs != null) while (rs.next()) {
+                    subFormId += (subFormId.length() > 0 ? "," : "") + rs.getInt("max(ID)");
+                }
             }
 
             sTempEle = sARSelect.length() > 0 ? ("," + sARSelect) : "";
@@ -537,9 +533,10 @@ public class RptDownloadCSVServlet extends HttpServlet {
                 List<Object> subQueryParams = new ArrayList<>();
                 subQueryParams.addAll(demoFilterParams);
                 subQueryParams.addAll(arFilterParams);
-                ResultSet rs = DBHelp.searchDBRecord(subQuery, subQueryParams.toArray());
-                if (rs != null) while (rs.next()) {
-                    subFormId += (subFormId.length() > 0 ? "," : "") + rs.getInt("max(ID)");
+                try (ResultSet rs = DBHelp.searchDBRecord(new ParameterizedSql(subQuery, subQueryParams))) {
+                    if (rs != null) while (rs.next()) {
+                        subFormId += (subFormId.length() > 0 ? "," : "") + rs.getInt("max(ID)");
+                    }
                 }
 
                 sTempEle = sARSelect.length() > 0 ? ("," + sARSelect) : "";
@@ -582,9 +579,10 @@ public class RptDownloadCSVServlet extends HttpServlet {
                         for (int k = 0; k < demoNoList.size(); k++) {
                             params[k + 1] = demoNoList.get(k);
                         }
-                        rs = DBHelp.searchDBRecord(sql, params);
-                        if (rs != null) while (rs.next()) {
-                            propSpecValue.setProperty(rs.getString("demographic_no") + temp[i], rs.getString("value"));
+                        try (ResultSet rs = DBHelp.searchDBRecord(new ParameterizedSql(sql, Arrays.asList(params)))) {
+                            if (rs != null) while (rs.next()) {
+                                propSpecValue.setProperty(rs.getString("demographic_no") + temp[i], rs.getString("value"));
+                            }
                         }
                     }
                 } else {
@@ -600,7 +598,6 @@ public class RptDownloadCSVServlet extends HttpServlet {
                 vecFieldName.add("demographic_no");
                 // get demoNo
                 String sql = null;
-                ResultSet rs = null;
                 String joinedSpec1 = RptReportCreator.joinPredicates(sDemoFilter, sSpecFilter);
                 String subQuery = "select distinct(demographic.demographic_no) from demographicExt, demographic where demographic.demographic_no=demographicExt.demographic_no ";
                 if (!joinedSpec1.isEmpty()) subQuery += " and " + joinedSpec1 + "  ";
@@ -609,9 +606,10 @@ public class RptDownloadCSVServlet extends HttpServlet {
                 List<Object> subQueryParams1 = new ArrayList<>();
                 subQueryParams1.addAll(demoFilterParams);
                 subQueryParams1.addAll(specFilterParams);
-                rs = DBHelp.searchDBRecord(subQuery, subQueryParams1.toArray());
-                if (rs != null) while (rs.next()) {
-                    subDemoNoList.add(String.valueOf(rs.getInt("demographic.demographic_no")));
+                try (ResultSet rs = DBHelp.searchDBRecord(new ParameterizedSql(subQuery, subQueryParams1))) {
+                    if (rs != null) while (rs.next()) {
+                        subDemoNoList.add(String.valueOf(rs.getInt("demographic.demographic_no")));
+                    }
                 }
                 // get value for spec
                 String[] temp = sSpecSelect.replaceAll("demographicExt.", "").split(",");
@@ -625,9 +623,10 @@ public class RptDownloadCSVServlet extends HttpServlet {
                         for (int k = 0; k < subDemoNoList.size(); k++) {
                             params[k + 1] = subDemoNoList.get(k);
                         }
-                        rs = DBHelp.searchDBRecord(sql, params);
-                        if (rs != null) while (rs.next()) {
-                            propSpecValue.setProperty(rs.getString("demographic_no") + temp[i], rs.getString("value"));
+                        try (ResultSet rs = DBHelp.searchDBRecord(new ParameterizedSql(sql, Arrays.asList(params)))) {
+                            if (rs != null) while (rs.next()) {
+                                propSpecValue.setProperty(rs.getString("demographic_no") + temp[i], rs.getString("value"));
+                            }
                         }
                     }
                 } else {
@@ -646,9 +645,10 @@ public class RptDownloadCSVServlet extends HttpServlet {
                 List<Object> subQueryParams2 = new ArrayList<>();
                 subQueryParams2.addAll(demoFilterParams);
                 subQueryParams2.addAll(arFilterParams);
-                rs = DBHelp.searchDBRecord(subQuery, subQueryParams2.toArray());
-                if (rs != null) while (rs.next()) {
-                    subFormId += (subFormId.length() > 0 ? "," : "") + rs.getInt("max(ID)");
+                try (ResultSet rs = DBHelp.searchDBRecord(new ParameterizedSql(subQuery, subQueryParams2))) {
+                    if (rs != null) while (rs.next()) {
+                        subFormId += (subFormId.length() > 0 ? "," : "") + rs.getInt("max(ID)");
+                    }
                 }
 
                 // total — subFormDemoNo and subFormId built from rs.getInt() (integer-only)
@@ -714,5 +714,9 @@ public class RptDownloadCSVServlet extends HttpServlet {
 
         in = swr.toString();
         return in;
+    }
+
+    Vector[] getConfiguredFilterValues(String reportId, HttpServletRequest request) throws Exception {
+        return RptFormQuery.getValueParam(new RptReportFilter().getNameList(reportId, 1), request);
     }
 }

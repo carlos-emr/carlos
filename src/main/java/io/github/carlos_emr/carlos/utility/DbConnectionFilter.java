@@ -40,6 +40,7 @@ import javax.sql.DataSource;
 
 import org.apache.logging.log4j.Logger;
 
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.util.SqlUtils;
 
 public class DbConnectionFilter implements jakarta.servlet.Filter {
@@ -91,8 +92,21 @@ public class DbConnectionFilter implements jakarta.servlet.Filter {
     }
 
     public static void releaseAllThreadDbResources() {
-        releaseThreadLocalDbConnection();
-        OscarTrackingBasicDataSource.releaseThreadConnections();
+        try {
+            LegacyJdbcQuery.releaseThreadResources();
+        } catch (Throwable e) {
+            logger.error("Error releasing legacy JDBC thread resources.", e);
+        }
+        try {
+            releaseThreadLocalDbConnection();
+        } catch (Throwable e) {
+            logger.error("Error releasing thread-local DB connection.", e);
+        }
+        try {
+            OscarTrackingBasicDataSource.releaseThreadConnections();
+        } catch (Throwable e) {
+            logger.error("Error releasing Oscar tracking thread connections.", e);
+        }
     }
 
     /**

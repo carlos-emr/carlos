@@ -38,7 +38,7 @@ import java.util.Properties;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import io.github.carlos_emr.carlos.login.DBHelp;
-import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.providers.data.ProviderData;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
@@ -51,7 +51,7 @@ public class FrmBCHPRecord extends FrmRecord {
         if (existingID <= 0) {
 
             String providerNo = null;
-            ResultSet rs = DBHandler.GetPreSQL("SELECT demographic_no, last_name, first_name, phone, phone2, hin,provider_no FROM demographic WHERE demographic_no = ?",
+            ResultSet rs = LegacyJdbcQuery.getPreparedResultSet("SELECT demographic_no, last_name, first_name, phone, phone2, hin,provider_no FROM demographic WHERE demographic_no = ?",
                     demographicNo);
             if (rs.next()) {
                 props.setProperty("demographic_no", rs.getString("demographic_no"));

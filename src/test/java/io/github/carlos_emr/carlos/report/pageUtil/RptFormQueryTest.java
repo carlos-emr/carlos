@@ -17,10 +17,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Vector;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.springframework.mock.web.MockHttpServletRequest;
 
 import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
 
@@ -80,6 +82,30 @@ class RptFormQueryTest {
 
         long qCount = result.getSql().chars().filter(c -> c == '?').count();
         assertThat(qCount).isEqualTo(result.getParams().size());
+    }
+
+    @Test
+    @DisplayName("should use server filter SQL instead of client hidden value fields")
+    void shouldUseServerFilterSql_insteadOfClientHiddenFields() {
+        Vector configuredFilters = new Vector();
+        configuredFilters.add(new String[]{
+                "Last name",
+                "demographic.last_name='${lastName}'",
+                "",
+                "1",
+                "",
+                "yyyy-MM-dd"
+        });
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addParameter("filter_1", "on");
+        request.addParameter("value_1", "demographic.last_name='${lastName}' or 1=1");
+        request.addParameter("dateFormat_1", "yyyy-MM-dd'; drop table demographic; --");
+
+        Vector[] result = RptFormQuery.getValueParam(configuredFilters, request);
+
+        assertThat(result[0]).containsExactly("demographic.last_name='${lastName}'");
+        assertThat(result[1]).containsExactly("yyyy-MM-dd");
     }
 
     @Test

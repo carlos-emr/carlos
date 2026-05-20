@@ -39,7 +39,7 @@ import java.util.List;
 import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 
 /**
  * This is for straight SQLDenominators  not sure if it should return a more specialised list
@@ -85,7 +85,7 @@ public class SQLDenominator implements Denominator {
                 MiscUtils.getLogger().debug("sql {}", sql);
             }
 
-            ResultSet rs = DBHandler.GetPreSQL(exeSql, paramValues.toArray());
+            ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(exeSql, paramValues.toArray());
             MiscUtils.getLogger().debug("SQL Statement: " + exeSql);
             while (rs.next()) {
                 String toAdd = Misc.getString(rs, resultString);

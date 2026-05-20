@@ -41,7 +41,7 @@ import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementsDataBeanHandler;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
@@ -58,7 +58,7 @@ public class FrmRhImmuneGlobulinRecord extends FrmRecord {
 
         if (existingID <= 0) {
             sql = "SELECT * FROM demographic WHERE demographic_no = ?";
-            rs = DBHandler.GetPreSQL(sql, demographicNo);
+            rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo);
             if (rs.next()) {
                 java.util.Date dob = UtilDateUtilities.calcDate(Misc.getString(rs, "year_of_birth"), Misc.getString(rs, "month_of_birth"), Misc.getString(rs, "date_of_birth"));
                 props.setProperty("demographic_no", Misc.getString(rs, "demographic_no"));
@@ -96,7 +96,7 @@ public class FrmRhImmuneGlobulinRecord extends FrmRecord {
         } else {
             sql =
                     "SELECT * FROM formRhImmuneGlobulin WHERE demographic_no = ? AND ID = ?";
-            rs = DBHandler.GetPreSQL(sql, demographicNo, existingID);
+            rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo, existingID);
 
             if (rs.next()) {
                 MiscUtils.getLogger().debug("getting metaData");

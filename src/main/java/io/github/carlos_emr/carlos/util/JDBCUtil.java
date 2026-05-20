@@ -32,6 +32,7 @@ package io.github.carlos_emr.carlos.util;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
@@ -41,6 +42,7 @@ import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerException;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
@@ -54,9 +56,14 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.xml.sax.InputSource;
 
-import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 
 public class JDBCUtil {
+    /**
+     * Converts the remaining rows in the given result set to XML.
+     *
+     * <p>The caller owns and must close the {@link ResultSet}.</p>
+     */
     public static Document toDocument(ResultSet rs)
             throws ParserConfigurationException, SQLException {
         DocumentBuilderFactory factory = XmlUtils.createSecureDocumentBuilderFactory();
@@ -82,20 +89,19 @@ public class JDBCUtil {
                 row.appendChild(node);
             }
         }
-        rs.close();
         return doc;
     }
 
-    public static void saveAsXML(Document doc, String fileName) {
+    public static void saveAsXML(Document doc, String fileName) throws TransformerException, IOException {
+        File newXML = new File(fileName);
         try {
             TransformerFactory transFactory = XmlUtils.createSecureTransformerFactory();
             Transformer transformer = transFactory.newTransformer();
             DOMSource source = new DOMSource(doc);
-            File newXML = new File(fileName);
-            FileOutputStream os = new FileOutputStream(newXML);
-            StreamResult result = new StreamResult(os);
-
-            transformer.transform(source, result);
+            try (FileOutputStream os = new FileOutputStream(newXML)) {
+                StreamResult result = new StreamResult(os);
+                transformer.transform(source, result);
+            }
             //calling the zip function was commented out for a few reasons
             //practically, it seems to be unsustainable at scale and has resulted in a server being shut down
             //also, when reviewing the write2Zip function, it seems to be attempting to create a zip file of EVERY xml file EVERY SINGLE TIME a new XML file is generated
@@ -103,10 +109,11 @@ public class JDBCUtil {
             /*MiscUtils.getLogger().debug("Next is to call zip function!");
             zip z = new zip();
             z.write2Zip("xml");*/
-        } catch (Exception e) {
-            MiscUtils.getLogger().debug(e.getMessage() + "cannot saveAsXML");
-            File newXML = new File(fileName);
-            newXML.delete();
+        } catch (TransformerException | IOException e) {
+            if (newXML.exists() && !newXML.delete()) {
+                MiscUtils.getLogger().warn("Unable to delete partial XML file {}", fileName);
+            }
+            throw e;
         }
     }
 
@@ -131,12 +138,12 @@ public class JDBCUtil {
             }
             String sql = "SELECT * FROM " + formName + " WHERE demographic_no=? AND formEdited=?";
             MiscUtils.getLogger().debug(sql);
-            ResultSet rs = DBHandler.GetPreSQL(sql, demographicNo, timeStamp);
+            ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo, timeStamp);
             if (!rs.first()) {
                 rs.close();
                 sql = "SELECT * FROM " + formName + " WHERE demographic_no=? AND ID='0'";
                 MiscUtils.getLogger().debug("sql: " + sql);
-                rs = DBHandler.GetPreSQL(sql, true, new Object[]{demographicNo});
+                rs = LegacyJdbcQuery.getPreparedResultSet(sql, true, new Object[]{demographicNo});
                 rs.moveToInsertRow();
                 // setValidating(true) was removed — incompatible with disallow-doctype-decl which rejects all DOCTYPEs
                 DocumentBuilderFactory factory = XmlUtils.createSecureDocumentBuilderFactory();

@@ -86,7 +86,7 @@ public class FormForward2Action extends ActionSupport {
          */
         try {
             FrmData frmData = new FrmData();
-            // deepcode ignore SqlInjection: delegates to FrmData which validates table name via regex + uses GetPreSQL
+            // deepcode ignore SqlInjection: delegates to FrmData, which validates table names and binds values.
             formPath = frmData.getShortcutFormValue(demographicNo, strFrm);
             formPath[0] = formPath[0].trim();
 

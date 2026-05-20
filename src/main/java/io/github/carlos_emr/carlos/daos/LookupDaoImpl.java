@@ -46,8 +46,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.CarlosProperties;
-import io.github.carlos_emr.carlos.db.DBPreparedHandler;
 import io.github.carlos_emr.carlos.db.DBPreparedHandlerParam;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 
 import io.github.carlos_emr.carlos.commons.KeyConstants;
 import io.github.carlos_emr.carlos.model.FieldDefValue;
@@ -797,8 +797,7 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
 
     @Override
     public void runProcedure(String procName, String[] params) throws SQLException {
-        DBPreparedHandler db = new DBPreparedHandler();
-        db.procExecute(procName, params);
+        LegacyJdbcQuery.procExecute(procName, params);
     }
 
     @Override
@@ -852,7 +851,7 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
     /**
      * Binds a {@link DBPreparedHandlerParam} typed value to a JPA {@link Query} at a
      * 1-based position, preserving the type-aware dispatch the legacy
-     * {@code DBPreparedHandler} performed (String / int / Date / Timestamp).
+     * legacy prepared-query binding performed (String / int / Date / Timestamp).
      *
      * @param query the JPA query to bind on
      * @param position 1-based positional parameter index

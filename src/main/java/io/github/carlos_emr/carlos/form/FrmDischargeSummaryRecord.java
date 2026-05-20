@@ -41,7 +41,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 public class FrmDischargeSummaryRecord extends FrmRecord {
@@ -54,7 +54,7 @@ public class FrmDischargeSummaryRecord extends FrmRecord {
             String sql0 = "SELECT name AS programName FROM program WHERE id=?";
 
             try {
-                ResultSet rs0 = DBHandler.GetPreSQL(sql0, programNo);
+                ResultSet rs0 = LegacyJdbcQuery.getPreparedResultSet(sql0, programNo);
                 if (rs0.next()) {
                     props.setProperty("programName", Misc.getString(rs0, "programName"));
                 }
@@ -69,7 +69,7 @@ public class FrmDischargeSummaryRecord extends FrmRecord {
 
 
             try {
-                ResultSet rs = DBHandler.GetPreSQL(sql, demographicNo);
+                ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo);
                 if (rs.next()) {
                     Date dob = UtilDateUtilities.calcDate(Misc.getString(rs, "year_of_birth"), Misc.getString(rs, "month_of_birth"),
                             Misc.getString(rs, "date_of_birth"));
@@ -94,7 +94,7 @@ public class FrmDischargeSummaryRecord extends FrmRecord {
 
 
             try {
-                ResultSet rs1 = DBHandler.GetPreSQL(sql1, providerNo);
+                ResultSet rs1 = LegacyJdbcQuery.getPreparedResultSet(sql1, providerNo);
                 if (rs1.next()) {
                     props.setProperty("providerName", rs1.getString("providerName"));
                 }
@@ -109,7 +109,7 @@ public class FrmDischargeSummaryRecord extends FrmRecord {
 
 
             try {
-                ResultSet rs2 = DBHandler.GetPreSQL(sql2, demographicNo, programNo);
+                ResultSet rs2 = LegacyJdbcQuery.getPreparedResultSet(sql2, demographicNo, programNo);
                 if (rs2.next()) {
                     if (rs2.isFirst()) {
                         String admitDate = Misc.getString(rs2, "admission_date").substring(0, 10);
@@ -146,11 +146,11 @@ public class FrmDischargeSummaryRecord extends FrmRecord {
             ResultSet rs4 = null;
 
             try {
-                rs4 = DBHandler.GetPreSQL(sql4, demographicNo);
+                rs4 = LegacyJdbcQuery.getPreparedResultSet(sql4, demographicNo);
                 while (rs4.next()) {
 
                     String sql5 = "SELECT description from issue where issue_id=?";
-                    ResultSet rs5 = DBHandler.GetPreSQL(sql5, rs4.getInt("issue_id"));
+                    ResultSet rs5 = LegacyJdbcQuery.getPreparedResultSet(sql5, rs4.getInt("issue_id"));
                     if (rs5.next()) {
                         if (rs4.isFirst()) {
                             issues.append(Misc.getString(rs5, "description"));
@@ -183,7 +183,7 @@ public class FrmDischargeSummaryRecord extends FrmRecord {
             ResultSet rs5 = null;
 
             try {
-                rs5 = DBHandler.GetPreSQL(sql5, demographicNo);
+                rs5 = LegacyJdbcQuery.getPreparedResultSet(sql5, demographicNo);
                 while (rs5.next()) {
                     if (rs5.isFirst()) {
                         prescriptions.append(Misc.getString(rs5, "special"));
@@ -233,7 +233,7 @@ public class FrmDischargeSummaryRecord extends FrmRecord {
         if (existingID <= 0) {
 
             String sql = "SELECT demographic_no, CONCAT(CONCAT(last_name, ', '), first_name) AS clientName, year_of_birth, month_of_birth, date_of_birth FROM demographic WHERE demographic_no = ?";
-            ResultSet rs = DBHandler.GetPreSQL(sql, demographicNo);
+            ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo);
             if (rs.next()) {
                 Date dob = UtilDateUtilities.calcDate(Misc.getString(rs, "year_of_birth"), Misc.getString(rs, "month_of_birth"),
                         Misc.getString(rs, "date_of_birth"));

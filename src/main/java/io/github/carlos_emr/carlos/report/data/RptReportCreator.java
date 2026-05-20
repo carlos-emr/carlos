@@ -37,15 +37,16 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Properties;
 import java.util.Vector;
 
 import org.apache.commons.lang3.time.DateFormatUtils;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.login.DBHelp;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
  * @author yilee18
@@ -357,21 +358,28 @@ public final class RptReportCreator {
     public String getRltSubQuery(String sql, Object... params) throws SQLException {
         String ret = "0";
 
-        ResultSet rs = DBHelp.searchDBRecord(sql, params); // nosemgrep: formatted-sql-string -- admin report template SQL; table names validated by RptFormQuery.validateTableName; user values bound via params
         MiscUtils.getLogger().debug(" tempVal: " + sql);
-        if (rs == null) {
-            MiscUtils.getLogger().error("Database query failed for sub-query");
-            return ret;
-        }
-        while (rs.next()) {
-            if ("0".equals(ret)) {
-                ret = "";
+        try (ResultSet rs = DBHelp.searchDBRecord(new ParameterizedSql(sql, Arrays.asList(params)))) {
+            if (rs == null) {
+                MiscUtils.getLogger().error("Database query failed for sub-query");
+                return ret;
             }
-            ret += ("".equals(ret) ? "" : ",") + rs.getInt(1);
+            while (rs.next()) {
+                if ("0".equals(ret)) {
+                    ret = "";
+                }
+                ret += ("".equals(ret) ? "" : ",") + rs.getInt(1);
 
+            }
         }
-        rs.close();
         return ret;
+    }
+
+    /**
+     * Executes a report query and returns properties for each row.
+     */
+    public Vector query(ParameterizedSql sql, Vector vecFieldName) throws SQLException {
+        return query(sql.getSql(), vecFieldName, sql.getParamsArray());
     }
 
     /**
@@ -381,25 +389,25 @@ public final class RptReportCreator {
         Vector ret = new Vector();
         Properties prop = null;
 
-        ResultSet rs = DBHelp.searchDBRecord(sql, params); // nosemgrep: formatted-sql-string -- admin report template SQL; table names validated by RptFormQuery.validateTableName; user values bound via params
-        if (rs == null) {
-            MiscUtils.getLogger().error("Database query failed for report query");
-            return ret;
-        }
-        while (rs.next()) {
-            prop = new Properties();
-            for (int i = 0; i < vecFieldName.size(); i++) {
-                try {
-                    prop.setProperty((String) vecFieldName.get(i),
-                            DBHelp.getString(rs, (String) vecFieldName.get(i)) == null ? "" : rs
-                                    .getString((String) vecFieldName.get(i)));
-                } catch (SQLException e) {
-                    prop.setProperty((String) vecFieldName.get(i), "" + rs.getInt((String) vecFieldName.get(i)));
-                }
+        try (ResultSet rs = DBHelp.searchDBRecord(new ParameterizedSql(sql, Arrays.asList(params)))) {
+            if (rs == null) {
+                MiscUtils.getLogger().error("Database query failed for report query");
+                return ret;
             }
-            ret.add(prop);
+            while (rs.next()) {
+                prop = new Properties();
+                for (int i = 0; i < vecFieldName.size(); i++) {
+                    try {
+                        prop.setProperty((String) vecFieldName.get(i),
+                                DBHelp.getString(rs, (String) vecFieldName.get(i)) == null ? "" : rs
+                                        .getString((String) vecFieldName.get(i)));
+                    } catch (SQLException e) {
+                        prop.setProperty((String) vecFieldName.get(i), "" + rs.getInt((String) vecFieldName.get(i)));
+                    }
+                }
+                ret.add(prop);
+            }
         }
-        rs.close();
         return ret;
     }
 

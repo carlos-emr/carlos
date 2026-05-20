@@ -44,7 +44,7 @@ import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
-import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.messenger.docxfer.util.MsgCommxml;
 
 /**
@@ -134,7 +134,7 @@ public class MsgGenerate {
 
         // Execute the SQL query to retrieve data for this table
         String sql = this.constructSQL(cfgTable);
-        ResultSet rs = DBHandler.GetPreSQL(sql, this.demographicNo);
+        ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, this.demographicNo);
         ResultSetMetaData meta = rs.getMetaData();
 
         // Get the item and field configurations from the config

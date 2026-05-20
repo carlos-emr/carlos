@@ -13,17 +13,19 @@
 package io.github.carlos_emr.carlos.report.pageUtil;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.sql.ResultSet;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.Vector;
 import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.AfterEach;
@@ -37,6 +39,7 @@ import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 
 import io.github.carlos_emr.carlos.login.DBHelp;
+import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
 
 /**
  * Regression tests for {@link RptDownloadCSVServlet#demoReport(jakarta.servlet.http.HttpServletRequest)}.
@@ -44,7 +47,7 @@ import io.github.carlos_emr.carlos.login.DBHelp;
  * <p>These tests target the empty-demographic-filter combinations fixed in PR #1639 and
  * verify the generated SQL shape and bind-parameter ordering without requiring a database.
  * They invoke the private servlet method via reflection and capture
- * {@link DBHelp#searchDBRecord(String, Object...)} calls with a static mock.</p>
+ * {@link DBHelp#searchDBRecord(ParameterizedSql)} calls with a static mock.</p>
  *
  * @since 2026-04-20
  */
@@ -56,6 +59,7 @@ class RptDownloadCSVServletTest {
             Pattern.compile("(?i)\\band\\s*(group by|order by|$)");
 
     private static Method demoReportMethod;
+    private static final String CONFIGURED_FILTERS_ATTR = RptDownloadCSVServletTest.class.getName() + ".configuredFilters";
 
     private final ResultSet emptyResultSet = mock(ResultSet.class);
 
@@ -176,9 +180,23 @@ class RptDownloadCSVServletTest {
         assertThat(subQuery.params()).containsExactly("Smith", "French");
     }
 
+    @Test
+    @DisplayName("should close DBHelp result sets during report generation")
+    void shouldCloseDbHelpResultSets() throws Exception {
+        MockHttpServletRequest request = baseRequest();
+        request.addParameter("last_name", "on");
+        request.addParameter("c_EDD", "on");
+        addFilter(request, 1, "formBCAR.c_EDD>='${edd}'", "edd", "2026-01-01");
+
+        invokeDemoReport(request);
+
+        verify(emptyResultSet, atLeastOnce()).close();
+    }
+
     private MockHttpServletRequest baseRequest() {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setMethod("POST");
+        request.addParameter("id", "1");
         return request;
     }
 
@@ -192,17 +210,17 @@ class RptDownloadCSVServletTest {
         request.addParameter("value_" + serial, expression);
         request.addParameter("dateFormat_" + serial, "");
         request.addParameter(variableName, variableValue);
+        configuredFilters(request).add(new String[]{"", expression, "", String.valueOf(serial), "", ""});
     }
 
     private List<SqlCall> invokeDemoReport(MockHttpServletRequest request) throws Exception {
         List<SqlCall> sqlCalls = new ArrayList<>();
         dbHelpMock.when(() -> DBHelp.searchDBRecord(
-                        org.mockito.ArgumentMatchers.anyString(),
-                        org.mockito.ArgumentMatchers.any(Object[].class)))
+                        org.mockito.ArgumentMatchers.any(ParameterizedSql.class)))
                 .thenAnswer(invocation -> captureDbHelpCall(sqlCalls, invocation));
 
         try {
-            demoReportMethod.invoke(new RptDownloadCSVServlet(), request);
+            demoReportMethod.invoke(new TestableRptDownloadCSVServlet(), request);
         } catch (InvocationTargetException e) {
             if (e.getCause() instanceof Exception exception) {
                 throw exception;
@@ -214,20 +232,20 @@ class RptDownloadCSVServletTest {
     }
 
     private ResultSet captureDbHelpCall(List<SqlCall> sqlCalls, InvocationOnMock invocation) {
+        ParameterizedSql query = invocation.getArgument(0);
         sqlCalls.add(new SqlCall(
-                invocation.getArgument(0),
-                extractBindParameters(invocation.getArguments())));
+                query.getSql(),
+                query.getParams()));
         return emptyResultSet;
     }
 
-    private List<Object> extractBindParameters(Object[] invocationArgs) {
-        if (invocationArgs.length < 2 || invocationArgs[1] == null) {
-            return List.of();
+    private Vector configuredFilters(MockHttpServletRequest request) {
+        Vector filters = (Vector) request.getAttribute(CONFIGURED_FILTERS_ATTR);
+        if (filters == null) {
+            filters = new Vector();
+            request.setAttribute(CONFIGURED_FILTERS_ATTR, filters);
         }
-        if (invocationArgs[1] instanceof Object[] params) {
-            return Arrays.asList(params);
-        }
-        return Arrays.asList(Arrays.copyOfRange(invocationArgs, 1, invocationArgs.length));
+        return filters;
     }
 
     private SqlCall findCallContaining(List<SqlCall> calls, String fragment) {
@@ -252,5 +270,12 @@ class RptDownloadCSVServletTest {
     }
 
     private record SqlCall(String sql, List<Object> params) {
+    }
+
+    private static final class TestableRptDownloadCSVServlet extends RptDownloadCSVServlet {
+        @Override
+        Vector[] getConfiguredFilterValues(String reportId, jakarta.servlet.http.HttpServletRequest request) {
+            return RptFormQuery.getValueParam((Vector) request.getAttribute(CONFIGURED_FILTERS_ATTR), request);
+        }
     }
 }

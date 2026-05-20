@@ -40,7 +40,7 @@ import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 public class FrmSelfManagementRecord extends FrmRecord {
@@ -56,7 +56,7 @@ public class FrmSelfManagementRecord extends FrmRecord {
 
         if (existingID <= 0) {
             sql = "SELECT demographic_no, sex, year_of_birth, month_of_birth, date_of_birth, phone FROM demographic WHERE demographic_no = ?";
-            rs = DBHandler.GetPreSQL(sql, demographicNo);
+            rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo);
             if (rs.next()) {
                 java.util.Date dob = UtilDateUtilities.calcDate(Misc.getString(rs, "year_of_birth"), Misc.getString(rs, "month_of_birth"), Misc.getString(rs, "date_of_birth"));
                 props.setProperty(
@@ -73,7 +73,7 @@ public class FrmSelfManagementRecord extends FrmRecord {
             }
             rs.close();
             sql = "SELECT studyID FROM rehabStudy2004 WHERE demographic_no=?";
-            rs = DBHandler.GetPreSQL(sql, demographicNo);
+            rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo);
             if (rs.next()) {
                 props.setProperty("studyID", Misc.getString(rs, "studyID"));
             } else {
@@ -83,7 +83,7 @@ public class FrmSelfManagementRecord extends FrmRecord {
         } else {
             sql =
                     "SELECT * FROM formSelfManagement WHERE demographic_no = ? AND ID = ?";
-            rs = DBHandler.GetPreSQL(sql, demographicNo, existingID);
+            rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo, existingID);
 
             if (rs.next()) {
                 MiscUtils.getLogger().debug("getting metaData");

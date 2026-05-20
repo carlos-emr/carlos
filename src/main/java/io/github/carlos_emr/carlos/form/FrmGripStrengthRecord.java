@@ -40,7 +40,7 @@ import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 public class FrmGripStrengthRecord extends FrmRecord {
@@ -56,14 +56,14 @@ public class FrmGripStrengthRecord extends FrmRecord {
 
         if (existingID <= 0) {
             sql = "SELECT demographic_no FROM demographic WHERE demographic_no = ?";
-            rs = DBHandler.GetPreSQL(sql, demographicNo);
+            rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo);
             if (rs.next()) {
                 props.setProperty("demographic_no", Misc.getString(rs, "demographic_no"));
                 props.setProperty("formCreated", UtilDateUtilities.DateToString(new Date(), _dateFormat));
             }
             rs.close();
             sql = "SELECT studyID FROM rehabStudy2004 WHERE demographic_no=?";
-            rs = DBHandler.GetPreSQL(sql, demographicNo);
+            rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo);
             if (rs.next()) {
                 props.setProperty("studyID", Misc.getString(rs, "studyID"));
             } else {
@@ -71,7 +71,7 @@ public class FrmGripStrengthRecord extends FrmRecord {
             }
             rs.close();
             sql = "SELECT studyID FROM rehabStudy2004 WHERE demographic_no=?";
-            rs = DBHandler.GetPreSQL(sql, demographicNo);
+            rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo);
             if (rs.next()) {
                 props.setProperty("studyID", Misc.getString(rs, "studyID"));
             } else {
@@ -80,7 +80,7 @@ public class FrmGripStrengthRecord extends FrmRecord {
             rs.close();
         } else {
             sql = "SELECT * FROM formGripStrength WHERE demographic_no = ? AND ID = ?";
-            rs = DBHandler.GetPreSQL(sql, demographicNo, existingID);
+            rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo, existingID);
 
             if (rs.next()) {
                 MiscUtils.getLogger().debug("getting metaData");

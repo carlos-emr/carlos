@@ -51,7 +51,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.CarlosProperties;
-import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 public class FrmLabReq07Record extends FrmRecord {
@@ -141,7 +141,7 @@ public class FrmLabReq07Record extends FrmRecord {
 
         if (demoProvider.equals(provNo)) {
             // from provider table
-            rs = DBHandler.GetPreSQL("SELECT CONCAT(last_name, ', ', first_name) AS provName, ohip_no, comments "
+            rs = LegacyJdbcQuery.getPreparedResultSet("SELECT CONCAT(last_name, ', ', first_name) AS provName, ohip_no, comments "
                     + "FROM provider WHERE provider_no = ?", provNo);
 
             if (rs.next()) {
@@ -162,7 +162,7 @@ public class FrmLabReq07Record extends FrmRecord {
             rs.close();
         } else {
             // from provider table
-            rs = DBHandler.GetPreSQL("SELECT CONCAT(last_name, ', ', first_name) AS provName, ohip_no, comments FROM provider WHERE provider_no = ?",
+            rs = LegacyJdbcQuery.getPreparedResultSet("SELECT CONCAT(last_name, ', ', first_name) AS provName, ohip_no, comments FROM provider WHERE provider_no = ?",
                     provNo);
 
             String num = "";
@@ -184,7 +184,7 @@ public class FrmLabReq07Record extends FrmRecord {
 
             if (!demoProvider.equals("")) {
                 // from provider table
-                rs = DBHandler.GetPreSQL("SELECT CONCAT(last_name, ', ', first_name) AS provName, ohip_no FROM provider WHERE provider_no = ?",
+                rs = LegacyJdbcQuery.getPreparedResultSet("SELECT CONCAT(last_name, ', ', first_name) AS provName, ohip_no FROM provider WHERE provider_no = ?",
                         demoProvider);
 
                 if (rs.next()) {
