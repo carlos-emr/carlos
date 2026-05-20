@@ -47,7 +47,7 @@ import org.springframework.core.type.filter.AssignableTypeFilter;
 class DashboardQueryHandlerProxyContractTest {
 
     private static final String DASHBOARD_HANDLER_PACKAGE =
-            "io.github.carlos_emr.carlos.dashboard.handler";
+            AbstractQueryHandler.class.getPackageName();
 
     @Test
     @DisplayName("should not declare final methods visible to CGLIB proxies")
@@ -58,6 +58,20 @@ class DashboardQueryHandlerProxyContractTest {
 
         assertThat(cglibVisibleFinalMethodNames)
                 .as("CGLIB cannot advise non-private final handler methods")
+                .isEmpty();
+    }
+
+    @Test
+    @DisplayName("should not declare final handler classes visible to CGLIB proxies")
+    void shouldHaveNoFinalClasses_forCglibProxiedHandlers() throws ClassNotFoundException {
+        List<String> finalHandlerTypeNames = discoverProxiedQueryHandlers().stream()
+                .filter(handlerType -> !Modifier.isAbstract(handlerType.getModifiers()))
+                .filter(handlerType -> Modifier.isFinal(handlerType.getModifiers()))
+                .map(Class::getName)
+                .toList();
+
+        assertThat(finalHandlerTypeNames)
+                .as("CGLIB cannot create subclass proxies for final handler classes")
                 .isEmpty();
     }
 
@@ -113,10 +127,16 @@ class DashboardQueryHandlerProxyContractTest {
     private static Stream<Class<?>> proxiedHandlerHierarchy(Class<?> handlerType) {
         Stream.Builder<Class<?>> hierarchy = Stream.builder();
         Class<?> currentType = handlerType;
-        while (currentType != null && AbstractQueryHandler.class.isAssignableFrom(currentType)) {
-            hierarchy.add(currentType);
+        while (currentType != null) {
+            if (!isJdkType(currentType)) {
+                hierarchy.add(currentType);
+            }
             currentType = currentType.getSuperclass();
         }
         return hierarchy.build();
+    }
+
+    private static boolean isJdkType(Class<?> type) {
+        return type.getName().startsWith("java.");
     }
 }
