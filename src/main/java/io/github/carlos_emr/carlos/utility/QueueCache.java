@@ -47,6 +47,13 @@ public final class QueueCache<K, V> {
         scheduleShiftTimerTask(maxTimeToCache / (long) pools, maxTimeToCache / (long) pools);
     }
 
+    /**
+     * Schedules periodic pool shifting while tolerating a concurrent webapp
+     * shutdown. Scheduling normally happens outside the class monitor; if shutdown
+     * cancels the captured timer first, {@link Timer#schedule(TimerTask, long, long)}
+     * throws {@link IllegalStateException} and the retry path coordinates with the
+     * shared timer slot.
+     */
     private static void scheduleShiftTimerTask(long delay, long period) {
         Timer sharedTimer = getOrCreateSharedTimer();
         try {
@@ -56,6 +63,11 @@ public final class QueueCache<K, V> {
         }
     }
 
+    /**
+     * Returns the shared shift timer, creating it lazily when needed. The class
+     * monitor makes timer initialization and shutdown-visible replacement
+     * thread-safe.
+     */
     private static Timer getOrCreateSharedTimer() {
         synchronized (QueueCache.class) {
             if (timer == null) {
@@ -65,6 +77,12 @@ public final class QueueCache<K, V> {
         }
     }
 
+    /**
+     * Retries scheduling when shutdown cancelled the timer after it was captured
+     * but before the task was scheduled. Reference equality identifies whether the
+     * failed timer is still the live shared timer; replaced or cleared slots are
+     * safe to recreate and schedule against.
+     */
     private static void scheduleAfterConcurrentShutdown(Timer scheduledTimer, long delay, long period, IllegalStateException cause) {
         synchronized (QueueCache.class) {
             // Reference equality distinguishes an unexpectedly cancelled live timer
