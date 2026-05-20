@@ -27,6 +27,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DisplayName;
@@ -91,7 +92,9 @@ class RemovedJspReferenceRegressionTest {
                     .toList();
 
             assertThat(offenders)
-                    .as("global-head.jspf already includes Oscar.js; JSPs that use it must not include Oscar.js again")
+                    .withFailMessage(() -> formatOffenderMessage(
+                            "global-head.jspf already includes Oscar.js; JSPs that use it must not include Oscar.js again",
+                            offenders))
                     .isEmpty();
         }
     }
@@ -151,10 +154,21 @@ class RemovedJspReferenceRegressionTest {
     private static boolean hasGlobalHeadIncludeAndOscarJsScript(Path path) {
         try {
             String content = Files.readString(path, StandardCharsets.UTF_8);
+            if (!content.contains("global-head.jspf") || !content.contains("Oscar.js")) {
+                return false;
+            }
             return GLOBAL_HEAD_INCLUDE.matcher(content).find()
                     && OSCAR_JS_SCRIPT.matcher(content).find();
         } catch (IOException e) {
             throw new IllegalStateException("Unable to inspect " + path, e);
         }
+    }
+
+    private static String formatOffenderMessage(String baseMessage, List<Path> offenders) {
+        return baseMessage + System.lineSeparator()
+                + offenders.stream()
+                .map(Path::toString)
+                .sorted()
+                .collect(Collectors.joining(System.lineSeparator()));
     }
 }
