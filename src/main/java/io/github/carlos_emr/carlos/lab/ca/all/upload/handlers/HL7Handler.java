@@ -94,35 +94,37 @@ public class HL7Handler implements MessageHandler {
     // recheck the abnormal status of the last 'n' labs
     private void updateLabStatus(int n) throws SQLException {
         String sql = "SELECT lab_no, result_status FROM hl7TextInfo ORDER BY lab_no DESC";
-        Connection c = DbConnectionFilter.getThreadLocalDbConnection();
-        PreparedStatement ps = c.prepareStatement(sql);
-        ResultSet rs = ps.executeQuery(sql);
-        while (rs.next() && n > 0) {
+        try (Connection c = DbConnectionFilter.getThreadLocalDbConnection();
+             PreparedStatement ps = c.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next() && n > 0) {
 
-            // only recheck the result status if it is not already set to
-            // abnormal
-            if (!Misc.getString(rs, "result_status").equals("A")) {
+                // only recheck the result status if it is not already set to
+                // abnormal
+                if (!Misc.getString(rs, "result_status").equals("A")) {
 
-                io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler h = Factory.getHandler(Misc.getString(rs, "lab_no"));
-                int i = 0;
-                int j = 0;
-                String resultStatus = "";
-                while (resultStatus.equals("") && i < h.getOBRCount()) {
-                    j = 0;
-                    while (resultStatus.equals("") && j < h.getOBXCount(i)) {
-                        logger.info("obr(" + i + ") obx(" + j + ") abnormal ? : " + h.getOBXAbnormalFlag(i, j));
-                        if (h.isOBXAbnormal(i, j)) {
-                            resultStatus = "A";
-                            sql = "UPDATE LOW_PRIORITY hl7TextInfo SET result_status='A' WHERE lab_no='"
-                                    + Misc.getString(rs, "lab_no") + "'";
-                            Misc.getString(sql);
+                    io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler h = Factory.getHandler(Misc.getString(rs, "lab_no"));
+                    int i = 0;
+                    int j = 0;
+                    String resultStatus = "";
+                    while (resultStatus.equals("") && i < h.getOBRCount()) {
+                        j = 0;
+                        while (resultStatus.equals("") && j < h.getOBXCount(i)) {
+                            logger.info("obr(" + i + ") obx(" + j + ") abnormal ? : " + h.getOBXAbnormalFlag(i, j));
+                            if (h.isOBXAbnormal(i, j)) {
+                                resultStatus = "A";
+                                sql = "UPDATE LOW_PRIORITY hl7TextInfo SET result_status='A' WHERE lab_no='"
+                                        + Misc.getString(rs, "lab_no") + "'";
+                                Misc.getString(sql);
+                            }
+                            j++;
                         }
-                        j++;
                     }
                     i++;
                 }
             }
             n--;
+        }
         }
     }
 

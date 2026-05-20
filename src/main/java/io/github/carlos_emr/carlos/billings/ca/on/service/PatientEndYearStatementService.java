@@ -238,16 +238,14 @@ public class PatientEndYearStatementService {
 
         InputStream reportStream = osc.getDocumentStream(JASPER_REPORT_PATH);
         try {
-            Connection dbConn;
-            try {
-                dbConn = DbConnectionFilter.getThreadLocalDbConnection();
+            try (Connection dbConn = DbConnectionFilter.getThreadLocalDbConnection()) {
+                if (dbConn == null) {
+                    throw new Failure(Reason.DATABASE_ERROR);
+                }
+                osc.fillDocumentStream(reportParams, out, "pdf", reportStream, dbConn);
             } catch (SQLException ex) {
                 throw new Failure(Reason.DATABASE_ERROR, ex);
             }
-            if (dbConn == null) {
-                throw new Failure(Reason.DATABASE_ERROR);
-            }
-            osc.fillDocumentStream(reportParams, out, "pdf", reportStream, dbConn);
         } finally {
             org.apache.commons.io.IOUtils.closeQuietly(reportStream);
         }

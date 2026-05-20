@@ -677,10 +677,10 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         if (labType.equals("loinc")) {
             try {
 
-                Connection conn = DbConnectionFilter.getThreadLocalDbConnection();
-                list = CommonLabTestValues.findValuesByLoinc2(demographicNo.toString(), identifier, conn);
+                try (Connection conn = DbConnectionFilter.getThreadLocalDbConnection()) {
+                    list = CommonLabTestValues.findValuesByLoinc2(demographicNo.toString(), identifier, conn);
+                }
                 MiscUtils.getLogger().debug("List ->" + list.size());
-                conn.close();
             } catch (Exception ed) {
                 MiscUtils.getLogger().error("Error", ed);
             }
