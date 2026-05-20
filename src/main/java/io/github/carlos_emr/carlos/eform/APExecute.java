@@ -79,9 +79,13 @@ public class APExecute {
 
         String sql = DatabaseAP.parserReplace("demographic", demographicNo, dap.getApSQL());
         String output = dap.getApOutput();
-        MiscUtils.getLogger().debug("SQL----" + sql);
         ArrayList<String> names = DatabaseAP.parserGetNames(output); //a list of ${apName} --> apName
-        sql = DatabaseAP.parserClean(sql);  //replaces all other ${apName} expressions with 'apName'
+        try {
+            sql = DatabaseAP.parserClean(sql); // replaces all other ${apName} expressions with 'apName'
+        } catch (IllegalArgumentException e) {
+            MiscUtils.getLogger().error("Invalid AP SQL template for {}: {}", ap, e.getMessage());
+            return "";
+        }
 
         if (dap.isJsonOutput()) {
             ArrayNode values = EFormUtil.getJsonValues(names, sql);
@@ -121,10 +125,13 @@ public class APExecute {
         sql = DatabaseAP.parserReplace("demographic", demographicNo, sql);
 
         String output = dap.getApOutput();
-        MiscUtils.getLogger().debug("SQL----" + sql);
-
         ArrayList<String> names = DatabaseAP.parserGetNames(output);
-        sql = DatabaseAP.parserClean(sql);
+        try {
+            sql = DatabaseAP.parserClean(sql);
+        } catch (IllegalArgumentException e) {
+            MiscUtils.getLogger().error("Invalid AP SQL template for {}: {}", ap, e.getMessage());
+            return "";
+        }
 
         ArrayList<String> values = EFormUtil.getValues(names, sql);
         if (values.size() != names.size()) {

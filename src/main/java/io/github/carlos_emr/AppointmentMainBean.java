@@ -65,6 +65,11 @@ public class AppointmentMainBean {
     private String targetType = null;
     private boolean bDoConfigure = false;
 
+    // Empty parameter arrays are only used with server-defined SQL retrieved from UtilDict.
+    // If this path is ever switched to user-supplied SQL, validate first or switch to
+    // a parameterized overload with explicit arguments.
+    private static final DBPreparedHandlerParam[] EMPTY_PARAMS = new DBPreparedHandlerParam[0];
+
     /**
      * Gets the target control-to-file mappings.
      * 
@@ -153,7 +158,7 @@ public class AppointmentMainBean {
         ResultSet rs = null;
         if (aKeyword[0].equals("*")) {
             sqlQuery = dbSQL.getDef("search*", "");
-            rs = dbPH.queryResults(sqlQuery, new DBPreparedHandlerParam[0]);
+            rs = dbPH.queryResults(sqlQuery, EMPTY_PARAMS);
         } else {
             sqlQuery = dbSQL.getDef(dboperation, "");
             rs = dbPH.queryResults(sqlQuery, aKeyword);
@@ -168,7 +173,7 @@ public class AppointmentMainBean {
         ResultSet rs = null;
         if (aKeyword[0].equals("*")) {
             sqlQuery = dbSQL.getDef("search*", "");
-            rs = dbPH.queryResults_paged(sqlQuery, new DBPreparedHandlerParam[0], iOffSet);
+            rs = dbPH.queryResults_paged(sqlQuery, EMPTY_PARAMS, iOffSet);
         } else {
             sqlQuery = dbSQL.getDef(dboperation, "");
             rs = dbPH.queryResults_paged(sqlQuery, aKeyword, iOffSet);
@@ -184,7 +189,7 @@ public class AppointmentMainBean {
         if (aKeyword[0].getParamType().equals(DBPreparedHandlerParam.PARAM_STRING) &&
                 aKeyword[0].getStringValue().equals("*")) {
             sqlQuery = dbSQL.getDef("search*", "");
-            rs = dbPH.queryResults_paged(sqlQuery, new DBPreparedHandlerParam[0], iOffSet);
+            rs = dbPH.queryResults_paged(sqlQuery, EMPTY_PARAMS, iOffSet);
         } else {
             sqlQuery = dbSQL.getDef(dboperation, "");
             rs = dbPH.queryResults_paged(sqlQuery, aKeyword, iOffSet);
@@ -234,7 +239,7 @@ public class AppointmentMainBean {
         ResultSet rs = null;
         if (aKeyword.equals("*")) {
             sqlQuery = dbSQL.getDef("search*", "");
-            rs = dbPH.queryResults(sqlQuery, new DBPreparedHandlerParam[0]);
+            rs = dbPH.queryResults(sqlQuery, EMPTY_PARAMS);
         } else {
             sqlQuery = dbSQL.getDef(dboperation, "");
             rs = dbPH.queryResults(sqlQuery, aKeyword);
@@ -247,7 +252,7 @@ public class AppointmentMainBean {
         ResultSet rs = null;
         if (aKeyword.equals("*")) {
             sqlQuery = dbSQL.getDef("search*", "");
-            rs = dbPH.queryResults_paged(sqlQuery, new DBPreparedHandlerParam[0], iOffSet);
+            rs = dbPH.queryResults_paged(sqlQuery, EMPTY_PARAMS, iOffSet);
         } else {
             sqlQuery = dbSQL.getDef(dboperation, "");
             //works with only one " like ?"
@@ -261,7 +266,7 @@ public class AppointmentMainBean {
 //            if(str3.indexOf("and")>iIndex2) iIndex2=str3.indexOf("and") + 3;
                     sqlQuery = str2 + " 1=1 " + str3.substring(iIndex2 + 1, str3.length());
                 }
-                rs = dbPH.queryResults_paged(sqlQuery, new DBPreparedHandlerParam[0], iOffSet);
+                rs = dbPH.queryResults_paged(sqlQuery, EMPTY_PARAMS, iOffSet);
             } else {
                 rs = dbPH.queryResults_paged(sqlQuery, aKeyword, iOffSet);
             }
@@ -293,7 +298,7 @@ public class AppointmentMainBean {
     /* This method is called by querys that dont need to set a PreparedStatement */
     public ResultSet queryResults(String dboperation) throws Exception {
         String sqlQuery = dbSQL.getDef(dboperation);
-        return dbPH.queryResults(sqlQuery, new DBPreparedHandlerParam[0]);
+        return dbPH.queryResults(sqlQuery, EMPTY_PARAMS);
     }
 
     public String getString(ResultSet rs, java.lang.String columnName) throws SQLException {

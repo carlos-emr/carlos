@@ -59,11 +59,12 @@ import org.apache.logging.log4j.Logger;
 public class OscarTrackingBasicDataSource extends BasicDataSource {
 
     public static final int MAX_CONNECTION_WARN_SIZE = 2;
+    public static final int MAX_CONNECTION_HARD_LIMIT = 50;
     public static final Logger logger = MiscUtils.getLogger();
     public static final Map<Connection, StackTraceElement[]> debugMap = Collections.synchronizedMap(new WeakHashMap<Connection, StackTraceElement[]>());
     private static final ThreadLocal<HashSet<Connection>> connections = new ThreadLocal<HashSet<Connection>>();
 
-    private static Connection trackConnection(Connection c) {
+    private static Connection trackConnection(Connection c) throws SQLException {
         c = new TrackingJdbcConnection(c);
 
         debugMap.put(c, Thread.currentThread().getStackTrace());
@@ -75,6 +76,18 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
         }
 
         threadConnections.add(c);
+
+        if (threadConnections.size() > MAX_CONNECTION_HARD_LIMIT) {
+            String msg = "Thread is using " + threadConnections.size() + " jdbc connections, exceeds hard limit "
+                    + MAX_CONNECTION_HARD_LIMIT;
+            logger.error(msg);
+            try {
+                c.close();
+            } catch (SQLException e) {
+                logger.error("Error closing jdbc connection during hard-limit enforcement", e);
+            }
+            throw new SQLException(msg);
+        }
 
         if (threadConnections.size() > MAX_CONNECTION_WARN_SIZE) {
             String msg = "Thread is currently using " + threadConnections.size() + " separate jdbc connections, it souldn't need more than " + MAX_CONNECTION_WARN_SIZE;

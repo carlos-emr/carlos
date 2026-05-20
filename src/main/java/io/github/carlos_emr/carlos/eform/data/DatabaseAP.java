@@ -199,7 +199,17 @@ public class DatabaseAP {
     }
 
     public static String parserClean(String str) {
-        //removes left over ${...} in str; replaces with ""
+        // Removes left over ${...} in str; fails fast if unresolved placeholders remain.
+        // Replacing unresolved placeholders with quoted tokens can silently change query logic.
+        if (str == null || str.isBlank()) {
+            return str;
+        }
+
+        ArrayList<String> unresolved = parserGetNames(str);
+        if (!unresolved.isEmpty()) {
+            throw new IllegalArgumentException("Unresolved placeholders in AP query: " + unresolved);
+        }
+
         StringBuilder strb = new StringBuilder(str);
         int tagstart = -2;
         int tagend;
