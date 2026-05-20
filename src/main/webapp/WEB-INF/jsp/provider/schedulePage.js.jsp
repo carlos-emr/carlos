@@ -50,15 +50,16 @@
         UserProperty tabProp = upDao.getProp(curProviderNo, UserProperty.ENCOUNTER_OPEN_IN_TAB);
         UserProperty navProp = upDao.getProp(curProviderNo, UserProperty.SCHEDULE_NAVIGATION_MODE);
         String savedScheduleNavigationMode = navProp != null ? navProp.getValue() : null;
-        if (UserProperty.SCHEDULE_NAVIGATION_MODE_TAB.equals(savedScheduleNavigationMode)
-                || UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED.equals(savedScheduleNavigationMode)) {
-            scheduleNavigationMode = savedScheduleNavigationMode;
+        if (navProp != null
+                && !UserProperty.SCHEDULE_NAVIGATION_MODE_TAB.equals(savedScheduleNavigationMode)
+                && !UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED.equals(savedScheduleNavigationMode)) {
+            scheduleNavigationMode = UserProperty.SCHEDULE_NAVIGATION_MODE_POPUP;
         } else if (navProp == null) {
             scheduleNavigationMode = tabProp != null && "yes".equalsIgnoreCase(tabProp.getValue())
                     ? UserProperty.SCHEDULE_NAVIGATION_MODE_TAB
                     : UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED;
         } else {
-            scheduleNavigationMode = UserProperty.SCHEDULE_NAVIGATION_MODE_POPUP;
+            scheduleNavigationMode = savedScheduleNavigationMode;
         }
         openEncounterInTab = UserProperty.SCHEDULE_NAVIGATION_MODE_TAB.equals(scheduleNavigationMode);
     }

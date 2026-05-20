@@ -53,12 +53,20 @@ class ScheduleNavigationAssetRegressionTest {
     void shouldDefaultScheduleNavigation_toFocusedMode() throws IOException {
         String scheduleScript = Files.readString(SCHEDULE_PAGE_SCRIPT, StandardCharsets.UTF_8);
         String providerPreference = Files.readString(PROVIDER_PREFERENCE_JSP, StandardCharsets.UTF_8);
+        String normalizedScheduleScript = normalizeWhitespace(scheduleScript);
+        String normalizedProviderPreference = normalizeWhitespace(providerPreference);
 
-        assertThat(scheduleScript)
+        assertThat(normalizedScheduleScript)
                 .contains("String scheduleNavigationMode = UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED;")
-                .contains(": UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED;");
-        assertThat(providerPreference)
+                .contains("scheduleNavigationMode = tabProp != null && \"yes\".equalsIgnoreCase(tabProp.getValue()) "
+                        + "? UserProperty.SCHEDULE_NAVIGATION_MODE_TAB"
+                        + " : UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED;");
+        assertThat(normalizedProviderPreference)
                 .contains("encOpenInTab ? UserProperty.SCHEDULE_NAVIGATION_MODE_TAB"
                         + " : UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED");
+    }
+
+    private static String normalizeWhitespace(String content) {
+        return content.replaceAll("\\s+", " ").trim();
     }
 }
