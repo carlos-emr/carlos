@@ -72,9 +72,16 @@ class DashboardQueryHandlerProxyContractTest {
                 && !method.isBridge();
     }
 
+    private static boolean isCompilerGeneratedMethod(Method method) {
+        return method.isSynthetic()
+                || method.isBridge()
+                || method.getName().startsWith("lambda$");
+    }
+
     private static Stream<String> findCglibVisibleFinalMethods(Class<?> handlerType) {
         return proxiedHandlerHierarchy(handlerType)
                 .flatMap(declaringType -> Arrays.stream(declaringType.getDeclaredMethods())
+                        .filter(method -> !isCompilerGeneratedMethod(method))
                         .filter(DashboardQueryHandlerProxyContractTest::isCglibVisibleFinalMethod)
                         .map(method -> declaringType.getSimpleName() + "#" + method.getName()
                                 + " inherited by " + handlerType.getSimpleName()));
