@@ -46,22 +46,24 @@ import static org.assertj.core.api.Assertions.assertThat;
 class MdsSearchJspRegressionTest {
 
     private static final Pattern SCRIPT_BLOCK_PATTERN = Pattern.compile("(?is)<script\\b[^>]*>(.*?)</script>");
+    private static final Pattern SCRIPTLET_BLOCK_PATTERN = Pattern.compile("(?is)<%(.*?)%>");
     private static final Pattern ON_SUBMIT_FUNCTION_PATTERN = Pattern.compile("\\bfunction\\s+onSubmitCheck\\s*\\(");
-    private static final Path SEARCH_JSP = repositoryRoot()
+    private static final Path SEARCH_JSP = projectBaseDirectory()
             .resolve(Path.of("src", "main", "webapp", "WEB-INF", "jsp", "oscarMDS", "Search.jsp"));
 
     @Test
     @DisplayName("should precompute providerNo encoding before JavaScript builds search URL")
     void shouldPrecomputeProviderNoEncoding_beforeJavaScriptBuildsSearchUrl() throws IOException {
         String jsp = Files.readString(SEARCH_JSP, StandardCharsets.UTF_8);
+        String onSubmitScript = onSubmitScriptBlock(jsp);
 
-        assertThat(jsp)
-                .contains("String encodedProviderNo")
+        assertThat(providerNoEncodingScriptlet(jsp))
                 .contains("SafeEncode.forJavaScript")
                 .contains("SafeEncode.forUriComponent")
-                .contains("request.getParameter(\"providerNo\")")
-                .contains("&providerNo=<%= encodedProviderNo %>");
-        assertThat(onSubmitScriptBlock(jsp))
+                .contains("request.getParameter(\"providerNo\")");
+        assertThat(onSubmitScript)
+                .contains("&providerNo=<%= encodedProviderNo %>")
+                .contains("&searchProviderNo=\" + encodeURIComponent(")
                 .doesNotContain("<c:")
                 .doesNotContain("<carlos:")
                 .doesNotContain("<e:")
@@ -69,15 +71,26 @@ class MdsSearchJspRegressionTest {
                 .doesNotContain("<jsp:");
     }
 
-    private static Path repositoryRoot() {
-        Path current = Path.of(System.getProperty("user.dir")).toAbsolutePath();
-        while (current != null) {
-            if (Files.exists(current.resolve("pom.xml")) && Files.exists(current.resolve("src/main/webapp"))) {
-                return current;
+    private static Path projectBaseDirectory() {
+        String baseDirectory = System.getProperty(
+                "maven.multiModuleProjectDirectory",
+                System.getProperty("basedir", System.getProperty("user.dir")));
+        return Path.of(baseDirectory).toAbsolutePath().normalize();
+    }
+
+    private static String providerNoEncodingScriptlet(String jsp) {
+        int firstScriptTag = jsp.indexOf("<script");
+        Matcher matcher = SCRIPTLET_BLOCK_PATTERN.matcher(jsp);
+        while (matcher.find()) {
+            if (firstScriptTag >= 0 && matcher.start() > firstScriptTag) {
+                break;
             }
-            current = current.getParent();
+            String scriptletBody = matcher.group(1);
+            if (scriptletBody.contains("encodedProviderNo")) {
+                return scriptletBody;
+            }
         }
-        throw new IllegalStateException("Unable to locate CARLOS repository root");
+        throw new IllegalStateException("Unable to locate MDS search provider number encoding scriptlet");
     }
 
     private static String onSubmitScriptBlock(String jsp) {

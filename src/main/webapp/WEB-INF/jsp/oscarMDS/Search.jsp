@@ -69,7 +69,7 @@
 
             var url = "<%=request.getContextPath()%>/documentManager/inboxManage?method=prepareForIndexPage&providerNo=<%= encodedProviderNo %>";
             if ($("#provfind").val().trim() != "") {
-                url += "&searchProviderNo=" + $("#provfind").val().trim();
+                url += "&searchProviderNo=" + encodeURIComponent($("#provfind").val().trim());
             } else {
                 url += "&searchProviderNo=-1";
             }
