@@ -4868,7 +4868,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
         }
         for (UploadedFile uploaded : uploadedFiles) {
             if ("importFile".equals(uploaded.getInputName())) {
-                this.importFile = Path.of(uploaded.getAbsolutePath()).toFile();
+                this.importFile = PathValidationUtils.validateUpload(new File(uploaded.getAbsolutePath()));
                 this.importFileFileName = uploaded.getOriginalName();
                 return;
             }
@@ -4876,7 +4876,11 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
     }
 
     public void setImportFile(File importFile) {
-        this.importFile = importFile;
+        if (importFile != null) {
+            this.importFile = PathValidationUtils.validateUpload(importFile);
+        } else {
+            this.importFile = null;
+        }
     }
 
     public String getImportFileFileName() {

@@ -439,13 +439,15 @@ public class NioFileManagerImpl implements NioFileManager {
 
             return deleted;
         } catch (FileValidationException e) {
-            if (e.getMessage() != null && e.getMessage().contains("does not exist")) {
+            File candidateFile = new File(fileName);
+            if (!candidateFile.exists()) {
                 return false;
             }
 
             log.error("Security violation while attempting to delete file: {}", LogSanitizer.sanitize(fileName), e);
 
-            String message = e.getMessage() != null && e.getMessage().contains("is not a regular file")
+            String message = PathValidationUtils.isInAllowedTempDirectory(candidateFile)
+                    && !candidateFile.isFile()
                     ? "Temp deletion target must be a regular file"
                     : "Path traversal attempt detected";
 

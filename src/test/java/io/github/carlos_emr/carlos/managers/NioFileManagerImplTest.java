@@ -111,6 +111,21 @@ class NioFileManagerImplTest {
     }
 
     @Test
+    @DisplayName("deleteTempFile rejects directories outside allowed temp directories")
+    void deleteTempFileRejectsOutsideDirectories() throws Exception {
+        Path outsideDir = Paths.get("target", "nio-temp-outside-delete-dir-" + UUID.randomUUID()).toAbsolutePath();
+        Files.createDirectories(outsideDir);
+
+        try {
+            assertThatThrownBy(() -> new NioFileManagerImpl().deleteTempFile(outsideDir.toString()))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("Path traversal attempt detected");
+        } finally {
+            Files.deleteIfExists(outsideDir);
+        }
+    }
+
+    @Test
     @DisplayName("deleteTempFile ignores blank inputs")
     void deleteTempFileReturnsFalseForBlankInput() {
         assertThat(new NioFileManagerImpl().deleteTempFile(null)).isFalse();

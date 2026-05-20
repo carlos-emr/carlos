@@ -120,8 +120,8 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                     map.put("error", 4);
                     throw new FileNotFoundException();
                 } else {
-                    String queueId = request.getParameter("queue");
-                    String destFolder = request.getParameter("destFolder");
+                    String queueId = normalizeIncomingParam(request.getParameter("queue"));
+                    String destFolder = normalizeIncomingParam(request.getParameter("destFolder"));
 
                     if (!isValidIncomingDestination(queueId, destFolder)) {
                         logger.warn("Rejected invalid incoming document destination");
@@ -432,6 +432,10 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
         return queueId != null
                 && queueId.trim().matches("\\d+")
                 && IncomingDocUtil.isValidIncomingDocFolder(destFolder);
+    }
+
+    private String normalizeIncomingParam(String value) {
+        return value == null ? null : value.trim();
     }
 
     private void storePreferredQueue(String queueId) {

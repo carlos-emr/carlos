@@ -174,6 +174,23 @@ class DocumentUpload2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should normalize incoming request values before resolving folder paths")
+    void shouldNormalizeIncomingValuesBeforePathResolution() throws Exception {
+        request.setParameter("destination", "incomingDocs");
+        request.setParameter("queue", " 123 ");
+        request.setParameter("destFolder", " Fax ");
+        bindFiledataUpload(tempUploadFile, "scan.pdf", "application/pdf");
+
+        String result = action.executeUpload();
+
+        Path writtenFile = incomingDocumentDir.resolve("123").resolve("Fax").resolve("scan.pdf");
+        assertThat(result).isNull();
+        assertThat(request.getSession().getAttribute("preferredQueue")).isEqualTo("123");
+        assertThat(response.getContentAsString()).contains("scan.pdf");
+        assertThat(Files.readAllBytes(writtenFile)).containsExactly(1);
+    }
+
+    @Test
     @DisplayName("should sanitize incoming filename path separators")
     void shouldSanitizeIncomingFilename_pathSeparators() throws Exception {
         request.setAttribute("user", "123");
