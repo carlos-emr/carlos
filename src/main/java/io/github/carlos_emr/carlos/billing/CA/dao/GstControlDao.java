@@ -38,7 +38,7 @@ import io.github.carlos_emr.carlos.billing.CA.model.GstControl;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDao;
 
 /**
- * @author rjonasz
+ * @since 2026-05-20
  */
 
 public interface GstControlDao extends AbstractDao<GstControl> {

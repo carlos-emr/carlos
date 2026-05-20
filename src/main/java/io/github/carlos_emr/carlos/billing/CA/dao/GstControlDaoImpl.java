@@ -41,7 +41,7 @@ import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Repository;
 
 /**
- * @author rjonasz
+ * @since 2026-05-20
  */
 @Repository
 public class GstControlDaoImpl extends AbstractDaoImpl<GstControl> implements GstControlDao {

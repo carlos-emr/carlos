@@ -38,7 +38,8 @@ import jakarta.persistence.Table;
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
 /**
- * VacanyTemplate entity. @author azhou
+ * VacanyTemplate entity.
+ * @since 2026-05-20
  */
 @Entity
 @Table(name = "vacancy_template")

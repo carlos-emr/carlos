@@ -39,7 +39,7 @@ import jakarta.servlet.http.HttpServletResponse;
  * Read compressed data from input stream,
  * Write it to servlet output stream for consuming(downloading) by client
  *
- * @author oscar
+ * @since 2026-05-20
  */
 public class TraceabilityReportConsumer implements Callable<String> {
     private InputStream inputStream;

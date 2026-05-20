@@ -61,7 +61,6 @@ import org.springframework.mail.SimpleMailMessage;
 import io.github.carlos_emr.carlos.service.MessageMailer;
 
 /**
- * @author mweston4
  */
 
 /*
@@ -69,6 +68,7 @@ import io.github.carlos_emr.carlos.service.MessageMailer;
  * This method will be updated to use EmailManager for sending emails in the future.
  *
  * TODO: Update the deprecated code to use the EmailManager once the new emailing feature is fully implemented.
+ * @since 2026-05-20
  */
 @Deprecated
 public class AppointmentMailer implements MessageMailer {

@@ -38,7 +38,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 /**
- * @author Jay Gallagher
+ * @since 2026-05-20
  */
 public class WcbHelper {
 

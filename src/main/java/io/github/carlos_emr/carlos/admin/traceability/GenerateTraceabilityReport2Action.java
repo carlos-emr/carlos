@@ -49,12 +49,16 @@ import io.github.carlos_emr.carlos.log.LogConst;
  * compare with the local 'trace'
  * and create report
  *
- * @author oscar
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * GenerateTraceabilityReport2Action implementation.
+ *
+ * @since 2026-05-20
+ */
 public class GenerateTraceabilityReport2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

@@ -34,8 +34,8 @@ package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
  *
  * <p>Company: </p>
  *
- * @author not attributable
  * @version 1.0
+ * @since 2026-05-20
  */
 public class SexValidator
         extends ServiceCodeValidator {

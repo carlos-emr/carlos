@@ -40,7 +40,7 @@ import org.slf4j.LoggerFactory;
 /**
  * This class contains Appointment related presentation layer helper methods.
  *
- * @author Eugene Petruhin
+ * @since 2026-05-20
  */
 public class ApptUtil {
 

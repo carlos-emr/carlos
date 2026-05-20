@@ -56,7 +56,7 @@ import com.google.common.collect.Maps;
  * Build 'traceability report' from compressed serialized stream
  * Send to output stream for later consuming
  *
- * @author oscar
+ * @since 2026-05-20
  */
 public class TraceabilityReportProcessor implements Callable<String> {
     private OutputStream outputStream = null;

@@ -48,11 +48,15 @@ import io.github.carlos_emr.carlos.log.LogConst;
  * Produce compressed trace data
  * Pipe it to another process that decorates it and sends to client in form of a binary file
  *
- * @author oscar
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * GenerateTrace2Action implementation.
+ *
+ * @since 2026-05-20
+ */
 public class GenerateTrace2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

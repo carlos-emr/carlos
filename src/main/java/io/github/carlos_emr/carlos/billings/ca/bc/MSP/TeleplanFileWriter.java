@@ -54,7 +54,7 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.providers.data.ProviderData;
 
 /**
- * @author jay
+ * @since 2026-05-20
  */
 public class TeleplanFileWriter {
 

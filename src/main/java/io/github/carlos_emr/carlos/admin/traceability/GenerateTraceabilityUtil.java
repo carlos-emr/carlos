@@ -51,7 +51,7 @@ import io.github.carlos_emr.carlos.util.OscarRoleObjectPrivilege;
 /**
  * Utilities for traceability
  *
- * @author oscar
+ * @since 2026-05-20
  */
 public class GenerateTraceabilityUtil {
     private GenerateTraceabilityUtil() {

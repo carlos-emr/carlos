@@ -45,9 +45,9 @@ import java.util.GregorianCalendar;
  * 
  * <p>Useful for generating calendar-based UI components and schedule views.</p>
  * 
- * @author Martin
  * @version 1.0
  * @since JDK 1.3
+ * @since 2026-05-20
  */
 public class DateInMonthTable {
     private int curYear = 0;

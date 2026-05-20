@@ -35,7 +35,7 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanResponseLog;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
- * @author jay
+ * @since 2026-05-20
  */
 public class TeleplanResponseDAO {
 

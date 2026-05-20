@@ -42,7 +42,7 @@ import jakarta.persistence.TemporalType;
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
 /**
- * @author AnooshTech
+ * @since 2026-05-20
  */
 @Entity
 @Table(name = "vacancy_client_match")

@@ -33,7 +33,7 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.AppointmentStatus;
 
 /**
- * @author toby
+ * @since 2026-05-20
  */
 public interface AppointmentStatusMgr {
     public List<AppointmentStatus> getAllStatus();

@@ -43,10 +43,10 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 /**
- * @author Jef King
  * For The Oscar McMaster Project
  * Developed By Andromedia
  * www.andromedia.ca
+ * @since 2026-05-20
  */
 public class WcbSb {
     private static Logger logger = MiscUtils.getLogger();

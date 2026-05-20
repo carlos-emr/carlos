@@ -36,7 +36,8 @@ import jakarta.persistence.Table;
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
 /**
- * Criteria entity. @author MyEclipse Persistence Tools
+ * Criteria entity.
+ * @since 2026-05-20
  */
 @Entity
 @Table(name = "criteria")
