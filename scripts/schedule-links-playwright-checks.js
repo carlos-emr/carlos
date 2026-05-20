@@ -66,7 +66,7 @@ function appUrl(appPath) {
 }
 
 function safeGoto(page, appPath, options) {
-  return page.goto(appUrl(appPath), options); // nosemgrep
+  return page.goto(appUrl(appPath), options); // nosemgrep // NOSONAR - appUrl validates local-only BASE_URL and root-relative paths.
 }
 
 function isExpectedMissingAsset(status, responseUrl) {

@@ -79,7 +79,7 @@ function appUrl(appPath) {
 }
 
 function safeGoto(page, appPath, options) {
-  return page.goto(appUrl(appPath), options); // nosemgrep
+  return page.goto(appUrl(appPath), options); // nosemgrep // NOSONAR - appUrl validates local-only BASE_URL and root-relative paths.
 }
 
 function record(status, label, detail) {
@@ -109,7 +109,7 @@ async function fillIfPresent(page, selector, value) {
     if (visible) {
       await locator.fill(value);
     } else {
-      await locator.evaluate((element, newValue) => { // nosemgrep
+      await locator.evaluate((element, newValue) => { // nosemgrep // NOSONAR - value is passed as a Playwright argument, not interpolated.
         element.value = newValue;
         element.dispatchEvent(new Event('input', { bubbles: true }));
         element.dispatchEvent(new Event('change', { bubbles: true }));
