@@ -247,7 +247,7 @@ public class MeasurementData2Action extends ActionSupport {
         if (nctTs != null)
             script.append("jQuery(\"#nct_ts\").html('" + sdf.format(nctTs) + "');\n");
 
-        response.setContentType(JSON_CONTENT_TYPE);
+        response.setContentType("application/javascript; charset=UTF-8");
         response.getWriter().print(script);
         return null;
     }
