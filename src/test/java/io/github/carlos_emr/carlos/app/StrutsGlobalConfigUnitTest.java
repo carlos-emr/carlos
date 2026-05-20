@@ -39,7 +39,6 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
-import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
@@ -184,7 +183,9 @@ class StrutsGlobalConfigUnitTest extends CarlosUnitTestBase {
         for (int i = 0; i < packages.getLength(); i++) {
             if (packages.item(i) instanceof Element packageElement) {
                 String strictMethodInvocation = packageElement.getAttribute("strict-method-invocation");
-                if (!"true".equals(strictMethodInvocation.trim())) {
+                if (strictMethodInvocation == null
+                        || strictMethodInvocation.trim().isEmpty()
+                        || !"true".equals(strictMethodInvocation.trim())) {
                     violations.add(fileName + " package " + packageElement.getAttribute("name")
                             + " sets strict-method-invocation=" + strictMethodInvocation);
                 }
@@ -272,8 +273,7 @@ class StrutsGlobalConfigUnitTest extends CarlosUnitTestBase {
         NodeList childNodes = element.getChildNodes();
         List<Element> children = new ArrayList<>();
         for (int i = 0; i < childNodes.getLength(); i++) {
-            if (childNodes.item(i).getNodeType() == Node.ELEMENT_NODE
-                    && childNodes.item(i) instanceof Element child) {
+            if (childNodes.item(i) instanceof Element child) {
                 children.add(child);
             }
         }
