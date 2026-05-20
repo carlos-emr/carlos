@@ -55,7 +55,6 @@ import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SafeEncode;
 
 import io.github.carlos_emr.SxmlMisc;
 
@@ -74,12 +73,20 @@ import io.github.carlos_emr.SxmlMisc;
 public class BillingOnLookupService {
 
     private static final Logger _logger = MiscUtils.getLogger();
-    private static final String FAVOURITE_SEARCH_PROMPT =
-            "Type in a name and search first to see if it is available.";
-    private static final String FONT_RED_NOT = "<font color='red'>NOT</font>";
-    private static final String VERB_UPDATED = "u" + "pdated";
-    private static final String VERB_DELETED = "d" + "eleted";
-    private static final String VERB_ADDED = "added";
+    private static final String KEY_TYPE_TO_SEARCH = "billing.billingOnFavourite.msgTypeToSearch";
+    private static final String KEY_NOT_SAVE_SEARCH_FIRST = "billing.billingOnFavourite.msgNotSaveSearchFirst";
+    private static final String KEY_NOT_SAVE_NAME_CHANGED = "billing.billingOnFavourite.msgNotSaveNameChanged";
+    private static final String KEY_UPDATED = "billing.billingOnFavourite.msgUpdated";
+    private static final String KEY_NOT_UPDATED = "billing.billingOnFavourite.msgNotUpdated";
+    private static final String KEY_ADDED = "billing.billingOnFavourite.msgAdded";
+    private static final String KEY_NOT_ADDED = "billing.billingOnFavourite.msgNotAdded";
+    private static final String KEY_NOTHING_TO_DELETE = "billing.billingOnFavourite.msgNothingToDelete";
+    private static final String KEY_DELETED = "billing.billingOnFavourite.msgDeleted";
+    private static final String KEY_NOT_DELETED = "billing.billingOnFavourite.msgNotDeleted";
+    private static final String LEVEL_INFO = "info";
+    private static final String LEVEL_SUCCESS = "success";
+    private static final String LEVEL_WARNING = "warning";
+    private static final String LEVEL_DANGER = "danger";
 
     private final OscarAppointmentDao appointmentDao;
     private final ProfessionalSpecialistDao professionalSpecialistDao;
@@ -721,7 +728,7 @@ public class BillingOnLookupService {
         if ("Search".equals(submit) && "Delete".equals(nullToEmpty(request.action()))) {
             return handleFavouriteDelete(request);
         }
-        return new FavouriteMutationResult(FAVOURITE_SEARCH_PROMPT, "search", Map.of());
+        return new FavouriteMutationResult(KEY_TYPE_TO_SEARCH, null, LEVEL_INFO, "search", Map.of());
     }
 
     private FavouriteMutationResult handleFavouriteSave(FavouriteMutationRequest request) {
@@ -732,99 +739,59 @@ public class BillingOnLookupService {
         if (actionParam.startsWith("add")) {
             return processFavouriteAdd(request, actionParam);
         }
-        String message = new StringBuilder()
-                .append("You can ").append(FONT_RED_NOT)
-                .append(" save the name. Please search the name first.")
-                .toString();
-        return new FavouriteMutationResult(message, "search", Map.of());
+        return new FavouriteMutationResult(KEY_NOT_SAVE_SEARCH_FIRST, null, LEVEL_WARNING, "search", Map.of());
     }
 
     private FavouriteMutationResult processFavouriteEdit(FavouriteMutationRequest request, String actionParam) {
         String name = nullToEmpty(request.name());
-        String safeName = SafeEncode.forHtml(name);
         Map<String, String> formFields = new LinkedHashMap<>();
         if (!name.equals(actionParam.substring("edit".length()))) {
             formFields.put("name", name);
-            String message = new StringBuilder()
-                    .append("You can ").append(FONT_RED_NOT)
-                    .append(" save the name - ").append(safeName)
-                    .append(". Please search the name first.")
-                    .toString();
-            return new FavouriteMutationResult(message, "search", formFields);
+            return new FavouriteMutationResult(name.isEmpty() ? KEY_NOT_SAVE_SEARCH_FIRST : KEY_NOT_SAVE_NAME_CHANGED, name.isEmpty() ? null : name, LEVEL_WARNING, "search", formFields);
         }
         String list = buildFavouriteServiceList(request, false);
         boolean ok = updateBillingFavouriteList(name, list, request.providerNo());
         formFields.put("name", name);
         if (ok) {
-            String message = new StringBuilder()
-                    .append(safeName).append(" is ").append(VERB_UPDATED)
-                    .append(".<br>").append(FAVOURITE_SEARCH_PROMPT)
-                    .toString();
-            return new FavouriteMutationResult(message, "search", formFields);
+            return new FavouriteMutationResult(KEY_UPDATED, name, LEVEL_SUCCESS, "search", formFields);
         }
         captureFavouritePersistFields(request, formFields);
-        String message = new StringBuilder()
-                .append(safeName).append(" is ").append(FONT_RED_NOT)
-                .append(" ").append(VERB_UPDATED)
-                .append(". Action failed! Try edit it again.")
-                .toString();
-        return new FavouriteMutationResult(message, "edit" + name, formFields);
+        return new FavouriteMutationResult(KEY_NOT_UPDATED, name, LEVEL_DANGER, "edit" + name, formFields);
     }
 
     private FavouriteMutationResult processFavouriteAdd(FavouriteMutationRequest request, String actionParam) {
         String name = nullToEmpty(request.name());
-        String safeName = SafeEncode.forHtml(name);
         Map<String, String> formFields = new LinkedHashMap<>();
+        if (name.isEmpty()) {
+            formFields.put("name", name);
+            return new FavouriteMutationResult(KEY_NOT_SAVE_SEARCH_FIRST, null, LEVEL_WARNING, "search", formFields);
+        }
         if (!name.equals(actionParam.substring("add".length()))) {
             formFields.put("name", name);
-            String message = new StringBuilder()
-                    .append("You can ").append(FONT_RED_NOT)
-                    .append(" save the name - ").append(safeName)
-                    .append(". Please search the name first.")
-                    .toString();
-            return new FavouriteMutationResult(message, "search", formFields);
+            return new FavouriteMutationResult(KEY_NOT_SAVE_NAME_CHANGED, name, LEVEL_WARNING, "search", formFields);
         }
         String list = buildFavouriteServiceList(request, true);
         int rc = addBillingFavouriteList(name, list, request.providerNo());
         formFields.put("name", name);
         if (rc > 0) {
-            String message = new StringBuilder()
-                    .append(safeName).append(" is ").append(VERB_ADDED)
-                    .append(".<br>").append(FAVOURITE_SEARCH_PROMPT)
-                    .toString();
-            return new FavouriteMutationResult(message, "search", formFields);
+            return new FavouriteMutationResult(KEY_ADDED, name, LEVEL_SUCCESS, "search", formFields);
         }
         captureFavouritePersistFields(request, formFields);
-        String message = new StringBuilder()
-                .append(safeName).append(" is ").append(FONT_RED_NOT)
-                .append(" ").append(VERB_ADDED)
-                .append(". Action failed! Try edit it again.")
-                .toString();
-        return new FavouriteMutationResult(message, "add" + name, formFields);
+        return new FavouriteMutationResult(KEY_NOT_ADDED, name, LEVEL_DANGER, "add" + name, formFields);
     }
 
     private FavouriteMutationResult handleFavouriteDelete(FavouriteMutationRequest request) {
         String name = nullToEmpty(request.name());
         if (name.isEmpty()) {
-            return new FavouriteMutationResult("nothing to delete, please choose a name.", "search", Map.of());
+            return new FavouriteMutationResult(KEY_NOTHING_TO_DELETE, null, LEVEL_WARNING, "search", Map.of());
         }
-        String safeName = SafeEncode.forHtml(name);
         boolean ok = delBillingFavouriteList(name, request.providerNo());
         Map<String, String> formFields = new LinkedHashMap<>();
         formFields.put("name", name);
         if (ok) {
-            String message = new StringBuilder()
-                    .append(safeName).append(" is ").append(VERB_DELETED)
-                    .append(".<br>").append(FAVOURITE_SEARCH_PROMPT)
-                    .toString();
-            return new FavouriteMutationResult(message, "search", formFields);
+            return new FavouriteMutationResult(KEY_DELETED, name, LEVEL_SUCCESS, "search", formFields);
         }
-        String message = new StringBuilder()
-                .append(safeName).append(" is ").append(FONT_RED_NOT)
-                .append(" ").append(VERB_DELETED)
-                .append(". Action failed! Try edit it again.")
-                .toString();
-        return new FavouriteMutationResult(message, "edit" + name, formFields);
+        return new FavouriteMutationResult(KEY_NOT_DELETED, name, LEVEL_DANGER, "edit" + name, formFields);
     }
 
     private String buildFavouriteServiceList(FavouriteMutationRequest request, boolean padAtPrefix) {
@@ -898,7 +865,8 @@ public class BillingOnLookupService {
     }
 
     /** Result of applying a favourite mutation before rendering the page. */
-    public record FavouriteMutationResult(String message, String action, Map<String, String> formFields) {
+    public record FavouriteMutationResult(String messageKey, String messageName, String messageLevel,
+                                          String action, Map<String, String> formFields) {
         public FavouriteMutationResult {
             formFields = formFields == null ? Map.of() : new LinkedHashMap<>(formFields);
         }

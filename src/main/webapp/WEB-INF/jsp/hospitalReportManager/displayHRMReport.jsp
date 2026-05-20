@@ -215,6 +215,7 @@
 
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title>HRM Report</title>
 
     <script type="text/javascript"

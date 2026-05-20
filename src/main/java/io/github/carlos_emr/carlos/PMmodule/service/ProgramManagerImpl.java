@@ -190,7 +190,7 @@ public class ProgramManagerImpl implements ProgramManager {
     }
 
     public void saveProgram(Program program) {
-        if (program.getHoldingTank()) {
+        if (program.isHoldingTank()) {
             programDao.resetHoldingTank();
         }
         programDao.saveProgram(program);

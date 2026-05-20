@@ -61,6 +61,7 @@
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <link rel="stylesheet" type="text/css" href="styles.css">
 </head>
 <body>

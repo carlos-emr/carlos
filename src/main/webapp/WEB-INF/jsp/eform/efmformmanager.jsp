@@ -41,6 +41,7 @@
 %>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title>E-Form Manager</title>
         <link rel="stylesheet" href="<%= request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css">
         <link rel="stylesheet" href="<%= request.getContextPath() %>/css/fontawesome-all.min.css">

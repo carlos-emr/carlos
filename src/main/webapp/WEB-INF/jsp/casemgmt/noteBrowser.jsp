@@ -139,6 +139,7 @@
 
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title><fmt:message key="encounter.noteBrowser.title"/> - <oscar:nameage
             demographicNo="<%= demographicID %>"/></title>
     <script type="text/javascript">

@@ -87,6 +87,7 @@
 <html>
 
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title><fmt:message key="form.formBCAR2020pg1.title"/></title>
 
         <link rel="stylesheet" type="text/css" media="all"

@@ -57,7 +57,7 @@ public class Hl7LinkDao extends AbstractDaoImpl<Hl7Link> {
     }
 
     public List<Object[]> findMagicLinks() {
-        String sql = "SELECT demo, pid, link FROM Demographic demo, Hl7Pid pid, Hl7Link link WHERE pid.id = link.id AND demo.Hin = pid.externalId AND link.id IS NULL";
+        String sql = "SELECT demo, pid, link FROM Demographic demo, Hl7Pid pid, Hl7Link link WHERE pid.id = link.id AND demo.hin = pid.externalId AND link.id IS NULL";
         Query q = entityManager.createQuery(sql);
         return q.getResultList();
     }
@@ -80,16 +80,16 @@ public class Hl7LinkDao extends AbstractDaoImpl<Hl7Link> {
     }
 
     public List<Object[]> findProvidersWithReports() {
-        String sql = "SELECT DISTINCT provider.ProviderNo, provider.LastName, provider.FirstName FROM Hl7Link hl7_link, Demographic demographic, Provider provider " +
-                "WHERE hl7_link.demographicNo = demographic.DemographicNo " +
-                "AND demographic.ProviderNo = provider.ProviderNo " +
-                "AND demographic.ProviderNo IS NOT NULL";
+        String sql = "SELECT DISTINCT provider.providerNo, provider.lastName, provider.firstName FROM Hl7Link hl7_link, Demographic demographic, Provider provider " +
+                "WHERE hl7_link.demographicNo = demographic.demographicNo " +
+                "AND demographic.providerNo = provider.providerNo " +
+                "AND demographic.providerNo IS NOT NULL";
         Query query = entityManager.createQuery(sql);
         return query.getResultList();
     }
 
     public List<Object[]> findReportsByProvider(String providerNo) {
-        String sql = "SELECT hl7_link, demographic, hl7_pid, hl7_obr, hl7_message, provider FROM Hl7Link hl7_link, Demographic demographic, Hl7Pid hl7_pid, Hl7Obr hl7_obr, Hl7Message hl7_message, Provider provider WHERE demographic.ProviderNo = provider.ProviderNo AND hl7_link.id = hl7_obr.pidId AND hl7_link.id = hl7_pid.id AND demographic.ProviderNo = :providerNo AND hl7_message.id = hl7_pid.messageId AND demographic.DemographicNo = hl7_link.demographicNo AND hl7_link.status != 'P'";
+        String sql = "SELECT hl7_link, demographic, hl7_pid, hl7_obr, hl7_message, provider FROM Hl7Link hl7_link, Demographic demographic, Hl7Pid hl7_pid, Hl7Obr hl7_obr, Hl7Message hl7_message, Provider provider WHERE demographic.providerNo = provider.providerNo AND hl7_link.id = hl7_obr.pidId AND hl7_link.id = hl7_pid.id AND demographic.providerNo = :providerNo AND hl7_message.id = hl7_pid.messageId AND demographic.demographicNo = hl7_link.demographicNo AND hl7_link.status != 'P'";
         Query query = entityManager.createQuery(sql);
         query.setParameter("providerNo", providerNo);
         return query.getResultList();

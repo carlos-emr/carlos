@@ -86,6 +86,7 @@
         <!DOCTYPE html>
         <html>
         <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
 
         <link rel="stylesheet" type="text/css" href="${ pageContext.request.contextPath }/css/healthCareTeam.css"/>
         <link rel="stylesheet" type="text/css"

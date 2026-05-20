@@ -84,6 +84,7 @@
 <!DOCTYPE html>
 <html lang="${pageContext.request.locale.language}">
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <meta charset="UTF-8">
     <title>Billing — OHIP Claim File Failed</title>
     <link rel="stylesheet" href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css"/>

@@ -39,7 +39,6 @@ import java.util.List;
 
 import io.github.carlos_emr.Misc;
 import org.apache.logging.log4j.Logger;
-import org.hibernate.Session;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.db.DBHandler;
@@ -221,14 +220,6 @@ public class SqlUtils {
                     logger.warn("Error closing Connection.", e);
                 }
             }
-        }
-    }
-
-    public static void closeResources(Session session, Statement s, ResultSet rs) {
-        closeResources(s, rs);
-
-        if (session != null) {
-            session.close();
         }
     }
 

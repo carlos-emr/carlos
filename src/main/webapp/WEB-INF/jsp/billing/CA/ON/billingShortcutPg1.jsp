@@ -37,6 +37,7 @@
 "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="${ctx}/js/global.js"></script>
     <title>HospitalBilling</title>
     <link rel="stylesheet" type="text/css" href="billingON.css"/>

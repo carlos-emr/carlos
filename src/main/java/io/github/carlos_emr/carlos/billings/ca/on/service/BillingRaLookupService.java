@@ -225,7 +225,6 @@ public class BillingRaLookupService {
      * @param serviceCode target service code
      * @return formatted amount paid
      */
-
     public String getAmountPaid(ArrayList<HashMap<String, String>> a, String billingNo, String serviceCode) {
         return getAmountPaidWithCount(a, billingNo, serviceCode).formattedTotal();
     }

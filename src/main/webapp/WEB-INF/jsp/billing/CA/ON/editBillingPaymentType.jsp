@@ -42,6 +42,7 @@
 </style>
 
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <title><carlos:encode value='${paymentTypeModel.title}' context='html'/>
     </title>

@@ -58,14 +58,14 @@ public class ProviderSiteDaoImpl extends AbstractDaoImpl<ProviderSite> implement
 
     @Override
     public List<Provider> findActiveProvidersWithSites(String provider_no) {
-        String sql = "FROM Provider p where p.Status = '1' AND p.OhipNo != '' " +
+        String sql = "FROM Provider p where p.status = '1' AND p.ohipNo != '' " +
                 "AND EXISTS( " +
-                "   FROM ProviderSite s WHERE p.ProviderNo = s.id.providerNo " +
+                "   FROM ProviderSite s WHERE p.providerNo = s.id.providerNo " +
                 "   AND s.id.siteId IN ( " +
                 "       SELECT ss.id.siteId FROM ProviderSite ss WHERE ss.id.providerNo = ?1 " +
                 "   )" +
                 ")" +
-                "ORDER BY p.LastName, p.FirstName";
+                "ORDER BY p.lastName, p.firstName";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, provider_no);
         return query.getResultList();

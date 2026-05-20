@@ -21,8 +21,11 @@
  */
 package io.github.carlos_emr.carlos.app.contract;
 
+import io.github.carlos_emr.carlos.admin.web.SecurityDelete2Action;
+import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.security.CarlosMethodSecurity;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -141,6 +144,14 @@ class MutatorActionGetRejectionContractTest {
                     "_billing", "w"),
             Arguments.of("io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingUpdateBilling2Action",
                     "_billing", "w"),
+            // --- admin ---
+            Arguments.of("io.github.carlos_emr.carlos.admin.web.SecurityDelete2Action",
+                    "_admin", "w"),
+            // --- clinical measurements / flowsheets ---
+            Arguments.of("io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action",
+                    "_measurement", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.commn.web.FlowSheetCustom2Action",
+                    "_flowsheet", "w"),
             // --- report ---
             Arguments.of("io.github.carlos_emr.carlos.report.pageUtil.DbManageProvider2Action",
                     "_admin.reporting", "w"),
@@ -271,6 +282,7 @@ class MutatorActionGetRejectionContractTest {
      * manifests above and participates in discovery drift checks.
      */
     private static final Set<String> IN_SCOPE_EXPLICIT_CLASSES = Set.of(
+        "io.github.carlos_emr.carlos.admin.web.SecurityDelete2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSaveBilling2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingUpdateBilling2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ManageTeleplan2Action",
@@ -278,6 +290,8 @@ class MutatorActionGetRejectionContractTest {
         "io.github.carlos_emr.carlos.billings.ca.on.web.BillingDocumentErrorReportUpload2Action",
         "io.github.carlos_emr.carlos.billings.ca.on.web.MoveMohFiles2Action",
         "io.github.carlos_emr.carlos.billings.ca.on.web.ScheduleOfBenefitsUpload2Action",
+        "io.github.carlos_emr.carlos.commn.web.FlowSheetCustom2Action",
+        "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action",
         "io.github.carlos_emr.carlos.login.gate.SelectFacility2Action",
         "io.github.carlos_emr.carlos.provider.web.DocumentDescriptionTemplate2Action"
     );
@@ -349,7 +363,7 @@ class MutatorActionGetRejectionContractTest {
                         return autoMocks.computeIfAbsent(beanType, Mockito::mock);
                     });
 
-            Object action = actionClass.getDeclaredConstructor().newInstance();
+            Object action = instantiateAction(actionClass, autoMocks);
 
             Throwable caught = null;
             Object result = null;
@@ -387,6 +401,18 @@ class MutatorActionGetRejectionContractTest {
             assertDeclaredPrivilegeWasCheckedIfAuthWasReached(
                     securityInfoManager, className, privilegeObject, privilegeLevel, httpMethod);
         }
+    }
+
+    private static Object instantiateAction(Class<?> actionClass, Map<Class<?>, Object> autoMocks)
+            throws Exception {
+        if (actionClass.equals(SecurityDelete2Action.class)) {
+            CarlosMethodSecurity methodSecurity = mock(CarlosMethodSecurity.class);
+            when(methodSecurity.hasAdminWrite()).thenReturn(true);
+            SecurityDao securityDao = (SecurityDao) autoMocks.computeIfAbsent(SecurityDao.class, Mockito::mock);
+            return new SecurityDelete2Action(securityDao, methodSecurity);
+        }
+
+        return actionClass.getDeclaredConstructor().newInstance();
     }
 
     private static void assertDeclaredPrivilegeWasCheckedIfAuthWasReached(

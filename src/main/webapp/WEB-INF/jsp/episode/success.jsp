@@ -32,6 +32,7 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title></title>
     <script>
         function c() {
