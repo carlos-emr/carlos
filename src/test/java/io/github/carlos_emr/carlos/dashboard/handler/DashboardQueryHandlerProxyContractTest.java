@@ -55,11 +55,7 @@ class DashboardQueryHandlerProxyContractTest {
     @DisplayName("should not declare final methods visible to CGLIB proxies")
     void shouldNotDeclareFinalMethods_inCglibProxiedHandlers() throws ClassNotFoundException {
         List<String> finalMethods = discoverProxiedQueryHandlers().stream()
-                .flatMap(handlerType -> proxiedHandlerHierarchy(handlerType)
-                        .flatMap(declaringType -> Arrays.stream(declaringType.getDeclaredMethods())
-                                .filter(DashboardQueryHandlerProxyContractTest::isCglibVisibleFinalMethod)
-                                .map(method -> declaringType.getSimpleName() + "#" + method.getName()
-                                        + " inherited by " + handlerType.getSimpleName())))
+                .flatMap(DashboardQueryHandlerProxyContractTest::findCglibVisibleFinalMethods)
                 .toList();
 
         assertThat(finalMethods)
@@ -72,6 +68,14 @@ class DashboardQueryHandlerProxyContractTest {
         return Modifier.isFinal(modifiers)
                 && !Modifier.isStatic(modifiers)
                 && !Modifier.isPrivate(modifiers);
+    }
+
+    private static Stream<String> findCglibVisibleFinalMethods(Class<?> handlerType) {
+        return proxiedHandlerHierarchy(handlerType)
+                .flatMap(declaringType -> Arrays.stream(declaringType.getDeclaredMethods())
+                        .filter(DashboardQueryHandlerProxyContractTest::isCglibVisibleFinalMethod)
+                        .map(method -> declaringType.getSimpleName() + "#" + method.getName()
+                                + " inherited by " + handlerType.getSimpleName()));
     }
 
     @SuppressWarnings("unchecked")
