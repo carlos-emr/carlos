@@ -62,6 +62,7 @@
 <html>
 
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title><fmt:message key="colcamex.formBPMH.title"/></title>
         <link rel="stylesheet" type="text/css" media="screen"
               href="${ pageContext.request.contextPath }/form/pharmaForms/index.css"/>

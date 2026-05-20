@@ -33,6 +33,9 @@ import java.io.Serializable;
  * This is the object class that relates to the program_queue table.
  * Any customizations belong here.
  */
+@jakarta.persistence.Entity
+@jakarta.persistence.Table(name = "program_queue")
+@jakarta.persistence.Access(jakarta.persistence.AccessType.PROPERTY)
 public class ProgramQueue implements Serializable {
 
     public static String STATUS_ADMITTED = "admitted";
@@ -62,6 +65,7 @@ public class ProgramQueue implements Serializable {
 
     private String _vacancyName;
     private String vacancyTemplateName;
+    @org.hibernate.annotations.Formula("(select p.select_vacancy from client_referral p where p.referral_id = referral_id)")
 
     public String getVacancyName() {
         return _vacancyName;
@@ -70,6 +74,8 @@ public class ProgramQueue implements Serializable {
     public void setVacancyName(String _vacancyName) {
         this._vacancyName = _vacancyName;
     }
+
+    @jakarta.persistence.Transient
 
 
     public String getVacancyTemplateName() {
@@ -108,10 +114,12 @@ public class ProgramQueue implements Serializable {
         this.setProgramId(_programId);
         initialize();
     }
+    @jakarta.persistence.Transient
 
     public String getProviderFormattedName() {
         return getProviderLastName() + "," + getProviderFirstName();
     }
+    @jakarta.persistence.Transient
 
     public String getClientFormattedName() {
         return getClientLastName() + "," + getClientFirstName();
@@ -127,6 +135,9 @@ public class ProgramQueue implements Serializable {
      * generator-class="native"
      * column="queue_id"
      */
+    @jakarta.persistence.Id
+    @jakarta.persistence.GeneratedValue(strategy = jakarta.persistence.GenerationType.IDENTITY)
+    @jakarta.persistence.Column(name = "queue_id")
     public Long getId() {
         return _id;
     }
@@ -144,6 +155,7 @@ public class ProgramQueue implements Serializable {
     /**
      * Return the value associated with the column: client_id
      */
+    @jakarta.persistence.Column(name = "client_id", nullable = false)
     public Long getClientId() {
         return _clientId;
     }
@@ -160,6 +172,8 @@ public class ProgramQueue implements Serializable {
     /**
      * Return the value associated with the column: referral_date
      */
+    @jakarta.persistence.Temporal(jakarta.persistence.TemporalType.TIMESTAMP)
+    @jakarta.persistence.Column(name = "referral_date")
     public java.util.Date getReferralDate() {
         return _referralDate;
     }
@@ -176,6 +190,7 @@ public class ProgramQueue implements Serializable {
     /**
      * Return the value associated with the column: provider_no
      */
+    @jakarta.persistence.Column(name = "provider_no", nullable = false)
     public Long getProviderNo() {
         return _providerNo;
     }
@@ -192,6 +207,7 @@ public class ProgramQueue implements Serializable {
     /**
      * Return the value associated with the column: notes
      */
+    @jakarta.persistence.Column(name = "notes", length = 255)
     public String getNotes() {
         return _notes;
     }
@@ -208,6 +224,7 @@ public class ProgramQueue implements Serializable {
     /**
      * Return the value associated with the column: program_id
      */
+    @jakarta.persistence.Column(name = "program_id", nullable = false)
     public Long getProgramId() {
         return _programId;
     }
@@ -224,6 +241,7 @@ public class ProgramQueue implements Serializable {
     /**
      * Return the value associated with the column: status
      */
+    @jakarta.persistence.Column(name = "status", length = 30)
     public String getStatus() {
         return _status;
     }
@@ -240,6 +258,7 @@ public class ProgramQueue implements Serializable {
     /**
      * Return the value associated with the column: temporary_admission_flag
      */
+    @jakarta.persistence.Column(name = "temporary_admission_flag")
     public boolean isTemporaryAdmission() {
         return _temporaryAdmission;
     }
@@ -256,6 +275,7 @@ public class ProgramQueue implements Serializable {
     /**
      * Return the value associated with the column: referral_id
      */
+    @jakarta.persistence.Column(name = "referral_id")
     public Long getReferralId() {
         return _referralId;
     }
@@ -272,6 +292,7 @@ public class ProgramQueue implements Serializable {
     /**
      * Return the value associated with the column: ProgramName
      */
+    @org.hibernate.annotations.Formula("(select p.name from program p where p.id = program_id)")
     public String getProgramName() {
         return _programName;
     }
@@ -288,6 +309,7 @@ public class ProgramQueue implements Serializable {
     /**
      * Return the value associated with the column: ProviderLastName
      */
+    @org.hibernate.annotations.Formula("(select p.last_name from provider p where p.provider_no = provider_no)")
     public String getProviderLastName() {
         return _providerLastName;
     }
@@ -304,6 +326,7 @@ public class ProgramQueue implements Serializable {
     /**
      * Return the value associated with the column: ProviderFirstName
      */
+    @org.hibernate.annotations.Formula("(select p.first_name from provider p where p.provider_no = provider_no)")
     public String getProviderFirstName() {
         return _providerFirstName;
     }
@@ -320,6 +343,7 @@ public class ProgramQueue implements Serializable {
     /**
      * Return the value associated with the column: ClientLastName
      */
+    @org.hibernate.annotations.Formula("(select p.last_name from demographic p where p.demographic_no = client_id)")
     public String getClientLastName() {
         return _clientLastName;
     }
@@ -336,6 +360,7 @@ public class ProgramQueue implements Serializable {
     /**
      * Return the value associated with the column: ClientFirstName
      */
+    @org.hibernate.annotations.Formula("(select p.first_name from demographic p where p.demographic_no = client_id)")
     public String getClientFirstName() {
         return _clientFirstName;
     }
@@ -348,6 +373,7 @@ public class ProgramQueue implements Serializable {
     public void setClientFirstName(String _clientFirstName) {
         this._clientFirstName = _clientFirstName;
     }
+    @jakarta.persistence.Column(name = "present_problems", length = 255)
 
     public String getPresentProblems() {
         return presentProblems;
@@ -381,6 +407,7 @@ public class ProgramQueue implements Serializable {
     public String toString() {
         return super.toString();
     }
+    @org.hibernate.annotations.Formula("(select j.head_client_id from joint_admissions j where j.archived = 0 and j.client_id = client_id)")
 
     public Long getHeadClientId() {
         return headClientId;
@@ -389,6 +416,7 @@ public class ProgramQueue implements Serializable {
     public void setHeadClientId(Long headClientId) {
         this.headClientId = headClientId;
     }
+    @jakarta.persistence.Transient
 
     public Long getHeadRecord() {
         if (headClientId != null)

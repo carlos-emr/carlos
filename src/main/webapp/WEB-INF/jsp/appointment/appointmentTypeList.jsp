@@ -53,6 +53,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <fmt:message key="appointment.appointmentTypeList.errAppointmentTypeName" var="msgAppointmentTypeName"/>
     <fmt:message key="appointment.appointmentTypeList.errNamesField" var="msgNamesField"/>
     <fmt:message key="appointment.appointmentTypeList.msgAppointmentType" var="msgAppointmentType"/>

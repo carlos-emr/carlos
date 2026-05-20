@@ -116,6 +116,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title><fmt:message key="messenger.ViewMessage.title" /></title>
     <!-- js -->
     <script src="<%=request.getContextPath() %>/js/global.js"></script>

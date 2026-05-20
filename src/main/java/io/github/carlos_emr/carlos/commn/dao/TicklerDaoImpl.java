@@ -68,8 +68,8 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
      */
     private static final String SEARCH_WHERE_NAMED =
             " AND (LOWER(t.message) LIKE :srchTerm"
-            + " OR LOWER(d.LastName) LIKE :srchTerm"
-            + " OR LOWER(d.FirstName) LIKE :srchTerm)";
+            + " OR LOWER(d.lastName) LIKE :srchTerm"
+            + " OR LOWER(d.firstName) LIKE :srchTerm)";
 
     static {
         Map<String, String> m = new HashMap<>();
@@ -390,7 +390,7 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
         }
 
         if (includeMRPClause) {
-            query = selectQuery + " FROM Tickler t, Demographic d where d.DemographicNo = t.demographicNo and d.ProviderNo = ?" + paramIndex++;
+            query = selectQuery + " FROM Tickler t, Demographic d where d.demographicNo = t.demographicNo and d.providerNo = ?" + paramIndex++;
             paramList.add(filter.getMrp());
         }
 
@@ -542,13 +542,13 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
         StringBuilder sb = new StringBuilder();
         sb.append("SELECT NEW io.github.carlos_emr.carlos.tickler.dto.TicklerListDTO(");
         sb.append("t.id, t.message, t.serviceDate, t.createDate, t.status, t.priority, ");
-        sb.append("t.demographicNo, d.LastName, d.FirstName, ");
-        sb.append("creator.LastName, creator.FirstName, ");
-        sb.append("assignee.LastName, assignee.FirstName) ");
+        sb.append("t.demographicNo, d.lastName, d.firstName, ");
+        sb.append("creator.lastName, creator.firstName, ");
+        sb.append("assignee.lastName, assignee.firstName) ");
         sb.append("FROM Tickler t ");
-        sb.append("LEFT JOIN Demographic d ON d.DemographicNo = t.demographicNo ");
-        sb.append("LEFT JOIN Provider creator ON creator.ProviderNo = t.creator ");
-        sb.append("LEFT JOIN Provider assignee ON assignee.ProviderNo = t.taskAssignedTo ");
+        sb.append("LEFT JOIN Demographic d ON d.demographicNo = t.demographicNo ");
+        sb.append("LEFT JOIN Provider creator ON creator.providerNo = t.creator ");
+        sb.append("LEFT JOIN Provider assignee ON assignee.providerNo = t.taskAssignedTo ");
 
         int paramIndex = 1;
 
@@ -601,7 +601,7 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
 
         // MRP clause uses the already-joined demographic
         if (includeMRPClause) {
-            sb.append("WHERE d.ProviderNo = ?");
+            sb.append("WHERE d.providerNo = ?");
             sb.append(paramIndex++);
             paramList.add(filter.getMrp());
         } else {
@@ -720,9 +720,9 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
 
         StringBuilder jpql = new StringBuilder();
         jpql.append("SELECT NEW io.github.carlos_emr.carlos.tickler.dto.TicklerCommentDTO(");
-        jpql.append("c.id, c.ticklerNo, c.message, c.updateDate, p.LastName, p.FirstName) ");
+        jpql.append("c.id, c.ticklerNo, c.message, c.updateDate, p.lastName, p.firstName) ");
         jpql.append("FROM TicklerComment c ");
-        jpql.append("LEFT JOIN Provider p ON p.ProviderNo = c.providerNo ");
+        jpql.append("LEFT JOIN Provider p ON p.providerNo = c.providerNo ");
         jpql.append("WHERE c.ticklerNo IN (:ticklerIds) ");
         jpql.append("ORDER BY c.updateDate DESC");
 

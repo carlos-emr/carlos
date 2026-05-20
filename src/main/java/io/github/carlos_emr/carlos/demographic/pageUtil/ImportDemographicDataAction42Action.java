@@ -250,6 +250,12 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
 
         // Get context of the temp directory, get the file path to the the temp directory
         ServletContext servletContext = ServletActionContext.getServletContext();
+        if (servletContext == null && request != null) {
+            servletContext = request.getServletContext();
+        }
+        if (servletContext == null) {
+            throw new IllegalStateException("ServletContext is required to validate demographic import upload path");
+        }
 
         // Validate the paths using PathValidationUtils
         File safeDir = (File) servletContext.getAttribute("jakarta.servlet.context.tempdir"); // Use a safe directory

@@ -32,6 +32,9 @@ import java.io.Serializable;
 /**
  * This is the object class that relates to the functional_user_type table. Any customizations belong here.
  */
+@jakarta.persistence.Entity
+@jakarta.persistence.Table(name = "functional_user_type")
+@jakarta.persistence.Access(jakarta.persistence.AccessType.PROPERTY)
 public class FunctionalUserType implements Serializable {
 
     private int hashCode = Integer.MIN_VALUE; // primary key
@@ -63,6 +66,9 @@ public class FunctionalUserType implements Serializable {
      * generator-class="native"
      * column="id"
      */
+    @jakarta.persistence.Id
+    @jakarta.persistence.GeneratedValue(strategy = jakarta.persistence.GenerationType.IDENTITY)
+    @jakarta.persistence.Column(name = "id")
     public Long getId() {
         return _id;
     }
@@ -80,6 +86,7 @@ public class FunctionalUserType implements Serializable {
     /**
      * Return the value associated with the column: name
      */
+    @jakarta.persistence.Column(name = "name")
     public String getName() {
         return _name;
     }

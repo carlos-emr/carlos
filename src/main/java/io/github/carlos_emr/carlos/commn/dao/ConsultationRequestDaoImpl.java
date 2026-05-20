@@ -64,7 +64,7 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
     }
 
     public List<ConsultationRequest> getConsults(Integer demoNo) {
-        StringBuilder sql = new StringBuilder("select cr from ConsultationRequest cr, Demographic d, Provider p where d.DemographicNo = cr.demographicId and p.ProviderNo = cr.providerNo and cr.demographicId = ?1");
+        StringBuilder sql = new StringBuilder("select cr from ConsultationRequest cr, Demographic d, Provider p where d.demographicNo = cr.demographicId and p.providerNo = cr.providerNo and cr.demographicId = ?1");
         Query query = entityManager.createQuery(sql.toString());
         query.setParameter(1, demoNo);
 
@@ -80,8 +80,8 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
                     "LEFT JOIN cr.professionalSpecialist specialist " +
                     "LEFT JOIN ConsultationServices service ON cr.serviceId = service.serviceId " +
                     "LEFT JOIN ConsultationRequestExt ext ON cr.id = ext.requestId AND ext.key = 'ereferral_service' " +
-					"LEFT JOIN Demographic d on cr.demographicId = d.DemographicNo " +
-					"LEFT JOIN Provider p on d.ProviderNo = p.ProviderNo WHERE 1=1 ");
+					"LEFT JOIN Demographic d on cr.demographicId = d.demographicNo " +
+					"LEFT JOIN Provider p on d.providerNo = p.providerNo WHERE 1=1 ");
 
         if (!showCompleted) {
             sql.append("and cr.status != '4' ");
@@ -116,9 +116,9 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
         } else if (orderby.equals("2")) {               //2 = msgTeam
             sql.append("order by cr.sendTo " + orderDesc + service);
         } else if (orderby.equals("3")) {               //3 = msgPatient
-            sql.append("order by d.LastName " + orderDesc + service);
+            sql.append("order by d.lastName " + orderDesc + service);
         } else if (orderby.equals("4")) {               //4 = msgProvider
-            sql.append("order by p.LastName " + orderDesc + service);
+            sql.append("order by p.lastName " + orderDesc + service);
         } else if (orderby.equals("5")) {               //5 = msgService Desc
             sql.append("order by service.serviceDesc " + orderDesc);
         } else if (orderby.equals("6")) {               //6 = msgSpecialist Name
@@ -168,13 +168,13 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
     }
 
     public List<Object[]> findRequests(Date timeLimit, String providerNo) {
-        StringBuilder sql = new StringBuilder("SELECT DISTINCT d.LastName, c.demographicId FROM ConsultationRequest c, Demographic d " +
+        StringBuilder sql = new StringBuilder("SELECT DISTINCT d.lastName, c.demographicId FROM ConsultationRequest c, Demographic d " +
                 "WHERE c.referralDate >= ?1" +
-                "AND c.demographicId = d.DemographicNo");
+                " AND c.demographicId = d.demographicNo");
         if (providerNo != null) {
-            sql.append(" AND d.ProviderNo = ?2");
+            sql.append(" AND d.providerNo = ?2");
         }
-        sql.append(" ORDER BY d.LastName");
+        sql.append(" ORDER BY d.lastName");
 
         Query query = entityManager.createQuery(sql.toString());
         query.setParameter(1, timeLimit);

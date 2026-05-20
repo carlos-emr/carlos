@@ -73,6 +73,7 @@
 
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title><fmt:message key="provider.providerchangepassword.title"/></title>
 
         <script type="text/javascript">
