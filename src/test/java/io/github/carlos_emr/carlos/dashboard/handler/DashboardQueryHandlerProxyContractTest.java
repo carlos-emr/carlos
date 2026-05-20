@@ -53,12 +53,12 @@ class DashboardQueryHandlerProxyContractTest {
 
     @Test
     @DisplayName("should not declare final methods visible to CGLIB proxies")
-    void shouldNotDeclareFinalMethods_inCglibProxiedHandlers() throws ClassNotFoundException {
-        List<String> finalMethods = discoverProxiedQueryHandlers().stream()
+    void shouldContainNoFinalMethods_forCglibProxiedHandlers() throws ClassNotFoundException {
+        List<String> cglibVisibleFinalMethodNames = discoverProxiedQueryHandlers().stream()
                 .flatMap(DashboardQueryHandlerProxyContractTest::findCglibVisibleFinalMethods)
                 .toList();
 
-        assertThat(finalMethods)
+        assertThat(cglibVisibleFinalMethodNames)
                 .as("CGLIB cannot advise non-private final handler methods")
                 .isEmpty();
     }
@@ -90,7 +90,9 @@ class DashboardQueryHandlerProxyContractTest {
 
         for (var beanDefinition : scanner.findCandidateComponents(DASHBOARD_HANDLER_PACKAGE)) {
             Class<?> handlerType = Class.forName(beanDefinition.getBeanClassName());
-            handlerTypes.add((Class<? extends AbstractQueryHandler>) handlerType);
+            if (AbstractQueryHandler.class.isAssignableFrom(handlerType)) {
+                handlerTypes.add((Class<? extends AbstractQueryHandler>) handlerType);
+            }
         }
 
         return handlerTypes;
