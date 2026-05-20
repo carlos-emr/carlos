@@ -46,7 +46,6 @@ public class BackupDownload extends GenericDownload {
     private static final String DEFAULT_BACKUP_DIRECTORY = "/home/mysql/";
 
     private static final Logger log = MiscUtils.getLogger();
-    private SecurityInfoManager securityInfoManager;
 
     public void doGet(HttpServletRequest req, HttpServletResponse res) throws IOException {
         try {
@@ -65,7 +64,13 @@ public class BackupDownload extends GenericDownload {
             }
 
             LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(session);
-            if (loggedInInfo == null || !hasBackupDownloadPrivilege(loggedInInfo)) {
+            if (loggedInInfo == null) {
+                res.sendError(HttpServletResponse.SC_FORBIDDEN, BACKUP_DOWNLOAD_PRIVILEGE_REQUIRED);
+                return;
+            }
+
+            SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+            if (!hasBackupDownloadPrivilege(loggedInInfo, securityInfoManager)) {
                 res.sendError(HttpServletResponse.SC_FORBIDDEN, BACKUP_DOWNLOAD_PRIVILEGE_REQUIRED);
                 return;
             }
@@ -88,17 +93,9 @@ public class BackupDownload extends GenericDownload {
         }
     }
 
-    private boolean hasBackupDownloadPrivilege(LoggedInInfo loggedInInfo) {
-        SecurityInfoManager manager = getSecurityInfoManager();
-        return manager.hasPrivilege(loggedInInfo, "_admin", "r", null)
-                || manager.hasPrivilege(loggedInInfo, "_admin.backup", "r", null);
-    }
-
-    private synchronized SecurityInfoManager getSecurityInfoManager() {
-        if (securityInfoManager == null) {
-            securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-        }
-        return securityInfoManager;
+    private boolean hasBackupDownloadPrivilege(LoggedInInfo loggedInInfo, SecurityInfoManager securityInfoManager) {
+        return securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)
+                || securityInfoManager.hasPrivilege(loggedInInfo, "_admin.backup", "r", null);
     }
 
     private void sendErrorForCaughtException(HttpServletResponse res, int statusCode, String message) {
