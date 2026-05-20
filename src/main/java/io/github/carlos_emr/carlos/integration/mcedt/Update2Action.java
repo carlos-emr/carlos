@@ -145,7 +145,7 @@ public class Update2Action extends ActionSupport implements UploadedFilesAware {
 
     private String resourceId;
     private File content;
-    private SecurityException uploadValidationError;
+    private String uploadValidationError;
 
     public String getResourceId() {
         return resourceId;
@@ -172,7 +172,7 @@ public class Update2Action extends ActionSupport implements UploadedFilesAware {
                     this.uploadValidationError = null;
                 } catch (SecurityException e) {
                     this.content = null;
-                    this.uploadValidationError = e;
+                    this.uploadValidationError = e.getMessage();
                 }
                 return;
             }
@@ -184,7 +184,7 @@ public class Update2Action extends ActionSupport implements UploadedFilesAware {
         result.setResourceID(BigInteger.valueOf(ConversionUtils.fromIntString(resourceId)));
         try {
             if (uploadValidationError != null) {
-                throw uploadValidationError;
+                throw new SecurityException("Invalid upload file path", new SecurityException(uploadValidationError));
             }
             if (content == null) {
                 throw new SecurityException("Invalid upload file path", new FileValidationException("Uploaded file is null"));

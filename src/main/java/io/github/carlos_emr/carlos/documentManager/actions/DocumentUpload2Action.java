@@ -570,7 +570,11 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
 
 
         String user_no = (String) request.getSession().getAttribute("user");
-        String destFolder = request.getParameter("destFolder");
+        String destFolder = normalizeIncomingParam(request.getParameter("destFolder"));
+        if (destFolder == null || !ALLOWED_INCOMING_DOC_FOLDERS.contains(destFolder)) {
+            logger.warn("Rejected invalid incoming document folder update: {}", LogSanitizer.sanitize(destFolder));
+            return null;
+        }
         UserPropertyDAO pref = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
         UserProperty up = pref.getProp(user_no, UserProperty.UPLOAD_INCOMING_DOCUMENT_FOLDER);
 
@@ -607,6 +611,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                     this.filedataUpload = uploaded;
                     this.filedataContentType = uploaded.getContentType();
                     this.filedataFileName = uploaded.getOriginalName();
+                    return;
                 }
             }
         }

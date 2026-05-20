@@ -10,6 +10,7 @@ import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO;
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteLinkDAO;
+import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.dao.CtlDocTypeDao;
 import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao;
@@ -19,6 +20,7 @@ import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
+import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
@@ -57,6 +59,7 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -70,6 +73,9 @@ class DocumentUpload2ActionTest extends CarlosUnitTestBase {
 
     @Mock
     private SecurityInfoManager mockSecurityInfoManager;
+
+    @Mock
+    private UserPropertyDAO mockUserPropertyDAO;
 
     @Mock
     private LoggedInInfo mockLoggedInInfo;
@@ -101,6 +107,7 @@ class DocumentUpload2ActionTest extends CarlosUnitTestBase {
                 .thenReturn(mockLoggedInInfo);
 
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
+        registerMock(UserPropertyDAO.class, mockUserPropertyDAO);
         mockProgramManager = mock(ProgramManager2.class);
         registerMock(ProgramManager2.class, mockProgramManager);
         lenient().when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_edoc"), eq("w"), isNull()))
@@ -206,6 +213,61 @@ class DocumentUpload2ActionTest extends CarlosUnitTestBase {
         assertThat(response.getContentAsString()).contains("file.pdf");
         assertThat(writtenFile).exists();
         assertThat(Files.readAllBytes(writtenFile)).containsExactly(1);
+    }
+
+    @Test
+    @DisplayName("should keep first filedata upload when multiple uploads are provided")
+    void shouldKeepFirstFiledataUpload_whenMultipleFiledataUploadsProvided() throws Exception {
+        File firstUpload = File.createTempFile("first-upload", ".pdf");
+        File secondUpload = File.createTempFile("second-upload", ".pdf");
+        Files.write(firstUpload.toPath(), new byte[]{1});
+        Files.write(secondUpload.toPath(), new byte[]{2});
+
+        try {
+            action.withUploadedFiles(List.of(
+                    uploadedFile("filedata", secondUpload, "second-upload.pdf", "application/pdf"),
+                    uploadedFile("filedata", firstUpload, "first-upload.pdf", "application/pdf")
+            ));
+
+            assertThat(action.getFiledata()).isEqualTo(secondUpload);
+            assertThat(action.getFiledataFileName()).isEqualTo("second-upload.pdf");
+        } finally {
+            Files.deleteIfExists(firstUpload.toPath());
+            Files.deleteIfExists(secondUpload.toPath());
+        }
+    }
+
+    @Test
+    @DisplayName("should persist validated incoming destination folder")
+    void shouldPersistValidatedIncomingFolder() {
+        String userNo = "123";
+        request.getSession().setAttribute("user", userNo);
+        request.setParameter("destFolder", "Fax");
+
+        UserProperty existing = new UserProperty();
+        existing.setName(UserProperty.UPLOAD_INCOMING_DOCUMENT_FOLDER);
+        existing.setProviderNo(userNo);
+        existing.setValue("Mail");
+
+        lenient().when(mockUserPropertyDAO.getProp(eq(userNo), eq(UserProperty.UPLOAD_INCOMING_DOCUMENT_FOLDER))).thenReturn(existing);
+
+        action.setUploadIncomingDocumentFolder();
+
+        verify(mockUserPropertyDAO).saveProp(existing);
+        assertThat(existing.getValue()).isEqualTo("Fax");
+    }
+
+    @Test
+    @DisplayName("should reject invalid incoming destination folder")
+    void shouldRejectInvalidIncomingFolder() {
+        String userNo = "123";
+        request.getSession().setAttribute("user", userNo);
+        request.setParameter("destFolder", "../../etc");
+
+        action.setUploadIncomingDocumentFolder();
+
+        verify(mockUserPropertyDAO, never()).getProp(eq(userNo), eq(UserProperty.UPLOAD_INCOMING_DOCUMENT_FOLDER));
+        verify(mockUserPropertyDAO, never()).saveProp(any(UserProperty.class));
     }
 
     @Test
