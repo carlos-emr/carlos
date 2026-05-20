@@ -52,6 +52,7 @@ import io.github.carlos_emr.carlos.documentManager.IncomingDocUtil;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.HtmlResponse;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.RequestNegotiation;
@@ -920,13 +921,11 @@ public class ManageDocument2Action extends ActionSupport {
         }
 
         if (docxml != null && !docxml.trim().equals("")) {
-            response.setContentType("text/html;charset=UTF-8");
             // Legacy OSCAR 12 stored HTML document body. Rendering it as HTML is the documented
             // behaviour for this _edoc-gated display route; encoding would defeat the feature.
             // Writer (not OutputStream) is required so LogoutBroadcastFilter can append the
             // cross-window logout listener.
-            // nosemgrep: java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss, java.servlets.security.servletresponse-writer-xss-deepsemgrep.servletresponse-writer-xss-deepsemgrep, java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- intentional stored HTML document rendering, _edoc-gated, writer required for logout listener injection
-            response.getWriter().write(docxml);
+            HtmlResponse.writeStoredHtml(response, "text/html;charset=UTF-8", docxml);
             return;
         }
 
@@ -946,13 +945,11 @@ public class ManageDocument2Action extends ActionSupport {
             return;
         }
         if (RequestNegotiation.isHtmlContentType(contentType)) {
-            response.setCharacterEncoding(StandardCharsets.UTF_8.name());
             // Stored HTML document file (text/html content-type). Rendering the file contents as
             // HTML is the documented behaviour for this _edoc-gated display route; encoding would
             // defeat the feature. LogoutBroadcastFilter can only append the cross-window logout
             // listener to writer-backed HTML, which is why this path uses the writer.
-            // nosemgrep: java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss, java.servlets.security.servletresponse-writer-xss-deepsemgrep.servletresponse-writer-xss-deepsemgrep, java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- intentional stored HTML document rendering, _edoc-gated, writer required for logout listener injection
-            response.getWriter().write(new String(contentBytes, StandardCharsets.UTF_8));
+            HtmlResponse.writeStoredHtml(response, contentType, contentBytes);
             return;
         }
         response.setContentLength(contentBytes.length);

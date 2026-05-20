@@ -35,7 +35,6 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 
 import jakarta.activation.MimetypesFileTypeMap;
@@ -49,6 +48,7 @@ import org.apache.struts2.ServletActionContext;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.HtmlResponse;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -106,13 +106,12 @@ public class DisplayImage2Action extends ActionSupport {
         InputStream stream = data.stream();
 
         try {
-            response.setContentType(contentType);
             if (RequestNegotiation.isHtmlContentType(contentType)) {
-                response.setCharacterEncoding(StandardCharsets.UTF_8.name());
                 // LogoutBroadcastFilter can only append the cross-window logout listener to writer-backed HTML.
-                IOUtils.copy(stream, response.getWriter(), StandardCharsets.UTF_8);
+                HtmlResponse.writeStoredHtml(response, contentType, stream);
                 return NONE;
             }
+            response.setContentType(contentType);
             OutputStream outputStream = response.getOutputStream();
             IOUtils.copy(stream, outputStream);
             return NONE;
