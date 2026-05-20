@@ -698,11 +698,12 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
     /**
      * Resolves the safest filename to associate with an uploaded temp file.
      * Extracts only the basename from the supplied original name to discard any
-     * path components, and falls back to the validated temp file name when the
-     * original value is null, blank, or path-only. The fallback temp filename may
-     * not match the client-provided extension, but it remains a safe basename for
-     * later sanitization and storage. This fallback also prevents malicious or
-     * path-traversal-oriented client names from controlling the stored filename.
+     * path components, sanitizes it, and falls back to the validated temp file name
+     * when the original value is null, blank, path-only, or sanitizes to blank. The
+     * fallback temp filename may not match the client-provided extension, but it
+     * remains a safe basename for later storage. This fallback also prevents
+     * malicious or path-traversal-oriented client names from controlling the stored
+     * filename.
      *
      * @param uploadedFile File the validated temporary upload file
      * @param originalName String the original client-supplied filename, if any
@@ -710,7 +711,12 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
      */
     private String resolveUploadedFileName(File uploadedFile, String originalName) {
         String candidate = filled(originalName) ? FilenameUtils.getName(originalName) : null;
-        return filled(candidate) ? candidate : uploadedFile.getName();
+        String resolvedName = filled(candidate) ? candidate : uploadedFile.getName();
+        String sanitizedName = MiscUtils.sanitizeFileName(resolvedName);
+        if (filled(sanitizedName)) {
+            return sanitizedName;
+        }
+        return MiscUtils.sanitizeFileName(uploadedFile.getName());
     }
 
     /**
