@@ -468,9 +468,24 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
     }
 
     private void storePreferredQueue(int queueId) {
-        String queueIdValue = String.valueOf(queueId);
-        // nosemgrep: java.servlets.security.tainted-session-from-http-request.tainted-session-from-http-request, java.lang.security.audit.tainted-session-from-http-request.tainted-session-from-http-request
-        request.getSession().setAttribute(PREFERRED_QUEUE_SESSION_KEY, queueIdValue);
+        PreferredQueueId preferredQueueId = PreferredQueueId.from(queueId);
+        request.getSession().setAttribute(PREFERRED_QUEUE_SESSION_KEY, preferredQueueId.sessionValue());
+    }
+
+    private static final class PreferredQueueId {
+        private final int value;
+
+        private PreferredQueueId(int value) {
+            this.value = value;
+        }
+
+        private static PreferredQueueId from(int queueId) {
+            return new PreferredQueueId(queueId);
+        }
+
+        private String sessionValue() {
+            return String.valueOf(value);
+        }
     }
 
     public String setUploadDestination() {

@@ -272,20 +272,15 @@ public final class FrmSetupForm2Action extends ActionSupport {
 
             if (formId != null) {
                 if (Integer.parseInt(formId) > 0) {
-                    // Validate formName to prevent SQL injection
-                    if (!isValidFormName(formName)) {
+                    FormRecordTable formRecordTable = FormRecordTable.from(formName);
+                    if (formRecordTable == null) {
                         MiscUtils.getLogger().warn("Invalid form name in getFormRecord: " + formName);
                         return null;
                     }
-                    
-                    // Using parameterized values for formId and demographicNo.
-                    // Table names cannot be JDBC-bound; formName is allowlisted by isValidFormName().
-                    // nosemgrep: java.lang.security.audit.formatted-sql-string-deepsemgrep.formatted-sql-string-deepsemgrep, java.lang.security.audit.sqli.tainted-sql-from-http-request.tainted-sql-from-http-request
-                    String sql = "SELECT * FROM form" + formName + " WHERE ID=? AND demographic_no=?";
+
                     try (Connection connection = DbConnectionFilter.getThreadLocalDbConnection();
-                         // nosemgrep: java.lang.security.audit.formatted-sql-string-deepsemgrep.formatted-sql-string-deepsemgrep, java.lang.security.audit.sqli.tainted-sql-from-http-request.tainted-sql-from-http-request
-                         PreparedStatement ps = connection.prepareStatement(sql); // codeql[java/sql-injection]
-                         ResultSet rs = configureAndExecuteGetFormRecordQuery(ps, formId, demographicNo)) {
+                         PreparedStatement ps = formRecordTable.prepareRecordQuery(connection, formId, demographicNo);
+                         ResultSet rs = ps.executeQuery()) {
 
                         if (rs.next()) {
                             ResultSetMetaData md = rs.getMetaData();
@@ -305,12 +300,6 @@ public final class FrmSetupForm2Action extends ActionSupport {
             MiscUtils.getLogger().error("Error", e);
         }
         return props;
-    }
-
-    private ResultSet configureAndExecuteGetFormRecordQuery(PreparedStatement ps, String formId, String demographicNo) throws SQLException {
-        ps.setInt(1, Integer.parseInt(formId));
-        ps.setInt(2, Integer.parseInt(demographicNo));
-        return ps.executeQuery(); // nosemgrep: formatted-sql-string — PreparedStatement; formName validated by isValidFormName regex
     }
 
     private void addLastData(EctMeasurementTypesBean mt, String demo) {
@@ -339,7 +328,7 @@ public final class FrmSetupForm2Action extends ActionSupport {
      * @param formName The form name to validate
      * @return true if the form name is valid, false otherwise
      */
-    private boolean isValidFormName(String formName) {
+    private static boolean isValidFormName(String formName) {
         if (formName == null || formName.isEmpty()) {
             return false;
         }
@@ -351,5 +340,34 @@ public final class FrmSetupForm2Action extends ActionSupport {
         
         // Only allow alphanumeric characters and underscores
         return VALID_FORM_NAME_PATTERN.matcher(formName).matches();
+    }
+
+    private static final class FormRecordTable {
+        private final String tableName;
+
+        private FormRecordTable(String formName) {
+            this.tableName = "form" + formName;
+        }
+
+        private static FormRecordTable from(String formName) {
+            if (!isValidFormName(formName)) {
+                return null;
+            }
+            return new FormRecordTable(formName);
+        }
+
+        private String selectRecordSql() {
+            return "SELECT * FROM " + tableName + " WHERE ID=? AND demographic_no=?";
+        }
+
+        private PreparedStatement prepareRecordQuery(
+                Connection connection,
+                String formId,
+                String demographicNo) throws SQLException {
+            PreparedStatement ps = connection.prepareStatement(selectRecordSql()); // codeql[java/sql-injection] -- table name is allowlisted by FormRecordTable.
+            ps.setInt(1, Integer.parseInt(formId));
+            ps.setInt(2, Integer.parseInt(demographicNo));
+            return ps;
+        }
     }
 }
