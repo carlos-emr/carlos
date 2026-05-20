@@ -40,8 +40,6 @@ import org.springframework.core.type.filter.AssignableTypeFilter;
 /**
  * Contract tests for dashboard query handlers that are registered as Spring
  * beans and proxied through CGLIB for inherited transaction advice.
- *
- * @since 2026-05-20
  */
 @Tag("unit")
 @Tag("dashboard")
