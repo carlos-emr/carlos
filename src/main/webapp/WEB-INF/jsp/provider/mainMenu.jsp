@@ -90,7 +90,6 @@
     String consultationUrl = request.getContextPath() + "/encounter/IncomingConsultation?providerNo=" + curUser_no + "&userName=" + encodedUserName;
     String documentReportUrl = request.getContextPath() + "/documentManager/ViewDocumentReport?function=providers&functionid=" + curUser_no + "&curUser=" + curUser_no;
     String reportIndexUrl = request.getContextPath() + "/report/ViewReportindex";
-    String billingReportCenterUrl = request.getContextPath() + "/billing/CA/" + prov + "/ViewBillingReportCenter?displaymode=billreport&providerview=" + curUser_no;
     String ticklerUrl = request.getContextPath() + "/tickler/ViewTicklerMain";
     String administrationUrl = request.getContextPath() + "/administration";
     String searchUrl = request.getContextPath() + "/demographic/ViewSearch";
@@ -225,19 +224,6 @@
                                        OnMouseOver="window.status='<fmt:message key="global.genReport"/>' ; return true"><fmt:message key="global.report"/></a>
                                 </li>
                             </security:oscarSec>
-                        </caisi:isModuleLoad>
-
-                        <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
-                            <oscar:oscarPropertiesCheck property="NOT_FOR_CAISI" value="no" defaultVal="true">
-                                <security:oscarSec roleName="<%=roleName$%>" objectName="_billing" rights="r">
-                                    <li>
-                                        <a HREF="#"
-                                           ONCLICK="popupPage2('<%=SafeEncode.forJavaScriptAttribute(billingReportCenterUrl)%>');return false;"
-                                           TITLE='<fmt:message key="global.genBillReport"/>'
-                                           onMouseOver="window.status='<fmt:message key="global.genBillReport"/>';return true"><fmt:message key="global.billing"/></a>
-                                    </li>
-                                </security:oscarSec>
-                            </oscar:oscarPropertiesCheck>
                         </caisi:isModuleLoad>
 
                         <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">

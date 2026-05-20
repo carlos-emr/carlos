@@ -502,7 +502,7 @@
                                 <div class="mb-3">
                                     <a class="btn btn-link"
                                         <%-- The browser link is a full navigation; append scheduleNav so it remains in the schedule shell. --%>
-                                        href="${ pageContext.request.contextPath }/documentManager/ViewDocumentBrowser?function=<carlos:encode value='<%= module %>' context="uriComponent"/>&functionid=<carlos:encode value='<%= moduleid %>' context="uriComponent"/>&categorykey=<carlos:encode value='<%= currentkey %>' context="uri"/><%=scheduleNavQuerySuffix%>">
+                                        href="${ pageContext.request.contextPath }/documentManager/ViewDocumentBrowser?function=<carlos:encode value='<%= module %>' context="uriComponent"/>&functionid=<carlos:encode value='<%= moduleid %>' context="uriComponent"/>&categorykey=<carlos:encode value='<%= currentkey %>' context="uriComponent"/><%=scheduleNavQuerySuffix%>">
                                         <fmt:message key="dms.documentReport.msgBrowser"/>
                                     </a>
                                 </div>
