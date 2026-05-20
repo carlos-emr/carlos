@@ -34,7 +34,7 @@ import io.github.carlos_emr.carlos.casemgmt.dao.IssueDAO;
 import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.beans.factory.annotation.Autowired;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 public class IssueAdminManager {
     private static Logger log = MiscUtils.getLogger();
@@ -50,7 +50,7 @@ public class IssueAdminManager {
     public Issue getIssueAdmin(String issueAdminId) {
         Issue issueAdmin = dao.getIssue(Long.valueOf(issueAdminId));
         if (issueAdmin == null) {
-            log.warn("UserId '{}' not found in database.", LogSanitizer.sanitize(issueAdminId)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            log.warn("UserId '{}' not found in database.", LogSafe.sanitize(issueAdminId)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
         }
         return issueAdmin;
     }

@@ -37,7 +37,7 @@ import io.github.carlos_emr.carlos.commn.model.ScratchPad;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.owasp.encoder.Encode;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Map;
@@ -71,17 +71,30 @@ public class Scratch2Action extends JSONAction {
     
     public String execute() throws Exception {
 
-        if ("showVersion".equals(request.getParameter("method"))) {
-            return showVersion();
+        String method = request.getParameter("method");
+        if ("POST".equalsIgnoreCase(request.getMethod())) {
+            if ("delete".equals(method)) {
+                return delete();
+            }
+            // POST without a method parameter is the normal scratchpad save operation.
+        } else {
+            if ("showVersion".equals(method)) {
+                return showVersion();
+            }
+            return SUCCESS;
         }
-        if ("delete".equals(request.getParameter("method"))) {
-            return delete();
+        if ("GET".equalsIgnoreCase(request.getMethod())) {
+            return "success";
         }
 
         String providerNo =  (String) request.getSession().getAttribute("user");
         String pNo = request.getParameter("providerNo");
-                
-        if (providerNo.equals(pNo)){
+        if (providerNo == null || providerNo.trim().isEmpty()) {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            return null;
+        }
+
+        if (isRequestForSessionProvider(providerNo, pNo)){
         String id = request.getParameter("id");
         String scratchPad = request.getParameter("scratchpad");
         String windowId = request.getParameter("windowId");
@@ -133,7 +146,7 @@ public class Scratch2Action extends JSONAction {
            try {
                requestId = Integer.parseInt(id);
            } catch (NumberFormatException e) {
-               MiscUtils.getLogger().error("Invalid request id format: {}", LogSanitizer.sanitize(id), e); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+               MiscUtils.getLogger().error("Invalid request id format: {}", LogSafe.sanitize(id), e); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                return null;
            }
@@ -155,9 +168,13 @@ public class Scratch2Action extends JSONAction {
 			jsonResponse(jsonObject);
 
         }else {
-        	MiscUtils.getLogger().error("Scratch pad trying to save data for user {} but session user is {}",
-        		Encode.forJava(pNo), Encode.forJava(providerNo));
-        	response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+			MiscUtils.getLogger().error("Scratch pad trying to save data for user {} but session user is {}",
+				Encode.forJava(pNo), Encode.forJava(providerNo));
+			response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            ObjectNode jsonObject = objectMapper.createObjectNode();
+            jsonObject.put("success", false);
+            jsonObject.put("message", "Provider mismatch");
+            jsonResponse(jsonObject);
         }
         
         return null;      
@@ -179,14 +196,14 @@ public class Scratch2Action extends JSONAction {
                         : null);
                     jsonObject.put("success", true);
                 } else {
-                    MiscUtils.getLogger().warn("ScratchPad not found for id: {}", LogSanitizer.sanitize(id)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                    MiscUtils.getLogger().warn("ScratchPad not found for id: {}", LogSafe.sanitize(id)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                     jsonObject.put("success", false);
                 }
             } else {
                 jsonObject.put("success", false);
             }
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Failed to delete ScratchPad entry with id: {}", LogSanitizer.sanitize(id), e); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            MiscUtils.getLogger().error("Failed to delete ScratchPad entry with id: {}", LogSafe.sanitize(id), e); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             // Ensure callers can detect the failure via HTTP status and JSON payload
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             jsonObject = objectMapper.createObjectNode();
@@ -200,5 +217,13 @@ public class Scratch2Action extends JSONAction {
 		String s1 = scratchPad == null ? "" : scratchPad.trim();
 		String s2 = returnText == null ? "" : returnText.trim();
 		return !s1.equals(s2);
+	}
+
+	static boolean isRequestForSessionProvider(String sessionProviderNo, String requestProviderNo) {
+		return sessionProviderNo != null
+			&& !sessionProviderNo.trim().isEmpty()
+			&& (requestProviderNo == null
+				|| requestProviderNo.trim().isEmpty()
+				|| sessionProviderNo.equals(requestProviderNo));
 	}
 }

@@ -48,7 +48,7 @@ import javax.xml.parsers.ParserConfigurationException;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
@@ -105,10 +105,10 @@ public class IHAPOIHandler implements MessageHandler {
 
         } catch (ExceptionInInitializerError e) {
             result = new StringBuilder(FAILED + messageId + ",");
-            logger.error("There was an unknown internal error with file {} message id {}", LogSanitizer.sanitize(fileName), LogSanitizer.sanitize(messageId), e); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            logger.error("There was an unknown internal error with file {} message id {}", LogSafe.sanitize(fileName), LogSafe.sanitize(messageId), e); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
         } catch (Exception e) {
             result = new StringBuilder(FAILED + messageId + ",");
-            logger.error("Could not upload IHAPOI message {} due to an error with message id {}", LogSanitizer.sanitize(fileName), LogSanitizer.sanitize(messageId), e); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            logger.error("Could not upload IHAPOI message {} due to an error with message id {}", LogSafe.sanitize(fileName), LogSafe.sanitize(messageId), e); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
         } finally {
             if (FAILED.equals(result.toString().split(":")[0] + ":")) {
                 logger.error("Cleaning up MessageUploader file.");
@@ -271,7 +271,7 @@ public class IHAPOIHandler implements MessageHandler {
             isValidPath = PathValidationUtils.isInAllowedTempDirectory(file);
         }
         if (!isValidPath) {
-            logger.error("Path traversal attempt detected: {}", LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            logger.error("Path traversal attempt detected: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             throw new IllegalArgumentException("Invalid file path - access denied");
         }
         

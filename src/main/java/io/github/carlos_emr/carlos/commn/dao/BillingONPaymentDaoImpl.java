@@ -35,7 +35,7 @@ import jakarta.persistence.Query;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingONExt;
 import io.github.carlos_emr.carlos.commn.model.BillingONPayment;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.stereotype.Repository;
 
@@ -142,7 +142,7 @@ public class BillingONPaymentDaoImpl extends AbstractDaoImpl<BillingONPayment> i
             paymentsSum = new BigDecimal(0);
         } catch (NumberFormatException ex) {
             MiscUtils.getLogger().error("Non-numeric billingNo {} passed to getTotalSumByBillingNoWeb",
-                    LogSanitizer.sanitize(billingNo), ex);
+                    LogSafe.sanitize(billingNo), ex);
             paymentsSum = new BigDecimal(0);
         }
         NumberFormat currency = NumberFormat.getCurrencyInstance(Locale.US);
@@ -160,7 +160,7 @@ public class BillingONPaymentDaoImpl extends AbstractDaoImpl<BillingONPayment> i
             paymentsSum = new BigDecimal(0);
         } catch (NumberFormatException ex) {
             MiscUtils.getLogger().error("Non-numeric billingNo {} passed to getPaymentsRefundByBillingNoWeb",
-                    LogSanitizer.sanitize(billingNo), ex);
+                    LogSafe.sanitize(billingNo), ex);
             paymentsSum = new BigDecimal(0);
         }
         NumberFormat currency = NumberFormat.getCurrencyInstance();

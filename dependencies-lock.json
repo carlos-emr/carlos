@@ -699,11 +699,11 @@
   }, {
     "groupId" : "io.micrometer",
     "artifactId" : "micrometer-commons",
-    "version" : "1.16.4",
+    "version" : "1.16.5",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:TVxKfK7ohPubY0sgWXj8OOxoZNSqUH1aSWIPA1jInaBa2h+HYfInWvKv2+Co3/iOfXwkYKcDA9VOktUAtCzYfQ=="
+    "integrity" : "sha512:sJR+FRTvg378z+uO2TA9eak+KVnilwRv+k3TlfWoeI6/YuLWK8PHsunahD2Ar/zCh56UIdLutyWRkwpf9OvGeA=="
   }, {
     "groupId" : "io.micrometer",
     "artifactId" : "micrometer-core",
@@ -715,11 +715,11 @@
   }, {
     "groupId" : "io.micrometer",
     "artifactId" : "micrometer-observation",
-    "version" : "1.16.4",
+    "version" : "1.16.5",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:QfNIABAukT/kVemcgCs3042iStAdabDY0U59kO0OdI1BFesd9xXvz3G1bCMmwwiMvlIOlC2utmtH/r+XTmxSig=="
+    "integrity" : "sha512:fZu5+VGiQ0Z09uFbsU9Thzhnm090vyRZ7guUimbTdENSzjIzDyxQiYZlMU3Fmqzhk3YWVPclPzM7ZjF5u2DfRw=="
   }, {
     "groupId" : "io.netty",
     "artifactId" : "netty-buffer",
@@ -3245,12 +3245,28 @@
     "integrity" : "sha512:mj5522ZmpglqMCG7Lh2RjzD1idjeUda2APjr2SUVpRCuLY+HkZzC36g2XWTxAZTKyN+g+5UBYO7w6doG9squuQ=="
   }, {
     "groupId" : "org.springframework.security",
-    "artifactId" : "spring-security-crypto",
-    "version" : "7.0.4",
+    "artifactId" : "spring-security-config",
+    "version" : "7.0.5",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:YS6fqsURMnzQjbE0SSIq+x9pSMX/kusKCCd6n/Y+dv5CyApIuS+7nuFqD5qnamD4zhbW+tTgBjNoDfM/6iRabw=="
+    "integrity" : "sha512:flGzwScT3OXnZ+ydUeyt1hlwdAxF+0zWehygN4d0wzu4N07B8XaRsO4dpGs4QVU4QkxGKc22ikC9ZNMEfOhmgA=="
+  }, {
+    "groupId" : "org.springframework.security",
+    "artifactId" : "spring-security-core",
+    "version" : "7.0.5",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:BDGohfVemc8jX8dr/O1FGxhyDyf5TTC8S4PVe+FW6pMwj0nSqkZz5gHzUrcTr2LboZMFBojJCTdb2kdknPdl3A=="
+  }, {
+    "groupId" : "org.springframework.security",
+    "artifactId" : "spring-security-crypto",
+    "version" : "7.0.5",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:1RyVdgdMlTIdQYSHRf2UVyXUIV+icnt4IzUGVQ5UmBxzftQTk/6tdb08uFtIPTkvLMpZAMZiTmHwAT+T4JYRZg=="
   }, {
     "groupId" : "org.springframework",
     "artifactId" : "spring-aop",

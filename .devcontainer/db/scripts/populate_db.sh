@@ -7,9 +7,9 @@ cd /database/mysql || exit 1
 DB_PASSWORD="${MYSQL_ROOT_PASSWORD:-password}"
 
 echo 'Creating development database...'
-./createdatabase_on.sh root "$DB_PASSWORD" oscar
+./createdatabase_on.sh root "$DB_PASSWORD" oscar suppressPwdGen
 echo 'Creating test database...'
-./createdatabase_on.sh root "$DB_PASSWORD" oscar_test
+./createdatabase_on.sh root "$DB_PASSWORD" oscar_test suppressPwdGen
 echo 'Creating drugref2 database...'
 mysql -u root -p"$DB_PASSWORD" -e "CREATE DATABASE IF NOT EXISTS drugref2;"
 mysql -u root -p"$DB_PASSWORD" drugref2 < /database/mysql/development-drugref.sql

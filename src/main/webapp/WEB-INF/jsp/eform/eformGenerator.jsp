@@ -90,6 +90,7 @@ and other liscences (MIT, LGPL etc) as indicated
 %>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title><fmt:message key="eFormGenerator.title"/></title>
 
     <style type="text/css" media="print">

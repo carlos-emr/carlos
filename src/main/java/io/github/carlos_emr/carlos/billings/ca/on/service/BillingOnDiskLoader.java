@@ -35,7 +35,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingBatchHeaderDto;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingDiskNameDto;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingProviderDto;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.DiskFilenameRow;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
@@ -203,9 +203,9 @@ public class BillingOnDiskLoader {
             // as "clean books".
             MiscUtils.getLogger().error(
                     "Failed to load MRI list for date range {}..{} status={}; rethrowing",
-                    LogSanitizer.sanitize(sDate),
-                    LogSanitizer.sanitize(eDate),
-                    LogSanitizer.sanitize(status),
+                    LogSafe.sanitize(sDate),
+                    LogSafe.sanitize(eDate),
+                    LogSafe.sanitize(status),
                     e);
             throw new BillingDataLoadException("Failed to load MRI list", e,
                     BillingDataLoadException.Phase.DAO_QUERY,

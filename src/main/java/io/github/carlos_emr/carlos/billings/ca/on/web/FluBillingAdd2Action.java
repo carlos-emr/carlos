@@ -38,7 +38,7 @@ import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
 import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.commn.model.BillingService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
@@ -136,7 +136,7 @@ public class FluBillingAdd2Action extends ActionSupport {
             MiscUtils.getLogger().error(
                     "FluBillingAdd2Action: ambiguous fee — {} BillingService rows for svcCode={}",
                     bsList.size(),
-                    LogSanitizer.sanitize(request.getParameter("svcCode")));
+                    LogSafe.sanitize(request.getParameter("svcCode")));
             addActionError("Service code is ambiguous — multiple fee rows match. Resolve the duplicate before billing.");
             return ERROR;
         }
@@ -145,7 +145,7 @@ public class FluBillingAdd2Action extends ActionSupport {
         String svcPrice = bs == null ? null : bs.getValue();
 
         if (svcPrice == null || !svcPrice.contains(".")) {
-            MiscUtils.getLogger().error("FluBillingAdd2Action: svcPrice is null or has no decimal for svcCode={}", LogSanitizer.sanitize(request.getParameter("svcCode"))); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            MiscUtils.getLogger().error("FluBillingAdd2Action: svcPrice is null or has no decimal for svcCode={}", LogSafe.sanitize(request.getParameter("svcCode"))); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             addActionError("Service code price could not be resolved.");
             return ERROR;
         }
@@ -161,7 +161,7 @@ public class FluBillingAdd2Action extends ActionSupport {
         String providerOhipNo = "";
         String providerNo = "";
         if (providers == null || !providers.matches("[A-Za-z0-9]{6}##.+")) {
-            MiscUtils.getLogger().error("FluBillingAdd2Action: invalid providers format: {}", LogSanitizer.sanitize(providers)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            MiscUtils.getLogger().error("FluBillingAdd2Action: invalid providers format: {}", LogSafe.sanitize(providers)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             addActionError("Invalid provider selection. Expected format: OHIP##providerNo.");
             return ERROR;
         }

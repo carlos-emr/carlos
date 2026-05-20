@@ -29,6 +29,9 @@ package io.github.carlos_emr.carlos.model.security;
 import java.util.Date;
 
 
+@jakarta.persistence.Entity
+@jakarta.persistence.Table(name = "secUserRole")
+@jakarta.persistence.Access(jakarta.persistence.AccessType.PROPERTY)
 public class Secuserrole implements java.io.Serializable {
 
     // Fields
@@ -50,6 +53,9 @@ public class Secuserrole implements java.io.Serializable {
     private String userName;
     private String lastUpdateUser;
     private Date lastUpdateDate;
+    @jakarta.persistence.Temporal(jakarta.persistence.TemporalType.TIMESTAMP)
+
+    @jakarta.persistence.Column(name = "lastUpdateDate")
 
     public Date getLastUpdateDate() {
         return lastUpdateDate;
@@ -59,6 +65,8 @@ public class Secuserrole implements java.io.Serializable {
     public void setLastUpdateDate(Date lastUpdateDate) {
         this.lastUpdateDate = lastUpdateDate;
     }
+
+    @jakarta.persistence.Transient
 
 
     public String getLastUpdateUser() {
@@ -80,6 +88,11 @@ public class Secuserrole implements java.io.Serializable {
 
 
     // Property accessors
+    @jakarta.persistence.Id
+
+    @jakarta.persistence.GeneratedValue(strategy = jakarta.persistence.GenerationType.IDENTITY)
+
+    @jakarta.persistence.Column(name = "id")
 
     public Integer getId() {
         return this.id;
@@ -88,6 +101,7 @@ public class Secuserrole implements java.io.Serializable {
     public void setId(Integer id) {
         this.id = id;
     }
+    @jakarta.persistence.Column(name = "provider_no", length = 6, nullable = false)
 
     public String getProviderNo() {
         return this.providerNo;
@@ -96,6 +110,7 @@ public class Secuserrole implements java.io.Serializable {
     public void setProviderNo(String providerNo) {
         this.providerNo = providerNo;
     }
+    @jakarta.persistence.Column(name = "role_name", length = 30, nullable = false)
 
     public String getRoleName() {
         return this.roleName;
@@ -104,6 +119,7 @@ public class Secuserrole implements java.io.Serializable {
     public void setRoleName(String roleName) {
         this.roleName = roleName;
     }
+    @jakarta.persistence.Column(name = "orgcd", length = 80)
 
     public String getOrgcd() {
         return this.orgcd;
@@ -112,6 +128,7 @@ public class Secuserrole implements java.io.Serializable {
     public void setOrgcd(String orgcd) {
         this.orgcd = orgcd;
     }
+    @jakarta.persistence.Column(name = "activeyn")
 
     public Integer getActiveyn() {
         return this.activeyn;
@@ -120,6 +137,7 @@ public class Secuserrole implements java.io.Serializable {
     public void setActiveyn(Integer activeyn) {
         this.activeyn = activeyn;
     }
+    @jakarta.persistence.Transient
 
     public String getOrgcd_desc() {
         return orgcd_desc;
@@ -128,6 +146,7 @@ public class Secuserrole implements java.io.Serializable {
     public void setOrgcd_desc(String orgcd_desc) {
         this.orgcd_desc = orgcd_desc;
     }
+    @org.hibernate.annotations.Formula("(select r.description from secRole r where r.role_Name=role_Name)")
 
     public String getRoleName_desc() {
         return roleName_desc;
@@ -136,6 +155,7 @@ public class Secuserrole implements java.io.Serializable {
     public void setRoleName_desc(String roleName_desc) {
         this.roleName_desc = roleName_desc;
     }
+    @jakarta.persistence.Transient
 
     public String getProviderName() {
         if (providerName == null || providerName.length() <= 0) {
@@ -150,6 +170,7 @@ public class Secuserrole implements java.io.Serializable {
     public void setProviderName(String providerName) {
         this.providerName = providerName;
     }
+    @org.hibernate.annotations.Formula("(select p.first_name from provider p where p.provider_no=provider_no)")
 
     public String getProviderFName() {
         return providerFName;
@@ -158,6 +179,7 @@ public class Secuserrole implements java.io.Serializable {
     public void setProviderFName(String providerFName) {
         this.providerFName = providerFName;
     }
+    @org.hibernate.annotations.Formula("(select p.last_name from provider p where p.provider_no=provider_no)")
 
     public String getProviderLName() {
         return providerLName;
@@ -166,6 +188,7 @@ public class Secuserrole implements java.io.Serializable {
     public void setProviderLName(String providerLName) {
         this.providerLName = providerLName;
     }
+    @jakarta.persistence.Transient
 
     public String getFullName() {
         return fullName;
@@ -174,6 +197,7 @@ public class Secuserrole implements java.io.Serializable {
     public void setFullName(String fullName) {
         this.fullName = fullName;
     }
+    @jakarta.persistence.Transient
 
     public String getUserName() {
         return userName;
