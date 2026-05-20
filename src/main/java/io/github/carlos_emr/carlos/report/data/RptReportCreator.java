@@ -368,7 +368,7 @@ public final class RptReportCreator {
                 if ("0".equals(ret)) {
                     ret = "";
                 }
-                ret += ("".equals(ret) ? "" : ",") + rs.getInt(1);
+                ret += (ret.isEmpty() ? "" : ",") + rs.getInt(1);
 
             }
         }
