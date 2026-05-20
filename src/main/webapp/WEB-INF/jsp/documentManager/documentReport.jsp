@@ -162,6 +162,9 @@
         <title><fmt:message key="dms.documentReport.titleDocumentManager"/></title>
 
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
+        <% if (showScheduleNav) { %>
+        <link rel="stylesheet" href="<%=request.getContextPath()%>/css/topnav.css">
+        <% } %>
         <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css"
               rel="stylesheet" type="text/css"/>
 

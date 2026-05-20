@@ -47,23 +47,62 @@ class ScheduleNavigationAssetRegressionTest {
             Path.of("src", "main", "webapp", "WEB-INF", "jsp", "provider", "schedulePage.js.jsp");
     private static final Path PROVIDER_PREFERENCE_JSP =
             Path.of("src", "main", "webapp", "WEB-INF", "jsp", "provider", "providerpreference.jsp");
+    private static final Path DOCUMENT_REPORT_JSP =
+            Path.of("src", "main", "webapp", "WEB-INF", "jsp", "documentManager", "documentReport.jsp");
+    private static final Path DISPLAY_MESSAGES_JSP =
+            Path.of("src", "main", "webapp", "WEB-INF", "jsp", "messenger", "DisplayMessages.jsp");
+    private static final Path VIEW_MESSAGE_JSP =
+            Path.of("src", "main", "webapp", "WEB-INF", "jsp", "messenger", "ViewMessage.jsp");
+    private static final Path TOPNAV_CSS =
+            Path.of("src", "main", "webapp", "css", "topnav.css");
 
     @Test
-    @DisplayName("should default schedule navigation to focused mode")
-    void shouldDefaultScheduleNavigation_toFocusedMode() throws IOException {
+    @DisplayName("should default schedule navigation to focused mode only for carlosdoc")
+    void shouldDefaultScheduleNavigation_forCarlosdocOnly() throws IOException {
         String scheduleScript = Files.readString(SCHEDULE_PAGE_SCRIPT, StandardCharsets.UTF_8);
         String providerPreference = Files.readString(PROVIDER_PREFERENCE_JSP, StandardCharsets.UTF_8);
         String normalizedScheduleScript = normalizeWhitespace(scheduleScript);
         String normalizedProviderPreference = normalizeWhitespace(providerPreference);
 
         assertThat(normalizedScheduleScript)
-                .contains("String scheduleNavigationMode = UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED;")
+                .contains("final String CARLOSDOC_PROVIDER_NO = \"999998\";")
+                .contains("String scheduleNavigationMode = UserProperty.SCHEDULE_NAVIGATION_MODE_POPUP;")
                 .contains("scheduleNavigationMode = tabProp != null && \"yes\".equalsIgnoreCase(tabProp.getValue()) "
                         + "? UserProperty.SCHEDULE_NAVIGATION_MODE_TAB"
-                        + " : UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED;");
+                        + " : (CARLOSDOC_PROVIDER_NO.equals(curProviderNo) "
+                        + "? UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED "
+                        + ": UserProperty.SCHEDULE_NAVIGATION_MODE_POPUP);");
         assertThat(normalizedProviderPreference)
+                .contains("final String CARLOSDOC_PROVIDER_NO = \"999998\";")
                 .contains("encOpenInTab ? UserProperty.SCHEDULE_NAVIGATION_MODE_TAB"
-                        + " : UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED");
+                        + " : (CARLOSDOC_PROVIDER_NO.equals(providerNo)"
+                        + " ? UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED"
+                        + " : UserProperty.SCHEDULE_NAVIGATION_MODE_POPUP)");
+    }
+
+
+    @Test
+    @DisplayName("should keep schedule navigation styled and propagated on destination pages")
+    void shouldPreserveScheduleNavigation_onDestinationPages() throws IOException {
+        String documentReport = Files.readString(DOCUMENT_REPORT_JSP, StandardCharsets.UTF_8);
+        String displayMessages = Files.readString(DISPLAY_MESSAGES_JSP, StandardCharsets.UTF_8);
+        String viewMessage = Files.readString(VIEW_MESSAGE_JSP, StandardCharsets.UTF_8);
+        String topnavCss = Files.readString(TOPNAV_CSS, StandardCharsets.UTF_8);
+
+        assertThat(documentReport)
+                .contains("<link rel=\"stylesheet\" href=\"<%=request.getContextPath()%>/css/topnav.css\">")
+                .contains("<jsp:include page=\"/WEB-INF/jsp/provider/mainMenu.jsp\"/>");
+        assertThat(topnavCss)
+                .contains("table#firstTable .dashboardDropdown")
+                .contains("table#firstTable .dropdown:hover .dashboardDropdown");
+        assertThat(displayMessages)
+                .contains("String boxTypeQuerySuffix = pageType > 0 ? \"&boxType=\" + pageType : \"\";")
+                .contains("ViewMessage?messageID=<carlos:encode value='<%= dm.getMessageId() %>' context=\"uriComponent\"/>&boxType=<%=pageType%><%=scheduleNavQuerySuffix%>");
+        assertThat(viewMessage)
+                .contains("boolean showScheduleNav = \"1\".equals(request.getParameter(\"scheduleNav\"));")
+                .contains("<jsp:include page=\"/WEB-INF/jsp/provider/mainMenu.jsp\"/>")
+                .contains("DisplayMessages<%=scheduleNavFirstQuerySuffix%>")
+                .contains("DisplayMessages?boxType=1<%=scheduleNavQuerySuffix%>");
     }
 
     /**

@@ -121,6 +121,7 @@
     } else {
         pageType = 0;  // Default to inbox for invalid values
     }
+    String boxTypeQuerySuffix = pageType > 0 ? "&boxType=" + pageType : "";
 
     // Handle demographic filtering if specified
     String demographic_no = request.getParameter("demographic_no");
@@ -482,7 +483,7 @@
                                     <%} %>
                                     </th>
                                     <th style="text-align: left; width:120px;">
-                                        <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages?orderby=status<%=scheduleNavQuerySuffix%>"
+                                        <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages?orderby=status<%=boxTypeQuerySuffix%><%=scheduleNavQuerySuffix%>"
                                                    >
                                             <fmt:message key="messenger.DisplayMessages.msgStatus"/>
                                             <i class="fa-solid fa-caret-down"></i>
@@ -490,13 +491,13 @@
                                     </th>
                                     <th style="text-align: left;">
                                       <%if( pageType == 1 ) {%>
-                                                 <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages?orderby=sentto<%=scheduleNavQuerySuffix%>"
+                                                 <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages?orderby=sentto<%=boxTypeQuerySuffix%><%=scheduleNavQuerySuffix%>"
                                                     >
                                                     <fmt:message key="messenger.DisplayMessages.msgTo"/>
                                                     <i class="fa-solid fa-caret-down"></i>
                                                 </a>
                                        <%} else {%>
-                                                <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages?orderby=from<%=scheduleNavQuerySuffix%>"
+                                                <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages?orderby=from<%=boxTypeQuerySuffix%><%=scheduleNavQuerySuffix%>"
                                                    >
                                                     <fmt:message key="messenger.DisplayMessages.msgFrom"/>
                                                     <i class="fa-solid fa-caret-down"></i>
@@ -504,21 +505,21 @@
                                        <% } %>
                                     </th>
                                     <th style="text-align: left;">
-                                            <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages?orderby=subject<%=scheduleNavQuerySuffix%>"
+                                            <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages?orderby=subject<%=boxTypeQuerySuffix%><%=scheduleNavQuerySuffix%>"
                                                    >
                                                 <fmt:message key="messenger.DisplayMessages.msgSubject"/>
                                                 <i class="fa-solid fa-caret-down"></i>
                                             </a>
                                     </th>
                                     <th style="text-align: left;">
-                                            <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages?orderby=date<%=scheduleNavQuerySuffix%>"
+                                            <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages?orderby=date<%=boxTypeQuerySuffix%><%=scheduleNavQuerySuffix%>"
                                                    >
                                                 <fmt:message key="messenger.DisplayMessages.msgDate"/>
                                                 <i class="fa-solid fa-caret-down"></i>
                                             </a>
                                     </th>
                                     <th style="text-align: left;" >
-                                            <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages?orderby=linked<%=scheduleNavQuerySuffix%>"
+                                            <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages?orderby=linked<%=boxTypeQuerySuffix%><%=scheduleNavQuerySuffix%>"
                                                    >
                                                 <fmt:message key="messenger.DisplayMessages.msgLinked"/>
                                                 <i class="fa-solid fa-caret-down"></i>
@@ -585,7 +586,7 @@
 
                                     </td>
                                     <td>
-                                    <a href="<%=request.getContextPath()%>/messenger/ViewMessage?messageID=<carlos:encode value='<%= dm.getMessageId() %>' context="uriComponent"/>&boxType=<%=pageType%>">
+                                    <a href="<%=request.getContextPath()%>/messenger/ViewMessage?messageID=<carlos:encode value='<%= dm.getMessageId() %>' context="uriComponent"/>&boxType=<%=pageType%><%=scheduleNavQuerySuffix%>">
                                         <carlos:encode value='<%= dm.getThesubject() %>' context="html"/>
                                     </a>
                                     <%

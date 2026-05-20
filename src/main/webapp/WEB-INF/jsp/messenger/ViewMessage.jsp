@@ -104,6 +104,9 @@
     if (!authed) {
         return;
     }
+    boolean showScheduleNav = "1".equals(request.getParameter("scheduleNav"));
+    String scheduleNavQuerySuffix = showScheduleNav ? "&scheduleNav=1" : "";
+    String scheduleNavFirstQuerySuffix = showScheduleNav ? "?scheduleNav=1" : "";
 %>
 
 <%
@@ -128,6 +131,9 @@
     <%-- global.css: CARLOS color overrides for Bootstrap (messenger pages don't use global-head.jspf) --%>
     <link rel="stylesheet" href="<%=request.getContextPath() %>/share/css/global.css">
     <link href="<%=request.getContextPath() %>/css/fontawesome-all.min.css" rel="stylesheet"><!-- fontawesome 6.x -->
+    <% if (showScheduleNav) { %>
+    <link rel="stylesheet" href="<%=request.getContextPath()%>/css/topnav.css">
+    <% } %>
 <%
 String boxType = request.getParameter("boxType");
 %>
@@ -318,7 +324,13 @@ function fmtOscarMsg() {
 </style>
 </head>
 <body>
+<% if (showScheduleNav) { %>
+    <jsp:include page="/WEB-INF/jsp/provider/mainMenu.jsp"/>
+<% } %>
 <form action="<%=request.getContextPath()%>/messenger/HandleMessages" method="post">
+    <% if (showScheduleNav) { %>
+    <input type="hidden" name="scheduleNav" value="1">
+    <% } %>
 	<table class="MainTable" id="scrollNumber1" style="width:95%">
 		<tr class="MainTableTopRow">
 			<td class="MainTableTopRowLeftColumn">
@@ -345,7 +357,7 @@ function fmtOscarMsg() {
 								<table class=messButtonsA >
 									<tr>
 										<td class="messengerButtonsA">
-									        <a href="${pageContext.request.contextPath}/messenger/DisplayMessages"
+									        <a href="${pageContext.request.contextPath}/messenger/DisplayMessages<%=scheduleNavFirstQuerySuffix%>"
 									            class="btn btn-primary">
 									            <fmt:message key="messenger.ViewMessage.btnInbox"/>
 									        </a>
@@ -361,7 +373,7 @@ function fmtOscarMsg() {
 							<table class=messButtonsA >
 								<tr>
 									<td class="messengerButtonsA">
-									    <a href="${pageContext.request.contextPath}/messenger/DisplayMessages?boxType=1"
+									    <a href="${pageContext.request.contextPath}/messenger/DisplayMessages?boxType=1<%=scheduleNavQuerySuffix%>"
 									        class="btn btn-primary">
 									        <fmt:message key="messenger.ViewMessage.btnSent"/>
 									    </a>

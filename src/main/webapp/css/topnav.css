@@ -84,6 +84,40 @@ table#firstTable #logoutButton span {
     font-size: 18px;
 }
 
+table#firstTable .dashboardDropdown {
+    display: none;
+    position: absolute;
+    background-color: #f9f9f9;
+    box-shadow: 0 8px 16px 0 rgba(0, 0, 0, 0.2);
+    white-space: initial;
+    overflow-wrap: break-word;
+    z-index: 1000;
+}
+
+table#firstTable .dashboardDropdown a {
+    color: black;
+    text-decoration: none;
+    display: block;
+    text-align: left;
+    padding: 5px;
+    width: 300px;
+}
+
+table#firstTable .dashboardDropdown ul {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+}
+
+table#firstTable .dashboardDropdown ul li {
+    width: 300px;
+    display: block;
+}
+
+table#firstTable .dropdown:hover .dashboardDropdown {
+    display: block;
+}
+
 /* These rules mirror the schedule header's menu shape without requiring
    destination pages to import the full appointment stylesheet. */
 table.topnav {

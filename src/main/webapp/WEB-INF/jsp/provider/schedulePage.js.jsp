@@ -39,12 +39,14 @@
 <%
     String newticklerwarningwindow = null;
 
+    final String CARLOSDOC_PROVIDER_NO = "999998";
+
     // Load schedule navigation separately from the legacy encounter-tab flag.
     // Junior-dev note: focused schedule navigation should not change how other
     // screens open encounters, so the old flag remains true only in "tab" mode.
     String curProviderNo = (String) session.getAttribute("user");
     boolean openEncounterInTab = false;
-    String scheduleNavigationMode = UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED;
+    String scheduleNavigationMode = UserProperty.SCHEDULE_NAVIGATION_MODE_POPUP;
     if (curProviderNo != null) {
         UserPropertyDAO upDao = SpringUtils.getBean(UserPropertyDAO.class);
         UserProperty tabProp = upDao.getProp(curProviderNo, UserProperty.ENCOUNTER_OPEN_IN_TAB);
@@ -57,7 +59,9 @@
         } else if (navProp == null) {
             scheduleNavigationMode = tabProp != null && "yes".equalsIgnoreCase(tabProp.getValue())
                     ? UserProperty.SCHEDULE_NAVIGATION_MODE_TAB
-                    : UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED;
+                    : (CARLOSDOC_PROVIDER_NO.equals(curProviderNo)
+                            ? UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED
+                            : UserProperty.SCHEDULE_NAVIGATION_MODE_POPUP);
         } else {
             scheduleNavigationMode = savedMode;
         }
