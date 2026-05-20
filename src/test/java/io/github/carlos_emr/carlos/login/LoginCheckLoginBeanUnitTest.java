@@ -39,6 +39,8 @@ import static org.mockito.Mockito.when;
 
 /**
  * Regression coverage for username-enumeration timing controls in the legacy login bean.
+ *
+ * @since 2026-05-20
  */
 @Tag("unit")
 @Tag("security")
@@ -59,7 +61,7 @@ class LoginCheckLoginBeanUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should validate dummy password hash when user is missing")
     void shouldValidateDummyPasswordHash_forMissingUser() {
-        String username = "doesnotexist9";
+        String username = "nonexistentUser";
         String password = "WRONGPASS";
         when(securityDao.findByUserName(username)).thenReturn(Collections.emptyList());
 

@@ -337,6 +337,11 @@ public final class LoginCheckLoginBean {
         return null;
     }
 
+    /**
+     * Builds a throwaway security record for the missing-user password validation path.
+     *
+     * @return Security object containing only the precomputed BCrypt dummy password hash
+     */
     private static Security missingUserDummySecurity() {
         Security dummySecurity = new Security();
         dummySecurity.setPassword(MISSING_USER_DUMMY_PASSWORD_HASH);
