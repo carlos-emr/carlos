@@ -144,10 +144,13 @@ class RemovedJspReferenceRegressionTest {
         }
     }
 
+    private static final Pattern GLOBAL_HEAD_INCLUDE = Pattern.compile(
+            "<%@\\s*include\\s+file\\s*=\\s*(['\"])\\/WEB-INF\\/jsp\\/includes\\/global-head\\.jspf\\1\\s*%>");
+
     private static boolean hasGlobalHeadIncludeAndOscarJsScript(Path path) {
         try {
             String content = Files.readString(path, StandardCharsets.UTF_8);
-            return content.contains("<%@ include file=\"/WEB-INF/jsp/includes/global-head.jspf\" %>")
+            return GLOBAL_HEAD_INCLUDE.matcher(content).find()
                     && OSCAR_JS_SCRIPT.matcher(content).find();
         } catch (IOException e) {
             throw new IllegalStateException("Unable to inspect " + path, e);
