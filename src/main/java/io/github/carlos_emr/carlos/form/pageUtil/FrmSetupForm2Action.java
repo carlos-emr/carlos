@@ -56,6 +56,7 @@ import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -126,7 +127,7 @@ public final class FrmSetupForm2Action extends ActionSupport {
         
         // Validate formName before using it as a file stem, redirect target, or table suffix.
         if (formName == null || !isAllowedSetupFormName(formName)) {
-            MiscUtils.getLogger().warn("Invalid form name attempted: {}", formName != null ? formName.replaceAll("[\\r\\n\\t]", "_") : "null");
+            MiscUtils.getLogger().warn("Invalid form name attempted: {}", LogSafe.sanitize(formName));
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid form name");
             return NONE;
         }
@@ -277,14 +278,14 @@ public final class FrmSetupForm2Action extends ActionSupport {
                 if (Integer.parseInt(formId) > 0) {
                     String trustedFormName = validateSetupFormName(formName);
                     if (trustedFormName == null) {
-                        MiscUtils.getLogger().warn("Invalid form name in getFormRecord: " + formName);
+                        MiscUtils.getLogger().warn("Invalid form name in getFormRecord: {}", LogSafe.sanitize(formName));
                         return null;
                     }
                     
                     // Using parameterized values for formId and demographicNo
                     String sql = setupFormRecordSql(trustedFormName);
                     try (Connection connection = LegacyJdbcQuery.getConnection();
-                         PreparedStatement ps = connection.prepareStatement(sql); // nosemgrep -- SQL contains only a validated table suffix; values are JDBC-bound.
+                         PreparedStatement ps = connection.prepareStatement(sql); // nosemgrep: java.lang.security.audit.sqli.tainted-sql-from-http-request.tainted-sql-from-http-request -- SQL contains only a validated table suffix; values are JDBC-bound.
                          ResultSet rs = configureAndExecuteGetFormRecordQuery(ps, formId, demographicNo)) {
 
                         if (rs.next()) {
@@ -377,7 +378,7 @@ public final class FrmSetupForm2Action extends ActionSupport {
         // Table identifiers cannot be JDBC-bound. trustedFormName comes only from
         // validateSetupFormName(), which enforces a bare suffix and confirms the
         // corresponding form table is registered for SetupForm; values stay bound.
-        // nosemgrep
+        // nosemgrep: java.lang.security.audit.formatted-sql-string-deepsemgrep.formatted-sql-string-deepsemgrep
         return "SELECT * FROM form" + trustedFormName + " WHERE ID=? AND demographic_no=?";
     }
 

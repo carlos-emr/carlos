@@ -48,6 +48,7 @@ import io.github.carlos_emr.carlos.commn.dao.ReportTableFieldCaptionDao;
 import io.github.carlos_emr.carlos.commn.model.EncounterForm;
 import io.github.carlos_emr.carlos.commn.model.ReportTableFieldCaption;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -171,13 +172,13 @@ public class RptTableFieldNameCaption {
         String sql = metaNameListSql(trustedTableName);
         try (Connection conn = LegacyJdbcQuery.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) { // nosemgrep -- SQL contains only a validated encounterForm table identifier.
+             ResultSet rs = ps.executeQuery()) { // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string -- SQL contains only a validated encounterForm table identifier.
             ResultSetMetaData md = rs.getMetaData();
             for (int i = 1; i <= md.getColumnCount(); i++) {
                 ret.add(md.getColumnName(i));
             }
         } catch (SQLException e) {
-            logger.error("getMetaNameList() error for table: " + tableName, e);
+            logger.error("getMetaNameList() error for table: {}", LogSafe.sanitize(tableName), e);
         }
         return ret;
     }
@@ -186,7 +187,7 @@ public class RptTableFieldNameCaption {
         // Validate table name to prevent SQL injection.
         // Table names are interpolated as identifiers, so only bare identifier characters are allowed.
         if (tableName == null || !tableName.matches("^[a-zA-Z0-9_]+$")) {
-            logger.error("Invalid table name: " + tableName);
+            logger.error("Invalid table name: {}", LogSafe.sanitize(tableName));
             return null;
         }
 
@@ -201,7 +202,7 @@ public class RptTableFieldNameCaption {
         }
 
         if (!isValidTable) {
-            logger.error("Table name not found in encounterForm list: " + tableName);
+            logger.error("Table name not found in encounterForm list: {}", LogSafe.sanitize(tableName));
             return null;
         }
         return tableName;
@@ -211,7 +212,7 @@ public class RptTableFieldNameCaption {
         // Table identifiers cannot be JDBC-bound. trustedTableName has passed
         // validateEncounterFormTableName(), including the bare-identifier check
         // and encounterForm allowlist.
-        // nosemgrep
+        // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string
         return "select * from " + trustedTableName + " limit 1";
     }
 
