@@ -44,7 +44,8 @@ public final class QueueCache<K, V> {
 
     public QueueCache(int pools, int objectsToCache, long maxTimeToCache, QueueCacheValueCloner<V> cloner) {
         this(pools, objectsToCache, cloner);
-        scheduleShiftTimerTask(maxTimeToCache / (long) pools, maxTimeToCache / (long) pools);
+        long shiftPeriod = maxTimeToCache / (long) pools;
+        scheduleShiftTimerTask(shiftPeriod, shiftPeriod);
     }
 
     /**
