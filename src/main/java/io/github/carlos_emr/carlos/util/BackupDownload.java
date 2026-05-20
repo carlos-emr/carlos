@@ -30,29 +30,25 @@
 package io.github.carlos_emr.carlos.util;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Properties;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
-import io.github.carlos_emr.carlos.commn.dao.SecObjPrivilegeDao;
-import io.github.carlos_emr.carlos.commn.model.SecObjPrivilege;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.logging.log4j.Logger;
 
 public class BackupDownload extends GenericDownload {
+    private static final String BACKUP_DOWNLOAD_PRIVILEGE_REQUIRED = "Backup download privilege required.";
+    private static final String DEFAULT_BACKUP_DIRECTORY = "/home/mysql/";
+
     private static final Logger log = MiscUtils.getLogger();
 
-    @SuppressWarnings("unchecked")
     public void doGet(HttpServletRequest req, HttpServletResponse res) throws IOException {
         try {
-            HttpSession session = req.getSession(true);
-
             // check the rights - sanitize filename to prevent XSS and path traversal
             String rawFilename = req.getParameter("filename");
             String filename = rawFilename == null ? null : MiscUtils.sanitizeFileName(rawFilename);
@@ -60,108 +56,56 @@ public class BackupDownload extends GenericDownload {
                 res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing required filename parameter.");
                 return;
             }
-            String dir = (String) session.getAttribute("backupfilepath") == null ? "/home/mysql/" : (String) session.getAttribute("backupfilepath");
 
-            boolean adminPrivs = false;
-
-            String roleName = (String) req.getSession().getAttribute("userrole") + "," + (String) req.getSession().getAttribute("user");
-            Object[] v = getPrivilegeProp("_admin.backup,_admin");
-            if (checkPrivilege(roleName, (Properties) v[0], (List<String>) v[1])) {
-                adminPrivs = true;
+            HttpSession session = req.getSession(false);
+            if (session == null) {
+                res.sendError(HttpServletResponse.SC_FORBIDDEN, BACKUP_DOWNLOAD_PRIVILEGE_REQUIRED);
+                return;
             }
 
-            boolean bDownload = false;
-            if (filename != null && adminPrivs) {
-                bDownload = true;
+            LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(session);
+            if (loggedInInfo == null) {
+                res.sendError(HttpServletResponse.SC_FORBIDDEN, BACKUP_DOWNLOAD_PRIVILEGE_REQUIRED);
+                return;
             }
-            download(bDownload, res, dir, filename, null);
+
+            SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+            if (!hasBackupDownloadPrivilege(loggedInInfo, securityInfoManager)) {
+                res.sendError(HttpServletResponse.SC_FORBIDDEN, BACKUP_DOWNLOAD_PRIVILEGE_REQUIRED);
+                return;
+            }
+
+            String dir = (String) session.getAttribute("backupfilepath");
+            if (dir == null) {
+                dir = DEFAULT_BACKUP_DIRECTORY;
+            }
+
+            download(true, res, dir, filename, null);
         } catch (IOException e) {
             throw e;
+        } catch (SecurityException e) {
+            log.warn("SecurityException in BackupDownload", e);
+            sendErrorForCaughtException(res, HttpServletResponse.SC_FORBIDDEN, BACKUP_DOWNLOAD_PRIVILEGE_REQUIRED);
         } catch (Exception e) {
             log.error("Unexpected error in BackupDownload", e);
-            if (!res.isCommitted()) {
-                res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+            sendErrorForCaughtException(res, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
                     "An internal error occurred. Please try again or contact your system administrator.");
-            }
         }
     }
 
-    //TODO: Refactor this out of the sec tag.
-    private String rights = "r";
-
-    private Object[] getPrivilegeProp(String objName) {
-        String[] objectNames = getVecObjectName(objName);
-
-        SecObjPrivilegeDao dao = SpringUtils.getBean(SecObjPrivilegeDao.class);
-        List<SecObjPrivilege> priviledges = dao.findByObjectNames(Arrays.asList(objectNames));
-
-        Properties prop = new Properties();
-        List<String> roleInObj = new ArrayList<String>();
-        for (SecObjPrivilege p : priviledges) {
-            prop.setProperty(p.getId().getRoleUserGroup(), p.getPrivilege());
-            roleInObj.add(p.getId().getRoleUserGroup());
-        }
-
-        return new Object[]{prop, roleInObj};
+    private boolean hasBackupDownloadPrivilege(LoggedInInfo loggedInInfo, SecurityInfoManager securityInfoManager) {
+        return securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)
+                || securityInfoManager.hasPrivilege(loggedInInfo, "_admin.backup", "r", null);
     }
 
-    private Properties getVecRole(String roleName) {
-        Properties prop = new Properties();
-        String[] temp = roleName.split("\\,");
-        for (int i = 0; i < temp.length; i++) {
-            prop.setProperty(temp[i], "1");
+    private void sendErrorForCaughtException(HttpServletResponse res, int statusCode, String message) {
+        if (res.isCommitted()) {
+            return;
         }
-        return prop;
-    }
-
-    private String[] getVecObjectName(String objectName) {
-        String[] temp = objectName.split("\\,");
-        return temp;
-    }
-
-    private List<String> getVecPrivilege(String privilege) {
-        List<String> vec = new ArrayList<String>();
-        String[] temp = privilege.split("\\|");
-        for (int i = 0; i < temp.length; i++) {
-            if ("".equals(temp[i])) continue;
-            vec.add(temp[i]);
+        try {
+            res.sendError(statusCode, message);
+        } catch (IOException e) {
+            log.warn("Unable to send BackupDownload error response (status: {}, message: {})", statusCode, message, e);
         }
-        return vec;
-    }
-
-    private boolean checkPrivilege(String roleName, Properties propPrivilege, List<String> roleInObj) {
-        boolean ret = false;
-        Properties propRoleName = getVecRole(roleName);
-        for (int i = 0; i < roleInObj.size(); i++) {
-            if (!propRoleName.containsKey(roleInObj.get(i))) continue;
-
-            String singleRoleName = roleInObj.get(i);
-            String strPrivilege = propPrivilege.getProperty(singleRoleName, "");
-            List<String> vecPrivilName = getVecPrivilege(strPrivilege);
-
-            boolean[] check = {false, false};
-            for (int j = 0; j < vecPrivilName.size(); j++) {
-                check = checkRights(vecPrivilName.get(j), rights);
-
-                if (check[0]) { // get the rights, stop comparing
-                    return true;
-                }
-                if (check[1]) { // get the only rights, stop and return the result
-                    return check[0];
-                }
-            }
-        }
-        return ret;
-    }
-
-    private boolean[] checkRights(String privilege, String rights1) {
-        boolean[] ret = {false, false}; // (gotRights, break/continue)
-
-        if ("x".equals(privilege)) {
-            ret[0] = true;
-        } else if (privilege.compareTo(rights1.toLowerCase()) >= 0) {
-            ret[0] = true;
-        }
-        return ret;
     }
 }
