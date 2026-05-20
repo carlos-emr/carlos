@@ -103,6 +103,7 @@
             <result name="prescribe">/WEB-INF/jsp/rx/prescribe.jsp</result>
         </action>
         <action name="rx/saveDigitalSignature" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxRePrescribe2Action" method="saveDigitalSignature">
+            <allowed-methods>saveDigitalSignature</allowed-methods>
             <result name="success">/WEB-INF/jsp/rx/SearchDrug3.jsp</result>
         </action>
         <action name="rx/deleteRx" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxDeleteRx2Action">

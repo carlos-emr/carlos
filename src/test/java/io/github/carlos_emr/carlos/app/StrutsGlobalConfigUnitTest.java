@@ -23,9 +23,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
@@ -59,6 +61,20 @@ class StrutsGlobalConfigUnitTest extends CarlosUnitTestBase {
     private static final String EXPECTED_ALLOWLIST_PACKAGE = "io.github.carlos_emr.carlos";
     private static final Path STRUTS_XML =
             Path.of("src", "main", "webapp", "WEB-INF", "classes", "struts.xml");
+    private static final Set<String> DEFAULT_STRUTS_GLOBAL_ALLOWED_METHODS =
+            Set.of("execute", "input", "back", "cancel", "browse", "save", "delete", "list", "index");
+
+    @Test
+    @DisplayName("Strict Method Invocation should be enabled globally")
+    void shouldEnableStrictMethodInvocation_forStrutsPackages()
+            throws IOException, ParserConfigurationException, SAXException {
+        Path strutsXmlPath = resolveProjectPath(STRUTS_XML);
+        Map<String, String> constants = collectConstants(parseXml(strutsXmlPath));
+
+        assertThat(constants)
+                .as("Struts must deny framework-level action method invocation unless methods are allowlisted")
+                .containsEntry("struts.strictMethodInvocation", "true");
+    }
 
     @Test
     @DisplayName("OGNL allowlist should be enabled for CARLOS packages")
@@ -120,6 +136,62 @@ class StrutsGlobalConfigUnitTest extends CarlosUnitTestBase {
                 .isEmpty();
     }
 
+    @Test
+    @DisplayName("no included struts config should disable Strict Method Invocation")
+    void shouldNotDisableStrictMethodInvocation_inIncludedConfigs()
+            throws IOException, ParserConfigurationException, SAXException {
+        Path strutsXmlPath = resolveProjectPath(STRUTS_XML);
+        Document parent = parseXml(strutsXmlPath);
+        Path strutsDir = strutsXmlPath.getParent();
+
+        NodeList includes = parent.getElementsByTagName("include");
+        List<String> violations = new ArrayList<>();
+        for (int i = 0; i < includes.getLength(); i++) {
+            if (includes.item(i) instanceof Element include) {
+                String fileName = include.getAttribute("file");
+                Path includedPath = strutsDir.resolve(fileName);
+                assertThat(includedPath)
+                        .as("Included Struts config %s referenced from %s should exist", fileName, STRUTS_XML)
+                        .exists();
+                Map<String, String> constants = collectConstants(parseXml(includedPath));
+                String strictMethodInvocation = constants.get("struts.strictMethodInvocation");
+                if (isStrutsFalseValue(strictMethodInvocation)) {
+                    violations.add(fileName + " sets struts.strictMethodInvocation=" + strictMethodInvocation);
+                }
+            }
+        }
+
+        assertThat(violations)
+                .as("These included Struts configs weaken Strict Method Invocation")
+                .isEmpty();
+    }
+
+    @Test
+    @DisplayName("Struts actions with non-default methods should declare allowed-methods")
+    void shouldAllowlistConfiguredNonDefaultMethods_forStrutsActions()
+            throws IOException, ParserConfigurationException, SAXException {
+        Path strutsXmlPath = resolveProjectPath(STRUTS_XML);
+        Document parent = parseXml(strutsXmlPath);
+        Path strutsDir = strutsXmlPath.getParent();
+
+        NodeList includes = parent.getElementsByTagName("include");
+        List<String> violations = new ArrayList<>();
+        for (int i = 0; i < includes.getLength(); i++) {
+            if (includes.item(i) instanceof Element include) {
+                String fileName = include.getAttribute("file");
+                Path includedPath = strutsDir.resolve(fileName);
+                assertThat(includedPath)
+                        .as("Included Struts config %s referenced from %s should exist", fileName, STRUTS_XML)
+                        .exists();
+                collectNonDefaultMethodViolations(fileName, parseXml(includedPath), violations);
+            }
+        }
+
+        assertThat(violations)
+                .as("Non-default Struts action methods must be explicitly allowlisted for Strict Method Invocation")
+                .isEmpty();
+    }
+
     private static Map<String, String> collectConstants(Document doc) {
         NodeList constants = doc.getElementsByTagName("constant");
         Map<String, String> out = new LinkedHashMap<>();
@@ -139,6 +211,44 @@ class StrutsGlobalConfigUnitTest extends CarlosUnitTestBase {
             case "false", "no", "off", "f", "n", "0" -> true;
             default -> false;
         };
+    }
+
+    private static void collectNonDefaultMethodViolations(
+            String fileName, Document doc, List<String> violations) {
+        NodeList actions = doc.getElementsByTagName("action");
+        for (int i = 0; i < actions.getLength(); i++) {
+            if (actions.item(i) instanceof Element action) {
+                String method = action.getAttribute("method").trim();
+                if (method.isEmpty() || DEFAULT_STRUTS_GLOBAL_ALLOWED_METHODS.contains(method)) {
+                    continue;
+                }
+                String actionName = action.getAttribute("name");
+                if (method.contains("{") || method.contains("}")) {
+                    violations.add(fileName + " action " + actionName + " uses dynamic method pattern " + method);
+                    continue;
+                }
+                Set<String> allowedMethods = collectAllowedMethods(action);
+                if (!allowedMethods.contains(method)) {
+                    violations.add(fileName + " action " + actionName + " invokes " + method
+                            + " without matching <allowed-methods>");
+                }
+            }
+        }
+    }
+
+    private static Set<String> collectAllowedMethods(Element action) {
+        NodeList allowedMethodNodes = action.getElementsByTagName("allowed-methods");
+        LinkedHashSet<String> allowedMethods = new LinkedHashSet<>();
+        for (int i = 0; i < allowedMethodNodes.getLength(); i++) {
+            String[] methods = allowedMethodNodes.item(i).getTextContent().split(",");
+            for (String method : methods) {
+                String trimmed = method.trim();
+                if (!trimmed.isEmpty()) {
+                    allowedMethods.add(trimmed);
+                }
+            }
+        }
+        return allowedMethods;
     }
 
     private static Document parseXml(Path absolutePath)

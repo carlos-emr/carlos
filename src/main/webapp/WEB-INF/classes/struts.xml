@@ -37,6 +37,7 @@
     <constant name="struts.actionConfig.fallbackToEmptyNamespace" value="true" />
     <constant name="struts.serve.static" value="true" />
     <constant name="struts.serve.static.browserCache" value="true" />
+    <constant name="struts.strictMethodInvocation" value="true" />
     <constant name="struts.allowlist.enable" value="true" />
     <constant name="struts.allowlist.packageNames" value="io.github.carlos_emr.carlos" />
     <!-- Exclude pattern structure:
