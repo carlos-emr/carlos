@@ -167,7 +167,7 @@ public class EctFormData {
                 try (PreparedStatement ps = c.prepareStatement(sql)) {
                     ps.setInt(1, demographicNo);
 
-                    try (ResultSet rs = ps.executeQuery()) {
+                    try (ResultSet rs = ps.executeQuery()) { // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string -- SQL table identifier is validateFormTable()-allowlisted; demographic_no is JDBC-bound.
                         while (rs.next()) {
                             PatientForm frm = new PatientForm(formName, rs.getInt("ID"), rs.getInt("demographic_no"), rs.getDate("formCreated"), rs.getTimestamp("frmEdited"), jsp);
                             forms.add(frm);
@@ -233,7 +233,7 @@ public class EctFormData {
                 try (PreparedStatement ps = c.prepareStatement(sql)) {
                     ps.setInt(1, demographicNo);
 
-                    try (ResultSet rs = ps.executeQuery()) {
+                    try (ResultSet rs = ps.executeQuery()) { // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string -- SQL table identifier is validateFormTable()-allowlisted; demographic_no is JDBC-bound.
                         while (rs.next()) {
                             PatientForm frm = new PatientForm(formName, rs.getInt("ID"), rs.getInt("demographic_no"), rs.getDate("formCreated"), rs.getTimestamp("formEdited"));
 

@@ -74,7 +74,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
         }
 
 
-        String filename = reportName.replaceAll("[\\r\\n]", "") + ".csv"; // request.getParameter("filename");
+        String filename = attachmentFilename(reportName);
         OutputStream out = null;
         try {
             if (in != null) {
@@ -106,6 +106,20 @@ public class RptDownloadCSVServlet extends HttpServlet {
 
     public void init(ServletConfig config) throws ServletException {
         super.init(config);
+    }
+
+    private static String attachmentFilename(String reportName) {
+        String safeName = reportName == null ? "" : reportName;
+        safeName = safeName.replaceAll("[\\p{Cntrl}\"\\\\/;]", "_");
+        safeName = safeName.replaceAll("[^A-Za-z0-9._ -]", "_");
+        safeName = safeName.trim().replaceAll(" +", " ");
+        if (safeName.isEmpty() || ".".equals(safeName) || "..".equals(safeName)) {
+            safeName = "report";
+        }
+        if (safeName.length() > 120) {
+            safeName = safeName.substring(0, 120).trim();
+        }
+        return safeName + ".csv";
     }
 
     private String formReport(HttpServletRequest request) {

@@ -42,6 +42,7 @@ import org.apache.commons.codec.CharEncoding;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -115,7 +116,7 @@ public class FormForward2Action extends ActionSupport {
                 formPath[0] = formPath[0].replace("&demographicNo=", "");
             }
         } catch (SQLException e) {
-            logger.error("failed to fetch formPath for " + strFrm, e);
+            logger.error("failed to fetch formPath for {}", LogSafe.sanitize(strFrm), e);
         }
 
         /*
@@ -123,7 +124,7 @@ public class FormForward2Action extends ActionSupport {
          */
         String actionPath = FormViewRoutes.resolveActionPath(formPath[0]);
         if (actionPath == null) {
-            logger.warn("Failed to resolve action path for form {}", strFrm);
+            logger.warn("Failed to resolve action path for form {}", LogSafe.sanitize(strFrm));
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid form path");
             return NONE;
         }

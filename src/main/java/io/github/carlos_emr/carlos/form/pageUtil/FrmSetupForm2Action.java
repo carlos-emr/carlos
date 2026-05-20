@@ -285,7 +285,7 @@ public final class FrmSetupForm2Action extends ActionSupport {
                     // Using parameterized values for formId and demographicNo
                     String sql = setupFormRecordSql(trustedFormName);
                     try (Connection connection = LegacyJdbcQuery.getConnection();
-                         PreparedStatement ps = connection.prepareStatement(sql); // nosemgrep: java.lang.security.audit.sqli.tainted-sql-from-http-request.tainted-sql-from-http-request -- SQL contains only a validated table suffix; values are JDBC-bound.
+                         PreparedStatement ps = connection.prepareStatement(sql); // nosemgrep: java.lang.security.audit.sqli.tainted-sql-from-http-request.tainted-sql-from-http-request, java.lang.security.audit.formatted-sql-string-deepsemgrep.formatted-sql-string-deepsemgrep -- SQL contains only a validateSetupFormName()-verified table suffix; values are JDBC-bound.
                          ResultSet rs = configureAndExecuteGetFormRecordQuery(ps, formId, demographicNo)) {
 
                         if (rs.next()) {

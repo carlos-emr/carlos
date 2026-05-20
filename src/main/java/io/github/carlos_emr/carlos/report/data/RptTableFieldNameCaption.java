@@ -172,7 +172,7 @@ public class RptTableFieldNameCaption {
         String sql = metaNameListSql(trustedTableName);
         try (Connection conn = LegacyJdbcQuery.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) { // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string -- SQL contains only a validated encounterForm table identifier.
+             ResultSet rs = ps.executeQuery()) { // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string -- SQL contains only a validateEncounterFormTableName()-verified encounterForm table identifier.
             ResultSetMetaData md = rs.getMetaData();
             for (int i = 1; i <= md.getColumnCount(); i++) {
                 ret.add(md.getColumnName(i));
