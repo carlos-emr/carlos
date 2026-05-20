@@ -88,7 +88,7 @@ public final class QueueCache<K, V> {
             // Reference equality distinguishes an unexpectedly cancelled live timer
             // from the normal shutdown path, which replaces the shared timer slot.
             if (timer == scheduledTimer) {
-                throw cause;
+                throw new IllegalStateException("Unable to schedule QueueCache shift task after shutdown coordination", cause);
             }
             if (timer == null) {
                 timer = new Timer(QueueCache.class.getName(), true);

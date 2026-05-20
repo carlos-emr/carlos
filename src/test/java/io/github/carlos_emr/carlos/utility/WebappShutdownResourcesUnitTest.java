@@ -39,6 +39,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Unit tests for {@link WebappShutdownResources}.
+ * {@link Isolated} keeps the DriverManager mutation test from running beside
+ * connection-opening tests that depend on JVM-global driver registrations.
  *
  * @since 2026-05-19
  */

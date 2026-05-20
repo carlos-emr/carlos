@@ -113,6 +113,8 @@ public final class WebappShutdownResources {
     }
 
     private static boolean isAncestor(ClassLoader possibleAncestor, ClassLoader classLoader) {
+        // Shutdown checks a small DriverManager snapshot; avoid caching class-loader
+        // relationships so this cleanup path never retains loaders after redeploy.
         ClassLoader current = classLoader.getParent();
         while (current != null) {
             if (current == possibleAncestor) {
