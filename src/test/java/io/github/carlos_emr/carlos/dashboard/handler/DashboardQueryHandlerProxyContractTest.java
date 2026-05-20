@@ -53,7 +53,7 @@ class DashboardQueryHandlerProxyContractTest {
 
     @Test
     @DisplayName("should not declare final methods visible to CGLIB proxies")
-    void shouldNotDeclareFinalMethods_forCglibProxiedHandlers() throws ClassNotFoundException {
+    void shouldNotDeclareFinalMethods_inCglibProxiedHandlers() throws ClassNotFoundException {
         List<String> finalMethods = discoverProxiedQueryHandlers().stream()
                 .flatMap(handlerType -> proxiedHandlerHierarchy(handlerType)
                         .flatMap(declaringType -> Arrays.stream(declaringType.getDeclaredMethods())
