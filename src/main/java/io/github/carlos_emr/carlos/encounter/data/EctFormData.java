@@ -153,16 +153,16 @@ public class EctFormData {
     }
 
     public static ArrayList<PatientForm> getGroupedPatientFormsAsArrayList(String demoNo, String formName, String table, String jsp) {
-        table = validateFormTable(table);
-        if (table == null) return (new ArrayList<PatientForm>());
+        String validatedTable = validateFormTable(table);
+        if (validatedTable == null) return (new ArrayList<PatientForm>());
 
         ArrayList<PatientForm> forms = new ArrayList<PatientForm>();
         Integer demographicNo = parseDemographicNo(demoNo);
         if (demographicNo == null) return forms;
 
         try (Connection c = LegacyJdbcQuery.getConnection()) {
-            if (!table.equals("form")) {
-                String sql = "SELECT max(ID) ID, demographic_no, formCreated, date(formEdited) 'lastEdited', max(formEdited) 'frmEdited' FROM " + table + " WHERE demographic_no=? group by lastEdited";
+            if (!validatedTable.equals("form")) {
+                String sql = "SELECT max(ID) ID, demographic_no, formCreated, date(formEdited) 'lastEdited', max(formEdited) 'frmEdited' FROM " + validatedTable + " WHERE demographic_no=? group by lastEdited";
 
                 try (PreparedStatement ps = c.prepareStatement(sql)) {
                     ps.setInt(1, demographicNo);
@@ -175,7 +175,7 @@ public class EctFormData {
                     }
                 }
             } else {
-                String sql = "SELECT form_no, demographic_no, form_date from " + table + " where demographic_no=? order by form_no desc";
+                String sql = "SELECT form_no, demographic_no, form_date from " + validatedTable + " where demographic_no=? order by form_no desc";
 
                 try (PreparedStatement ps = c.prepareStatement(sql)) {
                     ps.setInt(1, demographicNo);
@@ -219,16 +219,16 @@ public class EctFormData {
     }
 
     public static ArrayList<PatientForm> getPatientFormsAsArrayList(String demoNo, String formName, String table) {
-        table = validateFormTable(table);
-        if (table == null) return (new ArrayList<PatientForm>());
+        String validatedTable = validateFormTable(table);
+        if (validatedTable == null) return (new ArrayList<PatientForm>());
 
         ArrayList<PatientForm> forms = new ArrayList<PatientForm>();
         Integer demographicNo = parseDemographicNo(demoNo);
         if (demographicNo == null) return forms;
 
         try (Connection c = LegacyJdbcQuery.getConnection()) {
-            if (!table.equals("form")) {
-                String sql = "SELECT ID, demographic_no, formCreated, formEdited FROM " + table + " WHERE demographic_no=? ORDER BY ID DESC";
+            if (!validatedTable.equals("form")) {
+                String sql = "SELECT ID, demographic_no, formCreated, formEdited FROM " + validatedTable + " WHERE demographic_no=? ORDER BY ID DESC";
 
                 try (PreparedStatement ps = c.prepareStatement(sql)) {
                     ps.setInt(1, demographicNo);
@@ -238,14 +238,14 @@ public class EctFormData {
                             PatientForm frm = new PatientForm(formName, rs.getInt("ID"), rs.getInt("demographic_no"), rs.getDate("formCreated"), rs.getTimestamp("formEdited"));
 
                             // identify the source table for this form
-                            frm.setTable(table);
+                            frm.setTable(validatedTable);
 
                             forms.add(frm);
                         }
                     }
                 }
             } else {
-                String sql = "SELECT form_no, demographic_no, form_date from " + table + " where demographic_no=? order by form_no desc";
+                String sql = "SELECT form_no, demographic_no, form_date from " + validatedTable + " where demographic_no=? order by form_no desc";
 
                 try (PreparedStatement ps = c.prepareStatement(sql)) {
                     ps.setInt(1, demographicNo);
@@ -255,7 +255,7 @@ public class EctFormData {
                             PatientForm frm = new PatientForm(formName, rs.getInt("form_no"), rs.getInt("demographic_no"), rs.getDate("form_date"), rs.getDate("form_date"));
 
                             // identify the source table for this form
-                            frm.setTable(table);
+                            frm.setTable(validatedTable);
 
                             forms.add(frm);
                         }
@@ -280,18 +280,18 @@ public class EctFormData {
     }
 
     private static String validateFormTable(String table) {
-        table = StringUtils.trimToNull(table);
-        if (table == null) {
+        String normalizedTable = StringUtils.trimToNull(table);
+        if (normalizedTable == null) {
             return null;
         }
-        if (!FORM_TABLE_NAME.matcher(table).matches()) {
-            logger.warn("Rejected invalid encounter form table name: {}", LogSafe.sanitize(table));
+        if (!FORM_TABLE_NAME.matcher(normalizedTable).matches()) {
+            logger.warn("Rejected invalid encounter form table name: {}", LogSafe.sanitize(normalizedTable));
             return null;
         }
-        if ("form".equals(table) || INTERNAL_FORM_TABLES.contains(table) || isKnownEncounterFormTable(table)) {
-            return table;
+        if ("form".equals(normalizedTable) || INTERNAL_FORM_TABLES.contains(normalizedTable) || isKnownEncounterFormTable(normalizedTable)) {
+            return normalizedTable;
         }
-        logger.warn("Rejected unknown encounter form table name: {}", LogSafe.sanitize(table));
+        logger.warn("Rejected unknown encounter form table name: {}", LogSafe.sanitize(normalizedTable));
         return null;
     }
 
