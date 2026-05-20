@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.utility;
 
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -114,11 +115,11 @@ public final class HtmlResponse {
      */
     public static void writeStoredHtml(HttpServletResponse response, String contentType, byte[] htmlBytes)
             throws IOException {
-        Charset charset = prepareHtmlResponse(response, contentType);
         if (htmlBytes == null) {
+            prepareHtmlResponse(response, contentType);
             return;
         }
-        writeDecodedHtml(response, new String(htmlBytes, charset));
+        writeStoredHtml(response, contentType, new ByteArrayInputStream(htmlBytes));
     }
 
     /**
@@ -158,17 +159,6 @@ public final class HtmlResponse {
         Charset charset = resolveCharset(effectiveContentType);
         response.setContentType(contentTypeWithCharset(effectiveContentType, charset));
         return charset;
-    }
-
-    /**
-     * Writes already-decoded HTML to the response writer. Stored HTML rendering is intentional
-     * for authorized callers; encoding here would change the document being displayed.
-     */
-    @SuppressWarnings({"XSS_SERVLET", "findsecbugs:XSS_SERVLET"})
-    private static void writeDecodedHtml(HttpServletResponse response, String html) throws IOException {
-        PrintWriter writer = response.getWriter();
-        // nosemgrep: java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss, java.servlets.security.servletresponse-writer-xss-deepsemgrep.servletresponse-writer-xss-deepsemgrep, java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- intentional stored HTML rendering; callers must authorize routes before invoking
-        writer.write(html);
     }
 
     /**

@@ -25,8 +25,6 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletRequest;
-import java.io.IOException;
-import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -53,6 +51,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -200,7 +199,7 @@ class DisplayImage2ActionTest extends CarlosUnitTestBase {
         void shouldWriteHtmlAssetsThroughWriter_whenEformReadPrivilegeGranted() throws Exception {
             mockRequest.setParameter("imagefile", "custom.html");
             Files.writeString(tempDir.resolve("custom.html"), "<html><body>form</body></html>", StandardCharsets.UTF_8);
-            TrackingMockHttpServletResponse trackingResponse = new TrackingMockHttpServletResponse();
+            MockHttpServletResponse trackingResponse = spy(new MockHttpServletResponse());
             servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(trackingResponse);
             action = new DisplayImage2Action();
 
@@ -211,9 +210,10 @@ class DisplayImage2ActionTest extends CarlosUnitTestBase {
 
             assertThat(result).isEqualTo(ActionSupport.NONE);
             assertThat(trackingResponse.getContentType()).startsWith("text/html");
+            assertThat(trackingResponse.getCharacterEncoding()).isEqualTo(StandardCharsets.UTF_8.name());
             assertThat(trackingResponse.getContentAsString()).isEqualTo("<html><body>form</body></html>");
-            assertThat(trackingResponse.isWriterObtained()).isTrue();
-            assertThat(trackingResponse.isOutputStreamObtained()).isFalse();
+            verify(trackingResponse).getWriter();
+            verify(trackingResponse, never()).getOutputStream();
         }
 
         @Test
@@ -244,28 +244,4 @@ class DisplayImage2ActionTest extends CarlosUnitTestBase {
         }
     }
 
-    private class TrackingMockHttpServletResponse extends MockHttpServletResponse {
-        private boolean writerObtained;
-        private boolean outputStreamObtained;
-
-        @Override
-        public PrintWriter getWriter() throws IOException {
-            writerObtained = true;
-            return super.getWriter();
-        }
-
-        @Override
-        public jakarta.servlet.ServletOutputStream getOutputStream() throws IOException {
-            outputStreamObtained = true;
-            return super.getOutputStream();
-        }
-
-        boolean isWriterObtained() {
-            return writerObtained;
-        }
-
-        boolean isOutputStreamObtained() {
-            return outputStreamObtained;
-        }
-    }
 }
