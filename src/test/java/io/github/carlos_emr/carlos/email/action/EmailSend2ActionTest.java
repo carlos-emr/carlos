@@ -57,7 +57,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setContextPath("/carlos");
         request.setParameter("transactionType", "EFORM");
-        request.setParameter("fdid", "123&parentAjaxId=evil#fragment%25");
+        request.setParameter("fdid", "123&parentAjaxId=evil#fragment%25 +/");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
 
         MockHttpServletResponse response = new MockHttpServletResponse();
@@ -70,6 +70,6 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         assertThat(result).isEqualTo("EFORM");
         assertThat(response.getRedirectedUrl()).isEqualTo(
                 "/carlos/eform/efmshowform_data?fdid="
-                        + "123%26parentAjaxId%3Devil%23fragment%2525&parentAjaxId=eforms");
+                        + "123%26parentAjaxId%3Devil%23fragment%2525%20%2B%2F&parentAjaxId=eforms");
     }
 }
