@@ -758,12 +758,47 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             throw new IOException("Invalid upload file path");
         }
 
-        Path safeUploadPath = safeUpload.toPath().toRealPath();
-        if (!isWithinAllowedUploadTempDirectories(safeUploadPath)) {
+        String uploadFileName = safeUpload.getName();
+        if (!isSafeUploadFileName(uploadFileName)) {
+            throw new IOException("Invalid upload file path");
+        }
+
+        Path allowedBaseDir = resolveAllowedUploadTempBaseDirectory();
+        Path safeUploadPath = allowedBaseDir.resolve(uploadFileName).normalize().toAbsolutePath();
+        if (!safeUploadPath.startsWith(allowedBaseDir)) {
+            throw new IOException("Invalid upload file path");
+        }
+        if (!Files.exists(safeUploadPath) || !Files.isRegularFile(safeUploadPath)) {
             throw new IOException("Invalid upload file path");
         }
 
         return Files.newInputStream(safeUploadPath);
+    }
+
+    private boolean isSafeUploadFileName(String fileName) {
+        if (fileName == null || fileName.trim().isEmpty()) {
+            return false;
+        }
+        return !(fileName.contains("..") || fileName.contains("/") || fileName.contains("\\"));
+    }
+
+    private Path resolveAllowedUploadTempBaseDirectory() throws IOException {
+        String[] allowedDirs = new String[] {
+                CarlosProperties.getProperty("TMP_DIR"),
+                System.getProperty("java.io.tmpdir")
+        };
+
+        for (String dir : allowedDirs) {
+            if (dir == null || dir.trim().isEmpty()) {
+                continue;
+            }
+            Path base = new File(dir).toPath().normalize().toAbsolutePath();
+            if (Files.exists(base) && Files.isDirectory(base)) {
+                return base;
+            }
+        }
+
+        throw new IOException("No allowed upload temp directory configured");
     }
 
     private boolean isWithinAllowedUploadTempDirectories(Path candidate) {
