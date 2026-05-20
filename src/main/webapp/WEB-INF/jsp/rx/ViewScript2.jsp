@@ -179,7 +179,7 @@
                 for (int i = 0; i < sites.size(); i++) {
                     Site s = sites.get(i);
                     vecAddressName.add(s.getName());
-                    vecAddress.add("<b>" + doctorName + "</b><br>" + s.getName() + "<br>" + s.getAddress() + "<br>" + s.getCity() + ", " + s.getProvince() + " " + s.getPostal() + "<br>" + rb.getString("RxPreview.msgTel") + ": " + s.getPhone() + "<br>" + rb.getString("RxPreview.msgFax") + ": " + s.getFax());
+                    vecAddress.add("<b>" + SafeEncode.forHtml(doctorName) + "</b><br>" + SafeEncode.forHtml(s.getName()) + "<br>" + SafeEncode.forHtml(s.getAddress()) + "<br>" + SafeEncode.forHtml(s.getCity()) + ", " + SafeEncode.forHtml(s.getProvince()) + " " + SafeEncode.forHtml(s.getPostal()) + "<br>" + SafeEncode.forHtml(rb.getString("RxPreview.msgTel")) + ": " + SafeEncode.forHtml(s.getPhone()) + "<br>" + SafeEncode.forHtml(rb.getString("RxPreview.msgFax")) + ": " + SafeEncode.forHtml(s.getFax()));
                     if (s.getName().equals(location))
                         session.setAttribute("RX_ADDR", String.valueOf(i));
                 }
@@ -212,7 +212,7 @@
 
                 for (int i = 0; i < temp0.length; i++) {
                     vecAddressName.add(temp0[i]);
-                    vecAddress.add("<b>" + SafeEncode.forHtml(doctorName) + "</b><br>" + SafeEncode.forHtml(temp0[i]) + "<br>" + SafeEncode.forHtml(temp1[i]) + "<br>" + temp2[i] + ", " + temp3[i] + " " + temp4[i] + "<br>" + rb.getString("RxPreview.msgTel") + ": " + temp5[i] + "<br>" + rb.getString("RxPreview.msgFax") + ": " + temp6[i]);
+                    vecAddress.add("<b>" + SafeEncode.forHtml(doctorName) + "</b><br>" + SafeEncode.forHtml(temp0[i]) + "<br>" + SafeEncode.forHtml(temp1[i]) + "<br>" + SafeEncode.forHtml(temp2[i]) + ", " + SafeEncode.forHtml(temp3[i]) + " " + SafeEncode.forHtml(temp4[i]) + "<br>" + SafeEncode.forHtml(rb.getString("RxPreview.msgTel")) + ": " + SafeEncode.forHtml(temp5[i]) + "<br>" + SafeEncode.forHtml(rb.getString("RxPreview.msgFax")) + ": " + SafeEncode.forHtml(temp6[i]));
                 }
             }
             String comment = request.getSession().getAttribute("comment") != null ? request.getSession().getAttribute("comment").toString() : "";
@@ -506,7 +506,7 @@
                 setDefaultAddr();
                 <%      for(int i=0; i<vecAddressName.size(); i++) {%>
                 if (document.getElementById("addressSel").value == "<%=i%>") {
-                    frames['preview'].document.getElementById("clinicAddress").textContent = "<%=SafeEncode.forJavaScript(String.valueOf(vecAddress.get(i)))%>";
+                    frames['preview'].document.getElementById("clinicAddress").innerHTML = "<%=SafeEncode.forJavaScript((String) vecAddress.get(i))%>";
                 }
                 <%       }
                       }%>
