@@ -110,21 +110,18 @@ class DashboardQueryHandlerProxyContractTest {
         ClassPathScanningCandidateComponentProvider scanner =
                 new ClassPathScanningCandidateComponentProvider(false);
         scanner.addIncludeFilter(new AssignableTypeFilter(AbstractQueryHandler.class));
+        scanner.addExcludeFilter((metadataReader, metadataReaderFactory) ->
+                metadataReader.getClassMetadata().getClassName().contains("$"));
 
         for (var beanDefinition : scanner.findCandidateComponents(DASHBOARD_HANDLER_PACKAGE)) {
-            String handlerTypeName = beanDefinition.getBeanClassName();
-            if (handlerTypeName.contains("$")) {
-                continue;
-            }
-
-            Class<?> handlerType = Class.forName(handlerTypeName);
+            Class<?> handlerType = Class.forName(beanDefinition.getBeanClassName());
             if (AbstractQueryHandler.class.isAssignableFrom(handlerType)) {
                 handlerTypes.add((Class<? extends AbstractQueryHandler>) handlerType);
             }
         }
 
         assertThat(handlerTypes)
-                .as("Expected to discover at least one concrete production AbstractQueryHandler implementation under package '%s', but only the abstract base type was found. Check the scanner package and handler locations.",
+                .as("Expected to discover at least one concrete production AbstractQueryHandler implementation under package '%s', but only the abstract base type was found. Check the scanner package, inner-class filter, and handler locations.",
                         DASHBOARD_HANDLER_PACKAGE)
                 .hasSizeGreaterThan(1);
         assertThat(handlerTypes)
