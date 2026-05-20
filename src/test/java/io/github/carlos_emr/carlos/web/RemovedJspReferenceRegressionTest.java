@@ -145,7 +145,8 @@ class RemovedJspReferenceRegressionTest {
     }
 
     private static final Pattern GLOBAL_HEAD_INCLUDE = Pattern.compile(
-            "<%@\\s*include\\s+file\\s*=\\s*(['\"])\\/WEB-INF\\/jsp\\/includes\\/global-head\\.jspf\\1\\s*%>");
+            "<%@\\s*include\\s+file\\s*=\\s*(['\"])(?:/?(?:WEB-INF/jsp/)?)?(?:[^\"']+/)*includes/global-head\\.jspf\\1\\s*%>",
+            Pattern.CASE_INSENSITIVE);
 
     private static boolean hasGlobalHeadIncludeAndOscarJsScript(Path path) {
         try {
