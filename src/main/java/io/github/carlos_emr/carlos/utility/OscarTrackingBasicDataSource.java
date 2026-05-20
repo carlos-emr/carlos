@@ -81,6 +81,8 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
             String msg = "Thread is using " + threadConnections.size() + " jdbc connections, exceeds hard limit "
                     + MAX_CONNECTION_HARD_LIMIT;
             logger.error(msg);
+            threadConnections.remove(c);
+            debugMap.remove(c);
             try {
                 c.close();
             } catch (SQLException e) {

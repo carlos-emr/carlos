@@ -676,7 +676,12 @@ public class EForm extends EFormBase {
             }
             log.debug("SQL---- [eform AP query executed]");
             ArrayList<String> names = DatabaseAP.parserGetNames(output); // a list of ${apName} --> apName
-            sql = DatabaseAP.parserClean(sql); // replaces all other ${apName} expressions with 'apName'
+            try {
+                sql = DatabaseAP.parserClean(sql); // replaces all other ${apName} expressions with 'apName'
+            } catch (IllegalArgumentException e) {
+                log.error("Invalid AP SQL template in eForm, skipping: {}", e.getMessage());
+                return html;
+            }
             if (ap.isJsonOutput()) {
                 // FP for SQLi scanners (CodeQL java/Sqli, Snyk SqlInjection): placeholder values
                 // are sanitized by replaceAllFields above — numeric IDs gated via requireDigitsOnly
