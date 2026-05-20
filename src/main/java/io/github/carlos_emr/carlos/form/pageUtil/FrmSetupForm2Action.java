@@ -363,10 +363,20 @@ public final class FrmSetupForm2Action extends ActionSupport {
                 Connection connection,
                 String formId,
                 String demographicNo) throws SQLException {
+            int parsedFormId = parseRequiredInt(formId, "form ID");
+            int parsedDemographicNo = parseRequiredInt(demographicNo, "demographic number");
             PreparedStatement ps = connection.prepareStatement(selectRecordSql()); // NOSONAR java:S2095,java:S2077 - caller owns and closes this PreparedStatement; table name is allowlisted.
-            ps.setInt(1, Integer.parseInt(formId));
-            ps.setInt(2, Integer.parseInt(demographicNo));
+            ps.setInt(1, parsedFormId);
+            ps.setInt(2, parsedDemographicNo);
             return ps;
+        }
+
+        private static int parseRequiredInt(String value, String fieldName) throws SQLException {
+            try {
+                return Integer.parseInt(value);
+            } catch (NumberFormatException e) {
+                throw new SQLException("Invalid " + fieldName, e);
+            }
         }
     }
 }
