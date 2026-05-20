@@ -26,11 +26,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
+import org.springframework.core.type.filter.AssignableTypeFilter;
 
 /**
  * Contract tests for dashboard query handlers that are registered as Spring
@@ -43,16 +47,13 @@ import org.junit.jupiter.api.Test;
 @DisplayName("Dashboard query handler proxy contract")
 class DashboardQueryHandlerProxyContractTest {
 
-    private static final List<Class<? extends AbstractQueryHandler>> PROXIED_QUERY_HANDLERS = List.of(
-            AbstractQueryHandler.class,
-            DrilldownQueryHandler.class,
-            ExportQueryHandler.class,
-            IndicatorQueryHandler.class);
+    private static final String DASHBOARD_HANDLER_PACKAGE =
+            "io.github.carlos_emr.carlos.dashboard.handler";
 
     @Test
     @DisplayName("should not declare final methods visible to CGLIB proxies")
-    void shouldNotDeclareFinalMethods_forCglibProxiedHandlers() {
-        List<String> finalMethods = PROXIED_QUERY_HANDLERS.stream()
+    void shouldNotDeclareFinalMethods_forCglibProxiedHandlers() throws ClassNotFoundException {
+        List<String> finalMethods = discoverProxiedQueryHandlers().stream()
                 .flatMap(handlerType -> Arrays.stream(handlerType.getDeclaredMethods())
                         .filter(DashboardQueryHandlerProxyContractTest::isCglibVisibleFinalMethod)
                         .map(method -> handlerType.getSimpleName() + "#" + method.getName()))
@@ -68,5 +69,23 @@ class DashboardQueryHandlerProxyContractTest {
         return Modifier.isFinal(modifiers)
                 && !Modifier.isStatic(modifiers)
                 && !Modifier.isPrivate(modifiers);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Set<Class<? extends AbstractQueryHandler>> discoverProxiedQueryHandlers()
+            throws ClassNotFoundException {
+        Set<Class<? extends AbstractQueryHandler>> handlerTypes = new LinkedHashSet<>();
+        handlerTypes.add(AbstractQueryHandler.class);
+
+        ClassPathScanningCandidateComponentProvider scanner =
+                new ClassPathScanningCandidateComponentProvider(false);
+        scanner.addIncludeFilter(new AssignableTypeFilter(AbstractQueryHandler.class));
+
+        for (var beanDefinition : scanner.findCandidateComponents(DASHBOARD_HANDLER_PACKAGE)) {
+            Class<?> handlerType = Class.forName(beanDefinition.getBeanClassName());
+            handlerTypes.add((Class<? extends AbstractQueryHandler>) handlerType);
+        }
+
+        return handlerTypes;
     }
 }
