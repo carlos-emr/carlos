@@ -231,8 +231,10 @@ public class ProviderDataDaoImpl extends AbstractDaoImpl<ProviderData> implement
     @Override
     public List<ProviderData> findByProviderSite(String providerNo) {
 
-        String queryStr = "select * from provider p inner join providersite s on s.provider_no = p.provider_no "
-                + " where s.site_id in (select site_id from providersite where provider_no=?1)";
+        String queryStr = "select distinct p.* from provider p "
+                + " where exists (select 1 from providersite s "
+                + " join providersite current_provider_site on current_provider_site.site_id = s.site_id "
+                + " where s.provider_no = p.provider_no and current_provider_site.provider_no = ?1)";
 
 
         Query query = entityManager.createNativeQuery(queryStr, modelClass);

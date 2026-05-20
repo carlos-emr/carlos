@@ -140,6 +140,7 @@
 %>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:message key="schedule.scheduleholidaysetting.title"/></title>
         <link rel="stylesheet" href="<%= request.getContextPath() %>/web.css"/>

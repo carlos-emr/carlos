@@ -76,6 +76,7 @@
     <security:oscarSec roleName="${ sessionScope.userrole }" objectName="_admin" rights="r" reverse="${ false }">
 
         <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
             <title><fmt:message key="messenger.config.MessengerAdmin.title"/></title>
 
             <script type="text/javascript"

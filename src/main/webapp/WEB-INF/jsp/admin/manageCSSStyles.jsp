@@ -51,6 +51,7 @@
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title><fmt:message key="admin.admin.manageCodeStyles"/></title>
     <meta charset="UTF-8">
     <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">

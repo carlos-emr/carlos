@@ -60,6 +60,7 @@
 
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title><fmt:message key="inboxmanager.document.title"/></title>
     <!-- Prototype.js/Scriptaculous removed — using vanilla JS (Phase 1c migration) -->
     <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css"/>

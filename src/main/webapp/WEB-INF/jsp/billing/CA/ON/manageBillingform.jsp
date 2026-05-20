@@ -36,6 +36,7 @@
 
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title><fmt:message key="billing.manageBillingform.title"/></title>
         <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
         <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">

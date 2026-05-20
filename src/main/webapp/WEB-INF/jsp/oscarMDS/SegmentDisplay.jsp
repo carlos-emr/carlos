@@ -81,6 +81,7 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
 <html>
 
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <title><carlos:encode value='<%= pd.getPatientName() %>' context="html"/> - <fmt:message key="oscarMDS.segmentDisplay.title"/></title>
     <script language="javascript" type="text/javascript"

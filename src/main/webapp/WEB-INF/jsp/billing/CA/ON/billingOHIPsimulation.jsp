@@ -36,6 +36,7 @@
 <jsp:useBean id="SxmlMisc" class="io.github.carlos_emr.SxmlMisc" scope="session"/>
 
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title><fmt:message key="admin.admin.btnSimulationOHIPDiskette"/></title>
     <link rel="stylesheet" href="${pageContext.request.contextPath}/css/fontawesome-all.min.css">
     <link href="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.css" rel="stylesheet">
