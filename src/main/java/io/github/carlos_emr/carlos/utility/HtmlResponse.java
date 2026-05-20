@@ -28,6 +28,8 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Centralized response handling for stored HTML content that must remain
@@ -58,9 +60,7 @@ public final class HtmlResponse {
             return DEFAULT_HTML_CHARSET;
         }
 
-        String[] parameters = contentType.split(";");
-        for (int i = 1; i < parameters.length; i++) {
-            String parameter = parameters[i].trim();
+        for (String parameter : splitContentTypeParameters(contentType)) {
             int equals = parameter.indexOf('=');
             if (equals < 0 || !"charset".equalsIgnoreCase(parameter.substring(0, equals).trim())) {
                 continue;
@@ -163,8 +163,76 @@ public final class HtmlResponse {
         if (value.length() >= 2
                 && ((value.startsWith("\"") && value.endsWith("\""))
                 || (value.startsWith("'") && value.endsWith("'")))) {
-            return value.substring(1, value.length() - 1);
+            return unescapeQuotedValue(value.substring(1, value.length() - 1));
         }
         return value;
+    }
+
+    private static List<String> splitContentTypeParameters(String contentType) {
+        List<String> parameters = new ArrayList<>();
+        StringBuilder current = new StringBuilder();
+        boolean inQuote = false;
+        boolean escaped = false;
+        char quote = 0;
+
+        for (int i = contentType.indexOf(';') + 1; i > 0 && i < contentType.length(); i++) {
+            char c = contentType.charAt(i);
+            if (escaped) {
+                current.append(c);
+                escaped = false;
+                continue;
+            }
+            if (inQuote && c == '\\') {
+                current.append(c);
+                escaped = true;
+                continue;
+            }
+            if (c == '"' || c == '\'') {
+                if (!inQuote) {
+                    inQuote = true;
+                    quote = c;
+                } else if (quote == c) {
+                    inQuote = false;
+                    quote = 0;
+                }
+                current.append(c);
+                continue;
+            }
+            if (c == ';' && !inQuote) {
+                addParameter(parameters, current);
+                continue;
+            }
+            current.append(c);
+        }
+        addParameter(parameters, current);
+        return parameters;
+    }
+
+    private static void addParameter(List<String> parameters, StringBuilder current) {
+        String parameter = current.toString().trim();
+        if (!parameter.isEmpty()) {
+            parameters.add(parameter);
+        }
+        current.setLength(0);
+    }
+
+    private static String unescapeQuotedValue(String value) {
+        StringBuilder unescaped = new StringBuilder(value.length());
+        boolean escaped = false;
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            if (escaped) {
+                unescaped.append(c);
+                escaped = false;
+            } else if (c == '\\') {
+                escaped = true;
+            } else {
+                unescaped.append(c);
+            }
+        }
+        if (escaped) {
+            unescaped.append('\\');
+        }
+        return unescaped.toString();
     }
 }

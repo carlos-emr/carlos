@@ -63,6 +63,13 @@ class HtmlResponseUnitTest {
     }
 
     @Test
+    @DisplayName("should ignore quoted semicolons when resolving charset")
+    void shouldIgnoreQuotedSemicolons_whenResolvingCharset() {
+        assertThat(HtmlResponse.resolveCharset("text/html; title=\"a;b\"; charset=ISO-8859-1"))
+                .isEqualTo(StandardCharsets.ISO_8859_1);
+    }
+
+    @Test
     @DisplayName("should write byte content with declared charset")
     void shouldWriteByteContent_withDeclaredCharset() throws Exception {
         MockHttpServletResponse response = new MockHttpServletResponse();
