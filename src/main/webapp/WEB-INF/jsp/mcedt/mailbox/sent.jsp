@@ -33,6 +33,7 @@
     KAIInnovations.com
 --%>
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <!DOCTYPE html>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
@@ -137,7 +138,7 @@
         }
 
         function displayInfo() {
-            var info = '<%= session.getAttribute("info") %>';
+            var info = '<%= SafeEncode.forJavaScript(session.getAttribute("info") == null ? null : session.getAttribute("info").toString()) %>';
             if (info == 'true') {
                 ShowDialog(true);
             }
