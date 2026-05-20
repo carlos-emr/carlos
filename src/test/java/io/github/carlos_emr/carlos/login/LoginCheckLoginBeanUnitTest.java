@@ -22,7 +22,6 @@
 package io.github.carlos_emr.carlos.login;
 
 import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
-import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.managers.SecurityManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.junit.jupiter.api.BeforeEach;
@@ -59,7 +58,7 @@ class LoginCheckLoginBeanUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should validate dummy password hash when user is missing")
-    void shouldValidateDummyPasswordHash_whenUserIsMissing() {
+    void shouldValidateDummyPasswordHash_forMissingUser() {
         String username = "doesnotexist9";
         String password = "WRONGPASS";
         when(securityDao.findByUserName(username)).thenReturn(Collections.emptyList());
@@ -72,12 +71,8 @@ class LoginCheckLoginBeanUnitTest extends CarlosUnitTestBase {
         assertThat(result).isNull();
         verify(securityManager).validatePassword(
                 password,
-                argThat(security -> hasBcryptPasswordHash(security)));
-    }
-
-    private static boolean hasBcryptPasswordHash(Security security) {
-        return security != null
-                && security.getPassword() != null
-                && security.getPassword().startsWith("{bcrypt}");
+                argThat(security -> security != null
+                        && security.getPassword() != null
+                        && security.getPassword().startsWith("{bcrypt}")));
     }
 }

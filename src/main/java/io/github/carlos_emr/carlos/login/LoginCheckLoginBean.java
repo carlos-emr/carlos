@@ -235,6 +235,7 @@ public final class LoginCheckLoginBean {
 
         // Fail authentication if user not found in security table
         if (security == null) {
+            // Result intentionally ignored; this burns the same BCrypt work as a real user lookup.
             securityManager.validatePassword(password, missingUserDummySecurity());
             return cleanNullObj(LOG_PRE + "No Such User: " + username);
         }
