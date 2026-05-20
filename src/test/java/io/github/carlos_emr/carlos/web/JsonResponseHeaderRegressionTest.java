@@ -97,8 +97,30 @@ class JsonResponseHeaderRegressionTest extends CarlosUnitTestBase {
     void shouldSetJsonContentType_forMeasurementWritePaths() throws IOException {
         String source = Files.readString(MEASUREMENT_DATA_ACTION, StandardCharsets.UTF_8);
 
-        assertThat(source).contains("application/json; charset=UTF-8");
-        assertThat(source).contains("application/javascript; charset=UTF-8");
+        int getLatestValuesIndex = source.indexOf("public String getLatestValues()");
+        int javascriptContentTypeIndex = source.indexOf(
+                "response.setContentType(\"application/javascript; charset=UTF-8\");", getLatestValuesIndex);
+        int latestValuesWriteIndex = source.indexOf("response.getWriter().print(script);", getLatestValuesIndex);
+        int getDataByTypeIndex = source.indexOf("public String getDataByType()");
+        int directJsonContentTypeIndex = source.indexOf(
+                "response.setContentType(JSON_CONTENT_TYPE);", getDataByTypeIndex);
+        int directJsonWriteIndex = source.indexOf("objectMapper.writeValue(response.getWriter(), json);",
+                getDataByTypeIndex);
+        int writeJsonIndex = source.indexOf("private void writeJson");
+        int helperJsonContentTypeIndex = source.indexOf("response.setContentType(JSON_CONTENT_TYPE);",
+                writeJsonIndex);
+        int helperJsonWriteIndex = source.indexOf(
+                "response.getOutputStream().write(json.getBytes(StandardCharsets.UTF_8));", writeJsonIndex);
+
+        assertThat(javascriptContentTypeIndex).isNotNegative();
+        assertThat(latestValuesWriteIndex).isNotNegative();
+        assertThat(javascriptContentTypeIndex).isLessThan(latestValuesWriteIndex);
+        assertThat(directJsonContentTypeIndex).isNotNegative();
+        assertThat(directJsonWriteIndex).isNotNegative();
+        assertThat(directJsonContentTypeIndex).isLessThan(directJsonWriteIndex);
+        assertThat(helperJsonContentTypeIndex).isNotNegative();
+        assertThat(helperJsonWriteIndex).isNotNegative();
+        assertThat(helperJsonContentTypeIndex).isLessThan(helperJsonWriteIndex);
     }
 
     @Test
