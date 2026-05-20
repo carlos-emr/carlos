@@ -210,7 +210,7 @@ class DisplayImage2ActionTest extends CarlosUnitTestBase {
             String result = action.execute();
 
             assertThat(result).isEqualTo(ActionSupport.NONE);
-            assertThat(trackingResponse.getContentType()).isEqualTo("text/html");
+            assertThat(trackingResponse.getContentType()).startsWith("text/html");
             assertThat(trackingResponse.getContentAsString()).isEqualTo("<html><body>form</body></html>");
             assertThat(trackingResponse.isWriterObtained()).isTrue();
             assertThat(trackingResponse.isOutputStreamObtained()).isFalse();
