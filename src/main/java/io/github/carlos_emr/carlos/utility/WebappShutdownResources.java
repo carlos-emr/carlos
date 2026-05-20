@@ -97,20 +97,20 @@ public final class WebappShutdownResources {
      * deregistering Tomcat/common drivers shared with other applications.
      *
      * @param resourceClassLoader ClassLoader that loaded a shutdown-sensitive resource
-     * @param webappClassLoader The stopping web application ClassLoader
+     * @param owningWebappClassLoader The stopping web application ClassLoader
      * @return True when the resource should be treated as CARLOS webapp-owned
      */
-    static boolean isOwnedByWebappClassLoader(ClassLoader resourceClassLoader, ClassLoader webappClassLoader) {
+    static boolean isOwnedByWebappClassLoader(ClassLoader resourceClassLoader, ClassLoader owningWebappClassLoader) {
         // Bootstrap or missing loaders are not webapp-owned JDBC resources.
-        if (resourceClassLoader == null || webappClassLoader == null) {
+        if (resourceClassLoader == null || owningWebappClassLoader == null) {
             return false;
         }
         // Direct match covers the standard Tomcat webapp class-loader case.
-        if (resourceClassLoader == webappClassLoader) {
+        if (resourceClassLoader == owningWebappClassLoader) {
             return true;
         }
         // Nested library loaders below the webapp are owned by the stopping webapp.
-        return isAncestor(webappClassLoader, resourceClassLoader);
+        return isAncestor(owningWebappClassLoader, resourceClassLoader);
     }
 
     private static boolean isAncestor(ClassLoader possibleAncestor, ClassLoader classLoader) {

@@ -45,7 +45,7 @@ public final class QueueCache<K, V> {
     public QueueCache(int pools, int objectsToCache, long maxTimeToCache, QueueCacheValueCloner<V> cloner) {
         this(pools, objectsToCache, cloner);
         long shiftPeriod = maxTimeToCache / (long) pools;
-        scheduleShiftTimerTaskWithRetry(shiftPeriod, shiftPeriod);
+        scheduleShiftTimerTaskWithFallback(shiftPeriod, shiftPeriod);
     }
 
     /**
@@ -56,7 +56,7 @@ public final class QueueCache<K, V> {
      * {@link IllegalStateException} and the retry path coordinates with the shared
      * timer slot.
      */
-    private static void scheduleShiftTimerTaskWithRetry(long delay, long period) {
+    private static void scheduleShiftTimerTaskWithFallback(long delay, long period) {
         Timer sharedTimer = getOrCreateSharedTimer();
         try {
             sharedTimer.schedule(new QueueCache.ShiftTimerTask(), delay, period);
@@ -80,16 +80,16 @@ public final class QueueCache<K, V> {
     }
 
     /**
-     * Retries scheduling when shutdown cancelled the timer after it was captured
+     * Handles the fallback when shutdown cancelled the timer after it was captured
      * but before the task was scheduled. Reference equality identifies whether the
      * failed timer is still the live shared timer; replaced or cleared slots are
-     * safe to recreate and schedule against.
+     * safe to recreate and schedule against once.
      */
-    private static void scheduleAfterConcurrentShutdown(Timer scheduledTimer, long delay, long period, IllegalStateException cause) {
+    private static void scheduleAfterConcurrentShutdown(Timer failedTimer, long delay, long period, IllegalStateException cause) {
         synchronized (QueueCache.class) {
             // Reference equality distinguishes an unexpectedly cancelled live timer
             // from the normal shutdown path, which replaces the shared timer slot.
-            if (timer == scheduledTimer) {
+            if (timer == failedTimer) {
                 throw new IllegalStateException("Unable to schedule QueueCache shift task after shutdown coordination", cause);
             }
             if (timer == null) {
