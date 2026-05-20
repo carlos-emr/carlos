@@ -39,8 +39,6 @@
 <%
     String newticklerwarningwindow = null;
 
-    final String CARLOSDOC_PROVIDER_NO = "999998";
-
     // Load schedule navigation separately from the legacy encounter-tab flag.
     // Junior-dev note: focused schedule navigation should not change how other
     // screens open encounters, so the old flag remains true only in "tab" mode.
@@ -52,19 +50,10 @@
         UserProperty tabProp = upDao.getProp(curProviderNo, UserProperty.ENCOUNTER_OPEN_IN_TAB);
         UserProperty navProp = upDao.getProp(curProviderNo, UserProperty.SCHEDULE_NAVIGATION_MODE);
         String savedMode = navProp != null ? navProp.getValue() : null;
-        if (navProp != null
-                && !UserProperty.SCHEDULE_NAVIGATION_MODE_TAB.equals(savedMode)
-                && !UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED.equals(savedMode)) {
-            scheduleNavigationMode = UserProperty.SCHEDULE_NAVIGATION_MODE_POPUP;
-        } else if (navProp == null) {
-            scheduleNavigationMode = tabProp != null && "yes".equalsIgnoreCase(tabProp.getValue())
-                    ? UserProperty.SCHEDULE_NAVIGATION_MODE_TAB
-                    : (CARLOSDOC_PROVIDER_NO.equals(curProviderNo)
-                            ? UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED
-                            : UserProperty.SCHEDULE_NAVIGATION_MODE_POPUP);
-        } else {
-            scheduleNavigationMode = savedMode;
-        }
+        scheduleNavigationMode = UserProperty.resolveScheduleNavigationMode(
+                savedMode,
+                tabProp != null && "yes".equalsIgnoreCase(tabProp.getValue()),
+                curProviderNo);
         openEncounterInTab = UserProperty.SCHEDULE_NAVIGATION_MODE_TAB.equals(scheduleNavigationMode);
     }
     pageContext.setAttribute("scheduleNavigationModeValue", scheduleNavigationMode);

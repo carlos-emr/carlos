@@ -166,18 +166,14 @@
             props.getOrDefault(UserProperty.EDOC_BROWSER_IN_DOCUMENT_REPORT, "no"));
     boolean eDocInMaster = "yes".equalsIgnoreCase(
             props.getOrDefault(UserProperty.EDOC_BROWSER_IN_MASTER_FILE, "no"));
-    final String CARLOSDOC_PROVIDER_NO = "999998";
 
     // Encounter window preferences
     String encWinWidth = props.getOrDefault("encounterWindowWidth", "");
     String encWinHeight = props.getOrDefault("encounterWindowHeight", "");
     boolean encWinMax = "yes".equalsIgnoreCase(props.getOrDefault("encounterWindowMaximize", "no"));
     boolean encOpenInTab = "yes".equalsIgnoreCase(props.getOrDefault(UserProperty.ENCOUNTER_OPEN_IN_TAB, "no"));
-    String scheduleNavigationMode = props.getOrDefault(UserProperty.SCHEDULE_NAVIGATION_MODE,
-            encOpenInTab ? UserProperty.SCHEDULE_NAVIGATION_MODE_TAB
-                    : (CARLOSDOC_PROVIDER_NO.equals(providerNo)
-                            ? UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED
-                            : UserProperty.SCHEDULE_NAVIGATION_MODE_POPUP));
+    String scheduleNavigationMode = UserProperty.resolveScheduleNavigationMode(
+            props.get(UserProperty.SCHEDULE_NAVIGATION_MODE), encOpenInTab, providerNo);
     if (!UserProperty.SCHEDULE_NAVIGATION_MODE_TAB.equals(scheduleNavigationMode)
             && !UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED.equals(scheduleNavigationMode)) {
         scheduleNavigationMode = UserProperty.SCHEDULE_NAVIGATION_MODE_POPUP;

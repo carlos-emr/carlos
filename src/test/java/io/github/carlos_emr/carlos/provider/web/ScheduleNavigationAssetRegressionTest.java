@@ -65,19 +65,14 @@ class ScheduleNavigationAssetRegressionTest {
         String normalizedProviderPreference = normalizeWhitespace(providerPreference);
 
         assertThat(normalizedScheduleScript)
-                .contains("final String CARLOSDOC_PROVIDER_NO = \"999998\";")
                 .contains("String scheduleNavigationMode = UserProperty.SCHEDULE_NAVIGATION_MODE_POPUP;")
-                .contains("scheduleNavigationMode = tabProp != null && \"yes\".equalsIgnoreCase(tabProp.getValue()) "
-                        + "? UserProperty.SCHEDULE_NAVIGATION_MODE_TAB"
-                        + " : (CARLOSDOC_PROVIDER_NO.equals(curProviderNo) "
-                        + "? UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED "
-                        + ": UserProperty.SCHEDULE_NAVIGATION_MODE_POPUP);");
+                .contains("scheduleNavigationMode = UserProperty.resolveScheduleNavigationMode( savedMode,"
+                        + " tabProp != null && \"yes\".equalsIgnoreCase(tabProp.getValue()), curProviderNo);")
+                .doesNotContain("CARLOSDOC_PROVIDER_NO");
         assertThat(normalizedProviderPreference)
-                .contains("final String CARLOSDOC_PROVIDER_NO = \"999998\";")
-                .contains("encOpenInTab ? UserProperty.SCHEDULE_NAVIGATION_MODE_TAB"
-                        + " : (CARLOSDOC_PROVIDER_NO.equals(providerNo)"
-                        + " ? UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED"
-                        + " : UserProperty.SCHEDULE_NAVIGATION_MODE_POPUP)");
+                .contains("String scheduleNavigationMode = UserProperty.resolveScheduleNavigationMode("
+                        + " props.get(UserProperty.SCHEDULE_NAVIGATION_MODE), encOpenInTab, providerNo);")
+                .doesNotContain("CARLOSDOC_PROVIDER_NO");
     }
 
 
@@ -97,6 +92,8 @@ class ScheduleNavigationAssetRegressionTest {
                 .contains("table#firstTable .dropdown:hover .dashboardDropdown");
         assertThat(displayMessages)
                 .contains("String boxTypeQuerySuffix = pageType > 0 ? \"&boxType=\" + pageType : \"\";")
+                .contains("String demographicQuerySuffix = pageType == 3 && demographic_no != null")
+                .contains("DisplayMessages?orderby=status<%=boxTypeQuerySuffix%><%=demographicQuerySuffix%><%=scheduleNavQuerySuffix%>")
                 .contains("ViewMessage?messageID=<carlos:encode value='<%= dm.getMessageId() %>' context=\"uriComponent\"/>&boxType=<%=pageType%><%=scheduleNavQuerySuffix%>");
         assertThat(viewMessage)
                 .contains("boolean showScheduleNav = \"1\".equals(request.getParameter(\"scheduleNav\"));")
