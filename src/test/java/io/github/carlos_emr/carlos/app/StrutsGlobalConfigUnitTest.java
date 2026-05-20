@@ -183,9 +183,7 @@ class StrutsGlobalConfigUnitTest extends CarlosUnitTestBase {
         for (int i = 0; i < packages.getLength(); i++) {
             if (packages.item(i) instanceof Element packageElement) {
                 String strictMethodInvocation = packageElement.getAttribute("strict-method-invocation");
-                if (strictMethodInvocation == null
-                        || strictMethodInvocation.isBlank()
-                        || !"true".equals(strictMethodInvocation.trim())) {
+                if (!"true".equals(strictMethodInvocation.trim())) {
                     violations.add(fileName + " package " + packageElement.getAttribute("name")
                             + " sets strict-method-invocation=" + strictMethodInvocation);
                 }
@@ -258,12 +256,22 @@ class StrutsGlobalConfigUnitTest extends CarlosUnitTestBase {
         for (int i = 0; i < actions.getLength(); i++) {
             if (actions.item(i) instanceof Element action) {
                 List<Element> children = childElements(action);
+                int allowedMethodIndex = -1;
+                int allowedMethodCount = 0;
                 for (int j = 0; j < children.size(); j++) {
                     Element child = children.get(j);
-                    if ("allowed-methods".equals(child.getTagName()) && j < children.size() - 1) {
-                        violations.add(fileName + " action " + action.getAttribute("name")
-                                + " places <allowed-methods> before other child elements");
+                    if ("allowed-methods".equals(child.getTagName())) {
+                        allowedMethodIndex = j;
+                        allowedMethodCount++;
                     }
+                }
+                if (allowedMethodCount > 1) {
+                    violations.add(fileName + " action " + action.getAttribute("name")
+                            + " declares <allowed-methods> more than once");
+                }
+                if (allowedMethodCount == 1 && allowedMethodIndex != children.size() - 1) {
+                    violations.add(fileName + " action " + action.getAttribute("name")
+                            + " places <allowed-methods> before other child elements");
                 }
             }
         }
