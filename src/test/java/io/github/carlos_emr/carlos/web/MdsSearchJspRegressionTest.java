@@ -75,7 +75,14 @@ class MdsSearchJspRegressionTest {
         String baseDirectory = System.getProperty(
                 "maven.multiModuleProjectDirectory",
                 System.getProperty("basedir", System.getProperty("user.dir")));
-        return Path.of(baseDirectory).toAbsolutePath().normalize();
+        Path projectBase = Path.of(baseDirectory).toAbsolutePath().normalize();
+        assertThat(projectBase.resolve("pom.xml"))
+                .as("CARLOS project base directory should contain pom.xml")
+                .exists();
+        assertThat(projectBase.resolve("src/main/webapp"))
+                .as("CARLOS project base directory should contain web application sources")
+                .isDirectory();
+        return projectBase;
     }
 
     private static String providerNoEncodingScriptlet(String jsp) {

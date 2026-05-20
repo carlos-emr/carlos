@@ -38,7 +38,7 @@
 <%
     // Keep the encoding outside the script block so server-side tags cannot leak into JavaScript.
     // providerNo becomes a URL query value inside a JavaScript variable assignment.
-    // URI-component encoding must happen before JavaScript string encoding.
+    // URI-component encoding must happen before JavaScript string encoding to avoid double-encoding URL escapes.
     String encodedProviderNo = SafeEncode.forJavaScript(
             SafeEncode.forUriComponent(StringUtils.noNull(request.getParameter("providerNo"))));
 %>
