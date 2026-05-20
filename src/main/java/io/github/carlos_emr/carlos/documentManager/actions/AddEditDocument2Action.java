@@ -789,7 +789,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
 
     private Path resolveAllowedUploadTempBaseDirectory() throws IOException {
         String[] allowedDirs = new String[] {
-                CarlosProperties.getProperty("TMP_DIR"),
+                CarlosProperties.getInstance().getProperty("TMP_DIR"),
                 System.getProperty("java.io.tmpdir")
         };
 
