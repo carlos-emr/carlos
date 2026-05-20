@@ -118,14 +118,15 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             DateTimeFormatter.ofPattern("yyyy-MM-dd");
     private static final DateTimeFormatter YYYY_MM_DD_HHMM_FORMATTER =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+    private static final int REMOVED_ISSUE_MESSAGE_OVERHEAD = 64;
 
     private static String formatZoned(DateTimeFormatter formatter, Date date) {
         return formatter.format(date.toInstant().atZone(ZoneId.systemDefault()));
     }
 
     private static String appendRemovedIssueMessage(String noteText, Locale locale, ResourceBundle props, CharSequence issueNames) {
-        String originalNote = String.valueOf(noteText);
-        return new StringBuilder(originalNote.length() + issueNames.length() + 64)
+        String originalNote = StringUtils.defaultString(noteText);
+        return new StringBuilder(originalNote.length() + issueNames.length() + REMOVED_ISSUE_MESSAGE_OVERHEAD)
                 .append(originalNote)
                 .append('\n')
                 .append(formatZoned(DD_MMM_YYYY_FORMATTER_BASE.withLocale(locale), new Date()))
