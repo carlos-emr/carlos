@@ -130,10 +130,10 @@ class LogoutBroadcastFilterUnitTest {
         filter.doFilter(request, response, chain);
 
         String content = response.getContentAsString();
-        assertThat(content).contains("function hL(){if(done)return;done=true;dL()}");
-        assertThat(content).contains("bc.onmessage=function(e){hL()");
-        assertThat(content).doesNotContain("ready=false");
-        assertThat(content).doesNotContain("||!ready");
+        assertThat(content).contains("BroadcastChannel");
+        assertThat(content).contains(".onmessage=");
+        assertThat(content).contains("window.__carlosLogoutActive=true;");
+        assertThat(content).doesNotContain("ready");
     }
 
     @Test
