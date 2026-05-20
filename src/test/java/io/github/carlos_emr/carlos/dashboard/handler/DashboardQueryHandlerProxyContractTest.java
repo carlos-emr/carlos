@@ -111,17 +111,27 @@ class DashboardQueryHandlerProxyContractTest {
 
         for (var beanDefinition : scanner.findCandidateComponents(DASHBOARD_HANDLER_PACKAGE)) {
             Class<?> handlerType = Class.forName(beanDefinition.getBeanClassName());
-            if (AbstractQueryHandler.class.isAssignableFrom(handlerType)) {
+            if (AbstractQueryHandler.class.isAssignableFrom(handlerType)
+                    && isProductionHandlerType(handlerType)) {
                 handlerTypes.add((Class<? extends AbstractQueryHandler>) handlerType);
             }
         }
 
         assertThat(handlerTypes)
-                .as("Expected to discover at least one concrete AbstractQueryHandler implementation under package '%s', but only the abstract base type was found. Check the scanner package (%s) and handler locations.",
+                .as("Expected to discover at least one concrete production AbstractQueryHandler implementation under package '%s', but only the abstract base type was found. Check the scanner package (%s) and handler locations.",
                         DASHBOARD_HANDLER_PACKAGE, DASHBOARD_HANDLER_PACKAGE)
                 .hasSizeGreaterThan(1);
 
         return handlerTypes;
+    }
+
+    private static boolean isProductionHandlerType(Class<?> handlerType) {
+        var codeSource = handlerType.getProtectionDomain().getCodeSource();
+        String classOutputLocation = codeSource == null || codeSource.getLocation() == null
+                ? ""
+                : codeSource.getLocation().toExternalForm();
+        return !handlerType.getName().contains("$")
+                && !classOutputLocation.contains("/test-classes/");
     }
 
     private static Stream<Class<?>> proxiedHandlerHierarchy(Class<?> handlerType) {
