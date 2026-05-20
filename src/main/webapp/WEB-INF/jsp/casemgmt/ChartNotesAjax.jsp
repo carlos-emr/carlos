@@ -866,6 +866,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
             && !noteLocked
             && casemgmtNoteLock.isLockedBySameUser()
             && !Objects.equals(casemgmtNoteLock.getSessionId(), request.getRequestedSessionId());
+    String noteLockIpAddress = noteLockedBySameUser ? casemgmtNoteLock.getIpAddress() : "";
 
     String singleLineFormat = "false";
     if (renderMoreNotesScript) {
@@ -924,7 +925,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
     }
 
     if (<%= noteLockedBySameUser %>) {
-        var viewEditedNote = confirm("You have started to edit this note in another window at <carlos:encode value='<%= casemgmtNoteLock.getIpAddress() %>' context="javaScript"/>.\nDo you wish to continue?");
+        var viewEditedNote = confirm("You have started to edit this note in another window at <carlos:encode value='<%= noteLockIpAddress %>' context="javaScript"/>.\nDo you wish to continue?");
         if (viewEditedNote) {
             doscroll();
             var params = "method=updateNoteLock&demographicNo=" + demographicNo;
