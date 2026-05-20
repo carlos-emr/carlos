@@ -21,6 +21,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -38,6 +39,7 @@ import static org.mockito.Mockito.when;
 @DisplayName("BackupDownload authorization")
 @Tag("unit")
 @Tag("security")
+@Isolated
 class BackupDownloadUnitTest extends CarlosUnitTestBase {
 
     private SecurityInfoManager securityInfoManager;
@@ -103,6 +105,23 @@ class BackupDownloadUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should reject GET when logged in info is missing")
+    void shouldRejectGet_whenLoggedInInfoIsMissing() throws Exception {
+        MockHttpServletRequest request = authorizedRequest();
+        HttpSession session = request.getSession();
+        loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(session))
+                .thenReturn(null);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        RecordingBackupDownload servlet = new RecordingBackupDownload();
+
+        servlet.service(request, response);
+
+        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(servlet.downloadCalled).isFalse();
+        verify(securityInfoManager, never()).hasPrivilege(any(), any(), any(), any());
+    }
+
+    @Test
     @DisplayName("should reject GET when backup download privilege is missing")
     void shouldRejectGet_whenBackupDownloadPrivilegeIsMissing() throws Exception {
         MockHttpServletRequest request = authorizedRequest();
@@ -120,6 +139,23 @@ class BackupDownloadUnitTest extends CarlosUnitTestBase {
         assertThat(servlet.downloadCalled).isFalse();
         verify(securityInfoManager).hasPrivilege(eq(loggedInInfo), eq("_admin"), eq("r"), isNull());
         verify(securityInfoManager).hasPrivilege(eq(loggedInInfo), eq("_admin.backup"), eq("r"), isNull());
+    }
+
+    @Test
+    @DisplayName("should reject GET when privilege check throws security exception")
+    void shouldRejectGet_whenPrivilegeCheckThrowsSecurityException() throws Exception {
+        MockHttpServletRequest request = authorizedRequest();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        RecordingBackupDownload servlet = new RecordingBackupDownload();
+        LoggedInInfo loggedInInfo = mockLoggedInInfo(request);
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_admin"), eq("r"), isNull()))
+                .thenThrow(new SecurityException("security manager unavailable"));
+
+        servlet.service(request, response);
+
+        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(servlet.downloadCalled).isFalse();
+        verify(securityInfoManager).hasPrivilege(eq(loggedInInfo), eq("_admin"), eq("r"), isNull());
     }
 
     @Test
@@ -141,6 +177,24 @@ class BackupDownloadUnitTest extends CarlosUnitTestBase {
         assertThat(servlet.downloadFilename).isEqualTo("backup.sql");
         verify(securityInfoManager).hasPrivilege(eq(loggedInInfo), eq("_admin"), eq("r"), isNull());
         verify(securityInfoManager, never()).hasPrivilege(eq(loggedInInfo), eq("_admin.backup"), eq("r"), isNull());
+    }
+
+    @Test
+    @DisplayName("should download from default directory when backup filepath is missing")
+    void shouldDownload_fromDefaultDirectoryWhenBackupFilepathIsMissing() throws Exception {
+        MockHttpServletRequest request = requestWithFilenameAndSession();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        RecordingBackupDownload servlet = new RecordingBackupDownload();
+        LoggedInInfo loggedInInfo = mockLoggedInInfo(request);
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_admin"), eq("r"), isNull()))
+                .thenReturn(true);
+
+        servlet.service(request, response);
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(servlet.downloadCalled).isTrue();
+        assertThat(servlet.downloadDir).isEqualTo("/home/mysql/");
+        assertThat(servlet.downloadFilename).isEqualTo("backup.sql");
     }
 
     @Test
@@ -167,9 +221,15 @@ class BackupDownloadUnitTest extends CarlosUnitTestBase {
     }
 
     private MockHttpServletRequest authorizedRequest() {
+        MockHttpServletRequest request = requestWithFilenameAndSession();
+        request.getSession().setAttribute("backupfilepath", tempDir.toString());
+        return request;
+    }
+
+    private MockHttpServletRequest requestWithFilenameAndSession() {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/servlet/BackupDownload");
         request.addParameter("filename", "backup.sql");
-        request.getSession().setAttribute("backupfilepath", tempDir.toString());
+        request.getSession();
         return request;
     }
 

@@ -42,7 +42,11 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.logging.log4j.Logger;
 
 public class BackupDownload extends GenericDownload {
+    private static final String BACKUP_DOWNLOAD_PRIVILEGE_REQUIRED = "Backup download privilege required.";
+    private static final String DEFAULT_BACKUP_DIRECTORY = "/home/mysql/";
+
     private static final Logger log = MiscUtils.getLogger();
+    private SecurityInfoManager securityInfoManager;
 
     public void doGet(HttpServletRequest req, HttpServletResponse res) throws IOException {
         try {
@@ -56,19 +60,19 @@ public class BackupDownload extends GenericDownload {
 
             HttpSession session = req.getSession(false);
             if (session == null) {
-                res.sendError(HttpServletResponse.SC_FORBIDDEN, "Backup download privilege required.");
+                res.sendError(HttpServletResponse.SC_FORBIDDEN, BACKUP_DOWNLOAD_PRIVILEGE_REQUIRED);
                 return;
             }
 
             LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(session);
             if (loggedInInfo == null || !hasBackupDownloadPrivilege(loggedInInfo)) {
-                res.sendError(HttpServletResponse.SC_FORBIDDEN, "Backup download privilege required.");
+                res.sendError(HttpServletResponse.SC_FORBIDDEN, BACKUP_DOWNLOAD_PRIVILEGE_REQUIRED);
                 return;
             }
 
             String dir = (String) session.getAttribute("backupfilepath");
             if (dir == null) {
-                dir = "/home/mysql/";
+                dir = DEFAULT_BACKUP_DIRECTORY;
             }
 
             download(true, res, dir, filename, null);
@@ -77,7 +81,7 @@ public class BackupDownload extends GenericDownload {
         } catch (SecurityException e) {
             log.warn("SecurityException in BackupDownload", e);
             if (!res.isCommitted()) {
-                res.sendError(HttpServletResponse.SC_FORBIDDEN, "Backup download privilege required.");
+                res.sendError(HttpServletResponse.SC_FORBIDDEN, BACKUP_DOWNLOAD_PRIVILEGE_REQUIRED);
             }
         } catch (Exception e) {
             log.error("Unexpected error in BackupDownload", e);
@@ -89,8 +93,15 @@ public class BackupDownload extends GenericDownload {
     }
 
     private boolean hasBackupDownloadPrivilege(LoggedInInfo loggedInInfo) {
-        SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-        return securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)
-                || securityInfoManager.hasPrivilege(loggedInInfo, "_admin.backup", "r", null);
+        SecurityInfoManager manager = getSecurityInfoManager();
+        return manager.hasPrivilege(loggedInInfo, "_admin", "r", null)
+                || manager.hasPrivilege(loggedInInfo, "_admin.backup", "r", null);
+    }
+
+    private synchronized SecurityInfoManager getSecurityInfoManager() {
+        if (securityInfoManager == null) {
+            securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+        }
+        return securityInfoManager;
     }
 }
