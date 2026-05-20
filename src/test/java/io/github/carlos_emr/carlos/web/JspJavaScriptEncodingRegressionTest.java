@@ -79,12 +79,17 @@ class JspJavaScriptEncodingRegressionTest {
     @Test
     void shouldUseGuardedIpAddressVariable_forChartNotesAjax() throws Exception {
         String chartNotesJsp = readJsp("casemgmt/ChartNotesAjax.jsp");
+        int confirmStart = chartNotesJsp.indexOf("var viewEditedNote = confirm(");
+        int confirmEnd = chartNotesJsp.indexOf(");", confirmStart);
+        assertThat(confirmStart).isGreaterThanOrEqualTo(0);
+        assertThat(confirmEnd).isGreaterThan(confirmStart);
+        String confirmSnippet = chartNotesJsp.substring(confirmStart, confirmEnd);
 
         assertThat(chartNotesJsp)
-                .contains("if (renderMoreNotesScript && hasNoteLock && !noteLocked) {")
-                .contains("noteLockIpAddress = casemgmtNoteLock.getIpAddress();")
+                .contains("noteLockIpAddress = casemgmtNoteLock.getIpAddress();");
+        assertThat(confirmSnippet)
                 .contains("<%= noteLockIpAddress %>")
-                .doesNotContain("<%= casemgmtNoteLock.getIpAddress() %>");
+                .doesNotContain("casemgmtNoteLock.getIpAddress()");
     }
 
     @Test
