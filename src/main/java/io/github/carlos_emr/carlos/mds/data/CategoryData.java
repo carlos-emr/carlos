@@ -323,7 +323,7 @@ public class CategoryData {
                 + " OR plr2.demographic_no = '0')";
 
         try (Connection c = DbConnectionFilter.getThreadLocalDbConnection();
-             PreparedStatement ps = c.prepareStatement(sql)) {
+             PreparedStatement ps = c.prepareStatement(sql)) { // NOSONAR java:S2077 - SQL fragments are fixed application branches; values are bound below.
             int paramIndex = 1;
             if (providerSearch) ps.setString(paramIndex++, searchProviderNo);
             if (hasStatusFilter()) ps.setString(paramIndex++, status);
@@ -352,7 +352,7 @@ public class CategoryData {
                         + " \tAND cd.demographic_no = d.demographic_no "
                         + " \tAND info.lab_no = plr.lab_no "
                         + " \tAND result_status " + (isAbnormal ? "" : "!") + "= 'A' ";
-                try (PreparedStatement ps = c.prepareStatement(sql)) {
+                try (PreparedStatement ps = c.prepareStatement(sql)) { // NOSONAR java:S2077 - SQL fragments are fixed application branches; values are bound below.
                     int paramIndex = 1;
                     if (!StringUtils.isEmpty(patientLastName)) ps.setString(paramIndex++, "%" + patientLastName + "%");
                     if (!StringUtils.isEmpty(patientFirstName)) ps.setString(paramIndex++, "%" + patientFirstName + "%");
@@ -372,7 +372,7 @@ public class CategoryData {
                         + " AND plr.lab_type = 'HL7'  "
                         + " AND info.lab_no = plr.lab_no"
                         + " AND result_status " + (isAbnormal ? "" : "!") + "= 'A' ";
-                try (PreparedStatement ps = c.prepareStatement(sql)) {
+                try (PreparedStatement ps = c.prepareStatement(sql)) { // NOSONAR java:S2077 - SQL fragments are fixed application branches; values are bound below.
                     int paramIndex = 1;
                     if (hasStatusFilter()) ps.setString(paramIndex++, status);
                     if (providerSearch) ps.setString(paramIndex++, searchProviderNo);
@@ -384,7 +384,7 @@ public class CategoryData {
                 String sql = " SELECT HIGH_PRIORITY COUNT(1) as count "
                         + " FROM hl7TextInfo info "
                         + " WHERE result_status " + (isAbnormal ? "" : "!") + "= 'A' ";
-                try (PreparedStatement ps = c.prepareStatement(sql)) {
+                try (PreparedStatement ps = c.prepareStatement(sql)) { // NOSONAR java:S2077 - SQL fragments are fixed application branches; values are bound below.
                     try (ResultSet rs = ps.executeQuery()) {
                         return (rs.next() ? rs.getInt("count") : 0);
                     }
@@ -407,7 +407,7 @@ public class CategoryData {
                 + documentAbnormalSql
                 + documentDateSql;
         try (Connection c = DbConnectionFilter.getThreadLocalDbConnection();
-             PreparedStatement ps = c.prepareStatement(sql)) {
+             PreparedStatement ps = c.prepareStatement(sql)) { // NOSONAR java:S2077 - SQL fragments are fixed application branches; values are bound below.
             int paramIndex = 1;
             if (hasStatusFilter()) ps.setString(paramIndex++, status);
             if (providerSearch) ps.setString(paramIndex++, searchProviderNo);
@@ -441,7 +441,7 @@ public class CategoryData {
                 + " GROUP BY demographic_no, info.accessionNum ";
 
         try (Connection c = DbConnectionFilter.getThreadLocalDbConnection();
-             PreparedStatement ps = c.prepareStatement(sql)) {
+             PreparedStatement ps = c.prepareStatement(sql)) { // NOSONAR java:S2077 - SQL fragments are fixed application branches; values are bound below.
             int paramIndex = 1;
             if (!StringUtils.isEmpty(patientLastName)) ps.setString(paramIndex++, "%" + patientLastName + "%");
             if (!StringUtils.isEmpty(patientFirstName)) ps.setString(paramIndex++, "%" + patientFirstName + "%");
@@ -543,7 +543,7 @@ public class CategoryData {
                 + documentDateSql
                 + " GROUP BY demographic_no ";
         try (Connection c = DbConnectionFilter.getThreadLocalDbConnection();
-             PreparedStatement ps = c.prepareStatement(sql)) {
+             PreparedStatement ps = c.prepareStatement(sql)) { // NOSONAR java:S2077 - SQL fragments are fixed application branches; values are bound below.
             int paramIndex = 1;
             if (!StringUtils.isEmpty(patientLastName)) ps.setString(paramIndex++, "%" + patientLastName + "%");
             if (!StringUtils.isEmpty(patientHealthNumber)) ps.setString(paramIndex++, "%" + patientHealthNumber + "%");

@@ -279,15 +279,18 @@ public final class FrmSetupForm2Action extends ActionSupport {
                     }
 
                     try (Connection connection = DbConnectionFilter.getThreadLocalDbConnection();
-                         PreparedStatement ps = formRecordTable.prepareRecordQuery(connection, formId, demographicNo);
-                         ResultSet rs = ps.executeQuery()) {
+                         PreparedStatement ps = connection.prepareStatement(formRecordTable.selectRecordSql())) { // NOSONAR java:S2077 - table name is allowlisted by FormRecordTable.
+                        ps.setInt(1, Integer.parseInt(formId));
+                        ps.setInt(2, Integer.parseInt(demographicNo));
 
-                        if (rs.next()) {
-                            ResultSetMetaData md = rs.getMetaData();
-                            for (int i = 1; i <= md.getColumnCount(); i++) {
-                                String name = md.getColumnName(i);
-                                String value = Misc.getString(rs, i);
-                                if (value != null) props.setProperty(name, value);
+                        try (ResultSet rs = ps.executeQuery()) {
+                            if (rs.next()) {
+                                ResultSetMetaData md = rs.getMetaData();
+                                for (int i = 1; i <= md.getColumnCount(); i++) {
+                                    String name = md.getColumnName(i);
+                                    String value = Misc.getString(rs, i);
+                                    if (value != null) props.setProperty(name, value);
+                                }
                             }
                         }
                     }
@@ -360,15 +363,5 @@ public final class FrmSetupForm2Action extends ActionSupport {
             return "SELECT * FROM " + tableName + " WHERE ID=? AND demographic_no=?";
         }
 
-        @SuppressWarnings("java:S2077")
-        private PreparedStatement prepareRecordQuery(
-                Connection connection,
-                String formId,
-                String demographicNo) throws SQLException {
-            PreparedStatement ps = connection.prepareStatement(selectRecordSql()); // codeql[java/sql-injection] -- table name is allowlisted by FormRecordTable.
-            ps.setInt(1, Integer.parseInt(formId));
-            ps.setInt(2, Integer.parseInt(demographicNo));
-            return ps;
-        }
     }
 }
