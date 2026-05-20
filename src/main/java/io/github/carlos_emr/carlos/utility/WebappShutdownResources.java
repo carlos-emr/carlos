@@ -95,9 +95,9 @@ public final class WebappShutdownResources {
      * class loaders beneath the webapp loader; parent loaders are excluded to avoid
      * deregistering Tomcat/common drivers shared with other applications.
      *
-     * @param resourceClassLoader class loader that loaded a shutdown-sensitive resource
-     * @param webappClassLoader stopping web application class loader
-     * @return {@code true} when the resource should be treated as CARLOS webapp-owned
+     * @param resourceClassLoader ClassLoader that loaded a shutdown-sensitive resource
+     * @param webappClassLoader ClassLoader stopping web application class loader
+     * @return boolean true when the resource should be treated as CARLOS webapp-owned
      */
     static boolean isOwnedByWebappClassLoader(ClassLoader resourceClassLoader, ClassLoader webappClassLoader) {
         if (resourceClassLoader == null || webappClassLoader == null) {

@@ -44,19 +44,44 @@ public final class QueueCache<K, V> {
 
     public QueueCache(int pools, int objectsToCache, long maxTimeToCache, QueueCacheValueCloner<V> cloner) {
         this(pools, objectsToCache, cloner);
+        scheduleShiftTimerTask(maxTimeToCache / (long) pools, maxTimeToCache / (long) pools);
+    }
+
+    private static void scheduleShiftTimerTask(long delay, long period) {
+        Timer sharedTimer = getOrCreateSharedTimer();
+        try {
+            sharedTimer.schedule(new QueueCache.ShiftTimerTask(), delay, period);
+        } catch (IllegalStateException e) {
+            scheduleAfterConcurrentShutdown(sharedTimer, delay, period, e);
+        }
+    }
+
+    private static Timer getOrCreateSharedTimer() {
         synchronized (QueueCache.class) {
             if (timer == null) {
                 timer = new Timer(QueueCache.class.getName(), true);
             }
+            return timer;
+        }
+    }
 
-            timer.schedule(new QueueCache.ShiftTimerTask(), maxTimeToCache / (long) pools, maxTimeToCache / (long) pools);
+    private static void scheduleAfterConcurrentShutdown(Timer scheduledTimer, long delay, long period, IllegalStateException cause) {
+        synchronized (QueueCache.class) {
+            if (timer == scheduledTimer) {
+                throw cause;
+            }
+            if (timer == null) {
+                timer = new Timer(QueueCache.class.getName(), true);
+            }
+            timer.schedule(new QueueCache.ShiftTimerTask(), delay, period);
         }
     }
 
     /**
      * Cancels the shared shift timer during webapp shutdown so Tomcat does not
      * retain the CARLOS webapp class loader through the timer thread. The class
-     * monitor makes cancellation and later timer recreation mutually exclusive.
+     * monitor makes cancellation, timer replacement, and retry scheduling mutually
+     * visible to constructors racing with shutdown.
      */
     static void shutdownSharedTimer() {
         synchronized (QueueCache.class) {
