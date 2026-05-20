@@ -92,7 +92,7 @@ import io.github.carlos_emr.carlos.utility.LogSanitizer;
 @Service
 public class DocumentManagerImpl implements DocumentManager {
 
-    private static final int MAX_DOCUMENT_FILENAME_ATTEMPTS = 100;
+    private static final int MAX_DOCUMENT_FILENAME_ATTEMPTS = PathValidationUtils.MAX_UPLOAD_FILENAME_COLLISION_RETRIES;
     private static final String PARENT_DIR = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
     private static final String MOVE_DOCUMENT_LOG_ACTION = "EformDataManager.moveDocument";
     private final Logger logger = MiscUtils.getLogger();

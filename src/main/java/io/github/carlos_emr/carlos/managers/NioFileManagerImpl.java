@@ -52,6 +52,7 @@ import org.apache.pdfbox.rendering.PDFRenderer;
 import org.apache.pdfbox.rendering.ImageType;
 import javax.imageio.ImageIO;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
@@ -378,7 +379,7 @@ public class NioFileManagerImpl implements NioFileManager {
         }
         String sanitizedName;
         try {
-            sanitizedName = sanitizeFileName(fileName);
+            sanitizedName = PathValidationUtils.validateFileName(fileName);
         } catch (FileValidationException e) {
             throw new IOException(PathValidationUtils.INVALID_FILENAME_MESSAGE, e);
         }
@@ -430,11 +431,7 @@ public class NioFileManagerImpl implements NioFileManager {
                 return false;
             }
 
-            File tempFile = new File(fileName).getCanonicalFile();
-            if (!PathValidationUtils.isInAllowedTempDirectory(tempFile)) {
-                log.error("Attempt to delete file outside allowed temp directories: {}", LogSanitizer.sanitize(fileName));
-                throw new SecurityException("Path traversal attempt detected");
-            }
+            File tempFile = PathValidationUtils.validateTempPathForCleanup(fileName);
 
             if (!tempFile.exists()) {
                 return false;
@@ -444,6 +441,9 @@ public class NioFileManagerImpl implements NioFileManager {
                 throw new SecurityException("Temp deletion target must be a regular file");
             }
             return Files.deleteIfExists(tempFile.toPath());
+        } catch (FileValidationException e) {
+            log.error("Invalid temp file path for deletion: {}", LogSanitizer.sanitize(fileName), e);
+            return false;
         } catch (SecurityException e) {
             log.error("Security violation while attempting to delete file: {}", LogSanitizer.sanitize(fileName), e);
             throw e; // Re-throw security exceptions

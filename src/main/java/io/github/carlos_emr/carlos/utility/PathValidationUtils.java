@@ -46,6 +46,7 @@ public final class PathValidationUtils {
     public static final String HIDDEN_FILENAME_MESSAGE =
             "Invalid filename: hidden files not allowed. Do not start the filename with a dot.";
     public static final String PATH_OUTSIDE_ALLOWED_DIRECTORY_MESSAGE = "Invalid file path";
+    public static final int MAX_UPLOAD_FILENAME_COLLISION_RETRIES = 100;
 
     private static final Logger logger = MiscUtils.getLogger();
 
@@ -259,6 +260,38 @@ public final class PathValidationUtils {
         }
     }
 
+    /**
+     * Validates and resolves a path intended for temp-file operations such as deletion.
+     * <p>
+     * This method does not require a file to exist; it only checks that the normalized
+     * canonical path is within one of the configured temp directories.
+     *
+     * @param filePath the temp file path to validate
+     * @return the canonical File for the supplied path
+     * @throws FileValidationException if the path cannot be canonicalized
+     * @throws SecurityException if the file is outside allowed temp directories
+     */
+    public static File validateTempPathForCleanup(String filePath) {
+        if (filePath == null || filePath.trim().isEmpty()) {
+            throw new FileValidationException("Temp file path is null or empty");
+        }
+
+        File candidate;
+        try {
+            candidate = new File(filePath).getCanonicalFile();
+        } catch (IOException e) {
+            logger.error("Cannot resolve temp file path for cleanup", e);
+            throw new FileValidationException("Invalid temp file path", e);
+        }
+
+        if (!isInAllowedTempDirectory(candidate)) {
+            logger.error("Attempt to operate on non-temp file path: {}", LogSafe.sanitize(filePath));
+            throw new SecurityException("Path traversal attempt detected");
+        }
+
+        return candidate;
+    }
+
     // ========================================================================
     // INTERNAL VALIDATION METHODS
     // ========================================================================
@@ -296,7 +329,7 @@ public final class PathValidationUtils {
         }
 
         logger.error("Invalid upload source path: {}", LogSafe.sanitize(canonicalFile.getPath(), 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-        throw new SecurityException("Invalid upload source");
+        throw new FileValidationException("Invalid upload source");
     }
 
     private static void validateWithinDirectory(File file, File allowedBaseDir) {
@@ -308,11 +341,11 @@ public final class PathValidationUtils {
             String baseCanonical = allowedBaseDir.getCanonicalPath();
             String fileCanonical = file.getCanonicalPath();
 
-            if (!fileCanonical.equals(baseCanonical) && !fileCanonical.startsWith(baseCanonical + File.separator)) {
-                logger.error("Path {} is outside allowed directory {}",
-                        LogSafe.sanitize(fileCanonical, 1024),
-                        LogSafe.sanitize(baseCanonical, 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-                throw new SecurityException("Invalid file path");
+        if (!fileCanonical.equals(baseCanonical) && !fileCanonical.startsWith(baseCanonical + File.separator)) {
+            logger.error("Path {} is outside allowed directory {}",
+                    LogSafe.sanitize(fileCanonical, 1024),
+                    LogSafe.sanitize(baseCanonical, 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                throw new FileValidationException("Invalid file path");
             }
         } catch (IOException e) {
             logger.error("Error validating file path", e);
@@ -331,13 +364,13 @@ public final class PathValidationUtils {
         // Reject hidden files (starting with .)
         if (baseName.startsWith(".")) {
             logger.warn("Hidden filenames not allowed: {}", LogSafe.sanitize(fileName));
-            throw new SecurityException("Invalid filename: hidden files not allowed");
+            throw new FileValidationException("Invalid filename: hidden files not allowed");
         }
 
         // Ensure the result is not empty
         if (baseName.trim().isEmpty()) {
             logger.warn("Filename became empty after sanitization: {}", LogSafe.sanitize(fileName));
-            throw new SecurityException("Invalid filename");
+            throw new FileValidationException("Invalid filename");
         }
 
         return baseName;

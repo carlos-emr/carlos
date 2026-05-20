@@ -441,6 +441,38 @@ public class PathValidationUtilsTest {
             assertThatCode(() -> PathValidationUtils.validateUpload(tempFile))
                 .doesNotThrowAnyException();
         }
+
+        @Test
+        @DisplayName("should validate temp path for cleanup")
+        void shouldValidateTempPathForCleanup() throws Exception {
+            Path tempRoot = Path.of(System.getProperty("java.io.tmpdir"));
+            Path cleanupFile = Files.createTempFile(tempRoot, "carlos-cleanup-", ".tmp");
+            try {
+                File validatedFile = PathValidationUtils.validateTempPathForCleanup(cleanupFile.toString());
+                assertThat(validatedFile.getCanonicalPath()).isEqualTo(cleanupFile.toRealPath().toString());
+            } finally {
+                Files.deleteIfExists(cleanupFile);
+            }
+        }
+
+        @Test
+        @DisplayName("should reject temp cleanup path outside allowed directories")
+        void shouldRejectTempPathForCleanupOutsideAllowedDirectories() {
+            Path outsideRoot = Path.of(System.getProperty("user.dir"));
+            Path outsidePath = outsideRoot.resolve("carlos-cleanup-outside-" + System.nanoTime() + ".tmp");
+
+            assertThatThrownBy(() -> PathValidationUtils.validateTempPathForCleanup(outsidePath.toString()))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("Path traversal attempt detected");
+        }
+
+        @Test
+        @DisplayName("should reject blank temp cleanup path")
+        void shouldRejectBlankTempPathForCleanup() {
+            assertThatThrownBy(() -> PathValidationUtils.validateTempPathForCleanup("   "))
+                .isInstanceOf(FileValidationException.class)
+                .hasMessageContaining("null or empty");
+        }
     }
 
     // ========================================================================
