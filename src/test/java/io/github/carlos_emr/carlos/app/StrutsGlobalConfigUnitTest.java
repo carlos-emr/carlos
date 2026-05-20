@@ -39,6 +39,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
+import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
@@ -69,11 +70,25 @@ class StrutsGlobalConfigUnitTest extends CarlosUnitTestBase {
     void shouldEnableStrictMethodInvocation_forStrutsPackages()
             throws IOException, ParserConfigurationException, SAXException {
         Path strutsXmlPath = resolveProjectPath(STRUTS_XML);
-        Map<String, String> constants = collectConstants(parseXml(strutsXmlPath));
+        Document parent = parseXml(strutsXmlPath);
+        Path strutsDir = strutsXmlPath.getParent();
 
-        assertThat(constants)
-                .as("Struts must deny framework-level action method invocation unless methods are allowlisted")
-                .containsEntry("struts.strictMethodInvocation", "true");
+        NodeList includes = parent.getElementsByTagName("include");
+        List<String> violations = new ArrayList<>();
+        for (int i = 0; i < includes.getLength(); i++) {
+            if (includes.item(i) instanceof Element include) {
+                String fileName = include.getAttribute("file");
+                Path includedPath = strutsDir.resolve(fileName);
+                assertThat(includedPath)
+                        .as("Included Struts config %s referenced from %s should exist", fileName, STRUTS_XML)
+                        .exists();
+                collectStrictMethodInvocationViolations(fileName, parseXml(includedPath), violations);
+            }
+        }
+
+        assertThat(violations)
+                .as("Struts packages must explicitly enable strict-method-invocation")
+                .isEmpty();
     }
 
     @Test
@@ -137,36 +152,6 @@ class StrutsGlobalConfigUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("no included struts config should disable Strict Method Invocation")
-    void shouldNotDisableStrictMethodInvocation_inIncludedConfigs()
-            throws IOException, ParserConfigurationException, SAXException {
-        Path strutsXmlPath = resolveProjectPath(STRUTS_XML);
-        Document parent = parseXml(strutsXmlPath);
-        Path strutsDir = strutsXmlPath.getParent();
-
-        NodeList includes = parent.getElementsByTagName("include");
-        List<String> violations = new ArrayList<>();
-        for (int i = 0; i < includes.getLength(); i++) {
-            if (includes.item(i) instanceof Element include) {
-                String fileName = include.getAttribute("file");
-                Path includedPath = strutsDir.resolve(fileName);
-                assertThat(includedPath)
-                        .as("Included Struts config %s referenced from %s should exist", fileName, STRUTS_XML)
-                        .exists();
-                Map<String, String> constants = collectConstants(parseXml(includedPath));
-                String strictMethodInvocation = constants.get("struts.strictMethodInvocation");
-                if (isStrutsFalseValue(strictMethodInvocation)) {
-                    violations.add(fileName + " sets struts.strictMethodInvocation=" + strictMethodInvocation);
-                }
-            }
-        }
-
-        assertThat(violations)
-                .as("These included Struts configs weaken Strict Method Invocation")
-                .isEmpty();
-    }
-
-    @Test
     @DisplayName("Struts actions with non-default methods should declare allowed-methods")
     void shouldAllowlistConfiguredNonDefaultMethods_forStrutsActions()
             throws IOException, ParserConfigurationException, SAXException {
@@ -184,12 +169,27 @@ class StrutsGlobalConfigUnitTest extends CarlosUnitTestBase {
                         .as("Included Struts config %s referenced from %s should exist", fileName, STRUTS_XML)
                         .exists();
                 collectNonDefaultMethodViolations(fileName, parseXml(includedPath), violations);
+                collectAllowedMethodOrderViolations(fileName, parseXml(includedPath), violations);
             }
         }
 
         assertThat(violations)
                 .as("Non-default Struts action methods must be explicitly allowlisted for Strict Method Invocation")
                 .isEmpty();
+    }
+
+    private static void collectStrictMethodInvocationViolations(
+            String fileName, Document doc, List<String> violations) {
+        NodeList packages = doc.getElementsByTagName("package");
+        for (int i = 0; i < packages.getLength(); i++) {
+            if (packages.item(i) instanceof Element packageElement) {
+                String strictMethodInvocation = packageElement.getAttribute("strict-method-invocation");
+                if (!"true".equals(strictMethodInvocation.trim())) {
+                    violations.add(fileName + " package " + packageElement.getAttribute("name")
+                            + " sets strict-method-invocation=" + strictMethodInvocation);
+                }
+            }
+        }
     }
 
     private static Map<String, String> collectConstants(Document doc) {
@@ -249,6 +249,35 @@ class StrutsGlobalConfigUnitTest extends CarlosUnitTestBase {
             }
         }
         return allowedMethods;
+    }
+
+    private static void collectAllowedMethodOrderViolations(
+            String fileName, Document doc, List<String> violations) {
+        NodeList actions = doc.getElementsByTagName("action");
+        for (int i = 0; i < actions.getLength(); i++) {
+            if (actions.item(i) instanceof Element action) {
+                List<Element> children = childElements(action);
+                for (int j = 0; j < children.size(); j++) {
+                    Element child = children.get(j);
+                    if ("allowed-methods".equals(child.getTagName()) && j != children.size() - 1) {
+                        violations.add(fileName + " action " + action.getAttribute("name")
+                                + " places <allowed-methods> before other child elements");
+                    }
+                }
+            }
+        }
+    }
+
+    private static List<Element> childElements(Element element) {
+        NodeList childNodes = element.getChildNodes();
+        List<Element> children = new ArrayList<>();
+        for (int i = 0; i < childNodes.getLength(); i++) {
+            if (childNodes.item(i).getNodeType() == Node.ELEMENT_NODE
+                    && childNodes.item(i) instanceof Element child) {
+                children.add(child);
+            }
+        }
+        return children;
     }
 
     private static Document parseXml(Path absolutePath)

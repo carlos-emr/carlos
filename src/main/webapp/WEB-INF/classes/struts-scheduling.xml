@@ -26,7 +26,7 @@
     Contains action mappings for appointments, ticklers, waiting lists, notifications, contacts, and miscellaneous administrative, billing, reporting, and clinical actions.
 -->
 <struts>
-    <package name="scheduling" namespace="/" extends="struts-default">
+    <package name="scheduling" namespace="/" extends="struts-default" strict-method-invocation="true">
 
         <global-results>
             <result name="securityError">/WEB-INF/jsp/error/securityError.jsp</result>

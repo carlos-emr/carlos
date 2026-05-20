@@ -26,7 +26,7 @@
     Contains action mappings for prescription writing, drug search, allergy management, and Rx history.
 -->
 <struts>
-    <package name="prescription" namespace="/" extends="struts-default">
+    <package name="prescription" namespace="/" extends="struts-default" strict-method-invocation="true">
 
         <action name="rx/choosePatient" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxChoosePatient2Action">
             <result name="success">/WEB-INF/jsp/rx/SearchDrug3.jsp</result>
@@ -103,8 +103,8 @@
             <result name="prescribe">/WEB-INF/jsp/rx/prescribe.jsp</result>
         </action>
         <action name="rx/saveDigitalSignature" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxRePrescribe2Action" method="saveDigitalSignature">
-            <allowed-methods>saveDigitalSignature</allowed-methods>
             <result name="success">/WEB-INF/jsp/rx/SearchDrug3.jsp</result>
+            <allowed-methods>saveDigitalSignature</allowed-methods>
         </action>
         <action name="rx/deleteRx" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxDeleteRx2Action">
             <result name="success">/WEB-INF/jsp/rx/SearchDrug3.jsp</result>
