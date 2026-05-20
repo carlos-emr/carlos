@@ -148,6 +148,9 @@ public final class HtmlResponse {
         }
     }
 
+    /**
+     * Sets the HTML Content-Type header and returns the charset used to decode stored bytes.
+     */
     private static Charset prepareHtmlResponse(HttpServletResponse response, String contentType) {
         String effectiveContentType = (contentType == null || contentType.isBlank())
                 ? DEFAULT_HTML_CONTENT_TYPE
@@ -157,6 +160,10 @@ public final class HtmlResponse {
         return charset;
     }
 
+    /**
+     * Writes already-decoded HTML to the response writer. Stored HTML rendering is intentional
+     * for authorized callers; encoding here would change the document being displayed.
+     */
     @SuppressWarnings({"XSS_SERVLET", "findsecbugs:XSS_SERVLET"})
     private static void writeDecodedHtml(HttpServletResponse response, String html) throws IOException {
         PrintWriter writer = response.getWriter();
@@ -164,6 +171,9 @@ public final class HtmlResponse {
         writer.write(html);
     }
 
+    /**
+     * Removes matching outer quotes from an HTTP header parameter value and unescapes quoted text.
+     */
     private static String stripQuotes(String value) {
         if (value.length() >= 2
                 && ((value.startsWith("\"") && value.endsWith("\""))
@@ -173,6 +183,9 @@ public final class HtmlResponse {
         return value;
     }
 
+    /**
+     * Returns a Content-Type value with an explicit charset, preserving existing charset params.
+     */
     private static String contentTypeWithCharset(String contentType, Charset charset) {
         for (String parameter : splitContentTypeParameters(contentType)) {
             int equals = parameter.indexOf('=');
@@ -183,6 +196,9 @@ public final class HtmlResponse {
         return contentType + ";charset=" + charset.name();
     }
 
+    /**
+     * Splits Content-Type parameters while respecting quoted values that contain semicolons.
+     */
     private static List<String> splitContentTypeParameters(String contentType) {
         List<String> parameters = new ArrayList<>();
         StringBuilder current = new StringBuilder();
@@ -231,6 +247,9 @@ public final class HtmlResponse {
         return parameters;
     }
 
+    /**
+     * Adds the accumulated parameter and resets the buffer for the next parameter.
+     */
     private static void addParameter(List<String> parameters, StringBuilder current) {
         String parameter = current.toString().trim();
         if (!parameter.isEmpty()) {
@@ -239,6 +258,9 @@ public final class HtmlResponse {
         current.setLength(0);
     }
 
+    /**
+     * Unescapes backslash escapes inside a quoted HTTP header parameter value.
+     */
     private static String unescapeQuotedValue(String value) {
         StringBuilder unescaped = new StringBuilder(value.length());
         boolean escaped = false;
