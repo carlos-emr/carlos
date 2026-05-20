@@ -75,7 +75,7 @@ public class BackupDownload extends GenericDownload {
         } catch (IOException e) {
             throw e;
         } catch (SecurityException e) {
-            log.warn("SecurityException in BackupDownload: {}", e.getMessage());
+            log.warn("SecurityException in BackupDownload", e);
             if (!res.isCommitted()) {
                 res.sendError(HttpServletResponse.SC_FORBIDDEN, "Backup download privilege required.");
             }
