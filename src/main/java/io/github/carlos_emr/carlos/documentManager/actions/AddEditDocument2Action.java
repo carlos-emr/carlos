@@ -707,7 +707,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
      *
      * @param uploadedFile File the validated temporary upload file
      * @param originalName String the original client-supplied filename, if any
-     * @return String the normalized filename to use for later sanitization/storage
+     * @return String the normalized and sanitized filename to use for storage
      */
     private String resolveUploadedFileName(File uploadedFile, String originalName) {
         String candidate = filled(originalName) ? FilenameUtils.getName(originalName) : null;
