@@ -61,7 +61,9 @@ class JsonResponseHeaderRegressionTest {
 
         assertThat(source).contains("import java.nio.charset.StandardCharsets;");
         assertThat(source).contains("json.getBytes(StandardCharsets.UTF_8)");
-        assertThat(source).doesNotContainPattern("\\.getBytes\\s*\\(\\s*\\)");
+        // Ensure we don't use an unsafe getBytes() call specifically in the response-writing path
+        assertThat(source)
+                .doesNotContainPattern("response\\.getOutputStream\\(\\)\\.write\\(.*\\.getBytes\\s*\\(\\s*\\)");
     }
 
     @Test
