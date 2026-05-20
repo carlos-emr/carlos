@@ -59,11 +59,11 @@ public class FrmRecordHelp {
     private String _newDateFormat = "yyyy-MM-dd"; //handles both date formats, but yyyy/MM/dd is displayed to avoid deprecation
 
     /**
-     * Cached, thread-safe formatters derived from {@link #_dateFormat} / {@link #_newDateFormat}.
-     * {@link #_dateFormatter} is rebuilt inside {@link #setDateFormat(String)} when
-     * {@link #_dateFormat} changes, while {@link #_newDateFormatter} remains a cached formatter
-     * for the fixed {@link #_newDateFormat} pattern. Both avoid per-call formatter construction
-     * in the hot path of {@link #getDateFieldOrNull} / {@link #parseDateFieldOrNull}.
+     * Cached, thread-safe formatters derived from {@link #_dateFormat} and {@link #_newDateFormat}.
+     * {@link #_dateFormatter} is rebuilt inside {@link #setDateFormat(String)} when {@link #_dateFormat}
+     * changes, while {@link #_newDateFormatter} remains a cached formatter for the fixed
+     * {@link #_newDateFormat} pattern to avoid per-call formatter construction in the hot path of
+     * {@link #getDateFieldOrNull} / {@link #parseDateFieldOrNull}.
      */
     private DateTimeFormatter _dateFormatter = DateTimeFormatter.ofPattern(_dateFormat);
     private DateTimeFormatter _newDateFormatter = DateTimeFormatter.ofPattern(_newDateFormat);
