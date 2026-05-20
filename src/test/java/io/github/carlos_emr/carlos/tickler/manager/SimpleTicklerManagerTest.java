@@ -38,6 +38,9 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.test.context.ContextConfiguration;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+
 import static org.assertj.core.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -65,6 +68,9 @@ class SimpleTicklerManagerTest extends CarlosTestBase {
     @Autowired
     private DemographicDao demographicDao;
 
+    @PersistenceContext(unitName = "entityManagerFactory")
+    private EntityManager entityManager;
+
     @Test
     @DisplayName("should load Spring context with all required beans")
     void shouldLoadSpringContextWithAllRequiredBeans() {
@@ -90,6 +96,9 @@ class SimpleTicklerManagerTest extends CarlosTestBase {
     @Test
     @DisplayName("should add tickler successfully when valid data provided")
     void shouldAddTicklerSuccessfully_whenValidDataProvided() {
+        ensureProviderExists("999998");
+        ensureDemographicExists(12345);
+
         // Given: Create a new tickler with required fields
         Tickler tickler = new Tickler();
         tickler.setDemographicNo(12345);
@@ -111,5 +120,27 @@ class SimpleTicklerManagerTest extends CarlosTestBase {
         // Then
         assertTrue(result);
         assertThat(tickler.getId()).isNotNull();
+    }
+
+    private void ensureProviderExists(String providerNo) {
+        entityManager.createNativeQuery("""
+                MERGE INTO provider (provider_no, first_name, last_name, provider_type, sex, specialty, status)
+                KEY(provider_no)
+                VALUES (:providerNo, 'Test', 'Provider', 'doctor', 'M', 'GP', '1')
+                """)
+                .setParameter("providerNo", providerNo)
+                .executeUpdate();
+        entityManager.flush();
+    }
+
+    private void ensureDemographicExists(Integer demographicNo) {
+        entityManager.createNativeQuery("""
+                MERGE INTO demographic (demographic_no, first_name, last_name, sex, patient_status)
+                KEY(demographic_no)
+                VALUES (:demographicNo, 'Test', 'Patient', 'M', 'AC')
+                """)
+                .setParameter("demographicNo", demographicNo)
+                .executeUpdate();
+        entityManager.flush();
     }
 }

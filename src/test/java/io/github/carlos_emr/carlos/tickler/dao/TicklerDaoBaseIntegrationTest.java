@@ -82,8 +82,12 @@ public abstract class TicklerDaoBaseIntegrationTest extends CarlosTestBase {
      */
     @BeforeEach
     protected void setUp() {
+        ensureProviderExists("999998");
+        ensureProviderExists("999999");
+
         // Create test ticklers with varying statuses and assignments
         for (int i = 1; i <= 5; i++) {
+            ensureDemographicExists(1000 + i);
             Tickler tickler = new Tickler();
             tickler.setDemographicNo(1000 + i);
             tickler.setMessage("Test tickler " + i);
@@ -97,6 +101,26 @@ public abstract class TicklerDaoBaseIntegrationTest extends CarlosTestBase {
         entityManager.flush();
     }
 
+    private void ensureProviderExists(String providerNo) {
+        entityManager.createNativeQuery("""
+                MERGE INTO provider (provider_no, first_name, last_name, provider_type, sex, specialty, status)
+                KEY(provider_no)
+                VALUES (:providerNo, 'Test', 'Provider', 'doctor', 'M', 'GP', '1')
+                """)
+                .setParameter("providerNo", providerNo)
+                .executeUpdate();
+    }
+
+    protected void ensureDemographicExists(Integer demographicNo) {
+        entityManager.createNativeQuery("""
+                MERGE INTO demographic (demographic_no, first_name, last_name, sex, patient_status)
+                KEY(demographic_no)
+                VALUES (:demographicNo, 'Test', 'Patient', 'M', 'AC')
+                """)
+                .setParameter("demographicNo", demographicNo)
+                .executeUpdate();
+    }
+
     /**
      * Helper method to create and persist a tickler with specified attributes.
      *
@@ -106,6 +130,8 @@ public abstract class TicklerDaoBaseIntegrationTest extends CarlosTestBase {
      * @return Tickler the created and persisted tickler instance
      */
     protected Tickler createTickler(Integer demoNo, String message, Tickler.STATUS status) {
+        ensureDemographicExists(demoNo);
+
         Tickler tickler = new Tickler();
         tickler.setDemographicNo(demoNo);
         tickler.setMessage(message);
@@ -126,6 +152,7 @@ public abstract class TicklerDaoBaseIntegrationTest extends CarlosTestBase {
      */
     protected void createBulkTestData(int count, Integer baseDemo) {
         for (int i = 0; i < count; i++) {
+            ensureDemographicExists(baseDemo + i);
             Tickler tickler = new Tickler();
             tickler.setDemographicNo(baseDemo + i);
             tickler.setMessage("Bulk test tickler " + i);

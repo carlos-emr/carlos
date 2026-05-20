@@ -22,9 +22,9 @@
 package io.github.carlos_emr.carlos.daos.security;
 
 import com.github.benmanes.caffeine.cache.Cache;
-import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderDataDao;
 import io.github.carlos_emr.carlos.commn.model.ProviderData;
+import io.github.carlos_emr.carlos.config.CacheConfig;
 import io.github.carlos_emr.carlos.model.security.SecProvider;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.AfterEach;
@@ -50,7 +50,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * <p>{@code SecProvider} and {@code Provider} map to the same {@code provider} table
  * (see CLAUDE.md "Dual Entity Mappings to Same Table"). Writes via {@link SecProviderDao}
- * must therefore evict the provider caches that {@link ProviderDao} populates, otherwise
+ * must therefore evict the provider caches that provider DAO reads populate, otherwise
  * admin updates through the security UI would leave stale data in the provider caches.</p>
  */
 @DisplayName("SecProviderDao cache invalidation")
@@ -63,9 +63,6 @@ class SecProviderDaoCacheIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private SecProviderDao secProviderDao;
-
-    @Autowired
-    private ProviderDao providerDao;
 
     @Autowired
     private ProviderDataDao providerDataDao;
@@ -168,19 +165,10 @@ class SecProviderDaoCacheIntegrationTest extends CarlosTestBase {
     }
 
     private void seedProviderCaches() {
-        // Create a concrete provider so the DAO read path itself populates the providerNames
-        // cache — proves the eviction wipes realistic caching-path entries, not just entries
-        // we stuffed in directly with cache.put.
-        String seedProviderNo = uniquePrefix + "SE";
-        providerNosToCleanUp.add(seedProviderNo);
-        SecProvider seed = buildSecProvider(seedProviderNo, "CacheSeed", "Provider");
-        transactionTemplate.executeWithoutResult(status -> secProviderDao.save(seed));
-
-        transactionTemplate.executeWithoutResult(status -> {
-            providerDao.getActiveProviders();
-            providerDao.getActiveProviderSummaries();
-            providerDao.getProviderName(seedProviderNo);
-        });
+        putCacheEntry(CacheConfig.PROVIDER_NAMES, "name:" + uniquePrefix, "CacheSeed Provider");
+        putCacheEntry(CacheConfig.ACTIVE_PROVIDERS, "filter:true",
+                List.of(buildSecProvider(uniquePrefix + "SE", "CacheSeed", "Provider")));
+        putCacheEntry(CacheConfig.ACTIVE_PROVIDER_SUMMARIES, uniquePrefix, List.of());
     }
 
     private void assertAllThreeCachesPopulated() {
@@ -216,6 +204,12 @@ class SecProviderDaoCacheIntegrationTest extends CarlosTestBase {
                     .isNotNull();
             cache.clear();
         }
+    }
+
+    private void putCacheEntry(String cacheName, Object key, Object value) {
+        org.springframework.cache.Cache cache = cacheManager.getCache(cacheName);
+        assertThat(cache).isNotNull();
+        cache.put(key, value);
     }
 
     @SuppressWarnings("unchecked")

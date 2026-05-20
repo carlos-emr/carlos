@@ -26,6 +26,7 @@ import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.commn.model.TicklerUpdate;
 import io.github.carlos_emr.carlos.tickler.TicklerUnitTestBase;
 
+import jakarta.persistence.TypedQuery;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -120,10 +121,13 @@ public class TicklerDaoUnitTest extends TicklerUnitTestBase {
         // Given
         Integer ticklerId = 789;
         Tickler mockTickler = mock(Tickler.class);
+        TypedQuery<Tickler> mockTypedQuery = mock(TypedQuery.class);
         Set<TicklerUpdate> mockUpdates = new HashSet<>();
         mockUpdates.add(new TicklerUpdate());
 
-        when(mockEntityManager.find(Tickler.class, ticklerId)).thenReturn(mockTickler);
+        when(mockEntityManager.createQuery(anyString(), eq(Tickler.class))).thenReturn(mockTypedQuery);
+        when(mockTypedQuery.setParameter("id", ticklerId)).thenReturn(mockTypedQuery);
+        when(mockTypedQuery.getResultList()).thenReturn(List.of(mockTickler));
         when(mockTickler.getUpdates()).thenReturn(mockUpdates);
 
         // When

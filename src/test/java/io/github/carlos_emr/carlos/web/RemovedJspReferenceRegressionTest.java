@@ -92,7 +92,7 @@ class RemovedJspReferenceRegressionTest {
 
         assertThat(oscarJs)
                 .as("legacy JSPs can still include Oscar.js more than once on the same page")
-                .contains("var forceWindowPaths = [")
+                .contains("window.forceWindowPaths = window.forceWindowPaths || [")
                 .doesNotContain("const forceWindowPaths = [")
                 .doesNotContain("let forceWindowPaths = [");
     }
