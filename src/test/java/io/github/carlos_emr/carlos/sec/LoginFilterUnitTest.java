@@ -285,11 +285,15 @@ class LoginFilterUnitTest extends CarlosUnitTestBase {
         @ValueSource(strings = {
                 "/images/favicon.ico",
                 "/library/jquery/jquery-ui-1.14.2.min.css",
+                "/library/jquery/jquery-ui-1.14.2.min.js",
+                "/library/jquery/jquery-3.7.1.min.js",
+                "/library/jquery/jquery-compat.js",
                 "/library/bootstrap/5.3.8/css/bootstrap.min.css",
                 "/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js",
                 "/share/css/global.css",
                 "/share/css/searchBox.css",
                 "/share/css/transitions.css",
+                "/share/css/future-login.css",
                 "/share/javascript/carlos-ajax.js",
                 "/share/javascript/Oscar.js",
                 "/js/global.js",
@@ -309,10 +313,39 @@ class LoginFilterUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should redirect protected library action when unauthenticated")
+        void shouldRedirectProtectedLibraryAction_whenUnauthenticated()
+                throws ServletException, IOException {
+            MockHttpServletRequest request = request("GET", CONTEXT_PATH + "/library/eforms/signatureControl");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            filter.doFilter(request, response, new MockFilterChain());
+
+            assertThat(response.getRedirectedUrl()).isEqualTo(CONTEXT_PATH + "/logoutPage");
+        }
+
+        @Test
         @DisplayName("should not pass dynamic JavaScript JSP when unauthenticated")
         void shouldNotPassDynamicJavascriptJsp_whenUnauthenticated()
                 throws ServletException, IOException {
             MockHttpServletRequest request = request("GET", CONTEXT_PATH + "/js/checkPassword.js.jsp");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            filter.doFilter(request, response, new MockFilterChain());
+
+            assertThat(response.getRedirectedUrl()).isEqualTo(CONTEXT_PATH + "/logoutPage");
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {
+                "/js/bootstrap",
+                "/css/bootstrap",
+                "/library/future-library/future-asset.min.js"
+        })
+        @DisplayName("should redirect non-exempt asset routes when unauthenticated")
+        void shouldRedirectNonExemptAssetRoutes_whenUnauthenticated(String assetPath)
+                throws ServletException, IOException {
+            MockHttpServletRequest request = request("GET", CONTEXT_PATH + assetPath);
             MockHttpServletResponse response = new MockHttpServletResponse();
 
             filter.doFilter(request, response, new MockFilterChain());
@@ -405,6 +438,39 @@ class LoginFilterUnitTest extends CarlosUnitTestBase {
                             .contains("/carlos/logoutPage")
                             .doesNotContain("Failing closed");
                 });
+            }
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {
+                "/library/bootstrap/5.3.8/css/bootstrap.min.css",
+                "/library/jquery/jquery-ui-1.14.2.min.js",
+                "/share/css/future-login.css",
+                "/share/javascript/Oscar.js",
+                "/js/global.js",
+                "/css/fontawesome-all.min.css"
+        })
+        @DisplayName("should not reset inactivity timer for public login assets")
+        void shouldNotResetInactivityTimer_forPublicLoginAssets(String assetPath)
+                throws ServletException, IOException {
+            MockHttpServletRequest request = authenticatedRequest();
+            request.setRequestURI(CONTEXT_PATH + assetPath);
+            Date lastRequestDate = new Date(System.currentTimeMillis() - 1_000);
+            request.getSession(false).setAttribute("last_request_time", lastRequestDate);
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            MockFilterChain chain = new MockFilterChain();
+
+            try (MockedStatic<CarlosProperties> propertiesStatic = mockStatic(CarlosProperties.class)) {
+                CarlosProperties properties = mock(CarlosProperties.class);
+                propertiesStatic.when(CarlosProperties::getInstance).thenReturn(properties);
+                when(properties.getProperty("INACTIVITY_LIMIT_MINS")).thenReturn("60");
+
+                filter.doFilter(request, response, chain);
+
+                assertThat(chain.getRequest()).isSameAs(request);
+                assertThat(response.getRedirectedUrl()).isNull();
+                assertThat(request.getSession(false).getAttribute("last_request_time"))
+                        .isSameAs(lastRequestDate);
             }
         }
     }
