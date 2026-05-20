@@ -284,17 +284,27 @@ public final class DBPreparedHandler {
         try {
             String pno = Misc.getRandomNumber(6);
             String sql = "select count(*) from provider where provider_no= ?";
-            ResultSet rs = queryResults(sql, pno);
-            while (rs.next()) {
-                if (rs.getInt(1) > 0) {
-                    do {
-                        pno = Misc.getRandomNumber(6);
-                    } while (pno != null && pno.startsWith("0"));
-                    sql = "select count(*) from provider where provider_no= ?";
-                    rs = queryResults(sql, pno);
+            while (true) {
+                try (ResultSet rs = queryResults(sql, pno)) {
+                    if (!rs.next() || rs.getInt(1) == 0) {
+                        return pno;
+                    }
+                } finally {
+                    if (preparedStmt != null) {
+                        try {
+                            preparedStmt.close();
+                        } catch (SQLException ex) {
+                            MiscUtils.getLogger().error("Failed to close provider number check statement", ex);
+                        } finally {
+                            preparedStmt = null;
+                        }
+                    }
                 }
+
+                do {
+                    pno = Misc.getRandomNumber(6);
+                } while (pno != null && pno.startsWith("0"));
             }
-            return pno;
         } catch (Exception ex) {
             MiscUtils.getLogger().error("Failed to generate new provider number", ex);
             return "";
