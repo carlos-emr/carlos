@@ -674,7 +674,6 @@ public class EForm extends EFormBase {
                 log.error("Invalid placeholder value in eForm AP query, skipping: {}", e.getMessage());
                 return html;
             }
-            log.debug("SQL---- [eform AP query executed]");
             ArrayList<String> names = DatabaseAP.parserGetNames(output); // a list of ${apName} --> apName
             try {
                 sql = DatabaseAP.parserClean(sql); // replaces all other ${apName} expressions with 'apName'
