@@ -124,8 +124,8 @@ class DashboardQueryHandlerProxyContractTest {
         }
 
         assertThat(handlerTypes)
-                .as("Expected to discover at least one concrete production AbstractQueryHandler implementation under package '%s', but only the abstract base type was found. Check the scanner package (%s) and handler locations.",
-                        DASHBOARD_HANDLER_PACKAGE, DASHBOARD_HANDLER_PACKAGE)
+                .as("Expected to discover at least one concrete production AbstractQueryHandler implementation under package '%s', but only the abstract base type was found. Check the scanner package and handler locations.",
+                        DASHBOARD_HANDLER_PACKAGE)
                 .hasSizeGreaterThan(1);
         assertThat(handlerTypes)
                 .as("Expected to discover the production dashboard query handlers under package '%s'",
