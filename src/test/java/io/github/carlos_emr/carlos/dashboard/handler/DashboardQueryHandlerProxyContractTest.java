@@ -97,6 +97,11 @@ class DashboardQueryHandlerProxyContractTest {
             }
         }
 
+        assertThat(handlerTypes)
+                .as("Expected to discover at least one concrete AbstractQueryHandler implementation under package '%s', but only the abstract base type was found. Check the scanner package (%s) and handler locations.",
+                        DASHBOARD_HANDLER_PACKAGE, DASHBOARD_HANDLER_PACKAGE)
+                .hasSizeGreaterThan(1);
+
         return handlerTypes;
     }
 
