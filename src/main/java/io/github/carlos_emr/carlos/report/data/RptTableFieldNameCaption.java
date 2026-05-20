@@ -163,12 +163,31 @@ public class RptTableFieldNameCaption {
 
     public Vector getMetaNameList(String tableName) {
         Vector ret = new Vector();
+        String trustedTableName = validateEncounterFormTableName(tableName);
+        if (trustedTableName == null) {
+            return ret;
+        }
 
+        String sql = metaNameListSql(trustedTableName);
+        try (Connection conn = LegacyJdbcQuery.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) { // nosemgrep -- SQL contains only a validated encounterForm table identifier.
+            ResultSetMetaData md = rs.getMetaData();
+            for (int i = 1; i <= md.getColumnCount(); i++) {
+                ret.add(md.getColumnName(i));
+            }
+        } catch (SQLException e) {
+            logger.error("getMetaNameList() error for table: " + tableName, e);
+        }
+        return ret;
+    }
+
+    private String validateEncounterFormTableName(String tableName) {
         // Validate table name to prevent SQL injection.
         // Table names are interpolated as identifiers, so only bare identifier characters are allowed.
         if (tableName == null || !tableName.matches("^[a-zA-Z0-9_]+$")) {
             logger.error("Invalid table name: " + tableName);
-            return ret;
+            return null;
         }
 
         // Additional validation: check against known form tables
@@ -183,22 +202,17 @@ public class RptTableFieldNameCaption {
 
         if (!isValidTable) {
             logger.error("Table name not found in encounterForm list: " + tableName);
-            return ret;
+            return null;
         }
+        return tableName;
+    }
 
-        // nosemgrep: formatted-sql-string -- tableName is validated against the encounterForm whitelist above
-        String sql = "select * from " + tableName + " limit 1";
-        try (Connection conn = LegacyJdbcQuery.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) { // nosemgrep: formatted-sql-string -- uses PreparedStatement; tableName from internal report config
-            ResultSetMetaData md = rs.getMetaData();
-            for (int i = 1; i <= md.getColumnCount(); i++) {
-                ret.add(md.getColumnName(i));
-            }
-        } catch (SQLException e) {
-            logger.error("getMetaNameList() error for table: " + tableName, e);
-        }
-        return ret;
+    private String metaNameListSql(String trustedTableName) {
+        // Table identifiers cannot be JDBC-bound. trustedTableName has passed
+        // validateEncounterFormTableName(), including the bare-identifier check
+        // and encounterForm allowlist.
+        // nosemgrep
+        return "select * from " + trustedTableName + " limit 1";
     }
 
     public Vector getFormTableNameList() {

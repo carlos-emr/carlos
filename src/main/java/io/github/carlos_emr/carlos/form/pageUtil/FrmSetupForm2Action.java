@@ -275,17 +275,16 @@ public final class FrmSetupForm2Action extends ActionSupport {
 
             if (formId != null) {
                 if (Integer.parseInt(formId) > 0) {
-                    // Validate formName before using it as a dynamic table suffix.
-                    if (!isAllowedSetupFormName(formName)) {
+                    String trustedFormName = validateSetupFormName(formName);
+                    if (trustedFormName == null) {
                         MiscUtils.getLogger().warn("Invalid form name in getFormRecord: " + formName);
                         return null;
                     }
                     
                     // Using parameterized values for formId and demographicNo
-                    // Note: Table name cannot be parameterized, but formName is validated against encounterForm above.
-                    String sql = "SELECT * FROM form" + formName + " WHERE ID=? AND demographic_no=?"; // nosemgrep: formatted-sql-string -- formName validated against configured SetupForm table names
+                    String sql = setupFormRecordSql(trustedFormName);
                     try (Connection connection = LegacyJdbcQuery.getConnection();
-                         PreparedStatement ps = connection.prepareStatement(sql); // nosemgrep: tainted-sql-from-http-request -- formName is allowlisted; values are JDBC-bound
+                         PreparedStatement ps = connection.prepareStatement(sql); // nosemgrep -- SQL contains only a validated table suffix; values are JDBC-bound.
                          ResultSet rs = configureAndExecuteGetFormRecordQuery(ps, formId, demographicNo)) {
 
                         if (rs.next()) {
@@ -311,7 +310,7 @@ public final class FrmSetupForm2Action extends ActionSupport {
     private ResultSet configureAndExecuteGetFormRecordQuery(PreparedStatement ps, String formId, String demographicNo) throws SQLException {
         ps.setInt(1, Integer.parseInt(formId));
         ps.setInt(2, Integer.parseInt(demographicNo));
-        return ps.executeQuery(); // nosemgrep: formatted-sql-string -- PreparedStatement; formName was allowlisted before preparing
+        return ps.executeQuery();
     }
 
     private void addLastData(EctMeasurementTypesBean mt, String demo) {
@@ -355,8 +354,12 @@ public final class FrmSetupForm2Action extends ActionSupport {
     }
 
     private boolean isAllowedSetupFormName(String formName) {
+        return validateSetupFormName(formName) != null;
+    }
+
+    private String validateSetupFormName(String formName) {
         if (!isValidFormName(formName)) {
-            return false;
+            return null;
         }
 
         String expectedTable = "form" + formName;
@@ -364,10 +367,18 @@ public final class FrmSetupForm2Action extends ActionSupport {
         for (EncounterForm configuredForm : configuredForms) {
             String formValue = configuredForm.getFormValue();
             if (formValue != null && formValue.contains("SetupForm") && containsFormNameParameter(formValue, formName)) {
-                return true;
+                return formName;
             }
         }
-        return false;
+        return null;
+    }
+
+    private String setupFormRecordSql(String trustedFormName) {
+        // Table identifiers cannot be JDBC-bound. trustedFormName comes only from
+        // validateSetupFormName(), which enforces a bare suffix and confirms the
+        // corresponding form table is registered for SetupForm; values stay bound.
+        // nosemgrep
+        return "SELECT * FROM form" + trustedFormName + " WHERE ID=? AND demographic_no=?";
     }
 
     private boolean containsFormNameParameter(String formValue, String formName) {
