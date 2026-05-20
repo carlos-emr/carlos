@@ -202,8 +202,11 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
 
     @Override
     public String execute() throws Exception {
-
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "w", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null || !securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
+            if (loggedInInfo == null) {
+                return "logout";
+            }
             throw new SecurityException("missing required sec object (_demographic)");
         }
 
@@ -217,11 +220,21 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         // To help overcome interuptions, consider reworking process to upload files quickly to temporary folder before batch back end procesing and reporting of status
 
         // initialize
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        
+        // Read the provider number from session and reject blank values before calling EctProgram.
         admProviderNo = (String) request.getSession().getAttribute("user");
+        String normalizedAdmProviderNo = admProviderNo == null ? null : admProviderNo.trim();
+        if (normalizedAdmProviderNo == null || normalizedAdmProviderNo.isEmpty() || "null".equalsIgnoreCase(normalizedAdmProviderNo)) {
+            logger.warn("Demographic import request is missing the session user attribute");
+            return "logout";
+        }
+        admProviderNo = normalizedAdmProviderNo;
         programId = new EctProgram(request.getSession()).getProgram(admProviderNo);
         matchProviderNames = this.isMatchProviderNames();
+
+        if (!hasUploadedImportFile(importFile, importFileFileName)) {
+            return SUCCESS;
+        }
+
         ArrayList<String> warnings = new ArrayList<>();
         ArrayList<String[]> logs = new ArrayList<>();
         validXmlFileList = new ArrayList<>();
@@ -4854,6 +4867,10 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
     private boolean matchProviderNames = true;
     private int timeshiftInDays;
     private String courseId;
+
+    private static boolean hasUploadedImportFile(File importFile, String importFileFileName) {
+        return importFile != null && importFileFileName != null && !importFileFileName.isBlank();
+    }
 
     public File getImportFile() {
         return importFile;
