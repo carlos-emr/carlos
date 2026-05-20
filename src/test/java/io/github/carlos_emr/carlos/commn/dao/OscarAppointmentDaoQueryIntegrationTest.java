@@ -1051,7 +1051,7 @@ public class OscarAppointmentDaoQueryIntegrationTest extends CarlosTestBase {
 
         @Test
         @DisplayName("should bind program IDs as a collection")
-        void shouldBindProgramIdsAsCollection() {
+        void shouldBindProgramIds_asCollection() {
             Date cutoff = new Date(System.currentTimeMillis() - 60_000);
 
             Appointment programOneAppointment = createTestAppointment(today, PROVIDER_NO, 54321, "A");
