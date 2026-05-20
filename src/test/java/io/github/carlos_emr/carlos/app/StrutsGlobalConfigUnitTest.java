@@ -184,11 +184,11 @@ class StrutsGlobalConfigUnitTest extends CarlosUnitTestBase {
             if (packages.item(i) instanceof Element packageElement) {
                 String strictMethodInvocation = packageElement.getAttribute("strict-method-invocation");
                 if (strictMethodInvocation.isBlank()) {
-                    violations.add(fileName + " package " + packageElement.getAttribute("name")
-                            + " is missing strict-method-invocation");
+                    violations.add(packageViolation(
+                            fileName, packageElement, "is missing strict-method-invocation"));
                 } else if (!"true".equals(strictMethodInvocation.trim())) {
-                    violations.add(fileName + " package " + packageElement.getAttribute("name")
-                            + " sets strict-method-invocation=" + strictMethodInvocation);
+                    violations.add(packageViolation(
+                            fileName, packageElement, "sets strict-method-invocation=" + strictMethodInvocation));
                 }
             }
         }
@@ -226,13 +226,13 @@ class StrutsGlobalConfigUnitTest extends CarlosUnitTestBase {
                 }
                 String actionName = action.getAttribute("name");
                 if (method.contains("{") || method.contains("}")) {
-                    violations.add(fileName + " action " + actionName + " uses dynamic method pattern " + method);
+                    violations.add(actionViolation(fileName, actionName, "uses dynamic method pattern " + method));
                     continue;
                 }
                 Set<String> allowedMethods = collectAllowedMethods(action);
                 if (!allowedMethods.contains(method)) {
-                    violations.add(fileName + " action " + actionName + " invokes " + method
-                            + " without matching <allowed-methods>");
+                    violations.add(actionViolation(fileName, actionName,
+                            "invokes " + method + " without matching <allowed-methods>"));
                 }
             }
         }
@@ -269,12 +269,13 @@ class StrutsGlobalConfigUnitTest extends CarlosUnitTestBase {
                     }
                 }
                 if (allowedMethodCount > 1) {
-                    violations.add(fileName + " action " + action.getAttribute("name")
-                            + " declares <allowed-methods> more than once");
+                    violations.add(actionViolation(
+                            fileName, action.getAttribute("name"), "declares <allowed-methods> more than once"));
                 }
                 if (allowedMethodCount == 1 && allowedMethodIndex != children.size() - 1) {
-                    violations.add(fileName + " action " + action.getAttribute("name")
-                            + " places <allowed-methods> before other child elements");
+                    violations.add(actionViolation(
+                            fileName, action.getAttribute("name"),
+                            "places <allowed-methods> before other child elements"));
                 }
             }
         }
@@ -289,6 +290,14 @@ class StrutsGlobalConfigUnitTest extends CarlosUnitTestBase {
             }
         }
         return children;
+    }
+
+    private static String packageViolation(String fileName, Element packageElement, String detail) {
+        return "%s package %s %s".formatted(fileName, packageElement.getAttribute("name"), detail);
+    }
+
+    private static String actionViolation(String fileName, String actionName, String detail) {
+        return "%s action %s %s".formatted(fileName, actionName, detail);
     }
 
     private static Document parseXml(Path absolutePath)
