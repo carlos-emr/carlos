@@ -118,6 +118,9 @@ public final class LoginCheckLoginBean {
      */
     private static final String LOG_PRE = "Login!@#$: ";
 
+    private static final String MISSING_USER_DUMMY_PASSWORD_HASH =
+            "{bcrypt}$2b$10$YzOXP.2axkRiYS07sVHWkuyvQjcuwR.bGeZd5WHQVJ23py57UES8C";
+
     /** Security manager for password encoding, validation, and hash migration */
     private final SecurityManager securityManager = SpringUtils.getBean(SecurityManager.class);
 
@@ -228,6 +231,7 @@ public final class LoginCheckLoginBean {
 
         // Fail authentication if user not found in security table
         if (security == null) {
+            securityManager.validatePassword(password, missingUserDummySecurity());
             return cleanNullObj(LOG_PRE + "No Such User: " + username);
         }
 
@@ -326,6 +330,12 @@ public final class LoginCheckLoginBean {
         userpassword = null;
         password = null;
         return null;
+    }
+
+    private static Security missingUserDummySecurity() {
+        Security dummySecurity = new Security();
+        dummySecurity.setPassword(MISSING_USER_DUMMY_PASSWORD_HASH);
+        return dummySecurity;
     }
 
     /**
