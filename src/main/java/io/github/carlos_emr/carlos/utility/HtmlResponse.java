@@ -54,9 +54,12 @@ public final class HtmlResponse {
 
     /**
      * Resolves the charset parameter from a Content-Type header value.
+     * Quoted parameter values and escaped quote characters are normalized
+     * before lookup. Missing, blank, unknown, or invalid charset declarations
+     * intentionally fall back to UTF-8 so stored HTML remains displayable.
      *
-     * @param contentType response Content-Type value, optionally including charset
-     * @return declared charset, or UTF-8 when absent or invalid
+     * @param contentType response Content-Type value, optionally including quoted charset parameters
+     * @return declared charset, or UTF-8 when the declaration is absent, blank, unknown, or invalid
      */
     public static Charset resolveCharset(String contentType) {
         if (contentType == null || contentType.isBlank()) {
@@ -200,11 +203,13 @@ public final class HtmlResponse {
                 continue;
             }
             if (inQuote && c == '\\') {
+                // Preserve the escape marker until stripQuotes() unescapes the full quoted value.
                 current.append(c);
                 escaped = true;
                 continue;
             }
             if (c == '"' || c == '\'') {
+                // Track quoted parameter values so semicolons inside quotes do not split params.
                 if (!inQuote) {
                     inQuote = true;
                     quote = c;
@@ -216,6 +221,7 @@ public final class HtmlResponse {
                 continue;
             }
             if (c == ';' && !inQuote) {
+                // Only unquoted semicolons delimit Content-Type parameters.
                 addParameter(parameters, current);
                 continue;
             }
@@ -248,6 +254,7 @@ public final class HtmlResponse {
             }
         }
         if (escaped) {
+            // A dangling escape is malformed but preserving it avoids silently changing the value.
             unescaped.append('\\');
         }
         return unescaped.toString();
