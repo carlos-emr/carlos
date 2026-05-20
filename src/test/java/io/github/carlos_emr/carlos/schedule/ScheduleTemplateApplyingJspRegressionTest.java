@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -34,18 +35,37 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ScheduleTemplateApplyingJspRegressionTest {
 
     private static final Path TEMPLATE_APPLYING_JSP =
-            Path.of("src/main/webapp/WEB-INF/jsp/schedule/scheduletemplateapplying.jsp");
+            projectRoot().resolve("src/main/webapp/WEB-INF/jsp/schedule/scheduletemplateapplying.jsp");
+    private static final Pattern POST_SCHEDULE_FORM = Pattern.compile(
+            "<form\\s+method=\"post\"\\s+name=\"schedule\"",
+            Pattern.CASE_INSENSITIVE);
 
     @Test
     @DisplayName("delete should reuse the rendered POST form so CSRFGuard can include its token")
     void shouldReuseRenderedPostForm_forDelete() throws IOException {
         String jsp = Files.readString(TEMPLATE_APPLYING_JSP, StandardCharsets.UTF_8);
 
-        assertThat(jsp).contains("<form method=\"post\" name=\"schedule\"");
+        assertThat(jsp).containsPattern(POST_SCHEDULE_FORM);
         assertThat(jsp).contains("var form = document.forms['schedule'];");
-        assertThat(jsp).contains("form.action = \"${pageContext.request.contextPath}/schedule/TemplateApplying\";");
+        assertThat(jsp).containsPattern("if \\(!form\\) \\{\\s+return;\\s+\\}");
+        assertThat(jsp).contains("form.method = 'post';");
+        assertThat(jsp).containsPattern("form\\.action\\s*=\\s*\"\\$\\{pageContext\\.request\\.contextPath}/schedule/TemplateApplying\";");
+        assertThat(jsp).contains("setFormValue(form, 'provider_no', '<%= providerNoForJavaScript %>');");
+        assertThat(jsp).contains("setFormValue(form, 'provider_name', '<%= providerNameForJavaScript %>');");
         assertThat(jsp).contains("setFormValue(form, 'delete', '1');");
+        assertThat(jsp).contains("setFormValue(form, 'deldate', 'all');");
         assertThat(jsp).doesNotContain("var form = document.createElement('form');");
+    }
+
+    @Test
+    @DisplayName("delete helper should update existing named controls before appending hidden inputs")
+    void shouldUpdateExistingNamedControls_forDeleteFields() throws IOException {
+        String jsp = Files.readString(TEMPLATE_APPLYING_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp).containsPattern("Array\\.prototype\\.slice\\.call\\(form\\.elements\\)");
+        assertThat(jsp).containsPattern("return control\\.name === name;");
+        assertThat(jsp).containsPattern("controls\\[0]\\.value = value;");
+        assertThat(jsp).containsPattern("if \\(controls\\[i]\\.type === 'hidden'\\)");
     }
 
     @Test
@@ -53,7 +73,15 @@ class ScheduleTemplateApplyingJspRegressionTest {
     void shouldUseRequestLocale_forHtmlLanguage() throws IOException {
         String jsp = Files.readString(TEMPLATE_APPLYING_JSP, StandardCharsets.UTF_8);
 
-        assertThat(jsp).contains("<html lang=\"${pageContext.request.locale.language}\">");
+        assertThat(jsp).containsPattern(
+                "<html\\s+lang=\"<%=\\s*SafeEncode\\.forHtmlAttribute\\(request\\.getLocale\\(\\)\\.toLanguageTag\\(\\)\\)\\s*%>\"");
+        assertThat(jsp).doesNotContain("${pageContext.request.locale.language}");
         assertThat(jsp).doesNotContain("<html lang=\"en\">");
+    }
+
+    private static Path projectRoot() {
+        return Path.of(System.getProperty(
+                "maven.multiModuleProjectDirectory",
+                System.getProperty("user.dir")));
     }
 }
