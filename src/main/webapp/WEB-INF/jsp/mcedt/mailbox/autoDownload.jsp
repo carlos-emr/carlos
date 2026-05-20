@@ -51,6 +51,7 @@
 
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <jsp:include page="/WEB-INF/jsp/mcedt/mailbox/head-includes.jsp"/>
         <link href="mailbox/css/mcedt.css" rel="stylesheet" type="text/css">
 

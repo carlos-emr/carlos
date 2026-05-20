@@ -56,6 +56,7 @@ import io.github.carlos_emr.carlos.casemgmt.common.Colour;
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO;
 import io.github.carlos_emr.carlos.casemgmt.dao.IssueDAO;
 import io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementViewFormBean;
+import io.github.carlos_emr.carlos.commn.dao.TicklerDao;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.provider.web.CppPreferencesUIBean;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -475,7 +476,8 @@ public class CaseManagementView2Action extends ActionSupport {
             CustomFilter cf = new CustomFilter();
             cf.setDemographicNo(this.getDemographicNo(request));
             cf.setStatus("A");
-            request.setAttribute("ticklers", ticklerManager.getTicklers(loggedInInfo, cf));
+            request.setAttribute("ticklers", ticklerManager.getTicklers(loggedInInfo, cf, 0,
+                    TicklerDao.MAX_LIST_RETURN_SIZE, false, false, true, true));
         }
 
         if (tab != null && tab.equalsIgnoreCase("Search")) {

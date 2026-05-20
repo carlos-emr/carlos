@@ -31,12 +31,14 @@
  */
 package io.github.carlos_emr.carlos.ticklers.service;
 
+import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import jakarta.persistence.Query;
 
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.time.DateFormatUtils;
 import io.github.carlos_emr.carlos.commn.PaginationQuery;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
@@ -53,8 +55,7 @@ public class TicklersDaoImpl extends AbstractDaoImpl<Tickler> implements Tickler
 
     @Override
     public int getTicklersCount(PaginationQuery paginationQuery) {
-        StringBuilder sql = this.generateQuery(paginationQuery, true);
-        Query query = entityManager.createQuery(sql.toString());
+        Query query = this.createQuery(paginationQuery, true);
 
         Long x = (Long) query.getSingleResult();
         return x.intValue();
@@ -63,51 +64,52 @@ public class TicklersDaoImpl extends AbstractDaoImpl<Tickler> implements Tickler
     @SuppressWarnings("unchecked")
     @Override
     public List<Tickler> getTicklers(TicklerQuery ticklerQuery) {
-        StringBuilder sql = this.generateQuery(ticklerQuery, false);
-        Query query = entityManager.createQuery(sql.toString());
+        Query query = this.createQuery(ticklerQuery, false);
         query.setFirstResult(ticklerQuery.getStart());
         query.setMaxResults(ticklerQuery.getLimit());
         return query.getResultList();
     }
 
-    private StringBuilder generateQuery(PaginationQuery paginationQuery, boolean selectCountOnly) {
+    private Query createQuery(PaginationQuery paginationQuery, boolean selectCountOnly) {
+        QueryParameters parameters = new QueryParameters();
+        StringBuilder sql = this.generateQuery(paginationQuery, selectCountOnly, parameters);
+        Query query = entityManager.createQuery(sql.toString());
+        parameters.apply(query);
+        return query;
+    }
+
+    private StringBuilder generateQuery(PaginationQuery paginationQuery, boolean selectCountOnly, QueryParameters parameters) {
         TicklerQuery ticklerQuery = (TicklerQuery) paginationQuery;
         StringBuilder sql = new StringBuilder("select " + (selectCountOnly ? "count(*)" : "t")
                 + " FROM Tickler t where "
-                + " t.serviceDate >= '" + DateFormatUtils.ISO_DATETIME_FORMAT.format(ticklerQuery.getStartDate())
-                + "' and t.serviceDate <= '" + DateFormatUtils.ISO_DATETIME_FORMAT.format(ticklerQuery.getEndDate())
-                + "' ");
+                + " t.serviceDate >= :startDate and t.serviceDate <= :endDate ");
+        parameters.add("startDate", ticklerQuery.getStartDate());
+        parameters.add("endDate", ticklerQuery.getEndDate());
 
         if (ticklerQuery.getMrps() != null && ticklerQuery.getMrps().length > 0) {
             sql = new StringBuilder("select " + (selectCountOnly ? "count(*)" : "t")
                     + " FROM Tickler t, Demographic d where "
-                    + " t.serviceDate >= '" + DateFormatUtils.ISO_DATETIME_FORMAT.format(ticklerQuery.getStartDate())
-                    + "' and t.serviceDate <= '" + DateFormatUtils.ISO_DATETIME_FORMAT.format(ticklerQuery.getEndDate())
-                    + "' ");
-            sql.append("and d.DemographicNo = cast(t.demographicNo as integer) ");
-
-            sql.append(" and d.ProviderNo IN (");
-            String[] mrps = ticklerQuery.getMrps();
-            for (int x = 0; x < mrps.length; x++) {
-                if (x > 0) {
-                    sql.append(",");
-                }
-                sql.append("'").append(mrps[x]).append("'");
-            }
-            sql.append(") ");
+                    + " t.serviceDate >= :startDate and t.serviceDate <= :endDate ");
+            sql.append("and d.demographicNo = cast(t.demographicNo as integer) ");
+            sql.append(" and d.providerNo IN (:mrps) ");
+            parameters.add("mrps", Arrays.asList(ticklerQuery.getMrps()));
         }
 
         if (StringUtils.isNotBlank(ticklerQuery.getStatus())) {
-            sql.append(" and t.status = '" + ticklerQuery.getStatus() + "' ");
+            Tickler.STATUS status = parseStatus(ticklerQuery.getStatus());
+            if (status != null) {
+                sql.append(" and t.status = :status ");
+                parameters.add("status", status);
+            }
         }
 
         if (StringUtils.isNotBlank(ticklerQuery.getKeyword())) {
+            parameters.add("keyword", "%" + ticklerQuery.getKeyword() + "%");
             sql.append("and (");
-            sql.append("t.demographicNo like '%" + ticklerQuery.getKeyword() + "%' ");
-            sql.append("or t.provider like '%" + ticklerQuery.getKeyword() + "%' ");
-            sql.append("or t.message like '%" + ticklerQuery.getKeyword() + "%' ");
-            sql.append("or t.creator like '%" + ticklerQuery.getKeyword() + "%' ");
-            sql.append("or t.taskAssignedTo like '%" + ticklerQuery.getKeyword() + "%' ");
+            sql.append("str(t.demographicNo) like :keyword ");
+            sql.append("or t.message like :keyword ");
+            sql.append("or t.creator like :keyword ");
+            sql.append("or t.taskAssignedTo like :keyword ");
             sql.append(") ");
         }
 
@@ -115,51 +117,42 @@ public class TicklersDaoImpl extends AbstractDaoImpl<Tickler> implements Tickler
             if (StringUtils.equals("true", ticklerQuery.getWithOption())) {
 
                 if (StringUtils.isNotBlank(ticklerQuery.getProgramId())) {
-                    sql.append(" and t.programId = '" + ticklerQuery.getProgramId() + "' ");
+                    sql.append(" and str(t.programId) = :programId ");
+                    parameters.add("programId", ticklerQuery.getProgramId());
                 }
 
                 if (StringUtils.isNotBlank(ticklerQuery.getDemographicNo())) {
-                    sql.append(" and t.demographicNo = '" + ticklerQuery.getDemographicNo() + "' ");
+                    sql.append(" and str(t.demographicNo) = :demographicNo ");
+                    parameters.add("demographicNo", ticklerQuery.getDemographicNo());
                 }
                 if (StringUtils.isNotBlank(ticklerQuery.getClient())) {
-                    sql.append(" and t.demographicNo = '" + ticklerQuery.getClient() + "' ");
+                    sql.append(" and str(t.demographicNo) = :client ");
+                    parameters.add("client", ticklerQuery.getClient());
                 }
                 if (StringUtils.isNotBlank(ticklerQuery.getMessage())) {
-                    sql.append(" and t.message = '" + ticklerQuery.getMessage() + "' ");
+                    sql.append(" and t.message = :message ");
+                    parameters.add("message", ticklerQuery.getMessage());
                 }
 
                 if (StringUtils.isNotBlank(ticklerQuery.getProviderNo())) {
-                    sql.append("and t.provider = '" + ticklerQuery.getProviderNo() + "' ");
+                    sql.append("and t.creator = :providerNo ");
+                    parameters.add("providerNo", ticklerQuery.getProviderNo());
                 }
 
                 if (ticklerQuery.getProviders() != null && ticklerQuery.getProviders().length > 0) {
-                    sql.append(" and t.creator IN (");
-                    String[] providers = ticklerQuery.getProviders();
-                    for (int x = 0; x < providers.length; x++) {
-                        if (x > 0) {
-                            sql.append(",");
-                        }
-                        sql.append("'").append(providers[x]).append("'");
-                    }
-                    sql.append(") ");
+                    sql.append(" and t.creator IN (:providers) ");
+                    parameters.add("providers", Arrays.asList(ticklerQuery.getProviders()));
                 }
 
                 if (ticklerQuery.getAssignees() != null && ticklerQuery.getAssignees().length > 0) {
-                    sql.append(" and t.taskAssignedTo IN (");
-                    String[] assignees = ticklerQuery.getAssignees();
-                    for (int x = 0; x < assignees.length; x++) {
-                        if (x > 0) {
-                            sql.append(",");
-                        }
-                        sql.append("'").append(assignees[x]).append("'");
-                    }
-                    sql.append(") ");
+                    sql.append(" and t.taskAssignedTo IN (:assignees) ");
+                    parameters.add("assignees", Arrays.asList(ticklerQuery.getAssignees()));
                 }
             }
             String sort = ticklerQuery.getSort();
-            if (!sort.equalsIgnoreCase("asc") && !sort.equalsIgnoreCase("desc")) {
+            if (!StringUtils.equalsIgnoreCase(sort, "asc") && !StringUtils.equalsIgnoreCase(sort, "desc")) {
                 MiscUtils.getLogger().warn("invalid sort parameter passwd for ticklers: " + sort);
-                sort = "";
+                sort = "Asc";
             }
 
             String orderby = ticklerQuery.getOrderby();
@@ -180,9 +173,29 @@ public class TicklersDaoImpl extends AbstractDaoImpl<Tickler> implements Tickler
             } else if (orderby.equals("status")) {
                 sql.append(" order by t.status " + sort);
             } else {
-                sql.append(" order by t." + orderby + " " + sort);
+                sql.append(" order by t.serviceDate " + sort);
             }
         }
         return sql;
+    }
+
+    private Tickler.STATUS parseStatus(String status) {
+        try {
+            return Tickler.STATUS.valueOf(status.trim());
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    private static final class QueryParameters {
+        private final Map<String, Object> values = new LinkedHashMap<>();
+
+        private void add(String name, Object value) {
+            values.put(name, value);
+        }
+
+        private void apply(Query query) {
+            values.forEach(query::setParameter);
+        }
     }
 }

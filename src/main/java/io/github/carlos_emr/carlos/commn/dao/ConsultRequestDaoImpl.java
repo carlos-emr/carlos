@@ -84,7 +84,7 @@ public class ConsultRequestDaoImpl extends AbstractDaoImpl<ConsultationRequest> 
                 "select " + (selectCountOnly ? "count(*)" : "cr") +
                         " from ConsultationRequest cr left outer join cr.professionalSpecialist specialist, ConsultationServices cs, Demographic d"
                         +
-                        " left outer join d.provider p where d.DemographicNo = cr.demographicId and cs.id = cr.serviceId ");
+                        " left outer join d.provider p where d.demographicNo = cr.demographicId and cs.id = cr.serviceId ");
         
         if (StringUtils.isNotBlank(consultationQuery.getProviderNo())) {
             sql.append("and cr.providerNo = :providerNo ");
@@ -104,8 +104,8 @@ public class ConsultRequestDaoImpl extends AbstractDaoImpl<ConsultationRequest> 
         if (StringUtils.isNotBlank(consultationQuery.getKeyword())) {
             String keywordParam = "%" + consultationQuery.getKeyword() + "%";
             sql.append("and (");
-            sql.append("d.LastName like :keyword ");
-            sql.append("or d.FirstName like :keyword ");
+            sql.append("d.lastName like :keyword ");
+            sql.append("or d.firstName like :keyword ");
             sql.append("or specialist.lastName like :keyword ");
             sql.append("or specialist.firstName like :keyword ");
             sql.append("or cs.serviceDesc like :keyword");
@@ -162,9 +162,9 @@ public class ConsultRequestDaoImpl extends AbstractDaoImpl<ConsultationRequest> 
             } else if ("serviceDesc".equals(orderby)) {
                 sql.append(" order by cs.serviceDesc ").append(validatedSort);
             } else if ("patient".equals(orderby)) {
-                sql.append(" order by d.LastName ").append(validatedSort);
+                sql.append(" order by d.lastName ").append(validatedSort);
             } else if ("providerName".equals(orderby)) {
-                sql.append(" order by p.LastName ").append(validatedSort);
+                sql.append(" order by p.lastName ").append(validatedSort);
             } else if ("specialistName".equals(orderby)) {
                 sql.append(" order by specialist.lastName ").append(validatedSort);
             } else if ("appointmentDate".equals(orderby)) {
@@ -225,7 +225,7 @@ public class ConsultRequestDaoImpl extends AbstractDaoImpl<ConsultationRequest> 
                 "select " + (selectCountOnly ? "count(*)" : "cr,specialist,cs,d,p") +
                         " from ConsultationRequest cr left outer join cr.professionalSpecialist specialist, ConsultationServices cs, Demographic d"
                         +
-                        " left outer join d.provider p where d.DemographicNo = cr.demographicId and cs.id = cr.serviceId ");
+                        " left outer join d.provider p where d.demographicNo = cr.demographicId and cs.id = cr.serviceId ");
 
         if (filter.getAppointmentStartDate() != null) {
             sql.append("and cr.appointmentDate >= :appointmentStartDate ");
@@ -270,7 +270,7 @@ public class ConsultRequestDaoImpl extends AbstractDaoImpl<ConsultationRequest> 
         }
 
         if (filter.getMrpNo() != null && filter.getMrpNo() > 0) {
-            sql.append("and d.ProviderNo = :mrpNo ");
+            sql.append("and d.providerNo = :mrpNo ");
             queryWithParams.addParam("mrpNo", filter.getMrpNo());
         }
 
@@ -289,7 +289,7 @@ public class ConsultRequestDaoImpl extends AbstractDaoImpl<ConsultationRequest> 
         if (SORTMODE.AppointmentDate.equals(filter.getSortMode())) {
             orderBy = "cr.appointmentDate " + orderDir + ",cr.appointmentTime " + orderDir;
         } else if (SORTMODE.Demographic.equals(filter.getSortMode())) {
-            orderBy = "d.LastName " + orderDir + ",d.FirstName " + orderDir;
+            orderBy = "d.lastName " + orderDir + ",d.firstName " + orderDir;
         } else if (SORTMODE.Service.equals(filter.getSortMode())) {
             orderBy = "cs.serviceDesc " + orderDir;
         } else if (SORTMODE.Consultant.equals(filter.getSortMode())) {
@@ -299,7 +299,7 @@ public class ConsultRequestDaoImpl extends AbstractDaoImpl<ConsultationRequest> 
         } else if (SORTMODE.Status.equals(filter.getSortMode())) {
             orderBy = "cr.status " + orderDir;
         } else if (SORTMODE.MRP.equals(filter.getSortMode())) {
-            orderBy = "p.LastName " + orderDir + ",p.FirstName " + orderDir;
+            orderBy = "p.lastName " + orderDir + ",p.firstName " + orderDir;
         } else if (SORTMODE.FollowUpDate.equals(filter.getSortMode())) {
             orderBy = "cr.followUpDate " + orderDir;
         } else if (SORTMODE.ReferralDate.equals(filter.getSortMode())) {

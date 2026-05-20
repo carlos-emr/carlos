@@ -51,6 +51,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     String formClass = "DischargeSummary";
     String formLink = "formDischargeSummary.jsp";
@@ -98,6 +99,7 @@
 -->
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:message key="form.dischargeSummary.title"/></title>
         <link rel="stylesheet" type="text/css" href="arStyle.css">
