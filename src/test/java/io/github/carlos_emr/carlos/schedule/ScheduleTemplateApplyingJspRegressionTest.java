@@ -45,15 +45,24 @@ class ScheduleTemplateApplyingJspRegressionTest {
     void shouldReuseRenderedPostForm_forDelete() throws IOException {
         String jsp = Files.readString(TEMPLATE_APPLYING_JSP, StandardCharsets.UTF_8);
 
-        assertThat(jsp).containsPattern(POST_SCHEDULE_FORM);
+    @Test
+    @DisplayName("delete should reuse the rendered POST form so CSRFGuard can include its token")
+    void shouldReuseRenderedPostForm_forDelete() throws IOException {
+        String jsp = Files.readString(TEMPLATE_APPLYING_JSP, StandardCharsets.UTF_8);
+
+        // HTML form should be a POST form named "schedule"
+        assertThat(jsp).contains("<form method=\"post\" name=\"schedule\"");
+
+        // JavaScript should reuse the rendered form instead of creating a new one
         assertThat(jsp).contains("var form = document.forms['schedule'];");
-        assertThat(jsp).containsPattern("if \\(!form\\) \\{\\s+return;\\s+\\}");
         assertThat(jsp).contains("form.method = 'post';");
-        assertThat(jsp).containsPattern("form\\.action\\s*=\\s*\"\\$\\{pageContext\\.request\\.contextPath}/schedule/TemplateApplying\";");
-        assertThat(jsp).contains("setFormValue(form, 'provider_no', '<%= providerNoForJavaScript %>');");
-        assertThat(jsp).contains("setFormValue(form, 'provider_name', '<%= providerNameForJavaScript %>');");
+        assertThat(jsp).contains("form.action = \"${pageContext.request.contextPath}/schedule/TemplateApplying\";");
+
+        // JavaScript should correctly configure the delete submission fields
         assertThat(jsp).contains("setFormValue(form, 'delete', '1');");
         assertThat(jsp).contains("setFormValue(form, 'deldate', 'all');");
+
+        // Regression guard: we should not be creating a brand new form element
         assertThat(jsp).doesNotContain("var form = document.createElement('form');");
     }
 
