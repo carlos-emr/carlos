@@ -21,14 +21,13 @@
  */
 package io.github.carlos_emr.carlos.utility;
 
+import java.lang.reflect.InvocationTargetException;
 import java.sql.Driver;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Collections;
 
 import org.apache.logging.log4j.Logger;
-
-import com.mysql.cj.jdbc.AbandonedConnectionCleanupThread;
 
 /**
  * Releases process-wide resources that JDBC drivers and CARLOS utility caches
@@ -40,6 +39,7 @@ public final class WebappShutdownResources {
 
     private static final Logger logger = MiscUtils.getLogger();
     private static final int MAX_CLASS_LOADER_ANCESTRY_DEPTH = 64;
+    private static final String MYSQL_CLEANUP_THREAD_CLASS_NAME = "com.mysql.cj.jdbc.AbandonedConnectionCleanupThread";
 
     private WebappShutdownResources() {
     }
@@ -146,11 +146,26 @@ public final class WebappShutdownResources {
      * direct use inside the utility package and supports focused lifecycle tests.
      */
     static void shutdownMySqlAbandonedConnectionCleanupThread() {
+        shutdownAbandonedConnectionCleanupThread(MYSQL_CLEANUP_THREAD_CLASS_NAME);
+    }
+
+    static void shutdownAbandonedConnectionCleanupThread(String cleanupThreadClassName) {
         try {
-            AbandonedConnectionCleanupThread.checkedShutdown();
+            Class<?> cleanupThreadClass = Class.forName(cleanupThreadClassName, false,
+                    WebappShutdownResources.class.getClassLoader());
+            cleanupThreadClass.getMethod("checkedShutdown").invoke(null);
+        } catch (ClassNotFoundException | NoClassDefFoundError e) {
+            logger.debug("MySQL abandoned connection cleanup thread class is not available on the classpath", e);
+        } catch (InvocationTargetException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof IllegalStateException) {
+                logger.debug("MySQL abandoned connection cleanup thread was already stopped", cause);
+                return;
+            }
+            logger.warn("Unable to stop MySQL abandoned connection cleanup thread", cause);
         } catch (IllegalStateException e) {
             logger.debug("MySQL abandoned connection cleanup thread was already stopped", e);
-        } catch (RuntimeException e) {
+        } catch (ReflectiveOperationException | RuntimeException e) {
             logger.warn("Unable to stop MySQL abandoned connection cleanup thread", e);
         }
     }
