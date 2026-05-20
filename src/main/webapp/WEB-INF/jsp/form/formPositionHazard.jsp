@@ -48,6 +48,7 @@
 <%@ page
         import="io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.CarlosProperties, java.util.Date, io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>

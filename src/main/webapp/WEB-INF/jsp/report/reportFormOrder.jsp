@@ -50,6 +50,7 @@
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 
+<fmt:setBundle basename="oscarResources"/>
 <html>
     <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>

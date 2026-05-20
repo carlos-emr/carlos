@@ -33,6 +33,7 @@
 <%@ page import="java.util.ResourceBundle"%>
 <%@ taglib uri="carlos" prefix="carlos" %>
 
+<fmt:setBundle basename="oscarResources"/>
 <%
     if (session.getAttribute("user") == null)
         response.sendRedirect(request.getContextPath() + "/logout.htm");

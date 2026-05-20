@@ -51,6 +51,7 @@
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     String formClass = "SatisfactionScale";
     String formLink = "formSatisfactionScale.jsp";

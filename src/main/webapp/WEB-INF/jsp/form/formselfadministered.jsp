@@ -55,6 +55,7 @@
 
 
 
+<fmt:setBundle basename="oscarResources"/>
 <%
     String formClass = "SelfAdministered";
     String formLink = "formselfadministered.jsp";

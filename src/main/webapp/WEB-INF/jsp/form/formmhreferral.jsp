@@ -51,6 +51,7 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 
+<fmt:setBundle basename="oscarResources"/>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.util.EctFileUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>

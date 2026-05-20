@@ -81,7 +81,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
-<html lang="en">
+<html lang="${pageContext.request.locale.language}">
 
     <%
         if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");

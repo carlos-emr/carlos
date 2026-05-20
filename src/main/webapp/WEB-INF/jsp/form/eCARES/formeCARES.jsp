@@ -32,6 +32,7 @@
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     String roleName2$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
     boolean authed = true;

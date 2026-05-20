@@ -51,6 +51,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     String formClass = "DischargeSummary";
     String formLink = "formDischargeSummary.jsp";
