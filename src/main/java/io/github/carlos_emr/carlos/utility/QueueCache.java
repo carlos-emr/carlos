@@ -44,14 +44,13 @@ public final class QueueCache<K, V> {
 
     public QueueCache(int pools, int objectsToCache, long maxTimeToCache, QueueCacheValueCloner<V> cloner) {
         this(pools, objectsToCache, cloner);
-        Class var6 = QueueCache.class;
         synchronized (QueueCache.class) {
             if (timer == null) {
                 timer = new Timer(QueueCache.class.getName(), true);
             }
-        }
 
-        timer.schedule(new QueueCache.ShiftTimerTask(), maxTimeToCache / (long) pools, maxTimeToCache / (long) pools);
+            timer.schedule(new QueueCache.ShiftTimerTask(), maxTimeToCache / (long) pools, maxTimeToCache / (long) pools);
+        }
     }
 
     /**
