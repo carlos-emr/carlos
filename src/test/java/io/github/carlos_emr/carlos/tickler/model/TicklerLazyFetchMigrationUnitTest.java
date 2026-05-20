@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.tickler.model;
 
+import io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicCustDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
@@ -28,10 +29,13 @@ import io.github.carlos_emr.carlos.commn.dao.DemographicExtDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.dao.PreventionDao;
 import io.github.carlos_emr.carlos.commn.dao.TicklerDaoImpl;
+import io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao;
 import io.github.carlos_emr.carlos.commn.model.CustomFilter;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
+import io.github.carlos_emr.carlos.commn.model.TicklerComment;
+import io.github.carlos_emr.carlos.commn.model.TicklerUpdate;
 import io.github.carlos_emr.carlos.casemgmt.print.OscarChartPrinter;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.managers.TicklerManagerImpl;
@@ -43,6 +47,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Query;
+import org.hibernate.annotations.NotFound;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -53,15 +58,18 @@ import org.springframework.transaction.annotation.Transactional;
 import java.io.ByteArrayOutputStream;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -89,6 +97,11 @@ class TicklerLazyFetchMigrationUnitTest extends CarlosUnitTestBase {
                 .toList()).contains(
                         "updates", "comments", "ticklerCategory", "demographic", "provider", "assignee", "program");
         assertThat(relationshipFetchTypes).isNotEmpty().allMatch(FetchType.LAZY::equals);
+        assertThat(Stream.of(Tickler.class.getDeclaredFields())
+                .filter(field -> field.getAnnotation(ManyToOne.class) != null)
+                .map(field -> field.getAnnotation(NotFound.class))
+                .filter(Objects::nonNull)
+                .toList()).isEmpty();
     }
 
     @Test
@@ -154,7 +167,6 @@ class TicklerLazyFetchMigrationUnitTest extends CarlosUnitTestBase {
         ReflectionTestUtils.setField(ticklerDao, "entityManager", entityManager);
         when(entityManager.createQuery(contains("left join fetch t.comments"))).thenReturn(query);
         when(query.setParameter(eq("id"), eq(123))).thenReturn(query);
-        when(query.setMaxResults(1)).thenReturn(query);
         when(query.getResultList()).thenReturn(List.of(new Tickler()));
 
         ticklerDao.find(123);
@@ -168,6 +180,7 @@ class TicklerLazyFetchMigrationUnitTest extends CarlosUnitTestBase {
                 .contains("left join fetch t.assignee")
                 .contains("left join fetch t.ticklerCategory")
                 .contains("left join fetch t.program");
+        verify(query, never()).setMaxResults(anyInt());
     }
 
     @Test
@@ -203,6 +216,50 @@ class TicklerLazyFetchMigrationUnitTest extends CarlosUnitTestBase {
         assertThat(Stream.of(TicklerWebService.class.getDeclaredFields())
                 .filter(field -> TicklerConverter.class.equals(field.getType()))
                 .toList()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should preserve formatted provider names for expanded REST rows")
+    void shouldPreserveFormattedProviderNames_forExpandedRestRows() throws Exception {
+        ProviderDao providerDao = mock(ProviderDao.class);
+        DemographicDao demographicDao = mock(DemographicDao.class);
+        registerMock(ProviderDao.class, providerDao);
+        registerMock(DemographicDao.class, demographicDao);
+        registerMock(TicklerLinkDao.class, mock(TicklerLinkDao.class));
+        registerMock(ProgramDao.class, mock(ProgramDao.class));
+
+        Tickler tickler = new Tickler();
+        tickler.setDemographicNo(123);
+        TicklerComment comment = new TicklerComment();
+        comment.setProviderNo("101");
+        comment.setMessage("comment");
+        tickler.setComments(new HashSet<>(List.of(comment)));
+        TicklerUpdate update = new TicklerUpdate();
+        update.setProviderNo("101");
+        tickler.setUpdates(new HashSet<>(List.of(update)));
+        Demographic demographic = new Demographic();
+        demographic.setLastName("Patient");
+        demographic.setFirstName("Test");
+        Provider provider = new Provider();
+        provider.setProviderNo("101");
+        provider.setLastName("Last");
+        provider.setFirstName("First");
+        when(demographicDao.getDemographicById(123)).thenReturn(demographic);
+        when(providerDao.getProvidersByIds(List.of("101"))).thenReturn(List.of(provider));
+
+        TicklerConverter converter = new TicklerConverter();
+        converter.setIncludeComments(true);
+        converter.setIncludeUpdates(true);
+
+        var transferObject = converter.getAsTransferObject(null, tickler);
+        assertThat(transferObject.getTicklerComments())
+                .singleElement()
+                .extracting("providerName")
+                .isEqualTo("Last, First");
+        assertThat(transferObject.getTicklerUpdates())
+                .singleElement()
+                .extracting("providerName")
+                .isEqualTo("Last, First");
     }
 
     private FetchType relationshipFetchType(Field field) {

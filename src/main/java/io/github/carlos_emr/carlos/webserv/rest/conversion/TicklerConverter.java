@@ -23,6 +23,7 @@
 package io.github.carlos_emr.carlos.webserv.rest.conversion;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +34,7 @@ import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao;
+import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.commn.model.Tickler.STATUS;
 import io.github.carlos_emr.carlos.commn.model.TicklerComment;
@@ -175,8 +177,12 @@ public class TicklerConverter extends AbstractConverter<Tickler, TicklerTo1> {
         if (providerNos.isEmpty()) {
             return Map.of();
         }
-        // ProviderDao accepts a List, so convert the de-duplicated set once for the batch lookup.
-        return providerDao.getProviderNamesByIdsAsMap(new ArrayList<>(providerNos));
+        Map<String, String> providerNames = new HashMap<>();
+        List<Provider> providers = providerDao.getProvidersByIds(new ArrayList<>(providerNos));
+        for (Provider provider : providers) {
+            providerNames.put(provider.getProviderNo(), provider.getFormattedName());
+        }
+        return providerNames;
     }
 
     /**

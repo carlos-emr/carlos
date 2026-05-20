@@ -36,17 +36,15 @@ import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
 
+import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.commn.model.converter.TicklerPriorityConverter;
 import io.github.carlos_emr.carlos.commn.model.converter.TicklerStatusConverter;
+import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import jakarta.persistence.*;
 
 import org.hibernate.annotations.BatchSize;
 import org.hibernate.annotations.Fetch;
 import org.hibernate.annotations.FetchMode;
-import org.hibernate.annotations.NotFound;
-import org.hibernate.annotations.NotFoundAction;
-import io.github.carlos_emr.carlos.PMmodule.model.Program;
-import io.github.carlos_emr.carlos.utility.LocaleUtils;
 
 @Entity
 @Table(name = "tickler")
@@ -118,7 +116,6 @@ public class Tickler extends AbstractModel<Integer> {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id", referencedColumnName = "id", insertable = false, updatable = false)
-    @NotFound(action = NotFoundAction.IGNORE)
     @Fetch(FetchMode.SELECT)
     private TicklerCategory ticklerCategory;
 
@@ -137,26 +134,22 @@ public class Tickler extends AbstractModel<Integer> {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "demographic_no", referencedColumnName = "demographic_no", insertable = false, updatable = false)
-    @NotFound(action = NotFoundAction.IGNORE)
     @Fetch(FetchMode.SELECT)
     private Demographic demographic;
 
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "creator", referencedColumnName = "provider_no", insertable = false, updatable = false)
-    @NotFound(action = NotFoundAction.IGNORE)
     @Fetch(FetchMode.SELECT)
     private Provider provider;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "task_assigned_to", referencedColumnName = "provider_no", insertable = false, updatable = false)
-    @NotFound(action = NotFoundAction.IGNORE)
     @Fetch(FetchMode.SELECT)
     private Provider assignee;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "program_id", referencedColumnName = "id", insertable = false, updatable = false)
-    @NotFound(action = NotFoundAction.IGNORE)
     @Fetch(FetchMode.SELECT)
     private Program program;
 

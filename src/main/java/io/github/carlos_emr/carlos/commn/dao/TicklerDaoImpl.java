@@ -106,8 +106,9 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
                         + "left join fetch t.program "
                         + "where t.id = :id");
         query.setParameter("id", id);
-        query.setMaxResults(1);
-        Tickler tickler = getSingleResultOrNull(query);
+        @SuppressWarnings("unchecked")
+        List<Tickler> ticklers = query.getResultList();
+        Tickler tickler = ticklers.isEmpty() ? null : ticklers.get(0);
         if (tickler != null) {
             // Load updates separately to avoid fetching two Tickler collections in the same detail query.
             Hibernate.initialize(tickler.getUpdates());
