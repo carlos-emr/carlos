@@ -53,12 +53,12 @@ public final class QueueCache<K, V> {
      * shutdown. Scheduling shares the same class monitor as shutdown so timer
      * creation, task registration, and cancellation cannot race during undeploy.
      */
-    private static void schedulePeriodicPoolShift(long delay, long period) {
+    private void schedulePeriodicPoolShift(long delay, long period) {
         synchronized (QueueCache.class) {
             if (timer == null) {
                 timer = new Timer(QueueCache.class.getName(), true);
             }
-            timer.schedule(new QueueCache.ShiftTimerTask(), delay, period);
+            timer.schedule(new ShiftTimerTask(), delay, period);
         }
     }
 
