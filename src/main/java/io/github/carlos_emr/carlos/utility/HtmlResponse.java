@@ -39,6 +39,7 @@ import java.nio.charset.StandardCharsets;
  * @since 2026-05-20
  */
 public final class HtmlResponse {
+    /** Fallback for stored HTML that has no charset declaration or declares an unsupported charset. */
     private static final Charset DEFAULT_HTML_CHARSET = StandardCharsets.UTF_8;
     private static final String DEFAULT_HTML_CONTENT_TYPE = "text/html";
     private static final int BUFFER_SIZE = 4096;
@@ -108,8 +109,10 @@ public final class HtmlResponse {
     public static void writeStoredHtml(HttpServletResponse response, String contentType, byte[] htmlBytes)
             throws IOException {
         Charset charset = prepareHtmlResponse(response, contentType);
-        byte[] safeHtmlBytes = htmlBytes == null ? new byte[0] : htmlBytes;
-        writeStoredHtml(response, new String(safeHtmlBytes, charset));
+        if (htmlBytes == null) {
+            return;
+        }
+        writeStoredHtml(response, new String(htmlBytes, charset));
     }
 
     /**

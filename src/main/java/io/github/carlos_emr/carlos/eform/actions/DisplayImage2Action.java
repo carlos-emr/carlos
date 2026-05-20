@@ -106,6 +106,8 @@ public class DisplayImage2Action extends ActionSupport {
         InputStream stream = data.stream();
 
         try {
+            // HtmlResponse owns the content type and charset for writer-backed HTML so the
+            // logout listener remains injectable and charset handling stays centralized.
             if (RequestNegotiation.isHtmlContentType(contentType)) {
                 // LogoutBroadcastFilter can only append the cross-window logout listener to writer-backed HTML.
                 HtmlResponse.writeStoredHtml(response, contentType, stream);
