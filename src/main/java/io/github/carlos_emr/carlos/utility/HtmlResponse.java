@@ -128,7 +128,7 @@ public final class HtmlResponse {
      *
      * @param response servlet response to write to
      * @param contentType HTML content type used to set response headers and resolve the stream charset
-     * @param htmlStream stored HTML byte stream
+     * @param htmlStream stored HTML byte stream; closed by this method
      * @throws IOException when response writing fails
      */
     @SuppressWarnings({"XSS_SERVLET", "findsecbugs:XSS_SERVLET"})
@@ -139,13 +139,14 @@ public final class HtmlResponse {
             return;
         }
 
-        InputStreamReader reader = new InputStreamReader(htmlStream, charset);
-        PrintWriter writer = response.getWriter();
         char[] buffer = new char[BUFFER_SIZE];
         int count;
-        while ((count = reader.read(buffer)) != -1) {
-            // nosemgrep: java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss, java.servlets.security.servletresponse-writer-xss-deepsemgrep.servletresponse-writer-xss-deepsemgrep, java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- intentional stored HTML rendering; callers must authorize routes before invoking
-            writer.write(buffer, 0, count);
+        try (InputStreamReader reader = new InputStreamReader(htmlStream, charset)) {
+            PrintWriter writer = response.getWriter();
+            while ((count = reader.read(buffer)) != -1) {
+                // nosemgrep: java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss, java.servlets.security.servletresponse-writer-xss-deepsemgrep.servletresponse-writer-xss-deepsemgrep, java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- intentional stored HTML rendering; callers must authorize routes before invoking
+                writer.write(buffer, 0, count);
+            }
         }
     }
 
@@ -158,6 +159,7 @@ public final class HtmlResponse {
                 : contentType;
         Charset charset = resolveCharset(effectiveContentType);
         response.setContentType(contentTypeWithCharset(effectiveContentType, charset));
+        response.setCharacterEncoding(charset.name());
         return charset;
     }
 
@@ -174,16 +176,38 @@ public final class HtmlResponse {
     }
 
     /**
-     * Returns a Content-Type value with an explicit charset, preserving existing charset params.
+     * Returns a Content-Type value with an explicit charset aligned to the decoding charset.
      */
     private static String contentTypeWithCharset(String contentType, Charset charset) {
+        int firstParameter = contentType.indexOf(';');
+        if (firstParameter < 0) {
+            return contentType + ";charset=" + charset.name();
+        }
+
+        StringBuilder alignedContentType = new StringBuilder(contentType.substring(0, firstParameter).trim());
+        boolean foundCharset = false;
         for (String parameter : splitContentTypeParameters(contentType)) {
             int equals = parameter.indexOf('=');
             if (equals >= 0 && "charset".equalsIgnoreCase(parameter.substring(0, equals).trim())) {
-                return contentType;
+                if (!foundCharset) {
+                    appendContentTypeParameter(alignedContentType, "charset=" + charset.name());
+                }
+                foundCharset = true;
+            } else {
+                appendContentTypeParameter(alignedContentType, parameter);
             }
         }
-        return contentType + ";charset=" + charset.name();
+        if (!foundCharset) {
+            appendContentTypeParameter(alignedContentType, "charset=" + charset.name());
+        }
+        return alignedContentType.toString();
+    }
+
+    /**
+     * Appends a normalized Content-Type parameter to the response header value.
+     */
+    private static void appendContentTypeParameter(StringBuilder contentType, String parameter) {
+        contentType.append(';').append(parameter);
     }
 
     /**

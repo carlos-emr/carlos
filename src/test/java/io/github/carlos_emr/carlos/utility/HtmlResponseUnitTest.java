@@ -97,4 +97,17 @@ class HtmlResponseUnitTest {
         assertThat(response.getContentAsString(StandardCharsets.ISO_8859_1))
                 .isEqualTo("<html><body>déjà vu</body></html>");
     }
+
+    @Test
+    @DisplayName("should replace invalid charset header with fallback charset")
+    void shouldReplaceInvalidCharsetHeader_withFallbackCharset() throws Exception {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        byte[] html = "<html><body>fallback</body></html>".getBytes(StandardCharsets.UTF_8);
+
+        HtmlResponse.writeStoredHtml(response, "text/html; charset=not-a-charset", html);
+
+        assertThat(response.getContentType()).isEqualTo("text/html;charset=UTF-8");
+        assertThat(response.getCharacterEncoding()).isEqualTo(StandardCharsets.UTF_8.name());
+        assertThat(response.getContentAsString()).isEqualTo("<html><body>fallback</body></html>");
+    }
 }

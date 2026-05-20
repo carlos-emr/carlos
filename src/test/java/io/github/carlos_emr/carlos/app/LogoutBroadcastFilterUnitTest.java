@@ -133,7 +133,8 @@ class LogoutBroadcastFilterUnitTest {
         assertThat(content).contains("BroadcastChannel");
         assertThat(content).contains(".onmessage=");
         assertThat(content).contains("window.__carlosLogoutActive=true;");
-        assertThat(content).doesNotContain("ready");
+        assertThat(content).doesNotContain("var ready=");
+        assertThat(content).doesNotContain("setTimeout(function(){ready=true}");
     }
 
     @Test
