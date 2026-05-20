@@ -184,7 +184,7 @@ class StrutsGlobalConfigUnitTest extends CarlosUnitTestBase {
             if (packages.item(i) instanceof Element packageElement) {
                 String strictMethodInvocation = packageElement.getAttribute("strict-method-invocation");
                 if (strictMethodInvocation == null
-                        || strictMethodInvocation.trim().isEmpty()
+                        || strictMethodInvocation.isBlank()
                         || !"true".equals(strictMethodInvocation.trim())) {
                     violations.add(fileName + " package " + packageElement.getAttribute("name")
                             + " sets strict-method-invocation=" + strictMethodInvocation);
@@ -260,7 +260,7 @@ class StrutsGlobalConfigUnitTest extends CarlosUnitTestBase {
                 List<Element> children = childElements(action);
                 for (int j = 0; j < children.size(); j++) {
                     Element child = children.get(j);
-                    if ("allowed-methods".equals(child.getTagName()) && j != children.size() - 1) {
+                    if ("allowed-methods".equals(child.getTagName()) && j < children.size() - 1) {
                         violations.add(fileName + " action " + action.getAttribute("name")
                                 + " places <allowed-methods> before other child elements");
                     }
