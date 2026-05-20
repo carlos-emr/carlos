@@ -24,7 +24,7 @@ import org.junit.jupiter.api.Test;
 class AppointmentJspRoutingTest {
 
     private static final Pattern FORCE_WINDOW_PATHS_PATTERN = Pattern.compile(
-            "(?:window\\.)?forceWindowPaths\\s*=\\s*(?:(?:window\\.)?forceWindowPaths\\s*\\|\\|\\s*)?\\[(?<body>[\\s\\S]*?)]\\s*;?");
+            "(?:(?:var|let|const)\\s+)?(?:window\\.)?forceWindowPaths\\s*=\\s*(?:(?:window\\.)?forceWindowPaths\\s*\\|\\|\\s*)?\\[(?<body>[\\s\\S]*?)]\\s*;?");
 
     @Test
     void shouldRouteLiveAppointmentCallers_directlyToFinalTargets() throws IOException {

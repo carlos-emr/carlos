@@ -27,7 +27,7 @@ import io.github.carlos_emr.carlos.commn.dao.TicklerDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.commn.model.Provider;
-import io.github.carlos_emr.carlos.test.support.IntegrationTestSeedData;
+import io.github.carlos_emr.carlos.test.support.IntegrationTestSeedService;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.junit.jupiter.api.*;
@@ -97,8 +97,8 @@ class SimpleTicklerManagerTest extends CarlosTestBase {
     @Test
     @DisplayName("should add tickler successfully when valid data provided")
     void shouldAddTicklerSuccessfully_whenValidDataProvided() {
-        IntegrationTestSeedData.ensureProviderExists(entityManager, "999998");
-        IntegrationTestSeedData.ensureDemographicExists(entityManager, 12345);
+        IntegrationTestSeedService.ensureProviderExists(entityManager, "999998");
+        IntegrationTestSeedService.ensureDemographicExists(entityManager, 12345);
         entityManager.flush();
 
         // Given: Create a new tickler with required fields

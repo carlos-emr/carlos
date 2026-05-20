@@ -29,9 +29,9 @@ import jakarta.persistence.EntityManager;
  *
  * @since 2026-05-20
  */
-public final class IntegrationTestSeedData {
+public final class IntegrationTestSeedService {
 
-    private IntegrationTestSeedData() {
+    private IntegrationTestSeedService() {
     }
 
     /**

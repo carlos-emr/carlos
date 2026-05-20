@@ -24,7 +24,7 @@ package io.github.carlos_emr.carlos.tickler.dao;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.dao.TicklerDao;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
-import io.github.carlos_emr.carlos.test.support.IntegrationTestSeedData;
+import io.github.carlos_emr.carlos.test.support.IntegrationTestSeedService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -103,11 +103,11 @@ public abstract class TicklerDaoBaseIntegrationTest extends CarlosTestBase {
     }
 
     private void ensureProviderExists(String providerNo) {
-        IntegrationTestSeedData.ensureProviderExists(entityManager, providerNo);
+        IntegrationTestSeedService.ensureProviderExists(entityManager, providerNo);
     }
 
     protected void ensureDemographicExists(Integer demographicNo) {
-        IntegrationTestSeedData.ensureDemographicExists(entityManager, demographicNo);
+        IntegrationTestSeedService.ensureDemographicExists(entityManager, demographicNo);
     }
 
     /**

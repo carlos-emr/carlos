@@ -51,7 +51,7 @@ class TicklerPopupRoutingRegressionTest {
     // Oscar.js keeps forceWindowPaths as a flat array of string literals; this
     // regression test intentionally matches that simple structure.
     private static final Pattern FORCE_WINDOW_PATHS_PATTERN = Pattern.compile(
-            "(?:window\\.)?forceWindowPaths\\s*=\\s*(?:(?:window\\.)?forceWindowPaths\\s*\\|\\|\\s*)?\\[(?<body>[\\s\\S]*?)]\\s*;?");
+            "(?:(?:var|let|const)\\s+)?(?:window\\.)?forceWindowPaths\\s*=\\s*(?:(?:window\\.)?forceWindowPaths\\s*\\|\\|\\s*)?\\[(?<body>[\\s\\S]*?)]\\s*;?");
     private static final Pattern VIEW_ADD_TICKLER_PATTERN = Pattern.compile("['\"`]ViewAddTickler['\"`]");
     private static final Pattern FORWARD_DEMOGRAPHIC_TICKLER_PATTERN =
             Pattern.compile("['\"`]ForwardDemographicTickler['\"`]");
