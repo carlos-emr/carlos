@@ -279,18 +279,14 @@ public final class FrmSetupForm2Action extends ActionSupport {
                     }
 
                     try (Connection connection = DbConnectionFilter.getThreadLocalDbConnection();
-                         PreparedStatement ps = connection.prepareStatement(formRecordTable.selectRecordSql())) { // NOSONAR java:S2077 - table name is allowlisted by FormRecordTable.
-                        ps.setInt(1, Integer.parseInt(formId));
-                        ps.setInt(2, Integer.parseInt(demographicNo));
-
-                        try (ResultSet rs = ps.executeQuery()) {
-                            if (rs.next()) {
-                                ResultSetMetaData md = rs.getMetaData();
-                                for (int i = 1; i <= md.getColumnCount(); i++) {
-                                    String name = md.getColumnName(i);
-                                    String value = Misc.getString(rs, i);
-                                    if (value != null) props.setProperty(name, value);
-                                }
+                         PreparedStatement ps = formRecordTable.prepareRecordQuery(connection, formId, demographicNo);
+                         ResultSet rs = ps.executeQuery()) {
+                        if (rs.next()) {
+                            ResultSetMetaData md = rs.getMetaData();
+                            for (int i = 1; i <= md.getColumnCount(); i++) {
+                                String name = md.getColumnName(i);
+                                String value = Misc.getString(rs, i);
+                                if (value != null) props.setProperty(name, value);
                             }
                         }
                     }
@@ -363,5 +359,14 @@ public final class FrmSetupForm2Action extends ActionSupport {
             return "SELECT * FROM " + tableName + " WHERE ID=? AND demographic_no=?";
         }
 
+        private PreparedStatement prepareRecordQuery(
+                Connection connection,
+                String formId,
+                String demographicNo) throws SQLException {
+            PreparedStatement ps = connection.prepareStatement(selectRecordSql()); // NOSONAR java:S2095,java:S2077 - caller owns and closes this PreparedStatement; table name is allowlisted.
+            ps.setInt(1, Integer.parseInt(formId));
+            ps.setInt(2, Integer.parseInt(demographicNo));
+            return ps;
+        }
     }
 }
