@@ -39,9 +39,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import jakarta.persistence.Query;
+import jakarta.persistence.TypedQuery;
 
 import io.github.carlos_emr.carlos.commn.model.CustomFilter;
 import io.github.carlos_emr.carlos.commn.model.Provider;
@@ -49,11 +51,20 @@ import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.tickler.dto.TicklerCommentDTO;
 import io.github.carlos_emr.carlos.tickler.dto.TicklerLinkDTO;
 import io.github.carlos_emr.carlos.tickler.dto.TicklerListDTO;
+import org.hibernate.Hibernate;
 import org.springframework.stereotype.Repository;
 
 @Repository
 public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerDao {
     private static final int IN_CLAUSE_BATCH_SIZE = 500;
+    private static final String TICKLER_ALIAS = "t";
+
+    /**
+     * Matches the canonical root Tickler alias emitted by getTicklerQueryString().
+     * Keep this pattern and the query builder aligned through {@link #TICKLER_ALIAS}.
+     */
+    private static final Pattern TICKLER_FROM_PATTERN =
+            Pattern.compile("\\bFROM\\s+Tickler\\s+" + TICKLER_ALIAS + "\\b", Pattern.CASE_INSENSITIVE);
 
     /**
      * Pre-built ORDER BY clauses keyed by "column:dir". Values are static strings —
@@ -86,8 +97,23 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
 
     @Override
     public Tickler find(Integer id) {
-        Tickler tickler = super.find(id);
-        tickler.getUpdates().size();
+        TypedQuery<Tickler> query = entityManager.createQuery(
+                "select distinct t from Tickler t "
+                        + "left join fetch t.comments "
+                        + "left join fetch t.demographic "
+                        + "left join fetch t.provider "
+                        + "left join fetch t.assignee "
+                        + "left join fetch t.ticklerCategory "
+                        + "left join fetch t.program "
+                        + "where t.id = :id",
+                Tickler.class);
+        query.setParameter("id", id);
+        List<Tickler> ticklers = query.getResultList();
+        Tickler tickler = ticklers.isEmpty() ? null : ticklers.get(0);
+        if (tickler != null) {
+            // Load updates separately to avoid fetching two Tickler collections in the same detail query.
+            Hibernate.initialize(tickler.getUpdates());
+        }
         return tickler;
     }
 
@@ -284,9 +310,17 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
     @SuppressWarnings("unchecked")
     @Override
     public List<Tickler> getTicklers(CustomFilter filter, int offset, int limit) {
+        return getTicklers(filter, offset, limit, false, false, false, false);
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public List<Tickler> getTicklers(CustomFilter filter, int offset, int limit, boolean includeComments,
+                                     boolean includeUpdates, boolean includeProvider, boolean includeAssignee) {
         String sql = "select t";
         ArrayList<Object> paramList = new ArrayList<Object>();
         sql = getTicklerQueryString(sql, paramList, filter);
+        sql = addTicklerFetchJoins(sql, includeProvider, includeAssignee);
 
         Query query = entityManager.createQuery(sql);
         for (int x = 0; x < paramList.size(); x++) {
@@ -296,7 +330,52 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
         if (limit > 0) {
             setLimit(query, limit);
         }
-        return query.getResultList();
+        List<Tickler> results = query.getResultList();
+        if (includeUpdates) {
+            initializeTicklerUpdates(results);
+        }
+        if (includeComments) {
+            initializeTicklerComments(results);
+        }
+        return results;
+    }
+
+    /**
+     * Adds only single-valued provider fetch joins to legacy Tickler list queries.
+     *
+     * <p>Tickler comments and updates are initialized after the paged query instead of being
+     * fetch-joined here. Those collections use Hibernate batch loading, which avoids collection
+     * fetch joins on paginated list queries and avoids fetching both Tickler collections in one
+     * query.</p>
+     */
+    private String addTicklerFetchJoins(String sql, boolean includeProvider, boolean includeAssignee) {
+        if (!includeProvider && !includeAssignee) {
+            return sql;
+        }
+        StringBuilder joins = new StringBuilder();
+        if (includeProvider) {
+            joins.append(" left join fetch ").append(TICKLER_ALIAS).append(".provider");
+        }
+        if (includeAssignee) {
+            joins.append(" left join fetch ").append(TICKLER_ALIAS).append(".assignee");
+        }
+        // Rewrites to the canonical uppercase FROM form used by getTicklerQueryString().
+        return TICKLER_FROM_PATTERN.matcher(sql)
+                .replaceFirst(String.format("FROM Tickler %s%s", TICKLER_ALIAS, joins));
+    }
+
+    private void initializeTicklerUpdates(List<Tickler> ticklers) {
+        for (Tickler tickler : ticklers) {
+            // Low-level DAO code intentionally uses Hibernate.initialize; no CARLOS wrapper exists.
+            Hibernate.initialize(tickler.getUpdates());
+        }
+    }
+
+    private void initializeTicklerComments(List<Tickler> ticklers) {
+        for (Tickler tickler : ticklers) {
+            // Low-level DAO code intentionally uses Hibernate.initialize; no CARLOS wrapper exists.
+            Hibernate.initialize(tickler.getComments());
+        }
     }
 
 
@@ -340,7 +419,7 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
     private String getTicklerQueryString(String selectQuery, List<Object> paramList, CustomFilter filter) {
 //		String tickler_date_order = filter.getSort_order();
 
-        String query = selectQuery + " FROM Tickler t WHERE 1=1 ";
+        String query = selectQuery + " FROM Tickler " + TICKLER_ALIAS + " WHERE 1=1 ";
         int paramIndex = 1;
         boolean includeMRPClause = true;
         boolean includeProviderClause = true;
