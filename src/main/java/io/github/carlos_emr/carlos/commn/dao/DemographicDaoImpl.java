@@ -2290,25 +2290,25 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
     public List<Demographic> getDemographicWithLastFirstDOB(String lastname, String firstname, String year_of_birth,
                                                             String month_of_birth, String date_of_birth) {
         List<String> params = new ArrayList<String>();
-        String sql = "FROM Demographic " + " WHERE lastName like ?1 and firstName like ?2";
+        StringBuilder sql = new StringBuilder("FROM Demographic WHERE lastName like ?1 and firstName like ?2");
         params.add(lastname + "%");
         params.add(firstname + "%");
 
         int paramIndex = 3;
         if (year_of_birth != null) {
-            sql += " AND yearOfBirth = ?" + paramIndex++;
+            sql.append(" AND yearOfBirth = ?").append(paramIndex++);
             params.add(year_of_birth);
         }
         if (month_of_birth != null) {
-            sql += " AND monthOfBirth = ?" + paramIndex++;
+            sql.append(" AND monthOfBirth = ?").append(paramIndex++);
             params.add(month_of_birth);
         }
         if (date_of_birth != null) {
-            sql += " AND dateOfBirth = ?" + paramIndex++;
+            sql.append(" AND dateOfBirth = ?").append(paramIndex++);
             params.add(date_of_birth);
         }
 
-        return (List<Demographic>) JpqlQueryHelper.find(entityManager(), sql, (Object[]) params.toArray(new String[params.size()]));
+        return (List<Demographic>) JpqlQueryHelper.find(entityManager(), sql.toString(), (Object[]) params.toArray(new String[params.size()]));
     }
 
     @SuppressWarnings("unchecked")
@@ -2316,25 +2316,25 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
     public List<Demographic> getDemographicWithLastFirstDOBExact(String lastname, String firstname,
                                                                  String year_of_birth, String month_of_birth, String date_of_birth) {
         List<String> params = new ArrayList<String>();
-        String sql = "FROM Demographic " + " WHERE lastName = ?1 and firstName = ?2";
+        StringBuilder sql = new StringBuilder("FROM Demographic WHERE lastName = ?1 and firstName = ?2");
         params.add(lastname);
         params.add(firstname);
 
         int paramIndex = 3;
         if (year_of_birth != null) {
-            sql += " AND yearOfBirth = ?" + paramIndex++;
+            sql.append(" AND yearOfBirth = ?").append(paramIndex++);
             params.add(year_of_birth);
         }
         if (month_of_birth != null) {
-            sql += " AND monthOfBirth = ?" + paramIndex++;
+            sql.append(" AND monthOfBirth = ?").append(paramIndex++);
             params.add(month_of_birth);
         }
         if (date_of_birth != null) {
-            sql += " AND dateOfBirth = ?" + paramIndex++;
+            sql.append(" AND dateOfBirth = ?").append(paramIndex++);
             params.add(date_of_birth);
         }
 
-        return (List<Demographic>) JpqlQueryHelper.find(entityManager(), sql, (Object[]) params.toArray(new String[params.size()]));
+        return (List<Demographic>) JpqlQueryHelper.find(entityManager(), sql.toString(), (Object[]) params.toArray(new String[params.size()]));
     }
 
     /**

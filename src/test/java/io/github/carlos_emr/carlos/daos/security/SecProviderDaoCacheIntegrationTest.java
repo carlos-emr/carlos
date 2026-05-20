@@ -22,9 +22,9 @@
 package io.github.carlos_emr.carlos.daos.security;
 
 import com.github.benmanes.caffeine.cache.Cache;
+import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderDataDao;
 import io.github.carlos_emr.carlos.commn.model.ProviderData;
-import io.github.carlos_emr.carlos.config.CacheConfig;
 import io.github.carlos_emr.carlos.model.security.SecProvider;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.AfterEach;
@@ -66,6 +66,9 @@ class SecProviderDaoCacheIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private ProviderDataDao providerDataDao;
+
+    @Autowired
+    private ProviderDao providerDao;
 
     @Autowired
     private CacheManager cacheManager;
@@ -165,10 +168,14 @@ class SecProviderDaoCacheIntegrationTest extends CarlosTestBase {
     }
 
     private void seedProviderCaches() {
-        putCacheEntry(CacheConfig.PROVIDER_NAMES, "name:" + uniquePrefix, "CacheSeed Provider");
-        putCacheEntry(CacheConfig.ACTIVE_PROVIDERS, "filter:true",
-                List.of(buildSecProvider(uniquePrefix + "SE", "CacheSeed", "Provider")));
-        putCacheEntry(CacheConfig.ACTIVE_PROVIDER_SUMMARIES, uniquePrefix, List.of());
+        String providerNo = uniquePrefix + "SE";
+        providerNosToCleanUp.add(providerNo);
+        transactionTemplate.executeWithoutResult(status -> secProviderDao.save(buildSecProvider(providerNo, "CacheSeed", "Provider")));
+        clearProviderCaches();
+
+        providerDao.getProviderName(providerNo);
+        providerDao.getActiveProviders();
+        providerDao.getActiveProviderSummaries();
     }
 
     private void assertAllThreeCachesPopulated() {
@@ -204,12 +211,6 @@ class SecProviderDaoCacheIntegrationTest extends CarlosTestBase {
                     .isNotNull();
             cache.clear();
         }
-    }
-
-    private void putCacheEntry(String cacheName, Object key, Object value) {
-        org.springframework.cache.Cache cache = cacheManager.getCache(cacheName);
-        assertThat(cache).isNotNull();
-        cache.put(key, value);
     }
 
     @SuppressWarnings("unchecked")

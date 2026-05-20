@@ -144,16 +144,7 @@ public class OntarioMDSpec4DataIntegrationTest extends CarlosTestBase {
                 .executeUpdate();
         entityManager.flush();
 
-        Provider provider = new Provider();
-        provider.setProviderNo(providerNo);
-        provider.setFirstName(firstName);
-        provider.setLastName(lastName);
-        provider.setSpecialty(specialty);
-        provider.setProviderType("doctor");
-        provider.setSex("M");
-        provider.setSignedConfidentiality(new Date());
-        provider.setStatus("1");
-        return provider;
+        return providerDao.getProvider(providerNo);
     }
 
     private Demographic createDemographic(String lastName, String firstName, String providerNo) {

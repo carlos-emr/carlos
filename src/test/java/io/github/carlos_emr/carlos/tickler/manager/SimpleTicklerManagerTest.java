@@ -27,6 +27,7 @@ import io.github.carlos_emr.carlos.commn.dao.TicklerDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.test.support.IntegrationTestSeedData;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.junit.jupiter.api.*;
@@ -96,8 +97,9 @@ class SimpleTicklerManagerTest extends CarlosTestBase {
     @Test
     @DisplayName("should add tickler successfully when valid data provided")
     void shouldAddTicklerSuccessfully_whenValidDataProvided() {
-        ensureProviderExists("999998");
-        ensureDemographicExists(12345);
+        IntegrationTestSeedData.ensureProviderExists(entityManager, "999998");
+        IntegrationTestSeedData.ensureDemographicExists(entityManager, 12345);
+        entityManager.flush();
 
         // Given: Create a new tickler with required fields
         Tickler tickler = new Tickler();
@@ -122,25 +124,4 @@ class SimpleTicklerManagerTest extends CarlosTestBase {
         assertThat(tickler.getId()).isNotNull();
     }
 
-    private void ensureProviderExists(String providerNo) {
-        entityManager.createNativeQuery("""
-                MERGE INTO provider (provider_no, first_name, last_name, provider_type, sex, specialty, status)
-                KEY(provider_no)
-                VALUES (:providerNo, 'Test', 'Provider', 'doctor', 'M', 'GP', '1')
-                """)
-                .setParameter("providerNo", providerNo)
-                .executeUpdate();
-        entityManager.flush();
-    }
-
-    private void ensureDemographicExists(Integer demographicNo) {
-        entityManager.createNativeQuery("""
-                MERGE INTO demographic (demographic_no, first_name, last_name, sex, patient_status)
-                KEY(demographic_no)
-                VALUES (:demographicNo, 'Test', 'Patient', 'M', 'AC')
-                """)
-                .setParameter("demographicNo", demographicNo)
-                .executeUpdate();
-        entityManager.flush();
-    }
 }

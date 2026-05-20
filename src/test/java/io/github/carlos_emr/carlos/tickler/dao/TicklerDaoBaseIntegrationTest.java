@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.tickler.dao;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.dao.TicklerDao;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
+import io.github.carlos_emr.carlos.test.support.IntegrationTestSeedData;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -102,23 +103,11 @@ public abstract class TicklerDaoBaseIntegrationTest extends CarlosTestBase {
     }
 
     private void ensureProviderExists(String providerNo) {
-        entityManager.createNativeQuery("""
-                MERGE INTO provider (provider_no, first_name, last_name, provider_type, sex, specialty, status)
-                KEY(provider_no)
-                VALUES (:providerNo, 'Test', 'Provider', 'doctor', 'M', 'GP', '1')
-                """)
-                .setParameter("providerNo", providerNo)
-                .executeUpdate();
+        IntegrationTestSeedData.ensureProviderExists(entityManager, providerNo);
     }
 
     protected void ensureDemographicExists(Integer demographicNo) {
-        entityManager.createNativeQuery("""
-                MERGE INTO demographic (demographic_no, first_name, last_name, sex, patient_status)
-                KEY(demographic_no)
-                VALUES (:demographicNo, 'Test', 'Patient', 'M', 'AC')
-                """)
-                .setParameter("demographicNo", demographicNo)
-                .executeUpdate();
+        IntegrationTestSeedData.ensureDemographicExists(entityManager, demographicNo);
     }
 
     /**
