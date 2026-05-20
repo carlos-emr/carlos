@@ -39,6 +39,7 @@ import com.mysql.cj.jdbc.AbandonedConnectionCleanupThread;
 public final class WebappShutdownResources {
 
     private static final Logger logger = MiscUtils.getLogger();
+    private static final int MAX_CLASS_LOADER_ANCESTRY_DEPTH = 64;
 
     private WebappShutdownResources() {
     }
@@ -115,12 +116,16 @@ public final class WebappShutdownResources {
     private static boolean isAncestor(ClassLoader possibleAncestor, ClassLoader classLoader) {
         // Shutdown checks a small DriverManager snapshot; avoid caching class-loader
         // relationships so this cleanup path never retains loaders after redeploy.
+        // Normal servlet containers have shallow hierarchies; cap the walk to avoid
+        // pathological custom loader chains during shutdown.
         ClassLoader current = classLoader.getParent();
-        while (current != null) {
+        int depth = 0;
+        while (current != null && depth < MAX_CLASS_LOADER_ANCESTRY_DEPTH) {
             if (current == possibleAncestor) {
                 return true;
             }
             current = current.getParent();
+            depth++;
         }
         return false;
     }

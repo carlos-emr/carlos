@@ -45,17 +45,18 @@ public final class QueueCache<K, V> {
     public QueueCache(int pools, int objectsToCache, long maxTimeToCache, QueueCacheValueCloner<V> cloner) {
         this(pools, objectsToCache, cloner);
         long shiftPeriod = maxTimeToCache / (long) pools;
-        scheduleShiftTimerTask(shiftPeriod, shiftPeriod);
+        scheduleShiftTimerTaskWithRetry(shiftPeriod, shiftPeriod);
     }
 
     /**
      * Schedules periodic pool shifting while tolerating a concurrent webapp
-     * shutdown. Scheduling normally happens outside the class monitor; if shutdown
-     * cancels the captured timer first, {@link Timer#schedule(TimerTask, long, long)}
-     * throws {@link IllegalStateException} and the retry path coordinates with the
-     * shared timer slot.
+     * shutdown. The timer lookup uses the class monitor, but the schedule call
+     * itself normally happens outside that monitor; if shutdown cancels the
+     * captured timer first, {@link Timer#schedule(TimerTask, long, long)} throws
+     * {@link IllegalStateException} and the retry path coordinates with the shared
+     * timer slot.
      */
-    private static void scheduleShiftTimerTask(long delay, long period) {
+    private static void scheduleShiftTimerTaskWithRetry(long delay, long period) {
         Timer sharedTimer = getOrCreateSharedTimer();
         try {
             sharedTimer.schedule(new QueueCache.ShiftTimerTask(), delay, period);
