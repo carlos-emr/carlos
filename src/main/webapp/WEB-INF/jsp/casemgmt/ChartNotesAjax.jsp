@@ -861,12 +861,15 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
     boolean renderMoreNotesScript = request.getAttribute("moreNotes") == null;
     boolean hasNoteLock = casemgmtNoteLock != null;
     boolean noteLocked = renderMoreNotesScript && hasNoteLock && casemgmtNoteLock.isLocked();
-    boolean noteLockedBySameUser = renderMoreNotesScript
-            && hasNoteLock
-            && !noteLocked
-            && casemgmtNoteLock.isLockedBySameUser()
-            && !Objects.equals(casemgmtNoteLock.getSessionId(), request.getRequestedSessionId());
-    String noteLockIpAddress = hasNoteLock && noteLockedBySameUser ? casemgmtNoteLock.getIpAddress() : "";
+    boolean noteLockedBySameUser = false;
+    String noteLockIpAddress = "";
+    if (renderMoreNotesScript && hasNoteLock && !noteLocked) {
+        noteLockedBySameUser = casemgmtNoteLock.isLockedBySameUser()
+                && !Objects.equals(casemgmtNoteLock.getSessionId(), request.getRequestedSessionId());
+        if (noteLockedBySameUser) {
+            noteLockIpAddress = casemgmtNoteLock.getIpAddress();
+        }
+    }
 
     String singleLineFormat = "false";
     if (renderMoreNotesScript) {
