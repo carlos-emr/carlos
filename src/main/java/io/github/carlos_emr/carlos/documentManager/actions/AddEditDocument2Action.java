@@ -38,7 +38,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.Hashtable;
 import java.util.List;
@@ -799,54 +798,6 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         }
 
         throw new IOException("No allowed upload temp directory configured");
-    }
-
-    private boolean isWithinAllowedUploadTempDirectories(Path candidate) {
-        // Defensive guard for future callers; current flow supplies a validated real path.
-        if (candidate == null) {
-            return false;
-        }
-
-        List<Path> allowedRoots = allowedUploadTempRoots();
-        if (allowedRoots.isEmpty()) {
-            MiscUtils.getLogger().warn("No valid upload temp roots configured");
-            return false;
-        }
-
-        for (Path root : allowedRoots) {
-            if (candidate.startsWith(root)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private List<Path> allowedUploadTempRoots() {
-        List<Path> allowedRoots = new ArrayList<>();
-        addAllowedUploadTempRoot(allowedRoots, System.getProperty("java.io.tmpdir"));
-        addAllowedUploadTempRoot(allowedRoots, System.getProperty("catalina.base"), "work");
-        addAllowedUploadTempRoot(allowedRoots, System.getProperty("catalina.home"), "work");
-        return allowedRoots;
-    }
-
-    private void addAllowedUploadTempRoot(List<Path> allowedRoots, String basePath) {
-        addAllowedUploadTempRoot(allowedRoots, basePath, null);
-    }
-
-    private void addAllowedUploadTempRoot(List<Path> allowedRoots, String basePath, String subDirectory) {
-        if (basePath == null || basePath.trim().isEmpty()) {
-            return;
-        }
-
-        try {
-            Path root = subDirectory == null ? Path.of(basePath) : Path.of(basePath, subDirectory);
-            if (Files.exists(root)) {
-                allowedRoots.add(root.toRealPath());
-            }
-        } catch (Exception e) {
-            // Ignore invalid temp root candidates; validation fails if no valid root matches.
-        }
     }
 
     /**
