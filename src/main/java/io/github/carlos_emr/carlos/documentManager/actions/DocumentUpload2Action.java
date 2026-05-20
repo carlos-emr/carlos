@@ -525,6 +525,10 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                 && ALLOWED_INCOMING_DOC_FOLDERS.contains(destFolder);
     }
 
+    private String normalizeIncomingParam(String value) {
+        return value == null ? null : value.trim();
+    }
+
     private void storePreferredQueue(String queueId) {
         if (queueId == null) {
             return;
