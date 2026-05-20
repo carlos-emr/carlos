@@ -90,7 +90,7 @@ class StrutsActionClassReferenceTest {
         dbf.setFeature("http://xml.org/sax/features/external-general-entities", false);
         dbf.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
         // Struts config files intentionally declare the project-standard Struts 6.5 DTD.
-        // External DTD loading and entity expansion remain disabled above.
+        // External DTD loading and entity expansion remain disabled above; DOCTYPE is allowed but not resolved.
         dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", false);
         dbf.setXIncludeAware(false);
         dbf.setExpandEntityReferences(false);
