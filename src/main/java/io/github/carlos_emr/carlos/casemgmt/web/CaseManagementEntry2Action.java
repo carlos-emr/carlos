@@ -1115,7 +1115,14 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 issueNames.append(cIssue.getIssue().getDescription() + "\n");
             }
 
-            strNote += "\n" + formatZoned(DD_MMM_YYYY_FORMATTER_BASE.withLocale(request.getLocale()), new Date()) + " " + props.getString("encounter.removedIssue.Msg") + ":\n" + issueNames.toString();
+            strNote = new StringBuilder(strNote)
+                    .append('\n')
+                    .append(formatZoned(DD_MMM_YYYY_FORMATTER_BASE.withLocale(request.getLocale()), new Date()))
+                    .append(' ')
+                    .append(props.getString("encounter.removedIssue.Msg"))
+                    .append(":\n")
+                    .append(issueNames)
+                    .toString();
             note.setNote(strNote);
             removed = true;
         } else {
@@ -1140,7 +1147,14 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
             // if we have removed an issue add it to message body
             if (issueNames.length() > 0) {
-                strNote += "\n" + formatZoned(DD_MMM_YYYY_FORMATTER_BASE.withLocale(request.getLocale()), new Date()) + " " + props.getString("encounter.removedIssue.Msg") + ":\n" + issueNames.toString();
+                strNote = new StringBuilder(strNote)
+                        .append('\n')
+                        .append(formatZoned(DD_MMM_YYYY_FORMATTER_BASE.withLocale(request.getLocale()), new Date()))
+                        .append(' ')
+                        .append(props.getString("encounter.removedIssue.Msg"))
+                        .append(":\n")
+                        .append(issueNames)
+                        .toString();
                 note.setNote(strNote);
             }
 
