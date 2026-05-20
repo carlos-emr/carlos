@@ -198,6 +198,10 @@ public class HtmlUpload2Action extends ActionSupport implements UploadedFilesAwa
 
     @Override
     public void validate() {
+        if (uploadValidationError != null) {
+            addFieldError("formHtml", uploadValidationError);
+            return;
+        }
         if (formName == null || formName.isEmpty()) {
             addFieldError("formName", "Form name is required.");
         }

@@ -139,6 +139,8 @@ public class PathValidationUtilsTest {
     @DisplayName("Filename-Only Validation Tests")
     class FilenameOnlyValidationTests {
 
+        @Tag("unit")
+        @Tag("security")
         @Test
         @DisplayName("should return filename component when path is provided")
         void shouldReturnFilenameComponent_whenPathIsProvided() {
@@ -146,6 +148,8 @@ public class PathValidationUtilsTest {
                 .isEqualTo("report.pdf");
         }
 
+        @Tag("unit")
+        @Tag("security")
         @Test
         @DisplayName("should normalize unsafe filename characters")
         void shouldNormalizeUnsafeCharacters_whenFilenameContainsLegacyUnsafeCharacters() {
@@ -154,6 +158,8 @@ public class PathValidationUtilsTest {
             assertThat(result).isEqualTo("my_report.scriptfinal.pdf");
         }
 
+        @Tag("unit")
+        @Tag("security")
         @Test
         @DisplayName("should collapse repeated dots")
         void shouldCollapseRepeatedDots_whenFilenameContainsMultipleDotRuns() {
@@ -161,6 +167,8 @@ public class PathValidationUtilsTest {
                 .isEqualTo("my.file.pdf");
         }
 
+        @Tag("unit")
+        @Tag("security")
         @Test
         @DisplayName("should reject hidden filename")
         void shouldRejectHiddenFilename_whenNameStartsWithDot() {
@@ -169,6 +177,8 @@ public class PathValidationUtilsTest {
                 .hasMessageContaining("hidden files not allowed");
         }
 
+        @Tag("unit")
+        @Tag("security")
         @Test
         @DisplayName("should reject null filename")
         void shouldRejectNullFilename_withNullInput() {
@@ -177,6 +187,8 @@ public class PathValidationUtilsTest {
                 .hasMessageContaining(PathValidationUtils.INVALID_FILENAME_MESSAGE);
         }
 
+        @Tag("unit")
+        @Tag("security")
         @Test
         @DisplayName("should reject empty filename")
         void shouldRejectEmptyFilename_withEmptyString() {
@@ -185,6 +197,8 @@ public class PathValidationUtilsTest {
                 .hasMessageContaining(PathValidationUtils.INVALID_FILENAME_MESSAGE);
         }
 
+        @Tag("unit")
+        @Tag("security")
         @Test
         @DisplayName("should reject filename that becomes empty after normalization")
         void shouldRejectFilename_whenNormalizationLeavesNoCharacters() {
@@ -202,6 +216,8 @@ public class PathValidationUtilsTest {
     @DisplayName("User File Path Validation Tests")
     class UserFilePathValidationTests {
 
+        @Tag("unit")
+        @Tag("security")
         @Test
         @DisplayName("should normalize filename then validate destination path")
         void shouldNormalizeFilename_thenValidateDestinationPath() {
@@ -212,6 +228,8 @@ public class PathValidationUtilsTest {
                     .hasName("my_report.scriptfinal.pdf");
         }
 
+        @Tag("unit")
+        @Tag("security")
         @Test
         @DisplayName("should reject hidden filename")
         void shouldRejectHiddenFilename_whenNameStartsWithDot() {
@@ -220,6 +238,8 @@ public class PathValidationUtilsTest {
                 .hasMessageContaining("hidden files not allowed");
         }
 
+        @Tag("unit")
+        @Tag("security")
         @Test
         @DisplayName("should reject filename that becomes empty after normalization")
         void shouldRejectFilename_whenNormalizationLeavesNoCharacters() {
@@ -483,13 +503,14 @@ public class PathValidationUtilsTest {
     @DisplayName("Complete Upload Validation Tests")
     class CompleteUploadValidationTests {
 
+        @Tag("unit")
+        @Tag("security")
         @Test
         @DisplayName("should return valid destination when upload is valid")
         void shouldReturnValidDestination_whenUploadIsValid() throws IOException {
             // Given - create a valid temp file in system temp directory
             String systemTempDir = System.getProperty("java.io.tmpdir");
-            File sourceFile = new File(systemTempDir, "upload_a1b2c3d4_5678_90ab_cdef_123456789abc_00000000.tmp");
-            sourceFile.createNewFile();
+            File sourceFile = Files.createTempFile(Path.of(systemTempDir), "upload_", ".tmp").toFile();
             sourceFile.deleteOnExit();
 
             String userFilename = "myfile.txt";
@@ -504,13 +525,14 @@ public class PathValidationUtilsTest {
             assertThat(result.getName()).isEqualTo("myfile.txt");
         }
 
+        @Tag("unit")
+        @Tag("security")
         @Test
         @DisplayName("should reject upload when destination filename is hidden")
         void shouldRejectUpload_whenDestinationFilenameIsHidden() throws IOException {
             // Given
             String systemTempDir = System.getProperty("java.io.tmpdir");
-            File sourceFile = new File(systemTempDir, "upload_a1b2c3d4_5678_90ab_cdef_123456789abc_00000000.tmp");
-            sourceFile.createNewFile();
+            File sourceFile = Files.createTempFile(Path.of(systemTempDir), "upload_", ".tmp").toFile();
             sourceFile.deleteOnExit();
 
             // When/Then
@@ -520,12 +542,13 @@ public class PathValidationUtilsTest {
                 .hasMessageContaining("hidden files not allowed");
         }
 
+        @Tag("unit")
+        @Tag("security")
         @Test
         @DisplayName("should normalize upload destination filename using strict filename rules")
         void shouldNormalizeUploadDestinationFilename_whenNameHasSpecialChars() throws IOException {
             String systemTempDir = System.getProperty("java.io.tmpdir");
-            File sourceFile = new File(systemTempDir, "upload_b1b2c3d4_5678_90ab_cdef_123456789abc_00000000.tmp");
-            assertThat(sourceFile.createNewFile()).isTrue();
+            File sourceFile = Files.createTempFile(Path.of(systemTempDir), "upload_", ".tmp").toFile();
             sourceFile.deleteOnExit();
 
             File result = PathValidationUtils.validateUpload(sourceFile, "my report (final).txt", tempDir.toFile());
@@ -640,6 +663,8 @@ public class PathValidationUtilsTest {
         @TempDir
         Path secondTempDir;
 
+        @Tag("unit")
+        @Tag("security")
         @Test
         @DisplayName("should throw FileValidationException when filename is dot-dot")
         void shouldThrowFileValidationException_whenFilenameContainsDotDot() {
@@ -649,6 +674,8 @@ public class PathValidationUtilsTest {
                 .isInstanceOf(FileValidationException.class);
         }
 
+        @Tag("unit")
+        @Tag("security")
         @Test
         @DisplayName("should throw FileValidationException when filename starts with dot")
         void shouldThrowFileValidationException_whenFilenameStartsWithDot() {
@@ -657,6 +684,8 @@ public class PathValidationUtilsTest {
                 .hasMessageContaining("hidden files not allowed");
         }
 
+        @Tag("unit")
+        @Tag("security")
         @Test
         @DisplayName("should throw FileValidationException when absolute path escapes base directory")
         void shouldThrowFileValidationException_whenAbsolutePathEscapesBaseDir() throws IOException {
@@ -667,6 +696,8 @@ public class PathValidationUtilsTest {
                 .isInstanceOf(FileValidationException.class);
         }
 
+        @Tag("unit")
+        @Tag("security")
         @Test
         @DisplayName("should throw FileValidationException when uploaded file is outside allowed temp directories")
         void shouldThrowFileValidationException_whenUploadedFileOutsideTempDirs() {
@@ -681,6 +712,8 @@ public class PathValidationUtilsTest {
                 .hasMessageContaining("Invalid upload source");
         }
 
+        @Tag("unit")
+        @Tag("security")
         @Test
         @DisplayName("should return safe file when filename is clean")
         void shouldReturnSafeFile_whenFilenameIsClean() {
@@ -691,6 +724,8 @@ public class PathValidationUtilsTest {
             assertThat(result.getName()).isEqualTo("document.pdf");
         }
 
+        @Tag("unit")
+        @Tag("security")
         @Test
         @DisplayName("should strip path components when filename contains forward slash")
         void shouldStripPathComponents_whenFilenameContainsForwardSlash() {
@@ -702,6 +737,8 @@ public class PathValidationUtilsTest {
             assertThat(result.getParentFile()).isEqualTo(allowedDir);
         }
 
+        @Tag("unit")
+        @Tag("security")
         @Test
         @DisplayName("should strip path components when filename contains backslash")
         void shouldStripPathComponents_whenFilenameContainsBackslash() {

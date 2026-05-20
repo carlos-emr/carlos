@@ -97,7 +97,8 @@ public class HL7Handler implements MessageHandler {
         try (Connection c = DbConnectionFilter.getThreadLocalDbConnection();
              PreparedStatement ps = c.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
-            while (rs.next() && n > 0) {
+            int remainingLabs = n;
+            while (rs.next() && remainingLabs > 0) {
 
                 // only recheck the result status if it is not already set to
                 // abnormal
@@ -107,9 +108,9 @@ public class HL7Handler implements MessageHandler {
                     int i = 0;
                     int j = 0;
                     String resultStatus = "";
-                    while (resultStatus.equals("") && i < h.getOBRCount()) {
+                    while (resultStatus.isEmpty() && i < h.getOBRCount()) {
                         j = 0;
-                        while (resultStatus.equals("") && j < h.getOBXCount(i)) {
+                        while (resultStatus.isEmpty() && j < h.getOBXCount(i)) {
                             logger.info("obr(" + i + ") obx(" + j + ") abnormal ? : " + h.getOBXAbnormalFlag(i, j));
                             if (h.isOBXAbnormal(i, j)) {
                                 resultStatus = "A";
@@ -119,10 +120,10 @@ public class HL7Handler implements MessageHandler {
                             }
                             j++;
                         }
+                        i++;
                     }
-                    i++;
                 }
-                n--;
+                remainingLabs--;
             }
         }
     }

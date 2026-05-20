@@ -297,6 +297,14 @@ public class CategoryData {
         return "serviceObservation";
     }
 
+    private boolean statusFilterIsEmpty() {
+        return status != null && status.isEmpty();
+    }
+
+    private boolean hasStatusFilter() {
+        return !statusFilterIsEmpty();
+    }
+
     public int getLabCountForUnmatched()
             throws SQLException {
         String dateSearchType = getDateSearchType();
@@ -307,7 +315,7 @@ public class CategoryData {
                 + (dateSearchType.equals("receivedCreated") ? " RIGHT JOIN hl7TextMessage message ON plr.lab_no = message.lab_id" : "")
                 + " WHERE plr.lab_type = 'HL7' "
                 + (providerSearch ? " AND plr.provider_no = ? " : "")
-                + " AND plr.status " + ("".equals(status) ? " IS NOT NULL " : " = ? ")
+                + " AND plr.status " + (statusFilterIsEmpty() ? " IS NOT NULL " : " = ? ")
                 + labAbnormalSql
                 + labDateSql
                 + " AND (plr2.demographic_no IS NULL"
@@ -317,7 +325,7 @@ public class CategoryData {
              PreparedStatement ps = c.prepareStatement(sql)) {
             int paramIndex = 1;
             if (providerSearch) ps.setString(paramIndex++, searchProviderNo);
-            if (!"".equals(status)) ps.setString(paramIndex++, status);
+            if (hasStatusFilter()) ps.setString(paramIndex++, status);
             for (String p : labDateParams) ps.setString(paramIndex++, p);
 
             try (ResultSet rs = ps.executeQuery()) {
@@ -334,7 +342,7 @@ public class CategoryData {
                         + " WHERE d.last_name" + (StringUtils.isEmpty(patientLastName) ? " IS NOT NULL " : " like ?  ")
                         + " \tAND d.first_name" + (StringUtils.isEmpty(patientFirstName) ? " IS NOT NULL " : " like ? ")
                         + " \tAND d.hin" + (StringUtils.isEmpty(patientHealthNumber) ? " IS NOT NULL " : " like ? ")
-                        + " \tAND plr.status " + ("".equals(status) ? " IS NOT NULL " : " = ? ")
+                        + " \tAND plr.status " + (statusFilterIsEmpty() ? " IS NOT NULL " : " = ? ")
                         + (providerSearch ? "AND plr.provider_no = ? " : "")
                         + " \tAND plr.lab_type = 'HL7' "
                         + " \tAND cd.lab_type = 'HL7' "
@@ -347,24 +355,24 @@ public class CategoryData {
                     if (!StringUtils.isEmpty(patientLastName)) ps.setString(paramIndex++, "%" + patientLastName + "%");
                     if (!StringUtils.isEmpty(patientFirstName)) ps.setString(paramIndex++, "%" + patientFirstName + "%");
                     if (!StringUtils.isEmpty(patientHealthNumber)) ps.setString(paramIndex++, "%" + patientHealthNumber + "%");
-                    if (!"".equals(status)) ps.setString(paramIndex++, status);
+                    if (hasStatusFilter()) ps.setString(paramIndex++, status);
                     if (providerSearch) ps.setString(paramIndex++, searchProviderNo);
 
                     try (ResultSet rs = ps.executeQuery()) {
                         return (rs.next() ? rs.getInt("count") : 0);
                     }
                 }
-            } else if (providerSearch || !"".equals(status)) { // providerSearch
+            } else if (providerSearch || hasStatusFilter()) { // providerSearch
                 String sql = "SELECT HIGH_PRIORITY COUNT(1) as count "
                         + " FROM providerLabRouting plr, hl7TextInfo info "
-                        + " WHERE plr.status " + ("".equals(status) ? " IS NOT NULL " : " = ?")
+                        + " WHERE plr.status " + (statusFilterIsEmpty() ? " IS NOT NULL " : " = ?")
                         + (providerSearch ? " AND plr.provider_no = ? " : " ")
                         + " AND plr.lab_type = 'HL7'  "
                         + " AND info.lab_no = plr.lab_no"
                         + " AND result_status " + (isAbnormal ? "" : "!") + "= 'A' ";
                 try (PreparedStatement ps = c.prepareStatement(sql)) {
                     int paramIndex = 1;
-                    if (!"".equals(status)) ps.setString(paramIndex++, status);
+                    if (hasStatusFilter()) ps.setString(paramIndex++, status);
                     if (providerSearch) ps.setString(paramIndex++, searchProviderNo);
                     try (ResultSet rs = ps.executeQuery()) {
                         return (rs.next() ? rs.getInt("count") : 0);
@@ -390,7 +398,7 @@ public class CategoryData {
                 + "LEFT JOIN providerLabRouting plr ON plr.lab_no = cd.document_no"
                 + documentJoinSql
                 + " WHERE plr.lab_type = 'DOC' "
-                + " AND plr.status " + ("".equals(status) ? " IS NOT NULL " : " = ? ")
+                + " AND plr.status " + (statusFilterIsEmpty() ? " IS NOT NULL " : " = ? ")
                 + (providerSearch ? " AND plr.provider_no = ? " : "")
                 + " AND 	cd.module_id = -1 "
                 + documentAbnormalSql
@@ -398,7 +406,7 @@ public class CategoryData {
         try (Connection c = DbConnectionFilter.getThreadLocalDbConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
             int paramIndex = 1;
-            if (!"".equals(status)) ps.setString(paramIndex++, status);
+            if (hasStatusFilter()) ps.setString(paramIndex++, status);
             if (providerSearch) ps.setString(paramIndex++, searchProviderNo);
             for (String p : documentDateParams) ps.setString(paramIndex++, p);
             try (ResultSet rs = ps.executeQuery()) {
@@ -421,7 +429,7 @@ public class CategoryData {
                 + " 	AND d.hin" + (StringUtils.isEmpty(patientHealthNumber) ? " IS NOT NULL " : " like ? ")
                 + " 	AND plr.lab_type = 'HL7' "
                 + " 	AND cd.lab_type = 'HL7' "
-                + " 	AND plr.status " + ("".equals(status) ? " IS NOT NULL " : " = ? ")
+                + " 	AND plr.status " + (statusFilterIsEmpty() ? " IS NOT NULL " : " = ? ")
                 + (dateSearchType.equals("receivedCreated") ? " AND message.lab_id IS NOT NULL " : " AND info.lab_no IS NOT NULL ")
                 + (providerSearch ? " AND plr.provider_no = ? " : "")
                 + labAbnormalSql
@@ -429,34 +437,35 @@ public class CategoryData {
                 + " GROUP BY demographic_no, info.accessionNum ";
 
         try (Connection c = DbConnectionFilter.getThreadLocalDbConnection();
-             PreparedStatement ps = c.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
+             PreparedStatement ps = c.prepareStatement(sql)) {
             int paramIndex = 1;
             if (!StringUtils.isEmpty(patientLastName)) ps.setString(paramIndex++, "%" + patientLastName + "%");
             if (!StringUtils.isEmpty(patientFirstName)) ps.setString(paramIndex++, "%" + patientFirstName + "%");
             if (!StringUtils.isEmpty(patientHealthNumber)) ps.setString(paramIndex++, "%" + patientHealthNumber + "%");
-            if (!"".equals(status)) ps.setString(paramIndex++, status);
+            if (hasStatusFilter()) ps.setString(paramIndex++, status);
             if (providerSearch) ps.setString(paramIndex++, searchProviderNo);
             for (String p : labDateParams) ps.setString(paramIndex++, p);
 
-            int totalCount = 0;
-            while (rs.next()) {
-                int id = rs.getInt("demographic_no");
-                int count = rs.getInt("count");
-                // Updating patient info if it already exists.
-                if (patients.containsKey(id)) {
-                    info = patients.get(id);
-                    info.setLabCount(count);
+            try (ResultSet rs = ps.executeQuery()) {
+                int totalCount = 0;
+                while (rs.next()) {
+                    int id = rs.getInt("demographic_no");
+                    int count = rs.getInt("count");
+                    // Updating patient info if it already exists.
+                    if (patients.containsKey(id)) {
+                        info = patients.get(id);
+                        info.setLabCount(count);
+                    }
+                    // Otherwise adding a new patient record.
+                    else {
+                        info = new PatientInfo(id, rs.getString("first_name"), rs.getString("last_name"));
+                        info.setLabCount(count);
+                        patients.put(info.getId(), info);
+                    }
+                    totalCount += count;
                 }
-                // Otherwise adding a new patient record.
-                else {
-                    info = new PatientInfo(id, rs.getString("first_name"), rs.getString("last_name"));
-                    info.setLabCount(count);
-                    patients.put(info.getId(), info);
-                }
-                totalCount += count;
+                return totalCount;
             }
-            return totalCount;
         }
     }
 
@@ -475,7 +484,7 @@ public class CategoryData {
         sql.append(" AND plr.lab_type = 'HL7' ");
         sql.append(" AND cd.lab_type = 'HL7' ");
         
-        if ("".equals(status)) {
+        if (statusFilterIsEmpty()) {
             sql.append(" AND plr.status IS NOT NULL ");
         } else {
             sql.append(" AND plr.status = ? ");
@@ -488,20 +497,21 @@ public class CategoryData {
         sql.append(" GROUP BY demographic_no ");
         
         try (Connection c = DbConnectionFilter.getThreadLocalDbConnection();
-             PreparedStatement ps = c.prepareStatement(sql.toString());
-             ResultSet rs = ps.executeQuery()) {
+             PreparedStatement ps = c.prepareStatement(sql.toString())) {
             
             int paramIndex = 1;
             ps.setString(paramIndex++, demographicNo);
             
-            if (!"".equals(status)) {
+            if (hasStatusFilter()) {
                 ps.setString(paramIndex++, status);
             }
             if (providerSearch) {
                 ps.setString(paramIndex++, searchProviderNo);
             }
 
-            return (rs.next() ? rs.getInt("count") : 0);
+            try (ResultSet rs = ps.executeQuery()) {
+                return (rs.next() ? rs.getInt("count") : 0);
+            }
         }
     }
 
@@ -522,31 +532,32 @@ public class CategoryData {
                 + " 	AND d.hin" + (StringUtils.isEmpty(patientHealthNumber) ? " IS NOT NULL " : " like ? ")
                 + " 	AND d.first_name" + (StringUtils.isEmpty(patientFirstName) ? " IS NOT NULL " : " like ? ")
                 + " 	AND plr.lab_type = 'DOC' "
-                + " 	AND plr.status " + ("".equals(status) ? " IS NOT NULL " : " = ? ")
+                + " 	AND plr.status " + (statusFilterIsEmpty() ? " IS NOT NULL " : " = ? ")
                 + (providerSearch ? "AND plr.provider_no = ? " : "")
                 + documentAbnormalSql
                 + documentDateSql
                 + " GROUP BY demographic_no ";
         try (Connection c = DbConnectionFilter.getThreadLocalDbConnection();
-             PreparedStatement ps = c.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
+             PreparedStatement ps = c.prepareStatement(sql)) {
             int paramIndex = 1;
             if (!StringUtils.isEmpty(patientLastName)) ps.setString(paramIndex++, "%" + patientLastName + "%");
             if (!StringUtils.isEmpty(patientHealthNumber)) ps.setString(paramIndex++, "%" + patientHealthNumber + "%");
             if (!StringUtils.isEmpty(patientFirstName)) ps.setString(paramIndex++, "%" + patientFirstName + "%");
-            if (!"".equals(status)) ps.setString(paramIndex++, status);
+            if (hasStatusFilter()) ps.setString(paramIndex++, status);
             if (providerSearch) ps.setString(paramIndex++, searchProviderNo);
             for (String p : documentDateParams) ps.setString(paramIndex++, p);
 
-            int count = 0;
-            while (rs.next()) {
-                info = new PatientInfo(rs.getInt("demographic_no"), rs.getString("first_name"), rs.getString("last_name"));
-                info.setDocCount(rs.getInt("count"));
-                patients.put(info.getId(), info);
-                count += info.getDocCount();
-            }
+            try (ResultSet rs = ps.executeQuery()) {
+                int count = 0;
+                while (rs.next()) {
+                    info = new PatientInfo(rs.getInt("demographic_no"), rs.getString("first_name"), rs.getString("last_name"));
+                    info.setDocCount(rs.getInt("count"));
+                    patients.put(info.getId(), info);
+                    count += info.getDocCount();
+                }
 
-            return count;
+                return count;
+            }
         }
     }
 

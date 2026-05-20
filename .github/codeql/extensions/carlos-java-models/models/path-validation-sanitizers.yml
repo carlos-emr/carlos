@@ -42,13 +42,6 @@ extensions:
       # propagating past the sanitizer boundary.
       - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", false, "validateExistingPath", "(java.io.File,java.io.File)", "", "Argument[1]", "ReturnValue", "taint", "manual"]
 
-      # validateUpload(File sourceFile) -> File
-      # Validates that the uploaded file (a framework-assigned temp path, not
-      # user-controlled) resides in an allowed temp directory and returns the
-      # canonicalized File. Argument[0] flows to ReturnValue because the source
-      # path is system-assigned by Struts2/Tomcat and is not user-controlled.
-      - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", false, "validateUpload", "(java.io.File)", "", "Argument[0]", "ReturnValue", "taint", "manual"]
-
       # validateUpload(File sourceFile, String userFilename, File destDir) -> File
       # End-to-end upload validation: validates source, sanitizes the user-provided
       # filename, and constructs a safe destination within destDir. The return value
@@ -98,6 +91,15 @@ extensions:
       # isInAllowedTempDirectory(File file) -> boolean
       # Guard predicate only; returns boolean with no relevant taint-flow to callers.
       - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", "isInAllowedTempDirectory", "(java.io.File)", "summary", "manual"]
+
+      # validateUpload(File sourceFile) -> File
+      # Validates framework-assigned temp upload paths and returns the canonical file.
+      # It deliberately cuts source taint after the allowlist check succeeds.
+      - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", "validateUpload", "(java.io.File)", "summary", "manual"]
+
+      # validateTempPathForCleanup(String filePath) -> File
+      # Validates and canonicalizes temp cleanup paths before deletion.
+      - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", "validateTempPathForCleanup", "(java.lang.String)", "summary", "manual"]
 
       # FaxManagerImpl.validateFilePath(String) -> void
       # Guard method that validates and throws on failure. No taint flows through.

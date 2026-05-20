@@ -280,9 +280,11 @@ public final class FrmSetupForm2Action extends ActionSupport {
                     
                     // Using parameterized values for formId and demographicNo.
                     // Table names cannot be JDBC-bound; formName is allowlisted by isValidFormName().
-                    String sql = "SELECT * FROM form" + formName + " WHERE ID=? AND demographic_no=?"; // nosemgrep -- allowlisted table suffix; values are JDBC-bound.
+                    // nosemgrep: java.lang.security.audit.formatted-sql-string-deepsemgrep.formatted-sql-string-deepsemgrep, java.lang.security.audit.sqli.tainted-sql-from-http-request.tainted-sql-from-http-request
+                    String sql = "SELECT * FROM form" + formName + " WHERE ID=? AND demographic_no=?";
                     try (Connection connection = DbConnectionFilter.getThreadLocalDbConnection();
-                         PreparedStatement ps = connection.prepareStatement(sql); // codeql[java/sql-injection] // nosemgrep -- allowlisted table suffix; values are JDBC-bound.
+                         // nosemgrep: java.lang.security.audit.formatted-sql-string-deepsemgrep.formatted-sql-string-deepsemgrep, java.lang.security.audit.sqli.tainted-sql-from-http-request.tainted-sql-from-http-request
+                         PreparedStatement ps = connection.prepareStatement(sql); // codeql[java/sql-injection]
                          ResultSet rs = configureAndExecuteGetFormRecordQuery(ps, formId, demographicNo)) {
 
                         if (rs.next()) {

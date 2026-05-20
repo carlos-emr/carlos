@@ -431,7 +431,7 @@ public class NioFileManagerImpl implements NioFileManager {
                 return false;
             }
 
-            File tempFile = PathValidationUtils.validateTempPathForCleanup(fileName);
+            ValidatedTempFile tempFile = ValidatedTempFile.from(fileName);
 
             if (!tempFile.exists()) {
                 return false;
@@ -440,7 +440,7 @@ public class NioFileManagerImpl implements NioFileManager {
                 log.error("Attempt to delete a non-file temp path: {}", LogSanitizer.sanitize(fileName));
                 throw new SecurityException("Temp deletion target must be a regular file");
             }
-            return Files.deleteIfExists(tempFile.toPath());
+            return tempFile.deleteIfExists();
         } catch (FileValidationException e) {
             log.error("Invalid temp file path for deletion: {}", LogSanitizer.sanitize(fileName), e);
             return false;
@@ -450,6 +450,30 @@ public class NioFileManagerImpl implements NioFileManager {
         } catch (IOException e) {
             log.error("Error while deleting temp cache image file {}", LogSanitizer.sanitize(fileName), e);
             return false;
+        }
+    }
+
+    private static final class ValidatedTempFile {
+        private final File file;
+
+        private ValidatedTempFile(File file) {
+            this.file = file;
+        }
+
+        private static ValidatedTempFile from(String fileName) {
+            return new ValidatedTempFile(PathValidationUtils.validateTempPathForCleanup(fileName));
+        }
+
+        private boolean exists() {
+            return file.exists();
+        }
+
+        private boolean isFile() {
+            return file.isFile();
+        }
+
+        private boolean deleteIfExists() throws IOException {
+            return Files.deleteIfExists(file.toPath());
         }
     }
 

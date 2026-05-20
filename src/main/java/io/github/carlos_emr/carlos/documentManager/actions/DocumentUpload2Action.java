@@ -15,7 +15,6 @@
 package io.github.carlos_emr.carlos.documentManager.actions;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -148,7 +147,6 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                     map.put("error", props.getString("dms.documentUpload.onlyPdf"));
                 } else if (docFile.length() == 0) {
                     map.put("error", 4);
-                    throw new FileNotFoundException();
                 } else if (!isValidIncomingDestination(queueId, destFolder)) {
                     map.put("error", INVALID_INCOMING_DESTINATION_MESSAGE);
                 } else {
@@ -193,47 +191,46 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                     String fileNameInDoc = newDoc.getFileName();
                     if (docFile.length() == 0) {
                         map.put("error", 4);
-                        throw new FileNotFoundException();
-                    }
-
-                    copiedDocumentFile = writeLocalFile(docFile, fileNameInDoc);
-                    fileNameInDoc = copiedDocumentFile.getName();
-                    newDoc.setFileName(fileNameInDoc);
-                    newDoc.setFilePath(copiedDocumentFile.getPath());
-                    newDoc.setContentType(this.filedataContentType);
-                    if (fileNameInDoc.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
-                        newDoc.setContentType("application/pdf");
-                        numberOfPages = countNumOfPages(copiedDocumentFile.getPath());
-                    }
-                    newDoc.setNumberOfPages(numberOfPages);
-                    String docNo = EDocUtil.addDocumentSQL(newDoc);
-                    documentRecordCreated = true;
-                    LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, docNo, request.getRemoteAddr());
-
-                    String providerId = request.getParameter("providers");
-                    if (providerId != null) {
-                        WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
-                        ProviderInboxRoutingDao providerInboxRoutingDao = (ProviderInboxRoutingDao) ctx.getBean(ProviderInboxRoutingDao.class);
-                        providerInboxRoutingDao.addToProviderInbox(providerId, Integer.parseInt(docNo), "DOC");
-                    }
-
-                    String queueIdParam = request.getParameter("queue");
-                    if (queueIdParam != null && !queueIdParam.equals("-1")) {
-                        if (!queueIdParam.trim().matches("\\d+")) {
-                            logger.warn("Invalid queue ID format — skipping queue link");
-                            request.getSession().removeAttribute(PREFERRED_QUEUE_SESSION_KEY);
-                        } else {
-                            WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
-                            QueueDocumentLinkDao queueDocumentLinkDAO = (QueueDocumentLinkDao) ctx.getBean(QueueDocumentLinkDao.class);
-                            int qid = Integer.parseInt(queueIdParam.trim());
-                            Integer did = Integer.parseInt(docNo.trim());
-                            queueDocumentLinkDAO.addActiveQueueDocumentLink(qid, did);
-                            storePreferredQueue(qid);
+                    } else {
+                        copiedDocumentFile = writeLocalFile(docFile, fileNameInDoc);
+                        fileNameInDoc = copiedDocumentFile.getName();
+                        newDoc.setFileName(fileNameInDoc);
+                        newDoc.setFilePath(copiedDocumentFile.getPath());
+                        newDoc.setContentType(this.filedataContentType);
+                        if (fileNameInDoc.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
+                            newDoc.setContentType("application/pdf");
+                            numberOfPages = countNumOfPages(copiedDocumentFile.getPath());
                         }
-                    }
+                        newDoc.setNumberOfPages(numberOfPages);
+                        String docNo = EDocUtil.addDocumentSQL(newDoc);
+                        documentRecordCreated = true;
+                        LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, docNo, request.getRemoteAddr());
 
-                    map.put("name", fileNameInDoc);
-                    map.put("size", docFile.length());
+                        String providerId = request.getParameter("providers");
+                        if (providerId != null) {
+                            WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
+                            ProviderInboxRoutingDao providerInboxRoutingDao = (ProviderInboxRoutingDao) ctx.getBean(ProviderInboxRoutingDao.class);
+                            providerInboxRoutingDao.addToProviderInbox(providerId, Integer.parseInt(docNo), "DOC");
+                        }
+
+                        String queueIdParam = request.getParameter("queue");
+                        if (queueIdParam != null && !queueIdParam.equals("-1")) {
+                            if (!queueIdParam.trim().matches("\\d+")) {
+                                logger.warn("Invalid queue ID format — skipping queue link");
+                                request.getSession().removeAttribute(PREFERRED_QUEUE_SESSION_KEY);
+                            } else {
+                                WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
+                                QueueDocumentLinkDao queueDocumentLinkDAO = (QueueDocumentLinkDao) ctx.getBean(QueueDocumentLinkDao.class);
+                                int qid = Integer.parseInt(queueIdParam.trim());
+                                Integer did = Integer.parseInt(docNo.trim());
+                                queueDocumentLinkDAO.addActiveQueueDocumentLink(qid, did);
+                                storePreferredQueue(qid);
+                            }
+                        }
+
+                        map.put("name", fileNameInDoc);
+                        map.put("size", docFile.length());
+                    }
                 } catch (FileValidationException e) {
                     deleteCopiedDocumentIfUnpersisted(copiedDocumentFile, documentRecordCreated);
                     logger.warn("Rejected invalid document upload filename");
@@ -466,12 +463,14 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             storePreferredQueue(Integer.parseInt(queueId.trim()));
         } catch (NumberFormatException e) {
             // Do not store an invalid queue ID in the session.
-            logger.warn("Invalid queue ID format — skipping session attribute update");
+            logger.warn("Invalid queue ID format - skipping session attribute update");
         }
     }
 
     private void storePreferredQueue(int queueId) {
-        request.getSession().setAttribute(PREFERRED_QUEUE_SESSION_KEY, String.valueOf(queueId)); // nosemgrep -- queueId is parsed as an integer before storage.
+        String queueIdValue = String.valueOf(queueId);
+        // nosemgrep: java.servlets.security.tainted-session-from-http-request.tainted-session-from-http-request, java.lang.security.audit.tainted-session-from-http-request.tainted-session-from-http-request
+        request.getSession().setAttribute(PREFERRED_QUEUE_SESSION_KEY, queueIdValue);
     }
 
     public String setUploadDestination() {

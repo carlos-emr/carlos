@@ -96,8 +96,7 @@ public final class IncomingDocUtil {
         }
 
         try {
-            PathValidationUtils.validateFileName(pathComponent);
-            return true;
+            return pathComponent.equals(PathValidationUtils.validateFileName(pathComponent));
         } catch (FileValidationException e) {
             return false;
         }

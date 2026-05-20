@@ -247,12 +247,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
          * save the upload stream to a temp directory.  This should allow the HTTP
          * thread to close gracefully while the import is being processed.
          */
-        String filename = importFileFileName;
+        String filename = PathValidationUtils.validateFileName(importFileFileName);
         Path filePath = PathValidationUtils.validateUpload(importFile).toPath();
-
-        if (filename == null || filename.trim().isEmpty()) {
-            filename = importFile.getName();
-        }
 
         int dotIndex = filename.lastIndexOf('.');
         String filetype = (dotIndex == -1) ? "" : filename.substring(dotIndex + 1).toLowerCase();

@@ -74,12 +74,11 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
         if (uploadValidationError != null) {
             throw new IllegalArgumentException(uploadValidationError);
         }
-        if (file1 == null) {
+        if (file1Upload == null) {
             throw new IllegalArgumentException("Invalid file upload");
         }
 
-        // codeql[java/path-injection] -- file1 is validated in withUploadedFiles() before storage.
-        try (InputStream is = Files.newInputStream(file1.toPath());
+        try (InputStream is = file1Upload.openStream();
              OutputStream fos = new FileOutputStream(tmpFile)) {
             byte[] data = new byte[BUFFER];
             int count;
@@ -103,6 +102,7 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
     }
 
     private File file1; // Uploaded file
+    private ValidatedUpload file1Upload;
     private String file1FileName; // Name of the uploaded file
     private String file1ContentType; // Content type of the uploaded file
 
@@ -112,14 +112,40 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
         if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
             UploadedFile uploaded = uploadedFiles.get(0);
             try {
-                this.file1 = PathValidationUtils.validateUpload(UploadedFileUtils.getUploadedFile(uploaded));
+                this.file1Upload = ValidatedUpload.from(uploaded);
+                this.file1 = this.file1Upload.file();
                 this.uploadValidationError = null;
             } catch (SecurityException e) {
                 this.file1 = null;
+                this.file1Upload = null;
                 this.uploadValidationError = "Invalid file upload";
             }
             this.file1ContentType = uploaded.getContentType();
             this.file1FileName = uploaded.getOriginalName();
+        }
+    }
+
+    private static final class ValidatedUpload {
+        private final File file;
+
+        private ValidatedUpload(File file) {
+            this.file = file;
+        }
+
+        private static ValidatedUpload from(UploadedFile uploaded) {
+            return from(UploadedFileUtils.getUploadedFile(uploaded));
+        }
+
+        private static ValidatedUpload from(File uploadFile) {
+            return new ValidatedUpload(PathValidationUtils.validateUpload(uploadFile));
+        }
+
+        private File file() {
+            return file;
+        }
+
+        private InputStream openStream() throws IOException {
+            return Files.newInputStream(file.toPath());
         }
     }
 
@@ -129,7 +155,9 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
     }
 
     public void setFile1(File file1) {
-        this.file1 = file1;
+        this.file1Upload = ValidatedUpload.from(file1);
+        this.file1 = this.file1Upload.file();
+        this.uploadValidationError = null;
     }
 
     public String getFile1FileName() {
