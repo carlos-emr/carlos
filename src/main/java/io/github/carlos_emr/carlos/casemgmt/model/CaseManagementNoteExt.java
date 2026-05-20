@@ -99,6 +99,7 @@ public class CaseManagementNoteExt {
     public void setValue(String value) {
         this.value = value;
     }
+    @jakarta.persistence.Temporal(jakarta.persistence.TemporalType.DATE)
     @jakarta.persistence.Column(name = "date_value")
 
     public Date getDateValue() {

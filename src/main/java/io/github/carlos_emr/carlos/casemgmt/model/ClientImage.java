@@ -132,6 +132,7 @@ public class ClientImage extends BaseObject {
         this.update_date = update_date;
     }
     @jakarta.persistence.Lob
+    @jakarta.persistence.Basic(fetch = jakarta.persistence.FetchType.LAZY)
 
     @jakarta.persistence.Column(name = "contents")
 

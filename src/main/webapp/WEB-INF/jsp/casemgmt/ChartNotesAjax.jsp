@@ -744,7 +744,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
 
 
                     <%
-                        if (facility.isEnableEncounterTime() || (program != null && program.isEnableEncounterTime())) {
+                        if (facility.isEnableEncounterTime() || (program != null && program.getEnableEncounterTime())) {
                     %>
                     <div style="clear: right; margin-right: 3px; float: right;">
                         <fmt:message key="encounter.encounterTime.title"/>:&nbsp;<span
@@ -752,7 +752,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
                     </div>
                     <% } %>
                     <%
-                        if (facility.isEnableEncounterTransportationTime() || (program != null && program.isEnableEncounterTransportationTime())) {
+                        if (facility.isEnableEncounterTransportationTime() || (program != null && program.getEnableEncounterTransportationTime())) {
                     %>
                     <div style="clear: right; margin-right: 3px; float: right;">
                         <fmt:message key="encounter.encounterTransportation.title"/>:&nbsp;<span

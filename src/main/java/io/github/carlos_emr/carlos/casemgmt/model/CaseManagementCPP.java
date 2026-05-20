@@ -157,6 +157,7 @@ public class CaseManagementCPP extends BaseObject {
     public void setSocialHistory(String socialHistory) {
         this.socialHistory = socialHistory;
     }
+    @jakarta.persistence.Temporal(jakarta.persistence.TemporalType.TIMESTAMP)
     @jakarta.persistence.Column(name = "update_date")
 
     public Date getUpdate_date() {

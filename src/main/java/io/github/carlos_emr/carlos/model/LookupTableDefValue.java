@@ -70,7 +70,7 @@ public class LookupTableDefValue {
     }
     @jakarta.persistence.Id
 
-    @jakarta.persistence.Column(name = "tableId")
+    @jakarta.persistence.Column(name = "tableid")
 
     public String getTableId() {
         return tableId;
