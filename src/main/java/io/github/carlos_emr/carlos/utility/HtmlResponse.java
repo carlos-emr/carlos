@@ -87,7 +87,7 @@ public final class HtmlResponse {
      * Writes already-decoded stored HTML through the servlet writer.
      *
      * @param response servlet response to write to
-     * @param contentType HTML content type, optionally including charset
+     * @param contentType HTML content type used to set response headers and resolve the writer charset
      * @param html stored HTML body
      * @throws IOException when response writing fails
      */
@@ -105,7 +105,7 @@ public final class HtmlResponse {
      * the servlet writer.
      *
      * @param response servlet response to write to
-     * @param contentType HTML content type, optionally including charset
+     * @param contentType HTML content type used to set response headers and resolve the byte charset
      * @param htmlBytes stored HTML bytes
      * @throws IOException when response writing fails
      */
@@ -123,7 +123,7 @@ public final class HtmlResponse {
      * the servlet writer.
      *
      * @param response servlet response to write to
-     * @param contentType HTML content type, optionally including charset
+     * @param contentType HTML content type used to set response headers and resolve the stream charset
      * @param htmlStream stored HTML byte stream
      * @throws IOException when response writing fails
      */
@@ -150,8 +150,7 @@ public final class HtmlResponse {
                 ? DEFAULT_HTML_CONTENT_TYPE
                 : contentType;
         Charset charset = resolveCharset(effectiveContentType);
-        response.setContentType(effectiveContentType);
-        response.setCharacterEncoding(charset.name());
+        response.setContentType(contentTypeWithCharset(effectiveContentType, charset));
         return charset;
     }
 
@@ -169,6 +168,16 @@ public final class HtmlResponse {
             return unescapeQuotedValue(value.substring(1, value.length() - 1));
         }
         return value;
+    }
+
+    private static String contentTypeWithCharset(String contentType, Charset charset) {
+        for (String parameter : splitContentTypeParameters(contentType)) {
+            int equals = parameter.indexOf('=');
+            if (equals >= 0 && "charset".equalsIgnoreCase(parameter.substring(0, equals).trim())) {
+                return contentType;
+            }
+        }
+        return contentType + ";charset=" + charset.name();
     }
 
     private static List<String> splitContentTypeParameters(String contentType) {
