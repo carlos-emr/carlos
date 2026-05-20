@@ -41,6 +41,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 /**
@@ -82,7 +83,7 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
                 .thenReturn(mockLoggedInInfo);
 
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
-        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_edoc"), eq("w"), isNull()))
+        lenient().when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_edoc"), eq("w"), isNull()))
                 .thenReturn(true);
 
         action = new AddEditDocument2Action();
@@ -147,9 +148,6 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
         try {
             UploadedFile filedataUpload = mock(UploadedFile.class);
             when(filedataUpload.getInputName()).thenReturn("filedata");
-            when(filedataUpload.getAbsolutePath()).thenReturn(filedataTemp.getAbsolutePath());
-            when(filedataUpload.getOriginalName()).thenReturn("html5-upload.pdf");
-            when(filedataUpload.getContentType()).thenReturn("application/pdf");
 
             UploadedFile docFileUpload = mock(UploadedFile.class);
             when(docFileUpload.getInputName()).thenReturn("docFile");

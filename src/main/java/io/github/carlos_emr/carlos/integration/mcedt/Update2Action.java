@@ -92,10 +92,14 @@ public class Update2Action extends ActionSupport {
     public String addUpdateRequest() {
         List<UpdateRequest> updates = getUpdateList(request);
 
+        Detail details = (Detail) request.getSession().getAttribute(SESSION_KEY_UPLOAD_DETAILS);
+        if (details == null || details.getData() == null) {
+            addActionError(getText("updateAction.unspecified.errorLoading"));
+            return "initial";
+        }
+
         UpdateRequest update = this.toUpdateRequest();
         updates.add(update);
-
-        Detail details = (Detail) request.getSession().getAttribute(SESSION_KEY_UPLOAD_DETAILS);
         for (DetailData d : details.getData()) {
             if (d.getResourceID().equals(update.getResourceID())) {
                 markUpdated(d);

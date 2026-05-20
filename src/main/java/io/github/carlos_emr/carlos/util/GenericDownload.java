@@ -39,9 +39,7 @@ import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.http.HttpSession;
 
-import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -56,38 +54,22 @@ public class GenericDownload extends HttpServlet {
     public GenericDownload() {
     }
 
+    /**
+     * The direct /Download endpoint is intentionally disabled. Concrete download
+     * servlets must choose their server-side root explicitly before calling
+     * {@link #transferFile(HttpServletResponse, ServletOutputStream, String, String)}.
+     */
+    @Deprecated(since = "2026-05-20", forRemoval = true)
     public void doGet(HttpServletRequest req, HttpServletResponse res) throws IOException {
-        try {
-            HttpSession session = req.getSession(true);
+        log.warn("Rejected direct GenericDownload request from {}", req.getRemoteAddr());
+        sendErrorIfPossible(res, HttpServletResponse.SC_GONE, "Direct download endpoint is no longer available.");
 
-            CarlosProperties oscarProps = CarlosProperties.getInstance();
+    }
 
-            String filename = req.getParameter("filename");
-            String dir_property = req.getParameter("dir_property");
-            String contentType = req.getParameter("contentType");
-            String dir = oscarProps.getProperty(dir_property);
-            String user = (String) session.getAttribute("user");
-
-            boolean bDo = false;
-            if (filename != null && dir_property != null && dir != null && user != null) {
-                bDo = true;
-            }
-            download(bDo, res, dir, filename, contentType);
-        } catch (IOException e) {
-            throw e;
-        } catch (SecurityException e) {
-            log.warn("SecurityException in GenericDownload: {}", e.getMessage());
-            if (!res.isCommitted()) {
-                res.sendError(HttpServletResponse.SC_FORBIDDEN, "Access Denied");
-            }
-        } catch (Exception e) {
-            log.error("Unexpected error in GenericDownload", e);
-            if (!res.isCommitted()) {
-                res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
-                    "An internal error occurred. Please try again or contact your system administrator.");
-            }
+    private void sendErrorIfPossible(HttpServletResponse res, int statusCode, String message) throws IOException {
+        if (!res.isCommitted()) {
+            res.sendError(statusCode, message);
         }
-
     }
 
     public void download(boolean bDownload, HttpServletResponse res, String dir, String filename, String contentType)
@@ -125,15 +107,15 @@ public class GenericDownload extends HttpServlet {
         res.setContentType(setContentType);
         res.setHeader("Content-Disposition", "attachment;filename=\"" + sanitizedFilename + "\"");
         
-        FileInputStream fis = new FileInputStream(curfile);
         int bufferSize;
         byte[] buffer = new byte[BUFFER_SIZE];
 
-        while ((bufferSize = fis.read(buffer)) != -1) {
-            stream.write(buffer, 0, bufferSize); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- binary file download buffer copy
+        try (FileInputStream fis = new FileInputStream(curfile)) {
+            while ((bufferSize = fis.read(buffer)) != -1) {
+                stream.write(buffer, 0, bufferSize); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- binary file download buffer copy
 
+            }
         }
-        fis.close();
         stream.flush();
         stream.close();
     }

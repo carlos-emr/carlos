@@ -136,6 +136,7 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.sql.SQLException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -168,8 +169,14 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
     private static final String REPORTBINARY = "Binary";
     private static final String REPORTTEXT = "Text";
     private static final String RISKFACTOR = "Risk";
-    private static String currentDirectory;
-    private static List<Path> validXmlFileList = Collections.emptyList();
+    private static final String MAX_ZIP_ENTRIES_PROPERTY = "demographic.import.maxZipEntries";
+    private static final String MAX_ZIP_ENTRY_BYTES_PROPERTY = "demographic.import.maxZipEntryBytes";
+    private static final String MAX_ZIP_UNCOMPRESSED_BYTES_PROPERTY = "demographic.import.maxZipUncompressedBytes";
+    private static final int DEFAULT_MAX_ZIP_ENTRIES = 100_000;
+    private static final long DEFAULT_MAX_ZIP_ENTRY_BYTES = 5L * 1024L * 1024L * 1024L;
+    private static final long DEFAULT_MAX_ZIP_UNCOMPRESSED_BYTES = 20L * 1024L * 1024L * 1024L;
+    private String currentDirectory;
+    private List<Path> validXmlFileList = Collections.emptyList();
 
     String admProviderNo = null;
     Demographic demographic = null;
@@ -247,12 +254,13 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
          * save the upload stream to a temp directory.  This should allow the HTTP
          * thread to close gracefully while the import is being processed.
          */
-        String filename = importFileFileName;
         Path filePath = PathValidationUtils.validateUpload(importFile).toPath();
+        String filename = importFileFileName;
 
-        if (filename == null || filename.trim().isEmpty()) {
+        if (filename.trim().isEmpty()) {
             filename = importFile.getName();
         }
+        filename = PathValidationUtils.validateFileName(filename);
 
         int dotIndex = filename.lastIndexOf('.');
         String filetype = (dotIndex == -1) ? "" : filename.substring(dotIndex + 1).toLowerCase();
@@ -335,6 +343,12 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
         }
 
         ServletContext servletContext = ServletActionContext.getServletContext();
+        if (servletContext == null && request.getSession(false) != null) {
+            servletContext = request.getSession(false).getServletContext();
+        }
+        if (servletContext == null) {
+            throw new IllegalStateException("Unable to access servlet context");
+        }
         File safeDir = (File) servletContext.getAttribute("jakarta.servlet.context.tempdir");
         if (safeDir == null || !safeDir.isDirectory()) {
             throw new IllegalStateException("Unable to access servlet temp directory");
@@ -436,11 +450,24 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
     private Path unzipFile(Path zipFilePath) throws IOException {
         Path directoryPath = zipFilePath.getParent();
         File targetDir = directoryPath.toFile();
+        long maxEntries = getPositiveLongProperty(MAX_ZIP_ENTRIES_PROPERTY, DEFAULT_MAX_ZIP_ENTRIES);
+        long maxEntryBytes = getPositiveLongProperty(MAX_ZIP_ENTRY_BYTES_PROPERTY, DEFAULT_MAX_ZIP_ENTRY_BYTES);
+        long maxUncompressedBytes = getPositiveLongProperty(MAX_ZIP_UNCOMPRESSED_BYTES_PROPERTY, DEFAULT_MAX_ZIP_UNCOMPRESSED_BYTES);
+        long entryCount = 0;
+        long totalUncompressedBytes = 0;
 
         byte[] buffer = new byte[1024];
         try (ZipInputStream zis = new ZipInputStream(Files.newInputStream(Paths.get(zipFilePath.toString())))) {
             ZipEntry zipEntry = zis.getNextEntry();
             while (zipEntry != null) {
+                entryCount++;
+                if (entryCount > maxEntries) {
+                    throw new IOException("ZIP archive contains too many entries");
+                }
+                if (zipEntry.getSize() > maxEntryBytes) {
+                    throw new IOException("ZIP entry exceeds configured size limit");
+                }
+
                 File newFile = resolveAndValidateZipEntry(zipEntry, targetDir);
                 if (newFile == null) {
                     zipEntry = zis.getNextEntry();
@@ -458,14 +485,31 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
                         throw new IOException("Failed to create parent directory " + parent);
                     }
 
-                    // Write file content
-                    try (FileOutputStream fos = new FileOutputStream(newFile)) {
+                    boolean fileCreatedByRequest = false;
+                    boolean writeSucceeded = false;
+                    try (OutputStream fos = Files.newOutputStream(newFile.toPath(),
+                            StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
+                        fileCreatedByRequest = true;
                         int len;
+                        long entryBytes = 0;
                         while ((len = zis.read(buffer)) > 0) {
+                            entryBytes += len;
+                            totalUncompressedBytes += len;
+                            if (entryBytes > maxEntryBytes) {
+                                throw new IOException("ZIP entry exceeds configured size limit");
+                            }
+                            if (totalUncompressedBytes > maxUncompressedBytes) {
+                                throw new IOException("ZIP archive exceeds configured uncompressed size limit");
+                            }
                             fos.write(buffer, 0, len);
                         }
+                        writeSucceeded = true;
                     } catch (Exception e) {
                         throw new IOException("Failed to write file: " + e.getMessage(), e);
+                    } finally {
+                        if (!writeSucceeded && fileCreatedByRequest) {
+                            Files.deleteIfExists(newFile.toPath());
+                        }
                     }
                 }
                 zipEntry = zis.getNextEntry();
@@ -477,6 +521,19 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             Files.deleteIfExists(zipFilePath);
         }
         return directoryPath;
+    }
+
+    private long getPositiveLongProperty(String propertyName, long defaultValue) {
+        String configuredValue = CarlosProperties.getInstance().getProperty(propertyName, String.valueOf(defaultValue));
+        try {
+            long parsedValue = Long.parseLong(configuredValue);
+            if (parsedValue > 0) {
+                return parsedValue;
+            }
+        } catch (NumberFormatException e) {
+            logger.warn("Invalid numeric value for {}: {}", propertyName, configuredValue);
+        }
+        return defaultValue;
     }
 
     /**
@@ -4892,11 +4949,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
     }
 
     public void setImportFile(File importFile) {
-        if (importFile != null) {
-            this.importFile = PathValidationUtils.validateUpload(importFile);
-        } else {
-            this.importFile = null;
-        }
+        this.importFile = importFile;
     }
 
     public String getImportFileFileName() {

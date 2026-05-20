@@ -2072,9 +2072,9 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     continue;
                                 }
                                 if (!f.exists()) {
-                                    exportError.add(DOCUMENT_EXPORT_ERROR_PREFIX + f.getName() + "\" does not exist!");
+                                    exportError.add(DOCUMENT_EXPORT_ERROR_PREFIX + SafeEncode.forHtmlContent(f.getName()) + "\" does not exist!");
                                 } else if (f.length() > Runtime.getRuntime().freeMemory()) {
-                                    exportError.add(DOCUMENT_EXPORT_ERROR_PREFIX + f.getName() + "\" too big to be exported. Not enough memory!");
+                                    exportError.add(DOCUMENT_EXPORT_ERROR_PREFIX + SafeEncode.forHtmlContent(f.getName()) + "\" too big to be exported. Not enough memory!");
                                 } else {
                                     Reports rpr = patientRec.addNewReports();
                                     if (edoc.getType() != null) {

@@ -29,6 +29,7 @@
 package io.github.carlos_emr.carlos.webserv.rest;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
@@ -132,8 +133,8 @@ public class DocumentService extends AbstractServiceImpl {
         try {
             document = documentManager.createDocument(loggedInInfo, document, documentTo1.getDemographicNo(), documentTo1.getProviderNo(), documentTo1.getFileContents());
         } catch (IOException e) {
-            logger.error("Document could not be saved: {}", documentTo1.getFileName(), e);
-            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createResponseMap(documentTo1.getFileName(), "Failed", "Internal error: " + e.getMessage())).build();
+            logger.error("Document could not be saved: {}", LogSanitizer.sanitize(documentTo1.getFileName()), e);
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createResponseMap(documentTo1.getFileName(), "Failed", "Internal error while saving document.")).build();
         }
 
         Integer queueId = documentManager.addDocumentToQueue(loggedInInfo, document.getDocumentNo(), documentTo1.getQueue());

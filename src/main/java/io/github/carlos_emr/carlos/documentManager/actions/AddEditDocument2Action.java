@@ -33,11 +33,13 @@ package io.github.carlos_emr.carlos.documentManager.actions;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.Date;
 import java.util.Hashtable;
 import java.util.List;
@@ -163,6 +165,8 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         // Validate uploaded source is from an allowed temp directory before reading
         File validatedSource = PathValidationUtils.validateUpload(uploadedDocFile);
         File file = writeLocalFile(Files.newInputStream(validatedSource.toPath()), fileName); // write file to local dir
+        fileName = file.getName();
+        newDoc.setFileName(fileName);
 
         if (!file.exists() || file.length() < validatedSource.length()) {
             response.setHeader("oscar_error", props.getString("dms.addDocument.errorNoWrite"));
@@ -238,10 +242,14 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
      * @throws Exception if document processing fails
      */
     public String execute() throws Exception {
-        if ("html5MultiUpload".equals(request.getParameter("method"))) {
-            return html5MultiUpload();
+        try {
+            if ("html5MultiUpload".equals(request.getParameter("method"))) {
+                return html5MultiUpload();
+            }
+            return execute2();
+        } finally {
+            deleteUploadedDocFile();
         }
-        return execute2();
     }
 
     /**
@@ -252,49 +260,53 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
      * @throws SecurityException if the user lacks _edoc write privilege
      */
     public String execute2() {
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
-            throw new SecurityException("missing required sec object (_edoc)");
-        }
-
-        if (this.getMode().equals("") && this.getFunction().equals("") && this.getFunctionId().equals("")) {
-            // file size exceeds the upload limit
-            Hashtable errors = new Hashtable();
-            errors.put("uploaderror", "dms.error.uploadError");
-            request.setAttribute("docerrors", errors);
-            request.setAttribute("editDocumentNo", "");
-            return "failEdit";
-        } else if (this.getMode().equals("add")) {
-            // if add/edit success then send redirect, if failed send a forward (need the formdata and errors hashtables while trying to avoid POSTDATA messages)
-            if (addDocument(request)) { // if success
-                String contextPath = request.getContextPath();
-                StringBuffer redirect = new StringBuffer(contextPath + "/documentManager/ViewDocumentReport");
-                redirect.append("?docerrors=docerrors"); // Allows the JSP to check if the document was just submitted
-                redirect.append("&function=").append(request.getParameter("function"));
-                redirect.append("&functionid=").append(request.getParameter("functionid"));
-                redirect.append("&curUser").append(request.getParameter("curUser"));
-                redirect.append("&appointmentNo").append(request.getParameter("appointmentNo"));
-                String parentAjaxId = request.getParameter("parentAjaxId");
-                // if we're called with parent ajax id inform jsp that parent needs to be updated
-                if (!parentAjaxId.equals("")) {
-                    redirect.append("&parentAjaxId").append(parentAjaxId);
-                    redirect.append("&updateParent").append("true");
-                }
-                try {
-                    response.sendRedirect(redirect.toString());
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-                return NONE;
-            } else {
-                request.setAttribute("function", request.getParameter("function"));
-                request.setAttribute("functionid", request.getParameter("functionid"));
-                request.setAttribute("parentAjaxId", request.getParameter("parentAjaxId"));
-                request.setAttribute("curUser", request.getParameter("curUser"));
-                request.setAttribute("appointmentNo", request.getParameter("appointmentNo"));
-                return "failAdd";
+        try {
+            if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
+                throw new SecurityException("missing required sec object (_edoc)");
             }
-        } else {
-            return editDocument(request);
+
+            if (this.getMode().equals("") && this.getFunction().equals("") && this.getFunctionId().equals("")) {
+                // file size exceeds the upload limit
+                Hashtable errors = new Hashtable();
+                errors.put("uploaderror", "dms.error.uploadError");
+                request.setAttribute("docerrors", errors);
+                request.setAttribute("editDocumentNo", "");
+                return "failEdit";
+            } else if (this.getMode().equals("add")) {
+                // if add/edit success then send redirect, if failed send a forward (need the formdata and errors hashtables while trying to avoid POSTDATA messages)
+                if (addDocument(request)) { // if success
+                    String contextPath = request.getContextPath();
+                    StringBuffer redirect = new StringBuffer(contextPath + "/documentManager/ViewDocumentReport");
+                    redirect.append("?docerrors=docerrors"); // Allows the JSP to check if the document was just submitted
+                    redirect.append("&function=").append(request.getParameter("function"));
+                    redirect.append("&functionid=").append(request.getParameter("functionid"));
+                    redirect.append("&curUser").append(request.getParameter("curUser"));
+                    redirect.append("&appointmentNo").append(request.getParameter("appointmentNo"));
+                    String parentAjaxId = request.getParameter("parentAjaxId");
+                    // if we're called with parent ajax id inform jsp that parent needs to be updated
+                    if (!parentAjaxId.equals("")) {
+                        redirect.append("&parentAjaxId").append(parentAjaxId);
+                        redirect.append("&updateParent").append("true");
+                    }
+                    try {
+                        response.sendRedirect(redirect.toString());
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                    return NONE;
+                } else {
+                    request.setAttribute("function", request.getParameter("function"));
+                    request.setAttribute("functionid", request.getParameter("functionid"));
+                    request.setAttribute("parentAjaxId", request.getParameter("parentAjaxId"));
+                    request.setAttribute("curUser", request.getParameter("curUser"));
+                    request.setAttribute("appointmentNo", request.getParameter("appointmentNo"));
+                    return "failAdd";
+                }
+            } else {
+                return editDocument(request);
+            }
+        } finally {
+            deleteUploadedDocFile();
         }
     }
 
@@ -340,7 +352,10 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             String fileName2 = newDoc.getFileName();
 
             // save local file
-            File file = writeLocalFile(Files.newInputStream(docFile.toPath()), fileName2);
+            File validatedDocFile = PathValidationUtils.validateUpload(docFile);
+            File file = writeLocalFile(Files.newInputStream(validatedDocFile.toPath()), fileName2);
+            fileName2 = file.getName();
+            newDoc.setFileName(fileName2);
             newDoc.setContentType(this.docFileContentType);
 
             if (fileName2.toLowerCase().endsWith(".pdf")) {
@@ -509,7 +524,10 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             if (updateFileContent) {
                 fileName = MiscUtils.sanitizeFileName(newDoc.getFileName());
                 // save local file
-                writeLocalFile(Files.newInputStream(this.getDocFile().toPath()), fileName);
+                File validatedDocFile = PathValidationUtils.validateUpload(this.getDocFile());
+                File file = writeLocalFile(Files.newInputStream(validatedDocFile.toPath()), fileName);
+                fileName = file.getName();
+                newDoc.setFileName(fileName);
                 if (fileName.toLowerCase().endsWith(".pdf")) {
                     newDoc.setContentType("application/pdf");
                     int numberOfPages = countNumOfPages(fileName);
@@ -563,35 +581,44 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
      * @throws Exception if the output stream cannot be closed
      */
     public static File writeLocalFile(InputStream is, String fileName) throws Exception {
-        FileOutputStream fos = null;
-        File file = null;
-        try {
-            // Validate file path using PathValidationUtils
+        try (InputStream source = is) {
             String docDir = CarlosProperties.getInstance().getDocumentDirectory();
             File baseDirFile = new File(docDir);
-            File validatedFile = PathValidationUtils.validatePath(fileName, baseDirFile);
-            Path savePath = validatedFile.toPath();
+            IOException lastCollision = null;
 
-            // Create the parent directory
-            Files.createDirectories(savePath.getParent());
+            for (int attempt = 0; attempt < PathValidationUtils.MAX_UPLOAD_FILENAME_COLLISION_RETRIES; attempt++) {
+                File validatedFile = PathValidationUtils.validatePath(fileNameWithCollisionSuffix(fileName, attempt), baseDirFile);
+                Path savePath = validatedFile.toPath();
 
-            String savePathStr = savePath.toString();
-            file = new File(savePathStr);
+                Files.createDirectories(savePath.getParent());
 
-            // Set file output stream to the save path 
-            fos = new FileOutputStream(savePathStr);
-            
-            byte[] buf = new byte[128 * 1024];
-            int i = 0;
-            while ((i = is.read(buf)) != -1) {
-                fos.write(buf, 0, i);
+                try (OutputStream fos = Files.newOutputStream(savePath,
+                        StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
+                    byte[] buf = new byte[128 * 1024];
+                    int i = 0;
+                    while ((i = source.read(buf)) != -1) {
+                        fos.write(buf, 0, i);
+                    }
+                    return validatedFile;
+                } catch (FileAlreadyExistsException e) {
+                    lastCollision = e;
+                }
             }
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
-        } finally {
-            if (fos != null) fos.close();
+
+            throw new IOException("Unable to create a unique document filename", lastCollision);
         }
-        return file;
+    }
+
+    private static String fileNameWithCollisionSuffix(String fileName, int attempt) {
+        if (attempt == 0) {
+            return fileName;
+        }
+
+        int extensionIndex = fileName.lastIndexOf('.');
+        if (extensionIndex > 0) {
+            return fileName.substring(0, extensionIndex) + "_" + attempt + fileName.substring(extensionIndex);
+        }
+        return fileName + "_" + attempt;
     }
 
     /**
@@ -652,7 +679,8 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         }
 
         if (selected != null) {
-            this.docFile = new File(selected.getAbsolutePath());
+            this.uploadedDocFile = selected;
+            this.docFile = PathValidationUtils.validateUpload(new File(selected.getAbsolutePath()));
             this.docFileFileName = selected.getOriginalName();
             this.docFileContentType = selected.getContentType();
         }
@@ -673,6 +701,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
     private String source = "";
     private String sourceFacility = "";
     private File docFile;
+    private UploadedFile uploadedDocFile;
 
     private File filedata;
 
@@ -693,6 +722,19 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
 
     private String extraReviewerId = "";
     private boolean extraReviewDoc = false;
+
+    private void deleteUploadedDocFile() {
+        if (uploadedDocFile == null) {
+            return;
+        }
+        try {
+            if (!uploadedDocFile.delete()) {
+                MiscUtils.getLogger().warn("Uploaded document temp file was already removed or could not be deleted");
+            }
+        } finally {
+            uploadedDocFile = null;
+        }
+    }
 
     public String getFunction() {
         return function;

@@ -29,6 +29,7 @@
 
 package io.github.carlos_emr.carlos.util;
 
+import java.io.File;
 import java.io.IOException;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -36,6 +37,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -54,7 +56,13 @@ public class BackupDownload extends GenericDownload {
         try {
             // check the rights - sanitize filename to prevent XSS and path traversal
             String rawFilename = req.getParameter("filename");
-            String filename = rawFilename == null ? null : PathValidationUtils.validateFileName(rawFilename);
+            String filename;
+            try {
+                filename = rawFilename == null ? null : PathValidationUtils.validateFileName(rawFilename);
+            } catch (FileValidationException e) {
+                sendErrorForCaughtException(res, HttpServletResponse.SC_BAD_REQUEST, "Invalid filename parameter.");
+                return;
+            }
             if (filename == null || filename.isBlank()) {
                 sendErrorForCaughtException(res, HttpServletResponse.SC_BAD_REQUEST, "Missing required filename parameter.");
                 return;
@@ -78,10 +86,7 @@ public class BackupDownload extends GenericDownload {
                 return;
             }
 
-            String dir = (String) session.getAttribute("backupfilepath");
-            if (dir == null) {
-                dir = DEFAULT_BACKUP_DIRECTORY;
-            }
+            String dir = resolveBackupDirectory((String) session.getAttribute("backupfilepath"));
 
             download(true, res, dir, filename, null);
         } catch (IOException e) {
@@ -92,8 +97,20 @@ public class BackupDownload extends GenericDownload {
         } catch (Exception e) {
             log.error("Unexpected error in BackupDownload", e);
             sendErrorForCaughtException(res, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
-                    "An internal error occurred. Please try again or contact your system administrator.");
+                    INTERNAL_ERROR_MESSAGE);
         }
+    }
+
+    private String resolveBackupDirectory(String sessionBackupDirectory) throws IOException {
+        boolean usingDefaultDirectory = sessionBackupDirectory == null || sessionBackupDirectory.isBlank();
+        String configuredDirectory = usingDefaultDirectory ? DEFAULT_BACKUP_DIRECTORY : sessionBackupDirectory;
+        File backupDirectory = new File(configuredDirectory).getCanonicalFile();
+
+        if (!usingDefaultDirectory && !backupDirectory.isDirectory()) {
+            throw new SecurityException("Backup download directory is invalid");
+        }
+
+        return usingDefaultDirectory ? DEFAULT_BACKUP_DIRECTORY : backupDirectory.getPath();
     }
 
     private boolean hasBackupDownloadPrivilege(LoggedInInfo loggedInInfo, SecurityInfoManager securityInfoManager) {

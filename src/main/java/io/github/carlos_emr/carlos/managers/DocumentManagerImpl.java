@@ -446,6 +446,7 @@ public class DocumentManagerImpl implements DocumentManager {
         } catch (IOException e) {
             MiscUtils.getLogger().error("Document failed move. Id: " + document.getDocumentNo() + " From: " + fromPath + " To: " + toPath, e);
             LogAction.addLog(loggedInInfo, MOVE_DOCUMENT_LOG_ACTION, "Document failed move ", "Document No." + document.getDocumentNo(), "", fromPath + " to " + toPath);
+            throw new RuntimeException("Document move failed", e);
         } catch (FileValidationException | InvalidPathException e) {
             logger.error("Document move rejected for invalid path. Document No. {}", document.getDocumentNo(), e);
             LogAction.addLog(loggedInInfo, MOVE_DOCUMENT_LOG_ACTION, "Document failed move ", "Document No." + document.getDocumentNo(), "", fromPath + " to " + toPath);
