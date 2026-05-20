@@ -80,15 +80,11 @@ public class BackupDownload extends GenericDownload {
             throw e;
         } catch (SecurityException e) {
             log.warn("SecurityException in BackupDownload", e);
-            if (!res.isCommitted()) {
-                res.sendError(HttpServletResponse.SC_FORBIDDEN, BACKUP_DOWNLOAD_PRIVILEGE_REQUIRED);
-            }
+            sendErrorForCaughtException(res, HttpServletResponse.SC_FORBIDDEN, BACKUP_DOWNLOAD_PRIVILEGE_REQUIRED);
         } catch (Exception e) {
             log.error("Unexpected error in BackupDownload", e);
-            if (!res.isCommitted()) {
-                res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+            sendErrorForCaughtException(res, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
                     "An internal error occurred. Please try again or contact your system administrator.");
-            }
         }
     }
 
@@ -103,5 +99,16 @@ public class BackupDownload extends GenericDownload {
             securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
         }
         return securityInfoManager;
+    }
+
+    private void sendErrorForCaughtException(HttpServletResponse res, int statusCode, String message) {
+        if (res.isCommitted()) {
+            return;
+        }
+        try {
+            res.sendError(statusCode, message);
+        } catch (IOException e) {
+            log.warn("Unable to send BackupDownload error response", e);
+        }
     }
 }
