@@ -84,17 +84,28 @@ class StrutsActionClassReferenceTest {
         dbf.setValidating(false);
         dbf.setNamespaceAware(false);
         dbf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+        setAttributeIfSupported(dbf, XMLConstants.ACCESS_EXTERNAL_DTD, "");
+        setAttributeIfSupported(dbf, XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
         dbf.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
         dbf.setFeature("http://xml.org/sax/features/external-general-entities", false);
         dbf.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-        // Disallow DOCTYPE declarations to avoid XXE-style attacks in this hardened, side-effect-free parser
-        dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+        // Struts config files intentionally declare the project-standard Struts 6.5 DTD.
+        // External DTD loading and entity expansion remain disabled above.
+        dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", false);
         dbf.setXIncludeAware(false);
         dbf.setExpandEntityReferences(false);
         DocumentBuilder db = dbf.newDocumentBuilder();
         db.setEntityResolver((publicId, systemId) ->
                 new InputSource(new java.io.StringReader("")));
         return db;
+    }
+
+    private void setAttributeIfSupported(DocumentBuilderFactory dbf, String name, String value) {
+        try {
+            dbf.setAttribute(name, value);
+        } catch (IllegalArgumentException ignored) {
+            // Some bundled Xerces implementations do not expose JAXP accessExternal* attributes.
+        }
     }
 
     private boolean isFullyQualifiedClassName(String className) {
