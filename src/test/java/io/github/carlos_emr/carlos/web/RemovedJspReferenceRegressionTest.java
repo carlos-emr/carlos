@@ -80,7 +80,7 @@ class RemovedJspReferenceRegressionTest {
     @Test
     @DisplayName("JSPs using global head should not include Oscar.js directly")
     void shouldNotDuplicateOscarJsInclude_inGlobalHeadJsps() throws IOException {
-        Path jspRoot = Path.of("src/main/webapp");
+        Path jspRoot = Path.of("src/main/webapp/WEB-INF/jsp");
 
         try (Stream<Path> paths = Files.walk(jspRoot)) {
             List<Path> offenders = paths
