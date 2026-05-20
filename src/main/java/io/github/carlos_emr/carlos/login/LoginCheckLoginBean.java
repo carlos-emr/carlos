@@ -236,7 +236,7 @@ public final class LoginCheckLoginBean {
         // Fail authentication if user not found in security table
         if (security == null) {
             // Result intentionally ignored; BCrypt cost matches real users to prevent username enumeration.
-            securityManager.validatePassword(password, missingUserDummySecurity());
+            validateDummyPassword();
             return cleanNullObj(LOG_PRE + "No Such User: " + username);
         }
 
@@ -284,6 +284,8 @@ public final class LoginCheckLoginBean {
                 boolean isPasswordUpgraded = this.securityManager.upgradeSavePasswordHash(this.password, this.security);
                 if (!isPasswordUpgraded)
                     logger.error("Error while upgrading password hash");
+            } else {
+                validateDummyPassword();
             }
         }
         // Modern password (>= 20 chars): BCrypt validation
@@ -346,6 +348,10 @@ public final class LoginCheckLoginBean {
         Security dummySecurity = new Security();
         dummySecurity.setPassword(MISSING_USER_DUMMY_PASSWORD_HASH);
         return dummySecurity;
+    }
+
+    private void validateDummyPassword() {
+        securityManager.validatePassword(password == null ? "" : password, missingUserDummySecurity());
     }
 
     /**
@@ -471,7 +477,7 @@ public final class LoginCheckLoginBean {
      */
     public void setPassword(String password) {
         // Preserve legacy space-to-backspace behavior.
-        this.password = password.replace(' ', '\b');
+        this.password = password == null ? "" : password.replace(' ', '\b');
     }
 
     /**
