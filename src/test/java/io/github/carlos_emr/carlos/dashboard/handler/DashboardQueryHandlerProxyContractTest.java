@@ -29,6 +29,7 @@ import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -54,9 +55,11 @@ class DashboardQueryHandlerProxyContractTest {
     @DisplayName("should not declare final methods visible to CGLIB proxies")
     void shouldNotDeclareFinalMethods_forCglibProxiedHandlers() throws ClassNotFoundException {
         List<String> finalMethods = discoverProxiedQueryHandlers().stream()
-                .flatMap(handlerType -> Arrays.stream(handlerType.getDeclaredMethods())
-                        .filter(DashboardQueryHandlerProxyContractTest::isCglibVisibleFinalMethod)
-                        .map(method -> handlerType.getSimpleName() + "#" + method.getName()))
+                .flatMap(handlerType -> proxiedHandlerHierarchy(handlerType)
+                        .flatMap(declaringType -> Arrays.stream(declaringType.getDeclaredMethods())
+                                .filter(DashboardQueryHandlerProxyContractTest::isCglibVisibleFinalMethod)
+                                .map(method -> declaringType.getSimpleName() + "#" + method.getName()
+                                        + " inherited by " + handlerType.getSimpleName())))
                 .toList();
 
         assertThat(finalMethods)
@@ -87,5 +90,15 @@ class DashboardQueryHandlerProxyContractTest {
         }
 
         return handlerTypes;
+    }
+
+    private static Stream<Class<?>> proxiedHandlerHierarchy(Class<?> handlerType) {
+        Stream.Builder<Class<?>> hierarchy = Stream.builder();
+        Class<?> currentType = handlerType;
+        while (currentType != null && AbstractQueryHandler.class.isAssignableFrom(currentType)) {
+            hierarchy.add(currentType);
+            currentType = currentType.getSuperclass();
+        }
+        return hierarchy.build();
     }
 }
