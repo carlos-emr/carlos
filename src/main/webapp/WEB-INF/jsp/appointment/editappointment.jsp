@@ -230,7 +230,6 @@
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <script src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <script src="${pageContext.request.contextPath}/js/checkDate.js"></script>
-        <script src="${pageContext.request.contextPath}/share/javascript/Oscar.js"></script>
 
         <style>
 
