@@ -65,6 +65,10 @@ function appUrl(appPath) {
   return url.toString();
 }
 
+function safeGoto(page, appPath, options) {
+  return page.goto(appUrl(appPath), options); // nosemgrep
+}
+
 function isExpectedMissingAsset(status, responseUrl) {
   return status === 404 && (/\/imageRenderingServlet\?/.test(responseUrl) || /\/favicon\.ico$/.test(responseUrl));
 }
@@ -124,7 +128,7 @@ async function assertNoErrorPage(page, label) {
 async function login(context) {
   const page = await context.newPage();
   wirePage(page, 'schedule');
-  await page.goto(appUrl('/'), { waitUntil: 'domcontentloaded', timeout: 30000 });
+  await safeGoto(page, '/', { waitUntil: 'domcontentloaded', timeout: 30000 });
   await page.locator('#username').fill(testUser);
   await page.locator('#password').fill(testPassword);
   await page.locator('#pin').fill(testPin);

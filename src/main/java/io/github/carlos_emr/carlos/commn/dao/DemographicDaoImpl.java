@@ -412,7 +412,7 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
             return q.getResultList();
     }
 
-    private final String PROGRAM_DOMAIN_RESTRICTION = "select distinct a.clientId from ProgramProvider pp,Admission a WHERE pp.programId=a.programId AND pp.providerNo=:providerNo";
+    private static final String PROGRAM_DOMAIN_RESTRICTION = "select distinct a.clientId from ProgramProvider pp,Admission a WHERE pp.programId=a.programId AND pp.providerNo=:providerNo";
 
     @Override
     public List<Demographic> searchDemographicByName(String searchStr, int limit, int offset, String providerNo,

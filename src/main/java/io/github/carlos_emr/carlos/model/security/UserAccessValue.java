@@ -90,6 +90,7 @@ public class UserAccessValue implements Serializable {
     public void setOrgCdcsv(String cdcsv) {
         orgCdcsv = cdcsv;
     }
+    @jakarta.persistence.Id
     @jakarta.persistence.Column(name = "provider_no")
 
     public String getProviderNo() {
@@ -100,19 +101,23 @@ public class UserAccessValue implements Serializable {
         this.providerNo = providerNo;
     }
 
+    @Override
     public int hashCode() {
-        return Objects.hash(functionCd, orgCd);
+        return Objects.hash(functionCd, orgCd, providerNo);
     }
 
+    @Override
     public boolean equals(Object uv) {
         if (this == uv) return true;
         if (!(uv instanceof UserAccessValue uv1)) return false;
-        return Objects.equals(this.functionCd, uv1.functionCd) && Objects.equals(this.orgCd, uv1.orgCd);
+        return Objects.equals(this.functionCd, uv1.functionCd) && Objects.equals(this.orgCd, uv1.orgCd)
+                && Objects.equals(this.providerNo, uv1.providerNo);
     }
 
     public static class JpaId implements java.io.Serializable {
         public String functionCd;
         public String orgCd;
+        public String providerNo;
 
         public JpaId() {
         }
@@ -133,16 +138,25 @@ public class UserAccessValue implements Serializable {
             this.orgCd = orgCd;
         }
 
+        public String getProviderNo() {
+            return providerNo;
+        }
+
+        public void setProviderNo(String providerNo) {
+            this.providerNo = providerNo;
+        }
+
         @Override
         public boolean equals(Object o) {
             if (this == o) return true;
             if (!(o instanceof JpaId other)) return false;
-            return java.util.Objects.equals(functionCd, other.functionCd) && java.util.Objects.equals(orgCd, other.orgCd);
+            return java.util.Objects.equals(functionCd, other.functionCd) && java.util.Objects.equals(orgCd, other.orgCd)
+                    && java.util.Objects.equals(providerNo, other.providerNo);
         }
 
         @Override
         public int hashCode() {
-            return java.util.Objects.hash(functionCd, orgCd);
+            return java.util.Objects.hash(functionCd, orgCd, providerNo);
         }
     }
 }

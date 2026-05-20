@@ -1,6 +1,5 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
-import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
@@ -59,8 +58,8 @@ public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailL
      *
      * <p>This method executes a complex JPQL query joining EmailLog with related entities
      * (EmailConfig, Demographic, Provider) to provide comprehensive filtering capabilities.
-     * Filter parameters use IFNULL semantics, meaning null values are treated as wildcards
-     * that match all records for that criterion.</p>
+     * Optional filter parameters treat null, blank, and invalid demographic/status values as
+     * wildcards that match all records for that criterion.</p>
      *
      * <p>Primary use case: Administrative email management interface at
      * 'Admin > Emails > Manage Emails' for troubleshooting failed deliveries,
@@ -77,9 +76,9 @@ public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailL
      *
      * @param dateBegin Date the start date for filtering email logs (required, matches DATE portion only)
      * @param dateEnd Date the end date for filtering email logs (required, matches DATE portion only)
-     * @param demographicNo String the demographic number for filtering by patient (null matches all)
+     * @param demographicNo String the demographic number for filtering by patient (null, blank, or invalid matches all)
      * @param senderEmailAddress String the sender email address for filtering (null matches all)
-     * @param emailStatus String the email status for filtering (SUCCESS/FAILED/RESOLVED, null matches all)
+     * @param emailStatus String the email status for filtering (SUCCESS/FAILED/RESOLVED; null, blank, or invalid matches all)
      * @return List&lt;EmailLog&gt; list of email logs matching the specified filters, ordered by timestamp descending;
      *         empty list if no matches found
      */
@@ -117,7 +116,7 @@ public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailL
         try {
             return Integer.valueOf(demographicNo.trim());
         } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("demographicNo must be numeric", e);
+            return null;
         }
     }
 
@@ -128,8 +127,7 @@ public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailL
         try {
             return EmailLog.EmailStatus.valueOf(emailStatus.trim());
         } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("emailStatus must be one of: "
-                    + Arrays.toString(EmailLog.EmailStatus.values()), e);
+            return null;
         }
     }
 

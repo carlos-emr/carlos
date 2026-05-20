@@ -354,11 +354,11 @@ public class Provider extends AbstractModel<String> implements Comparable<Provid
     @jakarta.persistence.Column(name = "signed_confidentiality")
 
     public Date getSignedConfidentiality() {
-        return this.signedConfidentiality;
+        return this.signedConfidentiality == null ? null : new Date(this.signedConfidentiality.getTime());
     }
 
     public void setSignedConfidentiality(Date signedConfidentiality) {
-        this.signedConfidentiality = signedConfidentiality;
+        this.signedConfidentiality = signedConfidentiality == null ? null : new Date(signedConfidentiality.getTime());
     }
     @jakarta.persistence.Column(name = "title")
 

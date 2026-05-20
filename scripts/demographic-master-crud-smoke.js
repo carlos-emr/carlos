@@ -15,12 +15,13 @@
  *   CARLOS_PIN=2026
  *   HEADLESS=false
  *   KEEP_OPEN=true
+ *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
 const { chromium } = require('playwright');
 
 const config = {
-  baseUrl: process.env.BASE_URL || 'http://localhost:8080/carlos',
+  baseUrl: validateBaseUrl(process.env.BASE_URL || 'http://localhost:8080/carlos'),
   username: process.env.CARLOS_USER || 'carlosdoc',
   password: process.env.CARLOS_PASSWORD || 'carlos2026',
   pin: process.env.CARLOS_PIN || '2026',
@@ -50,6 +51,37 @@ const patient = {
 const findings = [];
 const results = [];
 
+function validateBaseUrl(rawBaseUrl) {
+  const parsed = new URL(rawBaseUrl);
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
+  }
+
+  const host = parsed.hostname.toLowerCase();
+  const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
+  const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
+  if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
+    throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
+  }
+  parsed.pathname = parsed.pathname.replace(/\/$/, '');
+  return parsed;
+}
+
+function appUrl(appPath) {
+  if (!appPath.startsWith('/') || appPath.startsWith('//')) {
+    throw new Error(`Application path must be root-relative, got ${appPath}`);
+  }
+  const relative = new URL(appPath, 'http://localhost');
+  const url = new URL(config.baseUrl.href);
+  url.pathname = `${config.baseUrl.pathname}${relative.pathname}`.replace(/\/{2,}/g, '/');
+  url.search = relative.search;
+  return url.toString();
+}
+
+function safeGoto(page, appPath, options) {
+  return page.goto(appUrl(appPath), options); // nosemgrep
+}
+
 function record(status, label, detail) {
   results.push({ status, label, detail });
   const suffix = detail ? ` - ${detail}` : '';
@@ -77,7 +109,7 @@ async function fillIfPresent(page, selector, value) {
     if (visible) {
       await locator.fill(value);
     } else {
-      await locator.evaluate((element, newValue) => {
+      await locator.evaluate((element, newValue) => { // nosemgrep
         element.value = newValue;
         element.dispatchEvent(new Event('input', { bubbles: true }));
         element.dispatchEvent(new Event('change', { bubbles: true }));
@@ -114,7 +146,7 @@ async function selectIfPresent(page, selector, value, options = {}) {
 }
 
 async function login(page) {
-  await page.goto(`${config.baseUrl}/`, { waitUntil: 'domcontentloaded' });
+  await safeGoto(page, '/', { waitUntil: 'domcontentloaded' });
   await page.locator('#username').fill(config.username);
   await page.locator('#password').fill(config.password);
   if (await page.locator('#pin').count()) {
@@ -199,7 +231,7 @@ async function createDemographic(searchPage) {
   let hasErrorPage = /CARLOS has encountered an unexpected error|HTTP Status 500|Exception Report/i.test(body);
   if (hasErrorPage) {
     fail('submit create demographic', `post-create flow reached error page at ${searchPage.url()}: ${body.slice(0, 300).replace(/\s+/g, ' ')}`);
-    await searchPage.goto(`${config.baseUrl}/demographic/DemographicSearch?search_mode=search_name&keyword=${encodeURIComponent(patient.lastName)}&orderby=last_name%2C+first_name&dboperation=search_titlename&limit1=0&limit2=10&displaymode=Search&ptstatus=all&fromMessenger=false&outofdomain=`, {
+    await safeGoto(searchPage, `/demographic/DemographicSearch?search_mode=search_name&keyword=${encodeURIComponent(patient.lastName)}&orderby=last_name%2C+first_name&dboperation=search_titlename&limit1=0&limit2=10&displaymode=Search&ptstatus=all&fromMessenger=false&outofdomain=`, {
       waitUntil: 'domcontentloaded',
     });
     await searchPage.waitForTimeout(1000);
@@ -231,7 +263,7 @@ async function openEditMode(page) {
 }
 
 async function readDemographic(searchPage, demographicNo) {
-  await searchPage.goto(`${config.baseUrl}/demographic/DemographicEdit?demographic_no=${demographicNo}`, {
+  await safeGoto(searchPage, `/demographic/DemographicEdit?demographic_no=${encodeURIComponent(demographicNo)}`, {
     waitUntil: 'domcontentloaded',
   });
   await searchPage.waitForTimeout(1000);
@@ -272,7 +304,7 @@ async function updateDemographic(searchPage, demographicNo) {
   await searchPage.waitForTimeout(1500);
   if (!await expectNoErrorPage(searchPage, 'submit demographic update')) return false;
 
-  await searchPage.goto(`${config.baseUrl}/demographic/DemographicEdit?demographic_no=${demographicNo}`, {
+  await safeGoto(searchPage, `/demographic/DemographicEdit?demographic_no=${encodeURIComponent(demographicNo)}`, {
     waitUntil: 'domcontentloaded',
   });
   await searchPage.waitForTimeout(1000);
@@ -287,7 +319,7 @@ async function updateDemographic(searchPage, demographicNo) {
 }
 
 async function inactivateDemographic(searchPage, demographicNo) {
-  await searchPage.goto(`${config.baseUrl}/demographic/DemographicEdit?demographic_no=${demographicNo}`, {
+  await safeGoto(searchPage, `/demographic/DemographicEdit?demographic_no=${encodeURIComponent(demographicNo)}`, {
     waitUntil: 'domcontentloaded',
   });
   await searchPage.waitForTimeout(1000);
@@ -310,7 +342,7 @@ async function inactivateDemographic(searchPage, demographicNo) {
   await searchPage.waitForTimeout(1500);
   if (!await expectNoErrorPage(searchPage, 'submit demographic inactivation')) return false;
 
-  await searchPage.goto(`${config.baseUrl}/demographic/DemographicEdit?demographic_no=${demographicNo}`, {
+  await safeGoto(searchPage, `/demographic/DemographicEdit?demographic_no=${encodeURIComponent(demographicNo)}`, {
     waitUntil: 'domcontentloaded',
   });
   await searchPage.waitForTimeout(1000);
@@ -331,7 +363,7 @@ async function returnToDemographicSearch(searchPage) {
       backLink.click(),
     ]);
   } else {
-    await searchPage.goto(`${config.baseUrl}/demographic/ViewSearch`, { waitUntil: 'domcontentloaded' });
+    await safeGoto(searchPage, '/demographic/ViewSearch', { waitUntil: 'domcontentloaded' });
   }
   await searchPage.waitForTimeout(1000);
   await expectNoErrorPage(searchPage, 'return to demographic search form');
