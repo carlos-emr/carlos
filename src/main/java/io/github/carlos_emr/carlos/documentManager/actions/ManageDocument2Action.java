@@ -941,6 +941,10 @@ public class ManageDocument2Action extends ActionSupport {
         response.setContentType(contentType);
         // Preserve the inline filename for both uploaded HTML and binary document display paths.
         response.setHeader("Content-Disposition", "inline; filename=\"" + sanitizeHeaderValue(filename) + "\"");
+        if (contentBytes == null) {
+            response.setContentLength(0);
+            return;
+        }
         if (RequestNegotiation.isHtmlContentType(contentType)) {
             response.setCharacterEncoding(StandardCharsets.UTF_8.name());
             // Stored HTML document file (text/html content-type). Rendering the file contents as
