@@ -173,7 +173,7 @@ public class TicklersDaoImpl extends AbstractDaoImpl<Tickler> implements Tickler
             } else if (orderby.equals("status")) {
                 sql.append(" order by t.status " + sort);
             } else {
-                sql.append(" order by t.serviceDate Asc ");
+                sql.append(" order by t.serviceDate " + sort);
             }
         }
         return sql;
