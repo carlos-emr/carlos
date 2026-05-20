@@ -88,6 +88,7 @@
 
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title><fmt:message key="inboxmanager.documentsInQueues"/></title>
 
     <link rel="stylesheet" type="text/css"

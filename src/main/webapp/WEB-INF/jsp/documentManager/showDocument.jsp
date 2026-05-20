@@ -293,8 +293,9 @@
 
 <c:if test="${param.inWindow eq 'true'}">
 <!DOCTYPE html>
-<html lang="en">
+<html lang="${pageContext.request.locale.language}">
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title><fmt:message key="global.Document"/></title>
     <script type="text/javascript">
         const ctx = "${pageContext.servletContext.contextPath}";

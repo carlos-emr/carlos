@@ -27,7 +27,9 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.FileInputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -57,9 +59,15 @@ class StrutsClinicalConfigTest {
             "src/main/webapp/WEB-INF/classes/struts-clinical.xml";
     private static final String ENCOUNTER_CONFIG =
             "src/main/webapp/WEB-INF/classes/struts-encounter.xml";
+    private static final String SCHEDULING_CONFIG =
+            "src/main/webapp/WEB-INF/classes/struts-scheduling.xml";
 
     private static final String VIEW_CLINICAL_CLASS =
             "io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action";
+    private static final String ECT_MEASUREMENTS_CLASS =
+            "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action";
+    private static final String FLOWSHEET_CUSTOM_CLASS =
+            "io.github.carlos_emr.carlos.commn.web.FlowSheetCustom2Action";
 
     /**
      * Sanity lower bound: PR #1682 introduced ~129 {@code ViewClinical2Action}
@@ -204,6 +212,51 @@ class StrutsClinicalConfigTest {
                 .isEmpty();
     }
 
+    @Test
+    @DisplayName("measurement submission view should only be reached after POST-only measurement actions")
+    void shouldRouteMeasurementSubmissionThroughPostOnlyActions() throws Exception {
+        Document clinical = parse(CLINICAL_CONFIG);
+        NodeList clinicalActions = clinical.getElementsByTagName("action");
+        Set<String> sharedGateOffenders = new LinkedHashSet<>();
+        for (int i = 0; i < clinicalActions.getLength(); i++) {
+            Element action = (Element) clinicalActions.item(i);
+            if (!VIEW_CLINICAL_CLASS.equals(action.getAttribute("class"))) {
+                continue;
+            }
+            NodeList results = action.getElementsByTagName("result");
+            for (int r = 0; r < results.getLength(); r++) {
+                if ("/WEB-INF/jsp/encounter/oscarMeasurements/ProcessMeasurementsSubmission.jsp"
+                        .equals(extractResultPath((Element) results.item(r)))) {
+                    sharedGateOffenders.add(action.getAttribute("name"));
+                }
+            }
+        }
+
+        assertThat(sharedGateOffenders)
+                .as("ProcessMeasurementsSubmission.jsp must only be reachable through POST-only measurement "
+                        + "actions, never through the shared read gate")
+                .isEmpty();
+
+        assertActionClass(ENCOUNTER_CONFIG, "encounter/Measurements", ECT_MEASUREMENTS_CLASS);
+        assertActionClass(ENCOUNTER_CONFIG, "encounter/Measurements2", ECT_MEASUREMENTS_CLASS);
+        assertActionClass(SCHEDULING_CONFIG, "encounter/oscarMeasurements/adminFlowsheet/FlowSheetCustomAction",
+                FLOWSHEET_CUSTOM_CLASS);
+    }
+
+    @Test
+    @DisplayName("flowsheet customization errors should re-render the flowsheet editor")
+    void shouldRouteFlowsheetCustomizationErrors_toEditorJsp() throws Exception {
+        Element action = findAction(SCHEDULING_CONFIG,
+                "encounter/oscarMeasurements/adminFlowsheet/FlowSheetCustomAction");
+
+        assertThat(action.getAttribute("class")).isEqualTo(FLOWSHEET_CUSTOM_CLASS);
+        assertThat(resultPath(action, "success"))
+                .isEqualTo("/WEB-INF/jsp/encounter/oscarMeasurements/adminFlowsheet/EditFlowsheet.jsp");
+        assertThat(resultPath(action, "error"))
+                .as("FlowSheetCustom2Action sets request attribute errorMessage; EditFlowsheet.jsp renders it")
+                .isEqualTo("/WEB-INF/jsp/encounter/oscarMeasurements/adminFlowsheet/EditFlowsheet.jsp");
+    }
+
     private String extractResultPath(Element result) {
         // Results may specify their location either as element text or via
         // <param name="location">. Prefer the param form when present since
@@ -232,6 +285,36 @@ class StrutsClinicalConfigTest {
             }
         }
         return out;
+    }
+
+    private void assertActionClass(String configPath, String actionName, String expectedClass) throws Exception {
+        Element action = findAction(configPath, actionName);
+        assertThat(action.getAttribute("class"))
+                .as("%s should route through %s", actionName, expectedClass)
+                .isEqualTo(expectedClass);
+    }
+
+    private Element findAction(String configPath, String actionName) throws Exception {
+        Document doc = parse(configPath);
+        NodeList actions = doc.getElementsByTagName("action");
+        for (int i = 0; i < actions.getLength(); i++) {
+            Element action = (Element) actions.item(i);
+            if (actionName.equals(action.getAttribute("name"))) {
+                return action;
+            }
+        }
+        throw new AssertionError("Missing action " + actionName + " in " + configPath);
+    }
+
+    private String resultPath(Element action, String resultName) {
+        NodeList results = action.getElementsByTagName("result");
+        for (int i = 0; i < results.getLength(); i++) {
+            Element result = (Element) results.item(i);
+            if (resultName.equals(result.getAttribute("name"))) {
+                return extractResultPath(result);
+            }
+        }
+        return null;
     }
 
     private Document parse(String configPath) throws Exception {

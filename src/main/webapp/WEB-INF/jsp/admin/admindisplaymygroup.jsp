@@ -58,6 +58,7 @@
 <!DOCTYPE html>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
 
         <title><fmt:message key="admin.admindisplaymygroup.title"/></title>
 

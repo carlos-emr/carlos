@@ -51,6 +51,7 @@
 <fmt:message key="oscarMDS.createLab.confirmSave" var="confirmSaveMsg"/>
 <html lang="<%= request.getLocale().toLanguageTag() %>">
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <meta charset="UTF-8">
     <title><fmt:message key="global.createLab"/></title>
     <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>

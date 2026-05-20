@@ -35,6 +35,7 @@
 
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
     <title>CARLOS Billing</title>
     <script language="JavaScript">

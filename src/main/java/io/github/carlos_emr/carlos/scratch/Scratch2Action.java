@@ -83,10 +83,12 @@ public class Scratch2Action extends JSONAction {
             }
             return SUCCESS;
         }
+        if ("GET".equalsIgnoreCase(request.getMethod())) {
+            return "success";
+        }
 
         String providerNo =  (String) request.getSession().getAttribute("user");
         String pNo = request.getParameter("providerNo");
-
         if (providerNo == null || providerNo.trim().isEmpty()) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             return null;
@@ -166,9 +168,13 @@ public class Scratch2Action extends JSONAction {
 			jsonResponse(jsonObject);
 
         }else {
-			MiscUtils.getLogger().warn("Scratch pad trying to save data for user {} but session user is {}",
+			MiscUtils.getLogger().error("Scratch pad trying to save data for user {} but session user is {}",
 				Encode.forJava(pNo), Encode.forJava(providerNo));
 			response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            ObjectNode jsonObject = objectMapper.createObjectNode();
+            jsonObject.put("success", false);
+            jsonObject.put("message", "Provider mismatch");
+            jsonResponse(jsonObject);
         }
         
         return null;      

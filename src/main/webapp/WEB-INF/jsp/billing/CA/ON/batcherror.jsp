@@ -31,6 +31,7 @@
 
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title>Batch Saved</title>
 
     <script type="text/javascript">

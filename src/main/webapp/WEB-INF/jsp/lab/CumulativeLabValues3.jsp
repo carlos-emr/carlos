@@ -218,6 +218,7 @@
 <!DOCTYPE html>
 <html lang="${pageContext.request.locale.language}">
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <meta charset="UTF-8">
     <title><fmt:message key="lab.cumulativeLab3.pageTitle"/></title>
     <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>

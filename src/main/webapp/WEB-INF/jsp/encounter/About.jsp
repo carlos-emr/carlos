@@ -34,6 +34,7 @@
 
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title>About CARLOS EMR</title>
 
         <style type="text/css">

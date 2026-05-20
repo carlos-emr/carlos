@@ -43,6 +43,7 @@
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title>BILLING HISTORY</title>
     <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap -->
     <script src="${pageContext.request.contextPath}/js/global.js"></script>
