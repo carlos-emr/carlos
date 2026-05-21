@@ -115,6 +115,10 @@ public class LogoutBroadcastFilter implements Filter {
     /** Default inactivity limit in minutes when INACTIVITY_LIMIT_MINS is not configured. */
     private static final int DEFAULT_INACTIVITY_LIMIT_MINS = 60;
 
+    /** Request marker used to avoid duplicate server-side injection across REQUEST/FORWARD dispatches. */
+    private static final String SCRIPT_INJECTED_REQUEST_ATTRIBUTE =
+            LogoutBroadcastFilter.class.getName() + ".scriptInjected";
+
     private Set<String> exclusions = Collections.synchronizedSet(new HashSet<String>());
 
     /**
@@ -188,6 +192,12 @@ public class LogoutBroadcastFilter implements Filter {
         chain.doFilter(request, delegatingResponse);
         delegatingResponse.markChainComplete();
 
+        if (Boolean.TRUE.equals(httpRequest.getAttribute(SCRIPT_INJECTED_REQUEST_ATTRIBUTE))) {
+            delegatingResponse.discardDeferredContentLength();
+            delegatingResponse.completeWithoutInjection();
+            return;
+        }
+
         HttpSession session = httpRequest.getSession(false);
         if (session == null || session.getAttribute("user") == null) {
             delegatingResponse.completeWithoutInjection();
@@ -219,6 +229,7 @@ public class LogoutBroadcastFilter implements Filter {
         try {
             delegatingResponse.discardDeferredContentLength();
             appendScript(delegatingResponse, httpRequest.getContextPath(), httpRequest.getLocale());
+            httpRequest.setAttribute(SCRIPT_INJECTED_REQUEST_ATTRIBUTE, Boolean.TRUE);
         } catch (IOException e) {
             logger.error("Skipping logout broadcast script injection because the script could not be written: uri={}",
                     safeRequestUri, e);
@@ -491,10 +502,6 @@ public class LogoutBroadcastFilter implements Filter {
                 "var loginUrl=cp+'/index';" +
                 "var done=false;" +
                 "var logoutMsg='" + SafeEncode.forJavaScript(getLoggedOutMessage(locale)) + "';" +
-                // Grace period: ignore logout broadcasts for 5s after page load
-                // to prevent stale broadcasts from prior sessions causing immediate logout
-                "var ready=false;setTimeout(function(){ready=true},5000);" +
-
                 // BroadcastChannel listener (feature detection — may not exist in all browsers)
                 "var bc;" +
                 "try{bc=new BroadcastChannel('carlos_logout')}catch(e){}" +
@@ -537,8 +544,7 @@ public class LogoutBroadcastFilter implements Filter {
                 "dL()}" +
 
                 // handleLogout — received broadcast from another window
-                // Ignore during grace period to prevent stale broadcasts from causing logout loops
-                "function hL(){if(done||!ready)return;done=true;dL()}" +
+                "function hL(){if(done)return;done=true;dL()}" +
 
                 // doLogout — show logged-out overlay, close popup or redirect tab to login
                 "function dL(){" +

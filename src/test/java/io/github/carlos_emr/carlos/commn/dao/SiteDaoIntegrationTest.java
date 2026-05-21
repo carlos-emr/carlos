@@ -123,7 +123,8 @@ public class SiteDaoIntegrationTest extends CarlosTestBase {
 
             // Create a provider
             Provider p = new Provider();
-            p.setProviderNo("000001");
+            int providerNumber = Math.floorMod(siteId1, 999_999) + 1;
+            p.setProviderNo(String.format("%06d", providerNumber));
             p.setLastName("Smith");
             p.setFirstName("John");
             p.setProviderType("doctor");

@@ -32,6 +32,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.CacheManager;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -59,6 +60,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("cache")
 @Tag("security")
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
+@Isolated
 class SecProviderDaoCacheIntegrationTest extends CarlosTestBase {
 
     @Autowired
