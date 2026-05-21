@@ -26,7 +26,7 @@
     Contains action mappings for login, logout, MFA, security records, and facility selection.
 -->
 <struts>
-    <package name="login" namespace="/" extends="struts-default">
+    <package name="login" namespace="/" extends="struts-default" strict-method-invocation="true">
 
         <action name="index" class="io.github.carlos_emr.carlos.login.gate.ViewPublicPage2Action">
             <result name="success">/WEB-INF/jsp/login/index.jsp</result>

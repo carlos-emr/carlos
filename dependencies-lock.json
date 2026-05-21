@@ -2580,6 +2580,14 @@
     "integrity" : "sha512:RNv9bYbYBRSc+fW+ELOVbpSjYUyVGjzrgNB2b2fSa1wfZAccB5pFTNVEQuDym9AoV9OOTB6Y3L/6yeSrNVowFg=="
   }, {
     "groupId" : "org.drools",
+    "artifactId" : "drools-mvel",
+    "version" : "10.1.0",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:55Atyd0upHpqcuGbsXfk+T0uLb0/0eNuYFjXeX/YB1YFEbxR7UhZO1e8auNG1ginAETXHxQ/C13zOiM9ro3rRw=="
+  }, {
+    "groupId" : "org.drools",
     "artifactId" : "drools-tms",
     "version" : "10.1.0",
     "scope" : "compile",
@@ -3051,6 +3059,14 @@
     "type" : "jar",
     "optional" : false,
     "integrity" : "sha512:90mDci/+QO5MacoNk4c6KTNfZhnR5TasQLu1IqTUiPy0Vq7mbxzeoXTEPjZDkWKORmvv1qlnkQ0oa2CNs8Hmcg=="
+  }, {
+    "groupId" : "org.mvel",
+    "artifactId" : "mvel2",
+    "version" : "2.5.2.Final",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:FhhRV3ZbmovV0DXGiwMwoN5ZJ6Oici+AHqKX1Eer5kHQ1I5KYGji/txwHElTP4Xt2AtrKSHwMRpRjEk1VSoxlQ=="
   }, {
     "groupId" : "org.objenesis",
     "artifactId" : "objenesis",

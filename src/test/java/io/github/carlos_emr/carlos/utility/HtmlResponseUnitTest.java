@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 
+import org.apache.struts2.ActionSupport;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -35,8 +36,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Unit tests for {@link HtmlResponse}.
- *
- * @since 2026-05-20
  */
 @DisplayName("HtmlResponse Unit Tests")
 @Tag("unit")
@@ -124,6 +123,41 @@ class HtmlResponseUnitTest {
         assertThat(response.getContentType()).isEqualTo("text/html;charset=UTF-8");
         assertThat(response.getCharacterEncoding()).isEqualTo(StandardCharsets.UTF_8.name());
         assertThat(response.getContentAsString()).isEqualTo("<html><body>fallback</body></html>");
+    }
+
+    @Test
+    @DisplayName("should replace malformed charset header with fallback charset")
+    void shouldReplaceMalformedCharsetHeader_withFallbackCharset() throws Exception {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        HtmlResponse.writeStoredHtml(response, "text/html; charset=bad charset", "<html></html>");
+
+        assertThat(response.getContentType()).isEqualTo("text/html;charset=UTF-8");
+        assertThat(response.getCharacterEncoding()).isEqualTo(StandardCharsets.UTF_8.name());
+    }
+
+    @Test
+    @DisplayName("should default content type when content type is null")
+    void shouldDefaultContentType_whenContentTypeIsNull() throws Exception {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        String result = HtmlResponse.of(null, "<html><body>default</body></html>").writeTo(response);
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getContentType()).isEqualTo("text/html;charset=UTF-8");
+        assertThat(response.getContentAsString()).isEqualTo("<html><body>default</body></html>");
+    }
+
+    @Test
+    @DisplayName("should preserve writer-backed response when body is null")
+    void shouldPreserveWriterBackedResponse_whenBodyIsNull() throws Exception {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        String result = HtmlResponse.of("text/html", (byte[]) null).writeTo(response);
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getContentType()).isEqualTo("text/html;charset=UTF-8");
+        assertThat(response.getContentAsString()).isEmpty();
     }
 
     private static final class CloseTrackingInputStream extends ByteArrayInputStream {

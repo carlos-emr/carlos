@@ -1168,7 +1168,7 @@
     fetchCsrfToken('<carlos:encode value='<%= request.getContextPath() %>' context="javaScriptBlock"/>');
 
 </script>
-<jsp:include page="/images/spinner.jsp"/>
+<jsp:include page="/WEB-INF/jsp/includes/spinner.jspf"/>
 <c:if test="${param.inWindow eq 'true'}">
     </body>
     </html>

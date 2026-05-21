@@ -25,6 +25,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -49,6 +50,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
@@ -62,8 +64,6 @@ import static org.mockito.Mockito.when;
  * prevention-specific exception that allows {@code vaccine-brands.json} to be
  * served to users with {@code _prevention} read access even when they do not
  * have general {@code _eform} read access.</p>
- *
- * @since 2026-04-21
  */
 @DisplayName("DisplayImage2Action Unit Tests")
 @Tag("unit")
@@ -214,6 +214,44 @@ class DisplayImage2ActionTest extends CarlosUnitTestBase {
             assertThat(trackingResponse.getContentAsString()).isEqualTo("<html><body>form</body></html>");
             verify(trackingResponse).getWriter();
             verify(trackingResponse, never()).getOutputStream();
+        }
+
+        @Test
+        @DisplayName("should send error when binary stream cannot be opened")
+        void shouldSendError_whenBinaryStreamCannotBeOpened() throws Exception {
+            mockRequest.setParameter("imagefile", "custom.json");
+            Files.writeString(tempDir.resolve("custom.json"), "{\"ok\":true}", StandardCharsets.UTF_8);
+            MockHttpServletResponse trackingResponse = spy(new MockHttpServletResponse());
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(trackingResponse);
+            action = new DisplayImage2Action();
+
+            when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_eform"), eq("r"), isNull()))
+                    .thenReturn(true);
+            doThrow(new java.io.IOException("stream unavailable")).when(trackingResponse).getOutputStream();
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(trackingResponse.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        }
+
+        @Test
+        @DisplayName("should send error when HTML writer cannot be acquired")
+        void shouldSendError_whenHtmlWriterCannotBeAcquired() throws Exception {
+            mockRequest.setParameter("imagefile", "custom.html");
+            Files.writeString(tempDir.resolve("custom.html"), "<html><body>form</body></html>", StandardCharsets.UTF_8);
+            MockHttpServletResponse trackingResponse = spy(new MockHttpServletResponse());
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(trackingResponse);
+            action = new DisplayImage2Action();
+
+            when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_eform"), eq("r"), isNull()))
+                    .thenReturn(true);
+            doThrow(new IllegalStateException("writer unavailable")).when(trackingResponse).getWriter();
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(trackingResponse.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         }
 
         @Test

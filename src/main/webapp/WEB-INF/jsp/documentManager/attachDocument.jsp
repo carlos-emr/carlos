@@ -266,7 +266,7 @@
         }
 
         function getPdf(attachmentName, attachmentId, parameters) {
-            // Please include "<%=request.getContextPath()%>/images/spinner.jsp" into the parent page to control the visibility of the spinner (show/hide).
+            // Please include "<%=request.getContextPath()%>/WEB-INF/jsp/includes/spinner.jspf" into the parent page to control the visibility of the spinner (show/hide).
             ShowSpin(true);
             const base64Data = getPdfAttachment(attachmentName, attachmentId);
             if (base64Data !== null) {
