@@ -4,6 +4,7 @@ import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDao;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.PrintWriter;
@@ -25,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 
 @Tag("unit")
 class ManageDocument2ActionTest extends CarlosUnitTestBase {
@@ -120,13 +122,26 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldSanitizeContentDispositionFilename() throws Exception {
+    void shouldSanitizeFilename_whenBuildingContentDispositionHeader() throws Exception {
         Method sanitize = ManageDocument2Action.class.getDeclaredMethod("sanitizeHeaderValue", String.class);
         sanitize.setAccessible(true);
 
         String sanitized = (String) sanitize.invoke(action, "chart\r\nContent-Length: 0.pdf");
 
         assertThat(sanitized).isEqualTo("chartContent-Length: 0.pdf");
+    }
+
+    @Test
+    void shouldLogWarning_whenProviderRoutingDenied() throws Exception {
+        doThrow(new SecurityException("missing _edoc")).when(providerInboxRoutingDao)
+                .addToProviderInbox("999998", 42, LabResultData.DOCUMENT);
+        Method route = ManageDocument2Action.class.getDeclaredMethod(
+                "routeDocumentToProviders", String[].class, String.class, String.class);
+        route.setAccessible(true);
+
+        route.invoke(action, new String[] { "999998" }, "42", "100");
+
+        verify(providerInboxRoutingDao).addToProviderInbox("999998", 42, LabResultData.DOCUMENT);
     }
 
     private static final class CommittedFailingResponse extends MockHttpServletResponse {

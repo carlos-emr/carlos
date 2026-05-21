@@ -1245,21 +1245,7 @@ public class ManageDocument2Action extends ActionSupport {
             LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
 
 
-            if (flagproviders != null && flagproviders.length > 0) {
-                try {
-                    for (String proNo : flagproviders) {
-                        // Sanitize provider number to prevent any potential header injection
-                        // Provider numbers should only contain alphanumeric characters
-                        if (proNo != null && proNo.matches("^[a-zA-Z0-9_-]+$")) {
-                            providerInboxRoutingDAO.addToProviderInbox(proNo, Integer.parseInt(doc_no), LabResultData.DOCUMENT);
-                        } else {
-                            log.warn("Invalid provider number format: {}", LogSafe.sanitize(proNo)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
-                        }
-                    }
-                } catch (Exception e) {
-                    MiscUtils.getLogger().error("Error", e);
-                }
-            }
+            routeDocumentToProviders(flagproviders, doc_no, demographic_no);
 
             //Check to see if we have to route document to patient
             PatientLabRoutingDao patientLabRoutingDao = SpringUtils.getBean(PatientLabRoutingDao.class);
@@ -1289,6 +1275,29 @@ public class ManageDocument2Action extends ActionSupport {
         }
 
         return "nextIncomingDoc";
+    }
+
+    private void routeDocumentToProviders(String[] flagproviders, String docNo, String demographicNo) {
+        if (flagproviders == null || flagproviders.length == 0) {
+            return;
+        }
+
+        try {
+            for (String proNo : flagproviders) {
+                // Sanitize provider number to prevent any potential header injection.
+                if (proNo != null && proNo.matches("^[a-zA-Z0-9_-]+$")) {
+                    providerInboxRoutingDAO.addToProviderInbox(proNo, Integer.parseInt(docNo), LabResultData.DOCUMENT);
+                } else {
+                    log.warn("Invalid provider number format: {}", LogSafe.sanitize(proNo)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                }
+            }
+        } catch (SecurityException e) {
+            log.warn("Provider routing denied for document {} and demographic {}: {}",
+                    LogSafe.sanitize(docNo), LogSafe.sanitize(demographicNo), LogSafe.sanitize(e.getMessage())); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+        } catch (Exception e) {
+            log.error("Provider routing failed for document {} and demographic {}",
+                    LogSafe.sanitize(docNo), LogSafe.sanitize(demographicNo), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+        }
     }
 
     /**

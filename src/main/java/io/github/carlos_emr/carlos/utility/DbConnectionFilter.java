@@ -32,7 +32,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.WeakHashMap;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.FilterConfig;
@@ -49,7 +49,8 @@ public class DbConnectionFilter implements jakarta.servlet.Filter {
     private static final Logger logger = MiscUtils.getLogger();
 
     private static ThreadLocal<Connection> dbConnection = new ThreadLocal<Connection>();
-    private static final Set<Connection> trackedConnections = Collections.newSetFromMap(new ConcurrentHashMap<Connection, Boolean>());
+    private static final Set<Connection> trackedConnections = Collections.synchronizedSet(
+            Collections.newSetFromMap(new WeakHashMap<Connection, Boolean>()));
 
     /**
      * @deprecated Raw JDBC connections obtained here bypass Spring's transaction
@@ -62,6 +63,9 @@ public class DbConnectionFilter implements jakarta.servlet.Filter {
     public static Connection getThreadLocalDbConnection() throws SQLException {
         Connection c = dbConnection.get();
         if (c == null || c.isClosed()) {
+            if (c != null) {
+                trackedConnections.remove(c);
+            }
             c = getDbConnection();
             dbConnection.set(c);
             trackedConnections.add(c);
@@ -105,7 +109,11 @@ public class DbConnectionFilter implements jakarta.servlet.Filter {
 
     public static void releaseAllKnownDbResources() {
         releaseAllThreadDbResources();
-        for (Connection c : trackedConnections.toArray(new Connection[0])) {
+        Connection[] connections;
+        synchronized (trackedConnections) {
+            connections = trackedConnections.toArray(new Connection[0]);
+        }
+        for (Connection c : connections) {
             try {
                 SqlUtils.closeResources(c, null, null);
             } finally {

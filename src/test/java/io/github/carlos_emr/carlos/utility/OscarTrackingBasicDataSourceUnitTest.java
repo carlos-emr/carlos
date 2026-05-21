@@ -21,7 +21,7 @@ class OscarTrackingBasicDataSourceUnitTest {
     }
 
     @Test
-    void shouldClearDebugMapAndReleaseThreadConnections() throws Exception {
+    void shouldClearDebugMap_whenReleasingTrackingState() throws Exception {
         Connection delegate = mock(Connection.class);
         when(delegate.isClosed()).thenReturn(false);
         Connection trackedConnection = track(delegate);
