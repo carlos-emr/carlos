@@ -58,13 +58,12 @@ import org.apache.commons.csv.CSVPrinter;
 public class SQLReporter implements Reporter {
 
     /**
-     * Maximum number of UTF-8 bytes of CSV data that may be
-     * carried forward to the export form. Prevents very large report results from
-     * being retained in server-side or client-side request state.
+     * Maximum number of UTF-8 bytes allowed for CSV export payloads transmitted via
+     * POST parameter. Prevents memory exhaustion and excessive request sizes.
      */
     public static final int MAX_CSV_EXPORT_LENGTH = 5 * 1024 * 1024;
 
-    private static final String CSV_EXPORT_LIMIT_MESSAGE =
+    static final String CSV_EXPORT_LIMIT_MESSAGE =
             "Warning: Report result is too large to download as CSV. Please narrow your search criteria.";
 
     /** Value of {@link ReportTemplates#getActive()} that indicates an active template. */

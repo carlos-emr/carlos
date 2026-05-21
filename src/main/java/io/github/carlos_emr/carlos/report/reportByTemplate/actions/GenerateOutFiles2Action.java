@@ -161,10 +161,8 @@ public class GenerateOutFiles2Action extends ActionSupport {
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             return false;
         }
-        // Byte length, not char length: one char can be up to 4 UTF-8 bytes.
-        int byteLen = csv.getBytes(StandardCharsets.UTF_8).length;
-        if (byteLen > SQLReporter.MAX_CSV_EXPORT_LENGTH) {
-            MiscUtils.getLogger().warn("GenerateOutFiles2Action: CSV export payload exceeds size limit ({} bytes)", byteLen);
+        if (exceedsUtf8ByteLimit(csv, SQLReporter.MAX_CSV_EXPORT_LENGTH)) {
+            MiscUtils.getLogger().warn("GenerateOutFiles2Action: CSV export payload exceeds size limit");
             response.setStatus(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE);
             return false;
         }
@@ -174,8 +172,34 @@ public class GenerateOutFiles2Action extends ActionSupport {
     private void setServerErrorIfPossible() {
         if (!response.isCommitted()) {
             response.reset();
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         }
-        response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+    }
+
+    private boolean exceedsUtf8ByteLimit(String value, int maxBytes) {
+        int bytes = 0;
+        for (int i = 0; i < value.length(); ) {
+            int codePoint = value.codePointAt(i);
+            bytes += utf8ByteLength(codePoint);
+            if (bytes > maxBytes) {
+                return true;
+            }
+            i += Character.charCount(codePoint);
+        }
+        return false;
+    }
+
+    private int utf8ByteLength(int codePoint) {
+        if (codePoint <= 0x7F) {
+            return 1;
+        }
+        if (codePoint <= 0x7FF) {
+            return 2;
+        }
+        if (codePoint <= 0xFFFF) {
+            return 3;
+        }
+        return 4;
     }
 
 }
