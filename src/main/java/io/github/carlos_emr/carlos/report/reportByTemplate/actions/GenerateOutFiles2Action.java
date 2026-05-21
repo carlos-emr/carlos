@@ -177,6 +177,7 @@ public class GenerateOutFiles2Action extends ActionSupport {
     }
 
     private boolean exceedsUtf8ByteLimit(String value, int maxBytes) {
+        // Count UTF-8 bytes without materializing a second multi-megabyte byte array.
         int bytes = 0;
         for (int i = 0; i < value.length(); ) {
             int codePoint = value.codePointAt(i);

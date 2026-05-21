@@ -120,6 +120,7 @@ class SQLReporterSessionStorageTest extends CarlosUnitTestBase {
         ResultSet resultSet = mock(ResultSet.class);
         when(resultSet.isBeforeFirst()).thenReturn(true);
 
+        // Exercise the configured production cap so the regression test detects drift.
         String oversizedCell = "a".repeat(SQLReporter.MAX_CSV_EXPORT_LENGTH + 1);
         try (MockedConstruction<ReportManager> reportManagers = mockConstruction(ReportManager.class,
                 (mock, context) -> {
