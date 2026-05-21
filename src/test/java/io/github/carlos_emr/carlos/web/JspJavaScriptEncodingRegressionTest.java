@@ -77,6 +77,29 @@ class JspJavaScriptEncodingRegressionTest {
     }
 
     @Test
+    void shouldUseGuardedIpAddressVariable_forChartNotesAjax() throws Exception {
+        String chartNotesJsp = readJsp("casemgmt/ChartNotesAjax.jsp");
+        int declarationStart = chartNotesJsp.indexOf("String noteLockIpAddress");
+        int assignmentIndex = chartNotesJsp.indexOf("noteLockIpAddress = casemgmtNoteLock.getIpAddress();");
+        int confirmStart = chartNotesJsp.indexOf("var viewEditedNote = confirm(");
+        int confirmEnd = chartNotesJsp.indexOf(");", confirmStart);
+        assertThat(declarationStart).isGreaterThanOrEqualTo(0);
+        assertThat(assignmentIndex).isGreaterThan(declarationStart).isLessThan(confirmStart);
+        assertThat(confirmStart).isGreaterThanOrEqualTo(0);
+        assertThat(confirmEnd).isGreaterThan(confirmStart);
+        String lockPreparationSnippet = chartNotesJsp.substring(declarationStart, confirmStart);
+        String confirmSnippet = chartNotesJsp.substring(confirmStart, confirmEnd);
+
+        assertThat(lockPreparationSnippet)
+                .containsPattern("String\\s+noteLockIpAddress\\s*=\\s*\"\"\\s*;")
+                .containsPattern("if\\s*\\(noteLockedBySameUser\\)\\s*\\{")
+                .contains("noteLockIpAddress = casemgmtNoteLock.getIpAddress();");
+        assertThat(confirmSnippet)
+                .contains("<%= noteLockIpAddress %>")
+                .doesNotContain("casemgmtNoteLock.getIpAddress()");
+    }
+
+    @Test
     void shouldNotLockInJavaScriptOnlyEncoding_forInnerHtmlAssignments() throws Exception {
         String viewScriptJsp = readJsp("rx/ViewScript2.jsp");
 
