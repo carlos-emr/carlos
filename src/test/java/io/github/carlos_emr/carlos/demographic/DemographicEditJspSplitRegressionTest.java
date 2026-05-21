@@ -62,8 +62,16 @@ class DemographicEditJspSplitRegressionTest {
         assertThat(legacyJsp.lines().count())
                 .as("legacy JSP must stay small enough for JSPC generated _jspService bytecode")
                 .isLessThan(MAX_LEGACY_JSP_LINES);
-        assertThat(legacyJsp).contains("<jsp:forward page=\"/demographic/DemographicEdit\"/>");
-        assertThat(legacyJsp).doesNotContain("SpringUtils.getBean");
+        assertThat(normalizeJspWrapper(legacyJsp))
+                .as("legacy JSP must remain a minimal wrapper with only optional directives and the expected forward")
+                .matches("^(?:<%@\\s*[\\s\\S]*?%>\\s*)*<jsp:forward\\s+page=\"/demographic/DemographicEdit\"\\s*/>$");
+    }
+
+    private static String normalizeJspWrapper(String jsp) {
+        return jsp
+                .replaceAll("<%--[\\s\\S]*?--%>", "")
+                .replaceAll("\\s+", " ")
+                .trim();
     }
 
     @Test
