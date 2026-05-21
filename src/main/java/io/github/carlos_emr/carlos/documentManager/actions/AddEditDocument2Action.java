@@ -119,6 +119,13 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
     private static final String PDF_EXTENSION = "pdf";
     private static final String PDF_CONTENT_TYPE = "application/pdf";
     private static final byte[] PDF_HEADER = new byte[] {'%', 'P', 'D', 'F', '-'};
+    private static final String ERROR_NO_WRITE_KEY = "dms.addDocument.errorNoWrite";
+    private static final String ERROR_ZERO_SIZE_KEY = "dms.addDocument.errorZeroSize";
+    private static final String PARAM_FUNCTION = "function";
+    private static final String PARAM_FUNCTION_ID = "functionid";
+    private static final String PARAM_CUR_USER = "curUser";
+    private static final String PARAM_APPOINTMENT_NO = "appointmentNo";
+    private static final String PARAM_PARENT_AJAX_ID = "parentAjaxId";
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -144,8 +151,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
 
         File uploadedDocFile = this.getDocFile();
         if (uploadedDocFile == null) {
-            response.setHeader("oscar_error", props.getString("dms.addDocument.errorZeroSize"));
-            response.sendError(500, props.getString("dms.addDocument.errorZeroSize"));
+            sendHtml5UploadError(props, ERROR_ZERO_SIZE_KEY);
             return null;
         }
 
@@ -155,8 +161,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             validatedSource = PathValidationUtils.validateUpload(uploadedDocFile);
         } catch (SecurityException e) {
             MiscUtils.getLogger().error("Invalid uploaded document file");
-            response.setHeader("oscar_error", props.getString("dms.addDocument.errorNoWrite"));
-            response.sendError(500, props.getString("dms.addDocument.errorNoWrite"));
+            sendHtml5UploadError(props, ERROR_NO_WRITE_KEY);
             return null;
         }
 
@@ -177,26 +182,23 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         long expectedFileSize = validatedSource.length();
         // save local file;
         if (expectedFileSize == 0) {
-            response.setHeader("oscar_error", props.getString("dms.addDocument.errorZeroSize"));
-            response.sendError(500, props.getString("dms.addDocument.errorZeroSize"));
+            sendHtml5UploadError(props, ERROR_ZERO_SIZE_KEY);
             return null;
         }
         // The upload source was validated above; keep all subsequent file I/O scoped to the
         // validated temp file reference and use try-with-resources for explicit stream cleanup.
         File file;
-        try (InputStream inputStream = openValidatedUploadInputStream(validatedSource)) {
-            file = writeLocalFile(inputStream, fileName); // write file to local dir
-        } catch (Exception e) {
+        try {
+            file = writeValidatedUpload(validatedSource, fileName);
+        } catch (IOException e) {
             MiscUtils.getLogger().error("Failed to write uploaded document file");
-            response.setHeader("oscar_error", props.getString("dms.addDocument.errorNoWrite"));
-            response.sendError(500, props.getString("dms.addDocument.errorNoWrite"));
+            sendHtml5UploadError(props, ERROR_NO_WRITE_KEY);
             return null;
         }
 
         if (!isWrittenUploadComplete(file, expectedFileSize)) {
             deleteIncompleteWrittenUpload(file);
-            response.setHeader("oscar_error", props.getString("dms.addDocument.errorNoWrite"));
-            response.sendError(500, props.getString("dms.addDocument.errorNoWrite"));
+            sendHtml5UploadError(props, ERROR_NO_WRITE_KEY);
             return null;
         }
 
@@ -305,16 +307,16 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             // if add/edit success then send redirect, if failed send a forward (need the formdata and errors hashtables while trying to avoid POSTDATA messages)
             if (addDocument(request)) { // if success
                 String contextPath = request.getContextPath();
-                StringBuffer redirect = new StringBuffer(contextPath + "/documentManager/ViewDocumentReport");
+                StringBuilder redirect = new StringBuilder(contextPath + "/documentManager/ViewDocumentReport");
                 redirect.append("?docerrors=docerrors"); // Allows the JSP to check if the document was just submitted
-                appendQueryParameter(redirect, "function", request.getParameter("function"));
-                appendQueryParameter(redirect, "functionid", request.getParameter("functionid"));
-                appendQueryParameter(redirect, "curUser", request.getParameter("curUser"));
-                appendQueryParameter(redirect, "appointmentNo", request.getParameter("appointmentNo"));
-                String parentAjaxId = request.getParameter("parentAjaxId");
+                appendQueryParameter(redirect, PARAM_FUNCTION, request.getParameter(PARAM_FUNCTION));
+                appendQueryParameter(redirect, PARAM_FUNCTION_ID, request.getParameter(PARAM_FUNCTION_ID));
+                appendQueryParameter(redirect, PARAM_CUR_USER, request.getParameter(PARAM_CUR_USER));
+                appendQueryParameter(redirect, PARAM_APPOINTMENT_NO, request.getParameter(PARAM_APPOINTMENT_NO));
+                String parentAjaxId = request.getParameter(PARAM_PARENT_AJAX_ID);
                 // if we're called with parent ajax id inform jsp that parent needs to be updated
                 if (filled(parentAjaxId)) {
-                    appendQueryParameter(redirect, "parentAjaxId", parentAjaxId);
+                    appendQueryParameter(redirect, PARAM_PARENT_AJAX_ID, parentAjaxId);
                     appendQueryParameter(redirect, "updateParent", "true");
                 }
                 try {
@@ -324,11 +326,11 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
                 }
                 return NONE;
             } else {
-                request.setAttribute("function", request.getParameter("function"));
-                request.setAttribute("functionid", request.getParameter("functionid"));
-                request.setAttribute("parentAjaxId", request.getParameter("parentAjaxId"));
-                request.setAttribute("curUser", request.getParameter("curUser"));
-                request.setAttribute("appointmentNo", request.getParameter("appointmentNo"));
+                request.setAttribute(PARAM_FUNCTION, request.getParameter(PARAM_FUNCTION));
+                request.setAttribute(PARAM_FUNCTION_ID, request.getParameter(PARAM_FUNCTION_ID));
+                request.setAttribute(PARAM_PARENT_AJAX_ID, request.getParameter(PARAM_PARENT_AJAX_ID));
+                request.setAttribute(PARAM_CUR_USER, request.getParameter(PARAM_CUR_USER));
+                request.setAttribute(PARAM_APPOINTMENT_NO, request.getParameter(PARAM_APPOINTMENT_NO));
                 return "failAdd";
             }
         } else {
@@ -381,12 +383,12 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
 
             // save local file
             File writtenFile;
-            try (InputStream inputStream = openValidatedUploadInputStream(validatedDocFile)) {
-                writtenFile = writeLocalFile(inputStream, fileName2);
-            } catch (Exception e) {
+            try {
+                writtenFile = writeValidatedUpload(validatedDocFile, fileName2);
+            } catch (IOException e) {
                 errors.put("uploaderror", "dms.error.uploadError");
                 addActionError(getText("dms.error.uploadError"));
-                throw new IOException("Failed to write uploaded document", e);
+                throw e;
             }
             if (!isWrittenUploadComplete(writtenFile, expectedFileSize)) {
                 deleteIncompleteWrittenUpload(writtenFile);
@@ -566,12 +568,12 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
                 fileName = MiscUtils.sanitizeFileName(newDoc.getFileName());
                 // save local file
                 File writtenFile;
-                try (InputStream inputStream = openValidatedUploadInputStream(validatedDocFile)) {
-                    writtenFile = writeLocalFile(inputStream, fileName);
-                } catch (Exception e) {
+                try {
+                    writtenFile = writeValidatedUpload(validatedDocFile, fileName);
+                } catch (IOException e) {
                     errors.put("uploaderror", "dms.error.uploadError");
                     addActionError(getText("dms.error.uploadError"));
-                    throw new IOException("Failed to write uploaded document", e);
+                    throw e;
                 }
                 if (!isWrittenUploadComplete(writtenFile, expectedFileSize)) {
                     deleteIncompleteWrittenUpload(writtenFile);
@@ -636,38 +638,49 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         File baseDirFile = new File(docDir);
         File validatedFile = PathValidationUtils.validatePath(fileName, baseDirFile);
         Path savePath = validatedFile.toPath().normalize().toAbsolutePath();
+        Path saveParent = savePath.getParent();
+        if (saveParent == null) {
+            throw new IOException("Document destination parent is missing");
+        }
 
-        Files.createDirectories(savePath.getParent());
+        Files.createDirectories(saveParent);
 
-        Path tempPath = Files.createTempFile(savePath.getParent(), "document-upload-", ".tmp");
-        boolean moved = false;
+        Path tempPath = Files.createTempFile(saveParent, "document-upload-", ".tmp");
         try {
-            try (OutputStream fos = Files.newOutputStream(tempPath, StandardOpenOption.WRITE)) {
-                byte[] buf = new byte[128 * 1024];
-                int i = 0;
-                while ((i = is.read(buf)) != -1) {
-                    fos.write(buf, 0, i);
-                }
-            }
-
-            try {
-                Files.move(tempPath, savePath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-            } catch (AtomicMoveNotSupportedException e) {
-                Files.move(tempPath, savePath, StandardCopyOption.REPLACE_EXISTING);
-            }
-            moved = true;
+            writeUploadContents(is, tempPath);
+            moveUploadedFile(tempPath, savePath);
         } catch (Exception e) {
-            if (!moved) {
-                try {
-                    Files.deleteIfExists(tempPath);
-                } catch (IOException deleteError) {
-                    e.addSuppressed(deleteError);
-                }
-            }
+            deleteTempFile(tempPath, e);
             throw e;
         }
 
         return savePath.toFile();
+    }
+
+    private static void writeUploadContents(InputStream is, Path tempPath) throws IOException {
+        try (OutputStream fos = Files.newOutputStream(tempPath, StandardOpenOption.WRITE)) {
+            byte[] buf = new byte[128 * 1024];
+            int i = 0;
+            while ((i = is.read(buf)) != -1) {
+                fos.write(buf, 0, i);
+            }
+        }
+    }
+
+    private static void moveUploadedFile(Path tempPath, Path savePath) throws IOException {
+        try {
+            Files.move(tempPath, savePath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+        } catch (AtomicMoveNotSupportedException e) {
+            Files.move(tempPath, savePath, StandardCopyOption.REPLACE_EXISTING);
+        }
+    }
+
+    private static void deleteTempFile(Path tempPath, Exception originalError) {
+        try {
+            Files.deleteIfExists(tempPath);
+        } catch (IOException deleteError) {
+            originalError.addSuppressed(deleteError);
+        }
     }
 
     /**
@@ -720,16 +733,15 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
 
         UploadedFile selected = null;
         for (UploadedFile uploaded : uploadedFiles) {
-            if (uploaded == null) {
-                continue;
-            }
-            String inputName = uploaded.getInputName();
-            if ("docFile".equals(inputName)) {
-                selected = uploaded;
-                break;
-            }
-            if (selected == null && "filedata".equals(inputName)) {
-                selected = uploaded;
+            if (uploaded != null) {
+                String inputName = uploaded.getInputName();
+                if ("docFile".equals(inputName)) {
+                    selected = uploaded;
+                    break;
+                }
+                if (selected == null && "filedata".equals(inputName)) {
+                    selected = uploaded;
+                }
             }
         }
 
@@ -863,6 +875,14 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return PathValidationUtils.openValidatedUploadInputStream(validatedUpload);
     }
 
+    private File writeValidatedUpload(File validatedUpload, String fileName) throws IOException {
+        try (InputStream inputStream = openValidatedUploadInputStream(validatedUpload)) {
+            return writeLocalFile(inputStream, fileName);
+        } catch (Exception e) {
+            throw new IOException("Failed to write uploaded document", e);
+        }
+    }
+
     /**
      * Verifies that an upload write produced a regular file with exactly the expected size.
      *
@@ -897,11 +917,17 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         }
     }
 
-    private void appendQueryParameter(StringBuffer redirect, String name, String value) {
+    private void appendQueryParameter(StringBuilder redirect, String name, String value) {
         redirect.append('&')
                 .append(name)
                 .append('=')
                 .append(Encode.forUriComponent(value == null ? "" : value));
+    }
+
+    private void sendHtml5UploadError(ResourceBundle props, String errorKey) throws IOException {
+        String message = props.getString(errorKey);
+        response.setHeader("oscar_error", message);
+        response.sendError(500, message);
     }
 
     /**

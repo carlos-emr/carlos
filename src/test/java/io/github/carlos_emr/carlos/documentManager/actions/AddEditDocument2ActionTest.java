@@ -309,8 +309,9 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
         UploadedFile uploadedFile = mock(UploadedFile.class);
         when(uploadedFile.getInputName()).thenReturn("docFile");
         when(uploadedFile.getContent()).thenReturn("not-a-file");
+        List<UploadedFile> uploads = List.of(uploadedFile);
 
-        assertThatThrownBy(() -> action.withUploadedFiles(List.of(uploadedFile)))
+        assertThatThrownBy(() -> action.withUploadedFiles(uploads))
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("file-backed");
     }
@@ -325,8 +326,9 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
             UploadedFile uploadedFile = mock(UploadedFile.class);
             when(uploadedFile.getInputName()).thenReturn("docFile");
             when(uploadedFile.getContent()).thenReturn(outsideUpload.toFile());
+            List<UploadedFile> uploads = List.of(uploadedFile);
 
-            assertThatThrownBy(() -> action.withUploadedFiles(List.of(uploadedFile)))
+            assertThatThrownBy(() -> action.withUploadedFiles(uploads))
                     .isInstanceOf(SecurityException.class)
                     .hasMessageContaining("Invalid upload source");
         } finally {
@@ -440,8 +442,8 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
         String originalDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", documentDir.toString());
 
-        try {
-            assertThatThrownBy(() -> AddEditDocument2Action.writeLocalFile(new FailingUploadInputStream(), "existing.pdf"))
+        try (InputStream failingInputStream = new FailingUploadInputStream()) {
+            assertThatThrownBy(() -> AddEditDocument2Action.writeLocalFile(failingInputStream, "existing.pdf"))
                     .isInstanceOf(IOException.class)
                     .hasMessageContaining("simulated write failure");
 
