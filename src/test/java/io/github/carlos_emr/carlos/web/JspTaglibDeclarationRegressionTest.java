@@ -56,15 +56,24 @@ class JspTaglibDeclarationRegressionTest {
     private static final Pattern HTML_COMMENT = Pattern.compile("<!--.*?-->", Pattern.DOTALL);
     private static final Pattern TAGLIB_DIRECTIVE = Pattern.compile("<%@\\s*taglib\\b(.*?)%>", Pattern.DOTALL);
     private static final Pattern ATTRIBUTE = Pattern.compile("\\b(uri|prefix)\\s*=\\s*(['\"])(.*?)\\2");
+    private static final String SHARED_TAGLIB_FILE_NAMES =
+            "taglibs\\.jsp|taglibs\\.jspf|common-taglibs\\.jsp|common-tags\\.jsp";
+    private static final Pattern SHARED_TAGLIB_FILE = Pattern.compile("^(?:" + SHARED_TAGLIB_FILE_NAMES + ")$");
     private static final Pattern SHARED_TAGLIB_INCLUDE = Pattern.compile(
-            "(?s)<%@\\s*include[^>]+file\\s*=\\s*\"[^\"]*(?:taglibs\\.jsp|taglibs\\.jspf|common-taglibs\\.jsp|common-tags\\.jsp)\""
-                    + "|<jsp:include[^>]+page\\s*=\\s*\"[^\"]*(?:taglibs\\.jsp|taglibs\\.jspf|common-taglibs\\.jsp|common-tags\\.jsp)\"");
+            "(?s)<%@\\s*include[^>]+file\\s*=\\s*\"[^\"]*(?:" + SHARED_TAGLIB_FILE_NAMES + ")\""
+                    + "|<jsp:include[^>]+page\\s*=\\s*\"[^\"]*(?:" + SHARED_TAGLIB_FILE_NAMES + ")\"");
     private static final Map<String, Pattern> STANDARD_TAGLIB_URIS = Map.of(
             "c", Pattern.compile("^(?:http://java\\.sun\\.com/jsp/jstl/core|jakarta\\.tags\\.core)$"),
             "fmt", Pattern.compile("^(?:http://java\\.sun\\.com/jsp/jstl/fmt|jakarta\\.tags\\.fmt)$"),
             "fn", Pattern.compile("^(?:http://java\\.sun\\.com/jsp/jstl/functions|jakarta\\.tags\\.functions)$"),
             "sql", Pattern.compile("^(?:http://java\\.sun\\.com/jsp/jstl/sql|jakarta\\.tags\\.sql)$"),
             "x", Pattern.compile("^(?:http://java\\.sun\\.com/jsp/jstl/xml|jakarta\\.tags\\.xml)$"));
+    private static final Map<String, Pattern> STANDARD_TAGLIB_USAGE = Map.of(
+            "c", taglibUsagePattern("c"),
+            "fmt", taglibUsagePattern("fmt"),
+            "fn", taglibUsagePattern("fn"),
+            "sql", taglibUsagePattern("sql"),
+            "x", taglibUsagePattern("x"));
     private static final Path WEBAPP_ROOT = resolveProjectPath(Path.of("src/main/webapp"));
     private static final Path JSP_ROOT = resolveProjectPath(Path.of("src/main/webapp/WEB-INF/jsp"));
 
@@ -111,7 +120,7 @@ class JspTaglibDeclarationRegressionTest {
         try (Stream<Path> files = Files.walk(WEBAPP_ROOT)) {
             files.filter(Files::isRegularFile)
                     .filter(JspTaglibDeclarationRegressionTest::isJspAsset)
-                    .filter(path -> !path.getFileName().toString().matches(".*(?:taglibs\\.jsp|taglibs\\.jspf|common-taglibs\\.jsp|common-tags\\.jsp).*"))
+                    .filter(path -> !isSharedTaglibFile(path))
                     .forEach(path -> collectMissingStandardTaglibs(path, missingDeclarations));
         }
 
@@ -125,6 +134,10 @@ class JspTaglibDeclarationRegressionTest {
     private static boolean isJspAsset(Path path) {
         String fileName = path.getFileName().toString();
         return fileName.endsWith(".jsp") || fileName.endsWith(".jspf") || fileName.endsWith(".tag");
+    }
+
+    private static boolean isSharedTaglibFile(Path path) {
+        return SHARED_TAGLIB_FILE.matcher(path.getFileName().toString()).matches();
     }
 
     private static void collectMissingStandardTaglibs(Path path, List<String> missingDeclarations) {
@@ -149,9 +162,12 @@ class JspTaglibDeclarationRegressionTest {
     }
 
     private static boolean usesPrefix(String jsp, String prefix) {
-        Pattern usage = Pattern.compile("(?is)<\\s*" + Pattern.quote(prefix) + "\\s*:|\\$\\{[^}]*\\b"
+        return STANDARD_TAGLIB_USAGE.get(prefix).matcher(jsp).find();
+    }
+
+    private static Pattern taglibUsagePattern(String prefix) {
+        return Pattern.compile("(?is)<\\s*" + Pattern.quote(prefix) + "\\s*:|\\$\\{[^}]*\\b"
                 + Pattern.quote(prefix) + ":");
-        return usage.matcher(jsp).find();
     }
 
     private static boolean declaresPrefix(String jsp, String prefix, Pattern uriPattern) {
