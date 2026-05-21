@@ -119,7 +119,7 @@ var cfg_width = 720;				// editor control width in pixels
 var cfg_height = 500;				// editor control height in pixels
 var cfg_editorname ="edit";		// handle for the editor control itself
 var cfg_bstyle = 'width:24px;height:24px;border: solid 2px #ccccff; background-color: #ccccff;'; 	//the CSS of the button elements
-var formIsRTL = false;				// efmshowform_data reads this global to detect RTL eForms
+window.formIsRTL = false;			// efmshowform_data reads this global to detect RTL eForms
 var cfg_boutstyle = 'solid 2px #ccccff'; 	//the CSS of the button elements om mouse out
 var cfg_sstyle = 'vertical-align: top; height:24px;';//the CSS of the option select box.  Selects will take font and background but not border.
 var cfg_sepstyle = 'width:6px;height:24px;border: solid 2px #ccccff; background-color: #ccccff;';	//the CSS of the seperator icon
@@ -1168,7 +1168,7 @@ function submitFaxButton() {
 	// Flag read by efmshowform_data and the eForm framework to identify this
 	// as a Rich Text Letter eForm (vs. a regular eForm). Static analysis may flag
 	// this as "unused" because the read happens in JSP/server-side code, not JS.
-	var formIsRTL = true;
+	window.formIsRTL = true;
 
 
 // lab_grid2.js //
@@ -1190,9 +1190,9 @@ if (location.search) {
 }
 
 
-// TODO: The graph link URLs are commented out below in getMeasures(). The old
+// The graph link URLs are commented out below in getMeasures(). The old
 // hardcoded fid=74 path would be wrong for most installations. If the graph
-// link feature is ever re-enabled, derive the fid from the URL parameter
+// link feature is re-enabled, derive the fid from the URL parameter
 // (gup("fid")) instead of hardcoding it.
 var measureArray = [];
 var measureDateArray = [];

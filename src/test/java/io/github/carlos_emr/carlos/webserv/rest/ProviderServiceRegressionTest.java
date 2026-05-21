@@ -27,6 +27,7 @@ import static org.mockito.Mockito.when;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.transfer_objects.ProviderTransfer;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response.Status;
@@ -61,7 +62,12 @@ class ProviderServiceRegressionTest {
 
     @BeforeEach
     void setUp() {
-        service = new ProviderService();
+        service = new ProviderService() {
+            @Override
+            protected LoggedInInfo getLoggedInInfo() {
+                return new LoggedInInfo();
+            }
+        };
         service.providerDao = providerDao;
     }
 
@@ -93,7 +99,7 @@ class ProviderServiceRegressionTest {
     void shouldReturn500_forInternalError() {
         when(providerDao.getActiveProviders()).thenThrow(new IllegalStateException("database unavailable"));
 
-        assertThatThrownBy(() -> service.getProviders())
+        assertThatThrownBy(() -> service.getProvidersAsJSON())
                 .isInstanceOf(WebApplicationException.class)
                 .extracting(exception -> ((WebApplicationException) exception).getResponse().getStatus())
                 .isEqualTo(Status.INTERNAL_SERVER_ERROR.getStatusCode());
