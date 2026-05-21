@@ -52,7 +52,7 @@ import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Locale;
 import java.util.Vector;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 public class RxPrescriptionData {
 
@@ -2202,12 +2202,12 @@ public class RxPrescriptionData {
             }
             if (getSpecial() == null || getSpecial().length() < 4) {
                 //if (getSpecial() == null || getSpecial().length() < 6) {
-                logger.warn("drug special appears to be null or empty : {}", LogSanitizer.sanitize(getSpecial())); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                logger.warn("drug special appears to be null or empty : {}", LogSafe.sanitize(getSpecial())); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             }
             String parsedSpecial = RxUtil.replace(this.getSpecial(), "'", "");
             //if (parsedSpecial == null || parsedSpecial.length() < 6) {
             if (parsedSpecial == null || parsedSpecial.length() < 4) {
-                logger.warn("drug special after parsing appears to be null or empty : {}", LogSanitizer.sanitize(parsedSpecial)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                logger.warn("drug special after parsing appears to be null or empty : {}", LogSafe.sanitize(parsedSpecial)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             }
 
             FavoriteDao dao = SpringUtils.getBean(FavoriteDao.class);

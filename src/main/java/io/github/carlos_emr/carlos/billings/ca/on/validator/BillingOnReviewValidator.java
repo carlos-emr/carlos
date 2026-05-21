@@ -36,7 +36,7 @@ import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.DiagnosticCode;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.DateUtils;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
@@ -160,7 +160,7 @@ public class BillingOnReviewValidator {
             if (hasA003AAnnualGuardCandidate(request)) {
                 MiscUtils.getLogger().warn(
                         "BillingOnReviewValidator: A003A guard failed — non-numeric demographic_no '{}'",
-                        LogSanitizer.sanitize(demoNo));
+                        LogSafe.sanitize(demoNo));
                 messages.add(new Message(Message.Severity.ERROR,
                         "Invalid demographic number for A003A annual-billing check. Please go back to edit."));
                 return false;
@@ -184,7 +184,7 @@ public class BillingOnReviewValidator {
             } catch (java.text.ParseException e) {
                 MiscUtils.getLogger().warn(
                         "BillingOnReviewValidator: A003A guard failed — unparseable service_date '{}'",
-                        LogSanitizer.sanitize(request.getParameter("service_date")), e);
+                        LogSafe.sanitize(request.getParameter("service_date")), e);
                 messages.add(new Message(Message.Severity.ERROR,
                         "Invalid service date for A003A annual-billing check. Please correct the service date."));
                 return false;

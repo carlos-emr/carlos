@@ -140,7 +140,7 @@ public class DemographicUpdate2Action extends ActionSupport {
 
         demographic.setLastName(org.apache.commons.lang3.StringUtils.trimToEmpty(request.getParameter("last_name")));
         demographic.setFirstName(org.apache.commons.lang3.StringUtils.trimToEmpty(request.getParameter("first_name")));
-        demographic.setMiddleNames(org.apache.commons.lang3.StringUtils.trimToEmpty(request.getParameter("middleNames")));
+        demographic.setMiddleNames(normalizeOptionalMiddleNames(request.getParameter("middleNames")));
         demographic.setAlias(request.getParameter("nameUsed"));
         demographic.setPrefName(request.getParameter("nameUsed"));
         demographic.setAddress(request.getParameter("address"));
@@ -451,5 +451,10 @@ public class DemographicUpdate2Action extends ActionSupport {
             response.sendRedirect(request.getContextPath() + "/demographic/DemographicEdit?demographic_no=" + demographicNo);
             return null;
         }
+    }
+
+    static String normalizeOptionalMiddleNames(String rawMiddleNames) {
+        String middleNames = org.apache.commons.lang3.StringUtils.trimToEmpty(rawMiddleNames);
+        return "null".equalsIgnoreCase(middleNames) ? "" : middleNames;
     }
 }

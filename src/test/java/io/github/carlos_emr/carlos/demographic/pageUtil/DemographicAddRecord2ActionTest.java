@@ -92,6 +92,14 @@ class DemographicAddRecord2ActionTest extends CarlosWebTestBase {
     }
 
     @Test
+    @DisplayName("should normalize middle names when literal null is submitted")
+    void shouldNormalizeMiddleNames_whenLiteralNullIsSubmitted() {
+        assertThat(DemographicAddRecord2Action.normalizeOptionalMiddleNames(" null ")).isEmpty();
+        assertThat(DemographicAddRecord2Action.normalizeOptionalMiddleNames("Anne Marie"))
+                .isEqualTo("Anne Marie");
+    }
+
+    @Test
     @DisplayName("should return validationError when year of birth exceeds four characters")
     void shouldReturnValidationError_whenYearOfBirthExceedsFourCharacters() throws Exception {
         allowPrivilege("_demographic", "w");

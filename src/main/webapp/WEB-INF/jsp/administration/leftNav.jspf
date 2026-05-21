@@ -163,21 +163,23 @@ String curProvider_no = (String)session.getAttribute("user");
 					</oscar:oscarPropertiesCheck>
 			
 					<oscar:oscarPropertiesCheck property="billregion" value="ON">
+					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.billing" rights="w" reverse="<%=false%>">
 					<li><a href='javascript:void(0);'
 						class="xlink" rel="${ctx}/billing/CA/ON/ViewBenefitScheduleUpload"><fmt:message key="admin.admin.scheduleOfBenefits"/></a></li>
 					<li><a href='javascript:void(0);'
 						class="xlink" rel="${ctx}/billing/CA/ON/AddEditServiceCode"><fmt:message key="admin.admin.manageBillingServiceCode"/></a></li>
 					<li><a href='javascript:void(0);'
 						class="xlink" rel="${ctx}/billing/CA/ON/ViewBillingONEditPrivateCode"><fmt:message key="admin.admin.managePrivBillingCode"/></a></li>
+					</security:oscarSec>
 					<li><a href='javascript:void(0);'
 						class="xlink" rel="${ctx}/admin/manageCSSStyles"><fmt:message key="admin.admin.manageCodeStyles"/></a></li>
+					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.billing" rights="w" reverse="<%=false%>">
 					<li><a href='#'
 						class="xlink" rel="${ctx}/admin/GstControl"><fmt:message key="admin.admin.manageGSTControl"/></a></li>
 					<li><a href='javascript:void(0);'
 						class="xlink" rel="${ctx}/admin/GstReport"><fmt:message key="admin.admin.gstReport"/></a></li>
 					<li><a href='#'
 						class="xlink" rel="${ctx}/billing/CA/ON/ManageBillingLocation"><fmt:message key="admin.admin.btnAddBillingLocation"/></a></li>
-					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.billing" rights="w" reverse="<%=false%>">
 					<li><a href='javascript:void(0);'
 						class="xlink" rel="${ctx}/billing/CA/ON/ManageBillingform"><fmt:message key="admin.admin.btnManageBillingForm"/></a></li>
 					</security:oscarSec>
@@ -192,6 +194,7 @@ String curProvider_no = (String)session.getAttribute("user");
 						class="xlink" rel="${ctx}/billing/CA/ON/BatchBill?service_code=all"><fmt:message key="admin.admin.btnBatchBilling"/></a></li>
 					<li><a href='javascript:void(0);'
 						class="xlink" rel="${ctx}/billing/CA/ON/ViewInrReportINR?provider_no=all"><fmt:message key="admin.admin.btnINRBatchBilling"/></a></li>
+					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.billing" rights="w" reverse="<%=false%>">
 					<li><a href='javascript:void(0);'
 						class="xlink" rel="${ctx}/billing/CA/ON/BillingONUpload"><fmt:message key="admin.admin.uploadMOHFile"/></a></li>
 					
@@ -199,6 +202,7 @@ String curProvider_no = (String)session.getAttribute("user");
 					<oscar:oscarPropertiesCheck property="moh_file_management_enabled" value="true" defaultVal="false">
 					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/billing/CA/ON/moveMOHFiles"><fmt:message key="admin.admin.viewMOHFiles"/></a></li>
 					</oscar:oscarPropertiesCheck>
+					</security:oscarSec>
 					
 					<oscar:oscarPropertiesCheck property="mcedt.mailbox.enabled" value="false" defaultVal="false">
 					<li>
@@ -261,7 +265,9 @@ String curProvider_no = (String)session.getAttribute("user");
 				<oscar:oscarPropertiesCheck property="OLD_LAB_UPLOAD" value="yes" defaultVal="false">
 					<li><a href="${ctx}/lab/labUpload" class="contentLink"><fmt:message key="admin.admin.oldLabUpload"/></a></li>
 				</oscar:oscarPropertiesCheck>
+				<security:oscarSec roleName="<%=roleName$%>" objectName="_lab" rights="w" reverse="<%=false%>">
 				<li><a href="${ctx}/admin/labForwardingRules" class="contentLink"><fmt:message key="admin.admin.labFwdRules"/></a></li>
+				</security:oscarSec>
 
 				<li><a href="${ctx}/admin/ViewAddQueue" class="contentLink"><fmt:message key="admin.admin.AddNewQueue"/></a></li>
 			</ul>
@@ -377,9 +383,6 @@ String curProvider_no = (String)session.getAttribute("user");
 						<li><a page="${pageContext.request.contextPath}/PopulationReport" class="contentLink"> <fmt:message key="admin.admin.popRpt"/></a></li>
 						<li><a href="${ctx}/oscarReport/ViewCds4ReportForm"	class="contentLink"><fmt:message key="admin.admin.cdsRpt"/></a></li>
 						<li><a href="${ctx}/oscarReport/ViewMisReportForm" class="contentLink"><fmt:message key="admin.admin.misRpt"/></a></li>
-						<li><a href="${ctx}/oscarReport/ocan_report_form.jsp" class="contentLink"><fmt:message key="admin.admin.ocanRpt"/></a></li>
-						<li><a href="${ctx}/oscarReport/ocan_iar.jsp" class="contentLink"><fmt:message key="admin.admin.ocanIarRpt"/></a></li>
-						<li><a href="javascript:void(0);" class="xlink" rel="${ctx}/oscarReport/ocan_reporting.jsp"><fmt:message key="admin.admin.ocanReporting"/></a></li>
 					</caisi:isModuleLoad>
 					
 					<li><a href="${ctx}/admin/ViewUsageReport" class="contentLink"><fmt:message key="admin.admin.usageRpt"/></a></li>
@@ -470,7 +473,7 @@ String curProvider_no = (String)session.getAttribute("user");
 		            <oscar:oscarPropertiesCheck property="billregion" value="ON">
 		           
 		            <li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/admin/groupPreferences"><fmt:message key="admin.admin.btnGroupPreference"/></a></li>
+						class="xlink" rel="${ctx}/admin/GroupPreference"><fmt:message key="admin.admin.btnGroupPreference"/></a></li>
 						
 					</oscar:oscarPropertiesCheck>
 					

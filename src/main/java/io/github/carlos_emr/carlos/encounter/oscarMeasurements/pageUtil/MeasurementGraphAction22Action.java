@@ -83,7 +83,7 @@ import io.github.carlos_emr.carlos.commn.model.MeasurementsExt;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -129,7 +129,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
 
         String method = request.getParameter("method");
 
-        log.debug("Creating graph for demo {} type1: {} type2: {}", LogSanitizer.sanitizeObject(demographicNo), LogSanitizer.sanitize(typeIdName), LogSanitizer.sanitize(typeIdName2));
+        log.debug("Creating graph for demo {} type1: {} type2: {}", LogSafe.sanitizeObject(demographicNo), LogSafe.sanitize(typeIdName), LogSafe.sanitize(typeIdName2));
         JFreeChart chart = null;
         if (method == null) {
             log.debug("Calling DefaultChart");
@@ -960,7 +960,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
                     systolic.addOrUpdate(new Day(mdb.getDateObservedAsDate()), Double.parseDouble(str[0]));
                     diastolic.addOrUpdate(new Day(mdb.getDateObservedAsDate()), Double.parseDouble(str[1]));
                 } else {
-                    log.debug("Error passing measurement value to chart. DataField is empty for ID: {}", LogSanitizer.sanitize(String.valueOf(mdb.getId())));
+                    log.debug("Error passing measurement value to chart. DataField is empty for ID: {}", LogSafe.sanitize(String.valueOf(mdb.getId())));
                 }
             }
             dataset.addSeries(diastolic);
@@ -983,7 +983,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
                                 Double.parseDouble(result));
                     }
                 } else {
-                    log.debug("Error passing measurement value to chart. DataField is empty for ID: {}", LogSanitizer.sanitize(String.valueOf(mdb.getId())));
+                    log.debug("Error passing measurement value to chart. DataField is empty for ID: {}", LogSafe.sanitize(String.valueOf(mdb.getId())));
                 }
             }
             dataset.addSeries(newSeries);
@@ -992,7 +992,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         JFreeChart chart = ChartFactory.createTimeSeriesChart(chartTitle, "Days", typeYAxisName, dataset, true, true, true);
 
         if (typeIdName2 != null) {
-            log.debug("type id name 2: {}", LogSanitizer.sanitize(typeIdName2));
+            log.debug("type id name 2: {}", LogSafe.sanitize(typeIdName2));
 
             ArrayList<EctMeasurementsDataBean> list2 = getList(demographicNo, typeIdName2);
             org.jfree.data.time.TimeSeriesCollection dataset2 = new org.jfree.data.time.TimeSeriesCollection();
@@ -1012,7 +1012,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
                                 Double.parseDouble(result));
                     }
                 } else {
-                    log.debug("Error passing measurement value to chart. DataField is empty for ID: {}", LogSanitizer.sanitize(String.valueOf(mdb.getId())));
+                    log.debug("Error passing measurement value to chart. DataField is empty for ID: {}", LogSafe.sanitize(String.valueOf(mdb.getId())));
                 }
             }
             dataset2.addSeries(newSeries);

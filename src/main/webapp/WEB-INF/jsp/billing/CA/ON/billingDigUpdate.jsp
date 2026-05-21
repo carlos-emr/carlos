@@ -28,6 +28,8 @@
 <%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     // BillingDiagUpdate2Action enforces _billing w + POST and runs the
     // DiagnosticCodeDao.merge mutation through a persister; this JSP just
@@ -37,6 +39,7 @@
     %>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
     <script LANGUAGE="JavaScript">
         <!--

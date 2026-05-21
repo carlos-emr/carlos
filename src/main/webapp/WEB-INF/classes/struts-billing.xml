@@ -453,6 +453,10 @@
             <result name="error">/WEB-INF/jsp/billing/CA/ON/billingOBECEA.jsp</result>
         </action>
 
+        <action name="billing/CA/ON/ViewBillingOBECEA" class="io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingOBECEA2Action">
+            <result name="success">/WEB-INF/jsp/billing/CA/ON/billingOBECEA.jsp</result>
+        </action>
+
         <action name="billing/CA/ON/billingLreport" class="io.github.carlos_emr.carlos.billings.ca.on.web.BillingLegacyReport2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/ON/billingLreport.jsp</result>
         </action>

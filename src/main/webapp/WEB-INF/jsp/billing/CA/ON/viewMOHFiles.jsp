@@ -46,6 +46,7 @@
 <jsp:useBean id="oscarVariables" class="java.util.Properties" scope="session"/>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title><fmt:message key="admin.admin.viewMOHFiles"/></title>
 
     <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">

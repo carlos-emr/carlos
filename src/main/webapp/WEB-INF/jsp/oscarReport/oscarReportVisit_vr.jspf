@@ -25,6 +25,7 @@
 -->
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security"%>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
       String roleName$ = (String)session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
       boolean authed=true;
@@ -40,6 +41,7 @@ if(!authed) {
 %>
 
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ReportProviderDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.projection.ReporterRow" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ReportProvider" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@page import="io.github.carlos_emr.MyDateFormat" %>
@@ -137,14 +139,11 @@ boolean bodd=true;
 
 
 
-for(Object[] result : reportProviderDao.search_reportprovider("visitreport", ohipNo)){
-	ReportProvider rp = (ReportProvider)result[0];
-	Provider provider = (Provider)result[1];
-	
-    p_last = provider.getLastName();
-    p_first = provider.getFirstName();
-    p_no = provider.getProviderNo();
-    team = rp.getTeam();
+for(ReporterRow result : reportProviderDao.search_reportprovider("visitreport", ohipNo)){
+    p_no = result.providerNo();
+    p_last = result.lastName();
+    p_first = result.firstName();
+    team = result.team();
 
     VisitReportData vrd = new VisitReportData();
     vrd.setDateBegin(dateBegin);
@@ -157,8 +156,8 @@ for(Object[] result : reportProviderDao.search_reportprovider("visitreport", ohi
 
     %>
 	<tr>
-		<td bgcolor="<%=bodd?"#EEEEFF":"white"%>"><%=oldteam.equals(team)?"":team%></td>
-		<td bgcolor="<%=bodd?"#EEEEFF":"white"%>"><%=p_no%> <%=p_last%>,<%=p_first%></td>
+		<td bgcolor="<%=bodd?"#EEEEFF":"white"%>"><carlos:encode value='<%= oldteam.equals(team) ? "" : team %>' context="html"/></td>
+		<td bgcolor="<%=bodd?"#EEEEFF":"white"%>"><carlos:encode value="<%= p_no %>" context="html"/> <carlos:encode value="<%= p_last %>" context="html"/>,<carlos:encode value="<%= p_first %>" context="html"/></td>
 		<td bgcolor="<%=bodd?"#EEEEFF":"white"%>"><%=visitcount[0]%></td>
 		<td bgcolor="<%=bodd?"#EEEEFF":"white"%>"><%=visitcount[1]%></td>
 		<td bgcolor="<%=bodd?"#EEEEFF":"white"%>"><%=visitcount[2]%></td>

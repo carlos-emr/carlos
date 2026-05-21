@@ -182,7 +182,7 @@ public abstract class AbstractQueryHandler extends AbstractJpaDao {
      * <p>
      * Not Thread Safe
      */
-    protected final String buildQuery(final String query) {
+    protected String buildQuery(final String query) {
 
         String queryString = new String(query);
 
@@ -210,7 +210,7 @@ public abstract class AbstractQueryHandler extends AbstractJpaDao {
      * Searches the query string for a specific string pattern.
      * ie: "(\\$){1}(\\{){1}( )* [firstName] ( )*(\\}){1}"
      */
-    public final String addParameters(List<Parameter> parameters, String query) {
+    public String addParameters(List<Parameter> parameters, String query) {
 
         for (Parameter parameter : parameters) {
             query = addParameter(parameter, query);
@@ -235,7 +235,7 @@ public abstract class AbstractQueryHandler extends AbstractJpaDao {
      * ie: "(\\$){1}(\\{){1}( )* [firstName] ( )*(\\}){1}"
      */
 
-    public final String addRanges(List<RangeInterface> ranges, String query) {
+    public String addRanges(List<RangeInterface> ranges, String query) {
 
         for (RangeInterface range : ranges) {
             query = addRange(range, query);

@@ -10,21 +10,28 @@ CARLOS EMR uses [OWASP CSRFGuard 4.5](https://github.com/OWASP/www-project-csrfg
 Cross-Site Request Forgery protection. The implementation uses the **Synchronizer Token Pattern**
 with session-scoped tokens, validated server-side on every state-changing request.
 
-CSRF tokens are **automatically injected** into forms and AJAX requests by client-side JavaScript.
-Developers do **not** need to manually add CSRF tokens to JSPs or AJAX calls.
+CSRF tokens are **automatically injected** into standard forms and legacy XMLHttpRequest helpers
+that the CSRFGuard script can instrument. Developers do **not** need to manually add CSRF tokens to
+plain JSP forms, but manual `fetch()` calls and custom AJAX helpers must send the CSRF token header
+explicitly.
 
 ---
 
 ## Filter Chain Architecture
 
-Four components work together (two custom filters and one servlet registered in `web.xml`, plus one request wrapper instantiated internally by the filter):
+Four components work together: two custom filters and one servlet registered in `web.xml`,
+plus one request wrapper instantiated internally by the validation filter.
 
-### 1. `CsrfGuardScriptInjectionFilter` (mapped to `/*`)
+### 1. `CsrfGuardScriptInjectionFilter` (mapped to `/*` for JSP forwards)
 
 **Class**: `io.github.carlos_emr.carlos.app.CsrfGuardScriptInjectionFilter`
 
-Auto-injects `<script src="contextPath/csrfguard"></script>` into every HTML response before
-`</head>`. This eliminates the need to manually add the script tag to 1,200+ JSPs.
+Auto-injects `<script src="contextPath/csrfguard"></script>` into HTML JSP responses before
+`</head>`. The filter mapping is intentionally limited to `FORWARD` dispatches so injection
+happens at the JSP render layer without wrapping the top-level Struts `REQUEST` response.
+Do not re-add `REQUEST` dispatch unless the Struts/JSP wrapper interaction has been retested;
+double-wrapping has previously produced blank schedule pages even when the Struts action itself
+completed successfully.
 
 **How it works:**
 - Wraps the `HttpServletResponse` with a `CaptureResponseWrapper` that captures `PrintWriter`
@@ -34,11 +41,21 @@ Auto-injects `<script src="contextPath/csrfguard"></script>` into every HTML res
 
 **Injection is skipped when:**
 - Content-Type is not `text/html`
-- The request is AJAX (`X-Requested-With: XMLHttpRequest`)
+- The filter is explicitly remapped to top-level `REQUEST` dispatch and the request is AJAX
+  (`X-Requested-With: XMLHttpRequest`). The deployed `FORWARD`-only mapping does not see
+  top-level AJAX requests; it runs only while JSP views are rendered.
 - CSRFGuard is disabled
 - The response already contains a `/csrfguard` script reference (idempotency)
 - The response used `getOutputStream()` instead of `getWriter()`
 - The response was committed by `sendRedirect()` or `sendError()` during downstream processing
+
+**Operational invariant:** CSRF validation still runs on protected Struts POST requests through
+`CarlosCsrfGuardFilter`. The `FORWARD`-only script-injection mapping changes where the client
+script is added, not whether incoming mutating requests are validated.
+
+If `CsrfGuard.getInstance()` fails inside `CsrfGuardScriptInjectionFilter`, the filter fails
+closed with HTTP 503. Serving HTML without the script tag creates pages whose POSTs fail later
+with harder-to-debug CSRF errors, so pass-through is not an acceptable degraded mode.
 
 ### 2. `CarlosCsrfGuardFilter` (mapped to `/*`)
 
@@ -326,11 +343,14 @@ The login flow creates the session and generates tokens on the first GET to a pr
    `SLF4J(W): No SLF4J providers were found`
 3. Configure logger level in `log4j2.xml`: `<Logger name="org.owasp.csrfguard" level="debug"/>`
 
-### Large pages (>1 MB) not getting CSRF script injected
+### Large pages not getting CSRF script injected
 
-The `CsrfGuardScriptInjectionFilter` increases the response buffer to 1 MB. Pages larger than
-this may flush content to the client before script injection can occur. If this is an issue,
-increase the buffer size in `CsrfGuardScriptInjectionFilter.CaptureResponseWrapper` constructor.
+The `CsrfGuardScriptInjectionFilter` captures writer-based HTML output in memory with a
+`CharArrayWriter` and then injects the CSRF script before writing the final response. It does not
+increase the servlet response buffer, because Tomcat 11 forwards can reject late `setBufferSize()`
+calls after a JSP has obtained its writer. If injection is missing, check for early direct writes to
+the underlying response, `ServletOutputStream` use, committed-response redirects/errors, or a
+non-HTML `Content-Type` that forced passthrough.
 
 ---
 

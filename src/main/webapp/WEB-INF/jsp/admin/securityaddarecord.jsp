@@ -83,6 +83,7 @@
 
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <style type="text/css">
             /* Style for providers with sec records */
             .providerSecurity1 {

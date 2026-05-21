@@ -56,7 +56,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.service.GstSettingsService" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.service.GstSettingsService" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.administration.GstReport" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
@@ -161,6 +161,7 @@
 %>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title><fmt:message key='billing.billingCorrection.title'/></title>
     <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/calendar/calendar.css"
           title="win2k-cold-1"/>
@@ -534,7 +535,7 @@
     }
 
 %>
-<form style="reprocessBilling" action="${pageContext.request.contextPath}/billing/CA/BC/reprocessBill" method="post" onsubmit="return checkSubmitType()">
+<form name="reprocessBilling" action="${pageContext.request.contextPath}/billing/CA/BC/reprocessBill" method="post" onsubmit="return checkSubmitType()">
     <input type="hidden" name="update_date" value="<carlos:encode value='<%= UpdateDate %>' context="htmlAttribute"/>"/>
     <input type="hidden" name="demoNo" value="<carlos:encode value='<%= DemoNo %>' context="htmlAttribute"/>"/>
     <input type="hidden" name="billNumber" value="<carlos:encode value='<%= allFields.getProperty("billingNo", "") %>' context="htmlAttribute"/>"/>

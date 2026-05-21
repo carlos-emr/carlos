@@ -35,6 +35,7 @@
 
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script src="${ctx}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
     <script type="text/javascript" src="${ctx}/library/flatpickr/flatpickr.min.js"></script>
 

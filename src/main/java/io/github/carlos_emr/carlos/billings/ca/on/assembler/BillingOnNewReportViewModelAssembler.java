@@ -49,7 +49,7 @@ import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.dao.RaDetailDao;
 import io.github.carlos_emr.carlos.commn.dao.ReportProviderDao;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.commn.dao.SiteDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
@@ -192,7 +192,7 @@ public class BillingOnNewReportViewModelAssembler {
                     // caught up with is distinguishable from "no matches".
                     MiscUtils.getLogger().warn(
                             "BillingOnNewReportViewModelAssembler: unknown action [{}]; rendering empty result",
-                            LogSanitizer.sanitize(action));
+                            LogSafe.sanitize(action));
                     break;
             }
         } catch (RuntimeException e) {

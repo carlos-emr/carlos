@@ -101,6 +101,7 @@
 %>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title>Reports</title>
     <script type="text/javascript">
 
