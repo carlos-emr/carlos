@@ -181,8 +181,9 @@ public final class WebappShutdownResources {
      * that loader is an ancestor of the supplied webapp loader; this handles servlet
      * containers that report a wrapper child loader while CARLOS classes live in its
      * parent, such as a Tomcat webapp loader wrapper around an application class
-     * loader. This method is package-visible so tests can pin the class loader
-     * hierarchy rules without mutating DriverManager state.
+     * loader. Drivers loaded by shared parent class loaders above the webapp hierarchy
+     * are not owned and will be preserved. This method is package-visible so tests can
+     * pin the class loader hierarchy rules without mutating DriverManager state.
      *
      * @param driverClassLoader class loader that loaded the JDBC driver class; {@code null} is not webapp-owned
      * @param webappClassLoader class loader associated with the stopping webapp
@@ -197,8 +198,9 @@ public final class WebappShutdownResources {
         }
 
         ClassLoader shutdownResourcesClassLoader = WebappShutdownResources.class.getClassLoader();
-        // Handle containers where CARLOS classes live in a parent loader but the
-        // servlet context reports a child wrapper as the webapp class loader.
+        // Handle containers where CARLOS classes and app-scoped drivers live in
+        // a parent application loader but the servlet context reports a child
+        // wrapper loader; shared parents above the CARLOS loader still fail this check.
         return driverClassLoader == shutdownResourcesClassLoader
                 && isSameOrChildClassLoader(webappClassLoader, shutdownResourcesClassLoader);
     }

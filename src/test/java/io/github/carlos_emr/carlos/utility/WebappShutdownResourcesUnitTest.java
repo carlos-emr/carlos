@@ -92,15 +92,15 @@ public class WebappShutdownResourcesUnitTest {
     }
 
     @Test
-    void shouldDeregisterJdbcDriver_whenLoadedByChildClassLoader() throws Exception {
+    void shouldDeregisterJdbcDriver_whenLoadedByChildOfReportedWebappLoader() throws Exception {
         java.util.List<Driver> existingDrivers = Collections.list(DriverManager.getDrivers());
         URL testClassesUrl = testClassesUrl();
         URL mainClassesUrl = mainClassesUrl();
 
-        try (URLClassLoader intermediateParentLoader = new URLClassLoader(new URL[0], getClass().getClassLoader());
+        try (URLClassLoader reportedWebappLoader = new URLClassLoader(new URL[0], getClass().getClassLoader());
              ChildFirstTestClassLoader childClassLoader = new ChildFirstTestClassLoader(
-                     testClassesUrl, mainClassesUrl, intermediateParentLoader)) {
-            assertThat(childClassLoader.getParent()).isSameAs(intermediateParentLoader);
+                     testClassesUrl, mainClassesUrl, reportedWebappLoader)) {
+            assertThat(childClassLoader.getParent()).isSameAs(reportedWebappLoader);
             Class<?> helperClass = childClassLoader.loadClass(
                     WebappShutdownResourcesUnitTest.class.getName() + "$DriverRegistrationHelper");
             Method registerDriver = helperClass.getMethod("registerDriver");
@@ -110,7 +110,7 @@ public class WebappShutdownResourcesUnitTest {
             Driver driver = (Driver) registerDriver.invoke(null);
 
             try {
-                int deregistered = (Integer) deregisterWebappDrivers.invoke(null, intermediateParentLoader);
+                int deregistered = (Integer) deregisterWebappDrivers.invoke(null, reportedWebappLoader);
 
                 assertThat(deregistered).isEqualTo(1);
                 assertThat((Boolean) isDriverRegistered.invoke(null, driver)).isFalse();
