@@ -115,6 +115,10 @@ public class LogoutBroadcastFilter implements Filter {
     /** Default inactivity limit in minutes when INACTIVITY_LIMIT_MINS is not configured. */
     private static final int DEFAULT_INACTIVITY_LIMIT_MINS = 60;
 
+    /** Request marker used to avoid duplicate server-side injection across REQUEST/FORWARD dispatches. */
+    private static final String SCRIPT_INJECTED_REQUEST_ATTRIBUTE =
+            LogoutBroadcastFilter.class.getName() + ".scriptInjected";
+
     private Set<String> exclusions = Collections.synchronizedSet(new HashSet<String>());
 
     /**
@@ -188,6 +192,11 @@ public class LogoutBroadcastFilter implements Filter {
         chain.doFilter(request, delegatingResponse);
         delegatingResponse.markChainComplete();
 
+        if (Boolean.TRUE.equals(httpRequest.getAttribute(SCRIPT_INJECTED_REQUEST_ATTRIBUTE))) {
+            delegatingResponse.completeWithoutInjection();
+            return;
+        }
+
         HttpSession session = httpRequest.getSession(false);
         if (session == null || session.getAttribute("user") == null) {
             delegatingResponse.completeWithoutInjection();
@@ -219,6 +228,7 @@ public class LogoutBroadcastFilter implements Filter {
         try {
             delegatingResponse.discardDeferredContentLength();
             appendScript(delegatingResponse, httpRequest.getContextPath(), httpRequest.getLocale());
+            httpRequest.setAttribute(SCRIPT_INJECTED_REQUEST_ATTRIBUTE, Boolean.TRUE);
         } catch (IOException e) {
             logger.error("Skipping logout broadcast script injection because the script could not be written: uri={}",
                     safeRequestUri, e);
