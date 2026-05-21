@@ -28,6 +28,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -341,6 +343,33 @@ public class PathValidationUtilsTest {
             // When/Then - should not throw (file is in allowed temp directory)
             assertThatCode(() -> PathValidationUtils.validateUpload(tempFile))
                 .doesNotThrowAnyException();
+        }
+
+        @Test
+        @DisplayName("should open stream for upload in allowed temp directory")
+        void shouldOpenValidatedUploadInputStream_whenUploadIsInAllowedTempDirectory() throws IOException {
+            Path upload = Files.createTempFile("path-validation-upload-", ".txt");
+            Files.writeString(upload, "safe upload", StandardCharsets.UTF_8);
+
+            try (InputStream inputStream = PathValidationUtils.openValidatedUploadInputStream(upload.toFile())) {
+                assertThat(new String(inputStream.readAllBytes(), StandardCharsets.UTF_8))
+                        .isEqualTo("safe upload");
+            } finally {
+                Files.deleteIfExists(upload);
+            }
+        }
+
+        @Test
+        @DisplayName("should reject opening upload stream outside allowed temp directories")
+        void shouldRejectOpeningValidatedUploadInputStream_whenUploadIsOutsideAllowedTempDirectories() {
+            File outsideFile = new File("/etc/hostname");
+            Assumptions.assumeTrue(outsideFile.exists() && outsideFile.isFile(),
+                    "Test requires /etc/hostname to exist (Linux-specific)");
+
+            assertThatThrownBy(() -> PathValidationUtils.openValidatedUploadInputStream(outsideFile))
+                    .isInstanceOf(IOException.class)
+                    .hasMessageContaining("Invalid upload file")
+                    .hasCauseInstanceOf(SecurityException.class);
         }
     }
 

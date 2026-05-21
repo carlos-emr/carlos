@@ -31,6 +31,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import jakarta.servlet.http.HttpServletRequest;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
@@ -229,6 +230,25 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should preserve PDF extension when original name is null")
+    void shouldPreservePdfExtension_whenOriginalNameIsNull() throws Exception {
+        tempUploadFile = File.createTempFile("add-edit-document", ".tmp");
+        Files.writeString(tempUploadFile.toPath(), "%PDF- test");
+
+        UploadedFile uploadedFile = mock(UploadedFile.class);
+        when(uploadedFile.getInputName()).thenReturn("docFile");
+        when(uploadedFile.getContent()).thenReturn(tempUploadFile);
+        when(uploadedFile.getOriginalName()).thenReturn(null);
+        when(uploadedFile.getContentType()).thenReturn("application/pdf");
+
+        action.withUploadedFiles(List.of(uploadedFile));
+
+        assertThat(action.getDocFile()).isNotNull();
+        assertThat(action.getDocFileFileName()).isEqualTo(expectedPdfFallbackName(tempUploadFile));
+        assertThat(action.getDocFileContentType()).isEqualTo("application/pdf");
+    }
+
+    @Test
     @DisplayName("should fall back to temp filename when Struts 7 original name is only a path")
     void shouldFallBackToTempFilename_whenStruts7OriginalNameIsOnlyAPath() throws Exception {
         tempUploadFile = File.createTempFile("add-edit-document", ".pdf");
@@ -245,6 +265,25 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
         assertThat(action.getDocFile().getAbsolutePath()).isEqualTo(tempUploadFile.getAbsolutePath());
         assertThat(action.getDocFileFileName()).isEqualTo(MiscUtils.sanitizeFileName(tempUploadFile.getName()));
         assertThat(action.getDocFileContentType()).isEqualTo("application/pdf");
+    }
+
+    @Test
+    @DisplayName("should preserve sniffed PDF extension when original name is only a path")
+    void shouldPreserveSniffedPdfExtension_whenOriginalNameIsOnlyAPath() throws Exception {
+        tempUploadFile = File.createTempFile("add-edit-document", ".tmp");
+        Files.writeString(tempUploadFile.toPath(), "%PDF- test");
+
+        UploadedFile uploadedFile = mock(UploadedFile.class);
+        when(uploadedFile.getInputName()).thenReturn("docFile");
+        when(uploadedFile.getContent()).thenReturn(tempUploadFile);
+        when(uploadedFile.getOriginalName()).thenReturn("/");
+        when(uploadedFile.getContentType()).thenReturn("application/octet-stream");
+
+        action.withUploadedFiles(List.of(uploadedFile));
+
+        assertThat(action.getDocFile()).isNotNull();
+        assertThat(action.getDocFileFileName()).isEqualTo(expectedPdfFallbackName(tempUploadFile));
+        assertThat(action.getDocFileContentType()).isEqualTo("application/octet-stream");
     }
 
     @Test
@@ -587,6 +626,11 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
             document.add(new Paragraph("test"));
             document.close();
         }
+    }
+
+    private String expectedPdfFallbackName(File uploadFile) {
+        String sanitizedTempName = MiscUtils.sanitizeFileName(uploadFile.getName());
+        return FilenameUtils.removeExtension(sanitizedTempName) + ".pdf";
     }
 
     private static class FailingUploadInputStream extends InputStream {

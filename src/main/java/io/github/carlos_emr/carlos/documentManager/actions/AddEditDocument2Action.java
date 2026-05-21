@@ -44,6 +44,7 @@ import java.nio.file.StandardOpenOption;
 import java.util.Date;
 import java.util.Hashtable;
 import java.util.List;
+import java.util.Locale;
 import java.util.ResourceBundle;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -114,6 +115,11 @@ import org.owasp.encoder.Encode;
  * @since 2006-07-27
  */
 public class AddEditDocument2Action extends ActionSupport implements UploadedFilesAware {
+    private static final int MAX_SAFE_EXTENSION_LENGTH = 10;
+    private static final String PDF_EXTENSION = "pdf";
+    private static final String PDF_CONTENT_TYPE = "application/pdf";
+    private static final byte[] PDF_HEADER = new byte[] {'%', 'P', 'D', 'F', '-'};
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -154,7 +160,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             return null;
         }
 
-        String fileName = resolveSanitizedUploadedFileName(validatedSource, this.docFileFileName);
+        String fileName = resolveSanitizedUploadedFileName(validatedSource, this.docFileFileName, this.docFileContentType);
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String user = loggedInInfo.getLoggedInProviderNo();
         EDoc newDoc = new EDoc("", "", fileName, "", user, user, this.getSource(), 'A', UtilDateUtilities.getToday("yyyy-MM-dd"), "", "", "demographic", "-1", 0);
@@ -362,7 +368,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
                 throw new FileNotFoundException();
             }
             // sanitize the original file name first
-            String fileName1 = resolveSanitizedUploadedFileName(validatedDocFile, this.docFileFileName);
+            String fileName1 = resolveSanitizedUploadedFileName(validatedDocFile, this.docFileFileName, this.docFileContentType);
 
             EDoc newDoc = new EDoc(this.getDocDesc(), this.getDocType(), fileName1, "", this.getDocCreator(), this.getResponsibleId(), this.getSource(), 'A', this.getObservationDate(), "", "", this.getFunction(), this.getFunctionId());
             newDoc.setDocPublic(this.getDocPublic());
@@ -520,7 +526,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
                 File docFile = this.getDocFile();
                 if (docFile != null && docFile.exists()) {
                     validatedDocFile = PathValidationUtils.validateUpload(docFile);
-                    fileName = resolveSanitizedUploadedFileName(validatedDocFile, this.docFileFileName);
+                    fileName = resolveSanitizedUploadedFileName(validatedDocFile, this.docFileFileName, this.docFileContentType);
                     updateFileContent = true; // set update to true
                 }
             }
@@ -733,7 +739,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             // immediately before file I/O for defense in depth and static-analysis visibility.
             File validatedUpload = PathValidationUtils.validateUpload(resolveUploadedContentFile(selected));
             this.docFile = validatedUpload;
-            this.docFileFileName = resolveSanitizedUploadedFileName(validatedUpload, selected.getOriginalName());
+            this.docFileFileName = resolveSanitizedUploadedFileName(validatedUpload, selected.getOriginalName(), selected.getContentType());
             this.docFileContentType = selected.getContentType();
         }
     }
@@ -741,25 +747,88 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
     /**
      * Resolves the safest filename to associate with an uploaded temp file.
      * Extracts only the basename from the supplied original name to discard any
-     * path components, sanitizes it, and falls back to the validated temp file name
-     * when the original value is null, blank, path-only, or sanitizes to blank. The
-     * fallback temp filename may not match the client-provided extension, but it
-     * remains a safe basename for later storage. This fallback also prevents
-     * malicious or path-traversal-oriented client names from controlling the stored
-     * filename.
+     * path components, sanitizes it, and falls back to the validated temp file
+     * name when the original value is null, blank, path-only, or sanitizes to
+     * blank. The fallback preserves a safe extension where possible so PDF
+     * handling is not bypassed solely because Struts omitted the original name.
      *
      * @param uploadedFile File the validated temporary upload file
      * @param originalName String the original client-supplied filename, if any
+     * @param contentType String the upload content type reported by Struts, if any
      * @return String the normalized and sanitized filename to use for storage
      */
-    private String resolveSanitizedUploadedFileName(File uploadedFile, String originalName) {
+    private String resolveSanitizedUploadedFileName(File uploadedFile, String originalName, String contentType) {
         String candidate = filled(originalName) ? FilenameUtils.getName(originalName) : null;
-        String resolvedName = filled(candidate) ? candidate : uploadedFile.getName();
-        String sanitizedName = MiscUtils.sanitizeFileName(resolvedName);
-        if (filled(sanitizedName)) {
-            return sanitizedName;
+        if (filled(candidate)) {
+            String sanitizedName = MiscUtils.sanitizeFileName(candidate);
+            if (filled(sanitizedName)) {
+                return sanitizedName;
+            }
         }
-        return MiscUtils.sanitizeFileName(uploadedFile.getName());
+
+        return resolveFallbackUploadFileName(uploadedFile, originalName, contentType);
+    }
+
+    private String resolveFallbackUploadFileName(File uploadedFile, String originalName, String contentType) {
+        String fallbackName = MiscUtils.sanitizeFileName(uploadedFile.getName());
+        String safeExtension = safeExtension(originalName);
+        if (!filled(safeExtension) && isPdfUpload(uploadedFile, contentType)) {
+            safeExtension = PDF_EXTENSION;
+        }
+        if (!filled(safeExtension)) {
+            return fallbackName;
+        }
+
+        String currentExtension = FilenameUtils.getExtension(fallbackName);
+        if (safeExtension.equalsIgnoreCase(currentExtension)) {
+            return fallbackName;
+        }
+
+        String baseName = FilenameUtils.removeExtension(fallbackName);
+        String resolvedBaseName = filled(baseName) ? baseName : fallbackName;
+        return resolvedBaseName + "." + safeExtension.toLowerCase(Locale.ROOT);
+    }
+
+    private String safeExtension(String fileName) {
+        if (!filled(fileName)) {
+            return "";
+        }
+
+        String extension = FilenameUtils.getExtension(FilenameUtils.getName(fileName));
+        if (!filled(extension) || extension.length() > MAX_SAFE_EXTENSION_LENGTH) {
+            return "";
+        }
+        return extension.matches("[A-Za-z0-9]+") ? extension : "";
+    }
+
+    private boolean isPdfUpload(File uploadedFile, String contentType) {
+        if (PDF_CONTENT_TYPE.equalsIgnoreCase(safeContentType(contentType))) {
+            return true;
+        }
+
+        try (InputStream inputStream = PathValidationUtils.openValidatedUploadInputStream(uploadedFile)) {
+            byte[] header = inputStream.readNBytes(PDF_HEADER.length);
+            if (header.length != PDF_HEADER.length) {
+                return false;
+            }
+            for (int i = 0; i < PDF_HEADER.length; i++) {
+                if (header[i] != PDF_HEADER[i]) {
+                    return false;
+                }
+            }
+            return true;
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+    private String safeContentType(String contentType) {
+        if (!filled(contentType)) {
+            return "";
+        }
+        int parameterStart = contentType.indexOf(';');
+        String mediaType = parameterStart >= 0 ? contentType.substring(0, parameterStart) : contentType;
+        return mediaType.trim();
     }
 
     /**
@@ -791,27 +860,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
      * @throws IOException if the stream cannot be opened
      */
     private InputStream openValidatedUploadInputStream(File validatedUpload) throws IOException {
-        if (validatedUpload == null) {
-            throw new IOException("Upload file is missing");
-        }
-
-        File safeUpload;
-        try {
-            safeUpload = PathValidationUtils.validateUpload(validatedUpload);
-        } catch (SecurityException e) {
-            throw new IOException("Invalid upload file");
-        }
-
-        if (!PathValidationUtils.isInAllowedTempDirectory(safeUpload)) {
-            throw new IOException("Invalid upload file path");
-        }
-
-        Path safeUploadPath = safeUpload.toPath().normalize().toAbsolutePath();
-        if (!Files.exists(safeUploadPath) || !Files.isRegularFile(safeUploadPath)) {
-            throw new IOException("Invalid upload file path");
-        }
-
-        return Files.newInputStream(safeUploadPath);
+        return PathValidationUtils.openValidatedUploadInputStream(validatedUpload);
     }
 
     /**
