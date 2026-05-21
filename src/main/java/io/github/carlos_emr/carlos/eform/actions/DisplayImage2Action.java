@@ -103,15 +103,12 @@ public class DisplayImage2Action extends ActionSupport {
         File validatedFile = getValidatedImageFile(fileName);
         StreamData data = process(validatedFile, fileName);
         String contentType = data.contentType();
-        InputStream stream = data.stream();
-
-        try {
+        try (InputStream stream = data.stream()) {
             if (RequestNegotiation.isHtmlContentType(contentType)) {
                 // HtmlResponse owns the content type and charset for writer-backed HTML so the
                 // logout listener remains injectable and charset handling stays centralized.
                 // LogoutBroadcastFilter can only append the cross-window logout listener to writer-backed HTML.
                 HtmlResponse.writeStoredHtml(response, contentType, stream);
-                stream = null;
                 return NONE;
             }
             response.setContentType(contentType);
@@ -121,10 +118,6 @@ public class DisplayImage2Action extends ActionSupport {
         } catch (IOException e) {
             MiscUtils.getLogger().error("Error streaming eform image to response", e);
             return NONE;
-        } finally {
-            if (stream != null) {
-                stream.close();
-            }
         }
     }
 
