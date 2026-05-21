@@ -274,17 +274,16 @@ public class WafFilter implements Filter {
     // Scanner User-Agent signatures — OWASP CRS 913xxx
     // -----------------------------------------------------------------------
 
-    private static final Pattern SCANNER_UA = Pattern.compile(
+    private static final String DEFAULT_SCANNER_USER_AGENT_REGEX =
         "(?i)(sqlmap|nikto|nmap|masscan|zgrab|nuclei|dirbuster|gobuster|wfuzz|hydra"
         + "|burpsuite|burp\\s*suite|zaproxy|zap\\s*proxy|w3af|arachni"
-        + "|skipfish|vega\\b|grabber|fimap|commix)"
-    );
+        + "|skipfish|vega\\b|grabber|fimap|commix)";
 
     // -----------------------------------------------------------------------
     // Blocked HTTP methods — OWASP CRS 911xxx
     // -----------------------------------------------------------------------
 
-    private static final Set<String> BLOCKED_METHODS = Collections.unmodifiableSet(
+    private static final Set<String> DEFAULT_BLOCKED_METHODS = Collections.unmodifiableSet(
             new HashSet<>(Arrays.asList("TRACE", "TRACK")));
 
     // -----------------------------------------------------------------------
@@ -337,6 +336,9 @@ public class WafFilter implements Filter {
     private boolean requestLimitsEnabled;
     private boolean protocolEnforcementEnabled;
 
+    private Pattern scannerUserAgentPattern;
+    private Set<String> blockedMethods;
+
     private int maxUriLength;
     private int maxParamCount;
     private int maxParamCountHardened;
@@ -374,6 +376,9 @@ public class WafFilter implements Filter {
         maxParamCountHardened     = getPropInt(props, "WAF_MAX_PARAM_COUNT_HARDENED",    10);
         maxParamValueLength       = getPropInt(props, "WAF_MAX_PARAM_VALUE_LENGTH",      65536);
         maxParamValueLengthHardened = getPropInt(props, "WAF_MAX_PARAM_VALUE_LENGTH_HARDENED", 1024);
+        scannerUserAgentPattern   = getPropPattern(props, "WAF_SCANNER_USER_AGENT_PATTERN",
+                DEFAULT_SCANNER_USER_AGENT_REGEX);
+        blockedMethods            = getPropCsvUpperSet(props, "WAF_BLOCKED_METHODS", DEFAULT_BLOCKED_METHODS);
 
         if (enabled) {
             LOGGER.info("WafFilter initialised in {} mode", enforceMode ? "ENFORCE" : "DETECT");
@@ -425,7 +430,7 @@ public class WafFilter implements Filter {
         // Runs BEFORE the allowlist so that TRACE to /images/, /csrfguard, etc. is still blocked.
         if (protocolEnforcementEnabled) {
             String method = httpReq.getMethod();
-            if (method != null && BLOCKED_METHODS.contains(method.toUpperCase())) {
+            if (method != null && blockedMethods.contains(method.toUpperCase())) {
                 if (block(httpReq, httpResp, "protocol", method)) {
                     return;
                 }
@@ -455,7 +460,7 @@ public class WafFilter implements Filter {
         // --- Scanner User-Agent detection ---
         if (scannerDetectionEnabled) {
             String ua = httpReq.getHeader("User-Agent");
-            if (ua != null && SCANNER_UA.matcher(ua).find()) {
+            if (ua != null && scannerUserAgentPattern.matcher(ua).find()) {
                 if (block(httpReq, httpResp, "scanner", "ua_match")) {
                     return;
                 }
@@ -862,5 +867,30 @@ public class WafFilter implements Filter {
     private static String getPropString(CarlosProperties props, String key, String defaultValue) {
         String val = props.getProperty(key);
         return (val == null || val.trim().isEmpty()) ? defaultValue : val.trim();
+    }
+
+    private static Pattern getPropPattern(CarlosProperties props, String key, String defaultRegex) {
+        String regex = getPropString(props, key, defaultRegex);
+        try {
+            return Pattern.compile(regex);
+        } catch (IllegalArgumentException e) {
+            LOGGER.warn("WafFilter: invalid regex for property {} — using default", key);
+            return Pattern.compile(defaultRegex);
+        }
+    }
+
+    private static Set<String> getPropCsvUpperSet(CarlosProperties props, String key, Set<String> defaultValue) {
+        String val = props.getProperty(key);
+        if (val == null || val.trim().isEmpty()) {
+            return defaultValue;
+        }
+        Set<String> parsed = new HashSet<>();
+        for (String token : val.split(",")) {
+            String trimmed = token.trim();
+            if (!trimmed.isEmpty()) {
+                parsed.add(trimmed.toUpperCase());
+            }
+        }
+        return parsed.isEmpty() ? defaultValue : Collections.unmodifiableSet(parsed);
     }
 }

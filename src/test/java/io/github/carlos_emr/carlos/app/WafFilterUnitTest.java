@@ -788,6 +788,34 @@ class WafFilterUnitTest {
             verify(chain).doFilter(request, response);
             verify(response, never()).sendError(anyInt(), anyString());
         }
+
+        @Test
+        @DisplayName("should use configured scanner user agent pattern")
+        void shouldDetectScanner_withConfiguredUserAgentPattern() throws Exception {
+            when(mockProps.getProperty("WAF_SCANNER_USER_AGENT_PATTERN")).thenReturn("(?i)customscanner");
+            WafFilter configuredFilter = new WafFilter();
+            configuredFilter.init(mock(FilterConfig.class));
+            when(request.getHeader("User-Agent")).thenReturn("CustomScanner/1.0");
+
+            configuredFilter.doFilter(request, response, chain);
+
+            verify(response).sendError(anyInt(), anyString());
+            verify(chain, never()).doFilter(request, response);
+        }
+
+        @Test
+        @DisplayName("should fall back to default scanner pattern when configured pattern is invalid")
+        void shouldFallBackToDefaultScannerPattern_whenConfiguredPatternInvalid() throws Exception {
+            when(mockProps.getProperty("WAF_SCANNER_USER_AGENT_PATTERN")).thenReturn("(?i)(customscanner");
+            WafFilter configuredFilter = new WafFilter();
+            configuredFilter.init(mock(FilterConfig.class));
+            when(request.getHeader("User-Agent")).thenReturn("sqlmap/1.7.2");
+
+            configuredFilter.doFilter(request, response, chain);
+
+            verify(response).sendError(anyInt(), anyString());
+            verify(chain, never()).doFilter(request, response);
+        }
     }
 
     // =========================================================================
@@ -818,6 +846,34 @@ class WafFilterUnitTest {
 
             verify(response).sendError(anyInt(), anyString());
             verify(chain, never()).doFilter(request, response);
+        }
+
+        @Test
+        @DisplayName("should block configured HTTP methods")
+        void shouldBlock_whenMethodIsConfigured() throws Exception {
+            when(mockProps.getProperty("WAF_BLOCKED_METHODS")).thenReturn("TRACE,OPTIONS");
+            WafFilter configuredFilter = new WafFilter();
+            configuredFilter.init(mock(FilterConfig.class));
+            when(request.getMethod()).thenReturn("OPTIONS");
+
+            configuredFilter.doFilter(request, response, chain);
+
+            verify(response).sendError(anyInt(), anyString());
+            verify(chain, never()).doFilter(request, response);
+        }
+
+        @Test
+        @DisplayName("should allow TRACK when configured blocked methods omit it")
+        void shouldAllowTrack_whenConfiguredBlockedMethodsOmitIt() throws Exception {
+            when(mockProps.getProperty("WAF_BLOCKED_METHODS")).thenReturn("TRACE");
+            WafFilter configuredFilter = new WafFilter();
+            configuredFilter.init(mock(FilterConfig.class));
+            when(request.getMethod()).thenReturn("TRACK");
+
+            configuredFilter.doFilter(request, response, chain);
+
+            verify(chain).doFilter(request, response);
+            verify(response, never()).sendError(anyInt(), anyString());
         }
 
         @Test
