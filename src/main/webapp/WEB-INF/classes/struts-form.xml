@@ -26,7 +26,7 @@
     Contains action mappings for medical forms, dashboard displays, flowsheets, and vaccine management.
 -->
 <struts>
-    <package name="form" namespace="/" extends="struts-default">
+    <package name="form" namespace="/" extends="struts-default" strict-method-invocation="true">
 
         <action name="web/dashboard/display/DashboardDisplay" class="io.github.carlos_emr.carlos.dashboard.display.DisplayDashboard2Action">
             <result name="success">/WEB-INF/jsp/web/dashboard/display/DashboardDisplay.jsp</result>

@@ -50,3 +50,8 @@ __pycache__/
 # Suppress Maven cache noise; vendored JARs under local_repo/ that are explicitly
 # committed remain tracked (gitignore does not affect already-tracked files).
 /local_repo/
+# Maven Resolver build-machine state files are never useful in version control,
+# even inside the vendored local_repo/ tree.
+local_repo/**/_remote.repositories
+local_repo/**/*.lastUpdated
+local_repo/**/m2e-lastUpdated.properties

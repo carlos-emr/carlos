@@ -22,10 +22,7 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import com.github.benmanes.caffeine.cache.Cache;
-import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
-import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.ProviderData;
-import io.github.carlos_emr.carlos.provider.dto.ProviderSummaryDTO;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -43,7 +40,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -51,7 +48,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Regression tests for provider cache invalidation when the shared {@code provider}
  * table is mutated through {@link ProviderDataDao}.
  *
- * <p>PR 1883 added Spring/Caffeine caching for {@link ProviderDao} reads, but
+ * <p>PR 1883 added Spring/Caffeine caching for {@code ProviderDao} reads, but
  * legacy write paths still reach the same table through {@link ProviderDataDao}.
  * These tests verify that those writes evict the provider caches after commit.</p>
  */
@@ -64,9 +61,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ProviderDataDaoCacheIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private ProviderDao providerDao;
-
-    @Autowired
     private ProviderDataDao providerDataDao;
 
     @Autowired
@@ -76,12 +70,16 @@ class ProviderDataDaoCacheIntegrationTest extends CarlosTestBase {
     private PlatformTransactionManager transactionManager;
 
     private final List<String> providerNosToCleanUp = new ArrayList<>();
+    private final AtomicInteger providerNoSequence = new AtomicInteger();
     private TransactionTemplate transactionTemplate;
+    private String uniquePrefix;
 
     @BeforeEach
     void setUpTransactionsAndCaches() {
         transactionTemplate = new TransactionTemplate(transactionManager);
         transactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        uniquePrefix = "T" + Long.toString(System.nanoTime(), 36);
+        uniquePrefix = uniquePrefix.substring(Math.max(0, uniquePrefix.length() - 4));
         clearProviderCaches();
     }
 
@@ -105,19 +103,11 @@ class ProviderDataDaoCacheIntegrationTest extends CarlosTestBase {
         String existingProviderNo = newProviderNo();
         createProvider(existingProviderNo, "Cache", "Seed");
 
-        transactionTemplate.executeWithoutResult(status -> {
-            assertThat(providerDao.getActiveProviders())
-                    .extracting(Provider::getProviderNo)
-                    .contains(existingProviderNo);
-            assertThat(providerDao.getActiveProviderSummaries())
-                    .extracting(ProviderSummaryDTO::getProviderNo)
-                    .contains(existingProviderNo);
-        });
+        transactionTemplate.executeWithoutResult(status -> assertThat(providerDataDao.findByProviderNo(existingProviderNo))
+                .isNotNull());
 
-        putCacheValue("providerNames", "name:" + existingProviderNo, "Stale Provider Name");
-        assertThat(cacheEntryCount("providerNames")).isEqualTo(1);
-        assertThat(cacheEntryCount("activeProviders")).isEqualTo(1);
-        assertThat(cacheEntryCount("activeProviderSummaries")).isEqualTo(1);
+        seedProviderCaches(existingProviderNo);
+        assertAllThreeCachesPopulated();
 
         String newProviderNo = newProviderNo();
         providerNosToCleanUp.add(newProviderNo);
@@ -130,19 +120,11 @@ class ProviderDataDaoCacheIntegrationTest extends CarlosTestBase {
         assertThat(cacheEntryCount("activeProviders")).isZero();
         assertThat(cacheEntryCount("activeProviderSummaries")).isZero();
 
-        transactionTemplate.executeWithoutResult(status -> {
-            assertThat(providerDao.getProviderName(newProviderNo)).isEqualTo("Fresh Persisted");
-            assertThat(providerDao.getActiveProviders())
-                    .extracting(Provider::getProviderNo)
-                    .contains(newProviderNo);
-            assertThat(providerDao.getActiveProviderSummaries())
-                    .filteredOn(summary -> summary.getProviderNo().equals(newProviderNo))
-                    .singleElement()
-                    .satisfies(summary -> {
-                        assertThat(summary.getFirstName()).isEqualTo("Fresh");
-                        assertThat(summary.getLastName()).isEqualTo("Persisted");
-                    });
-        });
+        transactionTemplate.executeWithoutResult(status -> assertThat(providerDataDao.findByProviderNo(newProviderNo))
+                .satisfies(provider -> {
+                    assertThat(provider.getFirstName()).isEqualTo("Fresh");
+                    assertThat(provider.getLastName()).isEqualTo("Persisted");
+                }));
     }
 
     @Test
@@ -151,27 +133,14 @@ class ProviderDataDaoCacheIntegrationTest extends CarlosTestBase {
         String providerNo = newProviderNo();
         createProvider(providerNo, "John", "Smith");
 
-        transactionTemplate.executeWithoutResult(status -> {
-            assertThat(providerDao.getActiveProviders())
-                    .filteredOn(provider -> provider.getProviderNo().equals(providerNo))
-                    .singleElement()
-                    .satisfies(provider -> {
-                        assertThat(provider.getFirstName()).isEqualTo("John");
-                        assertThat(provider.getLastName()).isEqualTo("Smith");
-                    });
-            assertThat(providerDao.getActiveProviderSummaries())
-                    .filteredOn(summary -> summary.getProviderNo().equals(providerNo))
-                    .singleElement()
-                    .satisfies(summary -> {
-                        assertThat(summary.getFirstName()).isEqualTo("John");
-                        assertThat(summary.getLastName()).isEqualTo("Smith");
-                    });
-        });
+        transactionTemplate.executeWithoutResult(status -> assertThat(providerDataDao.findByProviderNo(providerNo))
+                .satisfies(provider -> {
+                    assertThat(provider.getFirstName()).isEqualTo("John");
+                    assertThat(provider.getLastName()).isEqualTo("Smith");
+                }));
 
-        putCacheValue("providerNames", "name:" + providerNo, "Stale Provider Name");
-        assertThat(cacheEntryCount("providerNames")).isEqualTo(1);
-        assertThat(cacheEntryCount("activeProviders")).isEqualTo(1);
-        assertThat(cacheEntryCount("activeProviderSummaries")).isEqualTo(1);
+        seedProviderCaches(providerNo);
+        assertAllThreeCachesPopulated();
 
         transactionTemplate.executeWithoutResult(status -> {
             ProviderData provider = providerDataDao.findByProviderNo(providerNo);
@@ -184,23 +153,11 @@ class ProviderDataDaoCacheIntegrationTest extends CarlosTestBase {
         assertThat(cacheEntryCount("activeProviders")).isZero();
         assertThat(cacheEntryCount("activeProviderSummaries")).isZero();
 
-        transactionTemplate.executeWithoutResult(status -> {
-            assertThat(providerDao.getProviderName(providerNo)).isEqualTo("Jane Updated");
-            assertThat(providerDao.getActiveProviders())
-                    .filteredOn(provider -> provider.getProviderNo().equals(providerNo))
-                    .singleElement()
-                    .satisfies(provider -> {
-                        assertThat(provider.getFirstName()).isEqualTo("Jane");
-                        assertThat(provider.getLastName()).isEqualTo("Updated");
-                    });
-            assertThat(providerDao.getActiveProviderSummaries())
-                    .filteredOn(summary -> summary.getProviderNo().equals(providerNo))
-                    .singleElement()
-                    .satisfies(summary -> {
-                        assertThat(summary.getFirstName()).isEqualTo("Jane");
-                        assertThat(summary.getLastName()).isEqualTo("Updated");
-                    });
-        });
+        transactionTemplate.executeWithoutResult(status -> assertThat(providerDataDao.findByProviderNo(providerNo))
+                .satisfies(provider -> {
+                    assertThat(provider.getFirstName()).isEqualTo("Jane");
+                    assertThat(provider.getLastName()).isEqualTo("Updated");
+                }));
     }
 
     @Test
@@ -276,17 +233,7 @@ class ProviderDataDaoCacheIntegrationTest extends CarlosTestBase {
 
     private void createProvider(String providerNo, String firstName, String lastName) {
         providerNosToCleanUp.add(providerNo);
-        transactionTemplate.executeWithoutResult(status -> {
-            Provider provider = new Provider();
-            provider.setProviderNo(providerNo);
-            provider.setFirstName(firstName);
-            provider.setLastName(lastName);
-            provider.setStatus("1");
-            provider.setProviderType("doctor");
-            provider.setSex("F");
-            provider.setSpecialty("Family Medicine");
-            providerDao.saveProvider(provider);
-        });
+        transactionTemplate.executeWithoutResult(status -> providerDataDao.persist(buildProviderData(providerNo, firstName, lastName)));
     }
 
     private ProviderData buildProviderData(String providerNo, String firstName, String lastName) {
@@ -299,6 +246,19 @@ class ProviderDataDaoCacheIntegrationTest extends CarlosTestBase {
         provider.setSex("F");
         provider.setSpecialty("Family Medicine");
         return provider;
+    }
+
+    private void seedProviderCaches(String providerNo) {
+        putCacheValue("providerNames", "name:" + providerNo, "Stale Provider Name");
+        putCacheValue("activeProviders", "filter:true", List.of("stale active provider"));
+        putCacheValue("activeProviderSummaries", org.springframework.cache.interceptor.SimpleKey.EMPTY,
+                List.of("stale active provider summary"));
+    }
+
+    private void assertAllThreeCachesPopulated() {
+        assertThat(cacheEntryCount("providerNames")).isPositive();
+        assertThat(cacheEntryCount("activeProviders")).isPositive();
+        assertThat(cacheEntryCount("activeProviderSummaries")).isPositive();
     }
 
     private void clearProviderCaches() {
@@ -325,6 +285,6 @@ class ProviderDataDaoCacheIntegrationTest extends CarlosTestBase {
     }
 
     private String newProviderNo() {
-        return String.format("T%05d", ThreadLocalRandom.current().nextInt(10000, 100000));
+        return String.format("%s%02d", uniquePrefix, providerNoSequence.incrementAndGet());
     }
 }

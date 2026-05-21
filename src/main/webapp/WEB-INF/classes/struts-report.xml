@@ -26,7 +26,7 @@
     Contains action mappings for clinical reports, demographic reports, measurement reports, and data export.
 -->
 <struts>
-    <package name="report" namespace="/" extends="struts-default">
+    <package name="report" namespace="/" extends="struts-default" strict-method-invocation="true">
 
         <global-results>
             <result name="securityError">/WEB-INF/jsp/error/securityError.jsp</result>

@@ -379,9 +379,10 @@ public class Contact2Action extends ActionSupport {
         String[] contactIds = request.getParameterValues("contact.delete");
         String postMethod = request.getParameter("postMethod");
         String removeSingleId = request.getParameter("contactId");
+        String demographicNo = StringUtils.trimToNull(request.getParameter("demographic_no"));
         String actionForward = null;
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", null)) {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", demographicNo)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
 

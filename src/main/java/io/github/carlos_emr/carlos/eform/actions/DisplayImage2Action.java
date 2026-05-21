@@ -48,9 +48,11 @@ import org.apache.struts2.ServletActionContext;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.HtmlResponse;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.RequestNegotiation;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
@@ -101,20 +103,24 @@ public class DisplayImage2Action extends ActionSupport {
         File validatedFile = getValidatedImageFile(fileName);
         StreamData data = process(validatedFile, fileName);
         String contentType = data.contentType();
-        InputStream stream = data.stream();
-
-        try {
+        try (InputStream stream = data.stream()) {
+            if (RequestNegotiation.isHtmlContentType(contentType)) {
+                // HtmlResponse owns the content type and charset for writer-backed HTML so the
+                // logout listener remains injectable and charset handling stays centralized.
+                // LogoutBroadcastFilter can only append the cross-window logout listener to writer-backed HTML.
+                HtmlResponse.writeStoredHtml(response, contentType, stream);
+                return NONE;
+            }
             response.setContentType(contentType);
             OutputStream outputStream = response.getOutputStream();
             IOUtils.copy(stream, outputStream);
             return NONE;
-        } catch (IOException e) {
+        } catch (IOException | IllegalStateException e) {
             MiscUtils.getLogger().error("Error streaming eform image to response", e);
-            return NONE;
-        } finally {
-            if (stream != null) {
-                stream.close();
+            if (!response.isCommitted()) {
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             }
+            return NONE;
         }
     }
 

@@ -26,7 +26,7 @@
     Contains action mappings for electronic form creation, editing, and management.
 -->
 <struts>
-    <package name="eform" namespace="/" extends="struts-default">
+    <package name="eform" namespace="/" extends="struts-default" strict-method-invocation="true">
 
         <action name="eform/attachDoc" class="io.github.carlos_emr.carlos.eform.EFormAttachDocs2Action">
         </action>

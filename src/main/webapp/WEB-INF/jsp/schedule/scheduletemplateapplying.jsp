@@ -52,16 +52,13 @@
     @since 2001-02-01
 --%>
 <!DOCTYPE html>
-<%@ page import="java.util.*, java.net.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*, java.lang.*" %>
-<jsp:useBean id="scheduleRscheduleBean" class="io.github.carlos_emr.RscheduleBean" scope="session"/>
-<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
-<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
-<%@ taglib uri="carlos" prefix="carlos" %>
+<%@ page import="java.util.*" %>
+<%@ page import="java.net.*" %>
+<%@ page import="java.lang.*" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.*" %>
+<%@ page import="io.github.carlos_emr.carlos.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ScheduleDate" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleDateDao" %>
@@ -69,11 +66,6 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.RScheduleDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ScheduleTemplate" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateDao" %>
-<%
-    ScheduleDateDao scheduleDateDao = SpringUtils.getBean(ScheduleDateDao.class);
-    RScheduleDao rScheduleDao = SpringUtils.getBean(RScheduleDao.class);
-    ScheduleTemplateDao scheduleTemplateDao = SpringUtils.getBean(ScheduleTemplateDao.class);
-%>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
 <%@ page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Site" %>
@@ -81,7 +73,20 @@
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+
+<jsp:useBean id="scheduleRscheduleBean" class="io.github.carlos_emr.RscheduleBean" scope="session"/>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
+<%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
+<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%
+    ScheduleDateDao scheduleDateDao = SpringUtils.getBean(ScheduleDateDao.class);
+    RScheduleDao rScheduleDao = SpringUtils.getBean(RScheduleDao.class);
+    ScheduleTemplateDao scheduleTemplateDao = SpringUtils.getBean(ScheduleTemplateDao.class);
+%>
 <html lang="<%= SafeEncode.forHtmlAttribute(request.getLocale().toLanguageTag()) %>">
 
     <%

@@ -93,6 +93,23 @@ class AdministrationNavigationRegressionTest {
                 .contains("name=\"admin/GroupPreference\"");
     }
 
+    @Test
+    @DisplayName("Administration index should not render Help or About header controls")
+    void shouldNotRenderHelpOrAboutControls_forAdministrationIndex() throws IOException {
+        String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/administration/index.jsp"));
+
+        assertThat(jsp)
+                .doesNotContain("global.help")
+                .doesNotContain("global.about")
+                .doesNotContain("UserPropertyDAO")
+                .doesNotContain("resource_helpHtml")
+                .doesNotContain("resourcebaseurl")
+                .doesNotContain("/encounter/ViewAbout");
+        assertThat(jsp)
+                .contains("id=\"dynamic-content\"")
+                .contains("admin.admin.unlockAcct");
+    }
+
     private static void assertLinkGuardedBy(String jsp, String link, String objectName, String rights) {
         int linkIndex = jsp.indexOf(link);
         assertThat(linkIndex).as(link + " should be present in the Administration navigation").isNotNegative();

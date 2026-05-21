@@ -143,6 +143,24 @@ class DemographicEdit2ActionTest extends CarlosWebTestBase {
             verify(mockSecurityInfoManager).hasPrivilege(
                     any(LoggedInInfo.class), eq("_demographic"), eq("r"), any());
         }
+
+        @Test
+        @DisplayName("should throw SecurityException when patient record ACL denies read")
+        void shouldThrowSecurityException_whenPatientRecordAclDeniesRead() {
+            addRequestParameter("demographic_no", "12345");
+            when(mockSecurityInfoManager.hasPrivilege(
+                    any(LoggedInInfo.class), eq("_demographic"), eq("r"), isNull(String.class)))
+                    .thenReturn(true);
+            when(mockSecurityInfoManager.hasPrivilege(
+                    any(LoggedInInfo.class), eq("_demographic"), eq("r"), eq("12345")))
+                    .thenReturn(false);
+
+            assertThatThrownBy(() -> executeAction(action))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("missing required sec object (_demographic)");
+
+            verify(mockDemographicDao, never()).getDemographic(anyString());
+        }
     }
 
     @Nested

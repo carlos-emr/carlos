@@ -26,7 +26,7 @@
     Contains action mappings for provider preferences, inbox, email, fax, printing, scratch pads, and signature management.
 -->
 <struts>
-    <package name="provider" namespace="/" extends="struts-default">
+    <package name="provider" namespace="/" extends="struts-default" strict-method-invocation="true">
 
         <action name="web/inboxhub/Inboxhub" class="io.github.carlos_emr.carlos.inboxhub.display.ManageInboxhub2Action" method="execute">
             <result name="success">/WEB-INF/jsp/web/inboxhub/Inboxhub.jsp</result>
