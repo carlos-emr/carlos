@@ -101,7 +101,9 @@ class AdministrationNavigationRegressionTest {
         assertThat(jsp)
                 .doesNotContain("global.help")
                 .doesNotContain("global.about")
+                .doesNotContain("UserPropertyDAO")
                 .doesNotContain("resource_helpHtml")
+                .doesNotContain("resourcebaseurl")
                 .doesNotContain("/encounter/ViewAbout");
         assertThat(jsp)
                 .contains("id=\"dynamic-content\"")
