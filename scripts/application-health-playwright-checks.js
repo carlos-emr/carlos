@@ -2,25 +2,33 @@
 /*
  * Read-only browser health checks for a running CARLOS application.
  *
- * Defaults are for the local devcontainer:
- *   node scripts/application-health-playwright-checks.js
+ * Example local usage:
+ *   TEST_USER=... TEST_PASSWORD=... TEST_PIN=... node scripts/application-health-playwright-checks.js
  *
  * Optional environment:
  *   BASE_URL=http://127.0.0.1:8080/carlos
  *   CHROME_PATH=/path/to/chrome-or-chromium
- *   TEST_USER=carlosdoc
- *   TEST_PASSWORD=carlos2026
- *   TEST_PIN=2026
+ *   TEST_USER=...
+ *   TEST_PASSWORD=...
+ *   TEST_PIN=...
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
 const { chromium } = require('playwright');
 
+function requireEnv(name) {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`${name} must be set in the environment before running this script`);
+  }
+  return value;
+}
+
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
-const testUser = process.env.TEST_USER || 'carlosdoc';
-const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
-const testPin = process.env.TEST_PIN || '2026';
+const testUser = requireEnv('TEST_USER');
+const testPassword = requireEnv('TEST_PASSWORD');
+const testPin = requireEnv('TEST_PIN');
 
 const findings = [];
 const visited = [];
