@@ -410,13 +410,6 @@
         return false;
     }
 
-    function openMenuPopup(height, width, url, windowName) {
-        if (typeof window.popup === 'function' && window.popup !== fallbackMenuPopup) {
-            return window.popup(height, width, url, windowName);
-        }
-        return fallbackMenuPopup(height, width, url, windowName);
-    }
-
     function fallbackMenuPopup(height, width, url, windowName) {
         var windowprops = "height=" + height + ",width=" + width
             + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=50,screenY=50,top=0,left=0";
@@ -425,6 +418,13 @@
             opened.focus();
         }
         return opened;
+    }
+
+    function openMenuPopup(height, width, url, windowName) {
+        if (typeof window.popup === 'function' && window.popup !== fallbackMenuPopup) {
+            return window.popup(height, width, url, windowName);
+        }
+        return fallbackMenuPopup(height, width, url, windowName);
     }
 
     if (typeof window.popup !== 'function') {
