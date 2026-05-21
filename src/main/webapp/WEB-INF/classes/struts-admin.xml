@@ -178,14 +178,20 @@
         <action name="admin/ViewApiClients" class="io.github.carlos_emr.carlos.admin.gate.ViewApiClients2Action">
             <result name="success">/WEB-INF/jsp/admin/api/clients.jsp</result>
         </action>
-        <!-- Replaces /admin/api/clientManage.json.jsp; enforces _admin write. -->
+        <!-- Replaces /admin/api/clientManage.json.jsp; enforces _admin read/write by dispatch. -->
         <action name="admin/api/clientManage" class="clientManage2Action">
+            <result type="httpheader">
+                <param name="status">204</param>
+            </result>
         </action>
         <action name="admin/ViewClinicNbrManage" class="io.github.carlos_emr.carlos.admin.gate.ViewClinicNbrManage2Action">
             <result name="success">/WEB-INF/jsp/admin/clinicNbrManage.jsp</result>
         </action>
         <!-- Replaces /admin/clinicNbrManage.json.jsp; enforces _admin write. -->
         <action name="admin/clinicNbrManage" class="clinicNbrManage2Action">
+            <result type="httpheader">
+                <param name="status">204</param>
+            </result>
         </action>
         <action name="admin/ViewConfigureEmail" class="io.github.carlos_emr.carlos.admin.gate.ViewConfigureEmail2Action">
             <result name="success">/WEB-INF/jsp/admin/configureEmail.jsp</result>
@@ -213,6 +219,9 @@
         </action>
         <!-- Replaces /admin/keygen/getPublicKey.json.jsp; enforces _admin read. -->
         <action name="admin/keygen/getPublicKey" class="getPublicKey2Action">
+            <result type="httpheader">
+                <param name="status">204</param>
+            </result>
         </action>
         <action name="admin/ViewKeygenUpdateMatchingProfessionalSpecialist" class="io.github.carlos_emr.carlos.admin.gate.ViewKeygenUpdateMatchingProfessionalSpecialist2Action">
             <result name="success">/WEB-INF/jsp/admin/keygen/updateMatchingProfessionalSpecialist.jsp</result>

@@ -27,8 +27,9 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import java.io.PrintWriter;
+import java.io.IOException;
 import java.security.SecureRandom;
+import java.util.Date;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.dao.ServiceAccessTokenDao;
@@ -38,6 +39,7 @@ import io.github.carlos_emr.carlos.commn.model.ServiceClient;
 import io.github.carlos_emr.carlos.security.CarlosMethodSecurity;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
@@ -52,8 +54,9 @@ import org.springframework.stereotype.Component;
  *
  * <p>Replaces the legacy {@code /admin/api/clientManage.json.jsp} which performed
  * DAO writes with no application-level authorization check (any authenticated
- * session could mutate the OAuth trust store). All operations now require
- * {@code _admin w} (or {@code _admin.userAdmin w}) privilege.</p>
+ * session could mutate the OAuth trust store). Read operations require
+ * {@code _admin r}; write operations require {@code _admin w} (or
+ * {@code _admin.userAdmin w}) privilege.</p>
  *
  * <p>Mutating dispatches ({@code add}, {@code delete}) require POST; read
  * dispatches ({@code list}, {@code listTokens}) permit GET.</p>
@@ -70,62 +73,63 @@ public class ClientManage2Action extends ActionSupport {
     private static final String RANDOM_KEY_CHARS = "0123456789abcdefghijklmnopqrstuvwxyz";
     private static final int RANDOM_KEY_LENGTH = 16;
     private static final SecureRandom RANDOM = new SecureRandom();
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
-    private final transient ServiceClientDao serviceClientDao;
-    private final transient ServiceAccessTokenDao serviceAccessTokenDao;
-    private final transient CarlosMethodSecurity methodSecurity;
-
-    public ClientManage2Action(ServiceClientDao serviceClientDao,
-                               ServiceAccessTokenDao serviceAccessTokenDao,
-                               CarlosMethodSecurity methodSecurity) {
-        this.serviceClientDao = serviceClientDao;
-        this.serviceAccessTokenDao = serviceAccessTokenDao;
-        this.methodSecurity = methodSecurity;
-    }
+    private final transient ServiceClientDao serviceClientDao = SpringUtils.getBean(ServiceClientDao.class);
+    private final transient ServiceAccessTokenDao serviceAccessTokenDao = SpringUtils.getBean(ServiceAccessTokenDao.class);
+    private final transient CarlosMethodSecurity methodSecurity = SpringUtils.getBean(CarlosMethodSecurity.class);
 
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
 
+        String method = request.getParameter("method");
+        if (isReadMethod(method)) {
+            if (!methodSecurity.hasPrivilege("_admin", "r")) {
+                throw new SecurityException("missing required sec object (_admin)");
+            }
+            return handleRead(method, response);
+        }
+
         if (!methodSecurity.hasAdminWrite()) {
             throw new SecurityException("missing required sec object (_admin or _admin.userAdmin)");
         }
 
-        String method = request.getParameter("method");
-        String httpMethod = request.getMethod();
-        boolean isRead = "list".equals(method) || "listTokens".equals(method);
-
-        // Mutating dispatches require POST; reads permit GET/POST.
-        if (!isRead && !"POST".equalsIgnoreCase(httpMethod)) {
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
             logger.warn("Rejected client-manage mutation with method {} from {}",
-                    LogSafe.sanitize(String.valueOf(httpMethod)),
+                    LogSafe.sanitize(String.valueOf(request.getMethod())),
                     LogSafe.sanitize(String.valueOf(request.getRemoteAddr())));
             response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
             return NONE;
         }
 
-        response.setContentType("application/json;charset=UTF-8");
-        ObjectMapper mapper = new ObjectMapper();
+        return handleMutation(method, request, response);
+    }
 
+    private static boolean isReadMethod(String method) {
+        return "list".equals(method) || "listTokens".equals(method);
+    }
+
+    private String handleRead(String method, HttpServletResponse response) throws IOException {
         if ("list".equals(method)) {
-            List<ServiceClient> clients = serviceClientDao.findAll();
-            try (PrintWriter out = response.getWriter()) {
-                out.print(mapper.writeValueAsString(clients));
-            }
-            return NONE;
+            List<ServiceClientListEntry> clients = serviceClientDao.findAll().stream()
+                    .map(ServiceClientListEntry::from)
+                    .toList();
+            writeJson(response, clients);
+        } else {
+            List<ServiceAccessTokenListEntry> tokens = serviceAccessTokenDao.findAll().stream()
+                    .map(ServiceAccessTokenListEntry::from)
+                    .toList();
+            writeJson(response, tokens);
         }
+        return NONE;
+    }
 
-        if ("listTokens".equals(method)) {
-            List<ServiceAccessToken> tokens = serviceAccessTokenDao.findAll();
-            try (PrintWriter out = response.getWriter()) {
-                out.print(mapper.writeValueAsString(tokens));
-            }
-            return NONE;
-        }
-
-        ObjectNode json = mapper.createObjectNode();
+    private String handleMutation(String method, HttpServletRequest request, HttpServletResponse response)
+            throws IOException {
+        ObjectNode json = MAPPER.createObjectNode();
         json.put("method", method);
         boolean success = false;
         String error = "";
@@ -163,13 +167,13 @@ public class ClientManage2Action extends ActionSupport {
             String id = request.getParameter("id");
             json.put("id", id);
             if (id == null || id.isEmpty()) {
-                error = "Add Failure: Cannot remove Client with empty id.";
+                error = "Delete Failure: Cannot remove Client with empty id.";
             } else {
                 try {
                     serviceClientDao.remove(Integer.parseInt(id));
                     success = true;
                 } catch (NumberFormatException e) {
-                    error = "Invalid client identifier.";
+                    error = "Delete Failure: Invalid client identifier.";
                 }
             }
         } else {
@@ -179,10 +183,13 @@ public class ClientManage2Action extends ActionSupport {
         json.put("success", success);
         json.put("error", error);
 
-        try (PrintWriter out = response.getWriter()) {
-            out.print(mapper.writeValueAsString(json));
-        }
+        writeJson(response, json);
         return NONE;
+    }
+
+    private void writeJson(HttpServletResponse response, Object payload) throws IOException {
+        response.setContentType("application/json;charset=UTF-8");
+        MAPPER.writeValue(response.getOutputStream(), payload);
     }
 
     private static String randomString(int length, String chars) {
@@ -191,5 +198,30 @@ public class ClientManage2Action extends ActionSupport {
             sb.append(chars.charAt(RANDOM.nextInt(chars.length())));
         }
         return sb.toString();
+    }
+
+    private record ServiceClientListEntry(Integer id, String name, String key, String uri, Integer lifetime) {
+        private static ServiceClientListEntry from(ServiceClient client) {
+            return new ServiceClientListEntry(
+                    client.getId(),
+                    client.getName(),
+                    client.getKey(),
+                    client.getUri(),
+                    client.getLifetime());
+        }
+    }
+
+    private record ServiceAccessTokenListEntry(Integer id, Integer clientId, String scopes, long lifetime, long issued,
+                                               Date dateCreated, String providerNo) {
+        private static ServiceAccessTokenListEntry from(ServiceAccessToken token) {
+            return new ServiceAccessTokenListEntry(
+                    token.getId(),
+                    token.getClientId(),
+                    token.getScopes(),
+                    token.getLifetime(),
+                    token.getIssued(),
+                    token.getDateCreated(),
+                    token.getProviderNo());
+        }
     }
 }

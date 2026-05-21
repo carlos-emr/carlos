@@ -40,6 +40,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -145,8 +146,6 @@ class MutatorActionGetRejectionContractTest {
             Arguments.of("io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingUpdateBilling2Action",
                     "_billing", "w"),
             // --- admin ---
-            Arguments.of("io.github.carlos_emr.carlos.admin.web.ClientManage2Action",
-                    "_admin", "w"),
             Arguments.of("io.github.carlos_emr.carlos.admin.web.ClinicNbrManage2Action",
                     "_admin", "w"),
             Arguments.of("io.github.carlos_emr.carlos.admin.web.SecurityDelete2Action",
@@ -217,6 +216,8 @@ class MutatorActionGetRejectionContractTest {
         "io.github.carlos_emr.carlos.messenger.config.pageUtil.MsgMessengerAdmin2Action",
         // Provider document descriptions: read methods permit GET; write methods are POST-only.
         "io.github.carlos_emr.carlos.provider.web.DocumentDescriptionTemplate2Action",
+        // Admin API clients: list methods permit GET; add/delete are POST-only.
+        "io.github.carlos_emr.carlos.admin.web.ClientManage2Action",
         // Schedule: all below reject GET on Save/Delete/mutation-intent params.
         "io.github.carlos_emr.carlos.schedule.web.ScheduleCreateDate2Action",
         "io.github.carlos_emr.carlos.schedule.web.ScheduleEditTemplate2Action",
@@ -315,8 +316,27 @@ class MutatorActionGetRejectionContractTest {
         assertRejectsUnsafeMethod(className, privilegeObject, privilegeLevel, "HEAD");
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"add", "delete"})
+    @DisplayName("ClientManage2Action should reject GET for mutation dispatches")
+    void shouldRejectGet_forClientManageMutationDispatch(String method) throws Exception {
+        assertRejectsUnsafeMethod(
+                "io.github.carlos_emr.carlos.admin.web.ClientManage2Action",
+                "_admin",
+                "w",
+                "GET",
+                Map.of("method", method));
+    }
+
     private static void assertRejectsUnsafeMethod(
             String className, String privilegeObject, String privilegeLevel, String httpMethod)
+            throws Exception {
+        assertRejectsUnsafeMethod(className, privilegeObject, privilegeLevel, httpMethod, Collections.emptyMap());
+    }
+
+    private static void assertRejectsUnsafeMethod(
+            String className, String privilegeObject, String privilegeLevel, String httpMethod,
+            Map<String, String> requestParams)
             throws Exception {
 
         Class<?> actionClass = Class.forName(className);
@@ -340,9 +360,13 @@ class MutatorActionGetRejectionContractTest {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setMethod(httpMethod);
         request.setContextPath("/carlos");
+        requestParams.forEach(request::addParameter);
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         Map<Class<?>, Object> autoMocks = new HashMap<>();
+        CarlosMethodSecurity methodSecurity = mock(CarlosMethodSecurity.class);
+        when(methodSecurity.hasAdminWrite()).thenReturn(true);
+        when(methodSecurity.hasPrivilege(any(String.class), any(String.class))).thenReturn(true);
 
         try (MockedStatic<ServletActionContext> servletCtx = mockStatic(ServletActionContext.class);
              MockedStatic<LoggedInInfo> loggedInInfo = mockStatic(LoggedInInfo.class);
@@ -365,6 +389,9 @@ class MutatorActionGetRejectionContractTest {
                         Class<?> beanType = inv.getArgument(0);
                         if (beanType.equals(SecurityInfoManager.class)) {
                             return securityInfoManager;
+                        }
+                        if (beanType.equals(CarlosMethodSecurity.class)) {
+                            return methodSecurity;
                         }
                         return autoMocks.computeIfAbsent(beanType, Mockito::mock);
                     });
@@ -417,25 +444,6 @@ class MutatorActionGetRejectionContractTest {
             SecurityDao securityDao = (SecurityDao) autoMocks.computeIfAbsent(SecurityDao.class, Mockito::mock);
             return new SecurityDelete2Action(securityDao, methodSecurity);
         }
-        if ("io.github.carlos_emr.carlos.admin.web.ClientManage2Action".equals(actionClass.getName())) {
-            CarlosMethodSecurity methodSecurity = mock(CarlosMethodSecurity.class);
-            when(methodSecurity.hasAdminWrite()).thenReturn(true);
-            Class<?> serviceClientDao = Class.forName("io.github.carlos_emr.carlos.commn.dao.ServiceClientDao");
-            Class<?> serviceAccessTokenDao = Class.forName("io.github.carlos_emr.carlos.commn.dao.ServiceAccessTokenDao");
-            Object clientDao = autoMocks.computeIfAbsent(serviceClientDao, Mockito::mock);
-            Object accessDao = autoMocks.computeIfAbsent(serviceAccessTokenDao, Mockito::mock);
-            return actionClass.getDeclaredConstructor(serviceClientDao, serviceAccessTokenDao, CarlosMethodSecurity.class)
-                    .newInstance(clientDao, accessDao, methodSecurity);
-        }
-        if ("io.github.carlos_emr.carlos.admin.web.ClinicNbrManage2Action".equals(actionClass.getName())) {
-            CarlosMethodSecurity methodSecurity = mock(CarlosMethodSecurity.class);
-            when(methodSecurity.hasAdminWrite()).thenReturn(true);
-            Class<?> clinicNbrDaoClass = Class.forName("io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao");
-            Object clinicNbrDao = autoMocks.computeIfAbsent(clinicNbrDaoClass, Mockito::mock);
-            return actionClass.getDeclaredConstructor(clinicNbrDaoClass, CarlosMethodSecurity.class)
-                    .newInstance(clinicNbrDao, methodSecurity);
-        }
-
         return actionClass.getDeclaredConstructor().newInstance();
     }
 

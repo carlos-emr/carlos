@@ -22,16 +22,18 @@
 package io.github.carlos_emr.carlos.admin.web;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import java.io.PrintWriter;
+import java.io.IOException;
 
+import io.github.carlos_emr.carlos.commn.dao.PublicKeyDao;
 import io.github.carlos_emr.carlos.commn.model.PublicKey;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.web.admin.KeyManagerUIBean;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -55,11 +57,10 @@ public class GetPublicKey2Action extends ActionSupport {
 
     public static final String SPRING_BEAN_NAME = "getPublicKey2Action";
 
-    private final transient SecurityInfoManager securityInfoManager;
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
-    public GetPublicKey2Action(SecurityInfoManager securityInfoManager) {
-        this.securityInfoManager = securityInfoManager;
-    }
+    private final transient SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final transient PublicKeyDao publicKeyDao = SpringUtils.getBean(PublicKeyDao.class);
 
     @Override
     public String execute() throws Exception {
@@ -71,13 +72,44 @@ public class GetPublicKey2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_admin)");
         }
 
-        PublicKey publicKey = KeyManagerUIBean.getPublicKey(request.getParameter("id"));
-        ObjectMapper mapper = new ObjectMapper();
-
-        response.setContentType("application/json;charset=UTF-8");
-        try (PrintWriter out = response.getWriter()) {
-            out.print(mapper.writeValueAsString(publicKey));
+        String keyId = request.getParameter("id");
+        if (keyId == null || keyId.trim().isEmpty()) {
+            writeError(response, HttpServletResponse.SC_BAD_REQUEST, "Public key id is required.");
+            return NONE;
         }
+
+        PublicKey publicKey = publicKeyDao.find(keyId);
+        if (publicKey == null) {
+            writeError(response, HttpServletResponse.SC_NOT_FOUND, "Public key was not found.");
+            return NONE;
+        }
+
+        writeJson(response, PublicKeyResponse.from(publicKey));
         return NONE;
+    }
+
+    private void writeError(HttpServletResponse response, int status, String error) throws IOException {
+        response.setStatus(status);
+        ObjectNode json = MAPPER.createObjectNode();
+        json.put("success", false);
+        json.put("error", error);
+        writeJson(response, json);
+    }
+
+    private void writeJson(HttpServletResponse response, Object payload) throws IOException {
+        response.setContentType("application/json;charset=UTF-8");
+        MAPPER.writeValue(response.getOutputStream(), payload);
+    }
+
+    private record PublicKeyResponse(boolean success, String service, String type, String base64EncodedPrivateKey,
+                                     Integer matchingProfessionalSpecialistId) {
+        private static PublicKeyResponse from(PublicKey publicKey) {
+            return new PublicKeyResponse(
+                    true,
+                    publicKey.getService(),
+                    publicKey.getType(),
+                    publicKey.getBase64EncodedPrivateKey(),
+                    publicKey.getMatchingProfessionalSpecialistId());
+        }
     }
 }

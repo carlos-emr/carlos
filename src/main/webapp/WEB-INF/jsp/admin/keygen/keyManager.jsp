@@ -92,8 +92,12 @@
 
         jQuery.getJSON("<%=request.getContextPath()%>/admin/keygen/getPublicKey", {id: getSelectListValue(selectKeyList)},
             function (xml) {
+                if (xml.success === false) {
+                    alert(xml.error);
+                    return;
+                }
                 var privateKeyField = document.getElementById("privateKey");
-                privateKeyField.innerHTML = xml.base64EncodedPrivateKey;
+                privateKeyField.textContent = xml.base64EncodedPrivateKey;
 
                 var selectProfessionalSpecialistList = document.getElementById("selectProfessionalSpecialistList");
                 selectProfessionalSpecialistList.selectedIndex = 0;
@@ -103,7 +107,11 @@
                     selectSelectListOption(selectProfessionalSpecialistList, xml.matchingProfessionalSpecialistId);
                 }
             }
-        );
+        ).fail(function (xhr) {
+            if (xhr.responseJSON && xhr.responseJSON.error) {
+                alert(xhr.responseJSON.error);
+            }
+        });
     }
 
     function updateMatchingProcessionalSpecialist() {

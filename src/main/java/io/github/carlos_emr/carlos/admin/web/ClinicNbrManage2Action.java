@@ -27,12 +27,13 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import java.io.PrintWriter;
+import java.io.IOException;
 
 import io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao;
 import io.github.carlos_emr.carlos.security.CarlosMethodSecurity;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
@@ -58,14 +59,10 @@ public class ClinicNbrManage2Action extends ActionSupport {
     public static final String SPRING_BEAN_NAME = "clinicNbrManage2Action";
 
     private static final Logger logger = MiscUtils.getLogger();
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
-    private final transient ClinicNbrDao clinicNbrDao;
-    private final transient CarlosMethodSecurity methodSecurity;
-
-    public ClinicNbrManage2Action(ClinicNbrDao clinicNbrDao, CarlosMethodSecurity methodSecurity) {
-        this.clinicNbrDao = clinicNbrDao;
-        this.methodSecurity = methodSecurity;
-    }
+    private final transient ClinicNbrDao clinicNbrDao = SpringUtils.getBean(ClinicNbrDao.class);
+    private final transient CarlosMethodSecurity methodSecurity = SpringUtils.getBean(CarlosMethodSecurity.class);
 
     @Override
     public String execute() throws Exception {
@@ -86,8 +83,7 @@ public class ClinicNbrManage2Action extends ActionSupport {
         }
 
         String method = request.getParameter("method");
-        ObjectMapper mapper = new ObjectMapper();
-        ObjectNode json = mapper.createObjectNode();
+        ObjectNode json = MAPPER.createObjectNode();
         json.put("method", method);
         boolean success = false;
         String error = "";
@@ -128,10 +124,12 @@ public class ClinicNbrManage2Action extends ActionSupport {
         json.put("success", success);
         json.put("error", error);
 
-        response.setContentType("application/json;charset=UTF-8");
-        try (PrintWriter out = response.getWriter()) {
-            out.print(mapper.writeValueAsString(json));
-        }
+        writeJson(response, json);
         return NONE;
+    }
+
+    private void writeJson(HttpServletResponse response, Object payload) throws IOException {
+        response.setContentType("application/json;charset=UTF-8");
+        MAPPER.writeValue(response.getOutputStream(), payload);
     }
 }
