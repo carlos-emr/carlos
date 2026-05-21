@@ -31,6 +31,7 @@
 
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
+<%@ page import="java.util.Properties" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c"%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
@@ -38,6 +39,7 @@
 
 <%
 String curProvider_no = (String)session.getAttribute("user");
+Properties oscarVariables = CarlosProperties.getInstance();
 %>
 
 
