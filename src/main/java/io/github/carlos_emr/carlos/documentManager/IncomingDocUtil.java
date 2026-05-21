@@ -44,9 +44,12 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.Collections;
 import java.util.Date;
+import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.ResourceBundle;
+import java.util.Set;
 
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
@@ -80,6 +83,57 @@ import io.github.carlos_emr.carlos.utility.LogSafe;
  */
 public final class IncomingDocUtil {
     private static final Logger logger = MiscUtils.getLogger();
+    private static final String ALLOWED_INCOMING_DOC_FOLDERS_PROPERTY = "ALLOWED_INCOMING_DOC_FOLDERS";
+    private static final Set<String> DEFAULT_INCOMING_DOC_FOLDERS = Collections.unmodifiableSet(
+            new LinkedHashSet<>(Arrays.asList("Fax", "Mail", "File", "Refile")));
+    private static final String INVALID_PDF_DIR_MESSAGE =
+            "Invalid pdfDir: must be a configured incoming document folder";
+
+    /**
+     * Returns the configured incoming document folder whitelist.
+     *
+     * @return immutable set of allowed incoming document folder names
+     */
+    public static Set<String> getAllowedIncomingDocumentFolders() {
+        CarlosProperties properties = CarlosProperties.getInstance();
+        if (!properties.containsKey(ALLOWED_INCOMING_DOC_FOLDERS_PROPERTY)) {
+            return DEFAULT_INCOMING_DOC_FOLDERS;
+        }
+
+        String configuredFolders = properties.getProperty(ALLOWED_INCOMING_DOC_FOLDERS_PROPERTY);
+        if (configuredFolders == null || configuredFolders.trim().isEmpty()) {
+            return DEFAULT_INCOMING_DOC_FOLDERS;
+        }
+
+        Set<String> parsedFolders = new LinkedHashSet<>();
+        Arrays.stream(configuredFolders.split(","))
+                .map(String::trim)
+                .filter(folder -> !folder.isEmpty())
+                .forEach(folder -> addConfiguredIncomingDocumentFolder(parsedFolders, folder));
+
+        if (parsedFolders.isEmpty()) {
+            return DEFAULT_INCOMING_DOC_FOLDERS;
+        }
+        return Collections.unmodifiableSet(parsedFolders);
+    }
+
+    /**
+     * Checks whether a folder name is allowed under an incoming document queue.
+     *
+     * @param folderName the incoming document folder name
+     * @return true when the folder is configured and safe to use as a path component
+     */
+    public static boolean isAllowedIncomingDocumentFolder(String folderName) {
+        return folderName != null && getAllowedIncomingDocumentFolders().contains(folderName);
+    }
+
+    private static void addConfiguredIncomingDocumentFolder(Set<String> parsedFolders, String folder) {
+        if (isValidPathComponent(folder)) {
+            parsedFolders.add(folder);
+        } else {
+            logger.warn("Ignoring invalid incoming document folder configuration: {}", LogSafe.sanitize(folder));
+        }
+    }
     
     /**
      * Validates that a path component does not contain path traversal sequences.
@@ -302,11 +356,8 @@ public final class IncomingDocUtil {
         
         filePath += queueId + File.separator;
         
-        // Validate pdfDir and restrict to allowed values
-        if (pdfDir != null && (pdfDir.equals("Fax")
-                || pdfDir.equals("Mail")
-                || pdfDir.equals("File")
-                || pdfDir.equals("Refile"))) {
+        // Validate pdfDir and restrict to configured values
+        if (isAllowedIncomingDocumentFolder(pdfDir)) {
             
             try {
                 File baseDir = new File(CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR"));
@@ -326,7 +377,7 @@ public final class IncomingDocUtil {
                 throw new SecurityException("Failed to validate deleted directory path", e);
             }
         } else if (pdfDir != null && !pdfDir.isEmpty()) {
-            throw new IllegalArgumentException("Invalid pdfDir: must be one of Fax, Mail, File, or Refile");
+            throw new IllegalArgumentException(INVALID_PDF_DIR_MESSAGE);
         }
         
         return filePath;
@@ -337,7 +388,7 @@ public final class IncomingDocUtil {
      * The path format is: {INCOMINGDOCUMENT_DIR}/{queueId}/{pdfDir}
      *
      * @param queueId String the incoming document queue identifier
-     * @param pdfDir String the subdirectory type (Fax, Mail, File, or Refile), or null for queue root
+     * @param pdfDir String the configured subdirectory type, or null for queue root
      * @return String the validated directory path
      * @throws IllegalStateException if INCOMINGDOCUMENT_DIR is not configured
      * @throws IllegalArgumentException if queueId or pdfDir contains invalid values
@@ -362,15 +413,12 @@ public final class IncomingDocUtil {
 
         filePath += queueId + File.separator;
 
-        // Validate pdfDir and restrict to allowed values
-        if (pdfDir != null && (pdfDir.equals("Fax")
-                || pdfDir.equals("Mail")
-                || pdfDir.equals("File")
-                || pdfDir.equals("Refile"))) {
+        // Validate pdfDir and restrict to configured values
+        if (isAllowedIncomingDocumentFolder(pdfDir)) {
             filePath = filePath + pdfDir;
         } else if (pdfDir != null && !pdfDir.isEmpty()) {
             // If pdfDir is provided but not in allowed list, throw exception
-            throw new IllegalArgumentException("Invalid pdfDir: must be one of Fax, Mail, File, or Refile");
+            throw new IllegalArgumentException(INVALID_PDF_DIR_MESSAGE);
         }
 
         return filePath;

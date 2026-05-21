@@ -92,6 +92,7 @@ class DocumentUpload2ActionTest extends CarlosUnitTestBase {
     private File tempUploadFile;
     private String previousIncomingDocumentDir;
     private String previousDocumentDir;
+    private String previousAllowedIncomingDocFolders;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -120,6 +121,7 @@ class DocumentUpload2ActionTest extends CarlosUnitTestBase {
 
         previousIncomingDocumentDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
         previousDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        previousAllowedIncomingDocFolders = CarlosProperties.getInstance().getProperty("ALLOWED_INCOMING_DOC_FOLDERS");
         CarlosProperties.getInstance().setProperty("INCOMINGDOCUMENT_DIR", incomingDocumentDir.toString());
         CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", documentDir.toString());
     }
@@ -138,6 +140,11 @@ class DocumentUpload2ActionTest extends CarlosUnitTestBase {
             CarlosProperties.getInstance().remove("DOCUMENT_DIR");
         } else {
             CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", previousDocumentDir);
+        }
+        if (previousAllowedIncomingDocFolders == null) {
+            CarlosProperties.getInstance().remove("ALLOWED_INCOMING_DOC_FOLDERS");
+        } else {
+            CarlosProperties.getInstance().setProperty("ALLOWED_INCOMING_DOC_FOLDERS", previousAllowedIncomingDocFolders);
         }
         if (loggedInInfoMock != null) {
             loggedInInfoMock.close();
@@ -190,6 +197,24 @@ class DocumentUpload2ActionTest extends CarlosUnitTestBase {
         String result = action.executeUpload();
 
         Path writtenFile = incomingDocumentDir.resolve("123").resolve("Fax").resolve("scan.pdf");
+        assertThat(result).isNull();
+        assertThat(request.getSession().getAttribute("preferredQueue")).isEqualTo("123");
+        assertThat(response.getContentAsString()).contains("scan.pdf");
+        assertThat(Files.readAllBytes(writtenFile)).containsExactly(1);
+    }
+
+    @Test
+    @DisplayName("should upload incoming document to configured custom folder")
+    void shouldUploadIncomingDocumentToConfiguredCustomFolder() throws Exception {
+        CarlosProperties.getInstance().setProperty("ALLOWED_INCOMING_DOC_FOLDERS", "Fax,Referral");
+        request.setParameter("destination", "incomingDocs");
+        request.setParameter("queue", "123");
+        request.setParameter("destFolder", "Referral");
+        bindFiledataUpload(tempUploadFile, "scan.pdf", "application/pdf");
+
+        String result = action.executeUpload();
+
+        Path writtenFile = incomingDocumentDir.resolve("123").resolve("Referral").resolve("scan.pdf");
         assertThat(result).isNull();
         assertThat(request.getSession().getAttribute("preferredQueue")).isEqualTo("123");
         assertThat(response.getContentAsString()).contains("scan.pdf");
