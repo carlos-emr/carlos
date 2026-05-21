@@ -120,8 +120,11 @@ class DemographicEditJspSplitRegressionTest {
     void shouldUseDynamicFragments_forMasterEditPage() throws IOException {
         String masterJsp = Files.readString(MASTER_JSP, StandardCharsets.UTF_8);
 
-        assertThat(jspIncludePages(masterJsp))
-                .contains("edit-view.jsp", "edit-form-personal.jsp", "edit-form-clinical.jsp");
+        Set<String> editFragmentIncludes = jspIncludePages(masterJsp);
+        editFragmentIncludes.removeIf(page -> !page.startsWith("edit-") || !page.endsWith(".jsp"));
+
+        assertThat(editFragmentIncludes)
+                .containsExactlyInAnyOrder("edit-view.jsp", "edit-form-personal.jsp", "edit-form-clinical.jsp");
     }
 
     private static String removeJspCommentsAndDirectives(String jsp) {
