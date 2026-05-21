@@ -30,8 +30,9 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.test.util.ReflectionTestUtils;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
@@ -60,6 +61,9 @@ public class CdsClientFormDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private CdsClientFormDao dao;
 
+    @PersistenceContext(unitName = "entityManagerFactory")
+    private EntityManager entityManager;
+
     private final DateFormat dfm = new SimpleDateFormat("yyyyMMdd");
 
     @Nested
@@ -80,17 +84,16 @@ public class CdsClientFormDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(clientForm1);
             clientForm1.setClientId(clientId);
             clientForm1.setFacilityId(facilityId);
-            ReflectionTestUtils.setField(clientForm1, "created", dfm.parse("20200101"));
 
             CdsClientForm clientForm2 = new CdsClientForm();
             EntityDataGenerator.generateTestDataForModelClass(clientForm2);
             clientForm2.setClientId(clientId);
             clientForm2.setFacilityId(facilityId);
-            ReflectionTestUtils.setField(clientForm2, "created", dfm.parse("20200102"));
 
             dao.persist(clientForm1);
             dao.persist(clientForm2);
-            hibernateTemplate.flush();
+            setCreated(clientForm1, dfm.parse("20200101"));
+            setCreated(clientForm2, dfm.parse("20200102"));
 
             CdsClientForm result = dao.findLatestByFacilityClient(facilityId, clientId);
             assertThat(result).isEqualTo(clientForm2);
@@ -112,17 +115,16 @@ public class CdsClientFormDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(clientForm1);
             clientForm1.setClientId(clientId);
             clientForm1.setFacilityId(facilityId);
-            ReflectionTestUtils.setField(clientForm1, "created", dfm.parse("20200101"));
 
             CdsClientForm clientForm2 = new CdsClientForm();
             EntityDataGenerator.generateTestDataForModelClass(clientForm2);
             clientForm2.setClientId(clientId);
             clientForm2.setFacilityId(facilityId);
-            ReflectionTestUtils.setField(clientForm2, "created", dfm.parse("20200102"));
 
             dao.persist(clientForm1);
             dao.persist(clientForm2);
-            hibernateTemplate.flush();
+            setCreated(clientForm1, dfm.parse("20200101"));
+            setCreated(clientForm2, dfm.parse("20200102"));
 
             List<CdsClientForm> result = dao.findByFacilityClient(facilityId, clientId);
             List<CdsClientForm> expectedResult = Arrays.asList(clientForm2, clientForm1);
@@ -178,5 +180,14 @@ public class CdsClientFormDaoIntegrationTest extends CarlosTestBase {
                 assertThat(result.get(i)).isEqualTo(expectedResult.get(i));
             }
         }
+    }
+
+    private void setCreated(CdsClientForm form, Date created) {
+        entityManager.flush();
+        entityManager.createNativeQuery("update CdsClientForm set created = ? where id = ?")
+                .setParameter(1, created)
+                .setParameter(2, form.getId())
+                .executeUpdate();
+        entityManager.clear();
     }
 }
