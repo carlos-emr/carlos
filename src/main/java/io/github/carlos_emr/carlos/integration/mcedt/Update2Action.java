@@ -146,7 +146,7 @@ public class Update2Action extends ActionSupport implements UploadedFilesAware {
 
     private String resourceId;
     private File content;
-    private ValidatedContent contentUpload;
+    private transient ValidatedContent contentUpload;
     private String uploadValidationError;
 
     public String getResourceId() {

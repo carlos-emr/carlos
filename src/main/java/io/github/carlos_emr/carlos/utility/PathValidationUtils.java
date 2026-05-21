@@ -285,7 +285,9 @@ public final class PathValidationUtils {
         }
 
         if (!isInAllowedTempDirectory(candidate)) {
-            logger.error("Attempt to operate on non-temp file path: {}", LogSafe.sanitize(filePath));
+            if (logger.isErrorEnabled()) {
+                logger.error("Attempt to operate on non-temp file path: {}", LogSafe.sanitize(filePath));
+            }
             throw new SecurityException("Path traversal attempt detected");
         }
 
@@ -345,7 +347,7 @@ public final class PathValidationUtils {
             logger.error("Path {} is outside allowed directory {}",
                     LogSafe.sanitize(fileCanonical, 1024),
                     LogSafe.sanitize(baseCanonical, 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-                throw new FileValidationException("Invalid file path");
+                throw new FileValidationException(PATH_OUTSIDE_ALLOWED_DIRECTORY_MESSAGE);
             }
         } catch (IOException e) {
             logger.error("Error validating file path", e);

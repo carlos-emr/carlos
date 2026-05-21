@@ -287,8 +287,8 @@ public final class DBPreparedHandler {
             while (true) {
                 try (PreparedStatement ps = DbConnectionFilter.getThreadLocalDbConnection().prepareStatement(sql)) {
                     ps.setString(1, pno);
-                    try (ResultSet rs = ps.executeQuery()) {
-                        if (!rs.next() || rs.getInt(1) == 0) {
+                    try (ResultSet providerNoResultSet = ps.executeQuery()) {
+                        if (!providerNoResultSet.next() || providerNoResultSet.getInt(1) == 0) {
                             return pno;
                         }
                     }

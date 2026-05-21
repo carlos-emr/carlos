@@ -91,8 +91,7 @@ public class BackupDownload extends GenericDownload {
             sendErrorForCaughtException(res, HttpServletResponse.SC_FORBIDDEN, BACKUP_DOWNLOAD_PRIVILEGE_REQUIRED);
         } catch (Exception e) {
             log.error("Unexpected error in BackupDownload", e);
-            sendErrorForCaughtException(res, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
-                    "An internal error occurred. Please try again or contact your system administrator.");
+            sendErrorForCaughtException(res, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, INTERNAL_ERROR_MESSAGE);
         }
     }
 

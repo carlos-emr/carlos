@@ -102,7 +102,7 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
     }
 
     private File file1; // Uploaded file
-    private ValidatedUpload file1Upload;
+    private transient ValidatedUpload file1Upload;
     private String file1FileName; // Name of the uploaded file
     private String file1ContentType; // Content type of the uploaded file
 

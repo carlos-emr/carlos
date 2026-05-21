@@ -62,6 +62,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -272,7 +273,7 @@ public class Fax2Action extends ActionSupport {
             }
             return;
         }
-        String faxFileToken = request.getParameter("faxFileToken");
+        String previewToken = request.getParameter("faxFileToken");
         String pageNumber = request.getParameter("pageNumber");
         String showAs = request.getParameter("showAs");
         Path outfile = null;
@@ -293,9 +294,9 @@ public class Fax2Action extends ActionSupport {
                 sendPreviewError(HttpServletResponse.SC_FORBIDDEN, "Access denied");
                 return;
             }
-        } else if (faxFileToken != null && !faxFileToken.isEmpty()) {
+        } else if (previewToken != null && !previewToken.isEmpty()) {
             try {
-                faxDocument = resolveFaxPreviewPath(faxFileToken);
+                faxDocument = resolveFaxPreviewPath(previewToken);
             } catch (SecurityException | IOException e) {
                 logger.error("Security validation failed for fax preview token", e);
                 sendPreviewError(HttpServletResponse.SC_FORBIDDEN, "Access denied");
@@ -439,7 +440,7 @@ public class Fax2Action extends ActionSupport {
         }
 
         Map<String, String> previewPaths = faxPreviewPaths(false);
-        String previewPath = previewPaths == null ? null : previewPaths.get(token);
+        String previewPath = previewPaths.get(token);
         if (previewPath == null) {
             throw new SecurityException("Unknown fax preview token");
         }
@@ -462,7 +463,7 @@ public class Fax2Action extends ActionSupport {
 
     private void removeFaxPreviewToken(String token) {
         Map<String, String> previewPaths = faxPreviewPaths(false);
-        if (previewPaths != null) {
+        if (!previewPaths.isEmpty()) {
             previewPaths.remove(token);
         }
     }
@@ -471,7 +472,7 @@ public class Fax2Action extends ActionSupport {
     private Map<String, String> faxPreviewPaths(boolean create) {
         HttpSession session = request.getSession(create);
         if (session == null) {
-            return null;
+            return Collections.emptyMap();
         }
 
         Object existing = session.getAttribute(FAX_PREVIEW_PATHS_SESSION_KEY);
@@ -479,7 +480,7 @@ public class Fax2Action extends ActionSupport {
             return (Map<String, String>) map;
         }
         if (!create) {
-            return null;
+            return Collections.emptyMap();
         }
 
         Map<String, String> previewPaths = new ConcurrentHashMap<>();
