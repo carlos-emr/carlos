@@ -57,7 +57,7 @@ public final class ScheduleDatePopup2Action extends ActionSupport {
         boolean hasScheduleAdmin = securityInfoManager.hasPrivilege(loggedInInfo, "_admin.schedule", "w", null);
         boolean hasAppointment = securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "w", null);
         if (!hasScheduleAdmin && !hasAppointment) {
-            throw new SecurityException("missing required sec object (_admin.schedule or _appointment)");
+            throw new SecurityException("missing required security object: _admin.schedule or _appointment");
         }
 
         return SUCCESS;

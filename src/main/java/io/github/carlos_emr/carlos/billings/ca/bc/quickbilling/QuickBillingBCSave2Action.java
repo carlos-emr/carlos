@@ -68,6 +68,7 @@ public class QuickBillingBCSave2Action extends ActionSupport {
     }
 
 
+    @Override
     public String execute()
             throws ServletException, IOException {        if (request.getSession().getAttribute("user") == null) {
             return "Logout";
@@ -76,7 +77,7 @@ public class QuickBillingBCSave2Action extends ActionSupport {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
-            throw new SecurityException("missing required sec object (_billing)");
+            throw new SecurityException("missing required security object: _billing");
         }
 
 

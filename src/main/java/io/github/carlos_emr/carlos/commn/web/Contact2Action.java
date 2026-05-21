@@ -148,7 +148,7 @@ public class Contact2Action extends ActionSupport {
         String demographicNo = request.getParameter("demographic_no");
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", demographicNo)) {
-            throw new SecurityException("missing required sec object (_demographic)");
+            throw new SecurityException("missing required security object: _demographic");
         }
 
         List<DemographicContact> dcs = demographicContactDao.findByDemographicNoAndCategory(Integer.parseInt(demographicNo), DemographicContact.CATEGORY_PERSONAL);
@@ -202,7 +202,7 @@ public class Contact2Action extends ActionSupport {
         String postMethod = request.getParameter("postMethod");
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", demographicNo + "")) {
-            throw new SecurityException("missing required sec object (_demographic)");
+            throw new SecurityException("missing required security object: _demographic");
         }
 
         DemographicContact demographicContact = null;
@@ -382,7 +382,7 @@ public class Contact2Action extends ActionSupport {
         String actionForward = null;
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", null)) {
-            throw new SecurityException("missing required sec object (_demographic)");
+            throw new SecurityException("missing required security object: _demographic");
         }
 
         if ("ajax".equalsIgnoreCase(postMethod)) {
@@ -468,7 +468,7 @@ public class Contact2Action extends ActionSupport {
         List<ContactSpecialty> specialtyList = null;
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "w", null)) {
-            throw new SecurityException("missing required sec object (_demographic)");
+            throw new SecurityException("missing required security object: _demographic");
         }
 
         if (StringUtils.isNotBlank(demographicContactId)) {
@@ -586,7 +586,7 @@ public class Contact2Action extends ActionSupport {
         String forward = "cForm";
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "w", null)) {
-            throw new SecurityException("missing required sec object (_demographic)");
+            throw new SecurityException("missing required security object: _demographic");
         }
 
         if ("ajax".equalsIgnoreCase(postMethod)) {

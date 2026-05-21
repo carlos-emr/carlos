@@ -45,7 +45,7 @@ public final class ViewDocumentWrite2Action extends ActionSupport {
         SecurityInfoManager sim = SpringUtils.getBean(SecurityInfoManager.class);
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null || !sim.hasPrivilege(loggedInInfo, "_edoc", "w", null)) {
-            throw new SecurityException("missing required sec object (_edoc w)");
+            throw new SecurityException("missing required security object: _edoc w");
         }
         return SUCCESS;
     }

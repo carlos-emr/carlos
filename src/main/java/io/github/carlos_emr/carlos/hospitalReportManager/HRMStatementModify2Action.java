@@ -46,7 +46,7 @@ public class HRMStatementModify2Action extends ActionSupport {
             throw new SecurityException("missing logged in session");
         }
         if (!hasAdminMiscPrivilege(loggedInInfo, "r")) {
-            throw new SecurityException("missing required sec object (_admin or _admin.misc r)");
+            throw new SecurityException("missing required security object: _admin or _admin.misc r");
         }
 
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -62,7 +62,7 @@ public class HRMStatementModify2Action extends ActionSupport {
                 return NONE;
             }
             if (!hasAdminMiscPrivilege(loggedInInfo, "w")) {
-                throw new SecurityException("missing required sec object (_admin or _admin.misc w)");
+                throw new SecurityException("missing required security object: _admin or _admin.misc w");
             }
 
             HRMProviderConfidentialityStatement confStatement;

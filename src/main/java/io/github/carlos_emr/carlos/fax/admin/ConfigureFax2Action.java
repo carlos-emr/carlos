@@ -71,6 +71,7 @@ public class ConfigureFax2Action extends ActionSupport {
     /**
      * Dispatches request methods for configure/scheduler endpoints.
      */
+    @Override
     public String execute() {
         String method = request.getParameter("method");
 
@@ -109,7 +110,7 @@ public class ConfigureFax2Action extends ActionSupport {
             throw new SecurityException("No valid session found");
         }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.fax", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin.fax)");
+            throw new SecurityException("missing required security object: _admin.fax");
         }
 
         try {
@@ -520,7 +521,7 @@ public class ConfigureFax2Action extends ActionSupport {
             throw new SecurityException("No valid session found");
         }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, secObject, accessLevel, null)) {
-            throw new SecurityException("missing required sec object (" + secObject + ")");
+            throw new SecurityException("missing required security object: " + secObject);
         }
         return loggedInInfo;
     }

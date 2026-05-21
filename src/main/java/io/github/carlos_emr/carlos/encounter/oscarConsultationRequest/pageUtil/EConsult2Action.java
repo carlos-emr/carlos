@@ -68,10 +68,11 @@ public class EConsult2Action extends ActionSupport {
     private final String frontendEconsultUrl = oscarProperties.getProperty("frontendEconsultUrl");
     private final String backendEconsultUrl = oscarProperties.getProperty("backendEconsultUrl");
 
+    @Override
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", "w", null)) {
-            throw new SecurityException("missing required sec object (_con)");
+            throw new SecurityException("missing required security object: _con");
         }
 
         if ("login".equals(request.getParameter("method"))) {

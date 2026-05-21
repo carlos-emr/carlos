@@ -122,7 +122,7 @@ public class EmailManager {
      */
     public EmailLog sendEmail(LoggedInInfo loggedInInfo, EmailData emailData) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
-            throw new RuntimeException("missing required sec object (_email)");
+            throw new RuntimeException("missing required security object: _email");
         }
 
         sanitizeEmailFields(emailData);
@@ -165,7 +165,7 @@ public class EmailManager {
      */
     public EmailLog prepareEmailForOutbox(LoggedInInfo loggedInInfo, EmailData emailData) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
-            throw new RuntimeException("missing required sec object (_email)");
+            throw new RuntimeException("missing required security object: _email");
         }
 
         if (emailData.getSenderConfigId() == null) {
@@ -214,7 +214,7 @@ public class EmailManager {
      */
     public EmailLog updateEmailStatus(LoggedInInfo loggedInInfo, Integer emailLogId, EmailStatus emailStatus, String errorMessage) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
-            throw new RuntimeException("missing required sec object (_email)");
+            throw new RuntimeException("missing required security object: _email");
         }
 
         EmailLog emailLog = emailLogDao.find(emailLogId);
@@ -281,7 +281,7 @@ public class EmailManager {
      */
     public List<EmailStatusResult> getEmailStatusByDateDemographicSenderStatus(LoggedInInfo loggedInInfo, String dateBeginStr, String dateEndStr, String demographic_no, String senderEmailAddress, String emailStatus) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_email)");
+            throw new RuntimeException("missing required security object: _email");
         }
 
         Date dateBegin = parseDate(dateBeginStr, "yyyy-MM-dd", "00:00:00");
@@ -309,7 +309,7 @@ public class EmailManager {
      */
     public EmailLog getEmailLogByCaseManagementNoteId(LoggedInInfo loggedInInfo, Long noteId) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_email)");
+            throw new RuntimeException("missing required security object: _email");
         }
 
         CaseManagementNoteLink caseManagementNoteLink = caseManagementManager.getLatestLinkByNote(noteId);
@@ -339,7 +339,7 @@ public class EmailManager {
      */
     public void addEmailNote(LoggedInInfo loggedInInfo, EmailLog emailLog) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_email)");
+            throw new RuntimeException("missing required security object: _email");
         }
 
         EmailNoteUtil emailNoteUtil = new EmailNoteUtil(loggedInInfo, emailLog);

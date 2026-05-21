@@ -52,11 +52,12 @@ public final class EctSetupDisplayHistory2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    @Override
     public String execute()
             throws Exception {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_measurement", "w", null)) {
-            throw new SecurityException("missing required sec object (_measurement)");
+            throw new SecurityException("missing required security object: _measurement");
         }
 
         EctSessionBean bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");

@@ -77,7 +77,7 @@ public final class MsgTransferPostItems2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", "w", null)) {
             logger.warn("MsgTransferPostItems2Action denied: provider={} lacks _msg write",
                     providerNoOf(loggedInInfo));
-            throw new SecurityException("missing required sec object (_msg)");
+            throw new SecurityException("missing required security object: _msg");
         }
 
         if (!"POST".equalsIgnoreCase(request.getMethod())) {

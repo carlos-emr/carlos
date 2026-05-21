@@ -49,10 +49,11 @@ public class DelEForm2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    @Override
     public String execute() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_eform", "w", null)) {
-            throw new SecurityException("missing required sec object (_eform)");
+            throw new SecurityException("missing required security object: _eform");
         }
 
         String fid = request.getParameter("fid");

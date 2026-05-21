@@ -80,6 +80,7 @@ public class EctMeasurements2Action extends ActionSupport {
     private static final ObjectMapper objectMapper = new ObjectMapper();
     private static final Logger logger = MiscUtils.getLogger();
 
+    @Override
     public String execute() throws ServletException, IOException {
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
             logger.warn("Rejected measurement submission request with method {} from {}",
@@ -95,7 +96,7 @@ public class EctMeasurements2Action extends ActionSupport {
             logger.warn("Denied measurement submission request with method {} from {}",
                     LogSafe.sanitize(String.valueOf(request.getMethod())),
                     LogSafe.sanitize(String.valueOf(request.getRemoteAddr())));
-            throw new SecurityException("missing required sec object (_measurement)");
+            throw new SecurityException("missing required security object: _measurement");
         }
 
         boolean ajax = (request.getParameter("ajax") != null) ? Boolean.valueOf(request.getParameter("ajax")) : false;

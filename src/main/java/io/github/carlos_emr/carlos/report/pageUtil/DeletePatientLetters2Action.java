@@ -61,9 +61,10 @@ public class DeletePatientLetters2Action extends ActionSupport {
     public DeletePatientLetters2Action() {
     }
 
+    @Override
     public String execute() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_report", "r", null)) {
-            throw new SecurityException("missing required sec object (_report)");
+            throw new SecurityException("missing required security object: _report");
         }
 
         if (log.isTraceEnabled()) {

@@ -145,7 +145,7 @@ public class MsgAttachPDF2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", "w", null)) {
             logger.warn("MsgAttachPDF2Action denied: provider={} lacks _msg write",
                     loggedInInfo == null ? "anon" : loggedInInfo.getLoggedInProviderNo());
-            throw new SecurityException("missing required sec object (_msg)");
+            throw new SecurityException("missing required security object: _msg");
         }
 
         // Reject non-POST: the action processes request-supplied HTML (srcText)

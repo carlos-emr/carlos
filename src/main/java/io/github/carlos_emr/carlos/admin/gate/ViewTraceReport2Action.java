@@ -42,7 +42,7 @@ public final class ViewTraceReport2Action extends ActionSupport {
                 || securityInfoManager.hasPrivilege(loggedInInfo, "_admin.traceability", "r", null);
 
         if (!authorized) {
-            throw new SecurityException("missing required sec object (_admin or _admin.traceability)");
+            throw new SecurityException("missing required security object: _admin or _admin.traceability");
         }
 
         return SUCCESS;

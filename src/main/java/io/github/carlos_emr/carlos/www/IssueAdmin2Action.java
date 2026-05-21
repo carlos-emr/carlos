@@ -58,6 +58,7 @@ public class IssueAdmin2Action extends ActionSupport {
     private SecRoleDao secRoleDao = SpringUtils.getBean(SecRoleDao.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    @Override
     public String execute() {
         String mtd = request.getParameter("method");
         if ("cancel".equals(mtd)) {
@@ -82,7 +83,7 @@ public class IssueAdmin2Action extends ActionSupport {
         }
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin)");
+            throw new SecurityException("missing required security object: _admin");
         }
 
         mgr.removeIssueAdmin(request.getParameter("issueAdmin.id"));
@@ -97,7 +98,7 @@ public class IssueAdmin2Action extends ActionSupport {
         }
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin)");
+            throw new SecurityException("missing required security object: _admin");
         }
 
         String issueAdminId = request.getParameter("id");
@@ -122,7 +123,7 @@ public class IssueAdmin2Action extends ActionSupport {
         }
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "r", null)) {
-            throw new SecurityException("missing required sec object (_admin)");
+            throw new SecurityException("missing required security object: _admin");
         }
 
         request.setAttribute("issueAdmins", mgr.getIssueAdmins());
@@ -135,7 +136,7 @@ public class IssueAdmin2Action extends ActionSupport {
         }
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin)");
+            throw new SecurityException("missing required security object: _admin");
         }
 
         // run validation rules on this form

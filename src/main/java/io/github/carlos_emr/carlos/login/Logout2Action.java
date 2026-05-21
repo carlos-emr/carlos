@@ -108,6 +108,7 @@ public class Logout2Action extends ActionSupport {
      *
      * @return String Struts2 result name (always SUCCESS, renders the logout page)
      */
+    @Override
     public String execute() {
         String method = request.getParameter("method");
 

@@ -168,7 +168,7 @@ class AddTickler2ActionTest extends CarlosWebTestBase {
         // When/Then - action should throw security exception
         assertThatThrownBy(() -> executeAction(action))
             .isInstanceOf(RuntimeException.class)
-            .hasMessageContaining("missing required sec object (_tickler)");
+            .hasMessageContaining("missing required security object: _tickler");
 
         // Verify security check was performed
         verifySecurityCheck("_tickler", "w");

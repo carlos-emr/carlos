@@ -141,12 +141,13 @@ public class MsgHandleMessages2Action extends ActionSupport {
      * @throws ServletException if there's a servlet processing error
      * @throws SecurityException if user lacks required permissions
      */
+    @Override
     public String execute() throws IOException, ServletException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         // Verify user has permission to read messages
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", "r", null)) {
-            throw new SecurityException("missing required sec object (_msg)");
+            throw new SecurityException("missing required security object: _msg");
         }
 
         String demographicNo = this.getDemographic_no();

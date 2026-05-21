@@ -64,10 +64,11 @@ public class VaccineProviderReport2Action extends ActionSupport {
         return (String) request.getSession().getAttribute("user");
     }
 
+    @Override
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_prevention", "r", null)) {
-            throw new SecurityException("missing required sec object (_prevention)");
+            throw new SecurityException("missing required security object: _prevention");
         }
 
         return show_report();

@@ -138,12 +138,13 @@ public final class RxShowAllergy2Action extends ActionSupport {
      * @throws IOException if servlet I/O fails
      * @throws ServletException if servlet processing fails
      */
+    @Override
     public String execute()
             throws IOException, ServletException {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_allergy", "r", null)) {
-            throw new RuntimeException("missing required sec object (_allergy)");
+            throw new RuntimeException("missing required security object: _allergy");
         }
 
         String method = request.getParameter("method");

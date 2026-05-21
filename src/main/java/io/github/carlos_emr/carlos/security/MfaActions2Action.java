@@ -52,6 +52,7 @@ public final class MfaActions2Action extends ActionSupport {
     private final SecurityManager securityManager = SpringUtils.getBean(SecurityManager.class);
     private final MfaManager mfaManager = SpringUtils.getBean(MfaManager.class);
 
+    @Override
     public String execute() {
         String method = request.getParameter("method");
         if (METHOD_RESET_MFA.equals(method)) {

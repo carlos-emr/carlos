@@ -69,7 +69,7 @@ public class GstControl2Action extends ActionSupport implements ServletRequestAw
     @Override
     public String execute() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.billing", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin.billing)");
+            throw new SecurityException("missing required security object: _admin.billing");
         }
 
         String submittedPercent = this.getGstPercent();

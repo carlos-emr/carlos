@@ -117,7 +117,7 @@ public class FindNextAvailableSlot2Action extends ActionSupport {
     public String execute() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "r", null)) {
-            throw new SecurityException("missing required sec object (_appointment)");
+            throw new SecurityException("missing required security object: _appointment");
         }
 
         String providerNosParam = StringUtils.trimToNull(request.getParameter("providerNos"));

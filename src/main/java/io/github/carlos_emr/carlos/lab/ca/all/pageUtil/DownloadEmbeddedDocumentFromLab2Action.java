@@ -60,7 +60,7 @@ public class DownloadEmbeddedDocumentFromLab2Action extends ActionSupport {
         String legacy = request.getParameter("legacy");
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_lab", "r", null)) {
-            throw new SecurityException("missing required sec object (_lab)");
+            throw new SecurityException("missing required security object: _lab");
         }
 
         if (labNo == null || !labNo.matches("\\d+")) {

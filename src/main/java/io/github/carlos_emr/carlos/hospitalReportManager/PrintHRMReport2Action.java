@@ -62,12 +62,13 @@ public class PrintHRMReport2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    @Override
     public String execute() throws IOException {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_hrm", "r", null)) {
-            throw new SecurityException("missing required sec object (_hrm)");
+            throw new SecurityException("missing required security object: _hrm");
         }
 
         DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);

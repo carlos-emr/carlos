@@ -45,7 +45,7 @@ public class FormForwardNamed2Action extends ActionSupport {
 
         if (!securityInfoManager.hasPrivilege(
                 loggedInInfo, "_eChart", SecurityInfoManager.READ, null)) {
-            throw new SecurityException("missing required sec object (_eChart)");
+            throw new SecurityException("missing required security object: _eChart");
         }
 
         String formLink = request.getParameter("form_link");

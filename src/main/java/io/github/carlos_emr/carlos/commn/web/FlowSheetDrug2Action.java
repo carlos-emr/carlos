@@ -131,7 +131,7 @@ public class FlowSheetDrug2Action extends ActionSupport {
         cust.setCreateDate(new Date());
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "w", demographicNo)) {
-            throw new SecurityException("missing required sec object (_demographic)");
+            throw new SecurityException("missing required security object: _demographic");
         }
         log2.debug("SAVE " + cust);
 
@@ -176,7 +176,7 @@ public class FlowSheetDrug2Action extends ActionSupport {
         log2.debug("SAVE " + cust);
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "w", demographicNo)) {
-            throw new SecurityException("missing required sec object (_demographic)");
+            throw new SecurityException("missing required security object: _demographic");
         }
 
         flowSheetDxDao.persist(cust);

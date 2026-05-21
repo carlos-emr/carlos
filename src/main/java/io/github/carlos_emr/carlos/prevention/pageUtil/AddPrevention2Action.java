@@ -88,10 +88,11 @@ public class AddPrevention2Action extends ActionSupport {
     public AddPrevention2Action() {
     }
 
+    @Override
     public String execute() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_prevention", "w", null)) {
-            throw new SecurityException("missing required sec object (_prevention)");
+            throw new SecurityException("missing required security object: _prevention");
         }
 
         String sessionUser = (String) request.getSession().getAttribute("user");

@@ -201,7 +201,7 @@ public class BillingONManager {
      */
     public List<BillingONCListItemDTO> getBillingDTOs(LoggedInInfo loggedInInfo, Integer demographicNo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", SecurityInfoManager.READ, null)) {
-            throw new SecurityException("missing required sec object (_billing)");
+            throw new SecurityException("missing required security object: _billing");
         }
         List<BillingONCListItemDTO> results = billingONCHeader1Dao.findBillingDTOsByDemographicNo(demographicNo);
         LogAction.addLogSynchronous(loggedInInfo, "BillingONManager.getBillingDTOs",

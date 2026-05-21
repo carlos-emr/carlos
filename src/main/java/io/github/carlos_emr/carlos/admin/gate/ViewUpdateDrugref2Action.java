@@ -42,7 +42,7 @@ public final class ViewUpdateDrugref2Action extends ActionSupport {
                 || securityInfoManager.hasPrivilege(loggedInInfo, "_admin.misc", "r", null);
 
         if (!authorized) {
-            throw new SecurityException("missing required sec object (_admin or _admin.misc)");
+            throw new SecurityException("missing required security object: _admin or _admin.misc");
         }
 
         return SUCCESS;

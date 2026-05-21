@@ -65,6 +65,7 @@ public class RxWriteToEncounter2Action extends ActionSupport {
     private RxSessionBean rxSessionBean = null;
 
 
+    @Override
     public String execute() throws IOException, ServletException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         checkPrivilege(loggedInInfo, "w");
@@ -127,7 +128,7 @@ public class RxWriteToEncounter2Action extends ActionSupport {
 
     private void checkPrivilege(LoggedInInfo loggedInInfo, String privilege) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", privilege, null)) {
-            throw new RuntimeException("missing required sec object (_rx)");
+            throw new RuntimeException("missing required security object: _rx");
         }
     }
 

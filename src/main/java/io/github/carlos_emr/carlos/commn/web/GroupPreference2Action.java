@@ -53,11 +53,9 @@ public class GroupPreference2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
+    @Override
     public String execute() {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pref", "w", null)) {
-            throw new SecurityException("missing required sec object (_pref)");
-        }
+        requirePreferenceWritePrivilege();
 
         if ("save".equals(request.getParameter("method"))) {
             return save();
@@ -66,6 +64,7 @@ public class GroupPreference2Action extends ActionSupport {
     }
 
     public String save() {
+        requirePreferenceWritePrivilege();
 
         MyGroupDao myGroupDao = (MyGroupDao) SpringUtils.getBean(MyGroupDao.class);
 
@@ -96,8 +95,16 @@ public class GroupPreference2Action extends ActionSupport {
     }
 
     public String setDefaultBillingForm() {
+        requirePreferenceWritePrivilege();
 
         return "changedForm";
+    }
+
+    private void requirePreferenceWritePrivilege() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pref", "w", null)) {
+            throw new SecurityException("missing required security object: _pref");
+        }
     }
 
 }

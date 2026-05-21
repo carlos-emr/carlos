@@ -71,7 +71,7 @@ public final class ViewAdmin2Action extends ActionSupport {
                 || securityInfoManager.hasPrivilege(loggedInInfo, "_admin.flowsheet", "r", null);
 
         if (!authorized) {
-            throw new SecurityException("missing required sec object (_admin or _admin.userAdmin or _admin.schedule or _admin.billing or _admin.invoices or _admin.resource or _admin.reporting or _admin.backup or _admin.messenger or _admin.eform or _admin.encounter or _admin.misc or _admin.torontoRfq or _admin.flowsheet)");
+            throw new SecurityException("missing required security object: _admin or _admin.userAdmin or _admin.schedule or _admin.billing or _admin.invoices or _admin.resource or _admin.reporting or _admin.backup or _admin.messenger or _admin.eform or _admin.encounter or _admin.misc or _admin.torontoRfq or _admin.flowsheet");
         }
 
         return SUCCESS;

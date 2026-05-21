@@ -53,11 +53,12 @@ public final class WLSetupDisplayPatientWaitingList2Action extends ActionSupport
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    @Override
     public String execute()
             throws Exception {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", null)) {
-            throw new RuntimeException("missing required sec object (_demographic)");
+            throw new RuntimeException("missing required security object: _demographic");
         }
 
         String rawDemographicNo = request.getParameter("demographic_no");

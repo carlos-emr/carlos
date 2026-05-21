@@ -2537,7 +2537,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     @Override
     public List<CaseManagementIssueListDTO> getIssueDTOs(LoggedInInfo loggedInInfo, String demographicNo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", SecurityInfoManager.READ, demographicNo)) {
-            throw new SecurityException("missing required sec object (_demographic)");
+            throw new SecurityException("missing required security object: _demographic");
         }
         List<CaseManagementIssueListDTO> results = caseManagementIssueDAO.findIssueDTOsByDemographicNo(demographicNo);
         LogAction.addLogSynchronous(loggedInInfo, "CaseManagementManager.getIssueDTOs",
@@ -2548,7 +2548,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     @Override
     public List<CaseManagementNoteListDTO> getNoteDTOs(LoggedInInfo loggedInInfo, String demographicNo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", SecurityInfoManager.READ, demographicNo)) {
-            throw new SecurityException("missing required sec object (_demographic)");
+            throw new SecurityException("missing required security object: _demographic");
         }
         List<CaseManagementNoteListDTO> results = caseManagementNoteDAO.findNoteDTOsByDemographicNo(demographicNo);
         LogAction.addLogSynchronous(loggedInInfo, "CaseManagementManager.getNoteDTOs",

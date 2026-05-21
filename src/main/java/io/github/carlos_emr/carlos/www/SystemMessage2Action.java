@@ -55,9 +55,10 @@ public class SystemMessage2Action extends ActionSupport {
     private SystemMessageDao systemMessageDao = SpringUtils.getBean(SystemMessageDao.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    @Override
     public String execute() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin)");
+            throw new SecurityException("missing required security object: _admin");
         }
 
         String mtd = request.getParameter("method");

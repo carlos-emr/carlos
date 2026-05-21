@@ -109,7 +109,7 @@ public class ManageFaxes2Action extends Fax2Action {
         String jobId = request.getParameter("jobId");
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin)");
+            throw new SecurityException("missing required security object: _admin");
         }
 
         FaxJobDao faxJobDao = SpringUtils.getBean(FaxJobDao.class);
@@ -183,7 +183,7 @@ public class ManageFaxes2Action extends Fax2Action {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin)");
+            throw new SecurityException("missing required security object: _admin");
         }
 
         boolean success = false;
@@ -207,7 +207,7 @@ public class ManageFaxes2Action extends Fax2Action {
     public void viewFax() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "r", null)) {
-            throw new SecurityException("missing required sec object (_edoc)");
+            throw new SecurityException("missing required security object: _edoc");
         }
 
         getPreview();
@@ -292,7 +292,7 @@ public class ManageFaxes2Action extends Fax2Action {
     public void SetCompleted() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin)");
+            throw new SecurityException("missing required security object: _admin");
         }
 
 

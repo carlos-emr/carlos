@@ -57,6 +57,7 @@ public class EditTickler2Action extends ActionSupport {
     private TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    @Override
     public String execute() {
         if ("editTickler".equals(request.getParameter("method"))) {
             return editTickler();
@@ -68,7 +69,7 @@ public class EditTickler2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "u", null)) {
-            throw new RuntimeException("missing required sec object (_tickler)");
+            throw new RuntimeException("missing required security object: _tickler");
         }
 
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -220,7 +221,7 @@ public class EditTickler2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "u", null)) {
-            throw new RuntimeException("missing required sec object (_tickler)");
+            throw new RuntimeException("missing required security object: _tickler");
         }
 
         String providerNo = loggedInInfo.getLoggedInProviderNo();

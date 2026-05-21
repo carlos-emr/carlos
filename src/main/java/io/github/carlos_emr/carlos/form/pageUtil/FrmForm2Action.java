@@ -93,13 +93,14 @@ public class FrmForm2Action extends ActionSupport {
 
     private String _dateFormat = "yyyy/MM/dd";
 
+    @Override
     public String execute()
             throws ServletException, IOException {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_form", "w", null)) {
-            throw new SecurityException("missing required sec object (_form)");
+            throw new SecurityException("missing required security object: _form");
         }
 
         boolean valid = true;

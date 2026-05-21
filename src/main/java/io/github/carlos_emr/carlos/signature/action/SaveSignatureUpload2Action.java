@@ -92,12 +92,12 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null) {
             MiscUtils.getLogger().warn("Denied SaveSignatureUpload: no session");
-            throw new SecurityException("missing required sec object (_con w)");
+            throw new SecurityException("missing required security object: _con w");
         }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", "w", null)) {
             MiscUtils.getLogger().warn("Denied SaveSignatureUpload: provider={} lacks _con w",
                     loggedInInfo.getLoggedInProviderNo());
-            throw new SecurityException("missing required sec object (_con w)");
+            throw new SecurityException("missing required security object: _con w");
         }
 
         if (!"POST".equalsIgnoreCase(request.getMethod())) {

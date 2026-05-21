@@ -67,7 +67,7 @@ public class DemographicPdfLabel2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
             logger.warn("DemographicPdfLabel2Action: provider {} lacks _demographic read privilege",
                     loggedInInfo.getLoggedInProviderNo());
-            throw new SecurityException("missing required sec object (_demographic)");
+            throw new SecurityException("missing required security object: _demographic");
         }
         return SUCCESS;
     }

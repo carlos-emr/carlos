@@ -52,11 +52,12 @@ public final class EctSetupAddMeasurementType2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
+    @Override
     public String execute()
             throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.measurements", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin.measurements)");
+            throw new SecurityException("missing required security object: _admin.measurements");
         }
 
 

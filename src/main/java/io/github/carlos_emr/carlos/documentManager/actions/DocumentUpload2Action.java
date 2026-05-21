@@ -75,13 +75,14 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    @Override
     public String execute() throws Exception {
         return executeUpload();
     }
 
     public String executeUpload() throws Exception {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
-            throw new SecurityException("missing required sec object (_edoc)");
+            throw new SecurityException("missing required security object: _edoc");
         }
 
         HashMap<String, Object> map = new HashMap<String, Object>();

@@ -60,7 +60,7 @@ public final class ViewAttachmentFrameset2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null
                 || !securityInfoManager.hasPrivilege(loggedInInfo, "_msg", "r", null)) {
-            throw new SecurityException("missing required sec object (_msg r)");
+            throw new SecurityException("missing required security object: _msg r");
         }
         return SUCCESS;
     }

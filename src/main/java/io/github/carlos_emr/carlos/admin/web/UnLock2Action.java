@@ -56,7 +56,7 @@ public class UnLock2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)
                 && !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.userAdmin", "r", null)
                 && !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.unlockAccount", "r", null)) {
-            throw new SecurityException("missing required sec object (_admin, _admin.userAdmin, or _admin.unlockAccount)");
+            throw new SecurityException("missing required security object: _admin, _admin.userAdmin, or _admin.unlockAccount");
         }
 
         String submit = request.getParameter("submit");

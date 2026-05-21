@@ -64,6 +64,7 @@ public class ImportLogDownload2Action extends ActionSupport {
     
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    @Override
     public String execute() throws FileNotFoundException, IOException {
         // Security check - user must have demographic read privileges
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", null)) {

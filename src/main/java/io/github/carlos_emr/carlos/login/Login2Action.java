@@ -325,6 +325,7 @@ public final class Login2Action extends ActionSupport {
      * @see MfaManager#getQRCodeImageData for MFA QR code generation
      * @see #validateMfaAndCompleteLogin for MFA continuation logic
      */
+    @Override
     public String execute() throws ServletException, IOException {
 
         if (!"POST".equals(request.getMethod())) {

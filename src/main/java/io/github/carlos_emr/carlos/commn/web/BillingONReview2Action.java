@@ -69,6 +69,7 @@ public class BillingONReview2Action extends ActionSupport {
         objectMapper.registerModule(module);
     }
 
+    @Override
     public String execute() throws Exception {
         if ("getClinic".equals(request.getParameter("method"))) {
             return getClinic();
@@ -80,7 +81,7 @@ public class BillingONReview2Action extends ActionSupport {
         String demographicNo = request.getParameter("demographicNo");
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", null)) {
-            throw new SecurityException("missing required sec object (_demographic)");
+            throw new SecurityException("missing required security object: _demographic");
         }
 
         Demographic demographic = demographicDao.getDemographic(demographicNo);

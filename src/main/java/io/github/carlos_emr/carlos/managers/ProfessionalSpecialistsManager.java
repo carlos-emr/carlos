@@ -73,7 +73,7 @@ public class ProfessionalSpecialistsManager implements Serializable {
      */
     public ProfessionalSpecialist getProfessionalSpecialist(LoggedInInfo loggedInInfo, int id) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_con)");
+            throw new RuntimeException("missing required security object: _con");
         }
         return professionalSpecialistDao.find(id);
     }
@@ -106,7 +106,7 @@ public class ProfessionalSpecialistsManager implements Serializable {
      */
     public List<ProfessionalSpecialist> searchProfessionalSpecialist(LoggedInInfo loggedInInfo, String keyword) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_con)");
+            throw new RuntimeException("missing required security object: _con");
         }
         return professionalSpecialistDao.search(keyword);
     }

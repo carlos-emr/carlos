@@ -66,7 +66,7 @@ public class ViewOnGenRa2Action extends ActionSupport {
             throw new SecurityException("missing session");
         }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
-            throw new SecurityException("missing required sec object (_billing)");
+            throw new SecurityException("missing required security object: _billing");
         }
 
         OnRaViewModel model = assembler.assemble(request, loggedInInfo);

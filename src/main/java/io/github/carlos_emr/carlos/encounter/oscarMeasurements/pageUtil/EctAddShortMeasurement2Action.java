@@ -63,6 +63,7 @@ public class EctAddShortMeasurement2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    @Override
     public String execute() throws IOException {
         String method = request.getParameter("method");
 
@@ -76,7 +77,7 @@ public class EctAddShortMeasurement2Action extends ActionSupport {
 
     public String unspecified() throws IOException {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_measurement", "w", null)) {
-            throw new SecurityException("missing required sec object (_measurement)");
+            throw new SecurityException("missing required security object: _measurement");
         }
 
         //MARK IN MEASUREMENTS????
@@ -112,7 +113,7 @@ public class EctAddShortMeasurement2Action extends ActionSupport {
     public String addMeasurements() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_measurement", "w", null)) {
-            throw new SecurityException("missing required sec object (_measurement)");
+            throw new SecurityException("missing required security object: _measurement");
         }
 
         String followUpType = request.getParameter("followUpType");

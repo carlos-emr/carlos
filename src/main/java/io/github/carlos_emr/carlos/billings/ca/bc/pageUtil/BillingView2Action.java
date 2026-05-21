@@ -63,11 +63,12 @@ public final class BillingView2Action
 
     private static Logger log = MiscUtils.getLogger();
 
+    @Override
     public String execute() throws IOException,
             ServletException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
-            throw new SecurityException("missing required sec object (_billing)");
+            throw new SecurityException("missing required security object: _billing");
         }
 
         // ON callers no longer enter this BC action — they hit

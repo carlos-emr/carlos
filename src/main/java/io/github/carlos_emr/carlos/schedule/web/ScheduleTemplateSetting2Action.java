@@ -53,7 +53,7 @@ public final class ScheduleTemplateSetting2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.schedule", "r", null)) {
-            throw new SecurityException("missing required sec object (_admin.schedule)");
+            throw new SecurityException("missing required security object: _admin.schedule");
         }
 
         return SUCCESS;

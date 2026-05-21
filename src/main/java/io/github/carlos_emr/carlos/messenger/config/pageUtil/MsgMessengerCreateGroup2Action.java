@@ -96,11 +96,12 @@ public class MsgMessengerCreateGroup2Action extends ActionSupport {
      * @throws ServletException if there's a servlet processing error
      * @throws SecurityException if the user lacks administrative privileges
      */
+    @Override
     public String execute() throws IOException, ServletException {
 
         // Enforce security: only administrators can create or modify groups
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin)");
+            throw new SecurityException("missing required security object: _admin");
         }
 
         String grpName = this.getGroupName();

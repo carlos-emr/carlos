@@ -83,10 +83,11 @@ public class PreventionPrint2Action extends ActionSupport {
      *         PDF generation fails due to a {@link DocumentException} or {@link IOException}
      * @throws SecurityException if the logged-in user lacks {@code _prevention} read privilege
      */
+    @Override
     public String execute() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_prevention", "r", null)) {
-            throw new SecurityException("missing required sec object (_prevention)");
+            throw new SecurityException("missing required security object: _prevention");
         }
 
 

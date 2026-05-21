@@ -84,7 +84,7 @@ public abstract class BaseEFormView2Action extends ActionSupport {
         }
 
         if (!allowed) {
-            throw new SecurityException("missing required sec object (" + objectName + ")");
+            throw new SecurityException("missing required security object: " + objectName);
         }
     }
 

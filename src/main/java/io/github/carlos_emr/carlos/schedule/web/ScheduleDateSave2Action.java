@@ -56,7 +56,7 @@ public final class ScheduleDateSave2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "w", null)) {
-            throw new SecurityException("missing required sec object (_appointment)");
+            throw new SecurityException("missing required security object: _appointment");
         }
 
         if (!"POST".equalsIgnoreCase(request.getMethod())) {

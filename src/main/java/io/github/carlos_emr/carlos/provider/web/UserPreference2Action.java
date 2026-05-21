@@ -106,10 +106,7 @@ public class UserPreference2Action extends ActionSupport {
 
     @Override
     public String execute() {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pref", "w", null)) {
-            throw new SecurityException("missing required sec object (_pref)");
-        }
+        requirePreferenceWritePrivilege();
 
         if ("saveGeneral".equals(request.getParameter("method"))) {
             return saveGeneral();
@@ -135,6 +132,7 @@ public class UserPreference2Action extends ActionSupport {
     }
 
     public String saveGeneral() {
+        requirePreferenceWritePrivilege();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
@@ -198,6 +196,13 @@ public class UserPreference2Action extends ActionSupport {
             logger.info("password changed for providers");
         } else {					
             throw new Exception("Current password did not match.");   
+        }
+    }
+
+    private void requirePreferenceWritePrivilege() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pref", "w", null)) {
+            throw new SecurityException("missing required security object: _pref");
         }
     }
 

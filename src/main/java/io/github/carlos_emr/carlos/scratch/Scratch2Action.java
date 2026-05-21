@@ -69,6 +69,7 @@ public class Scratch2Action extends JSONAction {
     	}
     }
     
+    @Override
     public String execute() throws Exception {
 
         String method = request.getParameter("method");

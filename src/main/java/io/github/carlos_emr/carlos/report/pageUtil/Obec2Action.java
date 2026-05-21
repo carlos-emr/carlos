@@ -67,12 +67,13 @@ public class Obec2Action extends ActionSupport {
 	
 	private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
    
+   @Override
    public String execute()
    throws ServletException, IOException {
 	   
-	   if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_report", "r", null)) {
-	  		  throw new SecurityException("missing required sec object (_report)");
-	  	  	}
+       if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_report", "r", null)) {
+           throw new SecurityException("missing required security object: _report");
+       }
 	   
       Properties proppies = CarlosProperties.getInstance();
       

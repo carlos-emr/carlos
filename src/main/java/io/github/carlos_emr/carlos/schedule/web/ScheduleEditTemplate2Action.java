@@ -58,7 +58,7 @@ public final class ScheduleEditTemplate2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.schedule", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin.schedule)");
+            throw new SecurityException("missing required security object: _admin.schedule");
         }
 
         String op = request.getParameter("dboperation");

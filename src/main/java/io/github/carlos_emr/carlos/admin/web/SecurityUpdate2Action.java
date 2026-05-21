@@ -53,7 +53,7 @@ public class SecurityUpdate2Action extends ActionSupport {
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)
                 && !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.userAdmin", "r", null)) {
-            throw new SecurityException("missing required sec object (_admin or _admin.userAdmin)");
+            throw new SecurityException("missing required security object: _admin or _admin.userAdmin");
         }
 
         if (!"POST".equalsIgnoreCase(request.getMethod())) {

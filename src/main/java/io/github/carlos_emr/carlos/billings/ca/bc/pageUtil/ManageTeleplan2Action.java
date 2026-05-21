@@ -103,6 +103,7 @@ public class ManageTeleplan2Action extends ActionSupport {
     public ManageTeleplan2Action() {
     }
 
+    @Override
     public String execute() throws Exception {
         String method = request.getParameter("method");
         if (method != null && POST_ONLY_METHODS.contains(method) && !"POST".equalsIgnoreCase(request.getMethod())) {
@@ -113,7 +114,7 @@ public class ManageTeleplan2Action extends ActionSupport {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
-            throw new SecurityException("missing required sec object (_billing)");
+            throw new SecurityException("missing required security object: _billing");
         }
 
         //log.debug("UNSPECIFIED ACTION!");

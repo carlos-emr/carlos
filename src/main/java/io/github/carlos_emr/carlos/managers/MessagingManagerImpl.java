@@ -95,7 +95,7 @@ public class MessagingManagerImpl implements MessagingManager {
      */
     public List<MsgDisplayMessage> getInbox(LoggedInInfo loggedInInfo, String messageStatus, int offset, int limit) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", SecurityInfoManager.READ, null)) {
-            throw new SecurityException("missing required sec object (_msg)");
+            throw new SecurityException("missing required security object: _msg");
         }
 
         List<MessageList> messageList = getMyInboxMessages(loggedInInfo, loggedInInfo.getLoggedInProviderNo(), messageStatus, offset, limit);
@@ -110,7 +110,7 @@ public class MessagingManagerImpl implements MessagingManager {
 
     public MsgDisplayMessage getInboxMessage(LoggedInInfo loggedInInfo, int messageId) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", SecurityInfoManager.READ, null)) {
-            throw new SecurityException("missing required sec object (_msg)");
+            throw new SecurityException("missing required security object: _msg");
         }
 
         MessageTbl messageTbl = getMessage(loggedInInfo, messageId);
@@ -156,14 +156,14 @@ public class MessagingManagerImpl implements MessagingManager {
 
     public MessageTbl getMessage(LoggedInInfo loggedInInfo, int messageId) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", SecurityInfoManager.READ, null)) {
-            throw new SecurityException("missing required sec object (_msg)");
+            throw new SecurityException("missing required security object: _msg");
         }
         return messageTblDao.find(messageId);
     }
 
     public List<MessageList> getMyInboxMessages(LoggedInInfo loggedInInfo, String providerNo, int offset, int limit) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", SecurityInfoManager.READ, null)) {
-            throw new SecurityException("missing required sec object (_msg)");
+            throw new SecurityException("missing required security object: _msg");
         }
 
         return getMyInboxMessages(loggedInInfo, providerNo, null, offset, limit);
@@ -171,7 +171,7 @@ public class MessagingManagerImpl implements MessagingManager {
 
     public List<MessageList> getMyInboxMessages(LoggedInInfo loggedInInfo, String providerNo, String status, int offset, int limit) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", SecurityInfoManager.READ, null)) {
-            throw new SecurityException("missing required sec object (_msg)");
+            throw new SecurityException("missing required security object: _msg");
         }
 
         List<MessageList> msgs = messageListDao.search(providerNo, status, offset, limit);
@@ -185,7 +185,7 @@ public class MessagingManagerImpl implements MessagingManager {
 
     public List<MessageTbl> getMessagesLinkedToDemographic(LoggedInInfo loggedInInfo, int demographicNo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", SecurityInfoManager.READ, null)) {
-            throw new SecurityException("missing required sec object (_msg)");
+            throw new SecurityException("missing required security object: _msg");
         }
 
         List<MsgDemoMap> msgDemoMapList = messengerDemographicManager.getMessageMapByDemographicNo(loggedInInfo, demographicNo);
@@ -204,7 +204,7 @@ public class MessagingManagerImpl implements MessagingManager {
 
     public Integer getMyInboxMessagesCount(LoggedInInfo loggedInInfo, String providerNo, String status) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", SecurityInfoManager.READ, null)) {
-            throw new SecurityException("missing required sec object (_msg)");
+            throw new SecurityException("missing required security object: _msg");
         }
 
         Integer result = messageListDao.searchAndReturnTotal(providerNo, status);
@@ -214,7 +214,7 @@ public class MessagingManagerImpl implements MessagingManager {
 
     public int getMyInboxMessageCount(LoggedInInfo loggedInInfo, String providerNo, boolean onlyWithPatientAttached) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", SecurityInfoManager.READ, null)) {
-            throw new SecurityException("missing required sec object (_msg)");
+            throw new SecurityException("missing required security object: _msg");
         }
 
         if (!onlyWithPatientAttached) {
@@ -236,7 +236,7 @@ public class MessagingManagerImpl implements MessagingManager {
      */
     public int getCountNewMessagesDemographicAttached(LoggedInInfo loggedInInfo, String providerNo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", SecurityInfoManager.READ, null)) {
-            throw new SecurityException("missing required sec object (_msg)");
+            throw new SecurityException("missing required security object: _msg");
         }
 
         int count = 0;
@@ -279,7 +279,7 @@ public class MessagingManagerImpl implements MessagingManager {
      */
     public Long setMessageStatus(LoggedInInfo loggedInInfo, MessageList messageList, String status) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", SecurityInfoManager.UPDATE, null)) {
-            throw new SecurityException("missing required sec object (_msg)");
+            throw new SecurityException("missing required security object: _msg");
         }
 
         messageList.setStatus(status);
@@ -315,7 +315,7 @@ public class MessagingManagerImpl implements MessagingManager {
 
     public String getLabRecallMsgSubjectPref(LoggedInInfo loggedInInfo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", SecurityInfoManager.READ, null)) {
-            throw new SecurityException("missing required sec object (_msg)");
+            throw new SecurityException("missing required security object: _msg");
         }
 
         String subject = "";
@@ -333,7 +333,7 @@ public class MessagingManagerImpl implements MessagingManager {
 
     public String getLabRecallDelegatePref(LoggedInInfo loggedInInfo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", SecurityInfoManager.READ, null)) {
-            throw new SecurityException("missing required sec object (_msg)");
+            throw new SecurityException("missing required security object: _msg");
         }
 
         String delegate = "";
@@ -365,7 +365,7 @@ public class MessagingManagerImpl implements MessagingManager {
      */
     public Integer sendSystemMessage(LoggedInInfo loggedInInfo, MessengerSystemMessage systemMessage) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", SecurityInfoManager.WRITE, null)) {
-            throw new SecurityException("missing required sec object (_msg)");
+            throw new SecurityException("missing required security object: _msg");
         }
 
         if (systemMessage.getRecipients() == null || systemMessage.getRecipients().length == 0) {
@@ -442,7 +442,7 @@ public class MessagingManagerImpl implements MessagingManager {
 
     public void addRecipientToMessage(LoggedInInfo loggedInInfo, int messageId, String providerNo, int clinicLocationNo, int facilityId, int sourceFacilityId, String status) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", SecurityInfoManager.WRITE, null)) {
-            throw new SecurityException("missing required sec object (_msg)");
+            throw new SecurityException("missing required security object: _msg");
         }
 
         MessageList messageList = new MessageList();
@@ -505,7 +505,7 @@ public class MessagingManagerImpl implements MessagingManager {
      */
     public List<ContactIdentifier> getReplyToSender(LoggedInInfo loggedInInfo, int messageId) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", SecurityInfoManager.READ, null)) {
-            throw new SecurityException("missing required sec object (_msg)");
+            throw new SecurityException("missing required security object: _msg");
         }
 
         MessageTbl messageTbl = getMessage(loggedInInfo, messageId);
@@ -514,7 +514,7 @@ public class MessagingManagerImpl implements MessagingManager {
 
     public List<ContactIdentifier> getReplyToSender(LoggedInInfo loggedInInfo, MessageTbl messageTbl) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", SecurityInfoManager.READ, null)) {
-            throw new SecurityException("missing required sec object (_msg)");
+            throw new SecurityException("missing required security object: _msg");
         }
         // add the primary sender
         List<ContactIdentifier> contactIdentifierList = new ArrayList<ContactIdentifier>();
@@ -540,7 +540,7 @@ public class MessagingManagerImpl implements MessagingManager {
      */
     public List<ContactIdentifier> getAllLocalReplyRecipients(LoggedInInfo loggedInInfo, int messageId) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", SecurityInfoManager.READ, null)) {
-            throw new SecurityException("missing required sec object (_msg)");
+            throw new SecurityException("missing required security object: _msg");
         }
 
         List<MessageList> messageList = messageListDao.findAllByMessageNoAndLocationNo((long) messageId, getCurrentLocationId());
@@ -566,7 +566,7 @@ public class MessagingManagerImpl implements MessagingManager {
      */
     public List<ContactIdentifier> getAllRemoteReplyRecipients(LoggedInInfo loggedInInfo, int messageId) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", SecurityInfoManager.READ, null)) {
-            throw new SecurityException("missing required sec object (_msg)");
+            throw new SecurityException("missing required security object: _msg");
         }
 
         List<MessageList> messageList = messageListDao.findByMessage((long) messageId);
@@ -600,7 +600,7 @@ public class MessagingManagerImpl implements MessagingManager {
      */
     public Integer saveMessage(LoggedInInfo loggedInInfo, MessageTbl messageTbl) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", SecurityInfoManager.WRITE, null)) {
-            throw new SecurityException("missing required sec object (_msg)");
+            throw new SecurityException("missing required security object: _msg");
         }
 
         messageTblDao.persist(messageTbl);

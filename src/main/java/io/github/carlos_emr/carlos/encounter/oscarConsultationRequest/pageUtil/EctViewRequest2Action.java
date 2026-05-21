@@ -258,7 +258,7 @@ public class EctViewRequest2Action extends ActionSupport {
 
     private static void checkPrivilege(LoggedInInfo loggedInInfo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", "r", null)) {
-            throw new SecurityException("missing required sec object (_con)");
+            throw new SecurityException("missing required security object: _con");
         }
     }
 

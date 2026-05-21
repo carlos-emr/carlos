@@ -57,10 +57,11 @@ public class CopyFavorites2Action extends ActionSupport {
     FavoritesPrivilegeDao favoritesPrivilegeDao = SpringUtils.getBean(FavoritesPrivilegeDao.class);
     FavoritesDao favoritesDao = SpringUtils.getBean(FavoritesDao.class);
     
+    @Override
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", null)) {
-            throw new SecurityException("missing required sec object (_rx)");
+            throw new SecurityException("missing required security object: _rx");
         }
 
         String method = request.getParameter("dispatch");

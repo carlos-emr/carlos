@@ -58,6 +58,7 @@ public class EctAddMeasurementGroup2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
 
+    @Override
     public String execute()
             throws ServletException, IOException {
 
@@ -108,7 +109,7 @@ public class EctAddMeasurementGroup2Action extends ActionSupport {
             return SUCCESS;
 
         } else {
-            throw new SecurityException("Access Denied!"); //missing required sec object (_admin)
+            throw new SecurityException("Access Denied!"); //missing required security object: _admin
         }
     }
     private String[] selectedAddTypes;

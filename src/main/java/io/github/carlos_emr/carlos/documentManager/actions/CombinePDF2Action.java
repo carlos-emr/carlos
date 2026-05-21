@@ -61,10 +61,11 @@ public class CombinePDF2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    @Override
     public String execute() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
-            throw new SecurityException("missing required sec object (_doc)");
+            throw new SecurityException("missing required security object: _doc");
         }
 
         String[] files = request.getParameterValues("docNo");

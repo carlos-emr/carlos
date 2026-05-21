@@ -72,6 +72,7 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport {
     private static MeasurementCSSLocationDao dao = SpringUtils.getBean(MeasurementCSSLocationDao.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    @Override
     public String execute()
             throws ServletException, IOException {
 
@@ -94,7 +95,7 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport {
             }
 
         } else {
-            throw new SecurityException("Access Denied!"); //missing required sec object (_admin)
+            throw new SecurityException("Access Denied!"); //missing required security object: _admin
         }
     }
 

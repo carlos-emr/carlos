@@ -338,7 +338,7 @@ public class AppointmentManagerImpl implements AppointmentManager {
     @Override
     public List<AppointmentListItemDTO> getDayAppointmentDTOs(LoggedInInfo loggedInInfo, Date date, String providerNo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "r", null)) {
-            throw new SecurityException("missing required sec object (_appointment)");
+            throw new SecurityException("missing required security object: _appointment");
         }
         LogAction.addLogSynchronous(loggedInInfo, "AppointmentManager.getDayAppointmentDTOs",
                 "date=" + date + ", providerNo=" + providerNo);

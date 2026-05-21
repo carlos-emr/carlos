@@ -42,7 +42,7 @@ public final class ViewManageFaxes2Action extends ActionSupport {
                 || securityInfoManager.hasPrivilege(loggedInInfo, "_admin.fax", "r", null);
 
         if (!authorized) {
-            throw new SecurityException("missing required sec object (_admin or _admin.fax)");
+            throw new SecurityException("missing required security object: _admin or _admin.fax");
         }
 
         return SUCCESS;

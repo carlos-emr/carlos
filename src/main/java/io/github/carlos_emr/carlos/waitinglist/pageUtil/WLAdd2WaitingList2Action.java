@@ -56,7 +56,7 @@ public final class WLAdd2WaitingList2Action extends ActionSupport {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
-            throw new SecurityException("missing required sec object (_demographic w)");
+            throw new SecurityException("missing required security object: _demographic w");
         }
 
         String listId = normalizePositiveId(request.getParameter("listId"));

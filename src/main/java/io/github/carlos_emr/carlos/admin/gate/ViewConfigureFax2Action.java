@@ -40,7 +40,7 @@ public final class ViewConfigureFax2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.fax", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin.fax)");
+            throw new SecurityException("missing required security object: _admin.fax");
         }
 
         return SUCCESS;

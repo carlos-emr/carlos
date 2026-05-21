@@ -53,10 +53,11 @@ public class dxResearchLoadQuickList2Action extends ActionSupport {
 
     private static SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    @Override
     public String execute()
             throws ServletException, IOException {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_dxresearch", "r", null)) {
-            throw new RuntimeException("missing required sec object (_dxresearch)");
+            throw new RuntimeException("missing required security object: _dxresearch");
         }
 
         dxQuickListBeanHandler quicklistHd = new dxQuickListBeanHandler();

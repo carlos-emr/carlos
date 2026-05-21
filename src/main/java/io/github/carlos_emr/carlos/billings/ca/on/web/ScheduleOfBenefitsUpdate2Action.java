@@ -58,12 +58,13 @@ public class ScheduleOfBenefitsUpdate2Action extends ActionSupport {
         this.feeScheduleImportService = feeScheduleImportService;
     }
 
+    @Override
     public String execute() throws java.io.IOException {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.billing", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin.billing)");
+            throw new SecurityException("missing required security object: _admin.billing");
         }
 
         // POST-only — fee-schedule application mutates billingservice rows; a

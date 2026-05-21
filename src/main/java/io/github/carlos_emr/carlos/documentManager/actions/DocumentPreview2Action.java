@@ -90,6 +90,7 @@ public class DocumentPreview2Action extends ActionSupport {
      *
      * @return String result name for Struts2 result mapping, or null for direct response rendering
      */
+    @Override
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String requestMethod = request.getParameter("method");
@@ -137,7 +138,7 @@ public class DocumentPreview2Action extends ActionSupport {
 
     private void requirePrivilege(LoggedInInfo loggedInInfo, String securityObjectName, String privilege) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, securityObjectName, privilege, null)) {
-            throw new SecurityException("missing required sec object (" + securityObjectName + ")");
+            throw new SecurityException("missing required security object: " + securityObjectName);
         }
     }
 

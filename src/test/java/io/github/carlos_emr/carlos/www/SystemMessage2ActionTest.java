@@ -166,7 +166,7 @@ class SystemMessage2ActionTest extends CarlosWebTestBase {
             // When/Then
             assertThatThrownBy(() -> executeAction(action))
                 .isInstanceOf(SecurityException.class)
-                .hasMessageContaining("missing required sec object");
+                .hasMessageContaining("missing required security object");
         }
     }
 }

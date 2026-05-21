@@ -55,12 +55,8 @@ public class ProviderInfo2Action extends ActionSupport {
     private ProviderManager providerManager = SpringUtils.getBean(ProviderManager.class);
     private ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
 
+    @Override
     public String execute() {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pmm_management", "r", null)) {
-            throw new SecurityException("missing required sec object (_pmm_management)");
-        }
-
         // Default action is to view
         return view();
     }
@@ -76,6 +72,9 @@ public class ProviderInfo2Action extends ActionSupport {
         providerNo = (String) request.getSession().getAttribute("user");
         if (providerNo == null || "".equals(providerNo)) {
             providerNo = loggedInInfo.getLoggedInProviderNo();
+        }
+        if (!canViewProviderInfo(loggedInInfo, providerNo)) {
+            throw new SecurityException("missing required security object: _pmm_management");
         }
 
         request.setAttribute("provider", providerManager.getProvider(providerNo));
@@ -107,5 +106,10 @@ public class ProviderInfo2Action extends ActionSupport {
         request.setAttribute("facilityDomain", facilities);
 
         return "view";
+    }
+
+    private boolean canViewProviderInfo(LoggedInInfo loggedInInfo, String providerNo) {
+        return securityInfoManager.hasPrivilege(loggedInInfo, "_pmm_management", "r", null)
+                || loggedInInfo != null && providerNo != null && providerNo.equals(loggedInInfo.getLoggedInProviderNo());
     }
 }

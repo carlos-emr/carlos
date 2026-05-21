@@ -50,7 +50,7 @@ public final class ViewTicklerMain2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", null)) {
-            throw new SecurityException("missing required sec object (_tickler)");
+            throw new SecurityException("missing required security object: _tickler");
         }
 
         return SUCCESS;

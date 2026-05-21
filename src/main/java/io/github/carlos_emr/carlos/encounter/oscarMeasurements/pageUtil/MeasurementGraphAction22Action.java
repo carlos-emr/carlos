@@ -106,6 +106,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private final String NUMERIC_REGEX = "[^-.\\d]";
 
+    @Override
     public String execute() throws IOException, ParseException {
         log.debug("In MeasurementGraphAction22Action");
         String userrole = (String) request.getSession().getAttribute("userrole");
@@ -114,7 +115,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         }
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_measurement", "r", null)) {
-            throw new SecurityException("missing required sec object (_measurement)");
+            throw new SecurityException("missing required security object: _measurement");
         }
 
 

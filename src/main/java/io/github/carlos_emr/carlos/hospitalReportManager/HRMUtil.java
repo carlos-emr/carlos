@@ -295,7 +295,7 @@ public class HRMUtil {
 
     public static HRMDocument getHRMDocumentById(LoggedInInfo loggedInInfo, Integer hrmId) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_hrm", "r", null)) {
-            throw new SecurityException("missing required sec object (_hrm)");
+            throw new SecurityException("missing required security object: _hrm");
         }
 
         HRMDocument hrmDocument = hrmDocumentDao.find(hrmId);
@@ -349,7 +349,7 @@ public class HRMUtil {
 
     public static Path renderHRM(LoggedInInfo loggedInInfo, Integer hrmId) throws PDFGenerationException {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_hrm", "r", null)) {
-            throw new SecurityException("missing required sec object (_hrm)");
+            throw new SecurityException("missing required security object: _hrm");
         }
 
         Path path = null;

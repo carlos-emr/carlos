@@ -91,7 +91,7 @@ public class SecurityDelete2Action extends ActionSupport {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!methodSecurity.hasAdminWrite()) {
-            throw new SecurityException("missing required sec object (_admin or _admin.userAdmin)");
+            throw new SecurityException("missing required security object: _admin or _admin.userAdmin");
         }
 
         String securityNoStr = request.getParameter("keyword");

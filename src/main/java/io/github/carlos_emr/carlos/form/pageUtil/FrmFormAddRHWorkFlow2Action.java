@@ -57,11 +57,12 @@ public class FrmFormAddRHWorkFlow2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    @Override
     public String execute() {
         MiscUtils.getLogger().debug("FrmFormRHPrevention Action");
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_form", "w", null)) {
-            throw new SecurityException("missing required sec object (_form)");
+            throw new SecurityException("missing required security object: _form");
         }
 
         String providerNo = (String) request.getSession().getAttribute("user");

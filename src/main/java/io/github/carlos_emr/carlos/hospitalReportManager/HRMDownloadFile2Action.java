@@ -54,12 +54,13 @@ public class HRMDownloadFile2Action extends ActionSupport {
     private HRMDocumentDao hrmDocumentDao = SpringUtils.getBean(HRMDocumentDao.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    @Override
     public String execute() throws Exception {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_hrm", "r", null)) {
-            throw new SecurityException("missing required sec object (_hrm)");
+            throw new SecurityException("missing required security object: _hrm");
         }
 
         String hash = request.getParameter("hash");

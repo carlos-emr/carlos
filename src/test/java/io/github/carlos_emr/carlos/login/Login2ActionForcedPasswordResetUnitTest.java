@@ -631,7 +631,7 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
         when(securityDao.findByUserName(USERNAME)).thenReturn(Collections.singletonList(security));
         when(providerDao.getProvider("999998")).thenReturn(activeProvider());
         when(mfaManager.isMfaRegistrationRequired(security.getId()))
-                .thenThrow(new SecurityException("missing required sec object (_security)"));
+                .thenThrow(new SecurityException("missing required security object: _security"));
 
         try (MockedStatic<MfaManager> mfaManagerStatic = mockStatic(MfaManager.class);
              MockedConstruction<LoginCheckLogin> mockedLoginChecks = mockConstruction(LoginCheckLogin.class,

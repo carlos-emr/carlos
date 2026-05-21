@@ -66,7 +66,7 @@ public final class ViewSharedOutcomesDashboard2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_dashboardDisplay", "r", null)) {
             MiscUtils.getLogger().warn("Denied sharedOutcomesDashboard: provider={} lacks _dashboardDisplay r",
                     loggedInInfo.getLoggedInProviderNo());
-            throw new SecurityException("missing required sec object (_dashboardDisplay r)");
+            throw new SecurityException("missing required security object: _dashboardDisplay r");
         }
 
         String method = request.getMethod();

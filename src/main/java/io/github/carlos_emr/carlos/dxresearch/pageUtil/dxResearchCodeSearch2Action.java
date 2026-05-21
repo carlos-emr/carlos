@@ -72,11 +72,12 @@ public final class dxResearchCodeSearch2Action extends ActionSupport {
 
     private static SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    @Override
     public String execute()
             throws Exception {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_dxresearch", "r", null)) {
-            throw new RuntimeException("missing required sec object (_dxresearch)");
+            throw new RuntimeException("missing required security object: _dxresearch");
         }
 
         // --- Trust boundary: validate codeType against the known-good allowlist ---

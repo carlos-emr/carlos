@@ -99,6 +99,7 @@ public class ProgramManagerView2Action extends ActionSupport {
         this.vacancyDao = vacancyDao;
     }
 
+    @Override
     public String execute() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_pmm_management", "r", null)) {
             logger.warn("Unauthorized access attempt to ProgramManagerView2Action");
@@ -310,7 +311,7 @@ public class ProgramManagerView2Action extends ActionSupport {
     public String admit() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pmm_management", "w", null)) {
-            throw new SecurityException("missing required sec object (_pmm_management)");
+            throw new SecurityException("missing required security object: _pmm_management");
         }
 
         String programId = request.getParameter("id");
@@ -402,7 +403,7 @@ public class ProgramManagerView2Action extends ActionSupport {
     public String override_restriction() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pmm_management", "w", null)) {
-            throw new SecurityException("missing required sec object (_pmm_management)");
+            throw new SecurityException("missing required security object: _pmm_management");
         }
 
         Object programIdAttribute = request.getSession().getAttribute("programId");
@@ -471,7 +472,7 @@ public class ProgramManagerView2Action extends ActionSupport {
 
     public String assign_team_client() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_pmm_management", "w", null)) {
-            throw new SecurityException("missing required sec object (_pmm_management)");
+            throw new SecurityException("missing required security object: _pmm_management");
         }
 
         String admissionId = request.getParameter("admissionId");
@@ -490,7 +491,7 @@ public class ProgramManagerView2Action extends ActionSupport {
 
     public String assign_status_client() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_pmm_management", "w", null)) {
-            throw new SecurityException("missing required sec object (_pmm_management)");
+            throw new SecurityException("missing required security object: _pmm_management");
         }
 
         String admissionId = request.getParameter("admissionId");
@@ -511,7 +512,7 @@ public class ProgramManagerView2Action extends ActionSupport {
         logger.info("do batch discharge");
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pmm_management", "w", null)) {
-            throw new SecurityException("missing required sec object (_pmm_management)");
+            throw new SecurityException("missing required security object: _pmm_management");
         }
 
         String type = request.getParameter("type");
@@ -613,7 +614,7 @@ public class ProgramManagerView2Action extends ActionSupport {
     public String reject_from_queue() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pmm_management", "w", null)) {
-            throw new SecurityException("missing required sec object (_pmm_management)");
+            throw new SecurityException("missing required security object: _pmm_management");
         }
 
         String notes = request.getParameter("admission.admissionNotes");

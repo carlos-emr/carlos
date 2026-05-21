@@ -56,11 +56,12 @@ public class PaymentType2Action extends ActionSupport {
         this.billingPaymentTypeDao = billingPaymentTypeDao;
     }
 
+    @Override
     public String execute() {
         HttpServletRequest request = ServletActionContext.getRequest();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
-            throw new SecurityException("missing required sec object (_billing)");
+            throw new SecurityException("missing required security object: _billing");
         }
 
         List<BillingPaymentType> paymentTypeList = billingPaymentTypeDao.findAll();

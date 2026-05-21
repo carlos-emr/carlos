@@ -80,6 +80,7 @@ public class QuickBillingBC2Action extends ActionSupport {
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    @Override
     public String execute() throws ServletException, IOException {
         String creator = (String) request.getSession().getAttribute("user");
         if (creator == null) {
@@ -87,7 +88,7 @@ public class QuickBillingBC2Action extends ActionSupport {
         }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
-            throw new SecurityException("missing required sec object (_billing)");
+            throw new SecurityException("missing required security object: _billing");
         }
         quickBillingHandler = new QuickBillingBCHandler();
 

@@ -67,12 +67,12 @@ public final class ViewAppointmentWrite2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null) {
             MiscUtils.getLogger().warn("Denied appointment write: no session");
-            throw new SecurityException("missing required sec object (_appointment w)");
+            throw new SecurityException("missing required security object: _appointment w");
         }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "w", null)) {
             MiscUtils.getLogger().warn("Denied appointment write: provider={} lacks _appointment w",
                     loggedInInfo.getLoggedInProviderNo());
-            throw new SecurityException("missing required sec object (_appointment w)");
+            throw new SecurityException("missing required security object: _appointment w");
         }
 
         String method = request.getMethod();

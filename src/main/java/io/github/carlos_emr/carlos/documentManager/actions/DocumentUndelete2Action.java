@@ -75,7 +75,7 @@ public class DocumentUndelete2Action extends ActionSupport {
         boolean isAdmin = sim.hasPrivilege(loggedInInfo, "_admin.edocdelete", "w", null);
         boolean hasEdocWrite = sim.hasPrivilege(loggedInInfo, "_edoc", "w", null);
         if (!isAdmin && !hasEdocWrite) {
-            throw new SecurityException("missing required sec object (_admin.edocdelete w or _edoc w)");
+            throw new SecurityException("missing required security object: _admin.edocdelete w or _edoc w");
         }
 
         if (!"POST".equalsIgnoreCase(request.getMethod())) {

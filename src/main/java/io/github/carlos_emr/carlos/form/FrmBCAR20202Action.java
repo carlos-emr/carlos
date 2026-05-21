@@ -89,6 +89,7 @@ public class FrmBCAR20202Action extends ActionSupport {
     public FrmBCAR20202Action() {
     }
 
+    @Override
     public String execute() throws Exception {
         if ("saveAndExit".equals(request.getParameter("method"))) {
             return saveAndExit();

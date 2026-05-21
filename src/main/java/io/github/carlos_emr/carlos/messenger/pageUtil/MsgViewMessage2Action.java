@@ -157,7 +157,7 @@ public class MsgViewMessage2Action extends ActionSupport {
 
         // Verify user has read permission for messages
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", SecurityInfoManager.READ, null)) {
-            throw new SecurityException("missing required sec object (_msg)");
+            throw new SecurityException("missing required security object: _msg");
         }
 
         // Always use the logged-in provider's identity — never override from session bean

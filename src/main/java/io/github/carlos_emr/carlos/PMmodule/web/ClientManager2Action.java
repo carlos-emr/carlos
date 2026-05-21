@@ -123,10 +123,11 @@ public class ClientManager2Action extends ActionSupport {
         this.cdsClientFormDao = cdsClientFormDao;
     }
 
+    @Override
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pmm_management", "w", null)) {
-            throw new SecurityException("missing required sec object (_pmm_management)");
+            throw new SecurityException("missing required security object: _pmm_management");
         }
 
         String method = request.getParameter("method");

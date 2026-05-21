@@ -69,6 +69,7 @@ public final class RxRePrescribe2Action extends ActionSupport {
     private static final Logger logger = MiscUtils.getLogger();
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    @Override
     public String execute() throws IOException {
         String method = request.getParameter("method");
         if ("reprint2".equals(method)) {
@@ -592,7 +593,7 @@ public String saveDigitalSignature() throws IOException {
 
     private void checkPrivilege(LoggedInInfo loggedInInfo, String privilege) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", privilege, null)) {
-            throw new RuntimeException("missing required sec object (_rx)");
+            throw new RuntimeException("missing required security object: _rx");
         }
     }
 

@@ -54,6 +54,7 @@ public class ManageCss2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     /** Dispatch the legacy style-management screen to render, save, or delete flows. */
+    @Override
     public String execute() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null) {
@@ -70,7 +71,7 @@ public class ManageCss2Action extends ActionSupport {
         // per-method save()/delete() paths still gate independently on
         // _admin/w because mutation writes need the stronger privilege.
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)) {
-            throw new SecurityException("missing required sec object (_admin)");
+            throw new SecurityException("missing required security object: _admin");
         }
         styles = cssStylesDao.findAll();
         return "init";
@@ -79,7 +80,7 @@ public class ManageCss2Action extends ActionSupport {
     /** Persist a new or edited CSS style after privilege and POST checks succeed. */
     public String save() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin)");
+            throw new SecurityException("missing required security object: _admin");
         }
         // Mutation: persist or merge cssStyle. CSRFGuard's body-token check
         // only fires on non-GET; without an explicit POST gate a forged GET
@@ -135,7 +136,7 @@ public class ManageCss2Action extends ActionSupport {
     public String delete() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin)");
+            throw new SecurityException("missing required security object: _admin");
         }
         // Mutation: cascades a null update to billing_service.display_style for
         // every code referencing this style. POST-only — see save() above.

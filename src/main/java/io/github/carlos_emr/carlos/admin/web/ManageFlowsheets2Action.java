@@ -56,7 +56,7 @@ public class ManageFlowsheets2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)
                 && !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.misc", "w", null)
                 && !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.flowsheet", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin, _admin.misc, or _admin.flowsheet)");
+            throw new SecurityException("missing required security object: _admin, _admin.misc, or _admin.flowsheet");
         }
 
         String method = request.getParameter("method");

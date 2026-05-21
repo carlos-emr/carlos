@@ -73,10 +73,11 @@ public class GenerateTeleplanFile2Action extends ActionSupport {
     public GenerateTeleplanFile2Action() {
     }
 
+    @Override
     public String execute() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
-            throw new SecurityException("missing required sec object (_billing)");
+            throw new SecurityException("missing required security object: _billing");
         }
 
         MiscUtils.getLogger().debug("SimulateTeleplanAction2 action jackson");

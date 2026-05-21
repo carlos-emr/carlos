@@ -50,6 +50,7 @@ public final class EctSetupDisplayMeasurementStyleSheet2Action extends ActionSup
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    @Override
     public String execute()
             throws Exception {
 
@@ -62,7 +63,7 @@ public final class EctSetupDisplayMeasurementStyleSheet2Action extends ActionSup
             return "continue";
 
         } else {
-            throw new SecurityException("Access Denied!"); //missing required sec object (_admin)
+            throw new SecurityException("Access Denied!"); //missing required security object: _admin
         }
     }
 }

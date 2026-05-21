@@ -80,14 +80,14 @@ run_missing_target_case() {
 }
 
 run_case \
-  "ColonFormViolation" \
-  'class ColonFormViolation { void deny() { throw new SecurityException("missing required sec object: _lab"); } }' \
+  "OldFormViolation" \
+  'class OldFormViolation { void deny() { throw new SecurityException("missing required sec object (_lab)"); } }' \
   "1" \
-  "missing required sec object: _lab"
+  "missing required sec object (_lab)"
 
 run_case \
-  "ParenFormAllowed" \
-  'class ParenFormAllowed { void deny() { throw new SecurityException("missing required sec object (_lab)"); } }' \
+  "StandardFormAllowed" \
+  'class StandardFormAllowed { void deny() { throw new SecurityException("missing required security object: _lab"); } }' \
   "0" \
   ""
 

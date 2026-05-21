@@ -207,7 +207,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
             if (loggedInInfo == null) {
                 return "logout";
             }
-            throw new SecurityException("missing required sec object (_demographic)");
+            throw new SecurityException("missing required security object: _demographic");
         }
 
         //TODO: More thought needs to be put into the user interface. Extra attention on multithreading is advised

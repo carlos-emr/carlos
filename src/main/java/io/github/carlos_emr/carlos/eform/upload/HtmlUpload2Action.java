@@ -62,10 +62,11 @@ public class HtmlUpload2Action extends ActionSupport implements UploadedFilesAwa
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    @Override
     public String execute() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_eform", "w", null)) {
-            throw new SecurityException("missing required sec object (_eform)");
+            throw new SecurityException("missing required security object: _eform");
         }
         try {
             File validatedFormHtml = PathValidationUtils.validateUpload(formHtml);

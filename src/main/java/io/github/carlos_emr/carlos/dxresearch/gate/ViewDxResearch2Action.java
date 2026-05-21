@@ -48,7 +48,7 @@ public final class ViewDxResearch2Action extends ActionSupport {
         SecurityInfoManager sim = SpringUtils.getBean(SecurityInfoManager.class);
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null || !sim.hasPrivilege(loggedInInfo, "_dxresearch", "r", null)) {
-            throw new SecurityException("missing required sec object (_dxresearch r)");
+            throw new SecurityException("missing required security object: _dxresearch r");
         }
         return SUCCESS;
     }

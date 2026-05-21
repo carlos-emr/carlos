@@ -64,10 +64,11 @@ public class dxCodeSearchJSON2Action extends ActionSupport {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private static Logger logger = MiscUtils.getLogger();
 
+    @Override
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!hasCodeSearchPrivilege(loggedInInfo)) {
-            throw new SecurityException("missing required sec object (_dxresearch/_rx/_billing/_report r)");
+            throw new SecurityException("missing required security object: _dxresearch/_rx/_billing/_report r");
         }
         String method = request.getParameter("method");
         if ("searchICD9".equals(method)) {

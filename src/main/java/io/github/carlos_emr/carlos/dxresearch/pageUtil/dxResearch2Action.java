@@ -57,6 +57,7 @@ public class dxResearch2Action extends ActionSupport {
 
     private static SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    @Override
     public String execute()
             throws ServletException, IOException {
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
@@ -64,7 +65,7 @@ public class dxResearch2Action extends ActionSupport {
             return NONE;
         }
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_dxresearch", "w", null)) {
-            throw new RuntimeException("missing required sec object (_dxresearch)");
+            throw new RuntimeException("missing required security object: _dxresearch");
         }
 
         //dxResearchForm frm = (dxResearchForm) form;

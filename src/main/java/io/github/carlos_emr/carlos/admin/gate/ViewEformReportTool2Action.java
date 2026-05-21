@@ -42,7 +42,7 @@ public final class ViewEformReportTool2Action extends ActionSupport {
                 || securityInfoManager.hasPrivilege(loggedInInfo, "_admin.reporting", "w", null);
 
         if (!authorized) {
-            throw new SecurityException("missing required sec object (_admin or _admin.reporting)");
+            throw new SecurityException("missing required security object: _admin or _admin.reporting");
         }
 
         return SUCCESS;

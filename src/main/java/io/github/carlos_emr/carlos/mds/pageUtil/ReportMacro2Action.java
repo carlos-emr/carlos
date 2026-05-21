@@ -75,11 +75,12 @@ public class ReportMacro2Action extends ActionSupport {
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    @Override
     public String execute() throws ServletException, IOException {
         ObjectNode result = objectMapper.createObjectNode();
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_lab", "w", null)) {
-            throw new SecurityException("missing required sec object (_lab)");
+            throw new SecurityException("missing required security object: _lab");
         }
         response.setContentType(JSON_CONTENT_TYPE);
 

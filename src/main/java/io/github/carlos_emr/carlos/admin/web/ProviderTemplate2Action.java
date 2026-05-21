@@ -57,7 +57,7 @@ public class ProviderTemplate2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.templates", "w", null)) {
-            throw new SecurityException("missing required sec object (_newCasemgmt.templates)");
+            throw new SecurityException("missing required security object: _newCasemgmt.templates");
         }
 
         String dboperation = request.getParameter("dboperation");

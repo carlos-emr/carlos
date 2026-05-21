@@ -104,11 +104,12 @@ public final class MsgClearMessage2Action extends ActionSupport {
      * @throws IOException if there's an I/O error (declared but not typically thrown)
      * @throws ServletException if there's a servlet processing error (declared but not typically thrown)
      */
+    @Override
     public String execute()
             throws IOException, ServletException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", "w", null)) {
-            throw new SecurityException("missing required sec object (_msg)");
+            throw new SecurityException("missing required security object: _msg");
         }
 
         // Retrieve the message session bean from the HTTP session

@@ -53,7 +53,7 @@ public final class ViewTabletSignature2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", "w", null)) {
             MiscUtils.getLogger().warn("Denied tabletSignature: provider={} lacks _con w",
                     loggedInInfo.getLoggedInProviderNo());
-            throw new SecurityException("missing required sec object (_con w)");
+            throw new SecurityException("missing required security object: _con w");
         }
 
         String method = request.getMethod();

@@ -65,11 +65,12 @@ public class EctImmCreateImmunizationSetConfig2Action extends ActionSupport {
         return temp;
     }
 
+    @Override
     public String execute()
             throws ServletException, IOException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_prevention", "w", null)) {
-            throw new SecurityException("missing required sec object (_prevention)");
+            throw new SecurityException("missing required security object: _prevention");
         }
 
         EctSessionBean bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");

@@ -127,7 +127,7 @@ class DemographicEdit2ActionTest extends CarlosWebTestBase {
 
             assertThatThrownBy(() -> executeAction(action))
                     .isInstanceOf(SecurityException.class)
-                    .hasMessageContaining("missing required sec object (_demographic)");
+                    .hasMessageContaining("missing required security object: _demographic");
 
             verifySecurityCheck("_demographic", "r");
         }

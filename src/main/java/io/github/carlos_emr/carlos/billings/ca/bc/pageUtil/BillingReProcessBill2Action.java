@@ -83,6 +83,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
     //Misc misc = new Misc();
     MSPReconcile msp = new MSPReconcile();
 
+    @Override
     public String execute() throws IOException, ServletException {        if (request.getSession().getAttribute("user") == null) {
             return "Logout";
         }
@@ -90,7 +91,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
-            throw new SecurityException("missing required sec object (_billing)");
+            throw new SecurityException("missing required security object: _billing");
         }
 
         boolean massEdit = request.getParameter("billCheck") != null;

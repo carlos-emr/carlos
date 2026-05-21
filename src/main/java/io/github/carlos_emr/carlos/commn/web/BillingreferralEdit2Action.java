@@ -66,7 +66,7 @@ public class BillingreferralEdit2Action extends ActionSupport {
     @Override
     public String execute() throws Exception {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_billing", "r", null)) {
-            throw new SecurityException("missing required sec object (_billing)");
+            throw new SecurityException("missing required security object: _billing");
         }
         String method = request.getParameter("method");
         if ("searchByNo".equals(method)) {
@@ -136,7 +136,7 @@ public class BillingreferralEdit2Action extends ActionSupport {
 
     public String modifyBatch() throws IOException {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_billing", "w", null)) {
-            throw new SecurityException("missing required sec object (_billing write)");
+            throw new SecurityException("missing required security object: _billing write");
         }
         String referralId = request.getParameter("id");
         String checked = request.getParameter("checked");

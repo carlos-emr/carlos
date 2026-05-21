@@ -47,7 +47,7 @@ public final class ViewHRMDocList2Action extends ActionSupport {
     public String execute() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null || !securityInfoManager.hasPrivilege(loggedInInfo, "_hrm", "r", null)) {
-            throw new SecurityException("missing required sec object (_hrm r)");
+            throw new SecurityException("missing required security object: _hrm r");
         }
         return SUCCESS;
     }

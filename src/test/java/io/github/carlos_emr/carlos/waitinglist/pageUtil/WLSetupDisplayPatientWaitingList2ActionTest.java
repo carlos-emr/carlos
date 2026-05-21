@@ -105,7 +105,7 @@ class WLSetupDisplayPatientWaitingList2ActionTest extends CarlosWebTestBase {
 
             assertThatThrownBy(() -> executeAction(action))
                     .isInstanceOf(RuntimeException.class)
-                    .hasMessageContaining("missing required sec object (_demographic)");
+                    .hasMessageContaining("missing required security object: _demographic");
 
             verifySecurityCheck("_demographic", "r");
         }

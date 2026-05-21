@@ -58,10 +58,11 @@ public class RptCreateDemographicSet2Action extends ActionSupport {
     public RptCreateDemographicSet2Action() {
     }
 
+    @Override
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_report", "w", null)) {
-            throw new SecurityException("missing required sec object (_report)");
+            throw new SecurityException("missing required security object: _report");
         }
 
 

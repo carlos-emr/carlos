@@ -167,6 +167,7 @@ public class ManageDocument2Action extends ActionSupport {
      *
      * @return String the Struts2 result name, or "error" if no valid handler is found
      */
+    @Override
     public String execute() {
         String method = request.getParameter("method");
         ActionHandler handler = ACTIONS.get(method);
@@ -218,7 +219,7 @@ public class ManageDocument2Action extends ActionSupport {
         String demog = request.getParameter("demog");
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
-            throw new SecurityException("missing required sec object (_edoc)");
+            throw new SecurityException("missing required security object: _edoc");
         }
 
         if (documentId == null || !documentId.matches("\\d{1,9}")) {
@@ -341,7 +342,7 @@ public class ManageDocument2Action extends ActionSupport {
         String dn = request.getParameter("demo_no");
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", dn)) {
-            throw new SecurityException("missing required sec object (_demographic)");
+            throw new SecurityException("missing required security object: _demographic");
         }
 
         if (dn != null && !dn.matches("^\\d+$")) {
@@ -375,7 +376,7 @@ public class ManageDocument2Action extends ActionSupport {
         String providerNo = request.getParameter("providerNo");
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
-            throw new SecurityException("missing required sec object (_edoc)");
+            throw new SecurityException("missing required security object: _edoc");
         }
 
         providerInboxRoutingDAO.removeLinkFromDocument(docType, Integer.parseInt(docId), providerNo);
@@ -406,7 +407,7 @@ public class ManageDocument2Action extends ActionSupport {
         String queueId = request.getParameter("queueId");
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
-            throw new SecurityException("missing required sec object (_edoc)");
+            throw new SecurityException("missing required security object: _edoc");
         }
 
         try {
@@ -435,7 +436,7 @@ public class ManageDocument2Action extends ActionSupport {
         String docType = request.getParameter("docType"); // :consult<
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
-            throw new SecurityException("missing required sec object (_edoc)");
+            throw new SecurityException("missing required security object: _edoc");
         }
 
         if (documentId == null || documentId.trim().isEmpty()) {
@@ -780,7 +781,7 @@ public class ManageDocument2Action extends ActionSupport {
      */
     public void viewDocPage() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "r", null)) {
-            throw new SecurityException("missing required sec object (_edoc)");
+            throw new SecurityException("missing required security object: _edoc");
         }
 
         log.debug("in viewDocPage");
@@ -841,7 +842,7 @@ public class ManageDocument2Action extends ActionSupport {
     public void getDocPageNumber() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "r", null)) {
-            throw new SecurityException("missing required sec object (_edoc)");
+            throw new SecurityException("missing required security object: _edoc");
         }
 
         String doc_no = request.getParameter("doc_no");
@@ -879,7 +880,7 @@ public class ManageDocument2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "r", null)) {
-            throw new SecurityException("missing required sec object (_edoc)");
+            throw new SecurityException("missing required security object: _edoc");
         }
 
         String doc_no = request.getParameter("doc_no");
@@ -989,7 +990,7 @@ public class ManageDocument2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "r", null)) {
-            throw new SecurityException("missing required sec object (_edoc)");
+            throw new SecurityException("missing required security object: _edoc");
         }
 
         String doc_no = request.getParameter("doc_no");
@@ -1066,7 +1067,7 @@ public class ManageDocument2Action extends ActionSupport {
         String destFilePath;
         
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
-            throw new SecurityException("missing required sec object (_edoc)");
+            throw new SecurityException("missing required security object: _edoc");
         }
         
         // Validate input parameters to prevent path traversal
@@ -1242,7 +1243,7 @@ public class ManageDocument2Action extends ActionSupport {
     public void viewIncomingDocPageAsPdf() throws Exception {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "r", null)) {
-            throw new SecurityException("missing required sec object (_edoc)");
+            throw new SecurityException("missing required security object: _edoc");
         }
 
         String pageNum = request.getParameter("curPage");
@@ -1354,7 +1355,7 @@ public class ManageDocument2Action extends ActionSupport {
     public void displayIncomingDocs() throws Exception {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "r", null)) {
-            throw new SecurityException("missing required sec object (_edoc)");
+            throw new SecurityException("missing required security object: _edoc");
         }
 
         String queueId = request.getParameter("queueId");
@@ -1428,7 +1429,7 @@ public class ManageDocument2Action extends ActionSupport {
 
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "r", null)) {
-            throw new SecurityException("missing required sec object (_edoc)");
+            throw new SecurityException("missing required security object: _edoc");
         }
 
         String pageNum = request.getParameter("curPage");

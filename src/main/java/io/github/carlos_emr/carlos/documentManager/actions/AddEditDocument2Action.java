@@ -128,7 +128,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         ResourceBundle props = ResourceBundle.getBundle("oscarResources");
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
-            throw new SecurityException("missing required sec object (_edoc)");
+            throw new SecurityException("missing required security object: _edoc");
         }
 
         File uploadedDocFile = this.getDocFile();
@@ -237,6 +237,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
      * @return String the Struts2 result name
      * @throws Exception if document processing fails
      */
+    @Override
     public String execute() throws Exception {
         if ("html5MultiUpload".equals(request.getParameter("method"))) {
             return html5MultiUpload();
@@ -253,7 +254,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
      */
     public String execute2() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
-            throw new SecurityException("missing required sec object (_edoc)");
+            throw new SecurityException("missing required security object: _edoc");
         }
 
         if (this.getMode().equals("") && this.getFunction().equals("") && this.getFunctionId().equals("")) {
@@ -452,7 +453,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         Hashtable errors = new Hashtable();
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
-            throw new SecurityException("missing required sec object (_edoc)");
+            throw new SecurityException("missing required security object: _edoc");
         }
 
         try {

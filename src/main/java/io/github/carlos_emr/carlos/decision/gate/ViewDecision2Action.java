@@ -76,7 +76,7 @@ public final class ViewDecision2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null
                 || !securityInfoManager.hasPrivilege(loggedInInfo, "_form", "r", null)) {
-            throw new SecurityException("missing required sec object (_form r)");
+            throw new SecurityException("missing required security object: _form r");
         }
 
         String submit = request.getParameter("submit");
@@ -93,7 +93,7 @@ public final class ViewDecision2Action extends ActionSupport {
                 return NONE;
             }
             if (!securityInfoManager.hasPrivilege(loggedInInfo, "_form", "w", null)) {
-                throw new SecurityException("missing required sec object (_form w)");
+                throw new SecurityException("missing required security object: _form w");
             }
         }
 

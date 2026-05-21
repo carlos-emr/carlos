@@ -65,7 +65,7 @@ public final class ViewClinical2Action extends ActionSupport {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null || !securityInfoManager.hasPrivilege(loggedInInfo, "_eChart", "r", null)) {
-            throw new SecurityException("missing required sec object (_eChart)");
+            throw new SecurityException("missing required security object: _eChart");
         }
         return SUCCESS;
     }

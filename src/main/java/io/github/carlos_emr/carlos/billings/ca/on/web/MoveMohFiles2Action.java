@@ -125,9 +125,10 @@ public class MoveMohFiles2Action extends ActionSupport {
      * @throws Exception if an unexpected error occurs during execution
      * @throws SecurityException if the user lacks required administrative privileges (_admin.billing with write access)
      */
+    @Override
     public String execute() throws Exception {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.billing", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin.billing)");
+            throw new SecurityException("missing required security object: _admin.billing");
         }
 
         // Dual-purpose action: GET = render file listing, POST = mutate MOH

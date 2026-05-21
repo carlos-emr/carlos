@@ -477,7 +477,7 @@ public class LabManagerUnitTest extends LabUnitTestBase {
             // When / Then
             assertThatThrownBy(() -> labManager.renderLab(mockLoggedInInfo, TEST_LAB_ID))
                 .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("missing required sec object (_lab)");
+                .hasMessageContaining("missing required security object: _lab");
         }
 
         @Test
@@ -523,7 +523,7 @@ public class LabManagerUnitTest extends LabUnitTestBase {
             // When / Then
             assertThatThrownBy(() -> labManager.getHl7Messages(mockLoggedInInfo, TEST_DEMO_NO, 0, 10))
                 .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("missing required sec object (_lab)");
+                .hasMessageContaining("missing required security object: _lab");
 
             // Verify DAO was never called
             verify(mockHl7TextMessageDao, never()).findByDemographicNo(anyInt(), anyInt(), anyInt());
@@ -536,7 +536,7 @@ public class LabManagerUnitTest extends LabUnitTestBase {
             // When / Then
             assertThatThrownBy(() -> labManager.getHl7TextInfo(mockLoggedInInfo, TEST_DEMO_NO))
                 .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("missing required sec object (_lab)");
+                .hasMessageContaining("missing required security object: _lab");
 
             // Verify DAOs were never called
             verify(mockPatientLabRoutingDao, never()).findByDemographicAndLabType(anyInt(), anyString());
@@ -550,7 +550,7 @@ public class LabManagerUnitTest extends LabUnitTestBase {
             // When / Then
             assertThatThrownBy(() -> labManager.getHl7Message(mockLoggedInInfo, TEST_LAB_ID))
                 .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("missing required sec object (_lab)");
+                .hasMessageContaining("missing required security object: _lab");
 
             // Verify DAO was never called
             verify(mockHl7TextMessageDao, never()).find(anyInt());
@@ -563,7 +563,7 @@ public class LabManagerUnitTest extends LabUnitTestBase {
             // When / Then
             assertThatThrownBy(() -> labManager.renderLab(mockLoggedInInfo, TEST_LAB_ID))
                 .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("missing required sec object (_lab)");
+                .hasMessageContaining("missing required security object: _lab");
         }
 
         @Test

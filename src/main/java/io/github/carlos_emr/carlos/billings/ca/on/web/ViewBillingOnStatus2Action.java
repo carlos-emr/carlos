@@ -80,7 +80,7 @@ public class ViewBillingOnStatus2Action extends ActionSupport {
         // their team's bills?), NOT a page-access gate. The page access privilege
         // matches the companion BillingOnStatusErUpdateStatus2Action: _billing.
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
-            throw new SecurityException("missing required sec object (_billing)");
+            throw new SecurityException("missing required security object: _billing");
         }
 
         // The status page accepts GET / HEAD / POST (the search form on the

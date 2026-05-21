@@ -132,6 +132,7 @@ public class CaseManagementView2Action extends ActionSupport {
         objectMapper.registerModule(module);
     }
     
+    @Override
     public String execute() throws Exception {
         this.setFilter_provider("");
         request.setAttribute("patientCppPrintPreview", "false");

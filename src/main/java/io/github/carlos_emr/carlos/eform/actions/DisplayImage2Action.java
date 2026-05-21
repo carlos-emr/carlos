@@ -80,6 +80,7 @@ public class DisplayImage2Action extends ActionSupport {
     public DisplayImage2Action() {
     }
 
+    @Override
     public String execute() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null) {
@@ -92,10 +93,10 @@ public class DisplayImage2Action extends ActionSupport {
         if (VACCINE_BRANDS_FILE.equals(fileName)) {
             if (!hasEformRead
                     && !securityInfoManager.hasPrivilege(loggedInInfo, "_prevention", "r", null)) {
-                throw new SecurityException("missing required sec object (_eform or _prevention)");
+                throw new SecurityException("missing required security object: _eform or _prevention");
             }
         } else if (!hasEformRead) {
-            throw new SecurityException("missing required sec object (_eform)");
+            throw new SecurityException("missing required security object: _eform");
         }
 
         File validatedFile = getValidatedImageFile(fileName);

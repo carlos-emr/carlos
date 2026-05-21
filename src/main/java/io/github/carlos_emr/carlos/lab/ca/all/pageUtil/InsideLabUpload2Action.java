@@ -129,7 +129,7 @@ public class InsideLabUpload2Action extends ActionSupport implements UploadedFil
     private void checkUserPrivilege(LoggedInInfo loggedInInfo) {
         SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", "w", null)) {
-            throw new SecurityException("missing required sec object (_lab)");
+            throw new SecurityException("missing required security object: _lab");
         }
     }
 

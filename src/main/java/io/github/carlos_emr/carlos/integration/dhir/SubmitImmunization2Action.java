@@ -67,7 +67,7 @@ public class SubmitImmunization2Action extends ActionSupport {
             throw new SecurityException("DHIR submission requires an authenticated session");
         }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_prevention", "w", null)) {
-            throw new SecurityException("missing required sec object (_prevention)");
+            throw new SecurityException("missing required security object: _prevention");
         }
         return SUCCESS;
     }

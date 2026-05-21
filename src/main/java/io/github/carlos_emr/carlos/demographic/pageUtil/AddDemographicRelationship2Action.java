@@ -63,10 +63,11 @@ public class AddDemographicRelationship2Action extends ActionSupport {
 
     }
 
+    @Override
     public String execute() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "w", null)) {
-            throw new SecurityException("missing required sec object (_demographic)");
+            throw new SecurityException("missing required security object: _demographic");
         }
 
         String origDemo = request.getParameter("origDemo");

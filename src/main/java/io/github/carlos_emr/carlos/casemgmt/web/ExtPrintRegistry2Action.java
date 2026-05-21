@@ -53,10 +53,11 @@ public class ExtPrintRegistry2Action extends ActionSupport {
 
     private static Logger logger = MiscUtils.getLogger();
 
+    @Override
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
-            throw new SecurityException("missing required sec object (_demographic)");
+            throw new SecurityException("missing required security object: _demographic");
         }
 
         return register();

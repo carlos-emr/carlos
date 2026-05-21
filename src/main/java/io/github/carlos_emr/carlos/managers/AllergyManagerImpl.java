@@ -131,7 +131,7 @@ public class AllergyManagerImpl implements AllergyManager {
     @Override
     public List<AllergyListItemDTO> getAllergyDTOs(LoggedInInfo loggedInInfo, Integer demographicNo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_allergy", "r", null)) {
-            throw new SecurityException("missing required sec object (_allergy)");
+            throw new SecurityException("missing required security object: _allergy");
         }
         List<AllergyListItemDTO> results = allergyDao.findAllergyDTOsByDemographicNo(demographicNo);
 

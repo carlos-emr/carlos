@@ -42,7 +42,7 @@ public final class ViewOscarLogging2Action extends ActionSupport {
                 || securityInfoManager.hasPrivilege(loggedInInfo, "_admin.reporting", "r", null);
 
         if (!authorized) {
-            throw new SecurityException("missing required sec object (_admin or _admin.reporting)");
+            throw new SecurityException("missing required security object: _admin or _admin.reporting");
         }
 
         return SUCCESS;

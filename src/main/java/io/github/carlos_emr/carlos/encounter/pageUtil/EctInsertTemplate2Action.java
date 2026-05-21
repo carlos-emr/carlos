@@ -47,6 +47,7 @@ public final class EctInsertTemplate2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    @Override
     public String execute() throws Exception {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_newCasemgmt.templates", "r", null)) {
             throw new SecurityException("missing required security object: _newCasemgmt.templates");

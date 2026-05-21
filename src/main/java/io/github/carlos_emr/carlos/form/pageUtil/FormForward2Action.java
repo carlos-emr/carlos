@@ -69,7 +69,7 @@ public class FormForward2Action extends ActionSupport {
         String demographicNo = request.getParameter("demographic_no");
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, demographicNo)) {
-            throw new SecurityException("missing required sec object (_form)");
+            throw new SecurityException("missing required security object: _form");
         }
 
         String formName = request.getParameter("formname");

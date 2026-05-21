@@ -93,6 +93,7 @@ public class EChartPrint2Action extends ActionSupport {
      * @return String always {@code null} (response written directly to output stream)
      * @throws Exception if PDF generation fails
      */
+    @Override
     public String execute() throws Exception {
         // Default action is to print
         return print();
@@ -123,7 +124,7 @@ public class EChartPrint2Action extends ActionSupport {
         DemographicDao demographicDao = (DemographicDao) SpringUtils.getBean(DemographicDao.class);
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", demographicNo)) {
-            throw new SecurityException("missing required sec object (_demographic)");
+            throw new SecurityException("missing required security object: _demographic");
         }
 
 

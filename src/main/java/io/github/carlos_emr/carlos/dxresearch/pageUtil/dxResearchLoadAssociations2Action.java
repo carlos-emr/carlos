@@ -78,6 +78,7 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    @Override
     public String execute() throws Exception {
         String method = request.getParameter("method");
 
@@ -285,7 +286,7 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
 
     private void checkPrivilege(HttpServletRequest request, String privilege) {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_dxresearch", privilege, null)) {
-            throw new SecurityException("missing required sec object (_dxresearch " + privilege + ")");
+            throw new SecurityException("missing required security object: _dxresearch " + privilege);
         }
     }
 

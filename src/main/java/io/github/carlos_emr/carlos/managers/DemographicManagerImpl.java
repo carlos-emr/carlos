@@ -1054,14 +1054,14 @@ public class DemographicManagerImpl implements DemographicManager {
     @Override
     public void checkPrivilege(LoggedInInfo loggedInInfo, String privilege) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", privilege, null)) {
-            throw new RuntimeException("missing required sec object (_demographic)");
+            throw new RuntimeException("missing required security object: _demographic");
         }
     }
 
     @Override
     public void checkPrivilege(LoggedInInfo loggedInInfo, String privilege, int demographicNo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", privilege, demographicNo)) {
-            throw new RuntimeException("missing required sec object (_demographic)");
+            throw new RuntimeException("missing required security object: _demographic");
         }
     }
 

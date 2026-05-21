@@ -80,7 +80,7 @@ class DxSetupResearch2ActionTest extends CarlosWebTestBase {
 
             assertThatThrownBy(() -> executeAction(action))
                     .isInstanceOf(RuntimeException.class)
-                    .hasMessageContaining("missing required sec object (_dxresearch)");
+                    .hasMessageContaining("missing required security object: _dxresearch");
         }
     }
 
