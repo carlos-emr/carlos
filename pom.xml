@@ -83,7 +83,7 @@
         <sonar.issue.ignore.multicriteria.pvuDocS6549.ruleKey>javasecurity:S6549</sonar.issue.ignore.multicriteria.pvuDocS6549.ruleKey>
         <sonar.issue.ignore.multicriteria.pvuDocS6549.resourceKey>**/documentManager/**/DocumentUpload2Action.java</sonar.issue.ignore.multicriteria.pvuDocS6549.resourceKey>
         <!-- Empty default so @{argLine} in surefire resolves even if JaCoCo prepare-agent hasn't run -->
-        <argLine></argLine>
+        <argLine/>
         <!-- Log4j Version -->
         <log4j2.version>2.25.4</log4j2.version>
         <!-- Slf4j Version -->
@@ -93,16 +93,20 @@
         <!-- Apache CXF Version -->
         <cxf.version>4.1.5</cxf.version>
         <!-- Netty Version (for transitive dependency security fixes) -->
-        <netty.version>4.1.132.Final</netty.version>
+        <netty.version>4.1.133.Final</netty.version>
         <!-- Drools 10.x KIE API (upgraded from 7.74.1.Final for Jakarta EE compatibility) -->
         <drools.version>10.1.0</drools.version>
         <!-- Spring -->
-        <spring.version>7.0.6</spring.version>
+        <spring.version>7.0.7</spring.version>
         <spring-security.version>7.0.5</spring-security.version>
         <!-- Struts -->
         <struts.version>7.1.1</struts.version>
         <!-- Jackson -->
-        <jackson.version>2.21.1</jackson.version>
+        <jackson.version>2.21.2</jackson.version>
+        <!-- Apache HttpClient 5 -->
+        <httpclient5.version>5.6.1</httpclient5.version>
+        <!-- Bouncy Castle -->
+        <bouncycastle.version>1.84</bouncycastle.version>
         <!-- JasperReports -->
         <jasperreports.version>7.0.6</jasperreports.version>
         <!-- Modern OpenPDF uses org.openpdf.* for handwritten PDF code.
@@ -264,16 +268,41 @@
             <!-- Override transitive org.hl7.fhir.core (6.5.27) from hapi-fhir-structures-dstu3.
                  Fixes: CVE-2024-45294, CVE-2024-51132, CVE-2024-52007 (all patched in 6.4.0),
                  CVE-2026-33180 HTTP auth credential leak in redirects (patched in 6.9.0),
-                 CVE-2026-34359 credential leak via URL prefix matching on redirect (patched in 6.9.4). -->
+                 CVE-2026-34359 credential leak via URL prefix matching on redirect (patched in 6.9.4),
+                 CVE-2026-42236 FHIRPath ReDoS in matches()/replaceMatches() (patched in 6.9.7). -->
             <dependency>
                 <groupId>ca.uhn.hapi.fhir</groupId>
                 <artifactId>org.hl7.fhir.utilities</artifactId>
-                <version>6.9.4</version>
+                <version>6.9.7</version>
             </dependency>
             <dependency>
                 <groupId>ca.uhn.hapi.fhir</groupId>
                 <artifactId>org.hl7.fhir.dstu3</artifactId>
-                <version>6.9.4</version>
+                <version>6.9.7</version>
+            </dependency>
+            <!-- Override Apache Neethi 3.2.1 from CXF WSN policy dependencies.
+                 Fixes GHSA-reported denial-of-service issues in policy normalization:
+                 circular policy reference detection and algorithmic complexity handling. -->
+            <dependency>
+                <groupId>org.apache.neethi</groupId>
+                <artifactId>neethi</artifactId>
+                <version>3.2.2</version>
+            </dependency>
+            <!-- Override older transitive commons-configuration2 releases flagged by Snyk
+                 for secret exposure during interpolation failures (CVE-2024-32958). -->
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-configuration2</artifactId>
+                <version>2.15.0</version>
+            </dependency>
+            <!-- Override the OpenTelemetry API family aligned by the transitive dependency tree.
+                 Addresses the Snyk/OpenTelemetry baggage-header allocation alert (CVE-2026-45292)
+                 without importing the full BOM because CARLOS does not directly depend on the
+                 OpenTelemetry module set. -->
+            <dependency>
+                <groupId>io.opentelemetry</groupId>
+                <artifactId>opentelemetry-api</artifactId>
+                <version>1.62.0</version>
             </dependency>
             <!-- Override transitive Artemis 2.50.0 from cxf-services-wsn-core.
                  Security fix for missing authentication on critical functions (patched in 2.52.0);
@@ -407,7 +436,7 @@
         <dependency>
             <groupId>org.apache.httpcomponents.client5</groupId>
             <artifactId>httpclient5</artifactId>
-            <version>5.6</version>
+            <version>${httpclient5.version}</version>
         </dependency>
 
         <!-- ==================== Jakarta EE APIs ==================== -->
@@ -877,7 +906,7 @@
         <dependency>
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcpkix-jdk18on</artifactId>
-            <version>1.83</version>
+            <version>${bouncycastle.version}</version>
         </dependency>
 
         <!-- Apache Ant (security-patched version, required by JasperReports) -->
@@ -1578,12 +1607,9 @@
                          so forks are completely isolated and safe to run in parallel. -->
                     <forkCount>4</forkCount>
                     <reuseForks>true</reuseForks>
-                    <!-- Run test classes in parallel within each fork.
-                         Safe because: integration tests use @Transactional @Rollback (each test
-                         gets its own transaction), and the few static-mock unit tests don't share
-                         Spring context with integration tests. -->
-                    <parallel>classes</parallel>
-                    <threadCount>2</threadCount>
+                    <!-- Keep test classes sequential within each fork. Several Spring integration
+                         tests share application-context caches or fixed seed data; fork-level
+                         parallelism still provides isolated H2 databases. -->
                     <perCoreThreadCount>false</perCoreThreadCount>
                     <includes>
                         <include>**/test/**/*Test.java</include>
