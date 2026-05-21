@@ -38,6 +38,7 @@ import java.util.TimerTask;
 public final class QueueCache<K, V> {
     private static Logger logger = MiscUtils.getLogger();
     private static Timer timer = null;
+    private static boolean sharedTimerShutdown = false;
     private HashMap<K, V>[] data;
     private int maxPoolSize;
     private QueueCacheValueCloner<V> cloner;
@@ -57,6 +58,9 @@ public final class QueueCache<K, V> {
      */
     private void schedulePeriodicPoolShift(long delay, long period) {
         synchronized (QueueCache.class) {
+            if (sharedTimerShutdown) {
+                return;
+            }
             if (timer == null) {
                 timer = new Timer(QueueCache.class.getName(), true);
             }
@@ -67,11 +71,12 @@ public final class QueueCache<K, V> {
     /**
      * Cancels the shared shift timer during webapp shutdown so Tomcat does not
      * retain the CARLOS webapp class loader through the timer thread. The class
-     * monitor makes cancellation, timer replacement, and retry scheduling mutually
-     * visible to constructors racing with shutdown.
+     * monitor makes cancellation and the shutdown state visible to constructors
+     * racing with shutdown.
      */
     static void shutdownSharedTimer() {
         synchronized (QueueCache.class) {
+            sharedTimerShutdown = true;
             if (timer != null) {
                 // Timer.cancel() discards all scheduled tasks and terminates the
                 // timer thread; an additional purge() is unnecessary and would
@@ -79,6 +84,22 @@ public final class QueueCache<K, V> {
                 timer.cancel();
                 timer = null;
             }
+        }
+    }
+
+    static boolean isSharedTimerInitialized() {
+        synchronized (QueueCache.class) {
+            return timer != null;
+        }
+    }
+
+    static void resetSharedTimerForTesting() {
+        synchronized (QueueCache.class) {
+            if (timer != null) {
+                timer.cancel();
+                timer = null;
+            }
+            sharedTimerShutdown = false;
         }
     }
 

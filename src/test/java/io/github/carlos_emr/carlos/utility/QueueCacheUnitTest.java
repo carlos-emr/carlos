@@ -21,9 +21,8 @@
  */
 package io.github.carlos_emr.carlos.utility;
 
-import java.lang.reflect.Field;
-
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -39,25 +38,33 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DisplayName("QueueCache")
 class QueueCacheUnitTest {
 
+    @BeforeEach
+    void setUp() {
+        QueueCache.resetSharedTimerForTesting();
+    }
+
     @AfterEach
     void tearDown() {
-        QueueCache.shutdownSharedTimer();
+        QueueCache.resetSharedTimerForTesting();
     }
 
     @Test
-    void shouldCancelSharedTimer_whenShutdownInvoked() throws Exception {
+    void shouldCancelSharedTimer_whenShutdownInvoked() {
         new QueueCache<String, String>(2, 10, 1_000L, null);
 
-        assertThat(getSharedTimer()).isNotNull();
+        assertThat(QueueCache.isSharedTimerInitialized()).isTrue();
 
         QueueCache.shutdownSharedTimer();
 
-        assertThat(getSharedTimer()).isNull();
+        assertThat(QueueCache.isSharedTimerInitialized()).isFalse();
     }
 
-    private Object getSharedTimer() throws Exception {
-        Field field = QueueCache.class.getDeclaredField("timer");
-        field.setAccessible(true);
-        return field.get(null);
+    @Test
+    void shouldSkipSharedTimerScheduling_afterShutdown() {
+        QueueCache.shutdownSharedTimer();
+
+        new QueueCache<String, String>(2, 10, 1_000L, null);
+
+        assertThat(QueueCache.isSharedTimerInitialized()).isFalse();
     }
 }
