@@ -203,6 +203,7 @@ public class WebappShutdownResourcesUnitTest {
     /**
      * @return URL for compiled test classes so custom class loaders can load the
      * helper driver classes from the same bytecode as the test JVM
+     * @throws Exception when the test class location cannot be converted to a URL
      */
     private static URL testClassesUrl() throws Exception {
         return WebappShutdownResourcesUnitTest.class.getProtectionDomain()
@@ -215,6 +216,7 @@ public class WebappShutdownResourcesUnitTest {
     /**
      * @return URL for compiled main classes so custom class loaders can load an
      * isolated copy of the shutdown utility under test
+     * @throws Exception when the main class location cannot be converted to a URL
      */
     private static URL mainClassesUrl() throws Exception {
         return WebappShutdownResources.class.getProtectionDomain()

@@ -184,7 +184,7 @@ public final class WebappShutdownResources {
      * loader. This method is package-visible so tests can pin the class loader
      * hierarchy rules without mutating DriverManager state.
      *
-     * @param driverClassLoader class loader that loaded the JDBC driver class
+     * @param driverClassLoader class loader that loaded the JDBC driver class; {@code null} is not webapp-owned
      * @param webappClassLoader class loader associated with the stopping webapp
      * @return true when the driver belongs to the webapp class loader hierarchy
      */
@@ -208,7 +208,7 @@ public final class WebappShutdownResources {
      * Traversal stops at {@code null}, which represents the bootstrap boundary
      * above the last Java-visible class loader.
      *
-     * @param candidate class loader to inspect
+     * @param candidate class loader to inspect; {@code null} returns false
      * @param expectedAncestor class loader expected to appear in the parent chain
      * @return true when candidate is the same class loader as expectedAncestor or a descendant of it
      */
