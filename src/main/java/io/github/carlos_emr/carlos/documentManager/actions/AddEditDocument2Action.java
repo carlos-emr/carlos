@@ -840,6 +840,15 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         }
     }
 
+    /**
+     * Resolves a file returned from document storage into a normalized path that
+     * remains inside the configured document directory before any status check or
+     * cleanup operation uses it.
+     *
+     * @param writtenFile File the destination returned by {@link #writeLocalFile(InputStream, String)}
+     * @return Path the validated, normalized destination path under {@code DOCUMENT_DIR}
+     * @throws IOException when the destination is missing or cannot be resolved safely
+     */
     private Path resolveWrittenDocumentPath(File writtenFile) throws IOException {
         if (writtenFile == null) {
             throw new IOException("Written upload file is missing");

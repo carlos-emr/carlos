@@ -355,6 +355,13 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
         assertThat(errors).containsEntry("uploaderror", "dms.error.uploadError");
     }
 
+    /**
+     * Binds a temporary file through the same {@link AddEditDocument2Action#withUploadedFiles(List)}
+     * path used by Struts 7 so tests do not reintroduce direct {@code File} upload setters.
+     *
+     * @param uploadFile File the temp upload content to expose through the mocked upload
+     * @param originalName String the client filename to expose through the mocked upload
+     */
     private void bindDocFileUpload(File uploadFile, String originalName) {
         UploadedFile uploadedFile = mock(UploadedFile.class);
         when(uploadedFile.getInputName()).thenReturn("docFile");
