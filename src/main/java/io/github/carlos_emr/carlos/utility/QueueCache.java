@@ -44,7 +44,9 @@ public final class QueueCache<K, V> {
 
     public QueueCache(int pools, int objectsToCache, long maxTimeToCache, QueueCacheValueCloner<V> cloner) {
         this(pools, objectsToCache, cloner);
-        long shiftPeriod = maxTimeToCache / (long) pools;
+        // Timer.schedule requires a strictly positive period; integer division can
+        // yield 0 when maxTimeToCache < pools, which would throw IllegalArgumentException.
+        long shiftPeriod = Math.max(1L, maxTimeToCache / (long) pools);
         schedulePeriodicPoolShift(shiftPeriod, shiftPeriod);
     }
 
@@ -71,8 +73,10 @@ public final class QueueCache<K, V> {
     static void shutdownSharedTimer() {
         synchronized (QueueCache.class) {
             if (timer != null) {
+                // Timer.cancel() discards all scheduled tasks and terminates the
+                // timer thread; an additional purge() is unnecessary and would
+                // only iterate an already-empty queue post-cancel.
                 timer.cancel();
-                timer.purge();
                 timer = null;
             }
         }
