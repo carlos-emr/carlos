@@ -242,14 +242,14 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
      * @throws Exception if document processing fails
      */
     public String execute() throws Exception {
-        try {
-            if ("html5MultiUpload".equals(request.getParameter("method"))) {
+        if ("html5MultiUpload".equals(request.getParameter("method"))) {
+            try {
                 return html5MultiUpload();
+            } finally {
+                deleteUploadedDocFile();
             }
-            return execute2();
-        } finally {
-            deleteUploadedDocFile();
         }
+        return execute2();
     }
 
     /**
