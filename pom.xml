@@ -1626,6 +1626,7 @@
                         <include>**/managers/**/*Test.java</include>
                         <include>**/*IntegrationTest.java</include>
                         <include>**/*UnitTest.java</include>
+                        <include>**/*RegressionTest.java</include>
                     </includes>
                     <excludes>
                         <exclude>**/archive/**/*Test.java</exclude>
