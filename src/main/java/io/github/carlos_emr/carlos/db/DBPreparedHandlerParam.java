@@ -43,7 +43,7 @@ import java.sql.Timestamp;
  * @deprecated Use JPA or standard JDBC PreparedStatement with proper parameter binding
  */
 @Deprecated
-public final class DBPreparedHandlerParam {
+public final class DBPreparedHandlerParam implements LegacyJdbcQuery.LegacyJdbcParameter {
     private Date dateValue;
     private String stringValue;
     private int intValue;
@@ -175,5 +175,22 @@ public final class DBPreparedHandlerParam {
 //   public void setStringValue(String stringValue) {
 //	  this.stringValue = stringValue;
 //   }
+
+    @Override
+    public Object jdbcValue() {
+        if (PARAM_STRING.equals(paramType)) {
+            return stringValue;
+        }
+        if (PARAM_DATE.equals(paramType)) {
+            return dateValue;
+        }
+        if (PARAM_INT.equals(paramType)) {
+            return intValue;
+        }
+        if (PARAM_TIMESTAMP.equals(paramType)) {
+            return timestampValue;
+        }
+        return null;
+    }
 
 }

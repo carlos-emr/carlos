@@ -39,7 +39,7 @@ import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
-import io.github.carlos_emr.carlos.login.DBHelp;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
 
 /**
@@ -48,7 +48,7 @@ import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
  * <p>These tests target the empty-demographic-filter combinations fixed in PR #1639 and
  * verify the generated SQL shape and bind-parameter ordering without requiring a database.
  * They invoke the private servlet method via reflection and capture
- * {@link DBHelp#searchDBRecord(ParameterizedSql)} calls with a static mock.</p>
+ * {@link LegacyJdbcQuery#getPreparedResultSet(ParameterizedSql)} calls with a static mock.</p>
  *
  * @since 2026-04-20
  */
@@ -64,7 +64,7 @@ class RptDownloadCSVServletTest {
 
     private final ResultSet emptyResultSet = mock(ResultSet.class);
 
-    private MockedStatic<DBHelp> dbHelpMock;
+    private MockedStatic<LegacyJdbcQuery> legacyJdbcQueryMock;
 
     @BeforeAll
     static void setUpReflection() throws NoSuchMethodException {
@@ -75,14 +75,14 @@ class RptDownloadCSVServletTest {
     @BeforeEach
     void setUp() throws Exception {
         when(emptyResultSet.next()).thenReturn(false);
-        dbHelpMock = mockStatic(DBHelp.class);
+        legacyJdbcQueryMock = mockStatic(LegacyJdbcQuery.class);
     }
 
     @AfterEach
     void tearDown() {
-        if (dbHelpMock != null) {
-            dbHelpMock.close();
-            dbHelpMock = null;
+        if (legacyJdbcQueryMock != null) {
+            legacyJdbcQueryMock.close();
+            legacyJdbcQueryMock = null;
         }
     }
 
@@ -182,8 +182,8 @@ class RptDownloadCSVServletTest {
     }
 
     @Test
-    @DisplayName("should close DBHelp result sets during report generation")
-    void shouldCloseDbHelpResultSets() throws Exception {
+    @DisplayName("should close legacy JDBC result sets during report generation")
+    void shouldCloseLegacyJdbcResultSets() throws Exception {
         MockHttpServletRequest request = baseRequest();
         request.addParameter("last_name", "on");
         request.addParameter("c_EDD", "on");
@@ -228,9 +228,9 @@ class RptDownloadCSVServletTest {
 
     private List<SqlCall> invokeDemoReport(MockHttpServletRequest request) throws Exception {
         List<SqlCall> sqlCalls = new ArrayList<>();
-        dbHelpMock.when(() -> DBHelp.searchDBRecord(
+        legacyJdbcQueryMock.when(() -> LegacyJdbcQuery.getPreparedResultSet(
                         org.mockito.ArgumentMatchers.any(ParameterizedSql.class)))
-                .thenAnswer(invocation -> captureDbHelpCall(sqlCalls, invocation));
+                .thenAnswer(invocation -> captureLegacyJdbcCall(sqlCalls, invocation));
 
         try {
             demoReportMethod.invoke(new TestableRptDownloadCSVServlet(), request);
@@ -244,7 +244,7 @@ class RptDownloadCSVServletTest {
         return sqlCalls;
     }
 
-    private ResultSet captureDbHelpCall(List<SqlCall> sqlCalls, InvocationOnMock invocation) {
+    private ResultSet captureLegacyJdbcCall(List<SqlCall> sqlCalls, InvocationOnMock invocation) {
         ParameterizedSql query = invocation.getArgument(0);
         sqlCalls.add(new SqlCall(
                 query.getSql(),

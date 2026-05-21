@@ -35,6 +35,7 @@ package io.github.carlos_emr.carlos.report.data;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -45,31 +46,33 @@ import java.util.Vector;
 
 import org.apache.commons.lang3.time.DateFormatUtils;
 
-import io.github.carlos_emr.carlos.login.DBHelp;
+import io.github.carlos_emr.Misc;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
  * @author yilee18
  */
 public final class RptReportCreator {
-    DBHelp dbObj = new DBHelp();
-
     // select formBCAR.pg1_ethOrig as Ethnic Origin, ...
     public String getSelectField(String recordId) throws SQLException {
         StringBuilder ret = new StringBuilder();
         String sql = "select * from reportConfig where report_id = ? order by order_no";
-        ResultSet rs = DBHelp.searchDBRecord(sql, recordId);
-        if (rs == null) {
-            return ret.toString();
-        }
-        while (rs.next()) {
-            String caption = DBHelp.getString(rs, "caption");
-            ret.append((ret.length() < 8 ? " " : ", ") + DBHelp.getString(rs, "table_name") + "." + DBHelp.getString(rs, "name"));
-            if (caption != null && caption.length() > 0) {
-                ret.append(" as '" + DBHelp.getString(rs, "caption") + "'");
+        try (ResultSet rs = searchDBRecord(sql, recordId)) {
+            if (rs == null) {
+                return ret.toString();
+            }
+            while (rs.next()) {
+                String caption = getString(rs, "caption");
+                ret.append(ret.length() < 8 ? " " : ", ")
+                        .append(getString(rs, "table_name"))
+                        .append('.')
+                        .append(getString(rs, "name"));
+                if (caption != null && !caption.isEmpty()) {
+                    ret.append(" as '").append(caption).append('\'');
+                }
             }
         }
-        rs.close();
         return ret.toString();
     }
 
@@ -77,34 +80,34 @@ public final class RptReportCreator {
     public String getFromTableFirst(String recordId) throws SQLException {
         String ret = "  ";
         String sql = "select distinct table_name from reportConfig where report_id = ? order by table_name desc";
-        ResultSet rs = DBHelp.searchDBRecord(sql, recordId);
-        if (rs == null) {
-            return ret;
+        try (ResultSet rs = searchDBRecord(sql, recordId)) {
+            if (rs == null) {
+                return ret;
+            }
+            if (rs.next()) {
+                ret = getString(rs, "table_name");
+            }
         }
-        if (rs.next()) {
-            ret = DBHelp.getString(rs, "table_name");
-        }
-        rs.close();
         return ret;
     }
 
     // from formBCAR, demographic
     public String getFromTable(String recordId) throws SQLException {
-        String ret = "  ";
-        Vector vec = new Vector();
+        StringBuilder ret = new StringBuilder("  ");
+        List<String> tableNames = new ArrayList<>();
         String sql = "select distinct table_name from reportConfig where report_id = ? order by table_name desc";
-        ResultSet rs = DBHelp.searchDBRecord(sql, recordId);
-        if (rs == null) {
-            return ret;
+        try (ResultSet rs = searchDBRecord(sql, recordId)) {
+            if (rs == null) {
+                return ret.toString();
+            }
+            while (rs.next()) {
+                tableNames.add(getString(rs, "table_name"));
+            }
         }
-        while (rs.next()) {
-            vec.add(DBHelp.getString(rs, "table_name"));
+        for (int i = 0; i < tableNames.size(); i++) {
+            ret.append(i == 0 ? "" : ",").append(tableNames.get(i));
         }
-        rs.close();
-        for (int i = 0; i < vec.size(); i++) {
-            ret += (i == 0 ? "" : ",") + vec.get(i);
-        }
-        return ret;
+        return ret.toString();
     }
 
     // tableName: formBCAR,formBCNewBorn... how to handle??
@@ -339,7 +342,7 @@ public final class RptReportCreator {
     }
 
     // change date string
-    public static String getDiffDateFormat(String strDate, String oDate, String nDate) throws Exception {
+    public static String getDiffDateFormat(String strDate, String oDate, String nDate) throws ParseException {
         String ret = strDate;
         if (strDate.length() >= oDate.length()) {
             Date a = (new SimpleDateFormat(oDate)).parse(strDate);
@@ -356,59 +359,79 @@ public final class RptReportCreator {
      * Executes a sub-query and returns a comma-separated list of integer IDs.
      */
     public String getRltSubQuery(String sql, Object... params) throws SQLException {
-        String ret = "0";
+        StringBuilder ret = new StringBuilder();
 
-        MiscUtils.getLogger().debug(" tempVal: " + sql);
-        try (ResultSet rs = DBHelp.searchDBRecord(new ParameterizedSql(sql, Arrays.asList(params)))) {
+        MiscUtils.getLogger().debug(" tempVal: {}", sql);
+        try (ResultSet rs = searchDBRecord(new ParameterizedSql(sql, Arrays.asList(params)))) {
             if (rs == null) {
                 MiscUtils.getLogger().error("Database query failed for sub-query");
-                return ret;
+                return "0";
             }
             while (rs.next()) {
-                if ("0".equals(ret)) {
-                    ret = "";
+                if (ret.length() > 0) {
+                    ret.append(',');
                 }
-                ret += (ret.isEmpty() ? "" : ",") + rs.getInt(1);
-
+                ret.append(rs.getInt(1));
             }
         }
-        return ret;
+        return ret.length() == 0 ? "0" : ret.toString();
     }
 
     /**
      * Executes a report query and returns properties for each row.
      */
-    public Vector query(ParameterizedSql sql, Vector vecFieldName) throws SQLException {
+    public Vector<Properties> query(ParameterizedSql sql, Vector<?> vecFieldName) throws SQLException {
         return query(sql.getSql(), vecFieldName, sql.getParamsArray());
     }
 
     /**
      * Executes a report query and returns properties for each row.
      */
-    public Vector query(String sql, Vector vecFieldName, Object... params) throws SQLException {
-        Vector ret = new Vector();
-        Properties prop = null;
+    public Vector<Properties> query(String sql, Vector<?> vecFieldName, Object... params) throws SQLException {
+        Vector<Properties> ret = new Vector<>();
 
-        try (ResultSet rs = DBHelp.searchDBRecord(new ParameterizedSql(sql, Arrays.asList(params)))) {
+        try (ResultSet rs = searchDBRecord(new ParameterizedSql(sql, Arrays.asList(params)))) {
             if (rs == null) {
                 MiscUtils.getLogger().error("Database query failed for report query");
                 return ret;
             }
             while (rs.next()) {
-                prop = new Properties();
+                Properties prop = new Properties();
                 for (int i = 0; i < vecFieldName.size(); i++) {
+                    String fieldName = (String) vecFieldName.get(i);
                     try {
-                        prop.setProperty((String) vecFieldName.get(i),
-                                DBHelp.getString(rs, (String) vecFieldName.get(i)) == null ? "" : rs
-                                        .getString((String) vecFieldName.get(i)));
+                        String value = getString(rs, fieldName);
+                        prop.setProperty(fieldName, value == null ? "" : value);
                     } catch (SQLException e) {
-                        prop.setProperty((String) vecFieldName.get(i), "" + rs.getInt((String) vecFieldName.get(i)));
+                        prop.setProperty(fieldName, "" + rs.getInt(fieldName));
                     }
                 }
                 ret.add(prop);
             }
         }
         return ret;
+    }
+
+    private static ResultSet searchDBRecord(String sql, Object... params) {
+        try {
+            return LegacyJdbcQuery.getPreparedResultSet(sql, params);
+        } catch (SQLException e) {
+            MiscUtils.getLogger().error("Error", e);
+            return null;
+        }
+    }
+
+    private static ResultSet searchDBRecord(ParameterizedSql sql) {
+        try {
+            return LegacyJdbcQuery.getPreparedResultSet(sql);
+        } catch (SQLException e) {
+            MiscUtils.getLogger().error("Error", e);
+            return null;
+        }
+    }
+
+    private static String getString(ResultSet rs, String columnName) throws SQLException {
+        return Misc.getString(rs, columnName);
     }
 
 }

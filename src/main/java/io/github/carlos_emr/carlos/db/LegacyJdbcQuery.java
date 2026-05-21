@@ -75,21 +75,19 @@ public final class LegacyJdbcQuery {
         }
     }
 
-    public static final class CaisiResult implements AutoCloseable {
-        private final ResultSet resultSet;
-
-        public CaisiResult(ResultSet resultSet) {
-            this.resultSet = Objects.requireNonNull(resultSet, "resultSet");
-        }
-
-        public ResultSet resultSet() {
-            return resultSet;
+    public record CaisiResult(ResultSet resultSet) implements AutoCloseable {
+        public CaisiResult {
+            Objects.requireNonNull(resultSet, "resultSet");
         }
 
         @Override
         public void close() throws SQLException {
             resultSet.close();
         }
+    }
+
+    public interface LegacyJdbcParameter {
+        Object jdbcValue();
     }
 
     public static TrustedSql trustedSelectSql(String sql) throws SQLException {
@@ -229,12 +227,14 @@ public final class LegacyJdbcQuery {
         return getPreparedResultSet(preparedSQL, (Object[]) params);
     }
 
-    public static ResultSet queryResults(String preparedSQL, DBPreparedHandlerParam[] params) throws SQLException {
+    public static ResultSet queryResults(String preparedSQL, LegacyJdbcParameter[] params) throws SQLException {
         return getPreparedResultSet(preparedSQL, toObjects(params));
     }
 
     public static ResultSet queryResults(String preparedSQL) throws SQLException {
-        throw new SQLException("Direct SQL execution is disabled; use parameterized query overloads.");
+        String sqlState = preparedSQL == null ? "null" : "provided";
+        throw new SQLException("Direct SQL execution is disabled for " + sqlState
+                + " SQL; use parameterized query overloads.");
     }
 
     public static ResultSet queryResultsPaged(String preparedSQL, String param, int offset) throws SQLException {
@@ -245,7 +245,7 @@ public final class LegacyJdbcQuery {
         return advance(queryResults(preparedSQL, params), offset);
     }
 
-    public static ResultSet queryResultsPaged(String preparedSQL, DBPreparedHandlerParam[] params, int offset) throws SQLException {
+    public static ResultSet queryResultsPaged(String preparedSQL, LegacyJdbcParameter[] params, int offset) throws SQLException {
         return advance(queryResults(preparedSQL, params), offset);
     }
 
@@ -335,21 +335,10 @@ public final class LegacyJdbcQuery {
         }
     }
 
-    private static Object[] toObjects(DBPreparedHandlerParam[] params) {
+    private static Object[] toObjects(LegacyJdbcParameter[] params) {
         Object[] values = new Object[params.length];
         for (int i = 0; i < params.length; i++) {
-            DBPreparedHandlerParam param = params[i];
-            if (param == null) {
-                values[i] = null;
-            } else if (DBPreparedHandlerParam.PARAM_STRING.equals(param.getParamType())) {
-                values[i] = param.getStringValue();
-            } else if (DBPreparedHandlerParam.PARAM_DATE.equals(param.getParamType())) {
-                values[i] = param.getDateValue();
-            } else if (DBPreparedHandlerParam.PARAM_INT.equals(param.getParamType())) {
-                values[i] = param.getIntValue();
-            } else if (DBPreparedHandlerParam.PARAM_TIMESTAMP.equals(param.getParamType())) {
-                values[i] = param.getTimestampValue();
-            }
+            values[i] = params[i] == null ? null : params[i].jdbcValue();
         }
         return values;
     }
@@ -420,17 +409,17 @@ public final class LegacyJdbcQuery {
                     || current == '#'
                     || (current == '/' && next == '*')
                     || (current == '*' && next == '/')
-                    || (current == ';' && hasNonWhitespaceAfter(sql, position + 1));
+                    || (current == ';' && hasNonWhitespaceAfter(position + 1));
         }
-    }
 
-    private static boolean hasNonWhitespaceAfter(String sql, int start) {
-        for (int i = start; i < sql.length(); i++) {
-            if (!Character.isWhitespace(sql.charAt(i))) {
-                return true;
+        private boolean hasNonWhitespaceAfter(int start) {
+            for (int i = start; i < sql.length(); i++) {
+                if (!Character.isWhitespace(sql.charAt(i))) {
+                    return true;
+                }
             }
+            return false;
         }
-        return false;
     }
 
     private static void bindParams(PreparedStatement ps, Object... params) throws SQLException {

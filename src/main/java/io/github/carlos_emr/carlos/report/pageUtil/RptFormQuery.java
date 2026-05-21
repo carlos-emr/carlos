@@ -33,6 +33,8 @@
  */
 package io.github.carlos_emr.carlos.report.pageUtil;
 
+import java.sql.SQLException;
+import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Vector;
@@ -86,7 +88,7 @@ public class RptFormQuery {
         }
     }
 
-    public ParameterizedSql getQueryStr(String reportId, HttpServletRequest request) throws Exception {
+    public ParameterizedSql getQueryStr(String reportId, HttpServletRequest request) throws SQLException, ParseException {
         RptReportCreator reportCreator = new RptReportCreator();
 
         // sql:select
@@ -160,7 +162,7 @@ public class RptFormQuery {
         return new ParameterizedSql(reportSql, new ArrayList<>());
     }
 
-    private Vector[] getValueParam(String reportId, HttpServletRequest request) throws Exception {
+    private Vector[] getValueParam(String reportId, HttpServletRequest request) throws SQLException {
         return getValueParam(new RptReportFilter().getNameList(reportId, 1), request);
     }
 
@@ -183,7 +185,7 @@ public class RptFormQuery {
     }
 
     // filling the var with the real date value
-    private Vector getQueryValue(Vector vecValue, Vector vecDateFormat, HttpServletRequest request) throws Exception {
+    private Vector getQueryValue(Vector vecValue, Vector vecDateFormat, HttpServletRequest request) throws ParseException {
         Vector ret = new Vector();
         for (int i = 0; i < vecValue.size(); i++) {
             String tempVal = (String) vecValue.get(i);
@@ -208,7 +210,7 @@ public class RptFormQuery {
      * {@link ParameterizedSql} fragments, each containing a WHERE clause
      * template with {@code ?} placeholders and the corresponding bind values.
      */
-    private List<ParameterizedSql> getQueryValueParameterized(Vector vecValue, Vector vecDateFormat, HttpServletRequest request) throws Exception {
+    private List<ParameterizedSql> getQueryValueParameterized(Vector vecValue, Vector vecDateFormat, HttpServletRequest request) throws ParseException {
         List<ParameterizedSql> ret = new ArrayList<>();
         for (int i = 0; i < vecValue.size(); i++) {
             String tempVal = (String) vecValue.get(i);

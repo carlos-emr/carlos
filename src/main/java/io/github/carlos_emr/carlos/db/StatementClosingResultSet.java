@@ -35,6 +35,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.sql.Connection;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -160,40 +161,49 @@ final class StatementClosingResultSet implements InvocationHandler {
         }
     }
 
-    private Object close(Object proxy) throws Throwable {
+    private Object close(Object proxy) throws SQLException {
         if (!released.compareAndSet(false, true)) {
             return null;
         }
 
-        Throwable closeFailure = closeDelegate();
         try {
+            Exception closeFailure = closeDelegate();
             closeStatement(closeFailure);
+            if (closeFailure != null) {
+                rethrowCloseFailure(closeFailure);
+            }
         } finally {
             releaseConnection(proxy);
-        }
-        if (closeFailure != null) {
-            throw closeFailure;
         }
         return null;
     }
 
-    private Throwable closeDelegate() {
+    private Exception closeDelegate() {
         try {
             delegate.close();
             return null;
-        } catch (Throwable t) {
-            return t;
+        } catch (SQLException | RuntimeException e) {
+            return e;
         }
     }
 
-    private void closeStatement(Throwable resultSetFailure) throws Throwable {
+    private void closeStatement(Exception resultSetFailure) throws SQLException {
         try {
             statement.close();
-        } catch (Throwable statementFailure) {
+        } catch (SQLException | RuntimeException statementFailure) {
             if (resultSetFailure == null) {
-                throw statementFailure;
+                rethrowCloseFailure(statementFailure);
             }
             resultSetFailure.addSuppressed(statementFailure);
+        }
+    }
+
+    private static void rethrowCloseFailure(Exception failure) throws SQLException {
+        if (failure instanceof SQLException sqlException) {
+            throw sqlException;
+        }
+        if (failure instanceof RuntimeException runtimeException) {
+            throw runtimeException;
         }
     }
 

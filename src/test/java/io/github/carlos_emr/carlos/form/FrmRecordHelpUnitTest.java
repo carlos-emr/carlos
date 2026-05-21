@@ -48,8 +48,11 @@ class FrmRecordHelpUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should reject non-parameterized form save SQL")
+    @SuppressWarnings("deprecation")
     void shouldReject_nonParameterizedFormSaveSql() {
-        assertThatThrownBy(() -> new FrmRecordHelp().saveFormRecord(new Properties(), "SELECT * FROM formFoo"))
+        FrmRecordHelp helper = new FrmRecordHelp();
+
+        assertThatThrownBy(() -> helper.saveFormRecord(new Properties(), "SELECT * FROM formFoo"))
                 .isInstanceOf(UnsupportedOperationException.class)
                 .hasMessageContaining("parameterized");
     }

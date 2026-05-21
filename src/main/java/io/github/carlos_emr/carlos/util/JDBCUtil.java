@@ -34,6 +34,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -67,7 +68,7 @@ import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 
 public class JDBCUtil {
     private static final Pattern FORM_IMPORT_FILE_NAME =
-            Pattern.compile("^([A-Za-z][A-Za-z0-9_]*)_(\\d+)_([A-Za-z0-9:-]+)\\.xml$");
+            Pattern.compile("^([A-Za-z]\\w*)_(\\d+)_([\\w:-]+)\\.xml$");
     // Legacy built-in form table that is valid but not registered in encounterForm.
     private static final Set<String> INTERNAL_FORM_TABLES = Set.of("formGrowth0_36");
     private static final Set<String> IMPORT_TARGET_MANAGED_FIELDS = Set.of("demographic_no", "formEdited");
@@ -123,8 +124,10 @@ public class JDBCUtil {
             zip z = new zip();
             z.write2Zip("xml");*/
         } catch (TransformerException | IOException e) {
-            if (newXML.exists() && !newXML.delete()) {
-                MiscUtils.getLogger().warn("Unable to delete partial XML file {}", fileName);
+            try {
+                Files.deleteIfExists(newXML.toPath());
+            } catch (IOException cleanupException) {
+                MiscUtils.getLogger().warn("Unable to delete partial XML file {}", fileName, cleanupException);
             }
             throw e;
         }
@@ -138,7 +141,7 @@ public class JDBCUtil {
         // Table identifiers cannot be JDBC-bound. formName is accepted only after
         // strict filename parsing plus the encounterForm/internal table allowlist.
         String existsSql = "SELECT * FROM " + formName + " WHERE demographic_no=? AND formEdited=?";
-        MiscUtils.getLogger().debug(existsSql);
+        MiscUtils.getLogger().debug("{}", existsSql);
         try (ResultSet existing = LegacyJdbcQuery.getPreparedResultSet(
                 LegacyJdbcQuery.trustedSelectSql(existsSql), target.demographicNo(), target.timeStamp())) {
             if (existing.first()) {
@@ -149,9 +152,10 @@ public class JDBCUtil {
         }
 
         String insertSql = "SELECT * FROM " + formName + " WHERE demographic_no=? AND ID='0'";
-        MiscUtils.getLogger().debug("sql: " + insertSql);
+        MiscUtils.getLogger().debug("sql: {}", insertSql);
+        Object[] insertParams = {target.demographicNo()};
         try (ResultSet insert = LegacyJdbcQuery.getPreparedResultSet(
-                LegacyJdbcQuery.trustedSelectSql(insertSql), true, new Object[]{target.demographicNo()})) {
+                LegacyJdbcQuery.trustedSelectSql(insertSql), true, insertParams)) {
             insert.moveToInsertRow();
             toResultSet(doc, insert);
             applyTrustedImportTarget(target, insert);
