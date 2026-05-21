@@ -143,8 +143,8 @@ public final class WebappShutdownResources {
     }
 
     /**
-     * Deregisters JDBC drivers loaded directly by the stopping webapp class loader only.
-     * Drivers loaded by Tomcat or another parent loader are left registered because
+     * Deregisters JDBC drivers owned by the stopping webapp class loader hierarchy.
+     * Drivers loaded by Tomcat or another shared parent loader are left registered because
      * they may be shared with other applications.
      *
      * @param webappClassLoader class loader whose drivers should be deregistered
@@ -157,7 +157,7 @@ public final class WebappShutdownResources {
         int deregistered = 0;
 
         for (Driver driver : Collections.list(DriverManager.getDrivers())) {
-            if (driver.getClass().getClassLoader() != classLoader) {
+            if (!isWebappOwnedDriver(driver.getClass().getClassLoader(), classLoader)) {
                 continue;
             }
 
@@ -171,6 +171,28 @@ public final class WebappShutdownResources {
         }
 
         return deregistered;
+    }
+
+    static boolean isWebappOwnedDriver(ClassLoader driverClassLoader, ClassLoader webappClassLoader) {
+        if (driverClassLoader == null) {
+            return false;
+        }
+        if (isSameOrChildClassLoader(driverClassLoader, webappClassLoader)) {
+            return true;
+        }
+
+        ClassLoader shutdownResourcesClassLoader = WebappShutdownResources.class.getClassLoader();
+        return driverClassLoader == shutdownResourcesClassLoader
+                && isSameOrChildClassLoader(webappClassLoader, shutdownResourcesClassLoader);
+    }
+
+    private static boolean isSameOrChildClassLoader(ClassLoader candidate, ClassLoader expectedAncestor) {
+        for (ClassLoader current = candidate; current != null; current = current.getParent()) {
+            if (current == expectedAncestor) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

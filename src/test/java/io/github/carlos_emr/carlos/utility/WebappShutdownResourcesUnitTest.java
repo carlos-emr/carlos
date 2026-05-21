@@ -100,6 +100,59 @@ public class WebappShutdownResourcesUnitTest {
     }
 
     @Test
+    void shouldDeregisterJdbcDriver_whenLoadedByChildClassLoader() throws Exception {
+        java.util.List<Driver> existingDrivers = Collections.list(DriverManager.getDrivers());
+        URL testClassesUrl = WebappShutdownResourcesUnitTest.class.getProtectionDomain()
+                .getCodeSource()
+                .getLocation()
+                .toURI()
+                .toURL();
+        URL mainClassesUrl = WebappShutdownResources.class.getProtectionDomain()
+                .getCodeSource()
+                .getLocation()
+                .toURI()
+                .toURL();
+
+        try (URLClassLoader webappClassLoader = new URLClassLoader(new URL[0], getClass().getClassLoader());
+             ChildFirstTestClassLoader childClassLoader = new ChildFirstTestClassLoader(
+                     testClassesUrl, mainClassesUrl, webappClassLoader)) {
+            Class<?> helperClass = childClassLoader.loadClass(
+                    WebappShutdownResourcesUnitTest.class.getName() + "$DriverRegistrationHelper");
+            Method registerDriver = helperClass.getMethod("registerDriver");
+            Method deregisterDriver = helperClass.getMethod("deregisterDriver", Driver.class);
+            Method deregisterWebappDrivers = helperClass.getMethod("deregisterWebappDrivers", ClassLoader.class);
+            Method isDriverRegistered = helperClass.getMethod("isDriverRegistered", Driver.class);
+            Driver driver = (Driver) registerDriver.invoke(null);
+
+            try {
+                int deregistered = (Integer) deregisterWebappDrivers.invoke(null, webappClassLoader);
+
+                assertThat(deregistered).isEqualTo(1);
+                assertThat((Boolean) isDriverRegistered.invoke(null, driver)).isFalse();
+            } finally {
+                if ((Boolean) isDriverRegistered.invoke(null, driver)) {
+                    deregisterDriver.invoke(null, driver);
+                }
+                java.util.List<Driver> currentDrivers = Collections.list(DriverManager.getDrivers());
+                for (Driver existingDriver : existingDrivers) {
+                    if (!currentDrivers.contains(existingDriver)) {
+                        DriverManager.registerDriver(existingDriver);
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    void shouldIgnoreJdbcDriver_whenLoadedBySharedParentClassLoader() throws Exception {
+        try (URLClassLoader sharedParentClassLoader = new URLClassLoader(new URL[0], getClass().getClassLoader());
+             URLClassLoader webappClassLoader = new URLClassLoader(new URL[0], sharedParentClassLoader)) {
+            assertThat(WebappShutdownResources.isWebappOwnedDriver(sharedParentClassLoader, webappClassLoader))
+                    .isFalse();
+        }
+    }
+
+    @Test
     void shouldRunAllShutdownSteps_whenEarlierStepThrows() {
         ClassLoader unrelatedClassLoader = new ClassLoader(null) {
         };

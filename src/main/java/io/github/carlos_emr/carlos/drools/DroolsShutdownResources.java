@@ -48,6 +48,8 @@ public final class DroolsShutdownResources {
         return dropped;
     }
 
+    // Drools owns this process-wide singleton; shutdown plus bounded await is the safe cleanup contract.
+    @SuppressWarnings("PMD.CloseResource")
     private static int shutdownCompilerPool() {
         ForkJoinPool compilerPool = KnowledgeBuilderImpl.ForkJoinPoolHolder.COMPILER_POOL;
         compilerPool.shutdown();
@@ -63,6 +65,8 @@ public final class DroolsShutdownResources {
         return 0;
     }
 
+    // KIE owns this process-wide singleton; shutdown plus bounded await is the safe cleanup contract.
+    @SuppressWarnings("PMD.CloseResource")
     private static int shutdownKieExecutor() {
         ExecutorService executor = ExecutorProviderFactory.getExecutorProvider().getExecutor();
         executor.shutdown();
