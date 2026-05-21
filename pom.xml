@@ -1607,10 +1607,9 @@
                          so forks are completely isolated and safe to run in parallel. -->
                     <forkCount>4</forkCount>
                     <reuseForks>true</reuseForks>
-                    <!-- Run test classes in parallel within each fork. Tests that share
-                         static state or fixed external resources use @Isolated. -->
-                    <parallel>classes</parallel>
-                    <threadCount>2</threadCount>
+                    <!-- Keep test classes sequential within each fork. Several Spring integration
+                         tests share application-context caches or fixed seed data; fork-level
+                         parallelism still provides isolated H2 databases. -->
                     <perCoreThreadCount>false</perCoreThreadCount>
                     <includes>
                         <include>**/test/**/*Test.java</include>
