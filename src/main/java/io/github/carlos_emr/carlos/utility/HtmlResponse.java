@@ -66,8 +66,15 @@ public final class HtmlResponse {
         if (contentType == null || contentType.isBlank()) {
             return DEFAULT_HTML_CHARSET;
         }
+        return resolveCharsetFromParameters(splitContentTypeParameters(contentType));
+    }
 
-        for (String parameter : splitContentTypeParameters(contentType)) {
+    /**
+     * Resolves the charset from already-parsed Content-Type parameters. See
+     * {@link #resolveCharset(String)} for fallback semantics.
+     */
+    private static Charset resolveCharsetFromParameters(List<String> parameters) {
+        for (String parameter : parameters) {
             int equals = parameter.indexOf('=');
             if (equals < 0 || !"charset".equalsIgnoreCase(parameter.substring(0, equals).trim())) {
                 continue;
@@ -117,6 +124,9 @@ public final class HtmlResponse {
             throws IOException {
         if (htmlBytes == null) {
             prepareHtmlResponse(response, contentType);
+            // Preserve the writer-backed contract so LogoutBroadcastFilter can append
+            // logout listeners even when callers pass a null body.
+            response.getWriter();
             return;
         }
         writeStoredHtml(response, contentType, new ByteArrayInputStream(htmlBytes));
@@ -136,6 +146,9 @@ public final class HtmlResponse {
             throws IOException {
         Charset charset = prepareHtmlResponse(response, contentType);
         if (htmlStream == null) {
+            // Preserve the writer-backed contract so LogoutBroadcastFilter can append
+            // logout listeners even when callers pass a null stream.
+            response.getWriter();
             return;
         }
 
@@ -152,13 +165,19 @@ public final class HtmlResponse {
 
     /**
      * Sets the HTML Content-Type header and returns the charset used to decode stored bytes.
+     *
+     * <p>Parses Content-Type parameters exactly once and reuses the parsed list to
+     * resolve the charset and to build the aligned response Content-Type header,
+     * avoiding the redundant parsing that previously occurred in
+     * {@code resolveCharset} and {@code contentTypeWithCharset}.</p>
      */
     private static Charset prepareHtmlResponse(HttpServletResponse response, String contentType) {
         String effectiveContentType = (contentType == null || contentType.isBlank())
                 ? DEFAULT_HTML_CONTENT_TYPE
                 : contentType;
-        Charset charset = resolveCharset(effectiveContentType);
-        response.setContentType(contentTypeWithCharset(effectiveContentType, charset));
+        List<String> parameters = splitContentTypeParameters(effectiveContentType);
+        Charset charset = resolveCharsetFromParameters(parameters);
+        response.setContentType(contentTypeWithCharset(effectiveContentType, parameters, charset));
         response.setCharacterEncoding(charset.name());
         return charset;
     }
@@ -177,8 +196,9 @@ public final class HtmlResponse {
 
     /**
      * Returns a Content-Type value with an explicit charset aligned to the decoding charset.
+     * Accepts a pre-parsed parameter list to avoid re-splitting the header.
      */
-    private static String contentTypeWithCharset(String contentType, Charset charset) {
+    private static String contentTypeWithCharset(String contentType, List<String> parameters, Charset charset) {
         int firstParameter = contentType.indexOf(';');
         if (firstParameter < 0) {
             return contentType + ";charset=" + charset.name();
@@ -186,7 +206,7 @@ public final class HtmlResponse {
 
         StringBuilder alignedContentType = new StringBuilder(contentType.substring(0, firstParameter).trim());
         boolean foundCharset = false;
-        for (String parameter : splitContentTypeParameters(contentType)) {
+        for (String parameter : parameters) {
             int equals = parameter.indexOf('=');
             if (equals >= 0 && "charset".equalsIgnoreCase(parameter.substring(0, equals).trim())) {
                 if (!foundCharset) {
