@@ -189,18 +189,19 @@ public class Update2Action extends ActionSupport implements UploadedFilesAware {
         if (uploadedFiles == null) {
             return;
         }
-        for (UploadedFile uploaded : uploadedFiles) {
-            if (!"content".equals(uploaded.getInputName())) {
-                continue;
-            }
-            try {
-                this.content = PathValidationUtils.validateUpload(UploadedFileUtils.getUploadedFile(uploaded));
-                this.uploadValidationError = null;
-            } catch (SecurityException e) {
-                this.content = null;
-                this.uploadValidationError = "Invalid upload file path";
-            }
-            break;
+        uploadedFiles.stream()
+                .filter(uploaded -> "content".equals(uploaded.getInputName()))
+                .findFirst()
+                .ifPresent(this::setUploadedContent);
+    }
+
+    private void setUploadedContent(UploadedFile uploaded) {
+        try {
+            this.content = PathValidationUtils.validateUpload(UploadedFileUtils.getUploadedFile(uploaded));
+            this.uploadValidationError = null;
+        } catch (SecurityException e) {
+            this.content = null;
+            this.uploadValidationError = "Invalid upload file path";
         }
     }
 }
