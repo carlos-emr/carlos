@@ -123,13 +123,19 @@ public class DemographicEdit2Action extends ActionSupport {
             addActionError("demographic_no is required");
             return ERROR;
         }
+        String trimmedDemographicNo = demographic_no.trim();
         try {
-            Integer.parseInt(demographic_no.trim());
+            Integer.parseInt(trimmedDemographicNo);
         } catch (NumberFormatException e) {
-            logger.warn("DemographicEdit2Action: non-numeric demographic_no='{}'", LogSafe.sanitize(demographic_no)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            logger.warn("DemographicEdit2Action: non-numeric demographic_no='{}'",
+                    LogSafe.sanitize(trimmedDemographicNo)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             addActionError("Invalid demographic_no: must be numeric");
             return ERROR;
         }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", trimmedDemographicNo)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+        demographic_no = trimmedDemographicNo;
 
         CarlosProperties oscarProps = CarlosProperties.getInstance();
         String prov = StringUtils.trimToEmpty(oscarProps.getProperty("billregion", "")).toUpperCase();
