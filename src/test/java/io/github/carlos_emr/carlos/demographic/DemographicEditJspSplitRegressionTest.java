@@ -110,10 +110,10 @@ class DemographicEditJspSplitRegressionTest {
 
         servletContext.getRequestDispatcher(forwardTarget(legacyJsp)).forward(request, response);
 
-        assertThat(servletContext.forwardedPath).isEqualTo("/demographic/DemographicEdit");
-        assertThat(((MockHttpServletRequest) servletContext.forwardedRequest).getParameter("postMethod"))
+        assertThat(servletContext.forwardedPath()).isEqualTo("/demographic/DemographicEdit");
+        assertThat(((MockHttpServletRequest) servletContext.forwardedRequest()).getParameter("postMethod"))
                 .isEqualTo("ajax");
-        assertThat(((MockHttpServletRequest) servletContext.forwardedRequest).getParameter("demographic_no"))
+        assertThat(((MockHttpServletRequest) servletContext.forwardedRequest()).getParameter("demographic_no"))
                 .isEqualTo("12345");
     }
 
@@ -198,6 +198,14 @@ class DemographicEditJspSplitRegressionTest {
     private static final class RecordingServletContext extends MockServletContext {
         private String forwardedPath;
         private ServletRequest forwardedRequest;
+
+        private String forwardedPath() {
+            return forwardedPath;
+        }
+
+        private ServletRequest forwardedRequest() {
+            return forwardedRequest;
+        }
 
         @Override
         public RequestDispatcher getRequestDispatcher(String path) {
