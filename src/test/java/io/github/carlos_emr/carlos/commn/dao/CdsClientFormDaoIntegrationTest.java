@@ -181,6 +181,8 @@ public class CdsClientFormDaoIntegrationTest extends CarlosTestBase {
 
     /**
      * Persists a test-specific creation timestamp while preserving the entity's no-update contract.
+     * The flush assigns the identity id before the JPQL bulk update targets the row, and the clear
+     * prevents the persistence context from returning a stale pre-update timestamp.
      */
     private void setCreated(CdsClientForm form, Date created) {
         entityManager.flush();

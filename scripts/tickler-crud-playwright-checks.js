@@ -171,6 +171,7 @@ function wirePage(page, label) {
 
 async function gotoApp(page, appPath, waitUntil = 'domcontentloaded', query = null) {
   const url = appUrl(appPath, query);
+  // BASE_URL is restricted by validateBaseUrl(), and appUrl() only accepts root-relative app paths.
   // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection
   return page.goto(url, { waitUntil, timeout: 30000 });
 }
