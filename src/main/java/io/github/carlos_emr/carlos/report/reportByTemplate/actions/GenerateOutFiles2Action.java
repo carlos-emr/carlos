@@ -88,7 +88,6 @@ public class GenerateOutFiles2Action extends ActionSupport {
                 response.getOutputStream().write(csv.getBytes(StandardCharsets.UTF_8)); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV attachment response with text/csv UTF-8 content type, nosniff header, and size validation; not an HTML response
             } catch (Exception ioe) {
                 MiscUtils.getLogger().error("Error", ioe);
-                setServerErrorIfPossible();
             }
             // NONE tells Struts not to resolve a JSP result — required for all direct-response actions.
             return NONE;
