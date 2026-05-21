@@ -120,4 +120,75 @@
         <Method name="writeBody"/>
     </Match>
 
+    <!--
+      LegacyJdbcQuery is the temporary JDBC boundary for migrated legacy callers.
+      SQL values are bound through PreparedStatement parameters, procedure names are
+      identifier-validated before prepareCall(), and dynamic report/table SQL reaches
+      this boundary only after the caller-specific validation step.
+    -->
+    <Match>
+        <Bug pattern="SQL_INJECTION_JDBC"/>
+        <Class name="io.github.carlos_emr.carlos.db.LegacyJdbcQuery"/>
+        <Or>
+            <Method name="getPreparedResultSetInternal"/>
+            <Method name="procExecute"/>
+            <Method name="queryResultsCaisi"/>
+        </Or>
+    </Match>
+    <Match>
+        <Bug pattern="SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"/>
+        <Class name="io.github.carlos_emr.carlos.db.LegacyJdbcQuery"/>
+        <Or>
+            <Method name="getPreparedResultSet"/>
+            <Method name="getPreparedResultSetInternal"/>
+            <Method name="queryResultsCaisi"/>
+        </Or>
+    </Match>
+
+    <!--
+      CaisiResult intentionally exposes the wrapped ResultSet as the compatibility
+      API for legacy CAISI callers while retaining close ownership in the holder.
+    -->
+    <Match>
+        <Bug pattern="EI_EXPOSE_REP"/>
+        <Class name="io.github.carlos_emr.carlos.db.LegacyJdbcQuery$CaisiResult"/>
+        <Method name="resultSet"/>
+    </Match>
+
+    <!--
+      FrmRecordHelp prepares caller-supplied form-table SQL only after the form name
+      has been allowlisted by the action layer; field values are bound as parameters.
+    -->
+    <Match>
+        <Bug pattern="SQL_INJECTION_JDBC"/>
+        <Class name="io.github.carlos_emr.carlos.form.FrmRecordHelp"/>
+        <Method name="prepareResultSetStatement"/>
+    </Match>
+    <Match>
+        <Bug pattern="SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"/>
+        <Class name="io.github.carlos_emr.carlos.form.FrmRecordHelp"/>
+        <Method name="prepareResultSetStatement"/>
+    </Match>
+
+    <!--
+      MSP extraction query fragments are generated from parsed date ranges and are
+      executed through dbExtract with provider/date values bound as parameters.
+    -->
+    <Match>
+        <Bug pattern="SQL_INJECTION_JDBC"/>
+        <Class name="io.github.carlos_emr.carlos.billings.MSP.dbExtract"/>
+        <Method name="prepare"/>
+    </Match>
+
+    <!--
+      FrmForm2Action validates the form table suffix with a strict identifier
+      allowlist before building the legacy form-table SELECT; demographic_no is
+      still supplied as a PreparedStatement parameter.
+    -->
+    <Match>
+        <Bug pattern="SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"/>
+        <Class name="io.github.carlos_emr.carlos.form.pageUtil.FrmForm2Action"/>
+        <Method name="execute"/>
+    </Match>
+
 </FindBugsFilter>

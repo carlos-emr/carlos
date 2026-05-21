@@ -45,15 +45,15 @@ public final class DBHandler {
         // not intented for instantiation
     }
 
-    // GetSQL(String) removed — all callers migrated to GetPreSQL.
+    // GetSQL(String) removed; all callers migrated to parameterized SQL.
     // See git history for the deprecated raw SQL execution method.
 
-	public static ResultSet GetPreSQL(String sql, Object... params) throws SQLException {
-		return GetPreSQL(sql, false, params);
-	}
+    public static ResultSet getPreSql(String sql, Object... params) throws SQLException {
+        return getPreSql(sql, false, params);
+    }
 
-	public static ResultSet GetPreSQL(String sql, boolean updatable, Object... params) throws SQLException { // nosemgrep: formatted-sql-string -- this IS the parameterized query method; params are bound via PreparedStatement
-		return LegacyJdbcQuery.getPreparedResultSet(sql, updatable, params);
-	}
+    public static ResultSet getPreSql(String sql, boolean updatable, Object... params) throws SQLException { // nosemgrep: formatted-sql-string -- this IS the parameterized query method; params are bound via PreparedStatement
+        return LegacyJdbcQuery.getPreparedResultSet(sql, updatable, params);
+    }
 
 }

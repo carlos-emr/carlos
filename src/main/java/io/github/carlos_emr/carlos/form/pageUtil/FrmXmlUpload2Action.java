@@ -30,6 +30,7 @@
 
 package io.github.carlos_emr.carlos.form.pageUtil;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.action.UploadedFilesAware;
@@ -49,7 +50,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.*;
 import java.util.Enumeration;
 import java.util.List;
-import java.nio.file.Files;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
@@ -67,8 +67,6 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
             throw new SecurityException("missing required sec object (_form)");
         }
 
-        int BUFFER = 2048;
-
         // Temporary file handling
         File tmpFile = File.createTempFile("tmp", ".zip");
         tmpFile.deleteOnExit();
@@ -81,15 +79,7 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
         }
 
         try {
-            // codeql[java/path-injection] -- file1 is validated in withUploadedFiles() before storage.
-            try (InputStream is = Files.newInputStream(file1.toPath());
-                 OutputStream fos = new FileOutputStream(tmpFile)) {
-                byte[] data = new byte[BUFFER];
-                int count;
-                while ((count = is.read(data)) != -1) {
-                    fos.write(data, 0, count);
-                }
-            }
+            copyValidatedUploadToTemp(file1, tmpFile);
 
             // Unzip and process entries
             try (ZipFile zf = new ZipFile(tmpFile)) {
@@ -121,6 +111,11 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
         return SUCCESS;
     }
 
+    private void copyValidatedUploadToTemp(File upload, File destination) throws IOException {
+        File validatedUpload = PathValidationUtils.validateUpload(upload);
+        FileUtils.copyFile(validatedUpload, destination);
+    }
+
     private File file1; // Uploaded file
     private String file1FileName; // Name of the uploaded file
     private String file1ContentType; // Content type of the uploaded file
@@ -148,7 +143,13 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
     }
 
     public void setFile1(File file1) {
-        this.file1 = file1;
+        try {
+            this.file1 = PathValidationUtils.validateUpload(file1);
+            this.uploadValidationError = null;
+        } catch (SecurityException e) {
+            this.file1 = null;
+            this.uploadValidationError = "Invalid file upload";
+        }
     }
 
     public String getFile1FileName() {
