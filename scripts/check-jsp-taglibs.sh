@@ -17,6 +17,11 @@
 echo "=== Comprehensive JSP Taglib Checker ==="
 echo
 
+if ! command -v perl >/dev/null 2>&1; then
+    echo "ERROR: perl is required for comment-aware JSP taglib checks." >&2
+    exit 2
+fi
+
 # tags: regex pattern matching either legacy java.sun.com or modern Jakarta namespace URIs
 declare -A tags=(
     # JSTL tags (legacy java.sun.com and Jakarta namespaces)

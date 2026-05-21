@@ -52,9 +52,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("unit")
 class JspTaglibDeclarationRegressionTest {
     private static final String BASEDIR_PROPERTY = "basedir";
+    /** Matches JSP template comments so tag usage inside inactive code is ignored. */
     private static final Pattern JSP_TEMPLATE_COMMENT = Pattern.compile("<%--.*?--%>", Pattern.DOTALL);
+    /** Matches HTML comments so commented-out tag usage is ignored after JSP comments are removed. */
     private static final Pattern HTML_COMMENT = Pattern.compile("<!--.*?-->", Pattern.DOTALL);
+    /** Captures the attribute body of each {@code <%@ taglib ... %>} directive as group 1. */
     private static final Pattern TAGLIB_DIRECTIVE = Pattern.compile("<%@\\s*taglib\\b(.*?)%>", Pattern.DOTALL);
+    /** Captures directive attributes as name (group 1), quote character (group 2), and value (group 3). */
     private static final Pattern ATTRIBUTE = Pattern.compile("\\b(uri|prefix)\\s*=\\s*(['\"])(.*?)\\2");
     private static final String SHARED_TAGLIB_FILE_NAMES_PATTERN =
             "taglibs\\.jsp|taglibs\\.jspf|common-taglibs\\.jsp|common-tags\\.jsp";
@@ -62,6 +66,10 @@ class JspTaglibDeclarationRegressionTest {
     private static final Pattern SHARED_TAGLIB_INCLUDE = Pattern.compile(
             "(?s)<%@\\s*include[^>]+file\\s*=\\s*\"[^\"]*(?:" + SHARED_TAGLIB_FILE_NAMES_PATTERN + ")\""
                     + "|<jsp:include[^>]+page\\s*=\\s*\"[^\"]*(?:" + SHARED_TAGLIB_FILE_NAMES_PATTERN + ")\"");
+    /*
+     * Accept both legacy java.sun.com JSTL URIs and Jakarta EE jakarta.tags URIs
+     * because CARLOS still contains migration-era JSPs with either namespace.
+     */
     private static final Map<String, Pattern> STANDARD_TAGLIB_URIS = Map.of(
             "c", Pattern.compile("^(?:http://java\\.sun\\.com/jsp/jstl/core|jakarta\\.tags\\.core)$"),
             "fmt", Pattern.compile("^(?:http://java\\.sun\\.com/jsp/jstl/fmt|jakarta\\.tags\\.fmt)$"),
@@ -158,6 +166,8 @@ class JspTaglibDeclarationRegressionTest {
     }
 
     private static String stripTemplateComments(String jsp) {
+        // Remove JSP comments before HTML comments so HTML-comment text inside an
+        // inactive JSP block cannot confuse the HTML comment matcher.
         return HTML_COMMENT.matcher(JSP_TEMPLATE_COMMENT.matcher(jsp).replaceAll("")).replaceAll("");
     }
 
@@ -175,6 +185,8 @@ class JspTaglibDeclarationRegressionTest {
      * corresponding JSTL taglib unless it includes a shared taglib file.</p>
      */
     private static Pattern taglibUsagePattern(String prefix) {
+        // (?i) makes prefix matching case-insensitive; (?s) lets "." span
+        // line breaks when matching EL expressions split across lines.
         return Pattern.compile("(?is)<\\s*" + Pattern.quote(prefix) + "\\s*:|\\$\\{[^}]*\\b"
                 + Pattern.quote(prefix) + ":");
     }
