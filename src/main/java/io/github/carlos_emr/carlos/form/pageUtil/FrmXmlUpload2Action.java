@@ -126,6 +126,7 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
         FileUtils.copyFile(validatedUpload, destination);
     }
 
+    @SuppressWarnings("java:S5042")
     static long validateArchiveEntry(ZipEntry entry, int entryCount, long totalUncompressedBytes)
             throws JDBCUtil.XmlImportException {
         if (entryCount > MAX_XML_IMPORT_ENTRIES) {
