@@ -66,6 +66,9 @@ public abstract class SecurityTokenManager {
         String managerName = CarlosProperties.getInstance().getProperty("sec.token.manager");
         if (managerName != null) {
             managerName = managerName.trim();
+            if (managerName.isEmpty()) {
+                return null;
+            }
             if (!managerName.startsWith(ALLOWED_PACKAGE_PREFIX)) {
                 MiscUtils.getLogger().error("Rejected token manager class outside allowed package: {}",
                         LogSafe.sanitize(managerName));

@@ -317,8 +317,6 @@
         <link rel="stylesheet" type="text/css" media="all"
               href="${pageContext.servletContext.contextPath}/share/calendar/calendar.css" title="win2k-cold-1">
         <script type="text/javascript"
-                src="${pageContext.servletContext.contextPath}/share/javascript/Oscar.js"></script>
-        <script type="text/javascript"
                 src="${pageContext.servletContext.contextPath}/js/demographicProviderAutocomplete.js"></script>
         <script type="text/javascript"
                 src="${pageContext.servletContext.contextPath}/js/documentDescriptionTypeahead.js"></script>

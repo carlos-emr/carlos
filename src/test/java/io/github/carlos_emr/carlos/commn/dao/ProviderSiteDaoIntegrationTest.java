@@ -65,7 +65,7 @@ public class ProviderSiteDaoIntegrationTest extends CarlosTestBase {
      * Creates a provider record in the database to satisfy FK constraints on providersite.
      */
     private void ensureProviderExists(String providerNo) {
-        String sql = "MERGE INTO provider (provider_no, first_name, last_name, specialty, status) KEY(provider_no) VALUES (?, 'Test', 'Provider', 'GP', '1')";
+        String sql = "MERGE INTO provider (provider_no, first_name, last_name, provider_type, sex, specialty, status) KEY(provider_no) VALUES (?, 'Test', 'Provider', 'doctor', 'M', 'GP', '1')";
         entityManager.createNativeQuery(sql)
                 .setParameter(1, providerNo)
                 .executeUpdate();

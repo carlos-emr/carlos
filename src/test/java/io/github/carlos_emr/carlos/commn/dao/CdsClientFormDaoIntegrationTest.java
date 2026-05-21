@@ -31,6 +31,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
@@ -59,6 +61,9 @@ public class CdsClientFormDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private CdsClientFormDao dao;
 
+    @PersistenceContext(unitName = "entityManagerFactory")
+    private EntityManager entityManager;
+
     private final DateFormat dfm = new SimpleDateFormat("yyyyMMdd");
 
     @Nested
@@ -70,10 +75,10 @@ public class CdsClientFormDaoIntegrationTest extends CarlosTestBase {
          * Ensures that the latest client form is returned.
          */
         @Test
-        @DisplayName("should return first persisted form as latest for facility and client")
+        @DisplayName("should return newest form for facility and client")
         void shouldReturnLatestForm_forFacilityAndClient() throws Exception {
-            int facilityId = 101;
-            int clientId = 109;
+            int facilityId = 10101;
+            int clientId = 10901;
 
             CdsClientForm clientForm1 = new CdsClientForm();
             EntityDataGenerator.generateTestDataForModelClass(clientForm1);
@@ -87,10 +92,11 @@ public class CdsClientFormDaoIntegrationTest extends CarlosTestBase {
 
             dao.persist(clientForm1);
             dao.persist(clientForm2);
-            hibernateTemplate.flush();
+            setCreated(clientForm1, dfm.parse("20200101"));
+            setCreated(clientForm2, dfm.parse("20200102"));
 
             CdsClientForm result = dao.findLatestByFacilityClient(facilityId, clientId);
-            assertThat(result).isEqualTo(clientForm1);
+            assertThat(result).isEqualTo(clientForm2);
         }
     }
 
@@ -100,10 +106,10 @@ public class CdsClientFormDaoIntegrationTest extends CarlosTestBase {
     class FindByFacilityClient {
 
         @Test
-        @DisplayName("should return all forms for matching facility and client")
-        void shouldReturnAllForms_forMatchingFacilityAndClient() throws Exception {
-            int facilityId = 101;
-            int clientId = 109;
+        @DisplayName("should return forms ordered by created descending for matching facility and client")
+        void shouldReturnFormsOrderedByCreatedDesc_forMatchingFacilityAndClient() throws Exception {
+            int facilityId = 10102;
+            int clientId = 10902;
 
             CdsClientForm clientForm1 = new CdsClientForm();
             EntityDataGenerator.generateTestDataForModelClass(clientForm1);
@@ -117,15 +123,13 @@ public class CdsClientFormDaoIntegrationTest extends CarlosTestBase {
 
             dao.persist(clientForm1);
             dao.persist(clientForm2);
-            hibernateTemplate.flush();
+            setCreated(clientForm1, dfm.parse("20200101"));
+            setCreated(clientForm2, dfm.parse("20200102"));
 
             List<CdsClientForm> result = dao.findByFacilityClient(facilityId, clientId);
-            List<CdsClientForm> expectedResult = Arrays.asList(clientForm1, clientForm2);
+            List<CdsClientForm> expectedResult = Arrays.asList(clientForm2, clientForm1);
 
-            assertThat(result).hasSameSizeAs(expectedResult);
-            for (int i = 0; i < expectedResult.size(); i++) {
-                assertThat(result.get(i)).isEqualTo(expectedResult.get(i));
-            }
+            assertThat(result).containsExactlyElementsOf(expectedResult);
         }
     }
 
@@ -137,8 +141,8 @@ public class CdsClientFormDaoIntegrationTest extends CarlosTestBase {
         @Test
         @DisplayName("should return only signed forms within date range")
         void shouldReturnOnlySignedForms_withinDateRange() throws Exception {
-            int facilityId = 101;
-            String formVersion = "1.1.0";
+            int facilityId = 10103;
+            String formVersion = "1.1.0-test";
             Date startDate = new Date(dfm.parse("20090101").getTime());
             Date endDate = new Date(dfm.parse("21001231").getTime());
 
@@ -173,5 +177,19 @@ public class CdsClientFormDaoIntegrationTest extends CarlosTestBase {
                 assertThat(result.get(i)).isEqualTo(expectedResult.get(i));
             }
         }
+    }
+
+    /**
+     * Persists a test-specific creation timestamp while preserving the entity's no-update contract.
+     * The flush assigns the identity id before the JPQL bulk update targets the row, and the clear
+     * prevents the persistence context from returning a stale pre-update timestamp.
+     */
+    private void setCreated(CdsClientForm form, Date created) {
+        entityManager.flush();
+        entityManager.createQuery("update CdsClientForm f set f.created = :created where f.id = :id")
+                .setParameter("created", created)
+                .setParameter("id", form.getId())
+                .executeUpdate();
+        entityManager.clear();
     }
 }

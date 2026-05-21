@@ -2228,35 +2228,35 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
         int paramIndex = 1;
 
         if (firstName.trim().length() > 0) {
-            whereClause.append("FirstName=?" + paramIndex++);
+            whereClause.append("firstName=?" + paramIndex++);
             params.add(firstName.trim());
         }
         if (lastName.trim().length() > 0) {
             if (params.size() > 0) {
                 whereClause.append(" AND ");
             }
-            whereClause.append("LastName=?" + paramIndex++);
+            whereClause.append("lastName=?" + paramIndex++);
             params.add(lastName.trim());
         }
         if (hPhone.trim().length() > 0) {
             if (params.size() > 0) {
                 whereClause.append(" AND ");
             }
-            whereClause.append("Phone=?" + paramIndex++);
+            whereClause.append("phone=?" + paramIndex++);
             params.add(hPhone.trim());
         }
         if (wPhone.trim().length() > 0) {
             if (params.size() > 0) {
                 whereClause.append(" AND ");
             }
-            whereClause.append("Phone2=?" + paramIndex++);
+            whereClause.append("phone2=?" + paramIndex++);
             params.add(wPhone.trim());
         }
         if (email.trim().length() > 0) {
             if (params.size() > 0) {
                 whereClause.append(" AND ");
             }
-            whereClause.append("Email=?" + paramIndex++);
+            whereClause.append("email=?" + paramIndex++);
             params.add(email.trim());
         }
 
@@ -2290,25 +2290,25 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
     public List<Demographic> getDemographicWithLastFirstDOB(String lastname, String firstname, String year_of_birth,
                                                             String month_of_birth, String date_of_birth) {
         List<String> params = new ArrayList<String>();
-        String sql = "FROM Demographic " + " WHERE LastName like ?1 and FirstName like ?2";
+        StringBuilder sql = new StringBuilder("FROM Demographic WHERE lastName like ?1 and firstName like ?2");
         params.add(lastname + "%");
         params.add(firstname + "%");
 
         int paramIndex = 3;
         if (year_of_birth != null) {
-            sql += " AND YearOfBirth = ?" + paramIndex++;
+            sql.append(" AND yearOfBirth = ?").append(paramIndex++);
             params.add(year_of_birth);
         }
         if (month_of_birth != null) {
-            sql += " AND MonthOfBirth = ?" + paramIndex++;
+            sql.append(" AND monthOfBirth = ?").append(paramIndex++);
             params.add(month_of_birth);
         }
         if (date_of_birth != null) {
-            sql += " AND DateOfBirth = ?" + paramIndex++;
+            sql.append(" AND dateOfBirth = ?").append(paramIndex++);
             params.add(date_of_birth);
         }
 
-        return (List<Demographic>) JpqlQueryHelper.find(entityManager(), sql, (Object[]) params.toArray(new String[params.size()]));
+        return (List<Demographic>) JpqlQueryHelper.find(entityManager(), sql.toString(), (Object[]) params.toArray(new String[params.size()]));
     }
 
     @SuppressWarnings("unchecked")
@@ -2316,25 +2316,25 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
     public List<Demographic> getDemographicWithLastFirstDOBExact(String lastname, String firstname,
                                                                  String year_of_birth, String month_of_birth, String date_of_birth) {
         List<String> params = new ArrayList<String>();
-        String sql = "FROM Demographic " + " WHERE LastName = ?1 and FirstName = ?2";
+        StringBuilder sql = new StringBuilder("FROM Demographic WHERE lastName = ?1 and firstName = ?2");
         params.add(lastname);
         params.add(firstname);
 
         int paramIndex = 3;
         if (year_of_birth != null) {
-            sql += " AND YearOfBirth = ?" + paramIndex++;
+            sql.append(" AND yearOfBirth = ?").append(paramIndex++);
             params.add(year_of_birth);
         }
         if (month_of_birth != null) {
-            sql += " AND MonthOfBirth = ?" + paramIndex++;
+            sql.append(" AND monthOfBirth = ?").append(paramIndex++);
             params.add(month_of_birth);
         }
         if (date_of_birth != null) {
-            sql += " AND DateOfBirth = ?" + paramIndex++;
+            sql.append(" AND dateOfBirth = ?").append(paramIndex++);
             params.add(date_of_birth);
         }
 
-        return (List<Demographic>) JpqlQueryHelper.find(entityManager(), sql, (Object[]) params.toArray(new String[params.size()]));
+        return (List<Demographic>) JpqlQueryHelper.find(entityManager(), sql.toString(), (Object[]) params.toArray(new String[params.size()]));
     }
 
     /**
@@ -2346,7 +2346,7 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
      */
     @Override
     public boolean existsByFirstAndLastName(String firstName, String lastName) {
-        String sql = "SELECT COUNT(*) FROM Demographic WHERE FirstName = ?1 AND LastName = ?2";
+        String sql = "SELECT COUNT(*) FROM Demographic WHERE firstName = ?1 AND lastName = ?2";
         Long count = (Long) JpqlQueryHelper.find(entityManager(), sql, firstName, lastName).get(0);
         return count > 0;
     }
