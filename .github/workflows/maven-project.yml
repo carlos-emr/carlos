@@ -133,6 +133,7 @@ jobs:
       - name: Purge stale local_repo artifacts from Maven cache
         run: |
           rm -rf .m2-cache/repository/com/github/openosp/ultrabuk-htmltopdf-java
+          rm -rf .m2-cache/repository/se/vandmo/dependency-lock-maven-plugin
 
       - name: Build dev container (fallback)
         if: steps.pull-image.outputs.pulled != 'true'
@@ -277,6 +278,7 @@ jobs:
       - name: Purge stale local_repo artifacts from Maven cache
         run: |
           rm -rf .m2-cache/repository/com/github/openosp/ultrabuk-htmltopdf-java
+          rm -rf .m2-cache/repository/se/vandmo/dependency-lock-maven-plugin
 
       - name: Run tests
         run: |
@@ -415,6 +417,7 @@ jobs:
       - name: Purge stale local_repo artifacts from Maven cache
         run: |
           rm -rf .m2-cache/repository/com/github/openosp/ultrabuk-htmltopdf-java
+          rm -rf .m2-cache/repository/se/vandmo/dependency-lock-maven-plugin
 
       - name: Compile JSPs
         run: |
