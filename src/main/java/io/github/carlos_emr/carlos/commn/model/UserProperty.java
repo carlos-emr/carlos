@@ -28,7 +28,6 @@
 
 package io.github.carlos_emr.carlos.commn.model;
 
-import io.github.carlos_emr.CarlosProperties;
 import jakarta.persistence.*;
 import java.io.Serializable;
 
@@ -123,10 +122,6 @@ public class UserProperty extends AbstractModel<Integer> implements Serializable
     public static final String SCHEDULE_NAVIGATION_MODE_POPUP = "popup";
     public static final String SCHEDULE_NAVIGATION_MODE_TAB = "tab";
     public static final String SCHEDULE_NAVIGATION_MODE_FOCUSED = "focused";
-    public static final String SCHEDULE_NAVIGATION_FOCUSED_DEFAULT_PROVIDERS =
-            "schedule_navigation_focused_default_providers";
-    private static final String DEFAULT_FOCUSED_SCHEDULE_NAVIGATION_PROVIDERS = "999998";
-
     public static String resolveScheduleNavigationMode(String savedMode, boolean legacyTabEnabled, String providerNo) {
         if (SCHEDULE_NAVIGATION_MODE_TAB.equals(savedMode)
                 || SCHEDULE_NAVIGATION_MODE_FOCUSED.equals(savedMode)
@@ -139,24 +134,7 @@ public class UserProperty extends AbstractModel<Integer> implements Serializable
         if (legacyTabEnabled) {
             return SCHEDULE_NAVIGATION_MODE_TAB;
         }
-        return defaultsToFocusedScheduleNavigation(providerNo)
-                ? SCHEDULE_NAVIGATION_MODE_FOCUSED
-                : SCHEDULE_NAVIGATION_MODE_POPUP;
-    }
-
-    private static boolean defaultsToFocusedScheduleNavigation(String providerNo) {
-        if (providerNo == null || providerNo.trim().isEmpty()) {
-            return false;
-        }
-        String configuredProviders = CarlosProperties.getInstance().getProperty(
-                SCHEDULE_NAVIGATION_FOCUSED_DEFAULT_PROVIDERS,
-                DEFAULT_FOCUSED_SCHEDULE_NAVIGATION_PROVIDERS);
-        for (String configuredProvider : configuredProviders.split(",")) {
-            if (providerNo.equals(configuredProvider.trim())) {
-                return true;
-            }
-        }
-        return false;
+        return SCHEDULE_NAVIGATION_MODE_FOCUSED;
     }
 
     public static final String DEFAULT_PRINTER_PDF_LABEL = "default_printer_pdf_label";

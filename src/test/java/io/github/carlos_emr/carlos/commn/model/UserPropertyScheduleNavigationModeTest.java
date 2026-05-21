@@ -56,18 +56,18 @@ class UserPropertyScheduleNavigationModeTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should default Carlosdoc to focused when no mode is saved")
-    void shouldDefaultCarlosdocToFocused_whenModeMissing() {
+    @DisplayName("should default known providers to focused when no mode is saved")
+    void shouldDefaultKnownProvidersToFocused_whenModeMissing() {
         String mode = UserProperty.resolveScheduleNavigationMode(null, false, "999998");
 
         assertThat(mode).isEqualTo(UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED);
     }
 
     @Test
-    @DisplayName("should default other providers to popup when no mode is saved")
-    void shouldDefaultOtherProvidersToPopup_whenModeMissing() {
+    @DisplayName("should default other providers to focused when no mode is saved")
+    void shouldDefaultOtherProvidersToFocused_whenModeMissing() {
         String mode = UserProperty.resolveScheduleNavigationMode(null, false, "123456");
 
-        assertThat(mode).isEqualTo(UserProperty.SCHEDULE_NAVIGATION_MODE_POPUP);
+        assertThat(mode).isEqualTo(UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED);
     }
 }
