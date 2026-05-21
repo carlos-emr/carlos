@@ -34,6 +34,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO"%>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider"%>
 <%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty"%>
+<%@page import="io.github.carlos_emr.carlos.documentManager.IncomingDocUtil"%>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao"%>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils"%>
 
@@ -88,8 +89,9 @@
     }
 
     uProp = userPropertyDAO.getProp(user_no, UserProperty.UPLOAD_INCOMING_DOCUMENT_FOLDER);
-    String destFolder = "Mail";
-    if (uProp != null) {
+    Set<String> incomingDocFolders = IncomingDocUtil.getAllowedIncomingDocFolders();
+    String destFolder = incomingDocFolders.contains("Mail") ? "Mail" : incomingDocFolders.iterator().next();
+    if (uProp != null && incomingDocFolders.contains(uProp.getValue())) {
         destFolder = uProp.getValue();
     }
     String context = request.getContextPath();
@@ -250,10 +252,27 @@
              <div class="mb-3" id="destFolderDiv">
                 <label for="destFolderDrop" class="fields"><fmt:message key="dms.documentUploader.folder" />:</label>
                     <select onchange="javascript:setDestFolder(this);"  id="destFolderDrop"  name="destFolderDrop" class="form-select">
-                        <option value="Fax" <%=( destFolder.equals("Fax") ? " selected" : "")%> ><fmt:message key="dms.incomingDocs.fax" /></option>
-                        <option value="Mail" <%=( destFolder.equals("Mail") ? " selected" : "")%> ><fmt:message key="dms.incomingDocs.mail" /></option>
-                        <option value="File" <%=( destFolder.equals("File") ? " selected" : "")%> ><fmt:message key="dms.incomingDocs.file" /></option>
-                        <option value="Refile" <%=( destFolder.equals("Refile") ? " selected" : "")%> ><fmt:message key="dms.incomingDocs.refile" /></option>
+                        <%
+                        for (String incomingDocFolder : incomingDocFolders) {
+                        %>
+                        <option value="<carlos:encode value='<%= incomingDocFolder %>' context="htmlAttribute"/>" <%=( destFolder.equals(incomingDocFolder) ? " selected" : "")%> >
+                            <%
+                            if ("Fax".equals(incomingDocFolder)) {
+                            %><fmt:message key="dms.incomingDocs.fax" /><%
+                            } else if ("Mail".equals(incomingDocFolder)) {
+                            %><fmt:message key="dms.incomingDocs.mail" /><%
+                            } else if ("File".equals(incomingDocFolder)) {
+                            %><fmt:message key="dms.incomingDocs.file" /><%
+                            } else if ("Refile".equals(incomingDocFolder)) {
+                            %><fmt:message key="dms.incomingDocs.refile" /><%
+                            } else {
+                            %><carlos:encode value='<%= incomingDocFolder %>' context="html"/><%
+                            }
+                            %>
+                        </option>
+                        <%
+                        }
+                        %>
                     </select>
               </div>
 

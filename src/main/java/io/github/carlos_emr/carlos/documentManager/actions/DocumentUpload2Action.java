@@ -22,14 +22,10 @@ import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
 import java.text.SimpleDateFormat;
-import java.util.Arrays;
 import java.util.Calendar;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.ResourceBundle;
-import java.util.Set;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -77,8 +73,6 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    private static final Set<String> DEFAULT_INCOMING_DOC_FOLDERS = Set.of("Fax", "Mail", "File", "Refile");
-    private static final Set<String> ALLOWED_INCOMING_DOC_FOLDERS = getAllowedIncomingDocFolders();
     private static final String INVALID_INCOMING_DESTINATION_MESSAGE = "Invalid incoming document destination.";
     private static final String PREFERRED_QUEUE_SESSION_KEY = "preferredQueue";
     private static final String UNIQUE_DOCUMENT_FILENAME_ERROR =
@@ -86,26 +80,8 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
     private static Logger logger = MiscUtils.getLogger();
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
-    
+
     private static final ObjectMapper objectMapper = new ObjectMapper();
-
-    private static Set<String> getAllowedIncomingDocFolders() {
-        String configuredFolders = CarlosProperties.getInstance().getProperty("ALLOWED_INCOMING_DOC_FOLDERS");
-        if (configuredFolders == null || configuredFolders.trim().isEmpty()) {
-            return DEFAULT_INCOMING_DOC_FOLDERS;
-        }
-
-        Set<String> parsedFolders = new LinkedHashSet<>();
-        Arrays.stream(configuredFolders.split(","))
-                .map(String::trim)
-                .filter(folder -> !folder.isEmpty())
-                .forEach(parsedFolders::add);
-
-        if (parsedFolders.isEmpty()) {
-            return DEFAULT_INCOMING_DOC_FOLDERS;
-        }
-        return Collections.unmodifiableSet(parsedFolders);
-    }
 
     public String execute() throws Exception {
         return executeUpload();
@@ -152,17 +128,20 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                 } else {
                     try {
                         String sanitizedFileName = validateIncomingDocsFileName(fileName);
-                        boolean success = writeToIncomingDocs(docFile, queueId, destFolder, sanitizedFileName);
-                        if (!success) {
+                        String storedFileName = writeToIncomingDocs(docFile, queueId, destFolder, sanitizedFileName);
+                        if (storedFileName == null) {
                             map.put("error", "Failed to write file. Please contact administrator");
                             MiscUtils.getLogger().error("Failed to write file to {}", LogSanitizer.sanitize(destFolder)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                         } else {
-                            map.put("name", sanitizedFileName);
+                            map.put("name", storedFileName);
                             map.put("size", docFile.length());
                             storePreferredQueue(queueId);
                         }
                     } catch (FileValidationException e) {
                         map.put("error", e.getMessage());
+                    } catch (UniqueDocumentFilenameException e) {
+                        logger.warn("Unable to create unique incoming document upload filename", e);
+                        map.put("error", UNIQUE_DOCUMENT_FILENAME_ERROR);
                     } catch (IllegalArgumentException | SecurityException e) {
                         logger.warn("Rejected invalid incoming document destination");
                         map.put("error", INVALID_INCOMING_DESTINATION_MESSAGE);
@@ -388,46 +367,63 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
         }
     }
 
-    private boolean writeToIncomingDocs(ValidatedUpload docFile, String queueId, String PdfDir, String fileName) {
+    private String writeToIncomingDocs(ValidatedUpload docFile, String queueId, String PdfDir, String fileName)
+            throws UniqueDocumentFilenameException {
         if (queueId == null || PdfDir == null || fileName == null) {
             logger.error("Invalid parameters provided for writeToIncomingDocs");
-            return false;
+            return null;
         }
 
         // Check direct path separators; PathValidationUtils handles dot-only and hidden names.
         if (fileName.contains("/") || fileName.contains("\\")) {
             logger.error("Filename contains invalid path characters");
-            return false;
+            return null;
         }
 
         // Create directory structure and get validated parent path
         String parentPath = IncomingDocUtil.getAndCreateIncomingDocumentFilePath(queueId, PdfDir);
         File parentDir = new File(parentPath);
         if (!parentDir.exists()) {
-            return false;
+            return null;
         }
 
-        // Use PathValidationUtils to construct and validate the destination file path
-        // (sanitizes fileName, rejects traversal, ensures result is within parentDir).
-        File destinationFile;
-        try {
-            destinationFile = PathValidationUtils.validatePath(fileName, parentDir);
-        } catch (SecurityException e) {
-            logger.error("Destination file is outside allowed directory: {}", LogSafe.sanitize(fileName));
-            return false;
+        IOException lastCollision = null;
+        for (int attempt = 0; attempt < PathValidationUtils.MAX_UPLOAD_FILENAME_COLLISION_RETRIES; attempt++) {
+            String candidateFileName = fileNameWithCollisionSuffix(fileName, attempt);
+
+            // Use PathValidationUtils to construct and validate the destination file path
+            // (sanitizes fileName, rejects traversal, ensures result is within parentDir).
+            File destinationFile;
+            try {
+                destinationFile = PathValidationUtils.validatePath(candidateFileName, parentDir);
+            } catch (SecurityException e) {
+                logger.error("Destination file is outside allowed directory: {}", LogSafe.sanitize(candidateFileName));
+                return null;
+            }
+
+            boolean fileCreatedByRequest = false;
+            boolean writeSucceeded = false;
+            try (InputStream fis = docFile.openStream();
+                    // codeql[java/path-injection] -- destinationFile is validated under the incoming-docs directory before this sink.
+                    OutputStream fos = Files.newOutputStream(destinationFile.toPath(),
+                            StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
+                fileCreatedByRequest = true;
+                IOUtils.copy(fis, fos);
+                writeSucceeded = true;
+                return destinationFile.getName();
+            } catch (FileAlreadyExistsException e) {
+                lastCollision = e;
+            } catch (IOException e) {
+                logger.error("Error writing file to incoming docs", e);
+                return null;
+            } finally {
+                if (!writeSucceeded && fileCreatedByRequest) {
+                    deleteCopiedDocumentIfUnpersisted(destinationFile, false);
+                }
+            }
         }
 
-        try (InputStream fis = docFile.openStream();
-                // codeql[java/path-injection] -- destinationFile is validated under the incoming-docs directory before this sink.
-                OutputStream fos = Files.newOutputStream(destinationFile.toPath(),
-                        StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
-            IOUtils.copy(fis, fos);
-        } catch (IOException e) {
-            logger.error("Error writing file to incoming docs", e);
-            return false;
-        }
-
-        return true;
+        throw new UniqueDocumentFilenameException(UNIQUE_DOCUMENT_FILENAME_ERROR, lastCollision);
     }
 
     /**
@@ -448,7 +444,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
     private boolean isValidIncomingDestination(String queueId, String destFolder) {
         return queueId != null
                 && queueId.trim().matches("\\d+")
-                && ALLOWED_INCOMING_DOC_FOLDERS.contains(destFolder);
+                && IncomingDocUtil.isAllowedIncomingDocumentFolder(destFolder);
     }
 
     private String normalizeIncomingParam(String value) {
@@ -496,7 +492,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
 
         String user_no = (String) request.getSession().getAttribute("user");
         String destFolder = normalizeIncomingParam(request.getParameter("destFolder"));
-        if (destFolder == null || !ALLOWED_INCOMING_DOC_FOLDERS.contains(destFolder)) {
+        if (destFolder == null || !IncomingDocUtil.isAllowedIncomingDocumentFolder(destFolder)) {
             logger.warn("Rejected invalid incoming document folder update");
             return null;
         }
