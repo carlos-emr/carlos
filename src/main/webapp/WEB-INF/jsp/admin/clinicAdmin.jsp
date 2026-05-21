@@ -63,6 +63,7 @@
 
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title><fmt:message key="admin.admin.clinicAdmin"/></title>
 
         <script src="${pageContext.request.contextPath}/js/global.js"></script>

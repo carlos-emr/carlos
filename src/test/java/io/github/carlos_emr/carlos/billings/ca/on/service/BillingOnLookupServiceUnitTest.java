@@ -93,7 +93,8 @@ class BillingOnLookupServiceUnitTest {
         BillingOnLookupService.FavouriteMutationResult result = service.saveOrDeleteFavourite(request);
 
         assertThat(result.action()).isEqualTo("search");
-        assertThat(result.message()).contains("Morning").contains("added");
+        assertThat(result.messageKey()).isEqualTo("billing.billingOnFavourite.msgAdded");
+        assertThat(result.messageName()).isEqualTo("Morning");
         assertThat(result.formFields()).containsEntry("name", "Morning");
 
         ArgumentCaptor<BillingONFavourite> captor = ArgumentCaptor.forClass(BillingONFavourite.class);
@@ -120,7 +121,8 @@ class BillingOnLookupServiceUnitTest {
         BillingOnLookupService.FavouriteMutationResult result = service.saveOrDeleteFavourite(request);
 
         assertThat(result.action()).isEqualTo("search");
-        assertThat(result.message()).contains("Morning").contains("deleted");
+        assertThat(result.messageKey()).isEqualTo("billing.billingOnFavourite.msgDeleted");
+        assertThat(result.messageName()).isEqualTo("Morning");
         assertThat(result.formFields()).containsEntry("name", "Morning");
         assertThat(favourite.getDeleted()).isEqualTo(1);
         verify(favouriteDao).merge(favourite);

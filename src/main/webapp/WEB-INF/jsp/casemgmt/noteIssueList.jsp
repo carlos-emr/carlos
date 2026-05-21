@@ -174,7 +174,7 @@
 <%}%>
 
 <%
-    if (currentFacility.isEnableEncounterTransportationTime() || (currentProgram != null && currentProgram.isEnableEncounterTransportationTime())) {
+    if (currentFacility.isEnableEncounterTransportationTime() || (currentProgram != null && currentProgram.getEnableEncounterTransportationTime())) {
 %>
 <div style="clear: right; margin: 0 30px 0 0; float: right;"><span>
     <c:choose>

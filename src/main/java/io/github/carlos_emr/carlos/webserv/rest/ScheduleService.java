@@ -68,7 +68,7 @@ import io.github.carlos_emr.carlos.managers.AppointmentManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.ScheduleManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
@@ -638,7 +638,7 @@ public class ScheduleService extends AbstractServiceImpl {
             String unknownFilter = findUnknownFilter(searchConfig);
             if (unknownFilter != null) {
                 logger.warn("Rejecting saveSearchConfig with unknown filter key: {}",
-                        LogSanitizer.sanitize(unknownFilter));
+                        LogSafe.sanitize(unknownFilter));
                 return Response.status(Response.Status.BAD_REQUEST)
                         .entity("Unknown appointment filter")
                         .build();

@@ -59,6 +59,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title><fmt:message key="global.tickler"/> - <fmt:message key="tickler.ticklerTextSuggest.textSuggestTitle"/></title>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 

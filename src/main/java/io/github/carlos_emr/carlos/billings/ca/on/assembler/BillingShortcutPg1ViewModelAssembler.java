@@ -55,7 +55,7 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnRequestParameters;
@@ -190,7 +190,7 @@ public class BillingShortcutPg1ViewModelAssembler {
                         historyPartialRowCount++;
                         MiscUtils.getLogger().warn(
                                 "BillingShortcutPg1: null Billing row in history for demo {}; skipping",
-                                LogSanitizer.sanitize(demoNo));
+                                LogSafe.sanitize(demoNo));
                         continue;
                     }
                     // Capture bill id outside the try so any catch handler
@@ -569,7 +569,7 @@ public class BillingShortcutPg1ViewModelAssembler {
             } catch (RuntimeException e) {
                 MiscUtils.getLogger().warn(
                         "Shortcut: assgProvider display lookup failed for provider={}; rendering blank",
-                        LogSanitizer.sanitize(assgProviderNo), e);
+                        LogSafe.sanitize(assgProviderNo), e);
                 return new ResolvedAssgProviderDisplay("", true);
             }
         }

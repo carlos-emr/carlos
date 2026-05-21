@@ -1,3 +1,5 @@
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%--
 
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
@@ -34,6 +36,7 @@
 %>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title></title>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <script LANGUAGE="JavaScript">
