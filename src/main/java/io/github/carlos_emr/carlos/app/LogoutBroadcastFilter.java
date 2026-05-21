@@ -193,6 +193,7 @@ public class LogoutBroadcastFilter implements Filter {
         delegatingResponse.markChainComplete();
 
         if (Boolean.TRUE.equals(httpRequest.getAttribute(SCRIPT_INJECTED_REQUEST_ATTRIBUTE))) {
+            delegatingResponse.discardDeferredContentLength();
             delegatingResponse.completeWithoutInjection();
             return;
         }
