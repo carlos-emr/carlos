@@ -49,6 +49,7 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
@@ -90,7 +91,7 @@ class HtmlUpload2ActionTest extends CarlosUnitTestBase {
 
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
         registerEFormUtilDependencies();
-        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_eform"), eq("w"), isNull()))
+        lenient().when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_eform"), eq("w"), isNull()))
                 .thenReturn(true);
 
         eFormUtilMock = mockStatic(EFormUtil.class);
@@ -124,6 +125,8 @@ class HtmlUpload2ActionTest extends CarlosUnitTestBase {
         registerMock(EFormDao.class, mock(EFormDao.class));
     }
 
+    @Tag("unit")
+    @Tag("eform")
     @Test
     @DisplayName("should return fail when Struts-bound upload filename is invalid")
     void shouldReturnFail_whenStrutsBoundUploadFilenameIsInvalid() throws Exception {
@@ -146,6 +149,32 @@ class HtmlUpload2ActionTest extends CarlosUnitTestBase {
                 .isEqualTo("Invalid filename: hidden files not allowed. Do not start the filename with a dot.");
     }
 
+    @Tag("unit")
+    @Tag("eform")
+    @Test
+    @DisplayName("should surface upload validation error during Struts validation")
+    void shouldSurfaceUploadValidationError_duringStrutsValidation() throws Exception {
+        File upload = Files.createTempFile(Path.of(System.getProperty("java.io.tmpdir")), "html-upload-", ".html")
+                .toFile();
+        upload.deleteOnExit();
+        Files.writeString(upload.toPath(), "<html></html>");
+        UploadedFile uploaded = mock(UploadedFile.class);
+        when(uploaded.getAbsolutePath()).thenReturn(upload.getAbsolutePath());
+        when(uploaded.getContentType()).thenReturn("text/html");
+        when(uploaded.getOriginalName()).thenReturn(".hidden.html");
+
+        HtmlUpload2Action action = new HtmlUpload2Action();
+        action.withUploadedFiles(List.of(uploaded));
+        action.validate();
+
+        assertThat(action.getFieldErrors())
+                .containsKey("formHtml");
+        assertThat(action.getFieldErrors().get("formHtml"))
+                .contains("Invalid filename: hidden files not allowed. Do not start the filename with a dot.");
+    }
+
+    @Tag("unit")
+    @Tag("eform")
     @Test
     @DisplayName("should validate Struts-bound filename again before saving")
     void shouldValidateStrutsBoundFilenameAgain_beforeSaving() throws Exception {

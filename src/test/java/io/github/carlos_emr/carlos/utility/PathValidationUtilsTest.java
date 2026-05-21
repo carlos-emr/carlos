@@ -75,6 +75,8 @@ public class PathValidationUtilsTest {
     @DisplayName("Valid Path Tests")
     class ValidPathTests {
 
+        @Tag("unit")
+        @Tag("security")
         @Test
         @DisplayName("should return valid file path when filename is simple")
         void shouldReturnValidFilePath_whenFilenameIsSimple() {
@@ -90,6 +92,8 @@ public class PathValidationUtilsTest {
             assertThat(result.getName()).isEqualTo("test.txt");
         }
 
+        @Tag("unit")
+        @Tag("security")
         @Test
         @DisplayName("should return valid file path when filename has extension")
         void shouldReturnValidFilePath_whenFilenameHasExtension() {
@@ -103,6 +107,8 @@ public class PathValidationUtilsTest {
             assertThat(result.getName()).isEqualTo("document.pdf");
         }
 
+        @Tag("unit")
+        @Tag("security")
         @Test
         @DisplayName("should return valid file path when filename has multiple dots")
         void shouldReturnValidFilePath_whenFilenameHasMultipleDots() {
@@ -116,6 +122,8 @@ public class PathValidationUtilsTest {
             assertThat(result.getName()).isEqualTo("file.backup.tar.gz");
         }
 
+        @Tag("unit")
+        @Tag("security")
         @Test
         @DisplayName("should strip directory components from filename")
         void shouldStripDirectoryComponents_whenFilenameContainsPath() {
@@ -257,6 +265,8 @@ public class PathValidationUtilsTest {
     @DisplayName("Path Traversal Prevention Tests")
     class PathTraversalTests {
 
+        @Tag("unit")
+        @Tag("security")
         @ParameterizedTest
         @DisplayName("should reject path traversal attempts")
         @ValueSource(strings = {
@@ -278,6 +288,8 @@ public class PathValidationUtilsTest {
             assertThat(result.getName()).isEqualTo("passwd");
         }
 
+        @Tag("unit")
+        @Tag("security")
         @Test
         @DisplayName("should treat encoded traversal as literal filename")
         void shouldTreatEncodedTraversal_asLiteralFilename() {
@@ -302,6 +314,8 @@ public class PathValidationUtilsTest {
     @DisplayName("Hidden File Rejection Tests")
     class HiddenFileTests {
 
+        @Tag("unit")
+        @Tag("security")
         @ParameterizedTest
         @DisplayName("should reject hidden files starting with dot")
         @ValueSource(strings = {
@@ -317,6 +331,8 @@ public class PathValidationUtilsTest {
                 .hasMessageContaining("hidden files not allowed");
         }
 
+        @Tag("unit")
+        @Tag("security")
         @Test
         @DisplayName("should allow non-hidden file from hidden directory path")
         void shouldAllowNonHiddenFile_whenFromHiddenDirectoryPath() {
@@ -331,6 +347,8 @@ public class PathValidationUtilsTest {
             assertThat(result.getName()).isEqualTo("authorized_keys");
         }
 
+        @Tag("unit")
+        @Tag("security")
         @Test
         @DisplayName("should allow files with dot in middle of name")
         void shouldAllowFiles_whenDotInMiddleOfName() {
@@ -353,6 +371,8 @@ public class PathValidationUtilsTest {
     @DisplayName("Null and Empty Input Tests")
     class NullEmptyInputTests {
 
+        @Tag("unit")
+        @Tag("security")
         @Test
         @DisplayName("should throw FileValidationException when filename is null")
         void shouldThrowFileValidationException_whenFilenameIsNull() {
@@ -362,6 +382,8 @@ public class PathValidationUtilsTest {
                 .hasMessageContaining(PathValidationUtils.INVALID_FILENAME_MESSAGE);
         }
 
+        @Tag("unit")
+        @Tag("security")
         @Test
         @DisplayName("should throw FileValidationException when filename is empty")
         void shouldThrowFileValidationException_whenFilenameIsEmpty() {
@@ -371,6 +393,8 @@ public class PathValidationUtilsTest {
                 .hasMessageContaining(PathValidationUtils.INVALID_FILENAME_MESSAGE);
         }
 
+        @Tag("unit")
+        @Tag("security")
         @Test
         @DisplayName("should throw FileValidationException when filename is whitespace only")
         void shouldThrowFileValidationException_whenFilenameIsWhitespaceOnly() {
@@ -380,6 +404,8 @@ public class PathValidationUtilsTest {
                 .hasMessageContaining(PathValidationUtils.INVALID_FILENAME_MESSAGE);
         }
 
+        @Tag("unit")
+        @Tag("security")
         @Test
         @DisplayName("should throw FileValidationException when allowedDir is null")
         void shouldThrowFileValidationException_whenAllowedDirIsNull() {
@@ -398,6 +424,8 @@ public class PathValidationUtilsTest {
     @DisplayName("Upload Source Validation Tests")
     class UploadSourceValidationTests {
 
+        @Tag("unit")
+        @Tag("security")
         @Test
         @DisplayName("should throw FileValidationException when source file is null")
         void shouldThrowFileValidationException_whenSourceFileIsNull() {
@@ -407,6 +435,8 @@ public class PathValidationUtilsTest {
                 .hasMessageContaining("null");
         }
 
+        @Tag("unit")
+        @Tag("security")
         @Test
         @DisplayName("should throw FileValidationException when source file does not exist")
         void shouldThrowFileValidationException_whenSourceFileDoesNotExist() {
@@ -419,6 +449,8 @@ public class PathValidationUtilsTest {
                 .hasMessageContaining("does not exist");
         }
 
+        @Tag("unit")
+        @Tag("security")
         @Test
         @DisplayName("should throw FileValidationException when source is a directory")
         void shouldThrowFileValidationException_whenSourceIsDirectory() {
@@ -441,6 +473,8 @@ public class PathValidationUtilsTest {
     @DisplayName("Temp File Validation Tests")
     class TempFileValidationTests {
 
+        @Tag("unit")
+        @Tag("security")
         @ParameterizedTest
         @DisplayName("should accept files in system temp directory regardless of naming pattern")
         @ValueSource(strings = {
@@ -462,6 +496,8 @@ public class PathValidationUtilsTest {
                 .doesNotThrowAnyException();
         }
 
+        @Tag("unit")
+        @Tag("security")
         @Test
         @DisplayName("should validate temp path for cleanup")
         void shouldValidateTempPathForCleanup() throws Exception {
@@ -475,6 +511,8 @@ public class PathValidationUtilsTest {
             }
         }
 
+        @Tag("unit")
+        @Tag("security")
         @Test
         @DisplayName("should reject temp cleanup path outside allowed directories")
         void shouldRejectTempPathForCleanupOutsideAllowedDirectories() {
@@ -486,6 +524,8 @@ public class PathValidationUtilsTest {
                 .hasMessageContaining("Path traversal attempt detected");
         }
 
+        @Tag("unit")
+        @Tag("security")
         @Test
         @DisplayName("should reject blank temp cleanup path")
         void shouldRejectBlankTempPathForCleanup() {
@@ -556,6 +596,8 @@ public class PathValidationUtilsTest {
             assertThat(result).hasName("my_report_final.txt");
         }
 
+        @Tag("unit")
+        @Tag("security")
         @Test
         @DisplayName("should expose validation failures as security exceptions")
         void shouldExposeValidationFailures_asSecurityExceptions() {
@@ -563,6 +605,8 @@ public class PathValidationUtilsTest {
                     .isInstanceOf(SecurityException.class);
         }
 
+        @Tag("unit")
+        @Tag("security")
         @Test
         @DisplayName("should accept file already in destination directory")
         void shouldAcceptFile_whenAlreadyInDestinationDirectory() throws IOException {
@@ -585,6 +629,8 @@ public class PathValidationUtilsTest {
     @DisplayName("Edge Case Tests")
     class EdgeCaseTests {
 
+        @Tag("unit")
+        @Tag("security")
         @Test
         @DisplayName("should handle filenames with special characters")
         void shouldHandleFilenames_whenSpecialCharactersPresent() {
@@ -598,6 +644,8 @@ public class PathValidationUtilsTest {
             assertThat(result.getName()).isEqualTo("file with spaces (1).txt");
         }
 
+        @Tag("unit")
+        @Tag("security")
         @Test
         @DisplayName("should handle very long filenames")
         void shouldHandleVeryLongFilenames() {
@@ -611,6 +659,8 @@ public class PathValidationUtilsTest {
             assertThat(result.getName()).isEqualTo(longName);
         }
 
+        @Tag("unit")
+        @Tag("security")
         @Test
         @DisplayName("should handle Windows-style path separators")
         void shouldHandleWindowsStylePathSeparators() {
@@ -624,6 +674,8 @@ public class PathValidationUtilsTest {
             assertThat(result.getName()).isEqualTo("file.txt");
         }
 
+        @Tag("unit")
+        @Tag("security")
         @Test
         @DisplayName("should handle mixed path separators")
         void shouldHandleMixedPathSeparators() {
@@ -760,6 +812,8 @@ public class PathValidationUtilsTest {
     @Tag("filesystem")
     class SymlinkTests {
 
+        @Tag("unit")
+        @Tag("security")
         @Test
         @DisplayName("should block symlink escape via upload validation")
         void shouldBlockSymlinkEscape_viaUploadValidation() throws IOException {
@@ -790,6 +844,8 @@ public class PathValidationUtilsTest {
                 .isInstanceOf(FileValidationException.class);
         }
 
+        @Tag("unit")
+        @Tag("security")
         @Test
         @DisplayName("should accept symlink when target is within allowed directory")
         void shouldAcceptSymlink_whenTargetIsWithinAllowedDirectory() throws IOException {
