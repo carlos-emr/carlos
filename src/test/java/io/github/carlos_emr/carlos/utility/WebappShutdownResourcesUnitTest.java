@@ -100,6 +100,7 @@ public class WebappShutdownResourcesUnitTest {
         try (URLClassLoader intermediateParentLoader = new URLClassLoader(new URL[0], getClass().getClassLoader());
              ChildFirstTestClassLoader childClassLoader = new ChildFirstTestClassLoader(
                      testClassesUrl, mainClassesUrl, intermediateParentLoader)) {
+            assertThat(childClassLoader.getParent()).isSameAs(intermediateParentLoader);
             Class<?> helperClass = childClassLoader.loadClass(
                     WebappShutdownResourcesUnitTest.class.getName() + "$DriverRegistrationHelper");
             Method registerDriver = helperClass.getMethod("registerDriver");
