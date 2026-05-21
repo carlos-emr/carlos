@@ -26,7 +26,7 @@
     Contains action mappings for BC and Ontario provincial billing, payments, and invoice management.
 -->
 <struts>
-    <package name="billing" namespace="/" extends="struts-default">
+    <package name="billing" namespace="/" extends="struts-default" strict-method-invocation="true">
         <action name="quickBillingBC" class="io.github.carlos_emr.carlos.billings.ca.bc.quickbilling.QuickBillingBC2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/BC/quickBillingBC.jsp</result>
             <result name="searchdx">/WEB-INF/jsp/billing/CA/BC/billingDigNewSearch.jsp</result>
@@ -369,7 +369,7 @@
         </action>
     </package>
 
-    <package name="billing-on" namespace="/" extends="struts-default">
+    <package name="billing-on" namespace="/" extends="struts-default" strict-method-invocation="true">
         <!--
           Package-level exception mapping for BillingValidationException.
           Surfaces a specific, actionable user-facing message rather than the

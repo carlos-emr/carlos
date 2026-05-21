@@ -26,7 +26,7 @@
     Contains action mappings for appointments, ticklers, waiting lists, notifications, contacts, and miscellaneous administrative, billing, reporting, and clinical actions.
 -->
 <struts>
-    <package name="scheduling" namespace="/" extends="struts-default">
+    <package name="scheduling" namespace="/" extends="struts-default" strict-method-invocation="true">
 
         <global-results>
             <result name="securityError">/WEB-INF/jsp/error/securityError.jsp</result>
@@ -82,8 +82,12 @@
         <action name="tickler/DbTicklerDemoMain" class="io.github.carlos_emr.carlos.tickler.pageUtil.DbTicklerDemoMain2Action"/>
         <action name="tickler/DbTicklerMain" class="io.github.carlos_emr.carlos.tickler.pageUtil.DbTicklerMain2Action"/>
         <action name="tickler/ListTicklers" class="io.github.carlos_emr.carlos.tickler.pageUtil.TicklerList2Action"/>
-        <action name="searchProfessionalSpecialist" class="io.github.carlos_emr.carlos.contactRegistry.ProfessionalSpecialist2Action" method="search"/>
-        <action name="getProfessionalSpecialist" class="io.github.carlos_emr.carlos.contactRegistry.ProfessionalSpecialist2Action" method="get"/>
+        <action name="searchProfessionalSpecialist" class="io.github.carlos_emr.carlos.contactRegistry.ProfessionalSpecialist2Action" method="search">
+            <allowed-methods>search</allowed-methods>
+        </action>
+        <action name="getProfessionalSpecialist" class="io.github.carlos_emr.carlos.contactRegistry.ProfessionalSpecialist2Action" method="get">
+            <allowed-methods>get</allowed-methods>
+        </action>
         <action name="demographic/Contact" class="io.github.carlos_emr.carlos.commn.web.Contact2Action">
             <result name="pForm">/WEB-INF/jsp/demographic/addEditProfessionalContact.jsp</result>
             <result name="cForm">/WEB-INF/jsp/demographic/addEditContact.jsp</result>
