@@ -23,6 +23,12 @@ package io.github.carlos_emr.carlos.web;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -46,6 +52,20 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("unit")
 class JspTaglibDeclarationRegressionTest {
     private static final String BASEDIR_PROPERTY = "basedir";
+    private static final Pattern JSP_TEMPLATE_COMMENT = Pattern.compile("<%--.*?--%>", Pattern.DOTALL);
+    private static final Pattern HTML_COMMENT = Pattern.compile("<!--.*?-->", Pattern.DOTALL);
+    private static final Pattern TAGLIB_DIRECTIVE = Pattern.compile("<%@\\s*taglib\\b(.*?)%>", Pattern.DOTALL);
+    private static final Pattern ATTRIBUTE = Pattern.compile("\\b(uri|prefix)\\s*=\\s*(['\"])(.*?)\\2");
+    private static final Pattern SHARED_TAGLIB_INCLUDE = Pattern.compile(
+            "(?s)<%@\\s*include[^>]+file\\s*=\\s*\"[^\"]*(?:taglibs\\.jsp|taglibs\\.jspf|common-taglibs\\.jsp|common-tags\\.jsp)\""
+                    + "|<jsp:include[^>]+page\\s*=\\s*\"[^\"]*(?:taglibs\\.jsp|taglibs\\.jspf|common-taglibs\\.jsp|common-tags\\.jsp)\"");
+    private static final Map<String, Pattern> STANDARD_TAGLIB_URIS = Map.of(
+            "c", Pattern.compile("^(?:http://java\\.sun\\.com/jsp/jstl/core|jakarta\\.tags\\.core)$"),
+            "fmt", Pattern.compile("^(?:http://java\\.sun\\.com/jsp/jstl/fmt|jakarta\\.tags\\.fmt)$"),
+            "fn", Pattern.compile("^(?:http://java\\.sun\\.com/jsp/jstl/functions|jakarta\\.tags\\.functions)$"),
+            "sql", Pattern.compile("^(?:http://java\\.sun\\.com/jsp/jstl/sql|jakarta\\.tags\\.sql)$"),
+            "x", Pattern.compile("^(?:http://java\\.sun\\.com/jsp/jstl/xml|jakarta\\.tags\\.xml)$"));
+    private static final Path WEBAPP_ROOT = resolveProjectPath(Path.of("src/main/webapp"));
     private static final Path JSP_ROOT = resolveProjectPath(Path.of("src/main/webapp/WEB-INF/jsp"));
 
     @Test
@@ -83,8 +103,76 @@ class JspTaglibDeclarationRegressionTest {
                 .containsPattern("<fmt:message\\s+key=\"provider\\.appointmentProviderAdminDay\\.btnE\"\\s*/>");
     }
 
+    @Test
+    @DisplayName("should declare every used standard JSTL taglib prefix reported by check-jsp-taglibs.sh")
+    void shouldDeclareEveryUsedStandardTaglib_forRepositoryReport() throws Exception {
+        List<String> missingDeclarations = new ArrayList<>();
+
+        try (Stream<Path> files = Files.walk(WEBAPP_ROOT)) {
+            files.filter(Files::isRegularFile)
+                    .filter(JspTaglibDeclarationRegressionTest::isJspAsset)
+                    .filter(path -> !path.getFileName().toString().matches(".*(?:taglibs\\.jsp|taglibs\\.jspf|common-taglibs\\.jsp|common-tags\\.jsp).*"))
+                    .forEach(path -> collectMissingStandardTaglibs(path, missingDeclarations));
+        }
+
+        assertThat(missingDeclarations).isEmpty();
+    }
+
     private static String readJsp(String relativePath) throws Exception {
         return Files.readString(JSP_ROOT.resolve(relativePath));
+    }
+
+    private static boolean isJspAsset(Path path) {
+        String fileName = path.getFileName().toString();
+        return fileName.endsWith(".jsp") || fileName.endsWith(".jspf") || fileName.endsWith(".tag");
+    }
+
+    private static void collectMissingStandardTaglibs(Path path, List<String> missingDeclarations) {
+        try {
+            String jsp = stripTemplateComments(Files.readString(path));
+            if (SHARED_TAGLIB_INCLUDE.matcher(jsp).find()) {
+                return;
+            }
+            for (Map.Entry<String, Pattern> taglib : STANDARD_TAGLIB_URIS.entrySet()) {
+                String prefix = taglib.getKey();
+                if (usesPrefix(jsp, prefix) && !declaresPrefix(jsp, prefix, taglib.getValue())) {
+                    missingDeclarations.add(WEBAPP_ROOT.relativize(path) + " missing " + prefix);
+                }
+            }
+        } catch (Exception e) {
+            throw new IllegalStateException("Unable to inspect " + path, e);
+        }
+    }
+
+    private static String stripTemplateComments(String jsp) {
+        return HTML_COMMENT.matcher(JSP_TEMPLATE_COMMENT.matcher(jsp).replaceAll("")).replaceAll("");
+    }
+
+    private static boolean usesPrefix(String jsp, String prefix) {
+        Pattern usage = Pattern.compile("(?is)<\\s*" + Pattern.quote(prefix) + "\\s*:|\\$\\{[^}]*\\b"
+                + Pattern.quote(prefix) + ":");
+        return usage.matcher(jsp).find();
+    }
+
+    private static boolean declaresPrefix(String jsp, String prefix, Pattern uriPattern) {
+        Matcher taglibMatcher = TAGLIB_DIRECTIVE.matcher(jsp);
+        while (taglibMatcher.find()) {
+            String directiveAttributes = taglibMatcher.group(1);
+            String directivePrefix = null;
+            String directiveUri = null;
+            Matcher attributeMatcher = ATTRIBUTE.matcher(directiveAttributes);
+            while (attributeMatcher.find()) {
+                if ("prefix".equals(attributeMatcher.group(1))) {
+                    directivePrefix = attributeMatcher.group(3);
+                } else if ("uri".equals(attributeMatcher.group(1))) {
+                    directiveUri = attributeMatcher.group(3);
+                }
+            }
+            if (prefix.equals(directivePrefix) && directiveUri != null && uriPattern.matcher(directiveUri).matches()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static Path resolveProjectPath(Path relativePath) {

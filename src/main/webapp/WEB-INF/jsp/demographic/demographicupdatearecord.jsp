@@ -38,6 +38,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <fmt:setBundle basename="oscarResources"/>
 <html>
 <head>

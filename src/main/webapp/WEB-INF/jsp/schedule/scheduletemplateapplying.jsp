@@ -81,6 +81,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <html lang="<%= SafeEncode.forHtmlAttribute(request.getLocale().toLanguageTag()) %>">
 
     <%

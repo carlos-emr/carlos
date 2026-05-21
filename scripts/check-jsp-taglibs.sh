@@ -41,7 +41,7 @@ TAGLIB_INCLUDES="taglibs\.jsp|taglibs\.jspf|common-taglibs\.jsp|common-tags\.jsp
 
 # Strip HTML and JSP comment blocks before running structural checks.
 strip_template_comments() {
-    sed -E '/<!--/,/-->/d; /<%--/,/--%>/d' "$1"
+    perl -0pe 's/<!--.*?-->//gs; s/<%--.*?--%>//gs' "$1"
 }
 
 resolve_include_path() {

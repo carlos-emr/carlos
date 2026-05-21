@@ -1,5 +1,8 @@
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%-- Row Two: Ongoing Concerns, Reminders --%>
 <div class="encounter-card card mb-1" id="rowTwo">
     <div class="card-header d-flex align-items-center">
