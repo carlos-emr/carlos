@@ -69,6 +69,8 @@ class DemographicEditJspSplitRegressionTest {
     private static final Pattern JSP_INCLUDE = Pattern.compile("(?is)<jsp:include\\b([^>]*)/\\s*>");
     private static final Pattern JSP_PAGE_ATTRIBUTE = Pattern.compile("\\bpage\\s*=\\s*(['\"])(.*?)\\1");
     private static final Pattern JSP_PARAM = Pattern.compile("(?is)<jsp:param\\b[^>]*/\\s*>");
+    private static final Set<String> REQUIRED_EDIT_FRAGMENTS = Set.of(
+            "edit-view.jsp", "edit-form-personal.jsp", "edit-form-clinical.jsp");
 
     @Test
     @DisplayName("should keep legacy JSP target as tiny forward wrapper")
@@ -123,8 +125,9 @@ class DemographicEditJspSplitRegressionTest {
         Set<String> editFragmentIncludes = jspIncludePages(masterJsp);
         editFragmentIncludes.removeIf(page -> !page.startsWith("edit-") || !page.endsWith(".jsp"));
 
+        // These fragments are the split contract that keeps the generated _jspService methods below the JVM limit.
         assertThat(editFragmentIncludes)
-                .containsExactlyInAnyOrder("edit-view.jsp", "edit-form-personal.jsp", "edit-form-clinical.jsp");
+                .containsExactlyInAnyOrderElementsOf(REQUIRED_EDIT_FRAGMENTS);
     }
 
     private static String removeJspCommentsAndDirectives(String jsp) {
