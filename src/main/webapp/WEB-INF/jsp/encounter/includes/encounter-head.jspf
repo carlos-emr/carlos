@@ -3,6 +3,8 @@
     <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.title"/> - <oscar:nameage
                 demographicNo="${bean.demographicNo}"/></title>

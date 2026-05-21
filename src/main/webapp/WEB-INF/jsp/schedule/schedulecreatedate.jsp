@@ -75,6 +75,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.RScheduleDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ScheduleHoliday" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleHolidayDao" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%
     ScheduleDateDao scheduleDateDao = SpringUtils.getBean(ScheduleDateDao.class);
