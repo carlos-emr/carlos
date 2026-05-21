@@ -119,7 +119,7 @@ var cfg_width = 720;				// editor control width in pixels
 var cfg_height = 500;				// editor control height in pixels
 var cfg_editorname ="edit";		// handle for the editor control itself
 var cfg_bstyle = 'width:24px;height:24px;border: solid 2px #ccccff; background-color: #ccccff;'; 	//the CSS of the button elements
-var formIsRTL;					// global RTL form flag; declared before API reference usage
+var formIsRTL = false;				// indicates RTL eForm type; referenced by external consumers
 var cfg_boutstyle = 'solid 2px #ccccff'; 	//the CSS of the button elements om mouse out
 var cfg_sstyle = 'vertical-align: top; height:24px;';//the CSS of the option select box.  Selects will take font and background but not border.
 var cfg_sepstyle = 'width:6px;height:24px;border: solid 2px #ccccff; background-color: #ccccff;';	//the CSS of the seperator icon
@@ -486,15 +486,20 @@ function parseText(obs) {
  */
 function doHtml(value) {
 	var editorDoc = document.getElementById(cfg_editorname).contentWindow.document;
+	var safeValue = sanitizeHtml(value);
 
 	// Insert at cursor using the Selection/Range API
 	var sel = editorDoc.getSelection ? editorDoc.getSelection() : null;
 	if (sel && sel.rangeCount > 0) {
 		var range = sel.getRangeAt(0);
 		range.deleteContents();
-		// createContextualFragment parses the HTML string into DOM nodes
-		var frag = range.createContextualFragment(value);
-		range.insertNode(frag);
+		if (safeValue !== null) {
+			// createContextualFragment parses the sanitized HTML string into DOM nodes
+			var frag = range.createContextualFragment(safeValue);
+			range.insertNode(frag);
+		} else {
+			range.insertNode(editorDoc.createTextNode(value));
+		}
 		// Move cursor to end of inserted content so subsequent inserts append
 		range.collapse(false);
 		sel.removeAllRanges();
@@ -502,7 +507,6 @@ function doHtml(value) {
 	} else {
 		// No selection/cursor — append to end of document body.
 		// Sanitize via centralized helper; null means DOMPurify unavailable → fail closed with textContent.
-		var safeValue = sanitizeHtml(value);
 		if (safeValue !== null) {
 			var appendRange = editorDoc.createRange();
 			appendRange.selectNodeContents(editorDoc.body);
@@ -636,17 +640,22 @@ function viewsource(source) {
 		// Read the raw HTML source text that was being edited in source view
 		var sourceText = document.getElementById(cfg_editorname).contentWindow.document.body.textContent;
 		var convertedHtml = jQuery().convertImagePaths(sourceText);
+		var safeConvertedHtml = sanitizeHtml(convertedHtml);
 		// Use DOMParser to reconstruct the DOM from the source view HTML, preventing
 		// DOM text from being reinterpreted as HTML without going through a parser context
-		var parser = new DOMParser();
-		var parsedDoc = parser.parseFromString('<!DOCTYPE html><html><body>' + convertedHtml + '</body></html>', 'text/html');
 		var editorBody = document.getElementById(cfg_editorname).contentWindow.document.body;
 		editorBody.textContent = '';
-		var fragment = document.getElementById(cfg_editorname).contentWindow.document.createDocumentFragment();
-		Array.prototype.forEach.call(parsedDoc.body.childNodes, function (node) {
-			fragment.appendChild(editorBody.ownerDocument.importNode(node, true));
-		});
-		editorBody.appendChild(fragment);
+		if (safeConvertedHtml !== null) {
+			var parser = new DOMParser();
+			var parsedDoc = parser.parseFromString('<!DOCTYPE html><html><body>' + safeConvertedHtml + '</body></html>', 'text/html');
+			var fragment = document.getElementById(cfg_editorname).contentWindow.document.createDocumentFragment();
+			Array.prototype.forEach.call(parsedDoc.body.childNodes, function (node) {
+				fragment.appendChild(editorBody.ownerDocument.importNode(node, true));
+			});
+			editorBody.appendChild(fragment);
+		} else {
+			editorBody.textContent = convertedHtml;
+		}
 		document.getElementById("control1").style.visibility="visible";
 		document.getElementById("control2").style.visibility="visible";
 		document.getElementById("control3").style.visibility="visible";
@@ -1599,5 +1608,4 @@ _global.saveAs = saveAs.saveAs = saveAs
 if (typeof module !== 'undefined') {
   module.exports = saveAs;
 }
-
 
