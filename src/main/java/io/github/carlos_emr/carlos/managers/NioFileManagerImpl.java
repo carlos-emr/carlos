@@ -322,7 +322,9 @@ public class NioFileManagerImpl implements NioFileManager {
 
             // Additional check - ensure we're not deleting directories
             if (Files.isDirectory(normalizedPath)) {
-                log.error("Attempt to delete a directory instead of a file: {}", LogSanitizer.sanitize(fileName));
+                if (log.isErrorEnabled()) {
+                    log.error("Attempt to delete a directory instead of a file: {}", LogSafe.sanitize(fileName));
+                }
                 return false;
             }
 
@@ -437,7 +439,9 @@ public class NioFileManagerImpl implements NioFileManager {
                 return false;
             }
             if (!tempFile.isFile()) {
-                log.error("Attempt to delete a non-file temp path: {}", LogSanitizer.sanitize(fileName));
+                if (log.isErrorEnabled()) {
+                    log.error("Attempt to delete a non-file temp path: {}", LogSafe.sanitize(fileName));
+                }
                 throw new SecurityException("Temp deletion target must be a regular file");
             }
             return tempFile.deleteIfExists();
@@ -529,8 +533,10 @@ public class NioFileManagerImpl implements NioFileManager {
             if (destinationFile.exists()) {
                 try {
                     if (!deleteTempFile(sourceFile.getPath())) {
-                        log.warn("Copied file to OscarDocuments but could not delete temp source: {}",
-                                LogSanitizer.sanitize(sourceFile.getPath()));
+                        if (log.isWarnEnabled()) {
+                            log.warn("Copied file to OscarDocuments but could not delete temp source: {}",
+                                    LogSafe.sanitize(sourceFile.getPath()));
+                        }
                     }
                 } catch (SecurityException e) {
                     log.warn("Copied file to OscarDocuments but temp source cleanup was rejected: {}",

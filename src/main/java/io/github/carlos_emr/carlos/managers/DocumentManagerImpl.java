@@ -67,6 +67,7 @@ import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ImagePDFCreator;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 /**
@@ -563,7 +564,9 @@ public class DocumentManagerImpl implements DocumentManager {
         // Reject filenames containing path separators. Stored filenames are plain basenames;
         // silently stripping a subdirectory component could resolve to a different file.
         if (filename.contains("/") || filename.contains("\\")) {
-            logger.error("Document filename contains path separator, rejected: {}", LogSanitizer.sanitize(filename));
+            if (logger.isErrorEnabled()) {
+                logger.error("Document filename contains path separator, rejected: {}", LogSafe.sanitize(filename));
+            }
             return null;
         }
 

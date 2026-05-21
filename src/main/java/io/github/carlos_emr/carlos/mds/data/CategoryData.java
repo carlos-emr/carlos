@@ -342,16 +342,16 @@ public class CategoryData {
                 String sql = " SELECT HIGH_PRIORITY COUNT(1) as count "
                         + " FROM patientLabRouting cd, demographic d, providerLabRouting plr, hl7TextInfo info "
                         + " WHERE d.last_name" + (StringUtils.isEmpty(patientLastName) ? " IS NOT NULL " : " like ?  ")
-                        + " \tAND d.first_name" + (StringUtils.isEmpty(patientFirstName) ? " IS NOT NULL " : " like ? ")
-                        + " \tAND d.hin" + (StringUtils.isEmpty(patientHealthNumber) ? " IS NOT NULL " : " like ? ")
-                        + " \tAND plr.status " + (statusFilterIsEmpty() ? " IS NOT NULL " : " = ? ")
+                        + " AND d.first_name" + (StringUtils.isEmpty(patientFirstName) ? " IS NOT NULL " : " like ? ")
+                        + " AND d.hin" + (StringUtils.isEmpty(patientHealthNumber) ? " IS NOT NULL " : " like ? ")
+                        + " AND plr.status " + (statusFilterIsEmpty() ? " IS NOT NULL " : " = ? ")
                         + (providerSearch ? "AND plr.provider_no = ? " : "")
-                        + " \tAND plr.lab_type = 'HL7' "
-                        + " \tAND cd.lab_type = 'HL7' "
-                        + " \tAND cd.lab_no = plr.lab_no "
-                        + " \tAND cd.demographic_no = d.demographic_no "
-                        + " \tAND info.lab_no = plr.lab_no "
-                        + " \tAND result_status " + (isAbnormal ? "" : "!") + "= 'A' ";
+                        + " AND plr.lab_type = 'HL7' "
+                        + " AND cd.lab_type = 'HL7' "
+                        + " AND cd.lab_no = plr.lab_no "
+                        + " AND cd.demographic_no = d.demographic_no "
+                        + " AND info.lab_no = plr.lab_no "
+                        + " AND result_status " + (isAbnormal ? "" : "!") + "= 'A' ";
                 try (PreparedStatement ps = c.prepareStatement(sql)) { // NOSONAR java:S2077 - SQL fragments are fixed application branches; values are bound below.
                     int paramIndex = 1;
                     if (!StringUtils.isEmpty(patientLastName)) ps.setString(paramIndex++, "%" + patientLastName + "%");
@@ -403,7 +403,7 @@ public class CategoryData {
                 + " WHERE plr.lab_type = 'DOC' "
                 + " AND plr.status " + (statusFilterIsEmpty() ? " IS NOT NULL " : " = ? ")
                 + (providerSearch ? " AND plr.provider_no = ? " : "")
-                + " AND 	cd.module_id = -1 "
+                + " AND cd.module_id = -1 "
                 + documentAbnormalSql
                 + documentDateSql;
         try (Connection c = DbConnectionFilter.getThreadLocalDbConnection();
@@ -429,11 +429,11 @@ public class CategoryData {
                 + " LEFT JOIN hl7TextInfo info ON cd.lab_no = info.lab_no"
                 + (dateSearchType.equals("receivedCreated") ? " LEFT JOIN hl7TextMessage message ON cd.lab_no = message.lab_id" : "")
                 + " WHERE   d.last_name" + (StringUtils.isEmpty(patientLastName) ? " IS NOT NULL " : "  like ? ")
-                + " 	AND d.first_name" + (StringUtils.isEmpty(patientFirstName) ? " IS NOT NULL " : " like ? ")
-                + " 	AND d.hin" + (StringUtils.isEmpty(patientHealthNumber) ? " IS NOT NULL " : " like ? ")
-                + " 	AND plr.lab_type = 'HL7' "
-                + " 	AND cd.lab_type = 'HL7' "
-                + " 	AND plr.status " + (statusFilterIsEmpty() ? " IS NOT NULL " : " = ? ")
+                + " AND d.first_name" + (StringUtils.isEmpty(patientFirstName) ? " IS NOT NULL " : " like ? ")
+                + " AND d.hin" + (StringUtils.isEmpty(patientHealthNumber) ? " IS NOT NULL " : " like ? ")
+                + " AND plr.lab_type = 'HL7' "
+                + " AND cd.lab_type = 'HL7' "
+                + " AND plr.status " + (statusFilterIsEmpty() ? " IS NOT NULL " : " = ? ")
                 + (dateSearchType.equals("receivedCreated") ? " AND message.lab_id IS NOT NULL " : " AND info.lab_no IS NOT NULL ")
                 + (providerSearch ? " AND plr.provider_no = ? " : "")
                 + labAbnormalSql
@@ -534,10 +534,10 @@ public class CategoryData {
                 + "LEFT JOIN providerLabRouting plr ON cd.document_no = plr.lab_no "
                 + documentJoinSql
                 + " WHERE   d.last_name" + (StringUtils.isEmpty(patientLastName) ? " IS NOT NULL " : " like ?  ")
-                + " 	AND d.hin" + (StringUtils.isEmpty(patientHealthNumber) ? " IS NOT NULL " : " like ? ")
-                + " 	AND d.first_name" + (StringUtils.isEmpty(patientFirstName) ? " IS NOT NULL " : " like ? ")
-                + " 	AND plr.lab_type = 'DOC' "
-                + " 	AND plr.status " + (statusFilterIsEmpty() ? " IS NOT NULL " : " = ? ")
+                + " AND d.hin" + (StringUtils.isEmpty(patientHealthNumber) ? " IS NOT NULL " : " like ? ")
+                + " AND d.first_name" + (StringUtils.isEmpty(patientFirstName) ? " IS NOT NULL " : " like ? ")
+                + " AND plr.lab_type = 'DOC' "
+                + " AND plr.status " + (statusFilterIsEmpty() ? " IS NOT NULL " : " = ? ")
                 + (providerSearch ? "AND plr.provider_no = ? " : "")
                 + documentAbnormalSql
                 + documentDateSql

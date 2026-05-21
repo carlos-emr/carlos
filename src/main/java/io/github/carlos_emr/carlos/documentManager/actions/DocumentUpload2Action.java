@@ -52,7 +52,6 @@ import io.github.carlos_emr.carlos.documentManager.IncomingDocUtil;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -128,11 +127,8 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
         } else {
             try {
                 docFile = ValidatedUpload.from(uploadedFile);
-            } catch (FileValidationException e) {
-                logger.error("Invalid upload source - potential path traversal: {}", LogSanitizer.sanitize(uploadedFile.getOriginalName()));
-                map.put("error", "Invalid file upload");
             } catch (SecurityException e) {
-                logger.error("Invalid upload source - potential path traversal: {}", LogSanitizer.sanitize(uploadedFile.getOriginalName()));
+                logger.error("Invalid upload source - potential path traversal: {}", LogSafe.sanitize(uploadedFile.getOriginalName()));
                 map.put("error", "Invalid file upload");
             }
         }
@@ -155,7 +151,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                         boolean success = writeToIncomingDocs(docFile, queueId, destFolder, sanitizedFileName);
                         if (!success) {
                             map.put("error", "Failed to write file. Please contact administrator");
-                            MiscUtils.getLogger().error("Failed to write file to {}", LogSanitizer.sanitize(destFolder)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                            MiscUtils.getLogger().error("Failed to write file to {}", LogSafe.sanitize(destFolder)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                         } else {
                             map.put("name", sanitizedFileName);
                             map.put("size", docFile.length());
@@ -283,9 +279,9 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
      *
      * @param docFile  the uploaded file
      * @param fileName the name for the file on disk
-     * @throws Exception when an error occurs
+     * @throws IOException when an error occurs while writing the file
      */
-    private File writeLocalFile(ValidatedUpload docFile, String fileName) throws Exception {
+    private File writeLocalFile(ValidatedUpload docFile, String fileName) throws IOException {
         String documentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         if (!documentDir.endsWith(File.separator)) {
             documentDir += File.separator;
@@ -316,7 +312,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                 return destinationFile;
             } catch (FileAlreadyExistsException e) {
                 lastCollision = e;
-            } catch (Exception e) {
+            } catch (IOException | RuntimeException e) {
                 logger.error("Error writing local file", e);
                 throw e;
             } finally {
@@ -383,7 +379,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             Files.delete(copiedDocumentFile.toPath());
         } catch (IOException e) {
             if (logger.isWarnEnabled()) {
-                logger.warn("Unable to delete unpersisted document file: {}", LogSanitizer.sanitize(copiedDocumentFile.getPath()), e);
+                logger.warn("Unable to delete unpersisted document file: {}", LogSafe.sanitize(copiedDocumentFile.getPath()), e);
             }
         }
     }

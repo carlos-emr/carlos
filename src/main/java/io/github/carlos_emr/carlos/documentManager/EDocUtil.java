@@ -81,6 +81,7 @@ import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -1339,7 +1340,9 @@ public final class EDocUtil {
             // This handles stale data from different environments gracefully
             Path inputPath = Paths.get(fileName);
             if (inputPath.isAbsolute() && !Files.exists(inputPath)) {
-                logger.debug("File not found (may be from different environment): {}", LogSanitizer.sanitize(fileName, 1024));
+                if (logger.isDebugEnabled()) {
+                    logger.debug("File not found (may be from different environment): {}", LogSafe.sanitize(fileName, 1024));
+                }
                 return 0;
             }
             // resolvePath validates the path is within allowed directories
@@ -1353,7 +1356,9 @@ public final class EDocUtil {
                     logger.error("Could not read PDF file: {}", LogSanitizer.sanitize(fileName, 1024), e);
                 }
             } else {
-                logger.warn("File {} not found for page count.", LogSanitizer.sanitize(fileName, 1024));
+                if (logger.isWarnEnabled()) {
+                    logger.warn("File {} not found for page count.", LogSafe.sanitize(fileName, 1024));
+                }
             }
         } catch (SecurityException e) {
             logger.error("Security violation: Attempted to access file outside allowed directory: {}", LogSanitizer.sanitize(fileName, 1024), e);
