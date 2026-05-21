@@ -119,7 +119,7 @@ var cfg_width = 720;				// editor control width in pixels
 var cfg_height = 500;				// editor control height in pixels
 var cfg_editorname ="edit";		// handle for the editor control itself
 var cfg_bstyle = 'width:24px;height:24px;border: solid 2px #ccccff; background-color: #ccccff;'; 	//the CSS of the button elements
-var formIsRTL = false;				// indicates RTL eForm type; referenced by external consumers
+var formIsRTL = false;				// efmshowform_data reads this global to detect RTL eForms
 var cfg_boutstyle = 'solid 2px #ccccff'; 	//the CSS of the button elements om mouse out
 var cfg_sstyle = 'vertical-align: top; height:24px;';//the CSS of the option select box.  Selects will take font and background but not border.
 var cfg_sepstyle = 'width:6px;height:24px;border: solid 2px #ccccff; background-color: #ccccff;';	//the CSS of the seperator icon
@@ -486,6 +486,7 @@ function parseText(obs) {
  */
 function doHtml(value) {
 	var editorDoc = document.getElementById(cfg_editorname).contentWindow.document;
+	// Sidebar/APCache HTML is untrusted and must be sanitized before DOM insertion.
 	var safeValue = sanitizeHtml(value);
 
 	// Insert at cursor using the Selection/Range API
@@ -1608,4 +1609,3 @@ _global.saveAs = saveAs.saveAs = saveAs
 if (typeof module !== 'undefined') {
   module.exports = saveAs;
 }
-

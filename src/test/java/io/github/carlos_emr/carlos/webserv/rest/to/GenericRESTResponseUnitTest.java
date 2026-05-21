@@ -90,13 +90,10 @@ class GenericRESTResponseUnitTest {
 
         assertThat(json.get("status").asText()).isEqualTo("SUCCESS");
         assertThat(json.get("body").asText()).isEqualTo("payload");
-        assertThat(json.get("error")).isNotNull();
-        assertThat(json.get("error").isNull()).isTrue();
-        JsonNode headers = json.get("headers");
-        assertThat(headers).isNotNull();
-        assertThat(headers.get("buildDate")).isNotNull();
-        assertThat(headers.get("buildDate").asText()).isEqualTo("2026-05-07");
-        assertThat(headers.get("buildTag")).isNotNull();
-        assertThat(headers.get("buildTag").asText()).isEqualTo("test");
+        assertThat(json.path("error").isNull()).isTrue();
+        JsonNode headers = json.path("headers");
+        assertThat(headers.isMissingNode()).isFalse();
+        assertThat(headers.path("buildDate").asText()).isEqualTo("2026-05-07");
+        assertThat(headers.path("buildTag").asText()).isEqualTo("test");
     }
 }
