@@ -59,7 +59,7 @@ public final class BillingDeleteNoAppt2Action extends ActionSupport {
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
-            throw new SecurityException("missing required sec object (_billing)");
+            throw new SecurityException("missing required security object: _billing");
         }
 
         String billCode = request.getParameter("billCode");

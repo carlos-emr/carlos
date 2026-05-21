@@ -67,7 +67,7 @@ public class BillingOnPayment2Action extends ActionSupport {
             throw new SecurityException("missing session");
         }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_tasks", "r", null)) {
-            throw new SecurityException("missing required sec object (_tasks)");
+            throw new SecurityException("missing required security object: _tasks");
         }
 
         // Self-posting form: require POST when submit-action params are present;

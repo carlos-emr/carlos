@@ -62,12 +62,12 @@ public final class ViewAppointment2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null) {
             MiscUtils.getLogger().warn("Denied appointment read: no session");
-            throw new SecurityException("missing required sec object (_appointment r)");
+            throw new SecurityException("missing required security object: _appointment r");
         }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "r", null)) {
             MiscUtils.getLogger().warn("Denied appointment read: provider={} lacks _appointment r",
                     loggedInInfo.getLoggedInProviderNo());
-            throw new SecurityException("missing required sec object (_appointment r)");
+            throw new SecurityException("missing required security object: _appointment r");
         }
 
         String method = request.getMethod();

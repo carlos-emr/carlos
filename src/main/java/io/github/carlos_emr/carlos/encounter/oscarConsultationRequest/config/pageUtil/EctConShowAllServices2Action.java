@@ -51,11 +51,12 @@ public class EctConShowAllServices2Action extends ActionSupport {
 
     private static SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    @Override
     public String execute()
             throws ServletException, IOException {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_con", "r", null)) {
-            throw new SecurityException("missing required sec object (_con)");
+            throw new SecurityException("missing required security object: _con");
         }
 
         String serviceId = this.getServiceId();

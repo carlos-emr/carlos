@@ -63,9 +63,10 @@ public class AddEditHtml2Action extends ActionSupport {
     /**
      * Creates a new instance of AddLinkAction
      */
+    @Override
     public String execute() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
-            throw new SecurityException("missing required sec object (_edoc)");
+            throw new SecurityException("missing required security object: _edoc");
         }
 
         Hashtable errors = new Hashtable();

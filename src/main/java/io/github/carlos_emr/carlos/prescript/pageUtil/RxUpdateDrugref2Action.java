@@ -68,10 +68,11 @@ public class RxUpdateDrugref2Action extends ActionSupport {
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    @Override
     public String execute() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", null)) {
-            throw new SecurityException("missing required sec object (_rx)");
+            throw new SecurityException("missing required security object: _rx");
         }
 
         if ("updateDB".equals(request.getParameter("method"))) {

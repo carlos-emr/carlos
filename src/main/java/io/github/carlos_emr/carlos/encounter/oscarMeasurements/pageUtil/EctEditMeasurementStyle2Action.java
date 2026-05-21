@@ -57,6 +57,7 @@ public class EctEditMeasurementStyle2Action extends ActionSupport {
     private MeasurementGroupStyleDao dao = SpringUtils.getBean(MeasurementGroupStyleDao.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    @Override
     public String execute()
             throws ServletException, IOException {
 
@@ -77,7 +78,7 @@ public class EctEditMeasurementStyle2Action extends ActionSupport {
             return "continue";
 
         } else {
-            throw new SecurityException("Access Denied!"); //missing required sec object (_admin)
+            throw new SecurityException("Access Denied!"); //missing required security object: _admin
         }
 
     }

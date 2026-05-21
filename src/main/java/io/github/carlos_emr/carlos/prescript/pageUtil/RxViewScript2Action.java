@@ -52,12 +52,13 @@ public final class RxViewScript2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    @Override
     public String execute()
             throws IOException, ServletException {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "r", null)) {
-            throw new RuntimeException("missing required sec object (_rx)");
+            throw new RuntimeException("missing required security object: _rx");
         }
 
         // Setup variables

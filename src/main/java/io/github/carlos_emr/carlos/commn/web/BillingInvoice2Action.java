@@ -62,6 +62,7 @@ public class BillingInvoice2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    @Override
     public String execute() throws Exception {
         String method = request.getParameter("method");
         if ("getPrintPDF".equals(method)) {
@@ -80,7 +81,7 @@ public class BillingInvoice2Action extends ActionSupport {
         String invoiceNo = request.getParameter("invoiceNo");
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_billing", "r", null)) {
-            throw new SecurityException("missing required sec object (_billing)");
+            throw new SecurityException("missing required security object: _billing");
         }
 
 
@@ -142,7 +143,7 @@ public class BillingInvoice2Action extends ActionSupport {
     public String getListPrintPDF() throws IOException {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_billing", "r", null)) {
-            throw new SecurityException("missing required sec object (_billing)");
+            throw new SecurityException("missing required security object: _billing");
         }
 
         String[] invoiceNos = request.getParameterValues("invoiceAction");
@@ -204,7 +205,7 @@ public class BillingInvoice2Action extends ActionSupport {
     public String sendEmail() {
         throw new UnsupportedOperationException("This method is no longer supported.");
         //  if(!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_billing", "w", null)) {
-        //  	throw new SecurityException("missing required sec object (_billing)");
+        //  	throw new SecurityException("missing required security object: _billing");
         //  }
 
         // String invoiceNoStr = request.getParameter("invoiceNo");
@@ -232,7 +233,7 @@ public class BillingInvoice2Action extends ActionSupport {
     public String sendListEmail() {
         throw new UnsupportedOperationException("This method is no longer supported.");
         //  if(!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_billing", "w", null)) {
-        //  	throw new SecurityException("missing required sec object (_billing)");
+        //  	throw new SecurityException("missing required security object: _billing");
         //  }
 
         // String actionResult = "failure";       

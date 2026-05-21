@@ -67,7 +67,7 @@ public final class ViewGenTeleplanGroupReport2Action extends ActionSupport {
         boolean hasAdminReporting = securityInfoManager.hasPrivilege(loggedInInfo, "_admin.reporting", "r", null);
         boolean hasAdmin = securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null);
         if (!hasReport && !hasAdminReporting && !hasAdmin) {
-            throw new SecurityException("missing required sec object (_report, _admin.reporting, or _admin)");
+            throw new SecurityException("missing required security object: _report, _admin.reporting, or _admin");
         }
 
         return SUCCESS;

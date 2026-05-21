@@ -64,7 +64,7 @@ public class EditBillingPaymentType2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.billing", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin.billing)");
+            throw new SecurityException("missing required security object: _admin.billing");
         }
 
         request.setAttribute("paymentTypeModel", assembler.assemble(request, loggedInInfo));

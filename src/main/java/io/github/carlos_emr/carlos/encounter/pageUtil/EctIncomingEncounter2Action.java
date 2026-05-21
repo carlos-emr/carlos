@@ -102,6 +102,7 @@ public class EctIncomingEncounter2Action extends ActionSupport {
     private CaseManagementManager caseManagementMgr = SpringUtils.getBean(CaseManagementManager.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    @Override
     public String execute() throws IOException, ServletException {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
@@ -109,7 +110,7 @@ public class EctIncomingEncounter2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
-            throw new SecurityException("missing required sec object (_demographic)");
+            throw new SecurityException("missing required security object: _demographic");
         }
 
         String demoNo = request.getParameter("demographicNo");

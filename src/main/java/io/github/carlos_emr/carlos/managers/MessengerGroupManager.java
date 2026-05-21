@@ -72,7 +72,7 @@ public class MessengerGroupManager {
      */
     public List<Groups> getGroups(LoggedInInfo loggedInInfo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", SecurityInfoManager.READ, null)) {
-            throw new SecurityException("missing required sec object (_admin)");
+            throw new SecurityException("missing required security object: _admin");
         }
 
         int available = groupsDao.getCountAll();
@@ -88,7 +88,7 @@ public class MessengerGroupManager {
      */
     public Map<String, List<MsgProviderData>> getAllMembers(LoggedInInfo loggedInInfo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", SecurityInfoManager.READ, null)) {
-            throw new SecurityException("missing required sec object (_admin)");
+            throw new SecurityException("missing required security object: _admin");
         }
 
         Map<String, List<MsgProviderData>> allMembers = new TreeMap<String, List<MsgProviderData>>();
@@ -108,7 +108,7 @@ public class MessengerGroupManager {
      */
     public List<MsgProviderData> getAllLocalMembers(LoggedInInfo loggedInInfo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", SecurityInfoManager.READ, null)) {
-            throw new SecurityException("missing required sec object (_admin)");
+            throw new SecurityException("missing required security object: _admin");
         }
 
         // default facility Id for local members is 0
@@ -143,7 +143,7 @@ public class MessengerGroupManager {
      */
     public Map<Groups, List<MsgProviderData>> getAllGroupsWithMembers(LoggedInInfo loggedInInfo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", SecurityInfoManager.READ, null)) {
-            throw new SecurityException("missing required sec object (_admin)");
+            throw new SecurityException("missing required security object: _admin");
         }
 
         Map<Groups, List<MsgProviderData>> groupsMap = new TreeMap<Groups, List<MsgProviderData>>();
@@ -165,7 +165,7 @@ public class MessengerGroupManager {
      */
     public List<MsgProviderData> getGroupMembers(LoggedInInfo loggedInInfo, int groupId) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", SecurityInfoManager.READ, null)) {
-            throw new SecurityException("missing required sec object (_admin)");
+            throw new SecurityException("missing required security object: _admin");
         }
 
         List<GroupMembers> groupMembers = Collections.emptyList();
@@ -205,7 +205,7 @@ public class MessengerGroupManager {
      */
     public MsgProviderData getMemberData(LoggedInInfo loggedInInfo, GroupMembers groupMember) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", SecurityInfoManager.READ, null)) {
-            throw new SecurityException("missing required sec object (_admin)");
+            throw new SecurityException("missing required security object: _admin");
         }
 
         return getMemberData(loggedInInfo, groupMember.getFacilityId(), groupMember.getProviderNo());
@@ -213,7 +213,7 @@ public class MessengerGroupManager {
 
     public MsgProviderData getMemberData(LoggedInInfo loggedInInfo, ContactIdentifier contactIdentifier) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", SecurityInfoManager.READ, null)) {
-            throw new SecurityException("missing required sec object (_admin)");
+            throw new SecurityException("missing required security object: _admin");
         }
 
         return getMemberData(loggedInInfo, contactIdentifier.getFacilityId(), contactIdentifier.getContactId());
@@ -238,7 +238,7 @@ public class MessengerGroupManager {
      */
     public MsgProviderData getLocalMember(LoggedInInfo loggedInInfo, String providerNo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", SecurityInfoManager.READ, null)) {
-            throw new SecurityException("missing required sec object (_admin)");
+            throw new SecurityException("missing required security object: _admin");
         }
         MsgProviderData msgProviderData = null;
         Provider provider = providerManager.getProviderIfActive(loggedInInfo, providerNo);
@@ -284,7 +284,7 @@ public class MessengerGroupManager {
      */
     public Map<String, List<MsgProviderData>> getAllMessengerContacts(LoggedInInfo loggedInInfo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.READ, null)) {
-            throw new SecurityException("missing required sec object (_admin)");
+            throw new SecurityException("missing required security object: _admin");
         }
 
         Map<String, List<MsgProviderData>> providersMap = new TreeMap<String, List<MsgProviderData>>();
@@ -303,7 +303,7 @@ public class MessengerGroupManager {
      */
     public List<MsgProviderData> getAllLocalMessengerContactList(LoggedInInfo loggedInInfo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.READ, null)) {
-            throw new SecurityException("missing required sec object (_admin)");
+            throw new SecurityException("missing required security object: _admin");
         }
 
         List<MsgProviderData> messengerContactList = new ArrayList<MsgProviderData>();
@@ -337,7 +337,7 @@ public class MessengerGroupManager {
      */
     public int addGroup(LoggedInInfo loggedInInfo, String groupName, int parentId) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.WRITE, null)) {
-            throw new SecurityException("missing required sec object (_admin)");
+            throw new SecurityException("missing required security object: _admin");
         }
         Groups group = new Groups();
         group.setGroupDesc(groupName);
@@ -356,7 +356,7 @@ public class MessengerGroupManager {
      */
     public boolean removeGroup(LoggedInInfo loggedInInfo, int groupId) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.WRITE, null)) {
-            throw new SecurityException("missing required sec object (_admin)");
+            throw new SecurityException("missing required security object: _admin");
         }
         boolean removed = false;
         if (groupsDao.remove(groupId)) {
@@ -383,7 +383,7 @@ public class MessengerGroupManager {
      */
     public int addMember(LoggedInInfo loggedInInfo, ContactIdentifier contactIdentifier, int groupId) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.WRITE, null)) {
-            throw new SecurityException("missing required sec object (_admin)");
+            throw new SecurityException("missing required security object: _admin");
         }
 
         GroupMembers groupMembers = new GroupMembers();
@@ -420,7 +420,7 @@ public class MessengerGroupManager {
      */
     public boolean removeMember(LoggedInInfo loggedInInfo, ContactIdentifier contactIdentifier) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.WRITE, null)) {
-            throw new SecurityException("missing required sec object (_admin)");
+            throw new SecurityException("missing required security object: _admin");
         }
 
         List<GroupMembers> groupMembers = groupMembersDao.findByProviderNumberAndFacilityId(contactIdentifier.getContactId(), contactIdentifier.getFacilityId());
@@ -437,7 +437,7 @@ public class MessengerGroupManager {
      */
     public boolean removeGroupMember(LoggedInInfo loggedInInfo, ContactIdentifier contactIdentifier) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.WRITE, null)) {
-            throw new SecurityException("missing required sec object (_admin)");
+            throw new SecurityException("missing required security object: _admin");
         }
 
         List<GroupMembers> groupMembers = groupMembersDao.findGroupMember(contactIdentifier.getContactId(), contactIdentifier.getGroupId());

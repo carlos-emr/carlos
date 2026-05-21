@@ -143,7 +143,7 @@ public class FaxManagerImpl implements FaxManager {
     @Override
     public Path renderConsultationRequest(LoggedInInfo loggedInInfo, int requestId, int demographicNo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo)) {
-            throw new RuntimeException("missing required sec object (_con)");
+            throw new RuntimeException("missing required security object: _con");
         }
 
         logger.info("Rendering consultation request document number " + requestId + " for fax preview.");
@@ -154,7 +154,7 @@ public class FaxManagerImpl implements FaxManager {
     @Override
     public Path renderDocument(LoggedInInfo loggedInInfo, int documentNo, int demographicNo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.WRITE, demographicNo)) {
-            throw new RuntimeException("missing required sec object (_edoc)");
+            throw new RuntimeException("missing required security object: _edoc");
         }
 
         logger.info("Rendering document number " + documentNo + " for fax preview.");
@@ -164,7 +164,7 @@ public class FaxManagerImpl implements FaxManager {
     @Override
     public Path renderEform(LoggedInInfo loggedInInfo, int eformId, int demographicNo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.WRITE, demographicNo)) {
-            throw new RuntimeException("missing required sec object (_eform)");
+            throw new RuntimeException("missing required security object: _eform");
         }
         logger.info("Rendering eform number " + eformId + " for fax preview.");
         return faxDocumentManager.getEformFaxDocument(loggedInInfo, eformId);
@@ -173,7 +173,7 @@ public class FaxManagerImpl implements FaxManager {
     @Override
     public Path renderPrescription(LoggedInInfo loggedInInfo, int rxId, int demographicNo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.WRITE, demographicNo)) {
-            throw new RuntimeException("missing required sec object (_rx)");
+            throw new RuntimeException("missing required security object: _rx");
         }
         logger.info("Rendering prescription number " + rxId + " for fax preview.");
 
@@ -183,7 +183,7 @@ public class FaxManagerImpl implements FaxManager {
     @Override
     public Path renderForm(LoggedInInfo loggedInInfo, int formId, int demographicNo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.WRITE, demographicNo)) {
-            throw new RuntimeException("missing required sec object (_form)");
+            throw new RuntimeException("missing required security object: _form");
         }
 
         logger.info("Rendering form number " + formId + " for fax preview.");
@@ -194,7 +194,7 @@ public class FaxManagerImpl implements FaxManager {
     @Override
     public Path renderForm(LoggedInInfo loggedInInfo, FormTransportContainer formTransportContainer) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.WRITE, formTransportContainer.getDemographicNo())) {
-            throw new RuntimeException("missing required sec object (_form)");
+            throw new RuntimeException("missing required security object: _form");
         }
 
         logger.info("Rendering form number {} for fax preview.", LogSafe.sanitize(formTransportContainer.getFormName()));
@@ -284,7 +284,7 @@ public class FaxManagerImpl implements FaxManager {
     public FaxJob createFaxJob(LoggedInInfo loggedInInfo, Map<String, Object> faxJobMap) {
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, null)) {
-            throw new RuntimeException("missing required sec object (_fax)");
+            throw new RuntimeException("missing required security object: _fax");
         }
 
         String faxFilePath = (String) faxJobMap.get("faxFilePath");
@@ -393,7 +393,7 @@ public class FaxManagerImpl implements FaxManager {
     public List<FaxJob> addRecipients(LoggedInInfo loggedInInfo, FaxJob faxJob, List<FaxRecipient> faxRecipients) {
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, null)) {
-            throw new RuntimeException("missing required sec object (_fax)");
+            throw new RuntimeException("missing required security object: _fax");
         }
 
         List<FaxJob> faxJobList = new ArrayList<FaxJob>();
@@ -429,7 +429,7 @@ public class FaxManagerImpl implements FaxManager {
     public List<FaxJob> saveFaxJob(LoggedInInfo loggedInInfo, List<FaxJob> faxJobList) {
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, null)) {
-            throw new RuntimeException("missing required sec object (_fax)");
+            throw new RuntimeException("missing required security object: _fax");
         }
 
         List<FaxJob> savedFaxJobs = new ArrayList<FaxJob>();
@@ -448,7 +448,7 @@ public class FaxManagerImpl implements FaxManager {
     public FaxJob saveFaxJob(LoggedInInfo loggedInInfo, FaxJob faxJob) {
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, null)) {
-            throw new RuntimeException("missing required sec object (_fax)");
+            throw new RuntimeException("missing required security object: _fax");
         }
 
         Integer faxJobId = faxJob.getId();
@@ -473,7 +473,7 @@ public class FaxManagerImpl implements FaxManager {
     @Override
     public Path addCoverPage(LoggedInInfo loggedInInfo, String note, Path currentDocument) throws IOException {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, null)) {
-            throw new RuntimeException("missing required sec object (_fax)");
+            throw new RuntimeException("missing required security object: _fax");
         }
         int numberpages = EDocUtil.getPDFPageCount(currentDocument.getFileName().toString());
         byte[] coverPage = faxDocumentManager.createCoverPage(loggedInInfo, note, numberpages);
@@ -483,7 +483,7 @@ public class FaxManagerImpl implements FaxManager {
     @Override
     public Path addCoverPage(LoggedInInfo loggedInInfo, String note, FaxRecipient recipient, FaxAccount sender, Path currentDocument) throws IOException {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, null)) {
-            throw new RuntimeException("missing required sec object (_fax)");
+            throw new RuntimeException("missing required security object: _fax");
         }
         // Resolve to full path before getting page count to avoid security validation errors
         currentDocument = nioFileManager.getOscarDocument(currentDocument);
@@ -543,7 +543,7 @@ public class FaxManagerImpl implements FaxManager {
     @Override
     public Path getFaxPreviewImage(LoggedInInfo loggedInInfo, Path filePath, int pageNumber) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_fax)");
+            throw new RuntimeException("missing required security object: _fax");
         }
 
         Path outfile = null;
@@ -594,7 +594,7 @@ public class FaxManagerImpl implements FaxManager {
     @Override
     public List<FaxConfig> getFaxGatewayAccounts(LoggedInInfo loggedInInfo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_fax)");
+            throw new RuntimeException("missing required security object: _fax");
         }
 
         List<FaxConfig> accounts = faxConfigDao.findAll(0, null);
@@ -624,7 +624,7 @@ public class FaxManagerImpl implements FaxManager {
     @Override
     public List<FaxConfig> getFaxConfigurationAccounts(LoggedInInfo loggedInInfo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_fax)");
+            throw new RuntimeException("missing required security object: _fax");
         }
 
         return faxConfigDao.findAll(0, null);
@@ -637,7 +637,7 @@ public class FaxManagerImpl implements FaxManager {
     @Override
     public List<FaxJob> getOutGoingFaxes(LoggedInInfo loggedInInfo, String senderFaxNumber) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_fax)");
+            throw new RuntimeException("missing required security object: _fax");
         }
 
         return faxJobDao.getReadyToSendFaxes(senderFaxNumber);
@@ -649,7 +649,7 @@ public class FaxManagerImpl implements FaxManager {
     @Override
     public boolean flush(LoggedInInfo loggedInInfo, String filePath) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_fax)");
+            throw new RuntimeException("missing required security object: _fax");
         }
 
         boolean cache = nioFileManager.removeCacheVersion(loggedInInfo, filePath);
@@ -662,7 +662,7 @@ public class FaxManagerImpl implements FaxManager {
     @Override
     public FaxJob getFaxJob(LoggedInInfo loggedInInfo, int jobId) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_fax)");
+            throw new RuntimeException("missing required security object: _fax");
         }
 
         return faxJobDao.find(jobId);
@@ -739,7 +739,7 @@ public class FaxManagerImpl implements FaxManager {
 
     public void restartFaxScheduler(LoggedInInfo loggedInInfo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.fax.restart", SecurityInfoManager.WRITE, null)) {
-            throw new RuntimeException("missing required sec object (_admin.fax.restart)");
+            throw new RuntimeException("missing required security object: _admin.fax.restart");
         }
         faxSchedulerJob.restartTask();
     }
@@ -747,14 +747,14 @@ public class FaxManagerImpl implements FaxManager {
     @Override
     public void startFaxSchedulerIfNotRunning(LoggedInInfo loggedInInfo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.fax.restart", SecurityInfoManager.WRITE, null)) {
-            throw new RuntimeException("missing required sec object (_admin.fax.restart)");
+            throw new RuntimeException("missing required security object: _admin.fax.restart");
         }
         faxSchedulerJob.startIfNotRunning();
     }
 
     public ObjectNode getFaxSchedularStatus(LoggedInInfo loggedInInfo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.fax.restart", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_admin.fax.restart)");
+            throw new RuntimeException("missing required security object: _admin.fax.restart");
         }
         boolean running = faxSchedulerJob.isRunning();
         long lastRun = faxSchedulerJob.getLastSuccessfulRunEpochMs();

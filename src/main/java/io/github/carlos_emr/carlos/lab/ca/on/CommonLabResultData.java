@@ -593,7 +593,7 @@ public class CommonLabResultData {
     public static boolean fileLabs(ArrayList<String[]> flaggedLabs, LoggedInInfo loggedInInfo) {
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.WRITE, null)) {
-            throw new SecurityException("missing required sec object (_lab)");
+            throw new SecurityException("missing required security object: _lab");
         }
         return fileLabs(flaggedLabs, loggedInInfo.getLoggedInProviderNo());
 

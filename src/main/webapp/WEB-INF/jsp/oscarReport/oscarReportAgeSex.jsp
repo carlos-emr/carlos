@@ -60,6 +60,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.ReportAgeSex" %>
 <%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%
     String user_no = (String) session.getAttribute("user");
     int nItems = 0;
@@ -208,7 +209,7 @@
                         <font color="#333333"><fmt:message key="oscarReport.oscarReportAgeSex.msgServiceDate"/></font></b></font></font> &nbsp;
                         &nbsp; <font
                                 size="1" face="Arial, Helvetica, sans-serif"><a href="#"
-                                                                                onClick="openBrWindow('<%= request.getContextPath() %>/billing/CA/ON/ViewBillingCalendarPopup?type=admission&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')"><fmt:message key="oscarReport.oscarReportAgeSex.btnBegin"/>:</a></font> <input type="text"
+                                                                                onClick="openBrWindow('<%= request.getContextPath() %>/billing/CA/ON/ViewBillingCalendarPopup?type=admission&amp;year=<%=SafeEncode.forUriComponent(String.valueOf(curYear))%>&amp;month=<%=SafeEncode.forUriComponent(String.valueOf(curMonth))%>','','width=300,height=300')"><fmt:message key="oscarReport.oscarReportAgeSex.btnBegin"/>:</a></font> <input type="text"
                                                                                                   name="xml_vdate"
                                                                                                   value="<carlos:encode value='<%= xml_vdate %>' context="htmlAttribute"/>">
                     </div>
@@ -216,7 +217,7 @@
                 <td colspan='2'>
                     <div align="left"><font size="1"
                                             face="Arial, Helvetica, sans-serif"><a href="#"
-                                                                                   onClick="openBrWindow('<%= request.getContextPath() %>/billing/CA/ON/ViewBillingCalendarPopup?type=end&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')"><fmt:message key="oscarReport.oscarReportAgeSex.btnEnd"/>:</a></font> <input type="text"
+                                                                                   onClick="openBrWindow('<%= request.getContextPath() %>/billing/CA/ON/ViewBillingCalendarPopup?type=end&amp;year=<%=SafeEncode.forUriComponent(String.valueOf(curYear))%>&amp;month=<%=SafeEncode.forUriComponent(String.valueOf(curMonth))%>','','width=300,height=300')"><fmt:message key="oscarReport.oscarReportAgeSex.btnEnd"/>:</a></font> <input type="text"
                                                                                             name="xml_appointment_date"
                                                                                             value="<carlos:encode value='<%= xml_appointment_date %>' context="htmlAttribute"/>">
                     </div>

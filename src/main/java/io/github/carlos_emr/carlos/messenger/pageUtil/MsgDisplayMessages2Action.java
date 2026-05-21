@@ -146,6 +146,7 @@ public class MsgDisplayMessages2Action extends ActionSupport {
      *         permissions (or write permissions for mutation operations), or if the provider
      *         record is not found in the database
      */
+    @Override
     public String execute() throws IOException, ServletException {
 
         // Retrieve and validate logged-in provider session
@@ -157,7 +158,7 @@ public class MsgDisplayMessages2Action extends ActionSupport {
 
         // Verify user has read permission for page load (mutation operations check write below)
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", "r", null)) {
-            throw new SecurityException("missing required sec object (_msg)");
+            throw new SecurityException("missing required security object: _msg");
         }
         String loggedInProviderNo = loggedInInfo.getLoggedInProviderNo();
 
@@ -205,7 +206,7 @@ public class MsgDisplayMessages2Action extends ActionSupport {
             
         } else if (request.getParameter("btnDelete") != null) {
             if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", "w", null)) {
-                throw new SecurityException("missing required sec object (_msg) for write");
+                throw new SecurityException("missing required security object: _msg w");
             }
             if (getMessageNo().length == 0) {
                 MiscUtils.getLogger().info("No messages selected for deletion, returning back to page");
@@ -215,7 +216,7 @@ public class MsgDisplayMessages2Action extends ActionSupport {
 
         } else if (request.getParameter("btnRead") != null) {
             if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", "w", null)) {
-                throw new SecurityException("missing required sec object (_msg) for write");
+                throw new SecurityException("missing required security object: _msg w");
             }
             if (getMessageNo().length == 0) {
                 MiscUtils.getLogger().info("No messages selected for marking as read, returning back to page");
@@ -225,7 +226,7 @@ public class MsgDisplayMessages2Action extends ActionSupport {
 
         } else if (request.getParameter("btnUnread") != null) {
             if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", "w", null)) {
-                throw new SecurityException("missing required sec object (_msg) for write");
+                throw new SecurityException("missing required security object: _msg w");
             }
             if (getMessageNo().length == 0) {
                 MiscUtils.getLogger().info("No messages selected for marking as unread, returning back to page");

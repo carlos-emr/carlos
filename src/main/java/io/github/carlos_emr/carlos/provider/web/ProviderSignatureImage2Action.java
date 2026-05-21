@@ -78,7 +78,7 @@ public class ProviderSignatureImage2Action extends ActionSupport {
         }
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pref", "r", null)) {
-            throw new SecurityException("missing required sec object (_pref)");
+            throw new SecurityException("missing required security object: _pref");
         }
 
         String providerNo = loggedInInfo.getLoggedInProviderNo();

@@ -99,7 +99,7 @@ public class FacilityManager2Action extends ActionSupport {
         String privilege = mutatingMethod ? "w" : "r";
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", privilege, null)) {
-            throw new SecurityException("missing required sec object (_admin)");
+            throw new SecurityException("missing required security object: _admin");
         }
 
         if ("view".equals(method)) {

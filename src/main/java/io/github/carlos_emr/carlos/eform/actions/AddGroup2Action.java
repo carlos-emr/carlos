@@ -46,9 +46,10 @@ public class AddGroup2Action extends ActionSupport {
     private HttpServletRequest request = ServletActionContext.getRequest();
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    @Override
     public String execute() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_eform", "w", null)) {
-            throw new SecurityException("missing required sec object (_eform)");
+            throw new SecurityException("missing required security object: _eform");
         }
         EFormUtil.addEFormToGroup(groupName, "0");  //marker for group
         request.setAttribute("group_view", groupName);

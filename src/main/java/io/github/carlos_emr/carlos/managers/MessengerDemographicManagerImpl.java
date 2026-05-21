@@ -64,7 +64,7 @@ public class MessengerDemographicManagerImpl implements MessengerDemographicMana
      */
     public List<Demographic> getAttachedDemographics(LoggedInInfo loggedInInfo, int messageId) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", SecurityInfoManager.READ, null)) {
-            throw new SecurityException("missing required sec object (_msg)");
+            throw new SecurityException("missing required security object: _msg");
         }
 
         List<MsgDemoMap> msgDemoMap = getAttachedDemographicList(loggedInInfo, messageId);
@@ -80,7 +80,7 @@ public class MessengerDemographicManagerImpl implements MessengerDemographicMana
 
     private Demographic getAttachedDemographic(LoggedInInfo loggedInInfo, int demographicNo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", SecurityInfoManager.READ, demographicNo)) {
-            throw new SecurityException("missing required sec object (_msg)");
+            throw new SecurityException("missing required security object: _msg");
         }
         return demographicManager.getDemographic(loggedInInfo, demographicNo);
     }
@@ -94,7 +94,7 @@ public class MessengerDemographicManagerImpl implements MessengerDemographicMana
      */
     public List<MsgDemoMap> getAttachedDemographicList(LoggedInInfo loggedInInfo, int messageId) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", SecurityInfoManager.READ, null)) {
-            throw new SecurityException("missing required sec object (_msg)");
+            throw new SecurityException("missing required security object: _msg");
         }
         return msgDemoMapDao.findByMessageId(messageId);
     }
@@ -165,7 +165,7 @@ public class MessengerDemographicManagerImpl implements MessengerDemographicMana
      */
     public Long attachDemographicToMessage(LoggedInInfo loggedInInfo, int messageId, int demographicNo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", SecurityInfoManager.WRITE, demographicNo)) {
-            throw new SecurityException("missing required sec object (_msg)");
+            throw new SecurityException("missing required security object: _msg");
         }
 
         MsgDemoMap msgDemoMap = new MsgDemoMap();
@@ -184,7 +184,7 @@ public class MessengerDemographicManagerImpl implements MessengerDemographicMana
      */
     public List<MsgDemoMap> getMessageMapByDemographicNo(LoggedInInfo loggedInInfo, int demographicNo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", SecurityInfoManager.READ, demographicNo)) {
-            throw new SecurityException("missing required sec object (_msg)");
+            throw new SecurityException("missing required security object: _msg");
         }
 
         return msgDemoMapDao.findByDemographicNo(demographicNo);

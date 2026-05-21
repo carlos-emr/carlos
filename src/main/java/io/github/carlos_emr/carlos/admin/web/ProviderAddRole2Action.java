@@ -54,7 +54,7 @@ public class ProviderAddRole2Action extends ActionSupport {
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)
                 && !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.userAdmin", "r", null)) {
-            throw new SecurityException("missing required sec object (_admin or _admin.userAdmin)");
+            throw new SecurityException("missing required security object: _admin or _admin.userAdmin");
         }
 
         // Only the Save mutation requires POST; initial form display (GET) is allowed.

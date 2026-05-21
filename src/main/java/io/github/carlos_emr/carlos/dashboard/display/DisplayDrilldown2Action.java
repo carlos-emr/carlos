@@ -61,6 +61,7 @@ public class DisplayDrilldown2Action extends ActionSupport {
     private ProviderManager2 providerManager = SpringUtils.getBean(ProviderManager2.class);
     private static Logger logger = MiscUtils.getLogger();
 
+    @Override
     public String execute() {
         if ("getDrilldownBySharedMetricSetName".equals(request.getParameter("method"))) {
             return getDrilldownBySharedMetricSetName();

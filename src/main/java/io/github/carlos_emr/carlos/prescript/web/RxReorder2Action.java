@@ -55,13 +55,14 @@ public class RxReorder2Action extends ActionSupport {
     private static final Logger logger = MiscUtils.getLogger();
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    @Override
     public String execute() {
         return update();
     }
 
     public String update() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_rx", "u", null)) {
-            throw new RuntimeException("missing required sec object (_rx)");
+            throw new RuntimeException("missing required security object: _rx");
         }
 
         String demographicNo = request.getParameter("demographicNo");

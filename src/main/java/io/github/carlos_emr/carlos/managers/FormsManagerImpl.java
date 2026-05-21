@@ -165,7 +165,7 @@ public class FormsManagerImpl implements FormsManager {
     public List<PatientForm> getEncounterFormsbyDemographicNumber(LoggedInInfo loggedInInfo, Integer demographicId,
                                                                   boolean getAllVersions, boolean getOnlyPDFReadyForms) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_form)");
+            throw new RuntimeException("missing required security object: _form");
         }
 
         return processEncounterForms(loggedInInfo, demographicId, getAllVersions, getOnlyPDFReadyForms);
@@ -212,7 +212,7 @@ public class FormsManagerImpl implements FormsManager {
     public Integer saveFormDataAsEDoc(LoggedInInfo loggedInInfo, FormTransportContainer formTransportContainer) {
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.WRITE, null)) {
-            throw new RuntimeException("missing required sec object (_eform)");
+            throw new RuntimeException("missing required security object: _eform");
         }
 
         EDoc edoc = ConvertToEdoc.from(formTransportContainer);
@@ -261,7 +261,7 @@ public class FormsManagerImpl implements FormsManager {
     @Override
     public Path renderForm(LoggedInInfo loggedInInfo, FormTransportContainer formTransportContainer) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_form)");
+            throw new RuntimeException("missing required security object: _form");
         }
 
         LogAction.addLogSynchronous(loggedInInfo, "FormsManager.saveFormAsTempPdf", "");
@@ -283,7 +283,7 @@ public class FormsManagerImpl implements FormsManager {
             loggedInInfo = LoggedInInfo.getLoggedInInfoFromRequest(request);
         }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_form)");
+            throw new RuntimeException("missing required security object: _form");
         }
 
         FormTransportContainer formTransportContainer = getFormTransportContainer(request, response, form);
@@ -327,7 +327,7 @@ public class FormsManagerImpl implements FormsManager {
      */
     public PatientForm getFormById(LoggedInInfo loggedInInfo, Integer formId, Integer demographicNo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_form)");
+            throw new RuntimeException("missing required security object: _form");
         }
 
         PatientForm patientForm = null;

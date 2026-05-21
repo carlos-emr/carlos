@@ -82,7 +82,7 @@ public class DemographicAdd2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
             logger.warn("DemographicAdd2Action: provider {} lacks _demographic write privilege",
                     loggedInInfo.getLoggedInProviderNo());
-            throw new SecurityException("missing required sec object (_demographic)");
+            throw new SecurityException("missing required security object: _demographic");
         }
 
         HttpSession session = request.getSession();

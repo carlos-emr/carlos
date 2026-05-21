@@ -122,7 +122,7 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
             if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)) {
                 logger.warn("MsgMessengerAdmin denied: provider={} method={} lacks _admin write",
                         providerNo, method);
-                throw new SecurityException("missing required sec object (_admin)");
+                throw new SecurityException("missing required security object: _admin");
             }
             if (!"POST".equalsIgnoreCase(request.getMethod())) {
                 logger.warn("MsgMessengerAdmin method not allowed: provider={} method={} httpMethod={}",
@@ -135,7 +135,7 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
             if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)) {
                 logger.warn("MsgMessengerAdmin denied: provider={} lacks _admin read (method={})",
                         providerNo, method);
-                throw new SecurityException("missing required sec object (_admin)");
+                throw new SecurityException("missing required security object: _admin");
             }
         }
 
@@ -365,7 +365,7 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
 
         // Enforce security: only administrators can update groups
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin)");
+            throw new SecurityException("missing required security object: _admin");
         }
 
         String[] providers = this.getProviders();

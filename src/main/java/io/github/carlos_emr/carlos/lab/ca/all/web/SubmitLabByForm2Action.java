@@ -70,6 +70,7 @@ public class SubmitLabByForm2Action extends ActionSupport {
     Logger logger = MiscUtils.getLogger();
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    @Override
     public String execute() throws Exception {
         if ("saveManage".equals(request.getParameter("method"))) {
             return saveManage();
@@ -94,7 +95,7 @@ public class SubmitLabByForm2Action extends ActionSupport {
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_lab", "w", null)) {
-            throw new SecurityException("missing required sec object (_lab)");
+            throw new SecurityException("missing required security object: _lab");
         }
 
         logger.info("in save lab from form");

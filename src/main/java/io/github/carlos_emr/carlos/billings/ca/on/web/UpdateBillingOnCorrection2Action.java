@@ -77,7 +77,7 @@ public class UpdateBillingOnCorrection2Action extends ActionSupport {
             throw new SecurityException("missing session");
         }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
-            throw new SecurityException("missing required sec object (_billing)");
+            throw new SecurityException("missing required security object: _billing");
         }
 
         // POST-only — the update is a state mutation. Everything else gets

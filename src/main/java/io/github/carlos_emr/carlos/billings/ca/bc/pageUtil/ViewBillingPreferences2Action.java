@@ -65,10 +65,11 @@ public class ViewBillingPreferences2Action
     private final PropertyDao propertyDao = SpringUtils.getBean(PropertyDao.class);
     private final ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
 
+    @Override
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(servletRequest);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
-            throw new SecurityException("missing required sec object (_billing)");
+            throw new SecurityException("missing required security object: _billing");
         }
         List<Property> propList = propertyDao.findByNameAndProvider(Property.PROPERTY_KEY.invoice_payee_info, this.getProviderNo());
         Property invoicePayeeInfo = propList.isEmpty() ? null : propList.get(0);

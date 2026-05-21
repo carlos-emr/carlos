@@ -68,12 +68,13 @@ public class ReportReassign2Action extends ActionSupport {
     public ReportReassign2Action() {
     }
 
+    @Override
     public String execute()
             throws ServletException, IOException {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", "w", null)) {
-            throw new SecurityException("missing required sec object (_lab)");
+            throw new SecurityException("missing required security object: _lab");
         }
 
         String status = request.getParameter("status");

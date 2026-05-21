@@ -39,7 +39,7 @@ public final class ViewTopLinks2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.doctorName", "r", null)) {
-            throw new SecurityException("missing required sec object (_newCasemgmt.doctorName)");
+            throw new SecurityException("missing required security object: _newCasemgmt.doctorName");
         }
 
         return SUCCESS;

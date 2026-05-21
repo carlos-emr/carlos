@@ -50,6 +50,7 @@ public final class WLEditWaitingListName2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager =
             SpringUtils.getBean(SecurityInfoManager.class);
 
+    @Override
     public String execute()
             throws Exception {
         MiscUtils.getLogger().debug("WLEditWaitingListName2Action/execute(): just entering.");
@@ -58,7 +59,7 @@ public final class WLEditWaitingListName2Action extends ActionSupport {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
-            throw new SecurityException("missing required sec object (_demographic r)");
+            throw new SecurityException("missing required security object: _demographic r");
         }
 
         String actionChosen = request.getParameter("actionChosen");
@@ -84,7 +85,7 @@ public final class WLEditWaitingListName2Action extends ActionSupport {
                 return NONE;
             }
             if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
-                throw new SecurityException("missing required sec object (_demographic w)");
+                throw new SecurityException("missing required security object: _demographic w");
             }
 
             if (wlNewName == null || wlNewName.length() <= 0) {

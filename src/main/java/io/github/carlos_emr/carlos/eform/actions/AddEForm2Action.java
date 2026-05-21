@@ -109,10 +109,11 @@ public class AddEForm2Action extends ActionSupport {
     private DocumentAttachmentManager documentAttachmentManager = SpringUtils.getBean(DocumentAttachmentManager.class);
     private EmailManager emailManager = SpringUtils.getBean(EmailManager.class);
 
+    @Override
     public String execute() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_eform", "w", null)) {
-            throw new SecurityException("missing required sec object (_eform)");
+            throw new SecurityException("missing required security object: _eform");
         }
 
         logger.debug("==================SAVING ==============");

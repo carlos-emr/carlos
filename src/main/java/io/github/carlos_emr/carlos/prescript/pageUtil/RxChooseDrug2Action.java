@@ -55,11 +55,12 @@ public final class RxChooseDrug2Action extends ActionSupport {
 
     }
 
+    @Override
     public String execute() throws IOException, ServletException {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "r", null)) {
-            throw new RuntimeException("missing required sec object (_rx)");
+            throw new RuntimeException("missing required security object: _rx");
         }
 
         // Extract attributes we will need

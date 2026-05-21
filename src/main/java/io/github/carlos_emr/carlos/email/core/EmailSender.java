@@ -162,7 +162,7 @@ public class EmailSender {
      */
     public void send() throws EmailSendingException {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
-            throw new RuntimeException("missing required sec object (_email)");
+            throw new RuntimeException("missing required security object: _email");
         }
 
         switch (emailConfig.getEmailType()) {

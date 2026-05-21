@@ -39,7 +39,7 @@ public final class ViewCompleteMedRec2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_measurement", "w", null)) {
-            throw new SecurityException("missing required sec object (_measurement)");
+            throw new SecurityException("missing required security object: _measurement");
         }
 
         if (!"POST".equalsIgnoreCase(request.getMethod())) {

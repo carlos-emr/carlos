@@ -51,11 +51,12 @@ public class HRMModifyDocument2Action extends ActionSupport {
     HRMDocumentCommentDao hrmDocumentCommentDao = (HRMDocumentCommentDao) SpringUtils.getBean(HRMDocumentCommentDao.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    @Override
     public String execute() {
         String method = request.getParameter("method");
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_hrm", "w", null)) {
-            throw new SecurityException("missing required sec object (_hrm)");
+            throw new SecurityException("missing required security object: _hrm");
         }
 
         if (method != null) {
@@ -90,7 +91,7 @@ public class HRMModifyDocument2Action extends ActionSupport {
         String reportId = request.getParameter("reportId");
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_hrm", "w", null)) {
-            throw new SecurityException("missing required sec object (_hrm)");
+            throw new SecurityException("missing required security object: _hrm");
         }
 
         try {
@@ -131,7 +132,7 @@ public class HRMModifyDocument2Action extends ActionSupport {
         String[] reportIds = request.getParameterValues("reportId");
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_hrm", "w", null)) {
-            throw new SecurityException("missing required sec object (_hrm)");
+            throw new SecurityException("missing required security object: _hrm");
         }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -180,7 +181,7 @@ public class HRMModifyDocument2Action extends ActionSupport {
         String providerNo = request.getParameter("providerNo");
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_hrm", "w", null)) {
-            throw new SecurityException("missing required sec object (_hrm)");
+            throw new SecurityException("missing required security object: _hrm");
         }
 
 
@@ -238,7 +239,7 @@ public class HRMModifyDocument2Action extends ActionSupport {
         String hrmDocumentId = request.getParameter("reportId");
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_hrm", "w", null)) {
-            throw new SecurityException("missing required sec object (_hrm)");
+            throw new SecurityException("missing required security object: _hrm");
         }
 
         try {
@@ -265,7 +266,7 @@ public class HRMModifyDocument2Action extends ActionSupport {
         String demographicNo = request.getParameter("demographicNo");
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_hrm", "w", null)) {
-            throw new SecurityException("missing required sec object (_hrm)");
+            throw new SecurityException("missing required security object: _hrm");
         }
 
         try {
@@ -303,7 +304,7 @@ public class HRMModifyDocument2Action extends ActionSupport {
         String subClassId = request.getParameter("subClassId");
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_hrm", "w", null)) {
-            throw new SecurityException("missing required sec object (_hrm)");
+            throw new SecurityException("missing required security object: _hrm");
         }
 
         try {
@@ -330,7 +331,7 @@ public class HRMModifyDocument2Action extends ActionSupport {
         String providerMappingId = request.getParameter("providerMappingId");
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_hrm", "w", null)) {
-            throw new SecurityException("missing required sec object (_hrm)");
+            throw new SecurityException("missing required security object: _hrm");
         }
 
         try {
@@ -352,7 +353,7 @@ public class HRMModifyDocument2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_hrm", "w", null)) {
-            throw new SecurityException("missing required sec object (_hrm)");
+            throw new SecurityException("missing required security object: _hrm");
         }
 
         try {
@@ -377,7 +378,7 @@ public class HRMModifyDocument2Action extends ActionSupport {
         String commentId = request.getParameter("commentId");
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_hrm", "w", null)) {
-            throw new SecurityException("missing required sec object (_hrm)");
+            throw new SecurityException("missing required security object: _hrm");
         }
 
         try {
@@ -398,7 +399,7 @@ public class HRMModifyDocument2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_hrm", "w", null)) {
-            throw new SecurityException("missing required sec object (_hrm)");
+            throw new SecurityException("missing required security object: _hrm");
         }
 
         try {
@@ -422,7 +423,7 @@ public class HRMModifyDocument2Action extends ActionSupport {
         String hrmDocumentId = request.getParameter("reportId");
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_hrm", "w", null)) {
-            throw new SecurityException("missing required sec object (_hrm)");
+            throw new SecurityException("missing required security object: _hrm");
         }
 
         try {

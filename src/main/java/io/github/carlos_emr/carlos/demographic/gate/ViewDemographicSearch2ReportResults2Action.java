@@ -40,7 +40,7 @@ public final class ViewDemographicSearch2ReportResults2Action extends ActionSupp
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_search", "r", null)) {
-            throw new SecurityException("missing required sec object (_search)");
+            throw new SecurityException("missing required security object: _search");
         }
 
         return SUCCESS;

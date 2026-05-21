@@ -90,7 +90,7 @@ public class BillingDeleteWithBillNo2Action extends ActionSupport {
                                                BillingDao billingDao,
                                                BillingCorrectionRecordService correctionPrep) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
-            throw new SecurityException("missing required sec object (_billing)");
+            throw new SecurityException("missing required security object: _billing");
         }
         return deleteBillingByBillNoAfterPrivilege(
                 request, loggedInInfo.getLoggedInProviderNo(), billingDao, correctionPrep);

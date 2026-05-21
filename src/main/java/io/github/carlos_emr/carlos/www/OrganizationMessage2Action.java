@@ -64,10 +64,11 @@ public class OrganizationMessage2Action extends ActionSupport {
     private ProgramManager programManager = SpringUtils.getBean(ProgramManager.class);
     private ProgramManager2 programManager2 = SpringUtils.getBean(ProgramManager2.class);
 
+    @Override
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin)");
+            throw new SecurityException("missing required security object: _admin");
         }
 
         String mtd = request.getParameter("method");

@@ -102,6 +102,7 @@ public class SearchPatient2Action extends ActionSupport {
      * @throws IOException if an I/O error occurs during redirect
      * @throws SecurityException if the user lacks required "_lab" read privilege
      */
+    @Override
     public String execute()
             throws ServletException, IOException {
         
@@ -109,7 +110,7 @@ public class SearchPatient2Action extends ActionSupport {
         HttpServletResponse response = ServletActionContext.getResponse();
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_lab", "r", null)) {
-            throw new SecurityException("missing required sec object (_lab)");
+            throw new SecurityException("missing required security object: _lab");
         }
 
         String labNo = request.getParameter("segmentID");

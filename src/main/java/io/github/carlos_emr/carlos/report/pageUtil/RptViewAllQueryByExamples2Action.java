@@ -56,11 +56,12 @@ public class RptViewAllQueryByExamples2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
+    @Override
     public String execute()
             throws ServletException, IOException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_report", "r", null)) {
-            throw new SecurityException("missing required sec object (_report)");
+            throw new SecurityException("missing required security object: _report");
         }
 
         RptByExampleQueryBeanHandler hd = new RptByExampleQueryBeanHandler(startDate, endDate);

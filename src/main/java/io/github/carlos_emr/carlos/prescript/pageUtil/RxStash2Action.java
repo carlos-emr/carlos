@@ -51,11 +51,12 @@ public final class RxStash2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
+    @Override
     public String execute()
             throws IOException, ServletException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", null)) {
-            throw new SecurityException("missing required sec object (_rx)");
+            throw new SecurityException("missing required security object: _rx");
         }
 
 

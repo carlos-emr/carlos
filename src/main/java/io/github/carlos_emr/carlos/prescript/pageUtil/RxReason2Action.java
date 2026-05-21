@@ -54,6 +54,7 @@ public final class RxReason2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    @Override
     public String execute() {
         if ("archiveReason".equals(request.getParameter("method"))) {
             return archiveReason();
@@ -75,7 +76,7 @@ public final class RxReason2Action extends ActionSupport {
     public String addDrugReason() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_rx", "r", null)) {
-            throw new RuntimeException("missing required sec object (_rx)");
+            throw new RuntimeException("missing required security object: _rx");
         }
 
         DrugReasonDao drugReasonDao = (DrugReasonDao) SpringUtils.getBean(DrugReasonDao.class);
@@ -146,7 +147,7 @@ public final class RxReason2Action extends ActionSupport {
     public String archiveReason() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_rx", "r", null)) {
-            throw new RuntimeException("missing required sec object (_rx)");
+            throw new RuntimeException("missing required security object: _rx");
         }
 
         DrugReasonDao drugReasonDao = (DrugReasonDao) SpringUtils.getBean(DrugReasonDao.class);

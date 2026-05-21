@@ -302,7 +302,7 @@ public class ReportManager {
     @SuppressWarnings("unchecked")
     public String addUpdateTemplate(String uuid, String templateId, Document templateXML, LoggedInInfo loggedInInfo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.WRITE, null)) {
-            throw new RuntimeException("missing required sec object (_report)");
+            throw new RuntimeException("missing required security object: _report");
         }
         try {
             Element rootElement = templateXML.getRootElement();
@@ -396,7 +396,7 @@ public class ReportManager {
 
     public String addTemplate(String uuid, String templateXML, LoggedInInfo loggedInInfo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.WRITE, null)) {
-            throw new RuntimeException("missing required sec object (_report)");
+            throw new RuntimeException("missing required security object: _report");
         }
         try {
             Document templateXMLdoc = readXml(templateXML);
@@ -409,7 +409,7 @@ public class ReportManager {
 
     public String updateTemplate(String uuid, String templateId, String templateXML, LoggedInInfo loggedInInfo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.WRITE, null)) {
-            throw new RuntimeException("missing required sec object (_report)");
+            throw new RuntimeException("missing required security object: _report");
         }
         try {
             Document templateXMLdoc = readXml(templateXML);

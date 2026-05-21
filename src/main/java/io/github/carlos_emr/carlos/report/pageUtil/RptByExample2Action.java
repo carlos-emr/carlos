@@ -71,6 +71,7 @@ public class RptByExample2Action extends ActionSupport {
     private ReportByExamplesDao dao = SpringUtils.getBean(ReportByExamplesDao.class);
 
 
+    @Override
     public String execute()
             throws ServletException, IOException {
         if (request.getSession().getAttribute("user") == null) {

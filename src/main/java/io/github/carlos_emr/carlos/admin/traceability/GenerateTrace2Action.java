@@ -59,6 +59,7 @@ public class GenerateTrace2Action extends ActionSupport {
 
     public static int BUFFER_SIZE = 8192;
 
+    @Override
     public String execute() throws Exception {
         String userName = (String) request.getSession().getAttribute("user");
         String roleName$ = (String) request.getSession().getAttribute("userrole") + "," + userName;

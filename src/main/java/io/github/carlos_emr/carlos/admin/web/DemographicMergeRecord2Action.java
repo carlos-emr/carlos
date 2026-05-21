@@ -48,7 +48,7 @@ public class DemographicMergeRecord2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
-            throw new SecurityException("missing required sec object (_demographic)");
+            throw new SecurityException("missing required security object: _demographic");
         }
 
         return SUCCESS;

@@ -74,7 +74,7 @@ public class AddEditServiceCode2Action extends ActionSupport {
         }
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.billing", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin.billing)");
+            throw new SecurityException("missing required security object: _admin.billing");
         }
 
         // Self-posting form: require POST only when the mutation-intent

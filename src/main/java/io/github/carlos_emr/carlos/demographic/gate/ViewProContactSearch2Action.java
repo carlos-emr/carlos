@@ -40,7 +40,7 @@ public final class ViewProContactSearch2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
-            throw new SecurityException("missing required sec object (_demographic)");
+            throw new SecurityException("missing required security object: _demographic");
         }
 
         return SUCCESS;

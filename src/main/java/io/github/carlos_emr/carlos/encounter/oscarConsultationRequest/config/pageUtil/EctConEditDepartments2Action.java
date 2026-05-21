@@ -56,7 +56,7 @@ public class EctConEditDepartments2Action extends ActionSupport {
     public String execute() throws ServletException, IOException {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_con", "u", null)) {
-            throw new SecurityException("missing required sec object (_con)");
+            throw new SecurityException("missing required security object: _con");
         }
 
         DepartmentDao DepartmentDao = SpringUtils.getBean(DepartmentDao.class);

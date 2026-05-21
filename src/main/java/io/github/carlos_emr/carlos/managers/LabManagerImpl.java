@@ -178,7 +178,7 @@ public class LabManagerImpl implements LabManager {
      */
     private void checkPrivilege(LoggedInInfo loggedInInfo, String privilege) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", privilege, null)) {
-            throw new RuntimeException("missing required sec object (_lab)");
+            throw new RuntimeException("missing required security object: _lab");
         }
     }
 

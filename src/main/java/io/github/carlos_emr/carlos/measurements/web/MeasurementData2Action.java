@@ -131,6 +131,7 @@ public class MeasurementData2Action extends ActionSupport {
      * @return String Struts2 result string for response handling
      * @throws Exception if there's an error during request processing
      */
+    @Override
     public String execute() throws Exception {
         String method = request.getParameter("action");
         if ("getLatestValues".equals(method)) {
@@ -159,7 +160,7 @@ public class MeasurementData2Action extends ActionSupport {
         }
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", demographicNo)) {
-            throw new SecurityException("missing required sec object (_demographic)");
+            throw new SecurityException("missing required security object: _demographic");
         }
 
         int prevApptNo = 0;
@@ -257,7 +258,7 @@ public class MeasurementData2Action extends ActionSupport {
         String[] types = (request.getParameter("types") != null ? request.getParameter("types") : "").split(",");
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", demographicNo)) {
-            throw new SecurityException("missing required sec object (_demographic)");
+            throw new SecurityException("missing required security object: _demographic");
         }
 
         List<Date> measurementDates = measurementDao.getDatesForMeasurements(Integer.parseInt(demographicNo), types);
@@ -314,7 +315,7 @@ public class MeasurementData2Action extends ActionSupport {
         }
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "w", demographicNo)) {
-            throw new SecurityException("missing required sec object (_demographic)");
+            throw new SecurityException("missing required security object: _demographic");
         }
 
         if (!StringUtils.isNullOrEmpty(measurementType) && !StringUtils.isNullOrEmpty(measurementValue) && !StringUtils.isNullOrEmpty(demographicNo)) {
@@ -352,7 +353,7 @@ public class MeasurementData2Action extends ActionSupport {
         boolean isJsonRequest = request.getParameter("json") != null && request.getParameter("json").equalsIgnoreCase("true");
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "w", demographicNo)) {
-            throw new SecurityException("missing required sec object (_demographic)");
+            throw new SecurityException("missing required security object: _demographic");
         }
 
         try {

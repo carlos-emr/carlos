@@ -118,13 +118,14 @@ public class MsgSendDemographicMessage2Action extends ActionSupport {
      * @throws ServletException if there's a servlet processing error
      * @throws SecurityException if user lacks write permissions for messaging
      */
+    @Override
     public String execute() throws IOException, ServletException {
         // Get current provider number from session
         String provNo = (String) request.getSession().getAttribute("user");
 
         // Verify user has write permission for messages
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_msg", "w", null)) {
-            throw new SecurityException("missing required sec object (_msg)");
+            throw new SecurityException("missing required security object: _msg");
         }
 
         // Create and initialize new message session bean

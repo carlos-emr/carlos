@@ -70,7 +70,7 @@ public class ViewBillingReportControl2Action extends ActionSupport {
         }
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_report", "r", null)) {
-            throw new SecurityException("missing required sec object (_report)");
+            throw new SecurityException("missing required security object: _report");
         }
 
         BillingReportControlViewModel model =

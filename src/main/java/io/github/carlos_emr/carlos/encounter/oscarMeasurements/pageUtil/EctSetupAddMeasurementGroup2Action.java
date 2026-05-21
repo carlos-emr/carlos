@@ -57,6 +57,7 @@ public class EctSetupAddMeasurementGroup2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    @Override
     public String execute() throws ServletException, IOException {
         if (securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null) || securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.measurements", "w", null)) {
             // CWE-501: validate groupName BEFORE any DAO use or session storage
@@ -80,7 +81,7 @@ public class EctSetupAddMeasurementGroup2Action extends ActionSupport {
             return "continue";
 
         } else {
-            throw new SecurityException("Access Denied!"); //missing required sec object (_admin)
+            throw new SecurityException("Access Denied!"); //missing required security object: _admin
         }
     }
 

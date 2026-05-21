@@ -98,7 +98,7 @@ public class ViewSearchRefDocAjax2Action extends ActionSupport {
             return NONE;
         }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
-            throw new SecurityException("missing required sec object (_billing)");
+            throw new SecurityException("missing required security object: _billing");
         }
 
         String term = request.getParameter("term");

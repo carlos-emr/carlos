@@ -111,7 +111,7 @@ public class BillingSaveBilling2Action extends ActionSupport {
         }
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
-            throw new SecurityException("missing required sec object (_billing)");
+            throw new SecurityException("missing required security object: _billing");
         }
 
         BillingSessionBean bean = billingSessionBean(request);

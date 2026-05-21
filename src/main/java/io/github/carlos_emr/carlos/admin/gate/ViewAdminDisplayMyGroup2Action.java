@@ -41,7 +41,7 @@ public final class ViewAdminDisplayMyGroup2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_site_access_privacy", "r", null)) {
-            throw new SecurityException("missing required sec object (_site_access_privacy)");
+            throw new SecurityException("missing required security object: _site_access_privacy");
         }
 
         return SUCCESS;

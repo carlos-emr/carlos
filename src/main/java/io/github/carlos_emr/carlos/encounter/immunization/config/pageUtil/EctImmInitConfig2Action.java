@@ -39,10 +39,11 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 public final class EctImmInitConfig2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    @Override
     public String execute() {
         LoggedInInfo __li = LoggedInInfo.getLoggedInInfoFromSession(ServletActionContext.getRequest());
         if (!securityInfoManager.hasPrivilege(__li, "_prevention", "w", null)) {
-            throw new SecurityException("missing required sec object (_prevention)");
+            throw new SecurityException("missing required security object: _prevention");
         }
 
         return SUCCESS;

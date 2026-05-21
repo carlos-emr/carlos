@@ -58,9 +58,10 @@ public class AddTickler2Action extends ActionSupport {
     public AddTickler2Action() {
     }
 
+    @Override
     public String execute() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_tickler", "w", null)) {
-            throw new RuntimeException("missing required sec object (_tickler)");
+            throw new RuntimeException("missing required security object: _tickler");
         }
 
         String[] demos = request.getParameterValues("demo");

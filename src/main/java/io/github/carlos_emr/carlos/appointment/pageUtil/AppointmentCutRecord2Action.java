@@ -72,7 +72,7 @@ public final class AppointmentCutRecord2Action extends ActionSupport {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "d", null)) {
-            throw new SecurityException("missing required sec object (_appointment)");
+            throw new SecurityException("missing required security object: _appointment");
         }
 
         String apptNoParam = request.getParameter("appointment_no");

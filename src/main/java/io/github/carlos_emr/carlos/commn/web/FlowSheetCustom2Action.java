@@ -156,7 +156,7 @@ public class FlowSheetCustom2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", demographicNo)) {
-            throw new SecurityException("missing required sec object (_demographic)");
+            throw new SecurityException("missing required security object: _demographic");
         }
 
         flowSheetCustomizationService.validateScopePermission(loggedInInfo, scope);
@@ -184,6 +184,7 @@ public class FlowSheetCustom2Action extends ActionSupport {
         return true;
     }
 
+    @Override
     public String execute() throws Exception {
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
             logger.warn("Rejected flowsheet customization request with method {} from {}",
@@ -199,7 +200,7 @@ public class FlowSheetCustom2Action extends ActionSupport {
             logger.warn("Denied flowsheet customization request with method {} from {}",
                     LogSafe.sanitize(String.valueOf(request.getMethod())),
                     LogSafe.sanitize(String.valueOf(request.getRemoteAddr())));
-            throw new SecurityException("missing required sec object (_flowsheet)");
+            throw new SecurityException("missing required security object: _flowsheet");
         }
 
         String method = request.getParameter("method");

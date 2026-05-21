@@ -57,10 +57,11 @@ public class ProviderRxInteractionWarningLevel2Action extends ActionSupport {
 
     private UserPropertyDAO propertyDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
 
+    @Override
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pref", "w", null)) {
-            throw new SecurityException("missing required sec object (_pref)");
+            throw new SecurityException("missing required security object: _pref");
         }
 
         return update();

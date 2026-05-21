@@ -71,7 +71,7 @@ public class FaxDocumentManagerImpl implements FaxDocumentManager {
     public Path getEformFaxDocument(LoggedInInfo loggedInInfo, int eformId) {
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_fax)");
+            throw new RuntimeException("missing required security object: _fax");
         }
 
         LogAction.addLogSynchronous(loggedInInfo, "FaxDocumentManager.getEformFaxDocument", "eformID: " + eformId);
@@ -92,7 +92,7 @@ public class FaxDocumentManagerImpl implements FaxDocumentManager {
 
     public Path getFormFaxDocument(LoggedInInfo loggedInInfo, FormTransportContainer formTransportContainer) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_fax)");
+            throw new RuntimeException("missing required security object: _fax");
         }
         LogAction.addLogSynchronous(loggedInInfo, "FaxDocumentManager.getFormFaxDocument", "eformID: " + formTransportContainer.getFormName());
         return ConvertToEdoc.saveAsTempPDF(formTransportContainer);
@@ -110,7 +110,7 @@ public class FaxDocumentManagerImpl implements FaxDocumentManager {
     public byte[] createCoverPage(LoggedInInfo loggedInInfo, String note) {
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, null)) {
-            throw new RuntimeException("missing required sec object (_fax)");
+            throw new RuntimeException("missing required security object: _fax");
         }
 
         PdfCoverPageCreator pdfCoverPageCreator = new PdfCoverPageCreator(note);
@@ -120,7 +120,7 @@ public class FaxDocumentManagerImpl implements FaxDocumentManager {
 
     public byte[] createCoverPage(LoggedInInfo loggedInInfo, String note, int numberPages) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, null)) {
-            throw new RuntimeException("missing required sec object (_fax)");
+            throw new RuntimeException("missing required security object: _fax");
         }
         PdfCoverPageCreator pdfCoverPageCreator = new PdfCoverPageCreator(note, numberPages);
         return pdfCoverPageCreator.createCoverPage();
@@ -128,7 +128,7 @@ public class FaxDocumentManagerImpl implements FaxDocumentManager {
 
     public byte[] createCoverPage(LoggedInInfo loggedInInfo, String note, FaxRecipient recipient, FaxAccount sender, int numberPages) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, null)) {
-            throw new RuntimeException("missing required sec object (_fax)");
+            throw new RuntimeException("missing required security object: _fax");
         }
         PdfCoverPageCreator pdfCoverPageCreator = new PdfCoverPageCreator(note, numberPages, recipient, sender);
         return pdfCoverPageCreator.createCoverPage();

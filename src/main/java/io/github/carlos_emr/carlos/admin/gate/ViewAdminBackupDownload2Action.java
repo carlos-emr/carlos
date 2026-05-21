@@ -42,7 +42,7 @@ public final class ViewAdminBackupDownload2Action extends ActionSupport {
                 || securityInfoManager.hasPrivilege(loggedInInfo, "_admin.backup", "r", null);
 
         if (!authorized) {
-            throw new SecurityException("missing required sec object (_admin or _admin.backup)");
+            throw new SecurityException("missing required security object: _admin or _admin.backup");
         }
 
         return SUCCESS;

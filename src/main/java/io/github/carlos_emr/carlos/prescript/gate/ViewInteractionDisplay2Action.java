@@ -39,7 +39,7 @@ public final class ViewInteractionDisplay2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "r", null)) {
-            throw new SecurityException("missing required sec object (_rx)");
+            throw new SecurityException("missing required security object: _rx");
         }
 
         return SUCCESS;

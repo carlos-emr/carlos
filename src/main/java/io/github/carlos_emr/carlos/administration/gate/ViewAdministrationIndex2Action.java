@@ -74,7 +74,7 @@ public final class ViewAdministrationIndex2Action extends ActionSupport {
         if (!authorized) {
             MiscUtils.getLogger().warn("Denied administration index: provider={} holds none of {}",
                     loggedInInfo.getLoggedInProviderNo(), String.join(",", ADMIN_PRIVS));
-            throw new SecurityException("missing required sec object (any of _admin*)");
+            throw new SecurityException("missing required security object: any of _admin*");
         }
 
         String method = request.getMethod();

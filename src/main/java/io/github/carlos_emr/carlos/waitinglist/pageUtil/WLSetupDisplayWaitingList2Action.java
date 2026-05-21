@@ -65,12 +65,13 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager =
             SpringUtils.getBean(SecurityInfoManager.class);
 
+    @Override
     public String execute()
             throws Exception {
         log.debug("WLSetupDisplayWaitingList2Action/execute(): just entering.");
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
-            throw new SecurityException("missing required sec object (_demographic r)");
+            throw new SecurityException("missing required security object: _demographic r");
         }
         String update = request.getParameter("update");
         String remove = request.getParameter("remove"); //actually not used for now, may in future?
@@ -82,7 +83,7 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
                 return NONE;
             }
             if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
-                throw new SecurityException("missing required sec object (_demographic w)");
+                throw new SecurityException("missing required security object: _demographic w");
             }
         }
 

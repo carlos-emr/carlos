@@ -54,7 +54,7 @@ public class AuditLogPurge2Action extends ActionSupport {
     public String execute() throws Exception {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.auditLogPurge", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin.auditLogPurge)");
+            throw new SecurityException("missing required security object: _admin.auditLogPurge");
         }
 
 

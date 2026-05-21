@@ -74,9 +74,10 @@ public class ViewWCB2Action extends ActionSupport {
     DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
     SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    @Override
     public String execute() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_billing", "r", null)) {
-            throw new SecurityException("missing required sec object (_billing)");
+            throw new SecurityException("missing required security object: _billing");
         }
         String demoNo = request.getParameter("demographic_no");
         String providerNo = request.getParameter("provNo");

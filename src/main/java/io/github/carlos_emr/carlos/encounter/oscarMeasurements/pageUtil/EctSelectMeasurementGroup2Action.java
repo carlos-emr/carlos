@@ -65,6 +65,7 @@ public class EctSelectMeasurementGroup2Action extends ActionSupport {
     private MeasurementGroupDao groupDao = SpringUtils.getBean(MeasurementGroupDao.class);
     private MeasurementManager measurementManager = SpringUtils.getBean(MeasurementManager.class);
 
+    @Override
     public String execute() throws ServletException, IOException {
         String groupName = this.getSelectedGroupName();
 
@@ -82,7 +83,7 @@ public class EctSelectMeasurementGroup2Action extends ActionSupport {
         if (forward.compareTo("delete") == 0) {
             if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null)
                     && !securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.measurements", "w", null)) {
-                throw new SecurityException("missing required sec object (_admin.measurements)");
+                throw new SecurityException("missing required security object: _admin.measurements");
             }
             // nosemgrep: tainted-session-from-http-request -- groupName validated via regex [^\\p{Cntrl}]+, length-capped to 100; admin privilege verified above
             session.setAttribute("groupName", groupName);

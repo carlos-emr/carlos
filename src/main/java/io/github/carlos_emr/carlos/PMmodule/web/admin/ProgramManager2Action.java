@@ -289,11 +289,12 @@ public class ProgramManager2Action extends ActionSupport {
      *
      * @return String result name for Struts 2 result mapping
      */
+    @Override
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String method = request.getParameter("method");
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pmm_management", "w", null)) {
-            throw new SecurityException("missing required sec object (_pmm_management)");
+            throw new SecurityException("missing required security object: _pmm_management");
         }
 
         if ("edit".equals(method)) {

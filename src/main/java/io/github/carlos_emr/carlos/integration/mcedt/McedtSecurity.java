@@ -94,7 +94,7 @@ public final class McedtSecurity {
         SecurityInfoManager sim = SpringUtils.getBean(SecurityInfoManager.class);
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null || !sim.hasPrivilege(loggedInInfo, PRIVILEGE, mode, null)) {
-            throw new SecurityException("missing required sec object (" + PRIVILEGE + " " + mode + ")");
+            throw new SecurityException("missing required security object: " + PRIVILEGE + " " + mode);
         }
     }
 }

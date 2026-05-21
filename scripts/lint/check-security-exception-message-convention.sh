@@ -4,9 +4,9 @@
 #
 # CI guard for SecurityException message consistency: failed
 # SecurityInfoManager.hasPrivilege() checks must use:
-#   missing required sec object (_object)
+#   missing required security object: _object
 # not:
-#   missing required sec object: _object
+#   missing required sec object (_object)
 #
 # @since 2026-05-05
 
@@ -18,7 +18,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 if [[ "$#" -gt 0 ]]; then
   targets=("$@")
 else
-  targets=("$REPO_ROOT/src")
+  targets=("$REPO_ROOT/src/main/java")
 fi
 
 tmp_stdout=""
@@ -33,7 +33,7 @@ tmp_stdout="$(mktemp)"
 tmp_stderr="$(mktemp)"
 
 set +e
-grep -RInE 'missing required sec object:[[:space:]]*($|[^)])' "${targets[@]}" >"$tmp_stdout" 2>"$tmp_stderr"
+grep -RIn 'missing required sec object' "${targets[@]}" >"$tmp_stdout" 2>"$tmp_stderr"
 grep_status=$?
 set -e
 
@@ -45,7 +45,7 @@ fi
 if [[ "$grep_status" -ne 0 ]]; then
   echo "SecurityException message convention: ERROR"
   echo
-  echo "grep failed while scanning for colon-form messages:"
+  echo "grep failed while scanning for old-form messages:"
   cat "$tmp_stderr"
   if [[ -s "$tmp_stdout" ]]; then
     echo
@@ -59,9 +59,9 @@ violations="$(cat "$tmp_stdout")"
 
 echo "SecurityException message convention: FAIL"
 echo
-echo "Use paren form for failed security-object privilege checks:"
-echo "  missing required sec object (_objectname)"
+echo "Use the standard form for failed security-object privilege checks:"
+echo "  missing required security object: _objectname"
 echo
-echo "Colon-form violations:"
+echo "Old-form violations:"
 echo "$violations"
 exit 1

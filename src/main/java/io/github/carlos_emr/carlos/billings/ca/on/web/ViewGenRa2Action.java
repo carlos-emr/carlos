@@ -56,7 +56,7 @@ public class ViewGenRa2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (request.getAttribute("documentBean") instanceof DocumentBean) {
             if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
-                throw new SecurityException("missing required sec object (_billing)");
+                throw new SecurityException("missing required security object: _billing");
             }
             if (!"POST".equalsIgnoreCase(request.getMethod())) {
                 HttpServletResponse response = ServletActionContext.getResponse();
@@ -73,7 +73,7 @@ public class ViewGenRa2Action extends ActionSupport {
         }
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
-            throw new SecurityException("missing required sec object (_billing)");
+            throw new SecurityException("missing required security object: _billing");
         }
 
         return SUCCESS;

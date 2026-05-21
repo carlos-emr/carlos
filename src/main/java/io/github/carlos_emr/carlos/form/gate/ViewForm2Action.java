@@ -48,7 +48,7 @@ public class ViewForm2Action extends ActionSupport {
 
         if (!securityInfoManager.hasPrivilege(
                 loggedInInfo, "_form", SecurityInfoManager.READ, demographicNo)) {
-            throw new SecurityException("missing required sec object (_form)");
+            throw new SecurityException("missing required security object: _form");
         }
 
         String actionName = ActionContext.getContext().getActionName();

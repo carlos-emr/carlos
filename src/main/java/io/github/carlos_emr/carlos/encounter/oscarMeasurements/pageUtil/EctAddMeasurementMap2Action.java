@@ -74,6 +74,7 @@ public class EctAddMeasurementMap2Action extends ActionSupport {
     public EctAddMeasurementMap2Action() {
     }
 
+    @Override
     public String execute() throws ServletException, IOException {
 
         if (securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null) || securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.measurements", "w", null)) {
@@ -97,7 +98,7 @@ public class EctAddMeasurementMap2Action extends ActionSupport {
             return outcome;
 
         } else {
-            throw new SecurityException("Access Denied!"); //missing required sec object (_admin)
+            throw new SecurityException("Access Denied!"); //missing required security object: _admin
 
         }
     }

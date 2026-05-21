@@ -81,10 +81,11 @@ public class GeneratePatientLetters2Action extends ActionSupport {
     private static Logger log = MiscUtils.getLogger();
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    @Override
     public String execute() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_report", "r", null)) {
-            throw new SecurityException("missing required sec object (_report)");
+            throw new SecurityException("missing required security object: _report");
         }
 
         String classpath = (String) request.getSession().getServletContext().getAttribute("org.apache.catalina.jsp_classpath");

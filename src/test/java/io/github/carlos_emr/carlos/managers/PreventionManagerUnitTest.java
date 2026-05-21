@@ -215,7 +215,7 @@ public class PreventionManagerUnitTest extends PreventionUnitTestBase {
             assertThatThrownBy(() ->
                 preventionManager.getPreventionsByDemographicNo(mockLoggedInInfo, TEST_DEMO_NO)
             ).isInstanceOf(RuntimeException.class)
-             .hasMessageContaining("missing required sec object");
+             .hasMessageContaining("missing required security object");
         }
 
         @Test
@@ -957,7 +957,7 @@ public class PreventionManagerUnitTest extends PreventionUnitTestBase {
             assertThatThrownBy(() ->
                 preventionManager.getImmunizationsByDemographic(mockLoggedInInfo, TEST_DEMO_NO)
             ).isInstanceOf(RuntimeException.class)
-             .hasMessageContaining("missing required sec object");
+             .hasMessageContaining("missing required security object");
         }
     }
 }

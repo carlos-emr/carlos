@@ -50,10 +50,11 @@ public class ProEditPhoneNum2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
+    @Override
     public String execute() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pref", "w", null)) {
-            throw new SecurityException("missing required sec object (_pref)");
+            throw new SecurityException("missing required security object: _pref");
         }
 
         String providerNo = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();

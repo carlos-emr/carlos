@@ -89,10 +89,11 @@ public class SupServiceCodeAssoc2Action extends ActionSupport {
      * @return String "success" to forward to list view, or NONE after redirect
      * @throws RuntimeException if redirect fails
      */
+    @Override
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
-            throw new SecurityException("missing required sec object (_billing)");
+            throw new SecurityException("missing required security object: _billing");
         }
 
         SupServiceCodeAssocDAO dao = SpringUtils.getBean(SupServiceCodeAssocDAO.class);

@@ -66,10 +66,11 @@ public class PrintClientLabLabel2Action extends ActionSupport {
     public PrintClientLabLabel2Action() {
     }
 
+    @Override
     public String execute() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", null)) {
-            throw new SecurityException("missing required sec object (_demographic)");
+            throw new SecurityException("missing required security object: _demographic");
         }
 
         //patient

@@ -88,11 +88,12 @@ public class ProEditColour2Action extends ActionSupport {
      *         or "eject" if no provider is logged in
      * @throws Exception if colour update encounters an error
      */
+    @Override
     public String execute()
             throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pref", "w", null)) {
-            throw new SecurityException("missing required sec object (_pref)");
+            throw new SecurityException("missing required security object: _pref");
         }
 
         String forward;

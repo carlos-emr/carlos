@@ -105,7 +105,7 @@ public class DemographicUpdate2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
             logger.warn("DemographicUpdate2Action: provider {} lacks _demographic write privilege",
                     loggedInInfo.getLoggedInProviderNo());
-            throw new SecurityException("missing required sec object (_demographic)");
+            throw new SecurityException("missing required security object: _demographic");
         }
 
         DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);

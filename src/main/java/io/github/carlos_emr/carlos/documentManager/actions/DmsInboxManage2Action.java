@@ -89,10 +89,11 @@ public class DmsInboxManage2Action extends ActionSupport {
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    @Override
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "r", null)) {
-            throw new SecurityException("missing required sec object (_edoc)");
+            throw new SecurityException("missing required security object: _edoc");
         }
 
         String mtd = request.getParameter("method");

@@ -62,9 +62,10 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     Logger _logger = MiscUtils.getLogger();
 
+    @Override
     public String execute() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_lab", "w", null)) {
-            throw new SecurityException("missing required sec object (_lab)");
+            throw new SecurityException("missing required security object: _lab");
         }
 
         String filename = "";

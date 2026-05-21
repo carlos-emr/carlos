@@ -44,7 +44,7 @@ public final class ViewDocumentRead2Action extends ActionSupport {
         SecurityInfoManager sim = SpringUtils.getBean(SecurityInfoManager.class);
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null || !sim.hasPrivilege(loggedInInfo, "_edoc", "r", null)) {
-            throw new SecurityException("missing required sec object (_edoc r)");
+            throw new SecurityException("missing required security object: _edoc r");
         }
         return SUCCESS;
     }

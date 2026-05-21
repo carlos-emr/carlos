@@ -56,10 +56,11 @@ public class DisplayPersonalInfoAppointment2Action extends ActionSupport {
     public DisplayPersonalInfoAppointment2Action() {
     }
 
+    @Override
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
-            throw new SecurityException("missing required sec object (_demographic)");
+            throw new SecurityException("missing required security object: _demographic");
         }
 
         return toggle();

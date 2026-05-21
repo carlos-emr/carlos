@@ -68,7 +68,7 @@ public class ViewBillingCalendarPopup2Action extends ActionSupport {
                         || securityInfoManager.hasPrivilege(loggedInInfo, "_report", "r", null)
                         || securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", null);
         if (!allowed) {
-            throw new SecurityException("missing required sec object (_billing | _report | _tickler)");
+            throw new SecurityException("missing required security object: _billing | _report | _tickler");
         }
 
         BillingCalendarPopupViewModel model;

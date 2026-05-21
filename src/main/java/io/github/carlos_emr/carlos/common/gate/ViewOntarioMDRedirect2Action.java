@@ -54,7 +54,7 @@ public final class ViewOntarioMDRedirect2Action extends ActionSupport {
                 || !securityInfoManager.hasPrivilege(loggedInInfo, "_eChart", "r", null)) {
             MiscUtils.getLogger().warn("Denied OntarioMDRedirect: provider={} lacks _admin r + _eChart r",
                     loggedInInfo.getLoggedInProviderNo());
-            throw new SecurityException("missing required sec object (_admin r + _eChart r)");
+            throw new SecurityException("missing required security object: _admin r + _eChart r");
         }
 
         String method = request.getMethod();

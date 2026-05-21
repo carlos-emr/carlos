@@ -39,7 +39,7 @@ public final class ViewSideLinksNoEditFavorites2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_allergy", "r", null)) {
-            throw new SecurityException("missing required sec object (_allergy)");
+            throw new SecurityException("missing required security object: _allergy");
         }
 
         return SUCCESS;

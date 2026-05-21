@@ -52,7 +52,7 @@ public class AdminSaveMyGroup2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.misc", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin.misc)");
+            throw new SecurityException("missing required security object: _admin.misc");
         }
 
         if (!"POST".equalsIgnoreCase(request.getMethod())) {

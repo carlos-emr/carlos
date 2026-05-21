@@ -75,13 +75,8 @@ public final class RxManagePharmacy2Action extends ActionSupport {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
 
+    @Override
     public String execute() throws IOException, ServletException {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        // The pharmacy management view can add/edit clinic pharmacy records, so opening it requires write access.
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", null)) {
-            throw new SecurityException("missing required sec object (_rx)");
-        }
-
         String method = request.getParameter("method");
         if ("delete".equals(method)) {
             return delete();
@@ -105,6 +100,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
             return getTotalDemographicsPreferedToPharmacy();
         }
 
+        requireRxWritePrivilege();
         String actionType = this.getPharmacyAction();
         if (StringUtils.isNullOrEmpty(actionType)) {
             return SUCCESS;
@@ -124,6 +120,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
     }
 
     public String delete() throws IOException {
+        requireRxWritePrivilege();
 
 
         String retVal = "{\"success\":true}";
@@ -149,6 +146,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
     }
 
     public String unlink() {
+        requireRxWritePrivilege();
 
         ObjectNode jsonObject = objectMapper.createObjectNode();
         try {
@@ -179,6 +177,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
     }
 
     public String getPharmacyFromDemographic() throws IOException {
+        requireRxReadPrivilege();
 
         String demographicNo = request.getParameter("demographicNo");
 
@@ -197,6 +196,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
     }
 
     public String setPreferred() {
+        requireRxWritePrivilege();
         RxPharmacyData pharmacy = new RxPharmacyData();
         try {
             PharmacyInfo pharmacyInfo = pharmacy.addPharmacyToDemographic(request.getParameter("pharmId"), request.getParameter("demographicNo"), request.getParameter("preferredOrder"));
@@ -210,6 +210,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
     }
 
     public String add() {
+        requireRxWritePrivilege();
         RxPharmacyData pharmacy = new RxPharmacyData();
 
         String status = "{\"success\":true}";
@@ -242,6 +243,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
     }
 
     public String save() {
+        requireRxWritePrivilege();
 
 
         RxPharmacyData pharmacy = new RxPharmacyData();
@@ -280,6 +282,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
     }
 
     public String search() {
+        requireRxReadPrivilege();
 
         String searchStr = request.getParameter("term");
 
@@ -300,6 +303,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
     }
 
     public String searchCity() {
+        requireRxReadPrivilege();
 
         String searchStr = request.getParameter("term");
 
@@ -319,6 +323,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
     }
 
     public String getPharmacyInfo() throws IOException {
+        requireRxReadPrivilege();
         String pharmacyId = request.getParameter("pharmacyId");
         MiscUtils.getLogger().debug("pharmacyId=" + pharmacyId);
         if (pharmacyId == null) return null;
@@ -347,6 +352,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
     }
 
     public String getTotalDemographicsPreferedToPharmacy() throws IOException {
+        requireRxReadPrivilege();
         String pharmacyId = StringUtils.isNullOrEmpty(request.getParameter("pharmacyId")) ? "0" : request.getParameter("pharmacyId");
         RxPharmacyData pharmacyData = new RxPharmacyData();
         Long totalDemographics = pharmacyData.getTotalDemographicsPreferedToPharmacyByPharmacyId(pharmacyId);
@@ -354,6 +360,21 @@ public final class RxManagePharmacy2Action extends ActionSupport {
         jsonObject.put("totalDemographics", totalDemographics);
         response.getOutputStream().write(jsonObject.toString().getBytes());
         return null;
+    }
+
+    private void requireRxReadPrivilege() {
+        requireRxPrivilege("r");
+    }
+
+    private void requireRxWritePrivilege() {
+        requireRxPrivilege("w");
+    }
+
+    private void requireRxPrivilege(String privilege) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", privilege, null)) {
+            throw new SecurityException("missing required security object: _rx");
+        }
     }
 
     /**

@@ -142,7 +142,7 @@ public class EctDisplayAction extends ActionSupport {
 
         // Privilege check BEFORE any session.setAttribute to prevent unauthorized session mutation (CWE-501)
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", demoNoParam)) {
-            throw new SecurityException("missing required sec object (_demographic)");
+            throw new SecurityException("missing required security object: _demographic");
         }
 
         if (rebuildBean) {

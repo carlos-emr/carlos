@@ -88,7 +88,7 @@ public class EmailComposeManager {
      */
     public EmailLog prepareEmailForResend(LoggedInInfo loggedInInfo, Integer emailLogId) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_email)");
+            throw new RuntimeException("missing required security object: _email");
         }
 
         EmailLog emailLog = emailLogDao.find(emailLogId);
@@ -111,7 +111,7 @@ public class EmailComposeManager {
      */
     public List<EmailAttachment> prepareEFormAttachments(LoggedInInfo loggedInInfo, String fdid, String[] attachedEForms) throws PDFGenerationException {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_eform)");
+            throw new RuntimeException("missing required security object: _eform");
         }
 
         List<String> attachedEFormIds = convertToList(attachedEForms);
@@ -144,7 +144,7 @@ public class EmailComposeManager {
      */
     public List<EmailAttachment> prepareEDocAttachments(LoggedInInfo loggedInInfo, String[] attachedDocuments) throws PDFGenerationException {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_edoc)");
+            throw new RuntimeException("missing required security object: _edoc");
         }
 
         List<String> attachedEDocIds = convertToList(attachedDocuments);
@@ -174,7 +174,7 @@ public class EmailComposeManager {
      */
     public List<EmailAttachment> prepareLabAttachments(LoggedInInfo loggedInInfo, String[] attachedLabs) throws PDFGenerationException {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_lab)");
+            throw new RuntimeException("missing required security object: _lab");
         }
 
         List<String> attachedLabIds = convertToList(attachedLabs);
@@ -243,7 +243,7 @@ public class EmailComposeManager {
     public List<EmailAttachment> prepareFormAttachments(HttpServletRequest request, HttpServletResponse response, String[] attachedForms, Integer demographicId) throws PDFGenerationException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, String.valueOf(demographicId))) {
-            throw new RuntimeException("missing required sec object (_form)");
+            throw new RuntimeException("missing required security object: _form");
         }
 
         List<String> attachedFormIds = convertToList(attachedForms);
@@ -291,7 +291,7 @@ public class EmailComposeManager {
      */
     public String[] getEmailConsentStatus(LoggedInInfo loggedInInfo, Integer demographicId) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_email)");
+            throw new RuntimeException("missing required security object: _email");
         }
 
         String UNKNOWN = "Unknown", OPTIN = "Explicit Opt-In", OPTOUT = "Explicit Opt-Out";

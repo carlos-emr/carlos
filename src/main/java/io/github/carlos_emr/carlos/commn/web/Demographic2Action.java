@@ -67,6 +67,7 @@ public class Demographic2Action extends ActionSupport {
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    @Override
     public String execute() throws Exception {
         String method = request.getParameter("method");
         if ("getSubdivisionCodes".equals(method)) {
@@ -191,7 +192,7 @@ public class Demographic2Action extends ActionSupport {
         String demographicNo = request.getParameter("demographicNo");
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", null)) {
-            throw new SecurityException("missing required sec object (_demographic)");
+            throw new SecurityException("missing required security object: _demographic");
         }
 
         if (demographicNo != null) {
@@ -273,7 +274,7 @@ public class Demographic2Action extends ActionSupport {
     public String checkForDuplicates() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request),
                 "_demographic", "w", null)) {
-            throw new SecurityException("missing required sec object (_demographic)");
+            throw new SecurityException("missing required security object: _demographic");
         }
 
         String firstName = request.getParameter("firstName");

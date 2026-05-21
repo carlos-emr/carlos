@@ -104,10 +104,11 @@ public class EmailCompose2Action extends ActionSupport {
      *         or "eFormError" if PDF generation fails
      * @see #prepareComposeEFormMailer()
      */
+    @Override
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", "w", null)) {
-            throw new SecurityException("missing required sec object (_email)");
+            throw new SecurityException("missing required security object: _email");
         }
 
         return prepareComposeEFormMailer();

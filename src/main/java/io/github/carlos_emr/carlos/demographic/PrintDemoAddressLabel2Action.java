@@ -120,10 +120,11 @@ public class PrintDemoAddressLabel2Action extends ActionSupport {
      * @return String NONE constant after streaming the direct PDF response
      * @throws SecurityException if the user lacks "_demographic" read privilege
      */
+    @Override
     public String execute() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", null)) {
-            throw new SecurityException("missing required sec object (_demographic)");
+            throw new SecurityException("missing required security object: _demographic");
         }
 
         //patient

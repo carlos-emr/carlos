@@ -210,7 +210,7 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
 
             assertThatThrownBy(() -> manager.getDemographic(mockLoggedInInfo, TEST_DEMO_NO))
                 .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("missing required sec object");
+                .hasMessageContaining("missing required security object");
         }
 
         @Test
@@ -225,7 +225,7 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
 
             assertThatThrownBy(() -> manager.createDemographic(mockLoggedInInfo, demographic, TEST_PROGRAM_ID))
                 .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("missing required sec object");
+                .hasMessageContaining("missing required security object");
         }
 
         @Test
@@ -240,7 +240,7 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
 
             assertThatThrownBy(() -> manager.updateDemographic(mockLoggedInInfo, demographic))
                 .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("missing required sec object");
+                .hasMessageContaining("missing required security object");
         }
 
         @Test
@@ -264,7 +264,7 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
             // checkPrivilege with write privilege should throw when denied
             assertThatThrownBy(() -> manager.checkPrivilege(mockLoggedInInfo, "w"))
                 .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("missing required sec object");
+                .hasMessageContaining("missing required security object");
         }
 
         @Test
@@ -278,7 +278,7 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
             // checkPrivilege with demographicNo parameter should throw when denied
             assertThatThrownBy(() -> manager.checkPrivilege(mockLoggedInInfo, "r", TEST_DEMO_NO))
                 .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("missing required sec object");
+                .hasMessageContaining("missing required security object");
         }
 
         @Test
@@ -294,7 +294,7 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
             // Should throw before any deletion logic executes
             assertThatThrownBy(() -> manager.deleteDemographic(mockLoggedInInfo, demographic))
                 .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("missing required sec object");
+                .hasMessageContaining("missing required security object");
         }
 
         @Test
@@ -310,7 +310,7 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
             // Should throw before any persistence occurs
             assertThatThrownBy(() -> manager.createExtension(mockLoggedInInfo, ext))
                 .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("missing required sec object");
+                .hasMessageContaining("missing required security object");
         }
 
         @Test
@@ -326,7 +326,7 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
             // Should throw before any archiving or update occurs
             assertThatThrownBy(() -> manager.updateExtension(mockLoggedInInfo, ext))
                 .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("missing required sec object");
+                .hasMessageContaining("missing required security object");
         }
 
         @Test
@@ -342,7 +342,7 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
             // Should throw before any archiving or deletion occurs
             assertThatThrownBy(() -> manager.deleteExtension(mockLoggedInInfo, ext))
                 .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("missing required sec object");
+                .hasMessageContaining("missing required security object");
         }
     }
 

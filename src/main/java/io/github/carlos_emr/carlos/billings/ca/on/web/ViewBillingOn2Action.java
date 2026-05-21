@@ -70,7 +70,7 @@ public class ViewBillingOn2Action extends ActionSupport {
             MiscUtils.getLogger().warn(
                     "Denied billingON view: provider={} lacks _billing r",
                     loggedInInfo.getLoggedInProviderNo());
-            throw new SecurityException("missing required sec object (_billing)");
+            throw new SecurityException("missing required security object: _billing");
         }
 
         String method = request.getMethod();

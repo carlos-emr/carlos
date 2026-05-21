@@ -123,7 +123,7 @@ public abstract class BaseProviderViewGate2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(
                 loggedInInfo, getSecurityObject(), getAccessRight(), null)) {
             throw new SecurityException(
-                    "missing required sec object (" + getSecurityObject() + ")");
+                    "missing required security object: " + getSecurityObject());
         }
 
         return SUCCESS;

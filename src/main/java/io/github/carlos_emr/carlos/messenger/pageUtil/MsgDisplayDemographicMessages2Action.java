@@ -127,12 +127,13 @@ public class MsgDisplayDemographicMessages2Action extends ActionSupport {
      * @throws ServletException if there's a servlet processing error
      * @throws SecurityException if the user lacks required permissions
      */
+    @Override
     public String execute()
             throws IOException, ServletException {
 
         // Verify user has permission to read messages
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_msg", "r", null)) {
-            throw new SecurityException("missing required sec object (_msg)");
+            throw new SecurityException("missing required security object: _msg");
         }
 
         MiscUtils.getLogger().debug("this is displayDemographicMessages.Action");

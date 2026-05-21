@@ -230,7 +230,7 @@ public class PreventionManagerImpl implements Serializable, PreventionManager {
     @Override
     public List<Prevention> getPreventionsByDemographicNo(LoggedInInfo loggedInInfo, Integer demographicNo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_prevention", SecurityInfoManager.READ, demographicNo)) {
-            throw new RuntimeException("missing required sec object (_prevention)");
+            throw new RuntimeException("missing required security object: _prevention");
         }
 
         List<Prevention> results = preventionDao.findUniqueByDemographicId(demographicNo);
@@ -497,7 +497,7 @@ public class PreventionManagerImpl implements Serializable, PreventionManager {
     @Override
     public List<PreventionListItemDTO> getPreventionDTOs(LoggedInInfo loggedInInfo, Integer demographicNo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_prevention", SecurityInfoManager.READ, demographicNo)) {
-            throw new SecurityException("missing required sec object (_prevention)");
+            throw new SecurityException("missing required security object: _prevention");
         }
         LogAction.addLogSynchronous(loggedInInfo, "PreventionManager.getPreventionDTOs",
                 "demographicNo=" + demographicNo);

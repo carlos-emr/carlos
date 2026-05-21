@@ -64,6 +64,7 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     // Execute on struts action call — routes to saveImage or deleteImage based on method parameter
+    @Override
     public String execute() {
         validateWritePrivilege();
 

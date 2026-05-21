@@ -52,12 +52,13 @@ public final class dxSetupResearch2Action extends ActionSupport {
 
     private static SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    @Override
     public String execute()
             throws Exception {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_dxresearch", "r", null)) {
-            throw new RuntimeException("missing required sec object (_dxresearch)");
+            throw new RuntimeException("missing required security object: _dxresearch");
         }
 
         // Validate demographicNo is a non-negative integer before crossing the trust boundary

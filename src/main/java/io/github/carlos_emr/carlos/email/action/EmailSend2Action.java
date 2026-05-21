@@ -75,10 +75,11 @@ public class EmailSend2Action extends ActionSupport {
      * @return String Struts2 result identifier - "success" for successful email operations,
      *         or transaction type name for cancel operations
      */
+    @Override
     public String execute () {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", "w", null)) {
-            throw new SecurityException("missing required sec object (_email)");
+            throw new SecurityException("missing required security object: _email");
         }
 
         if ("sendDirectEmail".equals(request.getParameter("method"))) {

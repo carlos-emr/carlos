@@ -60,7 +60,7 @@ public final class ViewGenTA2Action extends ActionSupport {
         boolean hasBillingAdmin = securityInfoManager.hasPrivilege(loggedInInfo, "_admin.billing", "w", null);
         boolean hasAdmin = securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null);
         if (!hasBillingAdmin && !hasAdmin) {
-            throw new SecurityException("missing required sec object (_admin.billing or _admin)");
+            throw new SecurityException("missing required security object: _admin.billing or _admin");
         }
 
         return SUCCESS;

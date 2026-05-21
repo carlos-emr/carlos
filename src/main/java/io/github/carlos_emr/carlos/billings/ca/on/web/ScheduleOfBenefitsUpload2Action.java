@@ -75,11 +75,12 @@ public class ScheduleOfBenefitsUpload2Action extends ActionSupport implements Up
         return check;
     }
 
+    @Override
     public String execute() throws java.io.IOException {
         HttpServletRequest request = ServletActionContext.getRequest();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.billing", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin.billing)");
+            throw new SecurityException("missing required security object: _admin.billing");
         }
 
         // POST-only for multipart file upload + fee preview. Legacy GET

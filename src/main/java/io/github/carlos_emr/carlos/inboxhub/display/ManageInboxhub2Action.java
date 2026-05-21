@@ -100,6 +100,7 @@ public class ManageInboxhub2Action extends ActionSupport {
      * @return String Struts2 result name ("success", "displayList", "displayView", or "unauthorized")
      * @throws Exception if an error occurs during method execution
      */
+    @Override
     public String execute() throws Exception {
         String method = request.getParameter("method");
         if ("displayInboxForm".equals(method)) {

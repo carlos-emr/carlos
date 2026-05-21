@@ -94,7 +94,7 @@ public class LogReport2Action extends ActionSupport {
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)
                 && !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.reporting", "r", null)) {
-            throw new SecurityException("missing required sec object (_admin or _admin.reporting)");
+            throw new SecurityException("missing required security object: _admin or _admin.reporting");
         }
 
         String curUser_no = (String) request.getSession().getAttribute("user");

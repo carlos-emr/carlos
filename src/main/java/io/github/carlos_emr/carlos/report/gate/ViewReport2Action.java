@@ -68,7 +68,7 @@ public final class ViewReport2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null
                 || !securityInfoManager.hasPrivilege(loggedInInfo, "_report", "r", null)) {
-            throw new SecurityException("missing required sec object (_report r)");
+            throw new SecurityException("missing required security object: _report r");
         }
         return SUCCESS;
     }

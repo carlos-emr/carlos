@@ -53,7 +53,7 @@ public final class ViewOmdDiseaseList2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eChart", "r", null)) {
             MiscUtils.getLogger().warn("Denied omdDiseaseList: provider={} lacks _eChart r",
                     loggedInInfo.getLoggedInProviderNo());
-            throw new SecurityException("missing required sec object (_eChart r)");
+            throw new SecurityException("missing required security object: _eChart r");
         }
 
         String method = request.getMethod();

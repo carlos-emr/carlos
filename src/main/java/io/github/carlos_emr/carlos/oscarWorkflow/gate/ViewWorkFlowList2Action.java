@@ -53,7 +53,7 @@ public final class ViewWorkFlowList2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "r", null)) {
             MiscUtils.getLogger().warn("Denied workFlowList: provider={} lacks _rx r",
                     loggedInInfo.getLoggedInProviderNo());
-            throw new SecurityException("missing required sec object (_rx r)");
+            throw new SecurityException("missing required security object: _rx r");
         }
 
         String method = request.getMethod();

@@ -93,7 +93,7 @@ public class BatchBill2Action extends ActionSupport {
             return NONE;
         }
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_billing", "w", null)) {
-            throw new SecurityException("missing required sec object (_billing)");
+            throw new SecurityException("missing required security object: _billing");
         }
         switch (command) {
             case DO_BATCH_BILL:
@@ -159,7 +159,7 @@ public class BatchBill2Action extends ActionSupport {
             return NONE;
         }
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_billing", "w", null)) {
-            throw new SecurityException("missing required sec object (_billing)");
+            throw new SecurityException("missing required security object: _billing");
         }
 
         ResourceBundle oscarResource = ResourceBundle.getBundle("oscarResources", request.getLocale());
@@ -245,7 +245,7 @@ public class BatchBill2Action extends ActionSupport {
             return NONE;
         }
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_billing", "w", null)) {
-            throw new SecurityException("missing required sec object (_billing)");
+            throw new SecurityException("missing required security object: _billing");
         }
 
         String[] billingInfo = request.getParameterValues("bill");
@@ -307,7 +307,7 @@ public class BatchBill2Action extends ActionSupport {
             return NONE;
         }
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_billing", "w", null)) {
-            throw new SecurityException("missing required sec object (_billing)");
+            throw new SecurityException("missing required security object: _billing");
         }
 
         String demographicNoParam = request.getParameter("demographic_no");

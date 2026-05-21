@@ -76,10 +76,11 @@ public class SplitDocument2Action extends ActionSupport {
     private static final ObjectMapper objectMapper = new ObjectMapper();
     private static final Set<PosixFilePermission> OWNER_RW_ONLY = PosixFilePermissions.fromString("rw-------");
 
+    @Override
     public String execute() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "w", null)) {
-            throw new SecurityException("missing required sec object (_edoc)");
+            throw new SecurityException("missing required security object: _edoc");
         }
 
         String method = request.getParameter("method");

@@ -104,6 +104,7 @@ public final class BillingEditCode2Action extends ActionSupport {
     }
 
 
+    @Override
     public String execute() throws IOException, ServletException {        String method = request.getParameter("method");
         if ("ajaxCodeUpdate".equals(method)) {
             return ajaxCodeUpdate();
@@ -118,7 +119,7 @@ public final class BillingEditCode2Action extends ActionSupport {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
-            throw new SecurityException("missing required sec object (_billing)");
+            throw new SecurityException("missing required security object: _billing");
         }
 
         MiscUtils.getLogger().debug(submitButton);

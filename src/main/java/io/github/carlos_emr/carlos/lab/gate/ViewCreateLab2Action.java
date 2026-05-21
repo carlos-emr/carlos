@@ -47,7 +47,7 @@ public final class ViewCreateLab2Action extends ActionSupport {
             throw new SecurityException("missing LoggedInInfo");
         }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", "w", null)) {
-            throw new SecurityException("missing required sec object (_lab)");
+            throw new SecurityException("missing required security object: _lab");
         }
 
         return SUCCESS;

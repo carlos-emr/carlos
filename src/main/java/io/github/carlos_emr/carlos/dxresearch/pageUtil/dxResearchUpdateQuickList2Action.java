@@ -68,7 +68,7 @@ public class dxResearchUpdateQuickList2Action extends ActionSupport {
             return NONE;
         }
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_dxresearch", "w", null)) {
-            throw new SecurityException("missing required sec object (_dxresearch w)");
+            throw new SecurityException("missing required security object: _dxresearch w");
         }
 
         String codingSystem = this.getSelectedCodingSystem();

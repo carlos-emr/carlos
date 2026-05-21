@@ -166,7 +166,7 @@ public class DxresearchReport2Action extends ActionSupport {
     public String execute() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_report", "r", null)) {
-            throw new SecurityException("missing required sec object (_report)");
+            throw new SecurityException("missing required security object: _report");
         }
 
         String method = request.getParameter("method");

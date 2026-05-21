@@ -867,7 +867,7 @@ public class ConsultationManagerImpl implements ConsultationManager {
     @Override
     public List<ConsultationRequestListItemDTO> getConsultationDTOs(LoggedInInfo loggedInInfo, Integer demographicId) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.READ, demographicId)) {
-            throw new SecurityException("missing required sec object (_con)");
+            throw new SecurityException("missing required security object: _con");
         }
         List<ConsultationRequestListItemDTO> results = consultationRequestDtoDao.findConsultationDTOsByDemographicId(demographicId);
         LogAction.addLogSynchronous(loggedInInfo, "ConsultationManager.getConsultationDTOs",

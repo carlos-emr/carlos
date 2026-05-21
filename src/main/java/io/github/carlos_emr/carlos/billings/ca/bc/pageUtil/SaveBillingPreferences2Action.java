@@ -95,10 +95,11 @@ public class SaveBillingPreferences2Action
      *
      * @return String "success" to forward to the result page
      */
+    @Override
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
-            throw new SecurityException("missing required sec object (_billing)");
+            throw new SecurityException("missing required security object: _billing");
         }
 
         BillingPreferencesDAO dao = SpringUtils.getBean(BillingPreferencesDAO.class);

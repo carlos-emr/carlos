@@ -104,7 +104,7 @@ public class ProviderSignatureStamp2Action extends ActionSupport implements Uplo
         // check is read-only and only requires read privilege
         String requiredAccess = "check".equals(method) ? "r" : "w";
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pref", requiredAccess, null)) {
-            throw new SecurityException("missing required sec object (_pref)");
+            throw new SecurityException("missing required security object: _pref");
         }
 
         if (!"POST".equalsIgnoreCase(request.getMethod()) && !"check".equals(method)) {

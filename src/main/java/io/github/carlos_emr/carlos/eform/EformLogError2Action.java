@@ -65,10 +65,11 @@ public class EformLogError2Action extends ActionSupport {
      * @return String Always returns null to prevent view rendering
      * @throws Exception if an error occurs during error logging or parameter processing
      */
+    @Override
     public String execute() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", "r", null)) {
-            throw new SecurityException("missing required sec object (_eform)");
+            throw new SecurityException("missing required security object: _eform");
         }
 
         String formId = request.getParameter("formId");

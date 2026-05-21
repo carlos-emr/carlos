@@ -50,10 +50,11 @@ public class RBTAddToGroup2Action extends ActionSupport {
 
     private RBTGroupManager rbtGroupManager = SpringUtils.getBean(RBTGroupManager.class);
 
+    @Override
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_report", "r", null)) {
-            throw new SecurityException("missing required sec object (_report)");
+            throw new SecurityException("missing required security object: _report");
         }
 
 

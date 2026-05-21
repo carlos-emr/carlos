@@ -50,7 +50,7 @@ public class HRMDisplayReport2Action extends ActionSupport implements ModelDrive
         if (!securityInfoManager.hasPrivilege(
                 LoggedInInfo.getLoggedInInfoFromSession(request),
                 "_hrm", "r", null)) {
-            throw new SecurityException("missing required sec object (_hrm)");
+            throw new SecurityException("missing required security object: _hrm");
         }
 
         // ModelDriven automatically exposes criteria object to JSP via value stack

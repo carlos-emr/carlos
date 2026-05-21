@@ -592,7 +592,7 @@ public class DocumentManagerImpl implements DocumentManager {
     @Override
     public List<DocumentListItemDTO> getDocumentDTOs(LoggedInInfo loggedInInfo, Integer demographicNo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "r", null)) {
-            throw new SecurityException("missing required sec object (_edoc)");
+            throw new SecurityException("missing required security object: _edoc");
         }
         List<DocumentListItemDTO> results = documentDao.findDocumentDTOsByDemographicNo(demographicNo);
         LogAction.addLogSynchronous(loggedInInfo, "DocumentManager.getDocumentDTOs",

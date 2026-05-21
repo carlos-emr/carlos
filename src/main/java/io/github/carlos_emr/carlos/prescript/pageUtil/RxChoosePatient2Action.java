@@ -65,11 +65,12 @@ public final class RxChoosePatient2Action extends ActionSupport {
         MiscUtils.getLogger().debug(s + "=" + s2);
     }
 
+    @Override
     public String execute() throws IOException, ServletException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
-            throw new RuntimeException("missing required sec object (_demographic)");
+            throw new RuntimeException("missing required security object: _demographic");
         }
 
         // p("locale", locale.toString());

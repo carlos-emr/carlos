@@ -118,11 +118,12 @@ public class EctSaveEncounter2Action extends ActionSupport {
         }
     }
 
+    @Override
     public String execute() throws
             IOException, ServletException {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(httpservletrequest), "_demographic", "w", null)) {
-            throw new SecurityException("missing required sec object (_demographic)");
+            throw new SecurityException("missing required security object: _demographic");
         }
 
         log.debug("EctSaveEncounter2Action Start");

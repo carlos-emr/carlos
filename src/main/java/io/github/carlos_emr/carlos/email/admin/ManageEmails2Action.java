@@ -84,6 +84,7 @@ public class ManageEmails2Action extends ActionSupport {
      * @see #resendEmail()
      * @see #showEmailManager()
      */
+    @Override
     public String execute() {
         String mtd = request.getParameter("method");
         if ("fetchEmails".equals(mtd)) {
@@ -310,7 +311,7 @@ public class ManageEmails2Action extends ActionSupport {
     private List<EmailAttachment> refreshEmailAttachments(HttpServletRequest request, HttpServletResponse response, EmailLog emailLog) throws PDFGenerationException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_email)");
+            throw new RuntimeException("missing required security object: _email");
         }
 
         List<EmailAttachment> emailAttachmentList = emailLog.getEmailAttachments();

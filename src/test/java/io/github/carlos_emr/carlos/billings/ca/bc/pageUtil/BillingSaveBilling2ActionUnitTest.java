@@ -825,7 +825,7 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
 
             assertThatThrownBy(() -> new BillingSaveBilling2Action().execute())
                     .isInstanceOf(SecurityException.class)
-                    .hasMessage("missing required sec object (_billing)");
+                    .hasMessage("missing required security object: _billing");
             verifyNoInteractions(billingmasterDAO, appointmentDao, appointmentArchiveDao);
         }
     }

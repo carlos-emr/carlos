@@ -79,6 +79,7 @@ public class BulkPatientDashboard2Action extends ActionSupport {
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    @Override
     public String execute() {
         String method = request.getParameter("method");
         if ("addToDiseaseRegistry".equals(method)) {

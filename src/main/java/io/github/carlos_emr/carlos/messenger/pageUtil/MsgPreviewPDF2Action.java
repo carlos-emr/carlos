@@ -64,7 +64,7 @@ public final class MsgPreviewPDF2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", "r", null)) {
             logger.warn("MsgPreviewPDF2Action denied: provider={} lacks _msg read",
                     loggedInInfo == null ? "anon" : loggedInInfo.getLoggedInProviderNo());
-            throw new SecurityException("missing required sec object (_msg)");
+            throw new SecurityException("missing required security object: _msg");
         }
 
         return SUCCESS;

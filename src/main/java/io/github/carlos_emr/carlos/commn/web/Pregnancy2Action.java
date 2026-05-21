@@ -82,9 +82,10 @@ public class Pregnancy2Action extends ActionSupport {
         }
     }
 
+    @Override
     public String execute() throws Exception {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_form", "r", null)) {
-            throw new SecurityException("missing required sec object (_form)");
+            throw new SecurityException("missing required security object: _form");
         }
         String method = request.getParameter("method");
         if ("getLatestFormIdByPregnancy".equals(method)) {
@@ -153,7 +154,7 @@ public class Pregnancy2Action extends ActionSupport {
 
     public String create() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_form", "w", null)) {
-            throw new SecurityException("missing required sec object (_form write)");
+            throw new SecurityException("missing required security object: _form write");
         }
         Integer demographicNo = Integer.parseInt(request.getParameter("demographicNo"));
         String code = request.getParameter("code");
@@ -220,7 +221,7 @@ public class Pregnancy2Action extends ActionSupport {
 
     public String doComplete() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_form", "w", null)) {
-            throw new SecurityException("missing required sec object (_form write)");
+            throw new SecurityException("missing required security object: _form write");
         }
         //Integer demographicNo = Integer.parseInt(request.getParameter("demographicNo"));
         Integer episodeId = Integer.parseInt(request.getParameter("episodeId"));
@@ -242,7 +243,7 @@ public class Pregnancy2Action extends ActionSupport {
 
     public String doDelete() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_form", "w", null)) {
-            throw new SecurityException("missing required sec object (_form write)");
+            throw new SecurityException("missing required security object: _form write");
         }
         //Integer demographicNo = Integer.parseInt(request.getParameter("demographicNo"));
         Integer episodeId = Integer.parseInt(request.getParameter("episodeId"));
@@ -362,7 +363,7 @@ public class Pregnancy2Action extends ActionSupport {
 
     public String getAllergies() throws IOException {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_form", "r", null)) {
-            throw new SecurityException("missing required sec object (_form)");
+            throw new SecurityException("missing required security object: _form");
         }
         Integer demographicNo = Integer.parseInt(request.getParameter("demographicNo"));
         AllergyDao allergyDao = SpringUtils.getBean(AllergyDao.class);
@@ -385,7 +386,7 @@ public class Pregnancy2Action extends ActionSupport {
 
     public String getMeds() throws IOException {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_form", "r", null)) {
-            throw new SecurityException("missing required sec object (_form)");
+            throw new SecurityException("missing required security object: _form");
         }
         Integer demographicNo = Integer.parseInt(request.getParameter("demographicNo"));
         DrugDao drugDao = SpringUtils.getBean(DrugDao.class);
@@ -419,7 +420,7 @@ public class Pregnancy2Action extends ActionSupport {
 
     public String saveFormAjax() throws IOException {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_form", "w", null)) {
-            throw new SecurityException("missing required sec object (_form write)");
+            throw new SecurityException("missing required security object: _form write");
         }
         int newID = 0;
         FrmRecord rec = null;
@@ -500,7 +501,7 @@ public class Pregnancy2Action extends ActionSupport {
 
     public String getMeasurementsAjax() throws IOException {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_form", "r", null)) {
-            throw new SecurityException("missing required sec object (_form)");
+            throw new SecurityException("missing required security object: _form");
         }
         String demographicNo = request.getParameter("demographicNo");
         String type = request.getParameter("type");
@@ -518,7 +519,7 @@ public class Pregnancy2Action extends ActionSupport {
 
     public String saveMeasurementAjax() throws IOException {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_form", "w", null)) {
-            throw new SecurityException("missing required sec object (_form write)");
+            throw new SecurityException("missing required security object: _form write");
         }
         String demographicNo = request.getParameter("demographicNo");
         String type = request.getParameter("type");
@@ -857,7 +858,7 @@ Repeat antibody screen
 
     public String getPrintData() throws IOException {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_form", "r", null)) {
-            throw new SecurityException("missing required sec object (_form)");
+            throw new SecurityException("missing required security object: _form");
         }
         PrintResourceLogDao dao = SpringUtils.getBean(PrintResourceLogDao.class);
         ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);

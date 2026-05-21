@@ -92,10 +92,11 @@ public class GenerateEnvelopes2Action extends ActionSupport {
      * @return String {@code null} (response is written directly as PDF)
      * @throws SecurityException if the logged-in user lacks {@code _report} read privilege
      */
+    @Override
     public String execute() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_report", "r", null)) {
-            throw new SecurityException("missing required sec object (_report)");
+            throw new SecurityException("missing required security object: _report");
         }
 
         String[] demos = request.getParameterValues("demos");

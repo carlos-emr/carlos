@@ -52,10 +52,11 @@ public class AppointmentStatus2Action extends ActionSupport {
 
     private static final Logger logger = MiscUtils.getLogger();
 
+    @Override
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "w", null)) {
-            throw new SecurityException("missing required sec object (_appointment)");
+            throw new SecurityException("missing required security object: _appointment");
         }
 
         String method = request.getParameter("dispatch");

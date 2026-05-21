@@ -83,7 +83,7 @@ class Struts2ActionModernTest extends CarlosWebTestBase {
         // When/Then - should throw RuntimeException
         assertThatThrownBy(() -> executeAction(action))
             .isInstanceOf(RuntimeException.class)
-            .hasMessageContaining("missing required sec object");
+            .hasMessageContaining("missing required security object");
 
         // Verify security was checked
         verifySecurityCheck("_tickler", "w");
@@ -210,7 +210,7 @@ class Struts2ActionModernTest extends CarlosWebTestBase {
             // When/Then - should throw due to security failure
             assertThatThrownBy(() -> executeAction(action))
                 .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("missing required sec object");
+                .hasMessageContaining("missing required security object");
         }
     }
 

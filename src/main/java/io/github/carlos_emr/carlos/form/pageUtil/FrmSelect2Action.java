@@ -60,7 +60,7 @@ public class FrmSelect2Action extends ActionSupport {
     @Override
     public String execute() throws ServletException, IOException {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_form", "w", null)) {
-            throw new SecurityException("missing required sec object (_form)");
+            throw new SecurityException("missing required security object: _form");
         }
 
         String fwd = this.getForward();

@@ -70,7 +70,7 @@ public class Episode2Action extends ActionSupport {
         Integer demographicNo = Integer.parseInt(request.getParameter("demographicNo"));
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", demographicNo)) {
-            throw new SecurityException("missing required sec object (_demographic)");
+            throw new SecurityException("missing required security object: _demographic");
         }
 
         List<Episode> episodes = episodeDao.findAll(demographicNo);
@@ -110,7 +110,7 @@ public class Episode2Action extends ActionSupport {
         e.setLastUpdateUser(loggedInInfo.getLoggedInProviderNo());
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "w", e.getDemographicNo())) {
-            throw new SecurityException("missing required sec object (_demographic)");
+            throw new SecurityException("missing required security object: _demographic");
         }
 
         if (id != null && id.intValue() > 0) {

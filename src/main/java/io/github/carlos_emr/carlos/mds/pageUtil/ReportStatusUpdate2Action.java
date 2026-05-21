@@ -71,6 +71,7 @@ public class ReportStatusUpdate2Action extends ActionSupport {
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    @Override
     public String execute() throws ServletException, IOException {
         if ("addComment".equals(request.getParameter("method"))) {
             return addComment();
@@ -81,7 +82,7 @@ public class ReportStatusUpdate2Action extends ActionSupport {
     public String executemain() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_lab", "w", null)) {
-            throw new SecurityException("missing required sec object (_lab)");
+            throw new SecurityException("missing required security object: _lab");
         }
 
         int labNo = Integer.parseInt(request.getParameter("segmentID"));
@@ -122,7 +123,7 @@ public class ReportStatusUpdate2Action extends ActionSupport {
 
     public String addComment() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_lab", "w", null)) {
-            throw new SecurityException("missing required sec object (_lab)");
+            throw new SecurityException("missing required security object: _lab");
         }
         int labNo = Integer.parseInt(request.getParameter("segmentID"));
         String providerNo = request.getParameter("providerNo");

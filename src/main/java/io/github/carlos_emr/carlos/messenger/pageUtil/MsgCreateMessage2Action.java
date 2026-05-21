@@ -98,6 +98,7 @@ public class MsgCreateMessage2Action extends ActionSupport {
      * @throws ServletException if there's a servlet processing error
      * @throws SecurityException if user lacks message write permissions
      */
+    @Override
     public String execute()
             throws IOException, ServletException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -107,7 +108,7 @@ public class MsgCreateMessage2Action extends ActionSupport {
 
         // Validate security permissions
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", "w", null)) {
-            throw new SecurityException("missing required sec object (_msg)");
+            throw new SecurityException("missing required security object: _msg");
         }
 
         // Use the authenticated session for sender identity — never trust session bean for providerNo

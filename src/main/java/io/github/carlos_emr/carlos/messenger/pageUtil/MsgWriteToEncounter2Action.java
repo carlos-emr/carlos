@@ -119,6 +119,7 @@ public class MsgWriteToEncounter2Action extends ActionSupport {
      * @throws IOException if there's an error with the redirect
      * @throws ServletException if there's a servlet processing error
      */
+    @Override
     public String execute() throws IOException, ServletException {
         // Validate session and check privilege before any processing
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -129,7 +130,7 @@ public class MsgWriteToEncounter2Action extends ActionSupport {
 
         // Security check: requires "_msg" read privilege
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", "r", null)) {
-            throw new SecurityException("missing required sec object (_msg r)");
+            throw new SecurityException("missing required security object: _msg r");
         }
 
         // Generate current date for the encounter

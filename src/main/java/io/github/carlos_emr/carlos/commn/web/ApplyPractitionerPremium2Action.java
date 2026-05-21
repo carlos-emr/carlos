@@ -56,6 +56,7 @@ public class ApplyPractitionerPremium2Action extends ActionSupport {
     private BillingONPremiumDao bPremiumDao = (BillingONPremiumDao) SpringUtils.getBean(BillingONPremiumDao.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    @Override
     public String execute() {
         return applyPremium();
     }
@@ -65,7 +66,7 @@ public class ApplyPractitionerPremium2Action extends ActionSupport {
         Integer raHeaderNo = Integer.parseInt(raHeaderNoStr);
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_billing", "w", null)) {
-            throw new SecurityException("missing required sec object (_billing)");
+            throw new SecurityException("missing required security object: _billing");
         }
 
         List<BillingONPremium> bPremiumList = bPremiumDao.getRAPremiumsByRaHeaderNo(raHeaderNo);
