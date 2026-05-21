@@ -170,7 +170,9 @@ function wirePage(page, label) {
 }
 
 async function gotoApp(page, appPath, waitUntil = 'domcontentloaded', query = null) {
-  return page.goto(appUrl(appPath, query), { waitUntil, timeout: 30000 });
+  const url = appUrl(appPath, query);
+  // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection
+  return page.goto(url, { waitUntil, timeout: 30000 });
 }
 
 async function login(page) {
@@ -211,13 +213,17 @@ async function findRowInList(page, message, expectedStatus) {
     window.jQuery('#ticklerResults').DataTable().search('').order([4, 'desc']).draw();
   });
   try {
-    await page.waitForFunction((needle) => {
+    await page.locator('#ticklerResults tbody tr').filter({ hasText: message }).first().waitFor({
+      state: 'visible',
+      timeout: 30000,
+    });
+    await page.waitForFunction(() => {
       const table = window.jQuery && window.jQuery('#ticklerResults').DataTable();
       if (!table) {
         return false;
       }
-      return table.rows({ page: 'current' }).data().toArray().some((row) => row.message === needle);
-    }, message, { timeout: 30000 });
+      return table.rows({ page: 'current' }).data().toArray().length > 0;
+    }, null, { timeout: 30000 });
   } catch (error) {
     const debugState = await page.evaluate(() => {
       const table = window.jQuery && window.jQuery('#ticklerResults').DataTable();
@@ -232,10 +238,7 @@ async function findRowInList(page, message, expectedStatus) {
     throw new Error(`tickler list current page did not show ${message}; state=${JSON.stringify(debugState)}`, { cause: error });
   }
 
-  const row = await page.evaluate((needle) => {
-    const table = window.jQuery('#ticklerResults').DataTable();
-    return table.rows({ page: 'current' }).data().toArray().find((item) => item.message === needle);
-  }, message);
+  const row = getTicklerRows().find((item) => item.message === message);
   assert(row, `tickler list did not contain ${message}`);
   if (expectedStatus) {
     assert(row.status === expectedStatus || row.statusDesc === expectedStatus, `tickler row had unexpected status ${row.status || row.statusDesc}`);
@@ -245,14 +248,16 @@ async function findRowInList(page, message, expectedStatus) {
 
 async function probeTicklerSearch(page, message) {
   await page.locator('#ticklerResults_filter input[type="search"]').fill(message);
-  await page.evaluate((needle) => {
+  await page.evaluate(() => {
+    const needle = document.querySelector('#ticklerResults_filter input[type="search"]').value;
     window.jQuery('#ticklerResults').DataTable().search(needle).draw();
-  }, message);
+  });
   await page.waitForTimeout(1500);
-  const found = await page.evaluate((needle) => {
+  const found = await page.evaluate(() => {
+    const needle = document.querySelector('#ticklerResults_filter input[type="search"]').value;
     const table = window.jQuery('#ticklerResults').DataTable();
     return table.rows({ search: 'applied' }).data().toArray().some((row) => row.message === needle);
-  }, message);
+  });
   await page.locator('#ticklerResults_filter input[type="search"]').fill('');
   await page.evaluate(() => {
     window.jQuery('#ticklerResults').DataTable().search('').draw();

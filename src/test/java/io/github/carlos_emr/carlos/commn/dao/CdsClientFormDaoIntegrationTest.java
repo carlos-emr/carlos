@@ -183,7 +183,7 @@ public class CdsClientFormDaoIntegrationTest extends CarlosTestBase {
      * Persists a test-specific creation timestamp while preserving the entity's no-update contract.
      */
     private void setCreated(CdsClientForm form, Date created) {
-        hibernateTemplate.flush();
+        entityManager.flush();
         entityManager.createQuery("update CdsClientForm f set f.created = :created where f.id = :id")
                 .setParameter("created", created)
                 .setParameter("id", form.getId())
