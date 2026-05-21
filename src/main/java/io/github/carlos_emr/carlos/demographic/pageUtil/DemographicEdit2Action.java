@@ -132,9 +132,6 @@ public class DemographicEdit2Action extends ActionSupport {
             return ERROR;
         }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", trimmedDemographicNo)) {
-            logger.warn(
-                    "DemographicEdit2Action: provider {} lacks _demographic read privilege for patient record",
-                    loggedInInfo.getLoggedInProviderNo());
             throw new SecurityException("missing required sec object (_demographic)");
         }
         demographic_no = trimmedDemographicNo;

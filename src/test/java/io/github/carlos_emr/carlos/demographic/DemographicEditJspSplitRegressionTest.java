@@ -53,7 +53,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * fragment includes so future edits do not silently reintroduce an oversized
  * JSP target.</p>
  *
- * @since 2026-05-05
+ * @since 2026-05-21
  */
 @DisplayName("Demographic edit JSP split regression tests")
 @Tag("unit")
