@@ -426,6 +426,7 @@ return base + joiner + encodeURIComponent(key) + '=' + encodeURIComponent(value)
 }
 
 function openScheduleSection(url, popupAction, clickEvent) {
+// Only focused mode enters the schedule shell; tab mode intentionally keeps the legacy tab/popup flow.
 if (scheduleNavigationMode === 'focused' && !(clickEvent && clickEvent.altKey)) {
 window.location.href = appendQueryParam(url, 'scheduleNav', '1');
 return false;

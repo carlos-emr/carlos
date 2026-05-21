@@ -381,6 +381,7 @@
 <script>
     var scheduleNavActive = <%=scheduleNavActive%>;
     var contextPath = document.getElementById("contextPath").value;
+    var existingPopup = typeof window.popup === 'function' ? window.popup : null;
 
     function appendScheduleMenuQueryParam(url, key, value) {
         var parts = String(url).split('#');
@@ -411,8 +412,8 @@
     }
 
     function openMenuPopup(height, width, url, windowName) {
-        if (typeof popup === 'function') {
-            return popup(height, width, url, windowName);
+        if (existingPopup) {
+            return existingPopup(height, width, url, windowName);
         }
         var windowprops = "height=" + height + ",width=" + width
             + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=50,screenY=50,top=0,left=0";
@@ -421,6 +422,12 @@
             opened.focus();
         }
         return opened;
+    }
+
+    if (!existingPopup) {
+        window.popup = function(height, width, url, windowName) {
+            return openMenuPopup(height, width, url, windowName);
+        };
     }
 
     if (typeof newWindow !== 'function') {

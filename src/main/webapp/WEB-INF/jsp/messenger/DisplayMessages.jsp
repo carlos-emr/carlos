@@ -379,7 +379,7 @@
                         <td>
                             <ul class="nav nav-tabs">
                                 <li class="nav-item">
-                                         <a class="nav-link" href="${pageContext.request.contextPath}/messenger/ViewCreateMessage">
+                                         <a class="nav-link" href="${pageContext.request.contextPath}/messenger/ViewCreateMessage<%=scheduleNavFirstQuerySuffix%>">
                                      <fmt:message key="messenger.DisplayMessages.btnCompose"/></a>
                                     </li>
                                     <li class="nav-item">

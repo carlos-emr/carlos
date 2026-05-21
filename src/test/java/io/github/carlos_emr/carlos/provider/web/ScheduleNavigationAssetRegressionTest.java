@@ -53,6 +53,10 @@ class ScheduleNavigationAssetRegressionTest {
             Path.of("src", "main", "webapp", "WEB-INF", "jsp", "messenger", "DisplayMessages.jsp");
     private static final Path VIEW_MESSAGE_JSP =
             Path.of("src", "main", "webapp", "WEB-INF", "jsp", "messenger", "ViewMessage.jsp");
+    private static final Path CREATE_MESSAGE_JSP =
+            Path.of("src", "main", "webapp", "WEB-INF", "jsp", "messenger", "CreateMessage.jsp");
+    private static final Path MAIN_MENU_JSP =
+            Path.of("src", "main", "webapp", "WEB-INF", "jsp", "provider", "mainMenu.jsp");
     private static final Path TOPNAV_CSS =
             Path.of("src", "main", "webapp", "css", "topnav.css");
 
@@ -82,6 +86,8 @@ class ScheduleNavigationAssetRegressionTest {
         String documentReport = Files.readString(DOCUMENT_REPORT_JSP, StandardCharsets.UTF_8);
         String displayMessages = Files.readString(DISPLAY_MESSAGES_JSP, StandardCharsets.UTF_8);
         String viewMessage = Files.readString(VIEW_MESSAGE_JSP, StandardCharsets.UTF_8);
+        String createMessage = Files.readString(CREATE_MESSAGE_JSP, StandardCharsets.UTF_8);
+        String mainMenu = Files.readString(MAIN_MENU_JSP, StandardCharsets.UTF_8);
         String topnavCss = Files.readString(TOPNAV_CSS, StandardCharsets.UTF_8);
 
         assertThat(documentReport)
@@ -93,13 +99,24 @@ class ScheduleNavigationAssetRegressionTest {
         assertThat(displayMessages)
                 .contains("String boxTypeQuerySuffix = pageType > 0 ? \"&boxType=\" + pageType : \"\";")
                 .contains("String demographicQuerySuffix = pageType == 3 && demographic_no != null")
-                .contains("DisplayMessages?orderby=status<%=boxTypeQuerySuffix%><%=demographicQuerySuffix%><%=scheduleNavQuerySuffix%>")
-                .contains("ViewMessage?messageID=<carlos:encode value='<%= dm.getMessageId() %>' context=\"uriComponent\"/>&boxType=<%=pageType%><%=scheduleNavQuerySuffix%>");
+                .contains("ViewCreateMessage<%=scheduleNavFirstQuerySuffix%>")
+                .contains("DisplayMessages?orderby=status<%=boxTypeQuerySuffix%>"
+                        + "<%=demographicQuerySuffix%><%=scheduleNavQuerySuffix%>")
+                .contains("ViewMessage?messageID=<carlos:encode value='<%= dm.getMessageId() %>'"
+                        + " context=\"uriComponent\"/>&boxType=<%=pageType%><%=scheduleNavQuerySuffix%>");
         assertThat(viewMessage)
                 .contains("boolean showScheduleNav = \"1\".equals(request.getParameter(\"scheduleNav\"));")
                 .contains("<jsp:include page=\"/WEB-INF/jsp/provider/mainMenu.jsp\"/>")
                 .contains("DisplayMessages<%=scheduleNavFirstQuerySuffix%>")
                 .contains("DisplayMessages?boxType=1<%=scheduleNavQuerySuffix%>");
+        assertThat(createMessage)
+                .contains("boolean showScheduleNav = \"1\".equals(request.getParameter(\"scheduleNav\"));")
+                .contains("<jsp:include page=\"/WEB-INF/jsp/provider/mainMenu.jsp\"/>")
+                .contains("ClearMessage<%=scheduleNavFirstQuerySuffix%>")
+                .contains("DisplayMessages<%=scheduleNavFirstQuerySuffix%>");
+        assertThat(mainMenu)
+                .contains("var existingPopup = typeof window.popup === 'function' ? window.popup : null;")
+                .contains("window.popup = function(height, width, url, windowName)");
     }
 
     /**
