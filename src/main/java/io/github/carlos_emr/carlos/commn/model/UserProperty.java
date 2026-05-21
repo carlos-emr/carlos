@@ -122,7 +122,7 @@ public class UserProperty extends AbstractModel<Integer> implements Serializable
     public static final String SCHEDULE_NAVIGATION_MODE_POPUP = "popup";
     public static final String SCHEDULE_NAVIGATION_MODE_TAB = "tab";
     public static final String SCHEDULE_NAVIGATION_MODE_FOCUSED = "focused";
-    public static String resolveScheduleNavigationMode(String savedMode, boolean legacyTabEnabled, String providerNo) {
+    public static String resolveScheduleNavigationMode(String savedMode, boolean legacyTabEnabled) {
         if (SCHEDULE_NAVIGATION_MODE_TAB.equals(savedMode)
                 || SCHEDULE_NAVIGATION_MODE_FOCUSED.equals(savedMode)
                 || SCHEDULE_NAVIGATION_MODE_POPUP.equals(savedMode)) {
