@@ -59,16 +59,8 @@ public class WebappShutdownResourcesUnitTest {
     @Test
     void shouldDeregisterJdbcDriver_whenLoadedByWebappClassLoader() throws Exception {
         java.util.List<Driver> existingDrivers = Collections.list(DriverManager.getDrivers());
-        URL testClassesUrl = WebappShutdownResourcesUnitTest.class.getProtectionDomain()
-                .getCodeSource()
-                .getLocation()
-                .toURI()
-                .toURL();
-        URL mainClassesUrl = WebappShutdownResources.class.getProtectionDomain()
-                .getCodeSource()
-                .getLocation()
-                .toURI()
-                .toURL();
+        URL testClassesUrl = testClassesUrl();
+        URL mainClassesUrl = mainClassesUrl();
 
         try (ChildFirstTestClassLoader webappClassLoader = new ChildFirstTestClassLoader(
                 testClassesUrl, mainClassesUrl, getClass().getClassLoader())) {
@@ -102,20 +94,12 @@ public class WebappShutdownResourcesUnitTest {
     @Test
     void shouldDeregisterJdbcDriver_whenLoadedByChildClassLoader() throws Exception {
         java.util.List<Driver> existingDrivers = Collections.list(DriverManager.getDrivers());
-        URL testClassesUrl = WebappShutdownResourcesUnitTest.class.getProtectionDomain()
-                .getCodeSource()
-                .getLocation()
-                .toURI()
-                .toURL();
-        URL mainClassesUrl = WebappShutdownResources.class.getProtectionDomain()
-                .getCodeSource()
-                .getLocation()
-                .toURI()
-                .toURL();
+        URL testClassesUrl = testClassesUrl();
+        URL mainClassesUrl = mainClassesUrl();
 
-        try (URLClassLoader webappClassLoader = new URLClassLoader(new URL[0], getClass().getClassLoader());
+        try (URLClassLoader parentWebappClassLoader = new URLClassLoader(new URL[0], getClass().getClassLoader());
              ChildFirstTestClassLoader childClassLoader = new ChildFirstTestClassLoader(
-                     testClassesUrl, mainClassesUrl, webappClassLoader)) {
+                     testClassesUrl, mainClassesUrl, parentWebappClassLoader)) {
             Class<?> helperClass = childClassLoader.loadClass(
                     WebappShutdownResourcesUnitTest.class.getName() + "$DriverRegistrationHelper");
             Method registerDriver = helperClass.getMethod("registerDriver");
@@ -125,7 +109,7 @@ public class WebappShutdownResourcesUnitTest {
             Driver driver = (Driver) registerDriver.invoke(null);
 
             try {
-                int deregistered = (Integer) deregisterWebappDrivers.invoke(null, webappClassLoader);
+                int deregistered = (Integer) deregisterWebappDrivers.invoke(null, parentWebappClassLoader);
 
                 assertThat(deregistered).isEqualTo(1);
                 assertThat((Boolean) isDriverRegistered.invoke(null, driver)).isFalse();
@@ -155,16 +139,8 @@ public class WebappShutdownResourcesUnitTest {
     @Test
     void shouldPreserveJdbcDriver_whenLoadedBySharedParentClassLoader() throws Exception {
         java.util.List<Driver> existingDrivers = Collections.list(DriverManager.getDrivers());
-        URL testClassesUrl = WebappShutdownResourcesUnitTest.class.getProtectionDomain()
-                .getCodeSource()
-                .getLocation()
-                .toURI()
-                .toURL();
-        URL mainClassesUrl = WebappShutdownResources.class.getProtectionDomain()
-                .getCodeSource()
-                .getLocation()
-                .toURI()
-                .toURL();
+        URL testClassesUrl = testClassesUrl();
+        URL mainClassesUrl = mainClassesUrl();
 
         try (ChildFirstTestClassLoader sharedParentClassLoader = new ChildFirstTestClassLoader(
                      testClassesUrl, mainClassesUrl, getClass().getClassLoader());
@@ -230,6 +206,22 @@ public class WebappShutdownResourcesUnitTest {
             droolsShutdown.verify(DroolsShutdownResources::shutdownExecutors);
             queueCache.verify(QueueCache::shutdownSharedTimer);
         }
+    }
+
+    private static URL testClassesUrl() throws Exception {
+        return WebappShutdownResourcesUnitTest.class.getProtectionDomain()
+                .getCodeSource()
+                .getLocation()
+                .toURI()
+                .toURL();
+    }
+
+    private static URL mainClassesUrl() throws Exception {
+        return WebappShutdownResources.class.getProtectionDomain()
+                .getCodeSource()
+                .getLocation()
+                .toURI()
+                .toURL();
     }
 
     public static final class DriverRegistrationHelper {
