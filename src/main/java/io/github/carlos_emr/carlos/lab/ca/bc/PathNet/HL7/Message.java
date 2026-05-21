@@ -51,7 +51,6 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingModel;
-import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -185,7 +184,7 @@ public class Message {
                         for (int p = 0; p < listOfProviderNo.size(); p++) {
                             String prov = listOfProviderNo.get(p);
 
-                            routing.route(parent, prov, DbConnectionFilter.getThreadLocalDbConnection(), "BCP");
+                            routing.routeMagic(parent, prov, "BCP");
                         }
                         addedToProviderLabRouting = true;
                     } // providers not found

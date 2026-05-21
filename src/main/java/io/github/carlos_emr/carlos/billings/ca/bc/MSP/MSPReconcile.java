@@ -48,7 +48,7 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillRecipient;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingHistoryDAO;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
-import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 
 import java.beans.BeanInfo;
 import java.beans.Introspector;
@@ -1130,7 +1130,7 @@ public class MSPReconcile {
         MiscUtils.getLogger().debug("p=" + p);
         try {
 
-            rs = DBHandler.GetPreSQL(p, criteriaParams.toArray());
+            rs = LegacyJdbcQuery.getPreparedResultSet(p, criteriaParams.toArray());
 
             while (rs.next()) {
                 MSPBill b = new MSPBill();
@@ -1200,10 +1200,12 @@ public class MSPReconcile {
                         }
                     }
 
-                    ResultSet rsDemo = DBHandler.GetPreSQL("select phone, phone2 from demographic where demographic_no = ?", b.demoNo);
-                    if (rsDemo.next()) {
-                        b.demoPhone = rsDemo.getString("phone");
-                        b.demoPhone2 = rsDemo.getString("phone2");
+                    try (ResultSet rsDemo = LegacyJdbcQuery.getPreparedResultSet(
+                            "select phone, phone2 from demographic where demographic_no = ?", b.demoNo)) {
+                        if (rsDemo.next()) {
+                            b.demoPhone = rsDemo.getString("phone");
+                            b.demoPhone2 = rsDemo.getString("phone2");
+                        }
                     }
                 } else if (MSPReconcile.REP_INVOICE.equals(type)) {
                     double dblAmtOwing = this.getAmountOwing(b.billMasterNo, b.amount, b.billingtype);
@@ -1346,7 +1348,7 @@ public class MSPReconcile {
         ResultSet rs = null;
         try {
 
-            rs = DBHandler.GetPreSQL(p, criteriaParams.toArray());
+            rs = LegacyJdbcQuery.getPreparedResultSet(p, criteriaParams.toArray());
             while (rs.next()) {
                 MSPBill b = new MSPBill();
                 b.billingtype = rs.getString("b.billingtype");
@@ -1470,7 +1472,7 @@ public class MSPReconcile {
         ResultSet rs = null;
         try {
 
-            rs = DBHandler.GetPreSQL(p, criteriaParams.toArray());
+            rs = LegacyJdbcQuery.getPreparedResultSet(p, criteriaParams.toArray());
             while (rs.next()) {
                 MSPBill b = new MSPBill();
                 b.billMasterNo = rs.getString("bm.billingmaster_no");
@@ -1533,7 +1535,7 @@ public class MSPReconcile {
         ResultSet rs = null;
         try {
 
-            rs = DBHandler.GetPreSQL(p, criteriaParams.toArray());
+            rs = LegacyJdbcQuery.getPreparedResultSet(p, criteriaParams.toArray());
             while (rs.next()) {
                 MSPBill b = new MSPBill();
                 b.billMasterNo = rs.getString("bm.billingmaster_no");
@@ -1766,7 +1768,7 @@ public class MSPReconcile {
         ResultSet rs = null;
         try {
 
-            rs = DBHandler.GetPreSQL(qry, s21Id, payeeNo);
+            rs = LegacyJdbcQuery.getPreparedResultSet(qry, s21Id, payeeNo);
         } catch (SQLException ex) {
             MiscUtils.getLogger().error("Error", ex);
         }
@@ -1800,7 +1802,7 @@ public class MSPReconcile {
         ResultSet rs = null;
         try {
 
-            rs = DBHandler.GetPreSQL(qry, s21Id, payeeNo);
+            rs = LegacyJdbcQuery.getPreparedResultSet(qry, s21Id, payeeNo);
         } catch (SQLException ex) {
             MiscUtils.getLogger().error("Error", ex);
         }
@@ -1826,11 +1828,8 @@ public class MSPReconcile {
                 "AND bm.datacenter = ?\n" +
                 "AND ba.sentdate like ?";
 
-        ResultSet rs = null;
         boolean hasResults = false;
-        try {
-
-            rs = DBHandler.GetPreSQL(qry, billingmasterNo, dataCenterNo, receivedDate);
+        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(qry, billingmasterNo, dataCenterNo, receivedDate)) {
             hasResults = rs.next();
         } catch (SQLException ex) {
             MiscUtils.getLogger().error("Error", ex);

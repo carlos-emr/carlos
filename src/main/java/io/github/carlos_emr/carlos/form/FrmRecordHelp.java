@@ -30,9 +30,15 @@
 
 package io.github.carlos_emr.carlos.form;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -41,13 +47,17 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
 
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.TransformerException;
+
 import io.github.carlos_emr.Misc;
 import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.w3c.dom.Document;
 
 import io.github.carlos_emr.CarlosProperties;
-import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.util.JDBCUtil;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
@@ -100,31 +110,30 @@ public class FrmRecordHelp {
             throws SQLException {
         Properties props = new Properties();
 
+        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, params)) {
+            if (rs.next()) {
+                ResultSetMetaData md = rs.getMetaData();
+                for (int i = 1; i <= md.getColumnCount(); i++) {
+                    String name = md.getColumnName(i);
+                    String value;
 
-        ResultSet rs = DBHandler.GetPreSQL(sql, params);
-        if (rs.next()) {
-            ResultSetMetaData md = rs.getMetaData();
-            for (int i = 1; i <= md.getColumnCount(); i++) {
-                String name = md.getColumnName(i);
-                String value;
-
-                if (md.getColumnTypeName(i).toUpperCase().startsWith("TINYINT") || md.getColumnTypeName(i).equalsIgnoreCase("bit")) {
-                    if (rs.getInt(i) == 1)
-                        value = "checked='checked'";
+                    if (md.getColumnTypeName(i).toUpperCase().startsWith("TINYINT") || md.getColumnTypeName(i).equalsIgnoreCase("bit")) {
+                        if (rs.getInt(i) == 1)
+                            value = "checked='checked'";
+                        else
+                            value = "";
+                    } else if (md.getColumnTypeName(i).equalsIgnoreCase("date"))
+                        value = UtilDateUtilities.DateToString(rs.getDate(i), _dateFormat);
+                    else if (md.getColumnTypeName(i).equalsIgnoreCase("timestamp"))
+                        value = UtilDateUtilities.DateToString(rs.getTimestamp(i), "yyyy/MM/dd HH:mm:ss");
                     else
-                        value = "";
-                } else if (md.getColumnTypeName(i).equalsIgnoreCase("date"))
-                    value = UtilDateUtilities.DateToString(rs.getDate(i), _dateFormat);
-                else if (md.getColumnTypeName(i).equalsIgnoreCase("timestamp"))
-                    value = UtilDateUtilities.DateToString(rs.getTimestamp(i), "yyyy/MM/dd HH:mm:ss");
-                else
-                    value = Misc.getString(rs, i);
+                        value = Misc.getString(rs, i);
 
-                if (value != null)
-                    props.setProperty(name, value);
+                    if (value != null)
+                        props.setProperty(name, value);
+                }
             }
         }
-        rs.close();
         return props;
     }
 
@@ -133,7 +142,7 @@ public class FrmRecordHelp {
      */
     @Deprecated
     public synchronized int saveFormRecord(Properties props, String sql) throws SQLException {
-        return saveFormRecord(props, sql, new Object[0]);
+        throw new UnsupportedOperationException("Form record SQL must be parameterized");
     }
 
     /**
@@ -147,56 +156,97 @@ public class FrmRecordHelp {
      */
     public synchronized int saveFormRecord(Properties props, String sql, Object... params) throws SQLException {
 
+        try (Connection connection = LegacyJdbcQuery.getConnection()) {
+            try (PreparedStatement ps = prepareResultSetStatement(connection, sql, true, params);
+                 ResultSet rs = ps.executeQuery()) {
+                rs.moveToInsertRow();
+                updateResultSet(props, rs, true);
+                rs.insertRow();
+                String saveAsXml = CarlosProperties.getInstance().getProperty("save_as_xml", "false");
 
-        ResultSet rs = DBHandler.GetPreSQL(sql, true, params);
-        rs.moveToInsertRow();
-        rs = updateResultSet(props, rs, true);
-        rs.insertRow();
-        String saveAsXml = CarlosProperties.getInstance().getProperty("save_as_xml", "false");
+                if (saveAsXml.equalsIgnoreCase("true")) {
 
-        if (saveAsXml.equalsIgnoreCase("true")) {
+                    String demographicNo = props.getProperty("demographic_no");
+                    int index = sql.indexOf("form");
+                    int spaceIndex = sql.indexOf(" ", index);
+                    String formClass = sql.substring(index, spaceIndex);
+                    Date d = new Date();
+                    String now = UtilDateUtilities.DateToString(d, "yyyyMMddHHmmss");
+                    String place = CarlosProperties.getInstance().getProperty("form_record_path", "/root");
+                    String archiveFileName = formClass + "_" + demographicNo + "_" + now + ".xml";
 
-            String demographicNo = props.getProperty("demographic_no");
-            int index = sql.indexOf("form");
-            int spaceIndex = sql.indexOf(" ", index);
-            String formClass = sql.substring(index, spaceIndex);
-            Date d = new Date();
-            String now = UtilDateUtilities.DateToString(d, "yyyyMMddHHmmss");
-            String place = CarlosProperties.getInstance().getProperty("form_record_path", "/root");
+                    try {
+                        File archiveDir = Path.of(place).toAbsolutePath().normalize().toFile();
+                        String fileName = PathValidationUtils.validatePath(archiveFileName, archiveDir).getPath();
+                        Document doc = JDBCUtil.toDocument(rs);
+                        JDBCUtil.saveAsXML(doc, fileName);
+                    } catch (SQLException | ParserConfigurationException | TransformerException | IOException |
+                            RuntimeException e) {
+                        MiscUtils.getLogger().error(
+                                "Unable to archive form record XML after database save; continuing without XML copy",
+                                e);
+                    }
+                }
+            }
 
-            if (!place.endsWith(System.getProperty("file.separator")))
-                place = place + System.getProperty("file.separator");
-            String fileName = place + formClass + "_" + demographicNo + "_" + now + ".xml";
+            return getLastInsertedId(connection);
+        }
+    }
 
+    private PreparedStatement prepareResultSetStatement(Connection connection, String sql, boolean updatable,
+            Object... params) throws SQLException {
+        PreparedStatement ps = connection.prepareStatement(sql, ResultSet.TYPE_SCROLL_SENSITIVE,
+                updatable ? ResultSet.CONCUR_UPDATABLE : ResultSet.CONCUR_READ_ONLY);
+        try {
+            bindParams(ps, params);
+            return ps;
+        } catch (SQLException | RuntimeException e) {
             try {
-                // caution: this method closes the resultset.
-                Document doc = JDBCUtil.toDocument(rs);
-                JDBCUtil.saveAsXML(doc, fileName);
-            } catch (Exception e) {
-                MiscUtils.getLogger().error("Error", e);
+                ps.close();
+            } catch (SQLException closeFailure) {
+                e.addSuppressed(closeFailure);
+            }
+            throw e;
+        }
+    }
+
+    private void bindParams(PreparedStatement ps, Object... params) throws SQLException {
+        for (int i = 0; i < params.length; i++) {
+            Object value = params[i];
+            if (value == null) {
+                ps.setNull(i + 1, Types.NULL);
+            } else {
+                ps.setObject(i + 1, value);
             }
         }
-        rs.close();
+    }
 
-        int ret = 0;
-        /*
-         * if db_type = mysql return LAST_INSERT_ID() but if db_type = postgresql, return a prepared
-         * statement, since here we dont know which sequence will be used
-         */
-        String db_type = CarlosProperties.getInstance() != null ? CarlosProperties.getInstance().getProperty("db_type",
+    private int getLastInsertedId(Connection connection) throws SQLException {
+        String dbType = CarlosProperties.getInstance() != null ? CarlosProperties.getInstance().getProperty("db_type",
                 "") : "";
-        if (db_type.equals("") || db_type.equalsIgnoreCase("mysql")) {
-            sql = "SELECT LAST_INSERT_ID()";
-        } else if (db_type.equalsIgnoreCase("postgresql")) {
-            sql = "SELECT CURRVAL('?')";
-        } else {
-            throw new SQLException("ERROR: Database " + db_type + " unrecognized.");
+        String idSql = lastInsertedIdSql(dbType);
+
+        try (PreparedStatement ps = connection.prepareStatement(idSql);
+             ResultSet rs = ps.executeQuery()) {
+            if (rs.next()) {
+                return rs.getInt(1);
+            }
+            return 0;
         }
-        rs = DBHandler.GetPreSQL(sql);
-        if (rs.next())
-            ret = rs.getInt(1);
-        rs.close();
-        return ret;
+    }
+
+    static String lastInsertedIdSql(String dbType) throws SQLException {
+        if (StringUtils.isBlank(dbType) || dbType.equalsIgnoreCase("mysql")) {
+            return "SELECT LAST_INSERT_ID()";
+        }
+        if (dbType.equalsIgnoreCase("postgresql")) {
+            // Legacy ResultSet insert mode does not expose the table sequence name
+            // here. LASTVAL() is safe only on the same JDBC session immediately
+            // after this insert; new PostgreSQL insert paths should use RETURNING
+            // or Statement.RETURN_GENERATED_KEYS instead.
+            return "SELECT LASTVAL()";
+        }
+        throw new SQLException("ERROR: Database " + dbType + " unrecognized.");
     }
 
     public ResultSet updateResultSet(Properties props, ResultSet rs, boolean bInsert) throws SQLException {
@@ -286,13 +336,11 @@ public class FrmRecordHelp {
     public void updateFormRecord(Properties props, String sql, Object... params) throws SQLException {
 
 
-        ResultSet rs = DBHandler.GetPreSQL(sql, true, params);
-        //rs.relative(0);
-
-        rs = updateResultSet(props, rs, false);
-        rs.updateRow();
-
-        rs.close();
+        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, true, params)) {
+            //rs.relative(0);
+            updateResultSet(props, rs, false);
+            rs.updateRow();
+        }
     }
 
     /**
@@ -314,9 +362,10 @@ public class FrmRecordHelp {
     public Properties getPrintRecord(String sql, Object... params) throws SQLException {
         Properties props = new Properties();
 
-        ResultSet rs = DBHandler.GetPreSQL(sql, params);
-        if (rs.next()) {
-            props = getResultsAsProperties(rs);
+        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, params)) {
+            if (rs.next()) {
+                props = getResultsAsProperties(rs);
+            }
         }
         return props;
     }
@@ -340,10 +389,11 @@ public class FrmRecordHelp {
     public List<Properties> getPrintRecords(String sql, Object... params) throws SQLException {
         ArrayList<Properties> results = new ArrayList<Properties>();
 
-        ResultSet rs = DBHandler.GetPreSQL(sql, params);
-        while (rs.next()) {
-            Properties p = getResultsAsProperties(rs);
-            results.add(p);
+        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, params)) {
+            while (rs.next()) {
+                Properties p = getResultsAsProperties(rs);
+                results.add(p);
+            }
         }
 
         return results;
@@ -392,9 +442,10 @@ public class FrmRecordHelp {
     public List<Integer> getDemographicIds(String sql, Object... params) throws SQLException {
         List<Integer> results = new ArrayList<Integer>();
 
-        ResultSet rs = DBHandler.GetPreSQL(sql, params);
-        while (rs.next()) {
-            results.add(rs.getInt("demographic_no"));
+        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, params)) {
+            while (rs.next()) {
+                results.add(rs.getInt("demographic_no"));
+            }
         }
 
         return results;

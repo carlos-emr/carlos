@@ -41,7 +41,7 @@ import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 
 /**
  * The class should evaluate a query that has a count returned.  If the count is = 0 then false is returned if >0 is returned true
@@ -106,7 +106,7 @@ public class SQLNumerator implements Numerator {
 
             Object[] params = buildParams(sql, processString, demographicNo);
             String paramSql = sql.replaceAll("\\$\\{" + processString + "\\}", "?");
-            ResultSet rs = DBHandler.GetPreSQL(paramSql, params);
+            ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(paramSql, params);
             MiscUtils.getLogger().debug("SQL Statement: " + sql);
             while (rs.next()) {
                 int count = rs.getInt(identifier);
@@ -136,7 +136,7 @@ public class SQLNumerator implements Numerator {
 
             Object[] params = buildParams(sql, processString, demographicNo);
             String paramSql = sql.replaceAll("\\$\\{" + processString + "\\}", "?");
-            ResultSet rs = DBHandler.GetPreSQL(paramSql, params);
+            ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(paramSql, params);
             MiscUtils.getLogger().debug("SQL Statement: " + sql);
             if (rs.next()) {
                 evalTrue = true;

@@ -19,6 +19,7 @@
 <%@ page import="io.github.carlos_emr.carlos.eform.data.EForm" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormLoader" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
+<%@ page import="io.github.carlos_emr.carlos.report.data.ParameterizedSql" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
@@ -57,10 +58,9 @@
     form.setProviderNo(provider_no);  //needs providers for the action
     String appointmentParam = request.getParameter("appointment");
     if (appointmentParam != null && !appointmentParam.matches("\\d+")) { appointmentParam = null; } // validate numeric to prevent SQL injection
-    // FP for java/Sqli scanners: appointmentParam validated numeric immediately above,
-    // and EForm.replaceAllFields (called below) re-validates via requireDigitsOnly for all
-    // numeric placeholders. String placeholders are escaped via escapeSqlValue.
-    form.setAppointmentNo(appointmentParam); // lgtm[java/sql-injection]
+    // appointmentParam is validated numeric above and re-validated before binding
+    // into DatabaseAP SQL.
+    form.setAppointmentNo(appointmentParam);
 //form.setApptProvider(request.getParameter("apptProvider"));
     for (String key : keys) {
         ap = EFormLoader.getAP(key);
@@ -70,14 +70,10 @@
                 String output = ap.getApOutput();
                 //replace ${demographic} with demogrpahicNo
                 if (sql != null) {
-                    sql = form.replaceAllFields(sql);
+                    ParameterizedSql query = form.parameterizeAllFields(sql);
 
                     ArrayList<String> names = DatabaseAP.parserGetNames(output); //a list of ${apName} --> apName
-                    sql = DatabaseAP.parserClean(sql);  //replaces all other ${apName} expressions with 'apName'
-                    // FP for java/Sqli: sql is produced by form.replaceAllFields (above) which
-                    // validates numeric placeholders via requireDigitsOnly and escapes string
-                    // placeholders via escapeSqlValue. AP SQL templates are admin-authored.
-                    ArrayList<String> values = EFormUtil.getValues(names, sql); // lgtm[java/sql-injection]
+                    ArrayList<String> values = EFormUtil.getValues(names, query);
                     if (values.size() != names.size()) {
                         output = "";
                     } else {

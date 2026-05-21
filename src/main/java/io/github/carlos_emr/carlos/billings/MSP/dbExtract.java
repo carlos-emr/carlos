@@ -30,28 +30,25 @@
 
 package io.github.carlos_emr.carlos.billings.MSP;
 
-import java.io.Serializable;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
 
-import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-public class dbExtract implements Serializable {
+public class dbExtract implements AutoCloseable {
+    private static final String RESULT_SET_RESOURCE = "ResultSet";
+    private static final String PREPARED_STATEMENT_RESOURCE = "PreparedStatement";
+    private static final String STATEMENT_RESOURCE = "Statement";
+    private static final String CONNECTION_RESOURCE = "Connection";
 
     private Connection con = null;
-    private Statement stmt = null;
-    private Statement stmt2 = null;
-    private Statement stmt3 = null;
-    private int numUpdate;
-    private Statement prepStmt = null;
-    PreparedStatement prep = null;
+    private PreparedStatement stmt = null;
+    private PreparedStatement stmt2 = null;
     ResultSet resultSet = null;
     ResultSet resultSet2 = null;
-    ResultSet resultSet3 = null;
 
     public dbExtract() {
     }
@@ -60,68 +57,87 @@ public class dbExtract implements Serializable {
         try {
 
             //establish connection with the specified username, password and url
-            con = DbConnectionFilter.getThreadLocalDbConnection();
-            stmt = con.createStatement();
-            stmt2 = con.createStatement();
-        } catch (SQLException e) {
+            con = LegacyJdbcQuery.getConnection();
+        } catch (RuntimeException e) {
             MiscUtils.getLogger().debug("Cannot get connection ");
             MiscUtils.getLogger().debug("Exception is: " + e);
+            closeConnection();
+            throw e;
         }
 
     }
 
-    public ResultSet executeQuery(String sql) {
+    public ResultSet executeQuery(String sql, Object... params) throws SQLException {
+        closeQuietly(resultSet, RESULT_SET_RESOURCE);
+        resultSet = null;
+        closeQuietly(stmt, PREPARED_STATEMENT_RESOURCE);
+        stmt = null;
+        stmt = prepare(sql, params);
         try {
-            String SQLString = sql;
-            // Execute sql
-            // statement
-            resultSet = stmt.executeQuery(SQLString);
+            resultSet = stmt.executeQuery();
             return resultSet;
         } catch (SQLException e) {
-            MiscUtils.getLogger().debug("Cannot get connection ");
-            MiscUtils.getLogger().debug("Exception is: " + e);
-            return resultSet;
+            closeQuietly(stmt, PREPARED_STATEMENT_RESOURCE);
+            stmt = null;
+            throw e;
         }
     }
 
-    public ResultSet executeQuery2(String sql) {
+    public ResultSet executeQuery2(String sql, Object... params) throws SQLException {
+        closeQuietly(resultSet2, RESULT_SET_RESOURCE);
+        resultSet2 = null;
+        closeQuietly(stmt2, PREPARED_STATEMENT_RESOURCE);
+        stmt2 = null;
+        stmt2 = prepare(sql, params);
         try {
-            String SQLString = sql;
-            // Execute sql
-            // statement
-            resultSet2 = stmt2.executeQuery(SQLString);
+            resultSet2 = stmt2.executeQuery();
             return resultSet2;
         } catch (SQLException e) {
-            MiscUtils.getLogger().debug("Cannot get connection ");
-            MiscUtils.getLogger().debug("Exception is: " + e);
-            return resultSet2;
+            closeQuietly(stmt2, PREPARED_STATEMENT_RESOURCE);
+            stmt2 = null;
+            throw e;
         }
     }
 
-    public ResultSet executeQuery3(String sql) {
+    private PreparedStatement prepare(String sql, Object... params) throws SQLException {
+        PreparedStatement ps = con.prepareStatement(sql);
         try {
-            String SQLString = sql;
-            // Execute sql
-            // statement
-            resultSet3 = stmt3.executeQuery(SQLString);
-            return resultSet3;
-        } catch (SQLException e) {
-            MiscUtils.getLogger().debug("Cannot get connection ");
-            MiscUtils.getLogger().debug("Exception is: " + e);
-            return resultSet3;
+            for (int i = 0; i < params.length; i++) {
+                ps.setObject(i + 1, params[i]);
+            }
+            return ps;
+        } catch (SQLException | RuntimeException e) {
+            closeQuietly(ps, PREPARED_STATEMENT_RESOURCE);
+            throw e;
         }
     }
 
     public void closeConnection() {
-        try {
-            if ((con != null) && (stmt != null)) {
-                con.close();
-                stmt.close();
-            }
-
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
-        }
-
+        closeQuietly(resultSet, RESULT_SET_RESOURCE);
+        closeQuietly(resultSet2, RESULT_SET_RESOURCE);
+        closeQuietly(stmt2, STATEMENT_RESOURCE);
+        closeQuietly(stmt, STATEMENT_RESOURCE);
+        closeQuietly(con, CONNECTION_RESOURCE);
+        resultSet = null;
+        resultSet2 = null;
+        stmt2 = null;
+        stmt = null;
+        con = null;
     } //closeConnection ends
+
+    @Override
+    public void close() {
+        closeConnection();
+    }
+
+    private void closeQuietly(AutoCloseable resource, String resourceName) {
+        if (resource == null) {
+            return;
+        }
+        try {
+            resource.close();
+        } catch (Exception e) {
+            MiscUtils.getLogger().error("Error closing " + resourceName, e);
+        }
+    }
 }

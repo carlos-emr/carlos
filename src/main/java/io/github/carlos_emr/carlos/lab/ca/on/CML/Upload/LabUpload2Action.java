@@ -30,15 +30,17 @@
 
 package io.github.carlos_emr.carlos.lab.ca.on.CML.Upload;
 
+import java.sql.Connection;
+
 import org.apache.struts2.ActionSupport;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
-import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
@@ -90,7 +92,8 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                     // Validates source file is from an allowed temp location
                     importFile = PathValidationUtils.validateUpload(importFile);
                 } catch (SecurityException e) {
-                    _logger.error("Invalid upload source: " + importFile.getPath());
+                    _logger.error("Invalid upload source: {}",
+                            LogSafe.sanitize(importFile.getPath()));
                     outcome = "accessDenied";
                     request.setAttribute("outcome", outcome);
                     return SUCCESS;
@@ -118,7 +121,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                             File docDirFile = new File(documentDir);
                             localFile = PathValidationUtils.validateExistingPath(localFile, docDirFile);
                         } catch (SecurityException e) {
-                            _logger.error("Invalid file path: " + localFileName);
+                            _logger.error("Invalid file path: {}", LogSafe.sanitize(localFileName));
                             outcome = "accessDenied";
                             request.setAttribute("outcome", outcome);
                             return SUCCESS;
@@ -143,7 +146,9 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                         ABCDParser abc = new ABCDParser();
                         abc.parse(in);
 
-                        abc.save(DbConnectionFilter.getThreadLocalDbConnection());
+                        try (Connection connection = LegacyJdbcQuery.getConnection()) {
+                            abc.save(connection);
+                        }
                         outcome = "uploaded";
                     }
                 } else {
@@ -196,7 +201,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             try {
                 targetFile = PathValidationUtils.validatePath(targetFileName, docDir);
             } catch (SecurityException e) {
-                MiscUtils.getLogger().error("Invalid filename: " + targetFileName);
+                MiscUtils.getLogger().error("Invalid filename: {}", LogSafe.sanitize(targetFileName));
                 return null;
             }
 
@@ -240,8 +245,4 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         return importFile;
     }
 
-    @StrutsParameter
-    public void setImportFile(File importFile) {
-        this.importFile = importFile;
-    }
 }

@@ -36,21 +36,20 @@ import java.util.Map;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-import org.owasp.encoder.Encode;
-import io.github.carlos_emr.carlos.commn.dao.ReportTemplatesDao;
-import io.github.carlos_emr.carlos.utility.LogSafe;
-import io.github.carlos_emr.carlos.commn.model.ReportTemplates;
-import io.github.carlos_emr.carlos.util.ConversionUtils;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
-
-import io.github.carlos_emr.carlos.db.DBHandler;
-import io.github.carlos_emr.carlos.report.data.RptResultStruct;
-import io.github.carlos_emr.carlos.util.UtilMisc;
-
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
+import org.owasp.encoder.Encode;
 
+import io.github.carlos_emr.carlos.commn.dao.ReportTemplatesDao;
+import io.github.carlos_emr.carlos.commn.model.ReportTemplates;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
+import io.github.carlos_emr.carlos.report.data.RptResultStruct;
+import io.github.carlos_emr.carlos.util.ConversionUtils;
+import io.github.carlos_emr.carlos.util.UtilMisc;
+import io.github.carlos_emr.carlos.utility.LogSafe;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * @author rjonasz
@@ -113,18 +112,15 @@ public class SQLReporter implements Reporter {
             return generateSequencedReport(request);
         }
 
-        String sql;
-        Object[] sqlParams;
+        ParameterizedSql query;
 
         if (curReport instanceof ReportObjectGeneric) {
-            String[] parameterizedResult = ((ReportObjectGeneric) curReport).getParameterizedSQL(parameterMap);
-            if (parameterizedResult == null || parameterizedResult[0] == null || parameterizedResult[0].trim().isEmpty()) {
+            query = ((ReportObjectGeneric) curReport).buildParameterizedSql(parameterMap);
+            if (query == null || query.getSql().trim().isEmpty()) {
                 request.setAttribute("errormsg", "Error: Cannot find all parameters for the query.  Check the template.");
                 request.setAttribute("templateid", templateId);
                 return false;
             }
-            sql = parameterizedResult[0];
-            sqlParams = extractParams(parameterizedResult);
         } else {
             MiscUtils.getLogger().error("Report template {} uses unsupported legacy non-parameterized report type. Refusing to execute.", LogSafe.sanitize(templateId)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             request.setAttribute("errormsg", "Error: This report template uses a legacy format that is no longer supported. Please contact your administrator to update the template.");
@@ -132,12 +128,12 @@ public class SQLReporter implements Reporter {
             return false;
         }
 
-        String[] result = executeQuery(sql, sqlParams, false);
+        String[] result = executeQuery(query, false);
 
         String csv = enforceCsvExportLimit(request, "generateReport", templateId, result[1]);
 
         request.setAttribute("csv", csv);
-        request.setAttribute("sql", sql);
+        request.setAttribute("sql", query.getSql());
         request.setAttribute("reportobject", curReport);
         request.setAttribute("resultsethtml", result[0]);
 
@@ -160,19 +156,17 @@ public class SQLReporter implements Reporter {
         int x = 0;
         if (curReport instanceof ReportObjectGeneric) {
             ReportObjectGeneric genericReport = (ReportObjectGeneric) curReport;
-            String[] parameterizedResult;
-            while ((parameterizedResult = genericReport.getParameterizedSQL(x, parameterMap)) != null) {
-                String sql = parameterizedResult[0];
-                if (sql.isEmpty()) {
+            ParameterizedSql query;
+            while ((query = genericReport.buildParameterizedSql(x, parameterMap)) != null) {
+                if (query.getSql().isEmpty()) {
                     request.setAttribute("errormsg", "Error: Cannot find all parameters for the query.  Check the template.");
                     request.setAttribute("templateid", templateId);
                     return false;
                 }
-                Object[] sqlParams = extractParams(parameterizedResult);
-                String[] result = executeQuery(sql, sqlParams, true);
+                String[] result = executeQuery(query, true);
                 String csv = enforceCsvExportLimit(request, "generateSequencedReport", templateId, result[1]);
                 request.setAttribute("csv-" + x, csv);
-                request.setAttribute("sql-" + x, sql);
+                request.setAttribute("sql-" + x, query.getSql());
                 request.setAttribute("resultsethtml-" + x, result[0]);
                 x++;
             }
@@ -192,19 +186,18 @@ public class SQLReporter implements Reporter {
     /**
      * Executes a SQL query and returns the HTML and CSV representations.
      *
-     * @param sql         the SQL query to execute
-     * @param sqlParams   JDBC parameters for the parameterized query
+     * @param query       the server-owned SQL template and request bind values
      * @param showSqlOnEmpty if true, prefix the "no results" message with the SQL text
      * @return {@code String[2]} where {@code [0]} is the HTML result and {@code [1]} is the CSV
      */
-    private String[] executeQuery(String sql, Object[] sqlParams, boolean showSqlOnEmpty) {
+    private String[] executeQuery(ParameterizedSql query, boolean showSqlOnEmpty) {
         String rsHtml = "An SQL query error has occured ";
         String csv = "";
         try (StringWriter swr = new StringWriter();
-             ResultSet rs = DBHandler.GetPreSQL(sql, sqlParams)) {
+             ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(query)) {
             if (!rs.isBeforeFirst()) {
                 rsHtml = showSqlOnEmpty
-                        ? (Encode.forHtml(sql) + "<br/>The query returned no results.")
+                        ? (Encode.forHtml(query.getSql()) + "<br/>The query returned no results.")
                         : "The query returned no results.";
             } else {
                 rsHtml = RptResultStruct.getStructure2(rs);
@@ -242,12 +235,4 @@ public class SQLReporter implements Reporter {
         }
         return csv;
     }
-
-    /** Extracts parameter values from a parameterized SQL result array (index 1..n). */
-    private Object[] extractParams(String[] parameterizedResult) {
-        Object[] sqlParams = new Object[parameterizedResult.length - 1];
-        System.arraycopy(parameterizedResult, 1, sqlParams, 0, sqlParams.length);
-        return sqlParams;
-    }
-
 }

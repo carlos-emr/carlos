@@ -38,7 +38,7 @@ import java.util.Properties;
 import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
-import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 public class FrmMentalHealthRecord extends FrmRecord {
@@ -52,7 +52,7 @@ public class FrmMentalHealthRecord extends FrmRecord {
                     + "sex, CONCAT(address, ', ', city, ', ', province, ' ', postal) AS address, "
                     + "phone, year_of_birth, month_of_birth, date_of_birth, roster_status "
                     + "FROM demographic WHERE demographic_no = ?";
-            ResultSet rs = DBHandler.GetPreSQL(sql, demographicNo);
+            ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo);
 
             if (rs.next()) {
                 java.util.Date dob = UtilDateUtilities.calcDate(Misc.getString(rs, "year_of_birth"), Misc.getString(rs, "month_of_birth"), Misc.getString(rs, "date_of_birth"));
@@ -78,7 +78,7 @@ public class FrmMentalHealthRecord extends FrmRecord {
 
             ResultSet rs = null;
             sql = "SELECT roster_status FROM demographic WHERE demographic_no = ?";
-            rs = DBHandler.GetPreSQL(sql, demographicNo);
+            rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo);
             if (rs.next()) {
                 props.setProperty("demo_roster_status", Misc.getString(rs, "roster_status"));
             }
@@ -96,7 +96,7 @@ public class FrmMentalHealthRecord extends FrmRecord {
         // from provider table
         sql = "SELECT CONCAT(last_name, ', ', first_name) AS provName "
                 + "FROM provider WHERE provider_no = ?";
-        rs = DBHandler.GetPreSQL(sql, provNo);
+        rs = LegacyJdbcQuery.getPreparedResultSet(sql, provNo);
         if (rs.next()) {
             props.setProperty("c_referredBy", Misc.getString(rs, "provName"));
         }
