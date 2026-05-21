@@ -95,6 +95,7 @@
     </style>
 
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1"/>
         <title><fmt:message key="form.counseling.title"/></title>
     </head>

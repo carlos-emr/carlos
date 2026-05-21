@@ -9,4 +9,4 @@ if [ "$#" -ne 3 ]; then
 	./createdatabase_generic.sh "$1" "$2" "$3" on 9 "$4"
 	exit
 fi
-./createdatabase_generic.sh "$1" "$2" "$3" on 9 
+./createdatabase_generic.sh "$1" "$2" "$3" on 9

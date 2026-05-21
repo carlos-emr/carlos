@@ -61,6 +61,8 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class ReportMacro2Action extends ActionSupport {
+    private static final String JSON_CONTENT_TYPE = "application/json; charset=UTF-8";
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -79,6 +81,7 @@ public class ReportMacro2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_lab", "w", null)) {
             throw new SecurityException("missing required sec object (_lab)");
         }
+        response.setContentType(JSON_CONTENT_TYPE);
 
         String name = request.getParameter("name");
 

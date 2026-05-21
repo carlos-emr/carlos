@@ -61,6 +61,7 @@
 
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title><fmt:message key="admin.fixRolesOnNotes.title"/></title>
 </head>
 <body>

@@ -81,7 +81,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
-<html lang="en">
+<html lang="<%= SafeEncode.forHtmlAttribute(request.getLocale().toLanguageTag()) %>">
 
     <%
         if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
@@ -183,6 +183,8 @@
     <%
         String today = UtilDateUtilities.DateToString(new java.util.Date(), "yyyy-MM-dd");
         String lastYear = (Integer.parseInt(today.substring(0, today.indexOf('-'))) - 2) + today.substring(today.indexOf('-'));
+        String providerNoForJavaScript = SafeEncode.forJavaScriptBlock(StringUtils.noNull(request.getParameter("provider_no")));
+        String providerNameForJavaScript = SafeEncode.forJavaScriptBlock(StringUtils.noNull(request.getParameter("provider_name")));
 
         if (request.getParameter("delete") != null && request.getParameter("delete").equals("1")) { //delete rschedule
 
@@ -258,6 +260,7 @@
     <% scheduleRscheduleBean.clear(); %>
 
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
 
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -303,26 +306,39 @@
                 window.location.href = ref;
             }
 
+            function setFormValue(form, name, value) {
+                var controls = Array.prototype.slice.call(form.elements).filter(function(control) {
+                    return control.name === name;
+                });
+                if (controls.length > 0) {
+                    controls[0].value = value;
+                    for (var i = 1; i < controls.length; i++) {
+                        if (controls[i].type === 'hidden') {
+                            controls[i].parentNode.removeChild(controls[i]);
+                        }
+                    }
+                    return;
+                }
+                var input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = name;
+                input.value = value;
+                form.appendChild(input);
+            }
+
             function onBtnDelete(s) {
                 if (confirm(i18n.msgDeleteConfirmation)) {
-                    var form = document.createElement('form');
+                    var form = document.forms['schedule'];
+                    if (!form) {
+                        return;
+                    }
                     form.method = 'post';
                     form.action = "${pageContext.request.contextPath}/schedule/TemplateApplying";
-                    var fields = {
-                        'provider_no': '<carlos:encode value='<%= request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "" %>' context="javaScriptBlock"/>',
-                        'provider_name': '<carlos:encode value='<%= request.getParameter("provider_name") != null ? request.getParameter("provider_name") : "" %>' context="javaScriptBlock"/>',
-                        'sdate': s.options[s.selectedIndex].value,
-                        'delete': '1',
-                        'deldate': 'all'
-                    };
-                    for (var key in fields) {
-                        var input = document.createElement('input');
-                        input.type = 'hidden';
-                        input.name = key;
-                        input.value = fields[key];
-                        form.appendChild(input);
-                    }
-                    document.body.appendChild(form);
+                    setFormValue(form, 'provider_no', '<%= providerNoForJavaScript %>');
+                    setFormValue(form, 'provider_name', '<%= providerNameForJavaScript %>');
+                    setFormValue(form, 'sdate', s.options[s.selectedIndex].value);
+                    setFormValue(form, 'delete', '1');
+                    setFormValue(form, 'deldate', 'all');
                     form.submit();
                 }
             }

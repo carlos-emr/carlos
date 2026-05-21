@@ -5,6 +5,7 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
 </head>
 <body>
 <c:set var="parentAjaxId" value="${not empty param.parentAjaxId ? param.parentAjaxId : parentAjaxId}" />

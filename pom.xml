@@ -1780,6 +1780,11 @@
              Activate with: mvn compile spotbugs:spotbugs -Pspotbugs -->
         <profile>
             <id>spotbugs</id>
+            <properties>
+                <!-- SpotBugs analyzer heap, in megabytes. Override per-run with
+                     -Dspotbugs.maxHeapMb=<MB>. -->
+                <spotbugs.maxHeapMb>2048</spotbugs.maxHeapMb>
+            </properties>
             <build>
                 <plugins>
                     <plugin>
@@ -1793,6 +1798,8 @@
                             <xmlOutputDirectory>${project.build.directory}</xmlOutputDirectory>
                             <spotbugsXmlOutputFilename>spotbugs-result.xml</spotbugsXmlOutputFilename>
                             <excludeFilterFile>${project.basedir}/.github/spotbugs/spotbugs-exclude.xml</excludeFilterFile>
+                            <fork>true</fork>
+                            <maxHeap>${spotbugs.maxHeapMb}</maxHeap>
                             <plugins>
                                 <plugin>
                                     <groupId>com.h3xstream.findsecbugs</groupId>

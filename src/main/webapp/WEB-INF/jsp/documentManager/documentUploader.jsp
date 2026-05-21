@@ -96,8 +96,9 @@
 
 %>
 <!DOCTYPE HTML>
-<html lang="en" class="no-js">
+<html lang="${pageContext.request.locale.language}" class="no-js">
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
 	<meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 	<title><fmt:message key="inboxmanager.document.title" /></title>

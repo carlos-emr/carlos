@@ -68,7 +68,6 @@ public class LoginWs extends AbstractWs {
     @Deprecated
     public LoginResultTransfer login(String userName, String password) throws NotAuthorisedException {
         logger.info("Login attempt : user=" + userName);
-        logger.debug("Login attempt : p =" + password);
 
         List<Security> securities = securityDao.findByUserName(userName);
         Security security = null;
@@ -95,7 +94,6 @@ public class LoginWs extends AbstractWs {
      */
     public LoginResultTransfer2 login2(String userName, String password) throws NotAuthorisedException {
         logger.info("Login attempt : user=" + userName);
-        logger.debug("Login attempt : p =" + password);
 
         List<Security> securities = securityDao.findByUserName(userName);
         Security security = null;

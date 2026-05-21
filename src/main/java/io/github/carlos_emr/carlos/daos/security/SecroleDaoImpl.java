@@ -87,7 +87,8 @@ public class SecroleDaoImpl extends AbstractJpaDao implements SecroleDao {
 
     @Override
     public List getDefaultRoles() {
-        return JpqlQueryHelper.find(entityManager(), "from Secrole r where r.userDefined=0");
+        throw new UnsupportedOperationException(
+                "schema gap: Secrole.userDefined is not present in the secRole schema or mapping; reconcile schema before reintroducing");
     }
 
     @Override

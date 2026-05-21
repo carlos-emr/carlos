@@ -150,6 +150,7 @@
 
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title>Edit Document</title>
     <!-- Prototype.js/Scriptaculous removed — using vanilla JS (Phase 1c migration) -->
 

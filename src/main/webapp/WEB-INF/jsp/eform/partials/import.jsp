@@ -41,6 +41,7 @@
     String status = (String) request.getAttribute("status");
 %>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script src="${pageContext.request.contextPath}/js/global.js"></script>
     <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
     <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
