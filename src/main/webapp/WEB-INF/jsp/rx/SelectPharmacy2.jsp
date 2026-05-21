@@ -63,7 +63,7 @@
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title><fmt:message key="SelectPharmacy.title"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-        <jsp:include page="/images/spinner.jsp" flush="true"/>
+        <jsp:include page="/WEB-INF/jsp/includes/spinner.jspf" flush="true"/>
 
 
         <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js" type="text/javascript"></script>

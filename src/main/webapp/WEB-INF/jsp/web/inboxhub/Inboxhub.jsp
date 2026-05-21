@@ -65,7 +65,7 @@
     <title><fmt:message key="inboxhub.title"/></title>
 </head>
 <body>
-<jsp:include page="/images/spinner.jsp" flush="true"/>
+<jsp:include page="/WEB-INF/jsp/includes/spinner.jspf" flush="true"/>
 <script>
     const contextPath = "<carlos:encode value='${pageContext.request.contextPath}' context="javaScript"/>";
     const inboxSearchLabel = "<fmt:message key='inboxhub.form.search'/>";
