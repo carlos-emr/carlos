@@ -111,6 +111,7 @@ public class DisplayImage2Action extends ActionSupport {
                 // logout listener remains injectable and charset handling stays centralized.
                 // LogoutBroadcastFilter can only append the cross-window logout listener to writer-backed HTML.
                 HtmlResponse.writeStoredHtml(response, contentType, stream);
+                stream = null;
                 return NONE;
             }
             response.setContentType(contentType);
