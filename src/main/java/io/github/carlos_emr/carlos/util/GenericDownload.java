@@ -66,9 +66,13 @@ public class GenericDownload extends HttpServlet {
 
     }
 
-    private void sendErrorIfPossible(HttpServletResponse res, int statusCode, String message) throws IOException {
+    private void sendErrorIfPossible(HttpServletResponse res, int statusCode, String message) {
         if (!res.isCommitted()) {
-            res.sendError(statusCode, message);
+            try {
+                res.sendError(statusCode, message);
+            } catch (IOException e) {
+                log.warn("Unable to send GenericDownload error response", e);
+            }
         }
     }
 
