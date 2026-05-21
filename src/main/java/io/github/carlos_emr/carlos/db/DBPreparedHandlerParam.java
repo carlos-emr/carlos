@@ -83,7 +83,7 @@ public final class DBPreparedHandlerParam implements LegacyJdbcQuery.LegacyJdbcP
     public DBPreparedHandlerParam(Date dateValue) {
         this.intValue = 0;
         this.stringValue = null;
-        this.dateValue = dateValue;
+        this.dateValue = copyDate(dateValue);
         this.timestampValue = null;
         this.paramType = PARAM_DATE;
     }
@@ -97,7 +97,7 @@ public final class DBPreparedHandlerParam implements LegacyJdbcQuery.LegacyJdbcP
         this.intValue = 0;
         this.stringValue = null;
         this.dateValue = null;
-        this.timestampValue = dateValue;
+        this.timestampValue = copyTimestamp(dateValue);
         this.paramType = PARAM_TIMESTAMP;
     }
 
@@ -122,7 +122,7 @@ public final class DBPreparedHandlerParam implements LegacyJdbcQuery.LegacyJdbcP
      */
     public Date getDateValue() {
 
-        return dateValue;
+        return copyDate(dateValue);
     }
 
 
@@ -133,7 +133,7 @@ public final class DBPreparedHandlerParam implements LegacyJdbcQuery.LegacyJdbcP
      */
     public Timestamp getTimestampValue() {
 
-        return this.timestampValue;
+        return copyTimestamp(this.timestampValue);
     }
 
 
@@ -182,15 +182,28 @@ public final class DBPreparedHandlerParam implements LegacyJdbcQuery.LegacyJdbcP
             return stringValue;
         }
         if (PARAM_DATE.equals(paramType)) {
-            return dateValue;
+            return copyDate(dateValue);
         }
         if (PARAM_INT.equals(paramType)) {
             return intValue;
         }
         if (PARAM_TIMESTAMP.equals(paramType)) {
-            return timestampValue;
+            return copyTimestamp(timestampValue);
         }
         return null;
+    }
+
+    private static Date copyDate(Date value) {
+        return value == null ? null : new Date(value.getTime());
+    }
+
+    private static Timestamp copyTimestamp(Timestamp value) {
+        if (value == null) {
+            return null;
+        }
+        Timestamp copy = new Timestamp(value.getTime());
+        copy.setNanos(value.getNanos());
+        return copy;
     }
 
 }
