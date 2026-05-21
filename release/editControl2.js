@@ -567,9 +567,7 @@ void [
 	// break the RTL eForm at runtime.
 	isGenderLookup, Start, htmlLine,
 	// formIsRTL: read by efmshowform_data to detect RTL eForm type.
-	// formPath: currently unused (commented-out graph link feature) but
-	//   kept for potential future use. See TODO at its declaration.
-	formIsRTL, formPath, getMeasures,
+	formIsRTL, getMeasures,
 	// collapseFooter, consultantSearch, populateInputField: called from
 	// inline onclick/onKeyup handlers in the DB-stored form_html.
 	// tempBinHover (not in this list): called from onmouseover in form_html.
@@ -1181,12 +1179,10 @@ if (location.search) {
 }
 
 
-// TODO: formPath is currently unused — its only two references (graph link URLs)
-// are commented out below in getMeasures(). The hardcoded fid=74 is a legacy
-// upstream value that would be wrong for most installations. If the graph link
-// feature is ever re-enabled, formPath should derive the fid from the URL
-// parameter (gup("fid")) instead of hardcoding it.
-var formPath = vPath + "/eform/efmshowform_data?fid=74&LabName="
+// TODO: The graph link URLs are commented out below in getMeasures(). The old
+// hardcoded fid=74 path would be wrong for most installations. If the graph
+// link feature is ever re-enabled, derive the fid from the URL parameter
+// (gup("fid")) instead of hardcoding it.
 var measureArray = [];
 var measureDateArray = [];
 
