@@ -187,6 +187,18 @@ public class AppointmentMainBean {
         return rs;
     }
 
+    /**
+     * Runs a CAISI query using string parameters.
+     *
+     * <p>When the first keyword is {@code "*"}, the {@code search*} query is used
+     * and no keyword parameters are bound. Otherwise {@code dboperation} selects
+     * the query definition and {@code aKeyword} supplies the bound parameters.</p>
+     *
+     * @param aKeyword keyword parameters, or {@code "*"} as the first entry for the wildcard query
+     * @param dboperation query definition key for non-wildcard lookups
+     * @return a closable result wrapper; callers own it and must close it
+     * @throws Exception if the query definition cannot be resolved or JDBC execution fails
+     */
     public LegacyJdbcQuery.CaisiResult queryResultsCaisi(String[] aKeyword, String dboperation) throws Exception {
         String sqlQuery = null;
         LegacyJdbcQuery.CaisiResult rs = null;
@@ -200,6 +212,18 @@ public class AppointmentMainBean {
         return rs;
     }
 
+    /**
+     * Runs a CAISI query using a single string parameter.
+     *
+     * <p>A keyword of {@code "*"} uses the {@code search*} query and binds no
+     * keyword parameter. Other values use {@code dboperation} and bind
+     * {@code aKeyword} as the query parameter.</p>
+     *
+     * @param aKeyword keyword value, or {@code "*"} for the wildcard query
+     * @param dboperation query definition key for non-wildcard lookups
+     * @return a closable result wrapper; callers own it and must close it
+     * @throws Exception if the query definition cannot be resolved or JDBC execution fails
+     */
     public LegacyJdbcQuery.CaisiResult queryResultsCaisi(String aKeyword, String dboperation) throws Exception {
         String sqlQuery = null;
         LegacyJdbcQuery.CaisiResult rs = null;
@@ -213,12 +237,27 @@ public class AppointmentMainBean {
         return rs;
     }
 
+    /**
+     * Runs a CAISI query using a single integer parameter.
+     *
+     * @param aKeyword integer keyword value to bind to the query
+     * @param dboperation query definition key
+     * @return a closable result wrapper; callers own it and must close it
+     * @throws Exception if the query definition cannot be resolved or JDBC execution fails
+     */
     public LegacyJdbcQuery.CaisiResult queryResultsCaisi(int aKeyword, String dboperation) throws Exception {
         String sqlQuery = null;
         sqlQuery = dbSQL.getDef(dboperation, "");
         return LegacyJdbcQuery.queryResultsCaisi(sqlQuery, aKeyword);
     }
 
+    /**
+     * Runs a CAISI query with no keyword parameters.
+     *
+     * @param dboperation query definition key
+     * @return a closable result wrapper; callers own it and must close it
+     * @throws Exception if the query definition cannot be resolved or JDBC execution fails
+     */
     public LegacyJdbcQuery.CaisiResult queryResultsCaisi(String dboperation) throws Exception {
         String sqlQuery = dbSQL.getDef(dboperation);
         return LegacyJdbcQuery.queryResultsCaisi(sqlQuery, new String[0]);

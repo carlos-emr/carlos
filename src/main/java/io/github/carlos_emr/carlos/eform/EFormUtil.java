@@ -1320,16 +1320,6 @@ public class EFormUtil {
         return eFormDataDao.isLatestShowLatestFormOnlyPatientForm(fdid);
     }
 
-
-    @Deprecated(since = "2026-05-21", forRemoval = true)
-    private static ResultSet getSQL(String sql) {
-        if (sql == null) {
-            logger.error("Blocked unsafe SQL execution in legacy eForm path", new SecurityException("Null SQL is not allowed"));
-            return null;
-        }
-        return getSQL(new ParameterizedSql(sql, List.of()));
-    }
-
     private static ResultSet getSQL(ParameterizedSql sql) {
         ResultSet rs = null;
         try {

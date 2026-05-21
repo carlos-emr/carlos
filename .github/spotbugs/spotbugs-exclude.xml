@@ -154,6 +154,53 @@
         <Class name="io.github.carlos_emr.carlos.db.LegacyJdbcQuery$CaisiResult"/>
         <Method name="resultSet"/>
     </Match>
+    <Match>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+        <Class name="io.github.carlos_emr.carlos.db.LegacyJdbcQuery$CaisiResult"/>
+    </Match>
+
+    <!--
+      AddEditDocument2Action sends a context-relative application redirect.
+      Request parameter values are URL-encoded as query parameter values, and the
+      finished URL is accepted only after RedirectValidationUtils validation.
+    -->
+    <Match>
+        <Bug pattern="UNVALIDATED_REDIRECT"/>
+        <Class name="io.github.carlos_emr.carlos.documentManager.actions.AddEditDocument2Action"/>
+        <Method name="execute2"/>
+    </Match>
+
+    <!--
+      AddEditDocument2Action.writeLocalFile uses the server-configured DOCUMENT_DIR
+      as the base directory; PathValidationUtils validates the user-provided
+      filename before the destination path is used.
+    -->
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.documentManager.actions.AddEditDocument2Action"/>
+        <Method name="writeLocalFile"/>
+    </Match>
+
+    <!--
+      DocumentUpload2Action.writeLocalFile uses the server-configured DOCUMENT_DIR
+      as the base directory; the user-provided filename is validated through
+      PathValidationUtils before the destination path is used.
+    -->
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.documentManager.actions.DocumentUpload2Action"/>
+        <Method name="writeLocalFile"/>
+    </Match>
+    <!--
+      DocumentUpload2Action.writeToIncomingDocs receives a parent directory from
+      IncomingDocUtil after incoming-document path validation, then validates the
+      final filename with PathValidationUtils before writing.
+    -->
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.documentManager.actions.DocumentUpload2Action"/>
+        <Method name="writeToIncomingDocs"/>
+    </Match>
 
     <!--
       FrmRecordHelp prepares caller-supplied form-table SQL only after the form name

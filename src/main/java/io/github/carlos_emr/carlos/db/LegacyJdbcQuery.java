@@ -75,6 +75,16 @@ public final class LegacyJdbcQuery {
         }
     }
 
+    /**
+     * Owns the live {@link ResultSet} returned by legacy CAISI query paths.
+     *
+     * <p>The contained result set is mutable, cursor-based, and not thread-safe.
+     * Callers must close this wrapper, preferably with try-with-resources; closing
+     * it closes the result set and releases the statement/connection resources
+     * registered for the legacy query.</p>
+     *
+     * @param resultSet result set cursor returned by the CAISI query
+     */
     public record CaisiResult(ResultSet resultSet) implements AutoCloseable {
         public CaisiResult {
             Objects.requireNonNull(resultSet, "resultSet");

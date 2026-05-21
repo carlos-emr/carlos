@@ -240,7 +240,7 @@ public class CreateBillingReport2Action extends ActionSupport {
             IOUtils.closeQuietly(reportInstream);
         }
 
-        return SUCCESS;
+        return NONE;
     }
 
     /**

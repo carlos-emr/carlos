@@ -79,7 +79,7 @@ public class DxReference {
     public List<DxCode> getLatestDxCodes(String demo) {
         ArrayList<DxCode> list = new ArrayList<DxCode>();
         String nsql = "select dx_code1, dx_code2, dx_code3,service_date from billingmaster where demographic_no = ? and billingstatus != 'D' order by service_date desc limit 10";
-        try (Connection connection = LegacyJdbcQuery.getConnection();
+        try (Connection connection = getRequiredLegacyConnection();
                 PreparedStatement pstmt = connection.prepareStatement(nsql)) {
             pstmt.setString(1, demo);
             ResultSet rs = pstmt.executeQuery();
@@ -110,6 +110,14 @@ public class DxReference {
         Collections.sort(list, Collections.reverseOrder());
 
         return list;
+    }
+
+    private static Connection getRequiredLegacyConnection() throws SQLException {
+        Connection connection = LegacyJdbcQuery.getConnection();
+        if (connection == null) {
+            throw new SQLException("Unable to acquire legacy JDBC connection");
+        }
+        return connection;
     }
 
     private void fillDxCodeDescrition(DxCode code) {

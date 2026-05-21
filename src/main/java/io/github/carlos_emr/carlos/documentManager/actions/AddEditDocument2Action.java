@@ -36,6 +36,8 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -71,8 +73,10 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.RedirectValidationUtils;
 import io.github.carlos_emr.carlos.utility.SessionConstants;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.UploadedFileUtils;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
 
@@ -275,21 +279,25 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             } else if (this.getMode().equals("add")) {
                 // if add/edit success then send redirect, if failed send a forward (need the formdata and errors hashtables while trying to avoid POSTDATA messages)
                 if (addDocument(request)) { // if success
-                    String contextPath = request.getContextPath();
-                    StringBuffer redirect = new StringBuffer(contextPath + "/documentManager/ViewDocumentReport");
+                    StringBuilder redirect = new StringBuilder(request.getContextPath())
+                            .append("/documentManager/ViewDocumentReport");
                     redirect.append("?docerrors=docerrors"); // Allows the JSP to check if the document was just submitted
-                    redirect.append("&function=").append(request.getParameter("function"));
-                    redirect.append("&functionid=").append(request.getParameter("functionid"));
-                    redirect.append("&curUser").append(request.getParameter("curUser"));
-                    redirect.append("&appointmentNo").append(request.getParameter("appointmentNo"));
+                    appendQueryParameter(redirect, "function", request.getParameter("function"));
+                    appendQueryParameter(redirect, "functionid", request.getParameter("functionid"));
+                    appendQueryParameter(redirect, "curUser", request.getParameter("curUser"));
+                    appendQueryParameter(redirect, "appointmentNo", request.getParameter("appointmentNo"));
                     String parentAjaxId = request.getParameter("parentAjaxId");
                     // if we're called with parent ajax id inform jsp that parent needs to be updated
-                    if (!parentAjaxId.isEmpty()) {
-                        redirect.append("&parentAjaxId").append(parentAjaxId);
-                        redirect.append("&updateParent").append("true");
+                    if (filled(parentAjaxId)) {
+                        appendQueryParameter(redirect, "parentAjaxId", parentAjaxId);
+                        appendQueryParameter(redirect, "updateParent", "true");
                     }
                     try {
-                        response.sendRedirect(redirect.toString());
+                        String redirectUrl = redirect.toString();
+                        if (!RedirectValidationUtils.isValidRelativeRedirect(redirectUrl)) {
+                            throw new SecurityException("Invalid document redirect target");
+                        }
+                        response.sendRedirect(redirectUrl);
                     } catch (IOException e) {
                         throw new RuntimeException(e);
                     }
@@ -590,7 +598,11 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
                 File validatedFile = PathValidationUtils.validatePath(fileNameWithCollisionSuffix(fileName, attempt), baseDirFile);
                 Path savePath = validatedFile.toPath();
 
-                Files.createDirectories(savePath.getParent());
+                Path parentDirectory = savePath.getParent();
+                if (parentDirectory == null) {
+                    throw new IOException("Document storage path has no parent directory");
+                }
+                Files.createDirectories(parentDirectory);
 
                 try (OutputStream fos = Files.newOutputStream(savePath,
                         StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
@@ -680,7 +692,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
 
         if (selected != null) {
             this.uploadedDocFile = selected;
-            this.docFile = PathValidationUtils.validateUpload(new File(selected.getAbsolutePath()));
+            this.docFile = PathValidationUtils.validateUpload(UploadedFileUtils.getUploadedFile(selected));
             this.docFileFileName = selected.getOriginalName();
             this.docFileContentType = selected.getContentType();
         }
@@ -688,6 +700,13 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
 
     private boolean filled(String s) {
         return (s != null && s.trim().length() > 0);
+    }
+
+    private static void appendQueryParameter(StringBuilder redirect, String name, String value) {
+        redirect.append('&')
+                .append(name)
+                .append('=')
+                .append(URLEncoder.encode(value == null ? "" : value, StandardCharsets.UTF_8));
     }
 
     private String function = "";

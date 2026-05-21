@@ -51,7 +51,6 @@ import io.github.carlos_emr.carlos.commn.model.RaDetail;
 import io.github.carlos_emr.carlos.commn.model.RaHeader;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 
@@ -152,7 +151,7 @@ public class BillingOnRaService {
                     Path.of(filePathName).toFile(),
                     Path.of(documentDir).toFile());
         } catch (FileValidationException e) {
-            _logger.error("RA import rejected invalid path: {}", LogSanitizer.sanitize(filePathName), e);
+            _logger.error("RA import rejected invalid path: {}", LogSafe.sanitize(filePathName), e);
             throw new SecurityException("Invalid RA import path", e);
         }
         filename = safeFile.getName();
@@ -490,16 +489,6 @@ public class BillingOnRaService {
             prop.setProperty("totalamount", r.getTotalAmount());
             prop.setProperty("status", r.getStatus());
             ret.add(prop);
-        }
-        return ret;
-    }
-
-    private String getPointNum(String strNum) {
-        String ret = null;
-        if (strNum.length() > 2) {
-            ret = strNum.substring(0, strNum.length() - 2) + "." + strNum.substring(strNum.length() - 2);
-        } else {
-            ret = "0.00".substring(0, 4 - strNum.length()) + strNum;
         }
         return ret;
     }

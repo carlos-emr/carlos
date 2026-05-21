@@ -163,8 +163,8 @@ public class ExtractBean extends Object implements Serializable {
             BillingDateFilter dateFilter;
             try {
                 dateFilter = parseDateRangeFragment(getDateRange());
-            } catch (IllegalArgumentException e) {
-                reportDateRangeError(e);
+            } catch (IllegalArgumentException ignored) {
+                reportDateRangeError();
                 return;
             }
 
@@ -347,9 +347,9 @@ public class ExtractBean extends Object implements Serializable {
 
     }
 
-    private void reportDateRangeError(IllegalArgumentException e) {
+    private void reportDateRangeError() {
         String message = "Unsupported billing date range filter. Report was not generated.";
-        MiscUtils.getLogger().warn(message, e);
+        MiscUtils.getLogger().warn(message);
         errorMsg = message;
         htmlCode = "<html><body><p>" + message + "</p></body></html>";
         htmlValue = htmlCode;

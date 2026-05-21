@@ -101,6 +101,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SessionConstants;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.UploadedFileUtils;
 import io.github.carlos_emr.carlos.webserv.LabUploadWs;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.demographic.data.DemographicAddResult;
@@ -4941,7 +4942,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
         }
         for (UploadedFile uploaded : uploadedFiles) {
             if ("importFile".equals(uploaded.getInputName())) {
-                this.importFile = PathValidationUtils.validateUpload(new File(uploaded.getAbsolutePath()));
+                this.importFile = PathValidationUtils.validateUpload(UploadedFileUtils.getUploadedFile(uploaded));
                 this.importFileFileName = uploaded.getOriginalName();
                 return;
             }
