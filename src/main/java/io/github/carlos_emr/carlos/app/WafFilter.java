@@ -649,11 +649,16 @@ public class WafFilter implements Filter {
      */
     private boolean block(HttpServletRequest req, HttpServletResponse resp,
                           String rule, String detail) throws IOException {
+        String requestUri = req.getRequestURI();
+        if (requestUri == null) {
+            requestUri = "";
+        }
+
         // PHI-safe: log IP + URI + rule category only — never log parameter values or body content
         WAF_LOGGER.warn("WAF [{}:{}] {} {}",
                 rule, detail,
                 req.getRemoteAddr(),
-                Encode.forJava(req.getRequestURI()));
+                Encode.forJava(requestUri));
 
         if (enforceMode) {
             resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "Bad Request");
