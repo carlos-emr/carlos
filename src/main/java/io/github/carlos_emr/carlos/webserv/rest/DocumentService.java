@@ -37,6 +37,7 @@ import io.github.carlos_emr.carlos.managers.DocumentManager;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import io.github.carlos_emr.carlos.webserv.rest.conversion.DocumentConverter;
@@ -139,8 +140,9 @@ public class DocumentService extends AbstractServiceImpl {
             logger.warn("Document rejected due to invalid filename");
             return Response.status(Response.Status.BAD_REQUEST).entity(createResponseMap(getFileName(documentTo1), FAILED_STATUS, e.getMessage())).build();
         } catch (IOException e) {
-            logger.error("Document could not be saved: {}", getFileName(documentTo1), e);
-            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createResponseMap(getFileName(documentTo1), FAILED_STATUS, "Internal error: " + e.getMessage())).build();
+            String safeFileName = LogSanitizer.sanitize(getFileName(documentTo1), 256);
+            logger.error("Document could not be saved: {}", safeFileName, e);
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createResponseMap(safeFileName, FAILED_STATUS, "The document could not be saved.")).build();
         }
 
         Integer queueId = documentManager.addDocumentToQueue(loggedInInfo, document.getDocumentNo(), documentTo1.getQueue());

@@ -42,7 +42,7 @@ import java.util.Set;
 public final class PathValidationUtils {
 
     public static final String INVALID_FILENAME_MESSAGE =
-            "Invalid filename. Use letters, numbers, dots, underscores, or spaces, and filenames must not start with a dot.";
+            "Invalid filename. Use letters, numbers, dots, underscores, or spaces; spaces are converted to underscores, and filenames must not start with a dot.";
     public static final String HIDDEN_FILENAME_MESSAGE =
             "Invalid filename: hidden files not allowed. Do not start the filename with a dot.";
     public static final String PATH_OUTSIDE_ALLOWED_DIRECTORY_MESSAGE = "Invalid file path";
@@ -364,7 +364,7 @@ public final class PathValidationUtils {
         // Reject hidden files (starting with .)
         if (baseName.startsWith(".")) {
             logger.warn("Hidden filenames not allowed: {}", LogSafe.sanitize(fileName));
-            throw new FileValidationException("Invalid filename: hidden files not allowed");
+            throw new FileValidationException(HIDDEN_FILENAME_MESSAGE);
         }
 
         // Ensure the result is not empty

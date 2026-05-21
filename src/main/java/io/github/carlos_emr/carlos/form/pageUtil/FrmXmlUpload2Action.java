@@ -41,7 +41,6 @@ import io.github.carlos_emr.carlos.utility.UploadedFileUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.JDBCUtil;
 
-import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -58,6 +57,7 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
 
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private String uploadValidationError;
 
     public String execute()
             throws ServletException, IOException {
@@ -71,15 +71,15 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
         File tmpFile = File.createTempFile("tmp", ".zip");
         tmpFile.deleteOnExit();
 
-        File validatedFile;
-        try {
-            validatedFile = PathValidationUtils.validateUpload(file1);
-        } catch (SecurityException e) {
-            throw new IllegalArgumentException("Invalid file path: " + file1.getAbsolutePath(), e);
+        if (uploadValidationError != null) {
+            throw new IllegalArgumentException(uploadValidationError);
+        }
+        if (file1Upload == null) {
+            throw new IllegalArgumentException("Invalid file upload");
         }
 
-       try (InputStream is = Files.newInputStream(validatedFile.toPath());
-            OutputStream fos = new FileOutputStream(tmpFile)) {
+        try (InputStream is = file1Upload.openStream();
+             OutputStream fos = new FileOutputStream(tmpFile)) {
             byte[] data = new byte[BUFFER];
             int count;
             while ((count = is.read(data)) != -1) {
@@ -102,6 +102,7 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
     }
 
     private File file1; // Uploaded file
+    private ValidatedUpload file1Upload;
     private String file1FileName; // Name of the uploaded file
     private String file1ContentType; // Content type of the uploaded file
 
@@ -110,9 +111,41 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
     public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
         if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
             UploadedFile uploaded = uploadedFiles.get(0);
-            this.file1 = UploadedFileUtils.getUploadedFile(uploaded);
+            try {
+                this.file1Upload = ValidatedUpload.from(uploaded);
+                this.file1 = this.file1Upload.file();
+                this.uploadValidationError = null;
+            } catch (SecurityException e) {
+                this.file1 = null;
+                this.file1Upload = null;
+                this.uploadValidationError = "Invalid file upload";
+            }
             this.file1ContentType = uploaded.getContentType();
             this.file1FileName = uploaded.getOriginalName();
+        }
+    }
+
+    private static final class ValidatedUpload {
+        private final File file;
+
+        private ValidatedUpload(File file) {
+            this.file = file;
+        }
+
+        private static ValidatedUpload from(UploadedFile uploaded) {
+            return from(UploadedFileUtils.getUploadedFile(uploaded));
+        }
+
+        private static ValidatedUpload from(File uploadFile) {
+            return new ValidatedUpload(PathValidationUtils.validateUpload(uploadFile));
+        }
+
+        private File file() {
+            return file;
+        }
+
+        private InputStream openStream() throws IOException {
+            return Files.newInputStream(file.toPath());
         }
     }
 
@@ -122,7 +155,9 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
     }
 
     public void setFile1(File file1) {
-        this.file1 = file1;
+        this.file1Upload = ValidatedUpload.from(file1);
+        this.file1 = this.file1Upload.file();
+        this.uploadValidationError = null;
     }
 
     public String getFile1FileName() {

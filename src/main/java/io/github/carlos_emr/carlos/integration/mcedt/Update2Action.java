@@ -44,6 +44,7 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
+import java.io.IOException;
 import java.math.BigInteger;
 import java.nio.file.Files;
 import java.util.List;
@@ -145,6 +146,7 @@ public class Update2Action extends ActionSupport implements UploadedFilesAware {
 
     private String resourceId;
     private File content;
+    private ValidatedContent contentUpload;
     private String uploadValidationError;
 
     public String getResourceId() {
@@ -160,41 +162,76 @@ public class Update2Action extends ActionSupport implements UploadedFilesAware {
         return content;
     }
 
-    @Override
-    public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
-        if (uploadedFiles == null) {
-            return;
-        }
-        for (UploadedFile uploaded : uploadedFiles) {
-            if ("content".equals(uploaded.getInputName())) {
-                try {
-                    this.content = PathValidationUtils.validateUpload(UploadedFileUtils.getUploadedFile(uploaded));
-                    this.uploadValidationError = null;
-                } catch (SecurityException e) {
-                    this.content = null;
-                    this.uploadValidationError = e.getMessage();
-                }
-                return;
-            }
-        }
+    public void setContent(File content) {
+        this.contentUpload = ValidatedContent.from(content);
+        this.content = this.contentUpload.file();
+        this.uploadValidationError = null;
     }
 
     public UpdateRequest toUpdateRequest() {
         UpdateRequest result = new UpdateRequest();
         result.setResourceID(BigInteger.valueOf(ConversionUtils.fromIntString(resourceId)));
+        if (uploadValidationError != null) {
+            throw new SecurityException(uploadValidationError);
+        }
         try {
-            if (uploadValidationError != null) {
-                throw new SecurityException("Invalid upload file path", new SecurityException(uploadValidationError));
-            }
-            if (content == null) {
+            if (contentUpload == null) {
                 throw new SecurityException("Invalid upload file path", new FileValidationException("Uploaded file is null"));
             }
-            result.setContent(Files.readAllBytes(content.toPath()));
+            result.setContent(contentUpload.readAllBytes());
         } catch (SecurityException e) {
             throw new SecurityException("Invalid upload file path", e);
         } catch (Exception e) {
             throw new RuntimeException("Unable to read upload data", e);
         }
         return result;
+    }
+
+    @Override
+    public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
+        if (uploadedFiles == null) {
+            return;
+        }
+
+        uploadedFiles.stream()
+                .filter(uploaded -> "content".equals(uploaded.getInputName()))
+                .findFirst()
+                .ifPresent(this::storeUploadedContent);
+    }
+
+    private void storeUploadedContent(UploadedFile uploaded) {
+        try {
+            this.contentUpload = ValidatedContent.from(uploaded);
+            this.content = this.contentUpload.file();
+            this.uploadValidationError = null;
+        } catch (SecurityException e) {
+            this.content = null;
+            this.contentUpload = null;
+            this.uploadValidationError = "Invalid upload file path";
+        }
+    }
+
+    private static final class ValidatedContent {
+        private final File file;
+
+        private ValidatedContent(File file) {
+            this.file = file;
+        }
+
+        private static ValidatedContent from(UploadedFile uploaded) {
+            return from(UploadedFileUtils.getUploadedFile(uploaded));
+        }
+
+        private static ValidatedContent from(File uploadFile) {
+            return new ValidatedContent(PathValidationUtils.validateUpload(uploadFile));
+        }
+
+        private File file() {
+            return file;
+        }
+
+        private byte[] readAllBytes() throws IOException {
+            return Files.readAllBytes(file.toPath());
+        }
     }
 }

@@ -2071,10 +2071,11 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     logger.error("Path traversal attempt on document export: {}", LogSanitizer.sanitize(edoc.getFilePath()));
                                     continue;
                                 }
+                                String safeDocumentName = SafeEncode.forHtmlContent(f.getName());
                                 if (!f.exists()) {
-                                    exportError.add(DOCUMENT_EXPORT_ERROR_PREFIX + f.getName() + "\" does not exist!");
+                                    exportError.add(DOCUMENT_EXPORT_ERROR_PREFIX + safeDocumentName + "\" does not exist!");
                                 } else if (f.length() > Runtime.getRuntime().freeMemory()) {
-                                    exportError.add(DOCUMENT_EXPORT_ERROR_PREFIX + f.getName() + "\" too big to be exported. Not enough memory!");
+                                    exportError.add(DOCUMENT_EXPORT_ERROR_PREFIX + safeDocumentName + "\" too big to be exported. Not enough memory!");
                                 } else {
                                     Reports rpr = patientRec.addNewReports();
                                     if (edoc.getType() != null) {

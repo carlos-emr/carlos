@@ -272,19 +272,15 @@ public final class FrmSetupForm2Action extends ActionSupport {
 
             if (formId != null) {
                 if (Integer.parseInt(formId) > 0) {
-                    // Validate formName to prevent SQL injection
-                    if (!isValidFormName(formName)) {
+                    FormRecordTable formRecordTable = FormRecordTable.from(formName);
+                    if (formRecordTable == null) {
                         MiscUtils.getLogger().warn("Invalid form name in getFormRecord: " + formName);
                         return null;
                     }
-                    
-                    // Using parameterized values for formId and demographicNo
-                    // Note: Table name cannot be parameterized, but formName is validated above by isValidFormName()
-                    String sql = "SELECT * FROM form" + formName + " WHERE ID=? AND demographic_no=?"; // nosemgrep: formatted-sql-string -- formName validated by isValidFormName() regex allowlist (alphanumeric + underscore only)
-                    try (Connection connection = DbConnectionFilter.getThreadLocalDbConnection();
-                         PreparedStatement ps = connection.prepareStatement(sql); // codeql[java/sql-injection] // nosemgrep: tainted-sql-from-http-request — formName validated by isValidFormName() regex; ID and demographic_no are parameterized via PreparedStatement
-                         ResultSet rs = configureAndExecuteGetFormRecordQuery(ps, formId, demographicNo)) {
 
+                    try (Connection connection = DbConnectionFilter.getThreadLocalDbConnection();
+                         PreparedStatement ps = formRecordTable.prepareRecordQuery(connection, formId, demographicNo);
+                         ResultSet rs = ps.executeQuery()) {
                         if (rs.next()) {
                             ResultSetMetaData md = rs.getMetaData();
                             for (int i = 1; i <= md.getColumnCount(); i++) {
@@ -303,12 +299,6 @@ public final class FrmSetupForm2Action extends ActionSupport {
             MiscUtils.getLogger().error("Error", e);
         }
         return props;
-    }
-
-    private ResultSet configureAndExecuteGetFormRecordQuery(PreparedStatement ps, String formId, String demographicNo) throws SQLException {
-        ps.setInt(1, Integer.parseInt(formId));
-        ps.setInt(2, Integer.parseInt(demographicNo));
-        return ps.executeQuery(); // nosemgrep: formatted-sql-string — PreparedStatement; formName validated by isValidFormName regex
     }
 
     private void addLastData(EctMeasurementTypesBean mt, String demo) {
@@ -337,7 +327,7 @@ public final class FrmSetupForm2Action extends ActionSupport {
      * @param formName The form name to validate
      * @return true if the form name is valid, false otherwise
      */
-    private boolean isValidFormName(String formName) {
+    private static boolean isValidFormName(String formName) {
         if (formName == null || formName.isEmpty()) {
             return false;
         }
@@ -349,5 +339,44 @@ public final class FrmSetupForm2Action extends ActionSupport {
         
         // Only allow alphanumeric characters and underscores
         return VALID_FORM_NAME_PATTERN.matcher(formName).matches();
+    }
+
+    private static final class FormRecordTable {
+        private final String tableName;
+
+        private FormRecordTable(String formName) {
+            this.tableName = "form" + formName;
+        }
+
+        private static FormRecordTable from(String formName) {
+            if (!isValidFormName(formName)) {
+                return null;
+            }
+            return new FormRecordTable(formName);
+        }
+
+        private String selectRecordSql() {
+            return "SELECT * FROM " + tableName + " WHERE ID=? AND demographic_no=?";
+        }
+
+        private PreparedStatement prepareRecordQuery(
+                Connection connection,
+                String formId,
+                String demographicNo) throws SQLException {
+            int parsedFormId = parseRequiredInt(formId, "form ID");
+            int parsedDemographicNo = parseRequiredInt(demographicNo, "demographic number");
+            PreparedStatement ps = connection.prepareStatement(selectRecordSql()); // NOSONAR java:S2095,java:S2077 - caller owns and closes this PreparedStatement; table name is allowlisted.
+            ps.setInt(1, parsedFormId);
+            ps.setInt(2, parsedDemographicNo);
+            return ps;
+        }
+
+        private static int parseRequiredInt(String value, String fieldName) throws SQLException {
+            try {
+                return Integer.parseInt(value);
+            } catch (NumberFormatException e) {
+                throw new SQLException("Invalid " + fieldName, e);
+            }
+        }
     }
 }

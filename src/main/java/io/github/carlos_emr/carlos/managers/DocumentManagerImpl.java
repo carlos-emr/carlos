@@ -468,10 +468,17 @@ public class DocumentManagerImpl implements DocumentManager {
             throw new FileValidationException("Source path is required");
         }
         File sourceFile = FileSystems.getDefault().getPath(fromPath, docFilename).toFile();
+        try {
+            return validateStoredDocumentSource(sourceFile).toPath();
+        } catch (FileValidationException e) {
+            if (!"Invalid document move source".equals(e.getMessage())) {
+                throw e;
+            }
+        }
         if (PathValidationUtils.isInAllowedTempDirectory(sourceFile)) {
             return PathValidationUtils.validateUpload(sourceFile).toPath();
         }
-        return validateStoredDocumentSource(sourceFile).toPath();
+        throw new FileValidationException("Invalid document move source");
     }
 
     private File validateStoredDocumentSource(File sourceFile) {

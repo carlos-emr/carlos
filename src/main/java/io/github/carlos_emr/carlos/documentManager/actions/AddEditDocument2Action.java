@@ -33,13 +33,15 @@ package io.github.carlos_emr.carlos.documentManager.actions;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.Date;
 import java.util.Hashtable;
 import java.util.List;
@@ -165,21 +167,26 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             return null;
         }
 
-        ValidatedDocumentUpload validatedSource;
+        ValidatedDocumentUpload validatedSource = null;
         File file;
+        long sourceLength = 0;
         try {
             validatedSource = ValidatedDocumentUpload.from(uploadedDocFile);
-            if (validatedSource.length() == 0) {
+            sourceLength = validatedSource.length();
+            if (sourceLength == 0) {
                 response.setHeader("oscar_error", props.getString("dms.addDocument.errorZeroSize"));
                 response.sendError(500, props.getString("dms.addDocument.errorZeroSize"));
                 return null;
             }
             file = writeLocalFile(validatedSource.openStream(), fileName); // write file to local dir
+            fileName = file.getName();
         } catch (FileValidationException e) {
             MiscUtils.getLogger().warn("Rejected invalid document upload source");
             response.setHeader("oscar_error", e.getMessage());
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
             return null;
+        } finally {
+            deleteUploadedDocumentTempFile(validatedSource);
         }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -195,7 +202,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             newDoc.setProgramId(pp.getProgramId().intValue());
         }
 
-        if (!file.exists() || file.length() < validatedSource.length()) {
+        if (!file.exists() || file.length() < sourceLength) {
             response.setHeader("oscar_error", props.getString("dms.addDocument.errorNoWrite"));
             response.sendError(500, props.getString("dms.addDocument.errorNoWrite"));
             return null;
@@ -312,6 +319,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
     private boolean addDocument(HttpServletRequest request) {
 
         Hashtable<String, String> errors = new Hashtable<>();
+        ValidatedDocumentUpload docUpload = null;
         try {
             if (isMissingDocumentDescription()) {
                 errors.put("descmissing", "dms.error.descriptionInvalid");
@@ -326,7 +334,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
                 errors.put("uploaderror", "dms.error.uploadError");
                 throw new FileNotFoundException();
             }
-            ValidatedDocumentUpload docUpload = validateUploadedDocumentSource(docFile, errors);
+            docUpload = validateUploadedDocumentSource(docFile, errors);
             if (docUpload.length() == 0) {
                 errors.put("uploaderror", "dms.error.uploadError");
                 throw new FileNotFoundException();
@@ -344,7 +352,9 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             String fileName2 = newDoc.getFileName();
 
             // save local file
-            writeLocalFile(docUpload.openStream(), fileName2);
+            File writtenFile = writeLocalFile(docUpload.openStream(), fileName2);
+            fileName2 = writtenFile.getName();
+            newDoc.setFileName(fileName2);
             newDoc.setContentType(this.docFileContentType);
 
             if (fileName2.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
@@ -445,6 +455,8 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             // ActionRedirect redirect = new ActionRedirect(mapping.findForward("failAdd"));
             request.setAttribute("docerrors", errors);
             return false;
+        } finally {
+            deleteUploadedDocumentTempFile(docUpload);
         }
 
         return true;
@@ -463,6 +475,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
      */
     private String editDocument(HttpServletRequest request) {
         Hashtable<String, String> errors = new Hashtable<>();
+        ValidatedDocumentUpload validatedDocFileForUpdate = null;
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
             throw new SecurityException("missing required sec object (_edoc)");
@@ -479,7 +492,6 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             }
             String fileName = "";
             boolean updateFileContent = false;
-            ValidatedDocumentUpload validatedDocFileForUpdate = null;
 
             if (CarlosProperties.getInstance().getBooleanProperty("ALLOW_UPDATE_DOCUMENT_CONTENT", "true"))
             {
@@ -524,7 +536,9 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             if (updateFileContent) {
                 fileName = PathValidationUtils.validateFileName(newDoc.getFileName());
                 // save local file
-                writeLocalFile(validatedDocFileForUpdate.openStream(), fileName);
+                File writtenFile = writeLocalFile(validatedDocFileForUpdate.openStream(), fileName);
+                fileName = writtenFile.getName();
+                newDoc.setFileName(fileName);
                 if (fileName.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
                     newDoc.setContentType("application/pdf");
                     int numberOfPages = countNumOfPages(fileName);
@@ -569,6 +583,8 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             request.setAttribute(EDIT_DOCUMENT_NO_ATTRIBUTE, this.getMode());
             MiscUtils.getLogger().error("Failed to edit document", e);
             return FAIL_EDIT_RESULT;
+        } finally {
+            deleteUploadedDocumentTempFile(validatedDocFileForUpdate);
         }
         return "successEdit";
     }
@@ -583,15 +599,17 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
     }
 
     private static final class ValidatedDocumentUpload {
+        private final UploadedFile upload;
         private final File file;
 
-        private ValidatedDocumentUpload(File file) {
+        private ValidatedDocumentUpload(UploadedFile upload, File file) {
+            this.upload = upload;
             this.file = file;
         }
 
         private static ValidatedDocumentUpload from(UploadedFile uploadFile) {
             File validatedUpload = PathValidationUtils.validateUpload(UploadedFileUtils.getUploadedFile(uploadFile));
-            return new ValidatedDocumentUpload(validatedUpload);
+            return new ValidatedDocumentUpload(uploadFile, validatedUpload);
         }
 
         private long length() {
@@ -600,6 +618,16 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
 
         private InputStream openStream() throws IOException {
             return Files.newInputStream(file.toPath());
+        }
+
+        private boolean delete() {
+            return upload.delete();
+        }
+    }
+
+    private static void deleteUploadedDocumentTempFile(ValidatedDocumentUpload upload) {
+        if (upload != null && !upload.delete()) {
+            MiscUtils.getLogger().warn("Uploaded temp file was already removed or could not be deleted");
         }
     }
 
@@ -631,15 +659,42 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         // Create the parent directory
         Files.createDirectories(parentPath);
 
-        try (InputStream input = is;
-                FileOutputStream fos = new FileOutputStream(savePath.toFile())) {
-            byte[] buf = new byte[128 * 1024];
-            int i = 0;
-            while ((i = input.read(buf)) != -1) {
-                fos.write(buf, 0, i);
+        IOException lastCollision = null;
+        try (InputStream input = is) {
+            for (int attempt = 0; attempt < PathValidationUtils.MAX_UPLOAD_FILENAME_COLLISION_RETRIES; attempt++) {
+                Path attemptPath = PathValidationUtils.validatePath(fileNameWithCollisionSuffix(fileName, attempt), baseDirFile).toPath();
+                try (OutputStream fos = Files.newOutputStream(attemptPath, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
+                    byte[] buf = new byte[128 * 1024];
+                    int i = 0;
+                    while ((i = input.read(buf)) != -1) {
+                        fos.write(buf, 0, i);
+                    }
+                    return attemptPath.toFile();
+                } catch (FileAlreadyExistsException e) {
+                    lastCollision = e;
+                }
             }
         }
-        return savePath.toFile();
+
+        throw new UniqueDocumentFilenameException("Unable to create unique document filename", lastCollision);
+    }
+
+    private static String fileNameWithCollisionSuffix(String fileName, int attempt) {
+        if (attempt == 0) {
+            return fileName;
+        }
+
+        int extensionIndex = fileName.lastIndexOf('.');
+        if (extensionIndex > 0) {
+            return fileName.substring(0, extensionIndex) + "_" + attempt + fileName.substring(extensionIndex);
+        }
+        return fileName + "_" + attempt;
+    }
+
+    private static final class UniqueDocumentFilenameException extends IOException {
+        private UniqueDocumentFilenameException(String message, Throwable cause) {
+            super(message, cause);
+        }
     }
 
     /**

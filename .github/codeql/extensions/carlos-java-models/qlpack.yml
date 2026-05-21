@@ -1,5 +1,7 @@
 name: carlos-emr/carlos-java-models
 version: 1.0.0
 library: true
+dataExtensions:
+  - "models/**/*.yml"
 extensionTargets:
   codeql/java-all: "*"

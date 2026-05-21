@@ -285,18 +285,11 @@ public final class DBPreparedHandler {
             String pno = Misc.getRandomNumber(6);
             String sql = "select count(*) from provider where provider_no= ?";
             while (true) {
-                try (ResultSet rs = queryResults(sql, pno)) {
-                    if (!rs.next() || rs.getInt(1) == 0) {
-                        return pno;
-                    }
-                } finally {
-                    if (preparedStmt != null) {
-                        try {
-                            preparedStmt.close();
-                        } catch (SQLException ex) {
-                            MiscUtils.getLogger().error("Failed to close provider number check statement", ex);
-                        } finally {
-                            preparedStmt = null;
+                try (PreparedStatement ps = DbConnectionFilter.getThreadLocalDbConnection().prepareStatement(sql)) {
+                    ps.setString(1, pno);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (!rs.next() || rs.getInt(1) == 0) {
+                            return pno;
                         }
                     }
                 }
