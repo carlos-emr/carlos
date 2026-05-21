@@ -44,7 +44,6 @@ import io.github.carlos_emr.carlos.entities.Billactivity;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 /**
- * @author jay
  */
 public class BillActivityDAO {
 

@@ -50,7 +50,6 @@ import io.github.carlos_emr.carlos.entities.WCB;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 /**
- * @author jay
  */
 @Repository
 @SuppressWarnings("unchecked")

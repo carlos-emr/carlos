@@ -38,9 +38,11 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
- * @author jay
  */
 
+/**
+ * TeleplanLogDAO functionality.
+ */
 public class TeleplanLogDAO {
 
     private LogTeleplanTxDao dao = SpringUtils.getBean(LogTeleplanTxDao.class);
