@@ -12,6 +12,8 @@
  */
 package io.github.carlos_emr.carlos.providers.gate;
 
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+
 /**
  * View gate for {@code provider/providerupdatepassword.jsp}. Enforces
  * {@code _appointment} {@code w} privilege before forwarding to the JSP. POST-only (GET returns 405).
@@ -19,6 +21,14 @@ package io.github.carlos_emr.carlos.providers.gate;
  * @since 2026-04-13
  */
 public final class ViewProviderUpdatePassword2Action extends BaseProviderViewGate2Action {
+
+    public ViewProviderUpdatePassword2Action() {
+        super();
+    }
+
+    ViewProviderUpdatePassword2Action(SecurityInfoManager securityInfoManager) {
+        super(securityInfoManager);
+    }
 
     @Override
     protected String getSecurityObject() {

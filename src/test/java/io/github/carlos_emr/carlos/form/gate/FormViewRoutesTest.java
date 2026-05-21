@@ -24,6 +24,24 @@ import static org.assertj.core.api.Assertions.assertThat;
 class FormViewRoutesTest {
 
     @Test
+    void shouldResolveActionRoutes_forEncounterFormDbValues() {
+        // Regression: these strings are stored in the encounterForm.form_value column
+        // (seeded in database/mysql/oscarinit.sql and database/mysql/oscardata.sql).
+        // EctDisplayForm2Action concatenates them with the demographic number to
+        // build the "add new form" popup URL, so they must resolve to a valid
+        // extensionless Struts action route (not the moved /form/*.jsp path which
+        // now returns 404).
+        assertThat(FormViewRoutes.resolveActionPath("../form/formrourke2017complete.jsp?demographic_no="))
+                .isEqualTo("/form/formrourke2017complete?demographic_no=");
+        assertThat(FormViewRoutes.resolveActionPath("../form/formrourke2020complete.jsp?demographic_no="))
+                .isEqualTo("/form/formrourke2020complete?demographic_no=");
+        assertThat(FormViewRoutes.resolveActionPath("../form/formrourke2009complete.jsp?demographic_no="))
+                .isEqualTo("/form/formrourke2009complete?demographic_no=");
+        assertThat(FormViewRoutes.resolveActionPath("../form/formannual.jsp?demographic_no="))
+                .isEqualTo("/form/formannual?demographic_no=");
+    }
+
+    @Test
     void shouldResolveLegacyFormJspToActionRoute() {
         assertThat(FormViewRoutes.resolveActionPath("/form/formannual.jsp?demographic_no="))
                 .isEqualTo("/form/formannual?demographic_no=");
@@ -33,10 +51,15 @@ class FormViewRoutesTest {
     void shouldResolveSpecialLegacyRoutes() {
         assertThat(FormViewRoutes.resolveActionPath("../form/forwardshortcutname.jsp?formname=Rourke"))
                 .isEqualTo("/form/forwardshortcutname?formname=Rourke");
-        assertThat(FormViewRoutes.resolveActionPath("/form/eCARES/formeCARES.jsp"))
-                .isEqualTo("/formeCARES");
         assertThat(FormViewRoutes.resolveActionPath("/form/pharmaForms/formBPMH.jsp"))
                 .isEqualTo("/formBPMH");
+    }
+
+    @Test
+    void shouldReturnNull_forRemovedEcaresRoute() {
+        // eCARES was removed; legacy form links must no longer resolve to the
+        // deleted Struts route.
+        assertThat(FormViewRoutes.resolveActionPath("/form/eCARES/formeCARES.jsp")).isNull();
     }
 
     @Test

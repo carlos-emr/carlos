@@ -72,6 +72,7 @@
 <c:set var="ctx" value="${pageContext.request.contextPath}"/>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title><fmt:message key="ChooseDrug.title.DrugSearchResults"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <script type="text/javascript" src="<%=request.getContextPath()%>/share/javascript/Oscar.js"></script>
@@ -111,8 +112,7 @@
             }
 
             function ShowDrugInfo(drug) {
-                window.open("<%= request.getContextPath() %>/rx/DrugInfoRedirect.jsp?drugId=" + encodeURIComponent(drug), "_blank",
-                    "location=no, menubar=no, toolbar=no, scrollbars=yes, status=yes, resizable=yes");
+                ShowDrugInfoBN(drug);
             }
 
             function ShowDrugInfoGN(drug) {

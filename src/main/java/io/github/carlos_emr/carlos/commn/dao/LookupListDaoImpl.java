@@ -31,11 +31,17 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import jakarta.persistence.Query;
 
+import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 import io.github.carlos_emr.carlos.commn.model.LookupList;
+import io.github.carlos_emr.carlos.config.CacheConfig;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -45,6 +51,7 @@ public class LookupListDaoImpl extends AbstractDaoImpl<LookupList> implements Lo
         super(LookupList.class);
     }
 
+    @Cacheable(value = CacheConfig.LOOKUP_LISTS, key = "'allActive'")
     @Override
     public List<LookupList> findAllActive() {
         Query q = entityManager.createQuery("select l from LookupList l where l.active=?1 order by l.name asc");
@@ -53,9 +60,12 @@ public class LookupListDaoImpl extends AbstractDaoImpl<LookupList> implements Lo
         @SuppressWarnings("unchecked")
         List<LookupList> result = q.getResultList();
 
-        return result;
+        return Collections.unmodifiableList(new ArrayList<>(result));
     }
 
+    @Cacheable(value = CacheConfig.LOOKUP_LISTS, key = "'name:' + #name",
+               condition = "#name != null && !#name.isEmpty()",
+               unless = "#result == null")
     @Override
     public LookupList findByName(String name) {
         Query q = entityManager.createQuery("select l from LookupList l where l.name=?1");
@@ -65,4 +75,48 @@ public class LookupListDaoImpl extends AbstractDaoImpl<LookupList> implements Lo
 
         return ll;
     }
+
+    @CacheEvict(value = CacheConfig.LOOKUP_LISTS, allEntries = true)
+    @Override
+    public void persist(AbstractModel<?> o) { super.persist(o); }
+
+    @CacheEvict(value = CacheConfig.LOOKUP_LISTS, allEntries = true)
+    @Override
+    public void merge(AbstractModel<?> o) { super.merge(o); }
+
+    @CacheEvict(value = CacheConfig.LOOKUP_LISTS, allEntries = true)
+    @Override
+    public void remove(AbstractModel<?> o) { super.remove(o); }
+
+    @CacheEvict(value = CacheConfig.LOOKUP_LISTS, allEntries = true)
+    @Override
+    public boolean remove(Object id) { return super.remove(id); }
+
+    @CacheEvict(value = CacheConfig.LOOKUP_LISTS, allEntries = true)
+    @Override
+    public LookupList saveEntity(LookupList entity) { return super.saveEntity(entity); }
+
+    // batch* methods use a separate EntityManager and invoke persist/remove on it directly,
+    // bypassing the Spring proxy — so @CacheEvict on persist/remove never fires through this
+    // path. Override both overloads to restore eviction at the proxied boundary.
+    //
+    // beforeInvocation = true: AbstractDaoImpl.batchPersist commits sub-batches inside its
+    // loop, so a later sub-batch failure leaves earlier sub-batches persisted to the DB.
+    // Default beforeInvocation = false would skip eviction on exception, pinning stale
+    // entries in the cache until TTL.
+    @CacheEvict(value = CacheConfig.LOOKUP_LISTS, allEntries = true, beforeInvocation = true)
+    @Override
+    public void batchPersist(List<LookupList> oList) { super.batchPersist(oList); }
+
+    @CacheEvict(value = CacheConfig.LOOKUP_LISTS, allEntries = true, beforeInvocation = true)
+    @Override
+    public void batchPersist(List<LookupList> oList, int batchSize) { super.batchPersist(oList, batchSize); }
+
+    @CacheEvict(value = CacheConfig.LOOKUP_LISTS, allEntries = true, beforeInvocation = true)
+    @Override
+    public void batchRemove(List<LookupList> oList) { super.batchRemove(oList); }
+
+    @CacheEvict(value = CacheConfig.LOOKUP_LISTS, allEntries = true, beforeInvocation = true)
+    @Override
+    public void batchRemove(List<LookupList> oList, int batchSize) { super.batchRemove(oList, batchSize); }
 }

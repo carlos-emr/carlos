@@ -39,12 +39,14 @@ __pycache__/
 .env
 /.smarttomcat/
 .claude/settings.local.json
+.claude/*.lock
 
 
 # Docusaurus
 /node_modules/
 /build/
 /.docusaurus/
+/docs/static/javadoc/
 # Suppress Maven cache noise; vendored JARs under local_repo/ that are explicitly
 # committed remain tracked (gitignore does not affect already-tracked files).
 /local_repo/

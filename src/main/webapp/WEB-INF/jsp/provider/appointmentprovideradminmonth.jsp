@@ -319,6 +319,7 @@
     <body bgcolor="#EEEEFF" onLoad="refreshAllTabAlerts();">
 
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title><fmt:message key="provider.appointmentprovideradminmonth.title"/></title>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
@@ -993,7 +994,7 @@
                         popupOscarRx(700, 687, '<%= request.getContextPath() %>/admin/ViewAdmin');
                         return false;  //run code for 'A'dmin
                     case <fmt:message key="global.billingShortcut"/> :
-                        popupOscarRx(600, 1024, '<%= request.getContextPath() %>/billing/CA/<%=prov%>/billingReportCenter.jsp?displaymode=billreport&providerview=<%=curUser_no%>');
+                        popupOscarRx(600, 1024, '<%= request.getContextPath() %>/billing/CA/<%=prov%>/ViewBillingReportCenter?displaymode=billreport&providerview=<%=curUser_no%>');
                         return false;  //code for 'B'illing
                     case <fmt:message key="global.calendarShortcut"/> :
                         popupOscarRx(425, 430, '<%= request.getContextPath() %>/share/CalendarPopup?urlfrom=<%= request.getContextPath() %>/provider/providercontrol&year=<%=strYear%>&month=<%=strMonth%>&param=<%=URLEncoder.encode("&view=0&displaymode=day&dboperation=searchappointmentday","UTF-8")%>');

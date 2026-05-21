@@ -101,6 +101,7 @@
 <html>
 
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title>
             <fmt:message key="oscarprevention.index.oscarpreventiontitre"/>
         </title><!--I18n-->
@@ -279,8 +280,8 @@
                         </td>
                         <td style="text-align:right">
                             <a
-                                href="javascript:popupStart(300,400,'About.jsp')"><fmt:message key="global.about"/></a>
-                            | <a href="javascript:popupStart(300,400,'License.jsp')"><fmt:message key="global.license"/></a>
+                                href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')"><fmt:message key="global.about"/></a>
+                            | <a href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')"><fmt:message key="global.license"/></a>
                         </td>
                     </tr>
                 </table>
@@ -303,7 +304,7 @@
                     %>
 
                     <li>
-                        <a href="<%=request.getContextPath()%>/prevention/AddPrevention?snomedId=<carlos:encode value='<%= String.valueOf(mapping.getCvcSnomedId()) %>' context="uriComponent"/>&prevention=<carlos:encode value='<%= prevention %>' context="uriComponent"/>&demographic_no=<carlos:encode value='<%= demographicNo %>' context="uriComponent"/>&prevResultDesc=<carlos:encode value='<%= prevResultDesc %>' context="uriComponent"/>"><%=i.getPicklistName()%>
+                        <a href="<%=request.getContextPath()%>/prevention/ViewAddPreventionData?snomedId=<carlos:encode value='<%= String.valueOf(mapping.getCvcSnomedId()) %>' context="uriComponent"/>&prevention=<carlos:encode value='<%= prevention %>' context="uriComponent"/>&demographic_no=<carlos:encode value='<%= demographicNo %>' context="uriComponent"/>&prevResultDesc=<carlos:encode value='<%= prevResultDesc %>' context="uriComponent"/>"><carlos:encode value='<%= i.getPicklistName() %>'/>
                         </a></li>
                     <% }
                     } %>
@@ -323,4 +324,3 @@
 
     </body>
 </html>
-

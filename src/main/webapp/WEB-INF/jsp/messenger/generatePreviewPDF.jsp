@@ -77,13 +77,12 @@
 <%@ page import="io.github.carlos_emr.carlos.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <fmt:message key="messenger.generatePreviewPDF.information" var="informationLabel"/>
 <fmt:message key="messenger.generatePreviewPDF.encounter" var="encounterLabel"/>
@@ -198,16 +197,17 @@
 %>
 
 <!DOCTYPE html>
-<html lang="${e:forHtmlAttribute(pageContext.request.locale.language)}">
+<html lang="${carlos:forHtmlAttribute(pageContext.request.locale.language)}">
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <meta charset="UTF-8">
     <title>CARLOS - <fmt:message key="messenger.generatePreviewPDF.title"/></title>
-    <%@ include file="/includes/global-head.jspf" %>
+    <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
 
     <script>
         // i18n message strings for JavaScript dialogs
         var MSGS = {
-            exitConfirm: '${e:forJavaScript(exitConfirmMsg)}'
+            exitConfirm: '${carlos:forJavaScript(exitConfirmMsg)}'
         };
 
         /**
@@ -349,12 +349,12 @@
         <div class="d-flex align-items-center gap-3">
             <span class="text-muted small">
                 <fmt:message key="messenger.generatePreviewPDF.attachDocFor"/>
-                ${e:forHtml(demoName)}
+                ${carlos:forHtml(demoName)}
             </span>
-            <a href="javascript:popupStart(300,400,'About.jsp')" class="small text-decoration-none">
+            <a href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')" class="small text-decoration-none">
                 <fmt:message key="global.about"/>
             </a>
-            <a href="javascript:popupStart(300,400,'License.jsp')" class="small text-decoration-none">
+            <a href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')" class="small text-decoration-none">
                 <fmt:message key="global.license"/>
             </a>
         </div>
@@ -385,25 +385,25 @@
                 <tr>
                     <td class="align-middle" style="width:2rem;">
                         <input type="checkbox" name="uriArray"
-                               value="<%=Encode.forHtmlAttribute(demoUri)%>"
+                               value="<%=SafeEncode.forHtmlAttribute(demoUri)%>"
                                style="display:none"/>
                         <% String demoIndex = Integer.toString(indexCount++); %>
                         <input type="checkbox" name="indexArray"
                                value="<%= demoIndex %>"
                                <%= selectedIndexes.contains(demoIndex) ? "checked" : "" %>/>
                         <input type="checkbox" name="titleArray"
-                               value="${e:forHtmlAttribute(demoTitleValue)}"
+                               value="${carlos:forHtmlAttribute(demoTitleValue)}"
                                style="display:none"/>
                     </td>
                     <td class="align-middle">
-                        ${e:forHtml(demoName)}
+                        ${carlos:forHtml(demoName)}
                         <fmt:message key="messenger.generatePreviewPDF.information"/>
                     </td>
                     <td class="align-middle" style="width:8rem;">
                         <% if (request.getParameter("isAttaching") == null) { %>
                         <button type="button"
                                 class="btn btn-outline-secondary btn-sm"
-                                data-preview-uri="<%=Encode.forHtmlAttribute(demoUri)%>"
+                                data-preview-uri="<%=SafeEncode.forHtmlAttribute(demoUri)%>"
                                 onclick="PreviewPDF(this.dataset.previewUri)">
                             <fmt:message key="messenger.generatePreviewPDF.btnPreview"/>
                         </button>
@@ -421,22 +421,22 @@
                 <tr>
                     <td class="align-middle">
                         <input type="checkbox" name="uriArray"
-                               value="<%=Encode.forHtmlAttribute(ecUri)%>"
+                               value="<%=SafeEncode.forHtmlAttribute(ecUri)%>"
                                style="display:none"/>
                         <% String encounterIndex = Integer.toString(indexCount++); %>
                         <input type="checkbox" name="indexArray"
                                value="<%= encounterIndex %>"
                                <%= selectedIndexes.contains(encounterIndex) ? "checked" : "" %>/>
                         <input type="checkbox" name="titleArray"
-                               value="${e:forHtmlAttribute(ecTitleValue)}"
+                               value="${carlos:forHtmlAttribute(ecTitleValue)}"
                                style="display:none"/>
                     </td>
-                    <td class="align-middle">${e:forHtml(ecTimestamp)}</td>
+                    <td class="align-middle">${carlos:forHtml(ecTimestamp)}</td>
                     <td class="align-middle">
                         <% if (request.getParameter("isAttaching") == null) { %>
                         <button type="button"
                                 class="btn btn-outline-secondary btn-sm"
-                                data-preview-uri="<%=Encode.forHtmlAttribute(ecUri)%>"
+                                data-preview-uri="<%=SafeEncode.forHtmlAttribute(ecUri)%>"
                                 onclick="PreviewPDF(this.dataset.previewUri)">
                             <fmt:message key="messenger.generatePreviewPDF.btnPreview"/>
                         </button>
@@ -454,14 +454,14 @@
                 <tr>
                     <td class="align-middle">
                         <input type="checkbox" name="uriArray"
-                               value="<%=Encode.forHtmlAttribute(rxUri)%>"
+                               value="<%=SafeEncode.forHtmlAttribute(rxUri)%>"
                                style="display:none"/>
                         <% String prescriptionIndex = Integer.toString(indexCount++); %>
                         <input type="checkbox" name="indexArray"
                                value="<%= prescriptionIndex %>"
                                <%= selectedIndexes.contains(prescriptionIndex) ? "checked" : "" %>/>
                         <input type="checkbox" name="titleArray"
-                               value="${e:forHtmlAttribute(currentPrescTitle)}"
+                               value="${carlos:forHtmlAttribute(currentPrescTitle)}"
                                style="display:none"/>
                     </td>
                     <td class="align-middle">
@@ -471,7 +471,7 @@
                         <% if (request.getParameter("isAttaching") == null) { %>
                         <button type="button"
                                 class="btn btn-outline-secondary btn-sm"
-                                data-preview-uri="<%=Encode.forHtmlAttribute(rxUri)%>"
+                                data-preview-uri="<%=SafeEncode.forHtmlAttribute(rxUri)%>"
                                 onclick="PreviewPDF(this.dataset.previewUri)">
                             <fmt:message key="messenger.generatePreviewPDF.btnPreview"/>
                         </button>
@@ -502,13 +502,13 @@
                     <td colspan="3" class="d-none">
                         <input type="hidden" name="srcText" id="srcText" value=""/>
                         <input type="hidden" name="attachmentCount" id="attachmentCount"
-                               value="<%=Encode.forHtmlAttribute(request.getParameter("attachmentCount") == null ? "0" : request.getParameter("attachmentCount"))%>"/>
+                               value="<%=SafeEncode.forHtmlAttribute(request.getParameter("attachmentCount") == null ? "0" : request.getParameter("attachmentCount"))%>"/>
                         <input type="hidden" name="demographic_no" id="demographic_no"
-                               value="<%=Encode.forHtmlAttribute(demographic_no != null ? demographic_no : "")%>"/>
+                               value="<%=SafeEncode.forHtmlAttribute(demographic_no != null ? demographic_no : "")%>"/>
                         <input type="hidden" name="isPreview" id="isPreview"
-                               value="<%=Encode.forHtmlAttribute(request.getParameter("isPreview") == null ? "false" : request.getParameter("isPreview"))%>"/>
+                               value="<%=SafeEncode.forHtmlAttribute(request.getParameter("isPreview") == null ? "false" : request.getParameter("isPreview"))%>"/>
                         <input type="hidden" name="isAttaching" id="isAttaching"
-                               value="<%=Encode.forHtmlAttribute(request.getParameter("isAttaching") == null ? "false" : request.getParameter("isAttaching"))%>"/>
+                               value="<%=SafeEncode.forHtmlAttribute(request.getParameter("isAttaching") == null ? "false" : request.getParameter("isAttaching"))%>"/>
                         <input type="hidden" name="isNew" id="isNew" value="true"/>
                         <input type="hidden" name="attachmentTitle" id="attachmentTitle" value=""/>
                     </td>
@@ -529,7 +529,7 @@
                     j++;
                 }
             }
-            var attachingTemplate = '${e:forJavaScript(jsAttachingTemplate)}';
+            var attachingTemplate = '${carlos:forJavaScript(jsAttachingTemplate)}';
             document.forms[0].status.value = attachingTemplate
                 .replace('{0}', <%=(msgSessionBean != null ? msgSessionBean.getCurrentAttachmentCount() + 1 : 1)%>)
                 .replace('{1}', j);

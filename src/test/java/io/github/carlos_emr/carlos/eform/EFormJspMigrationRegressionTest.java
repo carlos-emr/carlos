@@ -25,6 +25,8 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -46,10 +48,16 @@ class EFormJspMigrationRegressionTest {
 
     private static final Path PATIENT_FORM_LIST_JSP =
             Path.of("src/main/webapp/WEB-INF/jsp/eform/efmpatientformlist.jsp");
+    private static final Path IMPORT_PARTIAL_JSP =
+            Path.of("src/main/webapp/WEB-INF/jsp/eform/partials/import.jsp");
     private static final Path STRUTS_EFORM_XML =
             Path.of("src/main/webapp/WEB-INF/classes/struts-eform.xml");
     private static final Path STRUTS_FORM_XML =
             Path.of("src/main/webapp/WEB-INF/classes/struts-form.xml");
+    private static final Path STRUTS_XML =
+            Path.of("src/main/webapp/WEB-INF/classes/struts.xml");
+    private static final Pattern STRUTS_ACTION_EXCLUDE_PATTERN = Pattern.compile(
+            "<constant name=\"struts\\.action\\.excludePattern\" value=\"([^\"]+)\"\\s*/>");
 
     @Test
     @DisplayName("patient eForm list should not reference the missing PHR action and should keep live view/delete actions")
@@ -82,6 +90,24 @@ class EFormJspMigrationRegressionTest {
     }
 
     @Test
+    @DisplayName("struts eForm config should keep the legacy Rich Text Letter template JSP compatibility route")
+    void shouldKeepLegacyRichTextLetterTemplateCompatibilityRoute_whenReadingStrutsConfigs()
+            throws IOException {
+        String struts = Files.readString(STRUTS_EFORM_XML, StandardCharsets.UTF_8);
+        String globalStruts = Files.readString(STRUTS_XML, StandardCharsets.UTF_8);
+        Matcher matcher = STRUTS_ACTION_EXCLUDE_PATTERN.matcher(globalStruts);
+
+        assertThat(struts).contains("<action name=\"eform/efmformrtl_templates\"");
+        assertThat(struts).contains("<action name=\"eform/efmformrtl_templates.jsp\"");
+        assertThat(matcher.find()).isTrue();
+
+        Pattern excludePattern = Pattern.compile(matcher.group(1));
+        assertThat(excludePattern.matcher("/eform/efmformrtl_templates.jsp").matches()).isFalse();
+        assertThat(excludePattern.matcher("/carlos/eform/efmformrtl_templates.jsp").matches()).isFalse();
+        assertThat(excludePattern.matcher("/eform/other.jsp").matches()).isTrue();
+    }
+
+    @Test
     @DisplayName("struts form config should forward only to internal WEB-INF views, not invented WEB-INF .do routes")
     void strutsFormConfigShouldNotForwardToWebInfDoRoutes() throws IOException {
         String struts = Files.readString(STRUTS_FORM_XML, StandardCharsets.UTF_8);
@@ -89,5 +115,17 @@ class EFormJspMigrationRegressionTest {
         assertThat(struts).doesNotContainPattern("/WEB-INF/jsp/form/[^<\"]+\\.do");
         assertThat(struts).contains("<action name=\"form/xmlUpload\"");
         assertThat(struts).contains("<action name=\"form/formname\"");
+    }
+
+    @Test
+    @DisplayName("import partial should encode import and action errors")
+    void shouldEncodeImportErrors_whenRenderingUploadMetadata() throws IOException {
+        String jsp = Files.readString(IMPORT_PARTIAL_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp).contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>");
+        assertThat(jsp).contains("<carlos:encode value='<%= error %>' context=\"html\"/>");
+        assertThat(jsp).contains("<carlos:encode value='<%= importError %>' context=\"html\"/>");
+        assertThat(jsp).doesNotContain("<li><%= error %></li>");
+        assertThat(jsp).doesNotContain("<%=importError%>");
     }
 }

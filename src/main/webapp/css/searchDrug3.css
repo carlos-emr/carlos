@@ -593,6 +593,6 @@ table.topLink span.HelpAboutLogout a {
 
 }
 
-table.topLink span.HelpAboutLogout a[href*='About.jsp'] {
+table.topLink span.HelpAboutLogout a[href*='ViewAbout'] {
 	border-right: white thin groove !important;
 }

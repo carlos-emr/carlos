@@ -1,7 +1,7 @@
-<!DOCTYPE html>
 <%--
-
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2006-. OSCARservice, OpenSoft System. All Rights Reserved.
+
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -17,163 +17,32 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
-    Now maintained by the CARLOS EMR Project (2026+).
+    CARLOS EMR Project
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
 --%>
-<%
-    if (session.getAttribute("user") == null) {
-        response.sendRedirect(request.getContextPath() + "/logoutPage");
-    }
-%>
-<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" import="java.util.*,java.sql.*" %>
-<%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingCodeImpl" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
-<%
-    //
-    //int serviceCodeLen = 5;
-    String msg = "Type in a service code and search first to see if it is available.";
-    String alert = "info";
-    String action = "search"; // add/edit
-    //BillingServiceCode serviceCodeObj = new BillingServiceCode();
-    Properties prop = new Properties();
-    JdbcBillingCodeImpl dbObj = new JdbcBillingCodeImpl();
-    if (request.getParameter("submit") != null && request.getParameter("submit").equals("Save")) {
-        String valuePara = request.getParameter("value");
-        if (request.getParameter("action").startsWith("edit")) {
-            // update the service code
-            String serviceCode = request.getParameter("service_code");
-            if (serviceCode == null)
-                serviceCode = "";
-            serviceCode = "_" + serviceCode;
-            if (serviceCode.equals(request.getParameter("action").substring("edit".length()))) {
-                if (dbObj.updateCodeByName(serviceCode, request.getParameter("description"), valuePara, "0.00",
-                        request.getParameter("billingservice_date"), request.getParameter("gstFlag"))) {
-                    msg = SafeEncode.forHtml(serviceCode) + " is updated.<br>"
-                            + "Type in a service code and search first to see if it is available.";
-                    action = "search";
-                    prop.setProperty("service_code", serviceCode);
-                } else {
-                    msg = SafeEncode.forHtml(serviceCode)
-                            + " is <font color='red'>NOT</font> updated. Action failed! Try edit it again.";
-                    action = "edit" + serviceCode;
-                    prop.setProperty("service_code", serviceCode);
-                    String description = request.getParameter("description");
-                    if (description == null)
-                        description = "";
-                    prop.setProperty("description", description);
-                    prop.setProperty("value", request.getParameter("value"));
-                    prop.setProperty("billingservice_date", request.getParameter("billingservice_date"));
-                    prop.setProperty("gstFlag", request.getParameter("gstFlag"));
-                }
-            } else {
-                msg = "You can <font color='red'>NOT</font> save the service code - " + SafeEncode.forHtml(serviceCode)
-                        + ". Please search the service code first.";
-                action = "search";
-                prop.setProperty("service_code", serviceCode);
-            }
-        } else if (request.getParameter("action").startsWith("add")) {
-            String serviceCode = request.getParameter("service_code");
-            if (serviceCode == null)
-                serviceCode = "";
-            serviceCode = "_" + serviceCode;
-            if (serviceCode.equals(request.getParameter("action").substring("add".length()))) {
-                if (dbObj.addCodeByStr(serviceCode, request.getParameter("description"), valuePara, "0.00",
-                        request.getParameter("billingservice_date"), request.getParameter("gstFlag")) > 0) {
-                    msg = SafeEncode.forHtml(serviceCode) + " is added.<br>"
-                            + "Type in a service code and search first to see if it is available.";
-                    action = "search";
-                    prop.setProperty("service_code", serviceCode);
-                } else {
-                    msg = SafeEncode.forHtml(serviceCode)
-                            + " is not added. Action failed! Try edit it again.";
-                    action = "add" + serviceCode;
-                    prop.setProperty("service_code", serviceCode);
-                    String description = request.getParameter("description");
-                    if (description == null)
-                        description = "";
-                    prop.setProperty("description", description);
-                    prop.setProperty("value", request.getParameter("value"));
-                    prop.setProperty("billingservice_date", request.getParameter("billingservice_date"));
-                    prop.setProperty("gstFlag", request.getParameter("gstFlag"));
-                    alert = "error";
-                }
-            } else {
-                msg = "You can not save the service code - " + SafeEncode.forHtml(serviceCode)
-                        + ". Please search the service code first.";
-                action = "search";
-                prop.setProperty("service_code", serviceCode);
-                alert = "error";
-            }
-        } else {
-            msg = "You can not save the service code. Please search the service code first.";
-            alert = "error";
-        }
-    } else if (request.getParameter("submit") != null && request.getParameter("submit").equals("Search")) {
-        // check the input data
-        if (request.getParameter("service_code") == null) {
-            msg = "Please type in a right service code.";
-        } else {
-            String serviceCode = request.getParameter("service_code");
-            if (serviceCode == null)
-                serviceCode = "";
-            serviceCode = "_" + serviceCode;
-            List ls = dbObj.getBillingCodeAttr(serviceCode);
-            if (ls.size() > 0) {
-                prop.setProperty("service_code", serviceCode);
-                String description = (String) ls.get(1);
-                if (description == null)
-                    description = "";
-                prop.setProperty("description", description);
-                prop.setProperty("value", "" + ls.get(2));
-                prop.setProperty("percentage", "" + ls.get(3));
-                prop.setProperty("billingservice_date", "" + ls.get(4));
-                prop.setProperty("gstFlag", "" + ls.get(5));
-                msg = "You can edit the service code.";
-                action = "edit" + serviceCode;
-            } else {
-                prop.setProperty("service_code", serviceCode);
-                msg = "It is a NEW service code. You can add it.";
-                action = "add" + serviceCode;
-            }
-        }
-    } else if (request.getParameter("submit") != null && request.getParameter("submit").equals("Delete")) {
-        if (request.getParameter("service_code") == null) {
-            msg = "Please type in a right service code.";
-        } else {
-            String serviceCode = request.getParameter("service_code");
-            if (serviceCode == null)
-                serviceCode = "";
-            serviceCode = "_" + serviceCode;
-            if (dbObj.deletePrivateCode(serviceCode)) {
-                msg = SafeEncode.forHtml(serviceCode) + " is deleted.<br>"
-                        + "Type in a service code and search first to see if it is available.";
-                action = "search";
-                prop.setProperty("service_code", "_");
-            }
-        }
-    }
-%>
+<%--
+  Purpose: Supports billingONEditPrivateCode in the Ontario billing workflow.
+  Expected request model data includes: privateCodeModel.
+  Keep request setup in the paired action and use CARLOS encoding helpers
+  for dynamic output rendered by the page.
+--%>
+<!DOCTYPE html>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
-
 
 <!DOCTYPE html>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title><fmt:message key="admin.admin.managePrivBillingCode"/></title>
 
-        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
-        <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet">
-        <link href="<%=request.getContextPath() %>/css/fontawesome-all.min.css" rel="stylesheet">
-
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
+        <link href="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.css" rel="stylesheet">
+        <link href="${pageContext.request.contextPath}/css/fontawesome-all.min.css" rel="stylesheet">
 
         <script language="JavaScript">
 
@@ -182,15 +51,15 @@
                 this.focus();
                 document.forms[1].service_code.focus();
                 document.forms[1].service_code.select();
-                <% if ( prop.getProperty("gstFlag") != null ) {%>
-                if ("<carlos:encode value='<%= prop.getProperty("gstFlag", "") %>' context="javaScriptBlock"/>" == "1") {
+                <c:if test="${not empty privateCodeModel.formFields['gstFlag']}">
+                if ("<carlos:encode value='${privateCodeModel.formFields[\"gstFlag\"]}' context='javaScriptBlock'/>" == "1") {
                     document.getElementById("gstCheck").checked = true;
                     document.getElementById("gstFlag").value = 1;
                 } else {
                     document.getElementById("gstCheck").checked = false;
                     document.getElementById("gstFlag").value = 0;
                 }
-                <%}%>
+                </c:if>
             }
 
             function onSearch() {
@@ -272,7 +141,6 @@
                 }
             }
 
-
             //-->
 
         </script>
@@ -283,40 +151,16 @@
 
     <div class="container-fluid">
 
-
         <div class="card card-body bg-body-tertiary">
-            <form method="post" name="baseur0" action="/billing/CA/ON/ViewBillingONEditPrivateCode" class="d-flex flex-wrap align-items-center gap-2">
+            <form method="post" name="baseur0" action="${pageContext.request.contextPath}/billing/CA/ON/ViewBillingONEditPrivateCode" class="d-flex flex-wrap align-items-center gap-2">
 
                 Select Code to edit:<br>
                 <select name="service_code" id="service_code" required>
                     <option selected="selected" value="">- choose one -</option>
-                    <%
-                        //
-                        List sL = dbObj.getPrivateBillingCodeDesc();
-                        String strCode = "";
-                        String strDesc = "";
-                        for (int i = 0; i < sL.size(); i = i + 2) {
-                            try {
-                                strCode = ((String) sL.get(i)).substring(1);
-                            } catch (NullPointerException e) {
-                                strCode = "";
-                                MiscUtils.getLogger().warn("NULL value set for a private billing code");
-                            }
-
-                            try {
-                                strDesc = (String) sL.get(i + 1);
-                                strDesc = strDesc.length() > 30 ? strDesc.substring(0, 30) : strDesc;
-                            } catch (NullPointerException e) {
-                                strDesc = "";
-                                MiscUtils.getLogger().warn("NULL value set for a private billing code description (code is '" + strCode + "')");
-                            }
-                    %>
-                    <option value="<carlos:encode value='<%= strCode %>' context="htmlAttribute"/>"><carlos:encode value='<%= strCode + "| " + strDesc %>' context="html"/>
-                    </option>
-                    <%
-                        }
-
-                    %>
+                    <c:forEach var="opt" items="${privateCodeModel.options}">
+                        <option value="<carlos:encode value='${opt.code}' context='htmlAttribute'/>"><carlos:encode value="${opt.label}" context="html"/>
+                        </option>
+                    </c:forEach>
                 </select>
                 <input type="hidden" name="submit" value="Search">
                 <input class="btn btn-secondary" type="submit" name="action" value="Edit">
@@ -324,16 +168,27 @@
         </div><!--select code to edit well-->
 
         <div class="card card-body bg-body-tertiary">
-            <form method="post" name="baseurl" action="/billing/CA/ON/ViewBillingONEditPrivateCode">
+            <form method="post" name="baseurl" action="${pageContext.request.contextPath}/billing/CA/ON/ViewBillingONEditPrivateCode">
 
-                <div class="alert alert-<carlos:encode value='<%= alert %>' context="htmlAttribute"/>">
-                    <%=msg%>
+                <div class="alert alert-<carlos:encode value='${privateCodeModel.alertLevel}' context='htmlAttribute'/>">
+                    <%--
+                      ${privateCodeModel.message} contains assembler-built trusted HTML.
+                      The producer (BillingOnEditPrivateCodeViewModelAssembler) builds
+                      the message from constants only — every user value is wrapped in
+                      SafeEncode.forHtml() before concatenation. No untrusted data
+                      reaches this rendering point. Do not change this contract
+                      without updating the assembler's safety invariant comment.
+                    --%>
+                    ${privateCodeModel.message}
                 </div>
+
+                <c:set var="storedCode" value="${privateCodeModel.formFields['service_code']}"/>
+                <c:set var="displayCode" value="${empty storedCode ? '' : (fn:length(storedCode) > 0 ? fn:substring(storedCode, 1, fn:length(storedCode)) : '')}"/>
 
                 Private Code_ <small>(e.g. O001A)</small><br>
                 <div class="input-group">
                     <input type="text" name="service_code"
-                           value="<carlos:encode value='<%= prop.getProperty("service_code", "?").substring(1) %>' context="htmlAttribute"/>" class="col-md-2" maxlength='10'
+                           value="<carlos:encode value='${displayCode}' context='htmlAttribute'/>" class="col-md-2" maxlength='10'
                            onblur="upCaseCtrl(this)" required/>
                     <button type="submit" name="submit" class="btn btn-primary" onclick="javascript:return onSearch();"
                             value="Search">Search
@@ -343,10 +198,10 @@
                 <br>
 
                 Description<br>
-                <input type="text" name="description" value="<carlos:encode value='<%= prop.getProperty("description", "") %>' context="htmlAttribute"/>" size='50'><br>
+                <input type="text" name="description" value="<carlos:encode value='${privateCodeModel.formFields[\"description\"]}' context='htmlAttribute'/>" size='50'><br>
 
                 Fee <small>(format: xx.xx, e.g. 18.20)</small><br>
-                <input type="text" name="value" value="<carlos:encode value='<%= prop.getProperty("value", "") %>' context="htmlAttribute"/>" size='8' maxlength='8'> <br>
+                <input type="text" name="value" value="<carlos:encode value='${privateCodeModel.formFields[\"value\"]}' context='htmlAttribute'/>" size='8' maxlength='8'> <br>
 
                 <input type="checkbox" name="gstCheck" id="gstCheck" onclick="setFlag()"/> Add GST <br>
 
@@ -362,10 +217,9 @@
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
 
-
                 <br>
                 <input class="btn btn-secondary" type="submit" name="submit" value="Delete" onclick="javascript:return onDelete();">
-                <input type="hidden" name="action" value='<carlos:encode value='<%= action %>' context="htmlAttribute"/>'>
+                <input type="hidden" name="action" value='<carlos:encode value="${privateCodeModel.action}" context="htmlAttribute"/>'>
                 <input class="btn btn-secondary" type="submit" name="submit"
                        value="<fmt:message key="admin.resourcebaseurl.btnSave"/>"
                        onclick="javascript:return onSave();">
@@ -374,8 +228,8 @@
 
     </div>
 
-    <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
-    <script src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
+    <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
+    <script src="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.js"></script>
 
     </body>
     <script type="text/javascript">

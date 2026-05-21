@@ -525,6 +525,7 @@
     </script>
 
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <title>
             <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.title"/>
@@ -1803,8 +1804,16 @@ if (CarlosProperties.getInstance().getBooleanProperty("consultation_program_lett
 	}
 } %>
 
+        /**
+         * Switches the displayed consultation letterhead for provider numbers, stored letterhead keys, and clinic fallback values.
+         */
         function switchProvider(value) {
-            if (value === -1) {
+            if (value === null || value === undefined) {
+                console.warn("Unable to resolve consultation letterhead selection because no value was provided.");
+                return;
+            }
+            value = value.toString();
+            if (value === "-1") {
                 document.getElementById("letterheadName").value = value;
                 document.getElementById("letterheadAddress").value = '<%=SafeEncode.forJavaScript(clinic.getClinicAddress()) + " " + SafeEncode.forJavaScript(clinic.getClinicCity()) + " " + SafeEncode.forJavaScript(clinic.getClinicProvince()) + " " + SafeEncode.forJavaScript(clinic.getClinicPostal()) %>';
                 document.getElementById("letterheadAddressSpan").textContent = '<%=SafeEncode.forJavaScript(clinic.getClinicAddress()) + " " + SafeEncode.forJavaScript(clinic.getClinicCity()) + " " + SafeEncode.forJavaScript(clinic.getClinicProvince()) + " " + SafeEncode.forJavaScript(clinic.getClinicPostal()) %>';
@@ -1827,23 +1836,33 @@ if (CarlosProperties.getInstance().getBooleanProperty("consultation_program_lett
                 }
             } else {
                 let origValue = value;
-                value = value.replace(/[^A-Za-z0-9]+/g, '');
-                if (typeof providerData["prov_" + value.toString()] != "undefined") {
-                    value = "prov_" + value;
+                let resolvedValue = value;
+                if (!Object.prototype.hasOwnProperty.call(providerData, resolvedValue)) {
+                    // Program letterhead keys use the stored prog_<id> format, so preserve underscores when normalizing.
+                    let sanitizedValue = resolvedValue.replace(/[^A-Za-z0-9_]+/g, '');
+                    if (Object.prototype.hasOwnProperty.call(providerData, "prov_" + sanitizedValue)) {
+                        resolvedValue = "prov_" + sanitizedValue;
+                    } else {
+                        resolvedValue = sanitizedValue;
+                    }
+                }
+                if (!Object.prototype.hasOwnProperty.call(providerData, resolvedValue)) {
+                    console.warn("Unable to resolve consultation letterhead selection because no matching key was found.");
+                    return;
                 }
                 document.getElementById("letterheadName").value = origValue;
-                document.getElementById("letterheadAddress").value = providerData[value]['address'];
-                document.getElementById("letterheadAddressSpan").textContent = providerData[value]['address'];
-                document.getElementById("letterheadPhone").value = providerData[value]['phone'];
-                document.getElementById("letterheadPhoneSpan").textContent = providerData[value]['phone'];
-                document.getElementById("letterheadFax").value = providerData[value]['fax'];
-                document.getElementById("letterheadFaxSpan").textContent = providerData[value]['fax'];
+                document.getElementById("letterheadAddress").value = providerData[resolvedValue]['address'];
+                document.getElementById("letterheadAddressSpan").textContent = providerData[resolvedValue]['address'];
+                document.getElementById("letterheadPhone").value = providerData[resolvedValue]['phone'];
+                document.getElementById("letterheadPhoneSpan").textContent = providerData[resolvedValue]['phone'];
+                document.getElementById("letterheadFax").value = providerData[resolvedValue]['fax'];
+                document.getElementById("letterheadFaxSpan").textContent = providerData[resolvedValue]['fax'];
 
                 let faxAccountOptions = document.getElementById("faxAccount");
                 if (faxAccountOptions) {
                     for(let option in faxAccountOptions.options) {
-                        if(faxAccountOptions.options[option].value === providerData[value]['fax'].replace(/[^0-9.]/g, '')) {
-                            faxAccountOptions.value = providerData[value]['fax'].replace(/[^0-9.]/g, '');
+                        if(faxAccountOptions.options[option].value === providerData[resolvedValue]['fax'].replace(/[^0-9.]/g, '')) {
+                            faxAccountOptions.value = providerData[resolvedValue]['fax'].replace(/[^0-9.]/g, '');
                             break;
                         }
                     }
@@ -3132,6 +3151,7 @@ if (userAgent != null) {
     </form>
     </body>
 
+    <fmt:message var="saveAndCloseText" key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnSaveAndClose"/>
     <script type="text/javascript">
         jQuery(document).ready(function () {
             var ctx = "${pageContext.request.contextPath}";
@@ -3292,7 +3312,7 @@ if (userAgent != null) {
                 }).dialog({
                     title: title,
                     modal: true,
-                    closeText: "Save and Close",
+                    closeText: "${carlos:forJavaScript(saveAndCloseText)}",
                     height: 'auto',
                     width: 'auto',
                     resizable: true,
@@ -3305,7 +3325,7 @@ if (userAgent != null) {
                         let closeBtn = jQuery(this).parent().find(".ui-dialog-titlebar-close");
                         closeBtn.removeClass("ui-button-icon-only");
                         closeBtn.addClass("save-and-close-button");
-                        closeBtn.text("Save and Close");
+                        closeBtn.text("${carlos:forJavaScript(saveAndCloseText)}");
                     },
 
                     beforeClose: function (event, ui) {

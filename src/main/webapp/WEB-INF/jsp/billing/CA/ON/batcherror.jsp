@@ -1,6 +1,7 @@
 <%--
-
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -16,21 +17,21 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-    This software was written for the
-    Department of Family Medicine
-    McMaster University
-    Hamilton
-    Ontario, Canada
-
-
-    Now maintained by the CARLOS EMR Project (2026+).
+    CARLOS EMR Project
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
 --%>
+<%--
+  Purpose: Supports batcherror in the Ontario billing workflow.
+  Keep request setup in the paired action and use CARLOS encoding helpers
+  for dynamic output rendered by the page.
+--%>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title>Batch Saved</title>
 
     <script type="text/javascript">
@@ -43,7 +44,7 @@
 </head>
 <body style="background-color:#C4D9E7;" onload='setTimeout("exit();",5000)'>
 
-<%=request.getAttribute("error")%>
+<carlos:encode value="${error}" context="html"/>
 
 </body>
 </html>

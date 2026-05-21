@@ -1,6 +1,7 @@
 <%--
-
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2006-. OSCARservice, OpenSoft System. All Rights Reserved.
+
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -16,226 +17,39 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
-    Now maintained by the CARLOS EMR Project (2026+).
+    CARLOS EMR Project
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
+--%>
+<%--
+  Purpose: Supports billingONStatus in the Ontario billing workflow.
+  Expected request model data includes: statusModel.
+  Keep request setup in the paired action and use CARLOS encoding helpers
+  for dynamic output rendered by the page.
 --%>
 <!DOCTYPE html>
-<%@page import="java.math.*" %>
-<%@page import="java.text.DecimalFormat" %>
-<%@page import="java.text.NumberFormat" %>
-<%@page import="java.util.*" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Site" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
-<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
-<%@page import="org.owasp.encoder.Encode" %>
-<%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%@page import="io.github.carlos_emr.CarlosProperties" %>
-<%@page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
-<%@page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
-<%@page import="io.github.carlos_emr.carlos.util.*" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.*" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingStatusPrep" %>
-<%@ page import="io.github.carlos_emr.carlos.util.LabelValueBean" %>
-<%@ page import="io.github.carlos_emr.carlos.util.DateUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<fmt:setBundle basename="oscarResources"/>
-<%--
-    The taglib directive below imports the JSTL library. If you uncomment it,
-    you must also add the JSTL library to the project. The Add Library... action
-    on Libraries node in Projects view can be used to add the JSTL 1.1 library.
-    --%>
-<%--
-    <%@taglib uri="jakarta.tags.core" prefix="c"%>
-    --%>
-<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%
-    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
-    String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
-    boolean isTeamBillingOnly = false;
-    boolean isSiteAccessPrivacy = false;
-    CarlosProperties props = CarlosProperties.getInstance();
-    boolean hideName = Boolean.valueOf(props.getProperty("invoice_reports.print.hide_name", "false"));
-%>
-<security:oscarSec objectName="_team_billing_only" roleName="<%=roleName$ %>" rights="r" reverse="false">
-    <% isTeamBillingOnly = true; %>
-</security:oscarSec>
-<security:oscarSec objectName="_site_access_privacy" roleName="<%=roleName$%>" rights="r" reverse="false">
-    <%isSiteAccessPrivacy = true; %>
-</security:oscarSec>
-<%! boolean bMultisites = IsPropertiesOn.isMultisitesEnable(); %>
-<%
-    //multi-site office , save all bgcolor to Hashmap
-    HashMap<String, String> siteBgColor = new HashMap<String, String>();
-    HashMap<String, String> siteShortName = new HashMap<String, String>();
-    int patientCount = 0;
-    if (bMultisites) {
-        SiteDao siteDao = (SiteDao) WebApplicationContextUtils.getWebApplicationContext(application).getBean(SiteDao.class);
-
-        List<Site> sites = siteDao.getAllSites();
-        for (Site st : sites) {
-            siteBgColor.put(st.getName(), st.getBgColor());
-            siteShortName.put(st.getName(), st.getShortName());
-        }
-    }
-%>
-<%
-    //
-    response.setHeader("Pragma", "no-cache"); //HTTP 1.0
-    response.setHeader("Cache-Control", "no-cache"); //HTTP 1.1
-    response.setDateHeader("Expires", 0); //prevents caching at the proxy server
-    response.setHeader("Cache-Control", "private"); // HTTP 1.1
-    response.setHeader("Cache-Control", "no-store"); // HTTP 1.1
-    response.setHeader("Cache-Control", "max-stale=0"); // HTTP 1.1
-
-
-    boolean bSearch = true;
-    String[] billType = request.getParameterValues("billType");
-    String[] strBillType = new String[]{""};
-    if (billType == null || billType.length == 0) { // no boxes checked
-        bSearch = false;
-        strBillType = new String[]{"HCP", "WCB", "RMB", "NOT", "PAT", "OCF", "ODS", "CPP", "STD", "IFH"};
-    } else {
-        // at least on box checked
-        strBillType = billType;
-    }
-
-    String statusType = request.getParameter("statusType");
-    String providerNo = request.getParameter("providerview");
-    String startDate = request.getParameter("xml_vdate");
-    String endDate = request.getParameter("xml_appointment_date");
-    String demoNo = request.getParameter("demographicNo");
-    String serviceCode = request.getParameter("serviceCode");
-    String raCode = request.getParameter("raCode");
-    String claimNo = request.getParameter("claimNo");
-    String dx = request.getParameter("dx");
-    String visitType = request.getParameter("visitType");
-    String filename = request.getParameter("demographicNo");
-
-    String selectedSite = request.getParameter("site");
-    String billingForm = request.getParameter("billing_form");
-
-    String visitLocation = request.getParameter("xml_location");
-
-    String sortName = request.getParameter("sortName");
-    String sortOrder = request.getParameter("sortOrder");
-
-    String paymentStartDate = request.getParameter("paymentStartDate");
-    String paymentEndDate = request.getParameter("paymentEndDate");
-
-    if (statusType == null) {
-        statusType = "O";
-    }
-    if ("_".equals(statusType)) {
-        demoNo = "";
-    }
-    if (startDate == null) {
-        startDate = "";
-    }
-    if (startDate == "") {
-        startDate = DateUtils.sumDate("yyyy-MM-dd", "-180");
-    }
-    if (endDate == null) {
-        endDate = "";
-    }
-    if (endDate == "") {
-        endDate = DateUtils.sumDate("yyyy-MM-dd", "0");
-    }
-    if (demoNo == null) {
-        demoNo = "";
-        filename = "";
-    }
-    if (providerNo == null) {
-        providerNo = "";
-    }
-    if (raCode == null) {
-        raCode = "";
-    }
-    if (claimNo == null) {
-        claimNo = "";
-    }
-    if (dx == null) {
-        dx = "";
-    }
-    if (visitType == null) {
-        visitType = "-";
-    }
-    if (serviceCode == null || serviceCode.equals("")) serviceCode = "%";
-    if (billingForm == null) {
-        billingForm = "-";
-    }
-    if (visitLocation == null) {
-        visitLocation = "";
-    }
-    if (sortName == null) {
-        sortName = "ServiceDate";
-    }
-    if (sortOrder == null) {
-        sortOrder = "asc";
-    }
-    if (paymentStartDate == null) {
-        paymentStartDate = "";
-    }
-    if (paymentEndDate == null) {
-        paymentEndDate = "";
-    }
-
-    List<String> pList = isTeamBillingOnly
-            ? (new JdbcBillingPageUtil()).getCurTeamProviderStr((String) session.getAttribute("user"))
-            : (new JdbcBillingPageUtil()).getCurProviderStr();
-
-    BillingStatusPrep sObj = new BillingStatusPrep();
-    List<BillingClaimHeader1Data> bList = null;
-    if ((serviceCode == null || billingForm == null) && dx.length() < 2 && visitType.length() < 2) {
-        bList = bSearch ? sObj.getBills(strBillType, statusType, providerNo, startDate, endDate, demoNo, visitLocation, paymentStartDate, paymentEndDate) : new ArrayList<BillingClaimHeader1Data>(); // deepcode ignore SqlInjection: BillingStatusPrep delegates to JdbcBillingReviewImpl which uses JPA criteria queries (parameterized)
-        //serviceCode = "-";
-        serviceCode = "%";
-    } else {
-        serviceCode = (serviceCode == null || serviceCode.length() < 2) ? "%" : serviceCode;
-        bList = bSearch ? sObj.getBillsWithSorting(strBillType, statusType, providerNo, startDate, endDate, demoNo, serviceCode, dx, visitType, billingForm, visitLocation, sortName, sortOrder, paymentStartDate, paymentEndDate, claimNo) : new ArrayList<BillingClaimHeader1Data>();
-        //bList = bSearch ? sObj.getBillsWithSorting(strBillType, statusType,  providerNo, startDate,  endDate,  demoNo, serviceCode, dx, visitType, billingForm, visitLocation,sortName,sortOrder,paymentStartDate, paymentEndDate) : new ArrayList<BillingClaimHeader1Data>();
-    }
-
-    RAData raData = new RAData();
-
-    BigDecimal total = new BigDecimal(0).setScale(2, BigDecimal.ROUND_HALF_UP);
-    BigDecimal paidTotal = new BigDecimal(0).setScale(2, BigDecimal.ROUND_HALF_UP);
-    BigDecimal adjTotal = new BigDecimal(0).setScale(2, BigDecimal.ROUND_HALF_UP);
-
-
-    NumberFormat formatter = new DecimalFormat("#0.00");
-
-
-%>
-<%
-    String ohipNo = "";
-    if (request.getParameter("provider_ohipNo") != null)
-        ohipNo = request.getParameter("provider_ohipNo");
-%>
+<fmt:setBundle basename="oscarResources"/>
 
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>
             <fmt:message key="admin.admin.invoiceRpts"/>
         </title>
-        <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
-        <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
-        <script src="<%=request.getContextPath() %>/js/table-export.js"></script>
-        <script src="${pageContext.request.contextPath}/library/DataTables/datatables.min.js"></script><!-- 1.13.4 -->
-        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
-        <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/jquery.dataTables.min.css"
+        <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
+        <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
+        <script src="${pageContext.request.contextPath}/js/table-export.js"></script>
+        <script src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js"></script>
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
+        <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css"
               rel="stylesheet">
-        <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
-        <link rel="stylesheet" href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css">
-        <script src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
+        <link rel="stylesheet" href="${pageContext.request.contextPath}/css/fontawesome-all.min.css">
+        <link rel="stylesheet" href="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.css">
+        <script src="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.js"></script>
         <script>
             document.addEventListener('DOMContentLoaded', function () {
                 flatpickr("#xml_vdate", {dateFormat: "Y-m-d", allowInput: true});
@@ -263,9 +77,7 @@
                 //     document.invoiceForm.method.value="sendListEmail";
                 // } else
 
-                if (methodName == "print") {
-                    document.invoiceForm.method.value = "getListPrintPDF";
-                }
+                // PDF download uses a dedicated direct-response Struts action.
                 document.invoiceForm.submit();
             }
 
@@ -305,25 +117,27 @@
                 }
             }
 
+            // Provider->OHIP map driven from the view model so the runtime
+            // lookup is data-only (no scriptlet emission).
+            var _providerOhipMap = {};
+            <c:forEach var="po" items="${statusModel.providers}">
+                _providerOhipMap["<carlos:encode value='${po.providerNo}' context='javaScript'/>"] = "<carlos:encode value='${po.ohipNo}' context='javaScript'/>";
+            </c:forEach>
+
             function changeProvider(shouldSubmit) {
-
                 var index = document.serviceform.providerview.selectedIndex;
+                if (index < 0) return;
                 var provider_no = document.serviceform.providerview[index].value;
-
-                <% for (int i = 0 ; i < pList.size(); i++) {
-                String temp[] = ( pList.get(i)).split("\\|");
-                %>
-
-                var temp_provider_no = <%=temp[0]%>;
-                if (provider_no == temp_provider_no) {
-                    var provider_ohipNo = "<%=temp[3]%>";
-                    document.serviceform.provider_ohipNo.value = provider_ohipNo;
+                var ohip = _providerOhipMap[provider_no];
+                if (ohip != null && ohip !== undefined) {
+                    document.serviceform.provider_ohipNo.value = ohip;
                     if (shouldSubmit) {
-                        if (document.getElementById("xml_vdate").value.length > 0 && document.getElementById("xml_appointment_date").value.length > 0)
+                        if (document.getElementById("xml_vdate").value.length > 0
+                                && document.getElementById("xml_appointment_date").value.length > 0)
                             document.serviceform.submit();
-                    } else return;
+                    }
+                    return;
                 }
-                <%} %>
                 document.serviceform.provider_ohipNo.value = "";
                 if (shouldSubmit) document.serviceform.submit();
             }
@@ -350,7 +164,7 @@
                     //alert(('status'+idNum) + document.getElementById('status'+idNum).checked);
                     val = 'Y';
                 }
-                xmlHttp.open("POST", "<%= request.getContextPath() %>/billing/CA/ON/BillingONStatusERUpdateStatus", true);
+                xmlHttp.open("POST", "${pageContext.request.contextPath}/billing/CA/ON/BillingONStatusERUpdateStatus", true);
                 xmlHttp.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
                 xmlHttp.send("id=" + encodeURIComponent(idNum) + "&val=" + encodeURIComponent(val));
             }
@@ -373,7 +187,6 @@
                     group[i].checked = !isChecked;
                 isChecked = !isChecked;
             }
-
 
             updateSort = function (name) {
                 var sortName = document.getElementById("sortName").value;
@@ -432,160 +245,163 @@
     </head>
     <body>
     <jsp:include page="/images/spinner.jsp" flush="true"/>
+    <c:if test="${statusModel.partialTotal}">
+        <div style="background:#fff3cd;color:#7a5b00;border:1px solid #d4a700;padding:8px;margin:4px 0;">
+            <strong>Total may be incomplete.</strong>
+            ${statusModel.unreadableTotalRowCount} row(s) had unreadable amounts and were skipped — refresh, or contact admin if persistent.
+        </div>
+    </c:if>
     <h3>
         <fmt:message key="admin.admin.invoiceRpts"/>
     </h3>
     <div class="container-fluid">
-        <!--Hiding for now since this does not seem to manage the providers in the select
-            <a href="javascript: function myFunction() {return false; }" onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/ViewManageProvider?action=billingreport')">Manage Provider List</a>-->
-        <form name="serviceform" class="d-flex flex-wrap align-items-center gap-2" method="get" action="<%= request.getContextPath() %>/billing/CA/ON/ViewBillingONStatus"
+        <form name="serviceform" class="d-flex flex-wrap align-items-center gap-2" method="get"
+              action="${pageContext.request.contextPath}/billing/CA/ON/ViewBillingONStatus"
               onsubmit="ShowSpin(true);">
-            <input type="hidden" id="sortName" name="sortName" value="<carlos:encode value='<%= sortName %>' context="htmlAttribute"/>">
-            <input type="hidden" id="sortOrder" name="sortOrder" value="<carlos:encode value='<%= sortOrder %>' context="htmlAttribute"/>">
+            <input type="hidden" id="sortName" name="sortName" value="${carlos:forHtmlAttribute(statusModel.sortName)}">
+            <input type="hidden" id="sortOrder" name="sortOrder" value="${carlos:forHtmlAttribute(statusModel.sortOrder)}">
             <div class="row card card-body bg-body-tertiary d-print-none">
-                <%
-                    String tmpStrBillType = Arrays.toString(strBillType);
-                %>
                 <div class="row">
                     <div class="col-md-12">
                         <div class="form-check form-check-inline"><input type="checkbox" class="form-check-input" name="billTypeAll" id="ALL" value="ALL"
                                                               checked onclick="changeStatus();"><label class="form-check-label" for="ALL">ALL</label></div>
                         <div class="form-check form-check-inline"><input type="checkbox" class="form-check-input" name="billType" id="billType_HCP"
-                                                              value="HCP" <%=tmpStrBillType.indexOf("HCP")>=0?"checked":""%>><label class="form-check-label" for="billType_HCP">Bill
+                                                              value="HCP" ${fn:contains(statusModel.billTypes, 'HCP') ? 'checked' : ''}><label class="form-check-label" for="billType_HCP">Bill
                             OHIP</label></div>
                         <div class="form-check form-check-inline"><input type="checkbox" class="form-check-input" name="billType" id="billType_RMB"
-                                                              value="RMB" <%=tmpStrBillType.indexOf("RMB")>=0?"checked":""%>><label class="form-check-label" for="billType_RMB">RMB</label></div>
+                                                              value="RMB" ${fn:contains(statusModel.billTypes, 'RMB') ? 'checked' : ''}><label class="form-check-label" for="billType_RMB">RMB</label></div>
                         <div class="form-check form-check-inline"><input type="checkbox" class="form-check-input" name="billType" id="billType_WCB"
-                                                              value="WCB" <%=tmpStrBillType.indexOf("WCB")>=0?"checked":""%>><label class="form-check-label" for="billType_WCB">WCB</label></div>
+                                                              value="WCB" ${fn:contains(statusModel.billTypes, 'WCB') ? 'checked' : ''}><label class="form-check-label" for="billType_WCB">WCB</label></div>
                         <div class="form-check form-check-inline"><input type="checkbox" class="form-check-input" name="billType" id="billType_NOT"
-                                                              value="NOT" <%=tmpStrBillType.indexOf("NOT")>=0?"checked":""%>><label class="form-check-label" for="billType_NOT">Not
+                                                              value="NOT" ${fn:contains(statusModel.billTypes, 'NOT') ? 'checked' : ''}><label class="form-check-label" for="billType_NOT">Not
                             Bill</label></div>
                         <div class="form-check form-check-inline"><input type="checkbox" class="form-check-input" name="billType" id="billType_PAT"
-                                                              value="PAT" <%=tmpStrBillType.indexOf("PAT")>=0?"checked":""%>><label class="form-check-label" for="billType_PAT">Bill
+                                                              value="PAT" ${fn:contains(statusModel.billTypes, 'PAT') ? 'checked' : ''}><label class="form-check-label" for="billType_PAT">Bill
                             Patient</label></div>
                         <div class="form-check form-check-inline"><input type="checkbox" class="form-check-input" name="billType" id="billType_OCF"
-                                                              value="OCF" <%=tmpStrBillType.indexOf("OCF")>=0?"checked":""%>><label class="form-check-label" for="billType_OCF">OCF</label></div>
+                                                              value="OCF" ${fn:contains(statusModel.billTypes, 'OCF') ? 'checked' : ''}><label class="form-check-label" for="billType_OCF">OCF</label></div>
                         <div class="form-check form-check-inline"><input type="checkbox" class="form-check-input" name="billType" id="billType_ODS"
-                                                              value="ODS" <%=tmpStrBillType.indexOf("ODS")>=0?"checked":""%>><label class="form-check-label" for="billType_ODS">ODSP</label></div>
+                                                              value="ODS" ${fn:contains(statusModel.billTypes, 'ODS') ? 'checked' : ''}><label class="form-check-label" for="billType_ODS">ODSP</label></div>
                         <div class="form-check form-check-inline"><input type="checkbox" class="form-check-input" name="billType" id="billType_CPP"
-                                                              value="CPP" <%=tmpStrBillType.indexOf("CPP")>=0?"checked":""%>><label class="form-check-label" for="billType_CPP">CPP</label></div>
+                                                              value="CPP" ${fn:contains(statusModel.billTypes, 'CPP') ? 'checked' : ''}><label class="form-check-label" for="billType_CPP">CPP</label></div>
                         <div class="form-check form-check-inline"><input type="checkbox" class="form-check-input" name="billType" id="billType_STD"
-                                                              value="STD" <%=tmpStrBillType.indexOf("STD")>=0?"checked":""%>><label class="form-check-label" for="billType_STD">STD/LTD</label></div>
+                                                              value="STD" ${fn:contains(statusModel.billTypes, 'STD') ? 'checked' : ''}><label class="form-check-label" for="billType_STD">STD/LTD</label></div>
                         <div class="form-check form-check-inline"><input type="checkbox" class="form-check-input" name="billType" id="billType_IFH"
-                                                              value="IFH" <%=tmpStrBillType.indexOf("IFH")>=0?"checked":""%>><label class="form-check-label" for="billType_IFH">IFH</label></div>
+                                                              value="IFH" ${fn:contains(statusModel.billTypes, 'IFH') ? 'checked' : ''}><label class="form-check-label" for="billType_IFH">IFH</label></div>
                     </div>
-                    <!--</div>-->
-                    <!--<div class="row">-->
                     <div class="col-md-10">
-                        <% // multisite start ==========================================
-                            String curSite = request.getParameter("site");
-                            if (bMultisites) {
-                                SiteDao siteDao = (SiteDao) WebApplicationContextUtils.getWebApplicationContext(application).getBean(SiteDao.class);
-                                List<Site> sites = siteDao.getActiveSitesByProviderNo((String) session.getAttribute("user"));
-                                // now get all providers eligible
-                                HashSet<String> pros = new HashSet<String>();
-                                for (Object s : pList) {
-                                    pros.add(((String) s).substring(0, ((String) s).indexOf("|")));
-                                }
-                        %>
-                        <script>
-                            var _providers = [];
-                            <%	for (int i=0; i<sites.size(); i++) {
-                                Set<Provider> siteProviders = sites.get(i).getProviders();
-                                List<Provider>  siteProvidersList = new ArrayList<Provider> (siteProviders);
-                                Collections.sort(siteProvidersList,(new Provider()).ComparatorName());%>
-                            _providers["<%= SafeEncode.forJavaScript(sites.get(i).getName()) %>"] = "<% Iterator<Provider> iter = siteProvidersList.iterator();
-                                    while (iter.hasNext()) {
-                                    	Provider p=iter.next();
-                                    	if (pros.contains(p.getProviderNo())) {
-                                    %><option value='<%= SafeEncode.forJavaScript(SafeEncode.forHtmlAttribute(p.getProviderNo())) %>'><%= SafeEncode.forJavaScript(SafeEncode.forHtml(p.getLastName())) %>, <%= SafeEncode.forJavaScript(SafeEncode.forHtml(p.getFirstName())) %></option><% }} %>";
-                            <% } %>
+                        <c:choose>
+                            <c:when test="${statusModel.multisites}">
+                                <script>
+                                    var _providers = {};
+                                    <c:forEach var="msite" items="${statusModel.multisiteSites}">
+                                        _providers["<carlos:encode value='${msite.name}' context='javaScript'/>"] = [
+                                            <c:forEach var="provider" items="${msite.providers}" varStatus="providerStatus">
+                                            {
+                                                value: "<carlos:encode value='${provider.providerNo}' context='javaScript'/>",
+                                                text: "<carlos:encode value='${provider.lastName}, ${provider.firstName}' context='javaScript'/>"
+                                            }<c:if test="${not providerStatus.last}">,</c:if>
+                                            </c:forEach>
+                                        ];
+                                    </c:forEach>
 
-                            function changeSite(sel) {
-                                sel.form.providerview.innerHTML = sel.value == "none" ? "" : "<option value='none'>---select providers---</option>" + _providers[sel.value];
-                                sel.style.backgroundColor = sel.options[sel.selectedIndex].style.backgroundColor;
-                                if (sel.value == '<carlos:encode value='<%= StringUtils.noNull(request.getParameter("site")) %>' context="javaScriptBlock"/>') {
-                                    if (document.serviceform.provider_ohipNo.value != '')
-                                        sel.form.providerview.value = '<carlos:encode value='<%= StringUtils.noNull(request.getParameter("providerview")) %>' context="javaScriptBlock"/>';
-                                }
-                                changeProvider(false);
-                            }
-                        </script>
-                        <label>
-                            Site:
-                            <select id="site" name="site" class="form-select" onchange="changeSite(this)">
-                                <option value="none" style="background-color:white">---select clinic---</option>
-                                <%
-                                    for (int i = 0; i < sites.size(); i++) {
-                                %>
-                                <option value="<carlos:encode value='<%= sites.get(i).getName() %>' context="htmlAttribute"/>"
-                                        style="background-color:<%= sites.get(i).getBgColor() %>"
-                                        <%=sites.get(i).getName().toString().equals(curSite) ? "selected" : "" %>><carlos:encode value='<%= sites.get(i).getName() %>' context="html"/>
-                                </option>
-                                <% } %>
-                            </select>
-                        </label>
-                        <label>Provider:
-                            <select id="providerview" class="form-select" name="providerview"
-                                    onchange="changeProvider(true);"></select></label>
-                        <% if (request.getParameter("providerview") != null) { %>
-                        <script>
-                            window.onload = function () {
-                                changeSite(document.getElementById("site"));
-                            }
-
-                        </script>
-                        <% } // multisite end ==========================================
-                        } else {
-                        %>
-                        <label>
-                            Provider:
-                            <select name="providerview" class="form-select" onchange="changeProvider(false);">
-                                <%
-                                    if (pList.size() == 1) {
-                                        String temp[] = (pList.get(0)).split("\\|");
-                                %>
-                                <option value="<%=temp[0]%>"><%=temp[1]%>, <%=temp[2]%>
-                                </option>
-                                <%
-                                } else {
-                                %>
-                                <option value="all">All Providers</option>
-                                <% for (int i = 0; i < pList.size(); i++) {
-                                    String temp[] = (pList.get(i)).split("\\|");
-                                %>
-                                <option value="<%=temp[0]%>" <%=providerNo.equals(temp[0]) ? "selected" : ""%>><%=temp[1]%>
-                                    , <%=temp[2]%>
-                                </option>
-                                <% }
-                                } %>
-                            </select>
-                        </label>
-                        <% } %>
+                                    function changeSite(sel) {
+                                        var providerSelect = sel.form.providerview;
+                                        providerSelect.innerHTML = "";
+                                        if (sel.value != "none") {
+                                            var placeholder = document.createElement("option");
+                                            placeholder.value = "none";
+                                            placeholder.textContent = "---select providers---";
+                                            providerSelect.appendChild(placeholder);
+                                            (_providers[sel.value] || []).forEach(function (provider) {
+                                                var option = document.createElement("option");
+                                                option.value = provider.value;
+                                                option.textContent = provider.text;
+                                                providerSelect.appendChild(option);
+                                            });
+                                        }
+                                        sel.style.backgroundColor = sel.options[sel.selectedIndex].style.backgroundColor;
+                                        if (sel.value == '<carlos:encode value="${empty statusModel.requestParamEchoes['site'] ? '' : statusModel.requestParamEchoes['site']}" context="javaScriptBlock"/>') {
+                                            if (document.serviceform.provider_ohipNo.value != '')
+                                                sel.form.providerview.value = '<carlos:encode value="${empty statusModel.requestParamEchoes['providerview'] ? '' : statusModel.requestParamEchoes['providerview']}" context="javaScriptBlock"/>';
+                                        }
+                                        changeProvider(false);
+                                    }
+                                </script>
+                                <label>
+                                    Site:
+                                    <select id="site" name="site" class="form-select" onchange="changeSite(this)">
+                                        <option value="none" style="background-color:white">---select clinic---</option>
+                                        <c:forEach var="msite" items="${statusModel.multisiteSites}">
+                                            <option value="<carlos:encode value='${msite.name}' context='htmlAttribute'/>"
+                                                    style="background-color:<carlos:encode value='${msite.bgColor}' context='cssString'/>"
+                                                    ${msite.name eq statusModel.requestParamEchoes['site'] ? 'selected' : ''}>
+                                                <carlos:encode value='${msite.name}' context='html'/>
+                                            </option>
+                                        </c:forEach>
+                                    </select>
+                                </label>
+                                <label>Provider:
+                                    <select id="providerview" class="form-select" name="providerview"
+                                            onchange="changeProvider(true);"></select></label>
+                                <c:if test="${not empty statusModel.requestParamEchoes['providerview']}">
+                                    <script>
+                                        window.onload = function () {
+                                            changeSite(document.getElementById("site"));
+                                        }
+                                    </script>
+                                </c:if>
+                            </c:when>
+                            <c:otherwise>
+                                <label>
+                                    Provider:
+                                    <select name="providerview" class="form-select" onchange="changeProvider(false);">
+                                        <c:choose>
+                                            <c:when test="${fn:length(statusModel.providers) eq 1}">
+                                                <c:forEach var="po" items="${statusModel.providers}">
+                                                    <option value="<carlos:encode value='${po.providerNo}' context='htmlAttribute'/>">
+                                                        <carlos:encode value='${po.lastName}' context='html'/>, <carlos:encode value='${po.firstName}' context='html'/>
+                                                    </option>
+                                                </c:forEach>
+                                            </c:when>
+                                            <c:otherwise>
+                                                <option value="all">All Providers</option>
+                                                <c:forEach var="po" items="${statusModel.providers}">
+                                                    <option value="<carlos:encode value='${po.providerNo}' context='htmlAttribute'/>"
+                                                            ${statusModel.providerNo eq po.providerNo ? 'selected' : ''}>
+                                                        <carlos:encode value='${po.lastName}' context='html'/>, <carlos:encode value='${po.firstName}' context='html'/>
+                                                    </option>
+                                                </c:forEach>
+                                            </c:otherwise>
+                                        </c:choose>
+                                    </select>
+                                </label>
+                            </c:otherwise>
+                        </c:choose>
                         <label>
                             OHIP No.:
-                            <input type="text" class="form-control form-control-sm d-inline-block w-auto" name="provider_ohipNo" readonly value="<carlos:encode value='<%= StringUtils.noNull(ohipNo) %>' context="htmlAttribute"/>"></label>
+                            <input type="text" class="form-control form-control-sm d-inline-block w-auto" name="provider_ohipNo" readonly value="${carlos:forHtmlAttribute(statusModel.providerOhipNo)}"></label>
                     </div>
                     <div class="col-md-6">
                         <label for="xml_vdate">Start:</label>
                         <div class="input-group">
-                            <input type="text" class="form-control" name="xml_vdate" id="xml_vdate" style="width:90px" value="<carlos:encode value='<%= startDate %>' context="htmlAttribute"/>"
+                            <input type="text" class="form-control" name="xml_vdate" id="xml_vdate" style="width:90px" value="${carlos:forHtmlAttribute(statusModel.startDate)}"
                                    pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off" required>
                             <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>
                         <label for="xml_appointment_date">End:
                             <small>
                                 <a href="javascript: function myFunction() {return false; }"
-                                   onClick="fillEndDate('<%=DateUtils.sumDate("yyyy-MM-dd","-30")%>')">30</a>
+                                   onClick="fillEndDate('<carlos:encode value="${statusModel.endDateMinus30}" context="javaScriptBlock"/>')">30</a>
                                 <a href="javascript: function myFunction() {return false; }"
-                                   onClick="fillEndDate('<%=DateUtils.sumDate("yyyy-MM-dd","-60")%>')">60</a>
+                                   onClick="fillEndDate('<carlos:encode value="${statusModel.endDateMinus60}" context="javaScriptBlock"/>')">60</a>
                                 <a href="javascript: function myFunction() {return false; }"
-                                   onClick="fillEndDate('<%=DateUtils.sumDate("yyyy-MM-dd","-90")%>')">90</a>
+                                   onClick="fillEndDate('<carlos:encode value="${statusModel.endDateMinus90}" context="javaScriptBlock"/>')">90</a>
                                 days back
                             </small></label>
                         <div class="input-group">
                             <input type="text" class="form-control" name="xml_appointment_date" style="width:90px" id="xml_appointment_date"
-                                   value="<carlos:encode value='<%= endDate %>' context="htmlAttribute"/>" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
+                                   value="${carlos:forHtmlAttribute(statusModel.endDate)}" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
                                    autocomplete="off" required>
                             <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>
@@ -595,142 +411,109 @@
                 <div class="row">
                     <div class="col-md-12">
                         <label>Dx:
-                            <input type="text" name="dx" class="form-control form-control-sm d-inline-block w-auto" placeholder="123" value="<carlos:encode value='<%= dx %>' context="htmlAttribute"/>"></label>
+                            <input type="text" name="dx" class="form-control form-control-sm d-inline-block w-auto" placeholder="123" value="${carlos:forHtmlAttribute(statusModel.dx)}"></label>
                         <label>Serv. Code:
                             <input type="text" name="serviceCode" class="form-control form-control-sm d-inline-block w-auto" placeholder="A123A"
-                                   value="<carlos:encode value='<%= serviceCode %>' context="htmlAttribute"/>"></label>
+                                   value="${carlos:forHtmlAttribute(statusModel.serviceCode)}"></label>
                         <label>Demographic:
                             <input type="text" name="demographicNo" class="form-control form-control-sm d-inline-block w-auto" placeholder="1234"
-                                   value="<carlos:encode value='<%= demoNo %>' context="htmlAttribute"/>"></label>
+                                   value="${carlos:forHtmlAttribute(statusModel.demoNo)}"></label>
                         <label>RA Code:
                             <input type="text" name="raCode" class="form-control form-control-sm d-inline-block w-auto" placeholder=""
-                                   value="<carlos:encode value='<%= raCode %>' context="htmlAttribute"/>"></label>
+                                   value="${carlos:forHtmlAttribute(statusModel.raCode)}"></label>
                         <label>Claim No (% for any):
-                            <input type="text" name="claimNo" class="form-control form-control-sm d-inline-block w-auto" value="<carlos:encode value='<%= claimNo %>' context="htmlAttribute"/>"></label>
+                            <input type="text" name="claimNo" class="form-control form-control-sm d-inline-block w-auto" value="${carlos:forHtmlAttribute(statusModel.claimNo)}"></label>
                         <label>
                             Visit Type:
                             <select name="visitType" style="background-color:white;">
-                                <option value="-" label="-%" <%=visitType.startsWith("-") ? "selected" : ""%>></option>
-                                <option value="00" <%=visitType.startsWith("00") ? "selected" : ""%>>Clinic Visit
-                                </option>
-                                <option value="01" <%=visitType.startsWith("01") ? "selected" : ""%>>Outpatient Visit
-                                </option>
-                                <option value="02" <%=visitType.startsWith("02") ? "selected" : ""%>>Hospital Visit
-                                </option>
-                                <option value="03" <%=visitType.startsWith("03") ? "selected" : ""%>>ER</option>
-                                <option value="04" <%=visitType.startsWith("04") ? "selected" : ""%>>Nursing Home
-                                </option>
-                                <option value="05" <%=visitType.startsWith("05") ? "selected" : ""%>>Home Visit</option>
+                                <option value="-" label="-%" ${fn:startsWith(statusModel.visitType, '-') ? 'selected' : ''}></option>
+                                <option value="00" ${fn:startsWith(statusModel.visitType, '00') ? 'selected' : ''}>Clinic Visit</option>
+                                <option value="01" ${fn:startsWith(statusModel.visitType, '01') ? 'selected' : ''}>Outpatient Visit</option>
+                                <option value="02" ${fn:startsWith(statusModel.visitType, '02') ? 'selected' : ''}>Hospital Visit</option>
+                                <option value="03" ${fn:startsWith(statusModel.visitType, '03') ? 'selected' : ''}>ER</option>
+                                <option value="04" ${fn:startsWith(statusModel.visitType, '04') ? 'selected' : ''}>Nursing Home</option>
+                                <option value="05" ${fn:startsWith(statusModel.visitType, '05') ? 'selected' : ''}>Home Visit</option>
                             </select>
                         </label>
                         <label>
                             Billing Form:
                             <select name="billing_form">
                                 <option value="---" selected="selected"> ---</option>
-                                <%
-                                    List<LabelValueBean> forms = sObj.listBillingForms();
-                                    String selected = "";
-                                    for (LabelValueBean form : forms) {
-                                        if (billingForm != null) {
-                                            if (billingForm.equals(form.getValue())) {
-                                                selected = "selected";
-                                            } else {
-                                                selected = "";
-                                            }
-                                        }
-                                %>
-                                <option value="<%= form.getValue()%>" <%= selected%> ><%= form.getLabel()%>
-                                </option>
-                                <%
-                                    }
-                                %>
+                                <c:forEach var="bf" items="${statusModel.billingForms}">
+                                    <option value="<carlos:encode value='${bf.value}' context='htmlAttribute'/>"
+                                            ${statusModel.billingForm eq bf.value ? 'selected' : ''}>
+                                        <carlos:encode value='${bf.label}' context='html'/>
+                                    </option>
+                                </c:forEach>
                             </select>
                         </label>
                         <label for="xml_location">Visit Location:</label>
                         <select name="xml_location" id="xml_location" class="form-select">
-                            <% //
-                                JdbcBillingPageUtil tdbObj = new JdbcBillingPageUtil();
-
-                                String billLocationNo = "", billLocation = "";
-                                List lLocation = tdbObj.getFacilty_num();
-                                for (int i = 0; i < lLocation.size(); i = i + 2) {
-                                    billLocationNo = (String) lLocation.get(i);
-                                    billLocation = (String) lLocation.get(i + 1);
-                                    String locationSelected = visitLocation.equals(billLocationNo) ? " selected=\"selected\" " : "";
-                            %>
-                            <option value="<%=billLocationNo%>" <%=locationSelected %>>
-                                <carlos:encode value='<%= billLocation %>' context="html"/>
-                            </option>
-                            <% } %>
+                            <c:forEach var="loc" items="${statusModel.visitLocations}">
+                                <option value="<carlos:encode value='${loc.code}' context='htmlAttribute'/>"
+                                        ${statusModel.visitLocation eq loc.code ? 'selected="selected"' : ''}>
+                                    <carlos:encode value='${loc.label}' context='html'/>
+                                </option>
+                            </c:forEach>
                         </select>
                         <label for="paymentStartDate">Payment Start:</label>
                         <div class="input-group">
                             <input type="text" class="form-control" name="paymentStartDate" id="paymentStartDate" style="width:90px"
-                                   value="<carlos:encode value='<%= paymentStartDate %>' context="htmlAttribute"/>" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
+                                   value="${carlos:forHtmlAttribute(statusModel.paymentStartDate)}" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
                                    autocomplete="off">
                             <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>
                         <label for="paymentEndDate">Payment End:</label>
                         <div class="input-group">
                             <input type="text" class="form-control" name="paymentEndDate" id="paymentEndDate" style="width:90px"
-                                   value="<carlos:encode value='<%= paymentEndDate %>' context="htmlAttribute"/>" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
+                                   value="${carlos:forHtmlAttribute(statusModel.paymentEndDate)}" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
                                    autocomplete="off">
                             <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>
-                        <!--</div>-->
-                        <!--<div class="row" >-->
                         <div class="col-md-12">
                             <div class="form-check form-check-inline">
                                 <input class="form-check-input" type="radio" name="statusType" id="statusTypeAll"
-                                       value="%" <%=statusType.equals("%")?"checked":""%>>
+                                       value="%" ${statusModel.statusType eq '%' ? 'checked' : ''}>
                                 <label class="form-check-label" for="statusTypeAll">All</label>
                             </div>
                             <div class="form-check form-check-inline">
                                 <input class="form-check-input" type="radio" name="statusType" id="statusTypeRejected"
-                                       value="_" <%=statusType.equals("_")?"checked":""%>>
+                                       value="_" ${statusModel.statusType eq '_' ? 'checked' : ''}>
                                 <label class="form-check-label" for="statusTypeRejected">Rejected</label>
                             </div>
                             <div class="form-check form-check-inline">
                                 <input class="form-check-input" type="radio" name="statusType" id="statusTypeCapitated"
-                                       value="H" <%=statusType.equals("H")?"checked":""%>>
+                                       value="H" ${statusModel.statusType eq 'H' ? 'checked' : ''}>
                                 <label class="form-check-label" for="statusTypeCapitated">Capitated</label>
                             </div>
                             <div class="form-check form-check-inline">
                                 <input class="form-check-input" type="radio" name="statusType" id="statusTypeInvoiced"
-                                       value="O" <%=statusType.equals("O")?"checked":""%>>
+                                       value="O" ${statusModel.statusType eq 'O' ? 'checked' : ''}>
                                 <label class="form-check-label" for="statusTypeInvoiced">Invoiced</label>
                             </div>
                             <div class="form-check form-check-inline">
                                 <input class="form-check-input" type="radio" name="statusType" id="statusTypeBillPatient"
-                                       value="P" <%=statusType.equals("P")?"checked":""%>>
+                                       value="P" ${statusModel.statusType eq 'P' ? 'checked' : ''}>
                                 <label class="form-check-label" for="statusTypeBillPatient">Bill Patient</label>
                             </div>
-                            <!--<div class="form-check form-check-inline">
-                                <input class="form-check-input" type="radio" name="statusType" id="statusTypeDoNotBill" value="N" <%=statusType.equals("N")?"checked":""%>>
-                                <label class="form-check-label" for="statusTypeDoNotBill">Do Not Bill</label>
-                            </div>
-                            <div class="form-check form-check-inline">
-                                <input class="form-check-input" type="radio" name="statusType" id="statusTypeWCB" value="W" <%=statusType.equals("W")?"checked":""%>>
-                                <label class="form-check-label" for="statusTypeWCB">WCB</label>
-                            </div>-->
                             <div class="form-check form-check-inline">
                                 <input class="form-check-input" type="radio" name="statusType" id="statusTypeSubmittedOHIP"
-                                       value="B" <%=statusType.equals("B")?"checked":""%>>
+                                       value="B" ${statusModel.statusType eq 'B' ? 'checked' : ''}>
                                 <label class="form-check-label" for="statusTypeSubmittedOHIP">Submitted OHIP</label>
                             </div>
                             <div class="form-check form-check-inline">
                                 <input class="form-check-input" type="radio" name="statusType" id="statusTypeSettled"
-                                       value="S" <%=statusType.equals("S")?"checked":""%>>
+                                       value="S" ${statusModel.statusType eq 'S' ? 'checked' : ''}>
                                 <label class="form-check-label" for="statusTypeSettled">Settled/Paid</label>
                             </div>
                             <div class="form-check form-check-inline">
                                 <input class="form-check-input" type="radio" name="statusType" id="statusTypeBadDebt"
-                                       value="X" <%=statusType.equals("X")?"checked":""%>>
+                                       value="X" ${statusModel.statusType eq 'X' ? 'checked' : ''}>
                                 <label class="form-check-label" for="statusTypeBadDebt">Bad Debt</label>
                             </div>
                             <div class="form-check form-check-inline">
                                 <input class="form-check-input" type="radio" name="statusType" id="statusTypeDeleted"
-                                       value="D" <%=statusType.equals("D")?"checked":""%>>
+                                       value="D" ${statusModel.statusType eq 'D' ? 'checked' : ''}>
                                 <label class="form-check-label" for="statusTypeDeleted">Deleted Bill</label>
                             </div>
                         </div>
@@ -749,441 +532,231 @@
             </div>
             <!-- end card card-body bg-body-tertiary -->
         </form>
-        <form name="invoiceForm" action="<%=request.getContextPath()%>/BillingInvoice">
-            <input type="hidden" name="method" value="">
-            <% //
-                if (statusType.equals("_")) { %>
-            <!--  div class="rejected list"-->
-            <table class="table" id="rejectTbl">
-                <thead>
-                <tr class="table-warning">
-                    <th>Insurance#</th>
-                    <th>D.O.B</th>
-                    <th>Invoice#</th>
-                    <!--th>Type</th-->
-                    <th>Ref#</th>
-                    <th>Hosp#</th>
-                    <th title="admission date">Admitted</th>
-                    <th>Claim Error</th>
-                    <th>Code</th>
-                    <th>Fee</th>
-                    <th>Unit</th>
-                    <th>Date</th>
-                    <th>Dx</th>
-                    <th>Exp.</th>
-                    <th>Code Error</th>
-                    <th>
-                        <button class="btn-link d-print-none" type="button" title="Show/Hide Checked"
-                                onClick="filterChecked()">Status
-                        </button>
-                    </th>
-                    <th>Filename</th>
-                </tr>
-                </thead>
-                <% //
-                    ArrayList<String> aLProviders;
-                    if (providerNo == null || providerNo.equals("")) {
-                        aLProviders = new ArrayList<String>(pList);
-                    } else {
-                        aLProviders = new ArrayList<String>();
-                        aLProviders.add(providerNo);
-                    }
-                    String[] provInfo;
-                    for (int idx = 0; idx < aLProviders.size(); ++idx) {
-                        provInfo = aLProviders.get(idx).split("\\|");
-                        providerNo = provInfo[0].trim();
-
-                        List lPat = null;
-                        if (providerNo.equals("all")) {
-                            List<BillingProviderData> providerObj = (new JdbcBillingPageUtil()).getProviderObjList(providerNo);
-                            lPat = (new JdbcBillingErrorRepImpl()).getErrorRecords(providerObj, startDate, endDate, filename);
-                        } else {
-                            BillingProviderData providerObj = (new JdbcBillingPageUtil()).getProviderObj(providerNo);
-                            lPat = (new JdbcBillingErrorRepImpl()).getErrorRecords(providerObj, startDate, endDate, filename);
-                        }
-                        boolean nC = false;
-                        String invoiceNo = "";
-
-
-                        for (int i = 0; i < lPat.size(); i++) {
-                            BillingErrorRepData bObj = (BillingErrorRepData) lPat.get(i);
-                            String color = "";
-                            if (!invoiceNo.equals(bObj.getBilling_no())) {
-                                invoiceNo = bObj.getBilling_no();
-                                nC = nC ? false : true;
+        <form name="invoiceForm" action="${pageContext.request.contextPath}/BillingInvoiceListPrint">
+            <c:choose>
+                <c:when test="${statusModel.statusType eq '_'}">
+                    <table class="table" id="rejectTbl">
+                        <thead>
+                        <tr class="table-warning">
+                            <th>Insurance#</th>
+                            <th>D.O.B</th>
+                            <th>Invoice#</th>
+                            <th>Ref#</th>
+                            <th>Hosp#</th>
+                            <th title="admission date">Admitted</th>
+                            <th>Claim Error</th>
+                            <th>Code</th>
+                            <th>Fee</th>
+                            <th>Unit</th>
+                            <th>Date</th>
+                            <th>Dx</th>
+                            <th>Exp.</th>
+                            <th>Code Error</th>
+                            <th>
+                                <button class="btn-link d-print-none" type="button" title="Show/Hide Checked"
+                                        onClick="filterChecked()">Status
+                                </button>
+                            </th>
+                            <th>Filename</th>
+                        </tr>
+                        </thead>
+                        <c:forEach var="row" items="${statusModel.rejectedBillRows}">
+                            <tr class="${row.rowClass}" name="BillingErrorRow"
+                                id="BillingErrorRow_<carlos:encode value='${row.id}' context='htmlAttribute'/>">
+                                <td><small><carlos:encode value='${row.hin}' context='html'/> <carlos:encode value='${row.ver}' context='html'/></small></td>
+                                <td><font size="-1"><carlos:encode value='${row.dob}' context='html'/></font></td>
+                                <td style="text-align:right">
+                                    <a href="#"
+                                       onclick="popupPage(800,700,'${pageContext.request.contextPath}/billing/CA/ON/BillingONCorrection?billing_no=${carlos:forUriComponent(row.billingNo)}');return false;">
+                                        <carlos:encode value='${row.billingNo}' context='html'/>
+                                    </a>
+                                </td>
+                                <td><carlos:encode value='${row.refNo}' context='html'/></td>
+                                <td><carlos:encode value='${row.facility}' context='html'/></td>
+                                <td><carlos:encode value='${row.admittedDate}' context='html'/></td>
+                                <td><carlos:encode value='${row.claimError}' context='html'/></td>
+                                <td><carlos:encode value='${row.code}' context='html'/></td>
+                                <td style="text-align:right">
+                                    <carlos:encode value='${row.formattedFee}' context='html'/>
+                                    <c:if test="${row.feeUnreadable}">
+                                        <span class="alert">Fee unreadable</span>
+                                    </c:if>
+                                </td>
+                                <td style="text-align:right"><carlos:encode value='${row.unit}' context='html'/></td>
+                                <td><font size="-1"><carlos:encode value='${row.codeDate}' context='html'/></font></td>
+                                <td><carlos:encode value='${row.dx}' context='html'/></td>
+                                <td><carlos:encode value='${row.exp}' context='html'/></td>
+                                <td><carlos:encode value='${row.codeError}' context='html'/></td>
+                                <td style="text-align:center">
+                                    <input type="checkbox"
+                                           id="status<carlos:encode value='${row.id}' context='htmlAttribute'/>"
+                                           name="status<carlos:encode value='${row.id}' context='htmlAttribute'/>"
+                                           value="Y" ${row.checked ? 'checked' : ''}
+                                           onclick="startRequest('<carlos:encode value="${row.id}" context="javaScriptAttribute"/>');"/>
+                                </td>
+                                <td id="<carlos:encode value='${row.id}' context='htmlAttribute'/>">
+                                    <carlos:encode value='${row.reportName}' context='html'/>
+                                </td>
+                            </tr>
+                        </c:forEach>
+                    </table>
+                    <script>
+                        $('#rejectTbl').DataTable({
+                            "bPaginate": false,
+                            "order": [],
+                            "language": {
+                                "url": "${pageContext.request.contextPath}/library/DataTables/i18n/<fmt:message key="global.i18n.datatablescode"/>.json"
                             }
-                            color = nC ? "class='success'" : "";
-                %>
-                <tr <%=color %> name="BillingErrorRow" id="BillingErrorRow_<%=bObj.getId() %>">
-                    <td><small><%=bObj.getHin() %> <%=bObj.getVer() %>
-                    </small></td>
-                    <td><font size="-1"><%=bObj.getDob() %>
-                    </font></td>
-                    <td style="text-align:right"><a href=#
-                                                    onclick="popupPage(800,700,'<%= request.getContextPath() %>/billing/CA/ON/BillingONCorrection?billing_no=<%=bObj.getBilling_no()%>');return false;"><%=bObj.getBilling_no() %>
-                    </a></td>
-                    <td><%=bObj.getRef_no() %>
-                    </td>
-                    <td><%=bObj.getFacility() %>
-                    </td>
-                    <td><%=bObj.getAdmitted_date() %>
-                    </td>
-                    <td><%=bObj.getClaim_error() %>
-                    </td>
-                    <td><%=bObj.getCode() %>
-                    </td>
-                    <%
-                        String formattedFee = null;
-                        try {
-                            formattedFee = String.valueOf(Integer.parseInt(bObj.getFee()));
-
-                        } catch (NumberFormatException e) {
-                            formattedFee = "N/A";
-                        }
-                    %>
-                    <td style="text-align:right"><%=ch2StdCurrFromNoDot(formattedFee)%>
-                    </td>
-                    <td style="text-align:right"><%=bObj.getUnit() %>
-                    </td>
-                    <td><font size="-1"><%=bObj.getCode_date() %>
-                    </font></td>
-                    <td><%=bObj.getDx() %>
-                    </td>
-                    <td><%=bObj.getExp() %>
-                    </td>
-                    <td><%=bObj.getCode_error() %>
-                    </td>
-                    <td style="text-align:center">
-                        <input type="checkbox" id="status<%=bObj.getId() %>" name="status<%=bObj.getId() %>"
-                               value="Y" <%="N".equals(bObj.getStatus()) ? "" : "checked" %>
-                               onclick="startRequest('<%=bObj.getId() %>');"/>
-                    </td>
-                    <td id="<%=bObj.getId() %>"><%=bObj.getReport_name() %>
-                    </td>
-                </tr>
-                <% }
-                }
-                } else { %>
-                <!--  div class="tableListing"-->
-                <table class="table" id="bListTable" class="display nowrap">
-                    <thead>
-                    <tr>
-                        <th><a href="javascript:void(0);" onClick="updateSort('ServiceDate');return false;">SERVICE
-                            DATE</a></th>
-                        <th><a href="javascript:void(0);"
-                               onClick="updateSort('DemographicNo');return false;">PATIENT</a></th>
-                        <th class="<%=hideName?"d-print-none":""%>">PATIENT NAME</th>
-                        <th><a href="javascript:void(0);"
-                               onClick="updateSort('VisitLocation');return false;">LOCATION</a></th>
-                        <th title="Status">STAT</th>
-                        <th>SETTLED</th>
-                        <th title="Code Billed">CODE</th>
-                        <th title="Amount Billed">BILLED</th>
-                        <th title="Amount Paid">PAID</th>
-                        <th title="Adjustments">ADJ</th>
-                        <th>DX</th>
-                        <!--th>DX1</th-->
-                        <th>TYPE</th>
-                        <th>INVOICE #</th>
-                        <th>MESSAGES</th>
-                        <th>CASH</th>
-                        <th>DEBIT</th>
-                        <th>Quantity</th>
-                        <th>Provider</th>
-                        <% if (bMultisites) {%>
-                        <th>SITE</th>
-                        <% }%>
-                        <th class="d-print-none">
-                            <a href="#" onClick="checkAll(document.invoiceForm.invoiceAction)">
-                                <fmt:message key="billing.billingStatus.action"/>
-                            </a>
-                        </th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    <% //
-                        String invoiceNo = "";
-                        boolean nC = false;
-                        boolean newInvoice = true;
-
-                        double totalCash = 0;
-                        double totalDebit = 0;
-
-                        for (int i = 0; i < bList.size(); i++) {
-                            BillingClaimHeader1Data ch1Obj = bList.get(i);
-
-                            if (bMultisites && ch1Obj.getClinic() != null && curSite != null
-                                    && !ch1Obj.getClinic().equals(curSite) && isSiteAccessPrivacy) // only applies on user have siteAccessPrivacy (SiteManager)
-                                continue; // multisite: skip if the line doesn't belong to the selected clinic
-
-                            if (bMultisites && selectedSite != null && (!selectedSite.equals(ch1Obj.getClinic())))
-                                continue;
-
-                            patientCount++;
-
-                            // ra code error codes eg 33 V07
-                            if (raCode.trim().length() == 2 || raCode.trim().length() == 3) {
-                                if (!raData.isErrorCode(ch1Obj.getId(), raCode)) {
-                                    continue;
-                                }
+                        });
+                    </script>
+                </c:when>
+                <c:otherwise>
+                    <table class="table display nowrap" id="bListTable">
+                        <thead>
+                        <tr>
+                            <th><a href="javascript:void(0);" onClick="updateSort('ServiceDate');return false;">SERVICE
+                                DATE</a></th>
+                            <th><a href="javascript:void(0);"
+                                   onClick="updateSort('DemographicNo');return false;">PATIENT</a></th>
+                            <th class="${statusModel.hideName ? 'd-print-none' : ''}">PATIENT NAME</th>
+                            <th><a href="javascript:void(0);"
+                                   onClick="updateSort('VisitLocation');return false;">LOCATION</a></th>
+                            <th title="Status">STAT</th>
+                            <th>SETTLED</th>
+                            <th title="Code Billed">CODE</th>
+                            <th title="Amount Billed">BILLED</th>
+                            <th title="Amount Paid">PAID</th>
+                            <th title="Adjustments">ADJ</th>
+                            <th>DX</th>
+                            <th>TYPE</th>
+                            <th>INVOICE #</th>
+                            <th>MESSAGES</th>
+                            <th>CASH</th>
+                            <th>DEBIT</th>
+                            <th>Quantity</th>
+                            <th>Provider</th>
+                            <c:if test="${statusModel.multisites}">
+                                <th>SITE</th>
+                            </c:if>
+                            <th class="d-print-none">
+                                <a href="#" onClick="checkAll(document.invoiceForm.invoiceAction)">
+                                    <fmt:message key="billing.billingStatus.action"/>
+                                </a>
+                            </th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <c:forEach var="bill" items="${statusModel.billRows}" varStatus="rowStat">
+                            <tr class="${bill.rowClass}">
+                                <td style="text-align:center"><carlos:encode value='${bill.billingDate}' context='html'/></td>
+                                <td style="text-align:center"><carlos:encode value='${bill.demographicNo}' context='html'/></td>
+                                <td style="text-align:center" class="${statusModel.hideName ? 'd-print-none' : ''}">
+                                    <a href="#"
+                                       onclick="popupPage(800,740,'${pageContext.request.contextPath}/demographic/DemographicEdit?demographic_no=${carlos:forUriComponent(bill.demographicNo)}');return false;">
+                                        <carlos:encode value='${bill.demographicName}' context='html'/>
+                                    </a>
+                                </td>
+                                <td style="text-align:center"><carlos:encode value='${bill.facilityNum}' context='html'/></td>
+                                <td style="text-align:center"><carlos:encode value='${bill.status}' context='html'/></td>
+                                <td style="text-align:center"><carlos:encode value='${bill.settleDate}' context='html'/></td>
+                                <td style="text-align:center"><carlos:encode value='${bill.code}' context='html'/></td>
+                                <td style="text-align:right"><carlos:encode value='${bill.billed}' context='html'/></td>
+                                <td style="text-align:right"><carlos:encode value='${bill.amountPaid}' context='html'/></td>
+                                <td style="text-align:center"><carlos:encode value='${bill.adjustment}' context='html'/></td>
+                                <td style="text-align:center"><carlos:encode value='${bill.recId}' context='html'/></td>
+                                <td style="text-align:center"><carlos:encode value='${bill.payProgram}' context='html'/></td>
+                                <td style="text-align:center">
+                                    <a href="#"
+                                       onclick="popupPage(800,700,'${pageContext.request.contextPath}/billing/CA/ON/BillingONCorrection?billing_no=${carlos:forUriComponent(bill.invoiceNo)}');nav_colour_swap(this.id, ${fn:length(statusModel.billRows)});return false;">
+                                        <carlos:encode value='${bill.invoiceNo}' context='html'/>
+                                    </a>
+                                </td>
+                                <td class="highlightBox">
+                                    <a id="A${rowStat.index}" href="#"
+                                       onclick="popupPage(800,700,'${pageContext.request.contextPath}/billing/CA/ON/BillingONCorrection?billing_no=${carlos:forUriComponent(bill.invoiceNo)}');nav_colour_swap(this.id, ${fn:length(statusModel.billRows)});return false;">Edit</a>
+                                    <carlos:encode value='${bill.errorCode}' context='html'/>
+                                </td>
+                                <td style="text-align:center">$<carlos:encode value='${bill.cash}' context='html'/></td>
+                                <td style="text-align:center">$<carlos:encode value='${bill.debit}' context='html'/></td>
+                                <td style="text-align:center">${bill.qty}</td>
+                                <td style="text-align:center"><carlos:encode value='${bill.providerName}' context='html'/></td>
+                                <c:if test="${statusModel.multisites}">
+                                    <c:choose>
+                                        <c:when test="${not empty bill.clinicBgColor}">
+                                            <td style="background-color:<carlos:encode value='${bill.clinicBgColor}' context='cssString'/>;">
+                                                <carlos:encode value='${bill.clinicShortName}' context='html'/>
+                                            </td>
+                                        </c:when>
+                                        <c:otherwise>
+                                            <td>
+                                                <carlos:encode value='${bill.clinicShortName}' context='html'/>
+                                            </td>
+                                        </c:otherwise>
+                                    </c:choose>
+                                </c:if>
+                                <td style="text-align:center" class="d-print-none">
+                                    <c:if test="${bill.newInvoice and bill.thirdParty}">
+                                        <input type="checkbox" name="invoiceAction"
+                                               id="invoiceAction<carlos:encode value='${bill.invoiceNo}' context='htmlAttribute'/>"
+                                               value="<carlos:encode value='${bill.invoiceNo}' context='htmlAttribute'/>"/>
+                                    </c:if>
+                                </td>
+                            </tr>
+                        </c:forEach>
+                        </tbody>
+                    </table>
+                    <script>
+                        $('#bListTable').DataTable({
+                            "bPaginate": false,
+                            "order": [],
+                            "language": {
+                                "url": "${pageContext.request.contextPath}/library/DataTables/i18n/<fmt:message key="global.i18n.datatablescode"/>.json"
                             }
-
-                            String ohip_no = ch1Obj.getProvider_ohip_no();
-                            ArrayList raList = raData.getRADataIntern(ch1Obj.getId(), ch1Obj.getBilling_date().replaceAll("\\D", ""), ohip_no);
-                            boolean incorrectVal = false;
-
-                            BigDecimal valueToAdd = new BigDecimal("0.00");
-                            try {
-                                valueToAdd = new BigDecimal(ch1Obj.getTotal()).setScale(2, BigDecimal.ROUND_HALF_UP);
-                            } catch (Exception badValueException) {
-                                incorrectVal = true;
-                            }
-                            total = total.add(valueToAdd);
-                            String amountPaid = "0.00";
-                            String errorCode = "";
-                            if (serviceCode.equals("-") && raList.size() > 0) {
-                                amountPaid = raData.getAmountPaid(raList);
-                                errorCode = raData.getErrorCodes(raList);
-                            } else if (raList.size() > 0) {
-                                amountPaid = raData.getAmountPaid(raList, ch1Obj.getId(), ch1Obj.getTransc_id());
-                                errorCode = raData.getErrorCodes(raList);
-                            }
-                            // 3rd party billing
-                            if (ch1Obj.getPay_program().matches("PAT|OCF|ODS|CPP|STD|IFH")) {
-                                amountPaid = ch1Obj.getPaid();
-                            }
-
-                            int qty = ch1Obj.getNumItems();
-
-                            amountPaid = (amountPaid == null || amountPaid.equals("") || amountPaid.equals("null")) ? "0.00" : amountPaid;
-
-                            BigDecimal bTemp;
-                            BigDecimal adj;
-                            try {
-                                bTemp = (new BigDecimal(amountPaid.trim())).setScale(2, BigDecimal.ROUND_HALF_UP);
-                                adj = (new BigDecimal(ch1Obj.getTotal())).setScale(2, BigDecimal.ROUND_HALF_UP);
-                            } catch (NumberFormatException e) {
-                                MiscUtils.getLogger().error("Could not parse amount paid for invoice " + ch1Obj.getId(), e);
-                                throw e;
-                            }
-
-                            paidTotal = paidTotal.add(bTemp);
-                            adj = adj.subtract(bTemp);
-                            adjTotal = adjTotal.add(adj);
-
-                            String color = "";
-
-                            if (invoiceNo.equals(ch1Obj.getId())) {
-                                newInvoice = false;
-                            } else {
-                                newInvoice = true;
-                            }
-                            if (!invoiceNo.equals(ch1Obj.getId())) {
-                                invoiceNo = ch1Obj.getId();
-                                nC = nC ? false : true;
-                            }
-                            color = nC ? "class='success'" : "";
-                            String settleDate = ch1Obj.getSettle_date();
-                            if (settleDate == null || !ch1Obj.getStatus().equals("S")) {
-                                settleDate = "N/A";
-                            } else {
-                                settleDate = settleDate.substring(0, settleDate.indexOf(" "));
-                            }
-
-                            String payProgram = ch1Obj.getPay_program();
-                            boolean b3rdParty = false;
-                            if (payProgram.equals("PAT") || payProgram.equals("OCF") || payProgram.equals("ODS") || payProgram.equals("CPP") || payProgram.equals("STD")) {
-                                b3rdParty = true;
-                            }
-
-                            String cash = formatter.format(ch1Obj.getCashTotal());
-                            String debit = formatter.format(ch1Obj.getDebitTotal());
-
-                            totalCash += ch1Obj.getCashTotal();
-                            totalDebit += ch1Obj.getDebitTotal();
-
-
-                    %>
-                    <tr <%=color %>>
-                        <td style="text-align:center"><carlos:encode value='<%= ch1Obj.getBilling_date() %>' context="html"/>  <%--=ch1Obj.getBilling_time()--%></td>
-                        <!--SERVICE DATE-->
-                        <td style="text-align:center"><carlos:encode value='<%= ch1Obj.getDemographic_no() %>' context="html"/>
-                        </td>
-                        <!--PATIENT-->
-                        <td style="text-align:center" class="<%=hideName?"d-print-none":""%>"><a href=#
-                                                                                                 onclick="popupPage(800,740,'<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<carlos:encode value='<%= ch1Obj.getDemographic_no() %>' context="javaScriptAttribute"/>');return false;"><carlos:encode value='<%= ch1Obj.getDemographic_name() %>' context="html"/>
-                        </a></td>
-                        <td style="text-align:center"><carlos:encode value='<%= ch1Obj.getFacilty_num() != null ? ch1Obj.getFacilty_num() : "" %>' context="html"/>
-                        </td>
-                        <td style="text-align:center"><carlos:encode value='<%= ch1Obj.getStatus() %>' context="html"/>
-                        </td>
-                        <!--STAT-->
-                        <td style="text-align:center"><%=settleDate%>
-                        </td>
-                        <!--SETTLE DATE-->
-                        <td style="text-align:center"><%=getHtmlSpace(ch1Obj.getTransc_id())%>
-                        </td>
-                        <!--CODE-->
-                        <td style="text-align:right"><%=getStdCurr(ch1Obj.getTotal())%>
-                        </td>
-                        <!--BILLED-->
-                        <td style="text-align:right"><%=amountPaid%>
-                        </td>
-                        <!--PAID-->
-                        <td style="text-align:center"><%=adj.toString()%>
-                        </td>
-                        <!--SETTLE DATE-->
-                        <td style="text-align:center"><%=getHtmlSpace(ch1Obj.getRec_id())%>
-                        </td>
-                        <!--DX1-->
-                        <!--td>&nbsp;</td--><!--DX2-->
-                        <td style="text-align:center"><%=payProgram%>
-                        </td>
-                        <td style="text-align:center"><a href=#
-                                                         onclick="popupPage(800,700,'<%= request.getContextPath() %>/billing/CA/ON/BillingONCorrection?billing_no=<%=ch1Obj.getId()%>');nav_colour_swap(this.id, <%=bList.size()%>);return false;"><%=ch1Obj.getId()%>
-                        </a></td>
-                        <!--ACCOUNT-->
-                        <td class="highlightBox"><a id="A<%=i%>" href=#
-                                                    onclick="popupPage(800,700,'<%= request.getContextPath() %>/billing/CA/ON/BillingONCorrection?billing_no=<%=ch1Obj.getId()%>');nav_colour_swap(this.id, <%=bList.size()%>);return false;">Edit</a> <%=errorCode%>
-                        </td>
-                        <!--MESSAGES-->
-                        <td style="text-align:center">$<%=cash%>
-                        </td>
-                        <td style="text-align:center">$<%=debit%>
-                        </td>
-                        <td style="text-align:center"><%=qty %>
-                        </td>
-                        <td style="text-align:center"><%=ch1Obj.getProviderName() %>
-                        </td>
-                        <% if (bMultisites) {%>
-                        <td <%=(ch1Obj.getClinic() == null || ch1Obj.getClinic().equalsIgnoreCase("null") ? "" : "style='background-color:" + siteBgColor.get(ch1Obj.getClinic()) + ";'")%>>
-                            <%=(ch1Obj.getClinic() == null || ch1Obj.getClinic().equalsIgnoreCase("null") ? "" : SafeEncode.forHtml(siteShortName.get(ch1Obj.getClinic())))%>
-                        </td>
-                        <!--SITE-->
-                        <% }%>
-                        <td style="text-align:center" class="d-print-none">
-                            <% if (newInvoice && b3rdParty) { %>
-                            <input type="checkbox" name="invoiceAction" id="invoiceAction<%=invoiceNo%>"
-                                   value="<%=invoiceNo%>"/>
-                            <% }%>
-                        </td>
-                        <!--ACTION-->
-                    </tr>
-                    <% } %>
-                    </tbody>
-                </table>
-                <script>
-                    $('#bListTable').DataTable({
-                        "bPaginate": false,
-                        "order": [],
-                        "language": {
-                            "url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:message key="global.i18n.datatablescode"/>.json"
-                        }
-                    });
-
-                </script>
-                <table>
-                    <tr class="table-warning">
-                        <td>Count:</td>
-                        <td style="text-align:center"><%=patientCount%>
-                        </td>
-                        <td style="text-align:center" class="<%=hideName?"d-print-none":""%>">&nbsp;</td>
-                        <td>&nbsp;</td>
-                        <!--LOCATION-->
-                        <td>&nbsp;</td>
-                        <!--STAT-->
-                        <td>&nbsp;</td>
-                        <td>Total:</td>
-                        <!--CODE-->
-                        <td style="text-align:right">$<%=total.toString()%>
-                        </td>
-                        <!--BILLED-->
-                        <td style="text-align:right"> Paid: $<%=paidTotal.toString()%>
-                        </td>
-                        <!--PAID-->
-                        <td style="text-align:right"> Adj: $<%=adjTotal.toString()%>
-                        </td>
-                        <!--ADJUSTMENTS-->
-                        <td>&nbsp;</td>
-                        <!--DX-->
-                        <td>&nbsp;</td>
-                        <!--TYPE-->
-                        <td>&nbsp;</td>
-                        <!--ACCOUNT-->
-                        <td>&nbsp;</td>
-                        <!--MESSAGES-->
-                        <td style="text-align:center">Cash: $<%=formatter.format(totalCash)%>
-                        </td>
-                        <td style="text-align:center">Debit: $<%=formatter.format(totalDebit) %>
-                        </td>
-                        <td style="text-align:center">&nbsp;</td>
-                        <td>&nbsp;</td>
-                        <!--PROVIDER-->
-                        <% if (bMultisites) {%>
-                        <td>&nbsp;</td>
-                        <!--SITE-->
-                        <% }%>
-                        <td style="text-align:center" class="d-print-none">
-                            <a href="#" onClick="submitForm('print')">
-                                <fmt:message key="billing.billingStatus.print"/>
-                            </a>
-                                <%-- <a href="#" onClick="submitForm('email')">
-                                    <fmt:message key="billing.billingStatus.email"/>
-                                </a> --%>
-                        </td>
-                    </tr>
-                </table><!-- inner -->
-                <%if (bList != null && !bList.isEmpty()) {%>
-                <a download="carlos_invoices.xls" href="#"
-                   onclick="return TableExport.excel(this, 'bListTable', 'CARLOS Invoices');">Export to Excel</a>
-                <a download="carlos_invoices.csv" href="#" onclick="return TableExport.csv(this, 'bListTable');">Export
-                    to CSV</a>
-                <%} %>
-                <% } %>
-            </table> <!-- outer -->
-            <script>
-                $('#rejectTbl').DataTable({
-                    "bPaginate": false,
-                    "order": [],
-                    "language": {
-                        "url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:message key="global.i18n.datatablescode"/>.json"
-                    }
-                });
-
-            </script>
+                        });
+                    </script>
+                    <table>
+                        <tr class="table-warning">
+                            <td>Count:</td>
+                            <td style="text-align:center">${statusModel.patientCount}</td>
+                            <td style="text-align:center" class="${statusModel.hideName ? 'd-print-none' : ''}">&nbsp;</td>
+                            <td>&nbsp;</td>
+                            <td>&nbsp;</td>
+                            <td>&nbsp;</td>
+                            <td>Total:</td>
+                            <td style="text-align:right">$<carlos:encode value='${statusModel.totalBilled}' context='html'/></td>
+                            <td style="text-align:right"> Paid: $<carlos:encode value='${statusModel.totalPaid}' context='html'/></td>
+                            <td style="text-align:right"> Adj: $<carlos:encode value='${statusModel.totalAdjustments}' context='html'/></td>
+                            <td>&nbsp;</td>
+                            <td>&nbsp;</td>
+                            <td>&nbsp;</td>
+                            <td>&nbsp;</td>
+                            <td style="text-align:center">Cash: $<carlos:encode value='${statusModel.totalCash}' context='html'/></td>
+                            <td style="text-align:center">Debit: $<carlos:encode value='${statusModel.totalDebit}' context='html'/></td>
+                            <td style="text-align:center">&nbsp;</td>
+                            <td>&nbsp;</td>
+                            <c:if test="${statusModel.multisites}">
+                                <td>&nbsp;</td>
+                            </c:if>
+                            <td style="text-align:center" class="d-print-none">
+                                <a href="#" onClick="submitForm('print')">
+                                    <fmt:message key="billing.billingStatus.print"/>
+                                </a>
+                                    <%-- <a href="#" onClick="submitForm('email')">
+                                        <fmt:message key="billing.billingStatus.email"/>
+                                    </a> --%>
+                            </td>
+                        </tr>
+                    </table>
+                    <c:if test="${not empty statusModel.billRows}">
+                        <a download="carlos_invoices.xls" href="#"
+                           onclick="return TableExport.excel(this, 'bListTable', 'CARLOS Invoices');">Export to Excel</a>
+                        <a download="carlos_invoices.csv" href="#" onclick="return TableExport.csv(this, 'bListTable');">Export
+                            to CSV</a>
+                    </c:if>
+                </c:otherwise>
+            </c:choose>
         </form>
     </div>
     <!-- end container -->
     </body>
-    <%! String getStdCurr(String s) {
-        if (s != null) {
-            if (s.indexOf(".") >= 0) {
-                s += "00".substring(0, 3 - s.length() + s.indexOf("."));
-            } else {
-                s = s + ".00";
-            }
-        }
-        return s;
-    }
-
-        String getHtmlSpace(String s) {
-            String ret = s == null ? "&nbsp;" : s;
-            return ret;
-        }
-
-        String ch2StdCurrFromNoDot(String s) {
-            if (s != null) {
-                if (s.indexOf(".") <= 0) {
-                    if (s.length() > 2) {
-                        s = s.substring(0, (s.length() - 2)) + "." + s.substring((s.length() - 2));
-                    } else if (s.length() == 1) {
-                        s = "0.0" + s;
-                    } else {
-                        s = "0." + s;
-                    }
-                }
-            }
-            return s;
-        }
-    %>
 </html>

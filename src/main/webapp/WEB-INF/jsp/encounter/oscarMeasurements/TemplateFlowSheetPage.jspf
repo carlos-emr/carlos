@@ -176,6 +176,7 @@
 <html>
 
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
 <title><carlos:encode value='<%= flowSheet %>' context="html"/> - <oscar:nameage demographicNo="<%= safeDemoNoHtml %>"/></title><!--I18n-->
 
 <script type="text/javascript" src="${ pageContext.request.contextPath }/share/javascript/Oscar.js"></script>
@@ -751,20 +752,26 @@ div.recommendations ul{
     <div class="headPrevention">
 
         <p class="noborder" <%=extraColour%> title="fade=[on] header=[<carlos:encode value='<%= (String) h2.get("display_name") %>' context="htmlAttribute"/>] body=[<%=wrapWithSpanIfNotNull(mi.getWarning(measure),"red")%><%=wrapWithSpanIfNotNull(mi.getRecommendation(measure),"red")%><carlos:encode value='<%= (String) h2.get("guideline") %>' context="htmlAttribute"/>]"   >
-        <c:set var="__enc_1"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(measure) %>' context="uriComponent"/></c:set>
+        <%
+            String safeMeasureUri = SafeEncode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(measure));
+            String safeGraphMeasurementUrl = SafeEncode.forJavaScriptAttribute(
+                    request.getContextPath() + "/encounter/GraphMeasurements?demographic_no=" + safeDemoNoUri + "&type=" + safeMeasureUri);
+            String safeAddMeasurementUrl = SafeEncode.forJavaScriptAttribute(
+                    request.getContextPath() + "/encounter/oscarMeasurements/ViewAddMeasurementData?measurement=" + safeMeasureUri
+                            + "&demographic_no=" + safeDemoNoUri + "&template=" + safeTempUri);
+        %>
         <input type="checkbox" name="selected_item"                
 value="<%= h.get("name")%>"/>
             <%if(h2.get("graphable") != null && ((String) h2.get("graphable")).equals("yes")){%>
             <%if (alist != null && alist.size() > 1) { %>
-               <img class="DoNotPrint" src="img/chart.gif" alt="Plot"  onclick="window.open('${ pageContext.request.contextPath }/encounter/GraphMeasurements?demographic_no=<%= safeDemoNoJsUri %>&type=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>');"/>
+               <img class="DoNotPrint" src="img/chart.gif" alt="Plot"  onclick="window.open('<%= safeGraphMeasurementUrl %>');"/>
             <%}else{%>
                <img class="DoNotPrint" src="img/chart.gif" alt="Plot"/>
-                        <c:set var="__enc_2"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(measure) %>' context="uriComponent"/></c:set>
 <%}%>
            <%}%>
 
 		   <security:oscarSec roleName="<%=roleName$%>" objectName="_flowsheet" rights="w">
-            <a class="noborder" href="javascript: function myFunction() {return false; }"  onclick="javascript:fsPopup(760,670,'<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewAddMeasurementData?measurement=<carlos:encode value='${__enc_2}' context="javaScriptAttribute"/>&amp;demographic_no=<%= safeDemoNoJsUri %>&amp;template=<%= safeTempJsUri %>','addMeasurementData<%=Math.abs( ((String) h.get("name")).hashCode() ) %>')">
+            <a class="noborder" href="javascript: function myFunction() {return false; }"  onclick="javascript:fsPopup(760,670,'<%= safeAddMeasurementUrl %>','addMeasurementData<%=Math.abs( ((String) h.get("name")).hashCode() ) %>')">
            </security:oscarSec>
                 <span  class="noborder" style="font-weight:bold;"><carlos:encode value='<%= (String) h2.get("display_name") %>' context="html"/></span>
 

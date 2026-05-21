@@ -1,55 +1,53 @@
 <%--
-
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2008-2012 Indivica Inc.
-    
-    This software is made available under the terms of the
-    GNU General Public License, Version 2, 1991 (GPLv2).
-    License details are available via "indivica.ca/gplv2"
-    and "gnu.org/licenses/gpl-2.0.html".
-    
 
-    Now maintained by the CARLOS EMR Project (2026+).
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; version 2
+    of the License.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    CARLOS EMR Project
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
 --%>
-<%@page import="java.nio.charset.Charset" %>
+<%--
+  Purpose: Supports billingLreport in the Ontario billing workflow.
+  Expected request model data includes: lreportModel.
+  Keep request setup in the paired action and use CARLOS encoding helpers
+  for dynamic output rendered by the page.
+--%>
 <%@ page language="java" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
-<%@ page import="java.util.*,io.github.carlos_emr.*,java.io.*,java.net.*,io.github.carlos_emr.carlos.util.*,org.apache.commons.io.FileUtils"
-         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<jsp:useBean id="oscarVariables" class="java.util.Properties" scope="session"/>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%--
+    File-read + XSL-name resolution moved to BillingLegacyReport2Action; the
+    ${lreportModel} request attribute now exposes filename, xslName, and
+    fileContents. _admin.billing w is enforced by the action.
+--%>
 
 <html>
     <head>
-        <script type="text/javascript" src="<%=request.getContextPath()%>/js/global.js"></script>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
+        <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
         <title>MOH Report</title>
-        <link rel="stylesheet" href="<%=request.getContextPath()%>/billing.css">
+        <link rel="stylesheet" href="${pageContext.request.contextPath}/billing.css">
         <link rel="stylesheet" type="text/css" media="all"
-              href="<%=request.getContextPath()%>/share/css/extractedFromPages.css"/>
-
-        <%
-            String INBOX = CarlosProperties.getInstance().getProperty("ONEDT_INBOX");
-            String filename = (String) request.getAttribute("filename");
-            if (filename == null) {
-                filename = request.getParameter("filename");
-            }
-
-            String fileContents = null;
-            if (!filename.matches(".*\\.\\..*")) {
-
-                File file = new File(INBOX + "/" + filename);
-                fileContents = FileUtils.readFileToString(file, "UTF-8");
-            } else {
-                fileContents = "";
-            }
-        %>
+              href="${pageContext.request.contextPath}/share/css/extractedFromPages.css"/>
 
         <script>
             <!--
@@ -69,10 +67,10 @@
             }
 
             function displayReport() {
-                var cpath = "<%=request.getContextPath()%>";
-                sname = cpath + "/billing/CA/ON/<%= (filename != null && filename.length() >= 4 && "OU".equals(filename.substring(2, 4))) ? "OU" : "ES" %>.xsl";
+                var cpath = "${pageContext.request.contextPath}";
+                sname = cpath + "/billing/CA/ON/<carlos:encode value='${lreportModel.xslName}' context='javaScript'/>.xsl";
 
-                xml = '<carlos:encode value='<%= fileContents %>' context="javaScriptBlock"/>';
+                xml = '<carlos:encode value="${lreportModel.fileContents}" context="javaScript"/>';
                 try {
                     xsl = loadXMLDoc(sname);
 

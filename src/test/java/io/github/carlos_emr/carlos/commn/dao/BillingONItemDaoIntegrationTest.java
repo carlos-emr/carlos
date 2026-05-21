@@ -125,7 +125,7 @@ public class BillingONItemDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should get active billing items by ch1 ID excluding deleted status")
         void shouldGetActiveBillingItems_byCh1Id() throws Exception {
             int ch1Id1 = createParentHeader(), ch1Id2 = createParentHeader();
-            String status1 = "D", status2 = "Active";
+            String status1 = "D", status2 = "O";
 
             BillingONItem bONI1 = new BillingONItem();
             EntityDataGenerator.generateTestDataForModelClass(bONI1);
@@ -287,7 +287,7 @@ public class BillingONItemDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find billing items by ch1 ID and status not equal to given status")
         void shouldFindBillingItems_byCh1IdAndStatusNotEqual() throws Exception {
             int ch1Id1 = createParentHeader(), ch1Id2 = createParentHeader();
-            String status1 = "D", status2 = "Active";
+            String status1 = "D", status2 = "O";
 
             BillingONItem bONI1 = new BillingONItem();
             EntityDataGenerator.generateTestDataForModelClass(bONI1);

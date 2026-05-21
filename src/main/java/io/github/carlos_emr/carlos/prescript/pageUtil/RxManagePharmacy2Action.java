@@ -77,6 +77,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
 
     public String execute() throws IOException, ServletException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        // The pharmacy management view can add/edit clinic pharmacy records, so opening it requires write access.
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", null)) {
             throw new SecurityException("missing required sec object (_rx)");
         }
@@ -105,13 +106,17 @@ public final class RxManagePharmacy2Action extends ActionSupport {
         }
 
         String actionType = this.getPharmacyAction();
+        if (StringUtils.isNullOrEmpty(actionType)) {
+            return SUCCESS;
+        }
+
         RxPharmacyData pharmacy = new RxPharmacyData();
 
-        if (actionType.equals("Add")) {
+        if ("Add".equals(actionType)) {
             pharmacy.addPharmacy(this.getName(), this.getAddress(), this.getCity(), this.getProvince(), this.getPostalCode(), this.getPhone1(), this.getPhone2(), this.getFax(), this.getEmail(), this.getServiceLocationIdentifier(), this.getNotes());
-        } else if (actionType.equals("Edit")) {
+        } else if ("Edit".equals(actionType)) {
             pharmacy.updatePharmacy(this.getID(), this.getName(), this.getAddress(), this.getCity(), this.getProvince(), this.getPostalCode(), this.getPhone1(), this.getPhone2(), this.getFax(), this.getEmail(), this.getServiceLocationIdentifier(), this.getNotes());
-        } else if (actionType.equals("Delete")) {
+        } else if ("Delete".equals(actionType)) {
             pharmacy.deletePharmacy(this.getID());
         }
 
@@ -186,8 +191,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
         pharmacyList = pharmacyData.getPharmacyFromDemographic(demographicNo);
 
         response.setContentType("application/json");
-        ObjectMapper mapper = new ObjectMapper();
-        mapper.writeValue(response.getWriter(), pharmacyList);
+        objectMapper.writeValue(response.getWriter(), pharmacyList);
 
         return null;
     }
@@ -196,9 +200,8 @@ public final class RxManagePharmacy2Action extends ActionSupport {
         RxPharmacyData pharmacy = new RxPharmacyData();
         try {
             PharmacyInfo pharmacyInfo = pharmacy.addPharmacyToDemographic(request.getParameter("pharmId"), request.getParameter("demographicNo"), request.getParameter("preferredOrder"));
-            ObjectMapper mapper = new ObjectMapper();
             response.setContentType("application/json");
-            mapper.writeValue(response.getWriter(), pharmacyInfo);
+            objectMapper.writeValue(response.getWriter(), pharmacyInfo);
         } catch (Exception e) {
             MiscUtils.getLogger().error("ERROR SETTING PREFERRED ORDER", e);
         }
@@ -267,8 +270,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
 
         try {
             response.setContentType("application/json");
-            ObjectMapper mapper = new ObjectMapper();
-            mapper.writeValue(response.getWriter(), pharmacyInfo);
+            objectMapper.writeValue(response.getWriter(), pharmacyInfo);
 
         } catch (IOException e) {
             MiscUtils.getLogger().error("Error writing response", e);
@@ -286,10 +288,9 @@ public final class RxManagePharmacy2Action extends ActionSupport {
         List<PharmacyInfo> pharmacyList = pharmacy.searchPharmacy(searchStr);
 
         response.setContentType("application/json");
-        ObjectMapper mapper = new ObjectMapper();
 
         try {
-            mapper.writeValue(response.getWriter(), pharmacyList);
+            objectMapper.writeValue(response.getWriter(), pharmacyList);
         } catch (IOException e) {
             MiscUtils.getLogger().error("ERROR WRITING RESPONSE ", e);
         }
@@ -305,12 +306,11 @@ public final class RxManagePharmacy2Action extends ActionSupport {
         RxPharmacyData pharmacy = new RxPharmacyData();
 
         response.setContentType("application/json");
-        ObjectMapper mapper = new ObjectMapper();
 
         List<String> cityList = pharmacy.searchPharmacyCity(searchStr);
 
         try {
-            mapper.writeValue(response.getWriter(), cityList);
+            objectMapper.writeValue(response.getWriter(), cityList);
         } catch (IOException e) {
             MiscUtils.getLogger().error("ERROR WRITING RESPONSE ", e);
         }

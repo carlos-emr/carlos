@@ -1,6 +1,7 @@
 <%--
-
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -16,17 +17,13 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-    This software was written for the
-    Department of Family Medicine
-    McMaster University
-    Hamilton
-    Ontario, Canada
-
-
-    Now maintained by the CARLOS EMR Project (2026+).
+    CARLOS EMR Project
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
+--%>
+<%--
+  Page role: Renders `clients.jsp` for the administration area.
+  Keep request setup in the paired action and use CARLOS encoding helpers
+  for dynamic output rendered by the page.
 --%>
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
@@ -55,10 +52,11 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:message key="admin.api.clients.title"/></title>
         <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
-        <link href="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css">
+        <link href="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css">
         <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
         <link rel="stylesheet" href="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.14.2.min.css">
 
@@ -67,8 +65,8 @@
         <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery.validate-1.21.0.min.js"></script>
-        <script type="text/javascript" src="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
-        <script type="text/javascript" src="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
+        <script type="text/javascript" src="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js"></script>
+        <script type="text/javascript" src="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.11/js/dataTables.bootstrap5.min.js"></script>
         <script type="text/javascript" language="JavaScript"
                 src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
 
@@ -83,7 +81,7 @@
 
             function listClients() {
                 $("#clientTable tbody").find("tr").remove();
-                jQuery.getJSON("clientManage.json", {method: "list"},
+                jQuery.getJSON("clientManage.json.jsp", {method: "list"},
                     function (data, textStatus) {
                         for (var x = 0; x < data.length; x++) {
                             var id = data[x].id;
@@ -110,7 +108,7 @@
             function listTokens() {
                 $("#tokenTable tbody").find("tr").remove();
 
-                jQuery.getJSON("clientManage.json", {method: "listTokens"},
+                jQuery.getJSON("clientManage.json.jsp", {method: "listTokens"},
                     function (data, textStatus) {
 
 
@@ -139,7 +137,7 @@
 
 
             function deleteClient(id) {
-                jQuery.post("clientManage.json", {
+                jQuery.post("clientManage.json.jsp", {
                         method: "delete",
                         id: id
                     },
@@ -166,7 +164,7 @@
                             var name = $("#clientName").val();
                             var uri = $("#clientURI").val();
                             var lifetime = $("#lifetime").val();
-                            jQuery.post("clientManage.json",
+                            jQuery.post("clientManage.json.jsp",
                                 {
                                     method: "add",
                                     name: name,

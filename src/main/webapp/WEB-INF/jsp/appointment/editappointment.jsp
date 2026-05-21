@@ -1,6 +1,7 @@
 <%--
-
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -16,17 +17,8 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-    This software was written for the
-    Department of Family Medicine
-    McMaster University
-    Hamilton
-    Ontario, Canada
-
-
-    Now maintained by the CARLOS EMR Project (2026+).
+    CARLOS EMR Project
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
 --%>
 <!DOCTYPE html>
 
@@ -85,7 +77,7 @@
 <%@ page import="io.github.carlos_emr.carlos.managers.LookupListManager" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.data.EctFormData" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnConstants" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.AppointmentTypeDao" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.appt.ApptUtil" %>
@@ -233,11 +225,11 @@
 
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title><fmt:message key="appointment.editappointment.title"/></title>
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <script src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <script src="${pageContext.request.contextPath}/js/checkDate.js"></script>
-        <script src="${pageContext.request.contextPath}/share/javascript/Oscar.js"></script>
 
         <style>
 
@@ -830,7 +822,7 @@
 
 <div id="editAppointment" >
     <div class="container" >
-<form name="EDITAPPT" METHOD="post" ACTION="<%=request.getContextPath() %>/appointment/appointmentcontrol" onSubmit="return(onSub())">
+<form name="EDITAPPT" METHOD="post" ACTION="<%=request.getContextPath() %>/appointment/UpdateRecord" onSubmit="return(onSub())">
     <input type="hidden" name="displaymode" value="">
     <input type="hidden" name="buttoncancel" value="">
     <%-- jsAlertBanner is always rendered unconditionally so showJSAlert() can always find it in the DOM --%>
@@ -1023,6 +1015,7 @@
                         <input type="hidden" name="limit2" value="5">
                         <input type="hidden" name="ptstatus" value="active">
                         <input type="submit" name="searchBtn" id="searchBtn" class="btn btn-primary" style="margin-bottom:10px;"
+                               formaction="<%=request.getContextPath() %>/demographic/DemographicSearch"
                                onclick="parseSearch();document.forms['EDITAPPT'].displaymode.value='Search '"
                                value="<fmt:message key="appointment.editappointment.btnSearch"/>">
                     </td>
@@ -1380,18 +1373,22 @@
             <tr>
                 <% if (!bMultipleSameDayGroupAppt) { %>
                 <td style="text-align: left;"><input type="submit" class="btn btn-primary" id="updateButton"
+                                                     formaction="<%=request.getContextPath() %>/appointment/UpdateRecord"
                                                      onclick="document.forms['EDITAPPT'].displaymode.value='Update Appt'; onButUpdate();"
                                                      value="<fmt:message key="appointment.editappointment.btnUpdateAppointment"/>">
                     <% if (!props.getProperty("allowMultipleSameDayGroupAppt", "").equalsIgnoreCase("no")) {%>
                     <input type="submit" id="groupButton" class="btn btn-secondary"
+                           formaction="<%=request.getContextPath() %>/appointment/appointmentgrouprecords"
                            onclick="document.forms['EDITAPPT'].displaymode.value='Group Action'; onButUpdate();"
                            value="<fmt:message key="appointment.editappointment.btnGroupAction"/>">
                     <% }%>
                     <input type="submit" id="printReceiptButton" class="btn btn-secondary"
+                           formaction="<%=request.getContextPath() %>/appointment/UpdateRecord"
                            onclick="document.forms['EDITAPPT'].displaymode.value='Update Appt';document.forms['EDITAPPT'].printReceipt.value='1';"
                            value="<fmt:message key='appointment.editappointment.btnPrintReceipt'/>">
                     <input type="hidden" name="printReceipt" value="">
                     <input type="submit" class="btn btn-danger" id="deleteButton"
+                           formaction="<%=request.getContextPath() %>/appointment/DeleteRecord"
                            onclick="document.forms['EDITAPPT'].displaymode.value='Delete Appt'; onButDelete();"
                            value="<fmt:message key="appointment.editappointment.btnDeleteAppointment"/>">
                     <input type="button" id="cancelButton" class="btn btn-dark"
@@ -1400,19 +1397,19 @@
                     <input type="button"
                            name="noShowButton" id="noShowButton" class="btn btn-secondary"
                            value="<fmt:message key="appointment.editappointment.btnNoShow"/>"
-                           onClick="document.EDITAPPT.displaymode.value='Update Appt';document.EDITAPPT.buttoncancel.value='No Show';document.EDITAPPT.submit();">
+                           onClick="document.EDITAPPT.action='<%=request.getContextPath() %>/appointment/UpdateRecord';document.EDITAPPT.displaymode.value='Update Appt';document.EDITAPPT.buttoncancel.value='No Show';document.EDITAPPT.submit();">
                     <br>
                     <a class="btn"
-                       onClick="window.location='<%=request.getContextPath() %>/appointment/appointmentcontrol?displaymode=PrintCard&appointment_no=' + encodeURIComponent(document.forms['EDITAPPT'].appointment_no.value)">
+                       onClick="window.location='<%=request.getContextPath() %>/appointment/appointmentviewrecordcard?appointment_no=' + encodeURIComponent(document.forms['EDITAPPT'].appointment_no.value)">
                         <i class="fa-solid fa-print"></i>&nbsp;<fmt:message key="appointment.editappointment.btnPrintCard"/></a>
                     <a class="btn"
                        onClick="window.open('<%=request.getContextPath() %>/demographic/ViewDemographicLabelPrintSetting?demographic_no=' + encodeURIComponent(document.EDITAPPT.demographic_no.value), 'labelprint','height=550,width=700,location=no,scrollbars=yes,menubars=no,toolbars=no')">
                         <i class="fa-solid fa-print"></i>&nbsp;<fmt:message key="appointment.editappointment.btnLabelPrint"/></a>
                     <a class="btn"
-                       onclick="document.forms['EDITAPPT'].displaymode.value='Cut';localStorage.setItem('copyPaste','1');document.forms['EDITAPPT'].submit();">
+                       onclick="document.forms['EDITAPPT'].action='<%=request.getContextPath() %>/appointment/CutRecord';document.forms['EDITAPPT'].displaymode.value='Cut';localStorage.setItem('copyPaste','1');document.forms['EDITAPPT'].submit();">
                         <i class="fa-solid fa-scissors"></i>&nbsp;<fmt:message key="appointment.appointmentedit.cut"/></a>
                     <a class="btn"
-                       onclick="document.forms['EDITAPPT'].displaymode.value='Copy';localStorage.setItem('copyPaste','1');document.forms['EDITAPPT'].submit();">
+                       onclick="document.forms['EDITAPPT'].action='<%=request.getContextPath() %>/appointment/appointmentcopyrecord';document.forms['EDITAPPT'].displaymode.value='Copy';localStorage.setItem('copyPaste','1');document.forms['EDITAPPT'].submit();">
                         <i class="fa-solid fa-copy"></i>&nbsp;<fmt:message key="appointment.appointmentedit.copy"/> </a>
                     <% if (!props.getProperty("allowMultipleSameDayGroupAppt", "").equalsIgnoreCase("no")) {%>
                     <input type="button" id="repeatButton" class="btn"
@@ -1470,7 +1467,8 @@
             <%
                 java.text.SimpleDateFormat fm = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
                 for (int i = 0; i < cheader1s.size(); i++) {
-                    if (cheader1s.get(i).getPayProgram().matches(BillingDataHlp.BILLINGMATCHSTRING_3RDPARTY)) {
+                    String payProgram = cheader1s.get(i).getPayProgram();
+                    if (payProgram != null && payProgram.matches(BillingOnConstants.BILLINGMATCHSTRING_3RDPARTY)) {
                         BigDecimal payment = billingOnExtDao.getAccountVal(cheader1s.get(i).getId(), billingOnExtDao.KEY_PAYMENT);
                         BigDecimal discount = billingOnExtDao.getAccountVal(cheader1s.get(i).getId(), billingOnExtDao.KEY_DISCOUNT);
                         BigDecimal credit = billingOnExtDao.getAccountVal(cheader1s.get(i).getId(), billingOnExtDao.KEY_CREDIT);

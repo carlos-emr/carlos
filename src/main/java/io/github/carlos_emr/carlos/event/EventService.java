@@ -28,7 +28,7 @@
  */
 package io.github.carlos_emr.carlos.event;
 
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 import org.springframework.context.ApplicationEventPublisher;
@@ -54,8 +54,8 @@ public class EventService implements ApplicationEventPublisherAware {
         if (logger.isDebugEnabled()) {
             logger.debug("appointmentStatusChanged thrown by {} appt# {} status {}",
                     source.getClass().getName(),
-                    LogSanitizer.sanitize(appointment_no),
-                    LogSanitizer.sanitize(status));
+                    LogSafe.sanitize(appointment_no),
+                    LogSafe.sanitize(status));
         }
 
         applicationEventPublisher.publishEvent(new AppointmentStatusChangeEvent(source, appointment_no, provider_no, status));

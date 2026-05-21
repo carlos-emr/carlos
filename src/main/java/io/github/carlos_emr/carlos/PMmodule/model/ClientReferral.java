@@ -32,6 +32,9 @@ import java.io.Serializable;
 /**
  * This is the object class that relates to the client_referral table. Any customizations belong here.
  */
+@jakarta.persistence.Entity
+@jakarta.persistence.Table(name = "client_referral")
+@jakarta.persistence.Access(jakarta.persistence.AccessType.PROPERTY)
 public class ClientReferral implements Serializable {
 
     public static String STATUS_REJECTED = "rejected";
@@ -61,6 +64,7 @@ public class ClientReferral implements Serializable {
     private String _programType;
     private String selectVacancy; //vacancy name
     private String vacancyTemplateName; // not mapped in HBM
+    @jakarta.persistence.Column(name = "vacancy_id")
 
     public Integer getVacancyId() {
         return vacancyId;
@@ -97,6 +101,7 @@ public class ClientReferral implements Serializable {
         this.setProgramId(_programId);
         initialize();
     }
+    @jakarta.persistence.Transient
 
     public String getProviderFormattedName() {
         return getProviderLastName() + "," + getProviderFirstName();
@@ -111,6 +116,9 @@ public class ClientReferral implements Serializable {
      * <p>
      * generator-class="native" column="referral_id"
      */
+    @jakarta.persistence.Id
+    @jakarta.persistence.GeneratedValue(strategy = jakarta.persistence.GenerationType.IDENTITY)
+    @jakarta.persistence.Column(name = "referral_id")
     public Long getId() {
         return _id;
     }
@@ -128,6 +136,7 @@ public class ClientReferral implements Serializable {
     /**
      * Return the value associated with the column: client_id
      */
+    @jakarta.persistence.Column(name = "client_id", nullable = false)
     public Long getClientId() {
         return _clientId;
     }
@@ -144,6 +153,8 @@ public class ClientReferral implements Serializable {
     /**
      * Return the value associated with the column: referral_date
      */
+    @jakarta.persistence.Temporal(jakarta.persistence.TemporalType.TIMESTAMP)
+    @jakarta.persistence.Column(name = "referral_date")
     public java.util.Date getReferralDate() {
         return _referralDate;
     }
@@ -160,6 +171,7 @@ public class ClientReferral implements Serializable {
     /**
      * Return the value associated with the column: provider_no
      */
+    @jakarta.persistence.Column(name = "provider_no")
     public String getProviderNo() {
         return _providerNo;
     }
@@ -176,6 +188,7 @@ public class ClientReferral implements Serializable {
     /**
      * Return the value associated with the column: notes
      */
+    @jakarta.persistence.Column(name = "notes")
     public String getNotes() {
         return _notes;
     }
@@ -188,6 +201,7 @@ public class ClientReferral implements Serializable {
     public void setNotes(String _notes) {
         this._notes = _notes;
     }
+    @jakarta.persistence.Column(name = "present_problems")
 
     public String getPresentProblems() {
         return presentProblems;
@@ -196,6 +210,7 @@ public class ClientReferral implements Serializable {
     public void setPresentProblems(String presentProblems) {
         this.presentProblems = presentProblems;
     }
+    @jakarta.persistence.Column(name = "radioRejectionReason", length = 10)
 
     public String getRadioRejectionReason() {
         return radioRejectionReason;
@@ -208,6 +223,7 @@ public class ClientReferral implements Serializable {
     /**
      * Return the value associated with the column: completion_notes
      */
+    @jakarta.persistence.Column(name = "completion_notes")
     public String getCompletionNotes() {
         return _completionNotes;
     }
@@ -224,6 +240,7 @@ public class ClientReferral implements Serializable {
     /**
      * Return the value associated with the column: program_id
      */
+    @jakarta.persistence.Column(name = "program_id", nullable = false)
     public Long getProgramId() {
         return _programId;
     }
@@ -240,6 +257,7 @@ public class ClientReferral implements Serializable {
     /**
      * Return the value associated with the column: status
      */
+    @jakarta.persistence.Column(name = "status", length = 30)
     public String getStatus() {
         return _status;
     }
@@ -256,6 +274,7 @@ public class ClientReferral implements Serializable {
     /**
      * Return the value associated with the column: temporary_admission_flag
      */
+    @jakarta.persistence.Column(name = "temporary_admission_flag")
     public boolean isTemporaryAdmission() {
         return _temporaryAdmission;
     }
@@ -272,6 +291,8 @@ public class ClientReferral implements Serializable {
     /**
      * Return the value associated with the column: completion_date
      */
+    @jakarta.persistence.Temporal(jakarta.persistence.TemporalType.TIMESTAMP)
+    @jakarta.persistence.Column(name = "completion_date")
     public java.util.Date getCompletionDate() {
         return _completionDate;
     }
@@ -288,6 +309,7 @@ public class ClientReferral implements Serializable {
     /**
      * Return the value associated with the column: ProviderLastName
      */
+    @org.hibernate.annotations.Formula("(select p.last_name from provider p where p.provider_no = provider_no)")
     public String getProviderLastName() {
         return _providerLastName;
     }
@@ -304,6 +326,7 @@ public class ClientReferral implements Serializable {
     /**
      * Return the value associated with the column: ProviderFirstName
      */
+    @org.hibernate.annotations.Formula("(select p.first_name from provider p where p.provider_no = provider_no)")
     public String getProviderFirstName() {
         return _providerFirstName;
     }
@@ -320,6 +343,7 @@ public class ClientReferral implements Serializable {
     /**
      * Return the value associated with the column: ProgramName
      */
+    @org.hibernate.annotations.Formula("(select p.name from program p where p.id = program_id)")
     public String getProgramName() {
         return _programName;
     }
@@ -336,6 +360,7 @@ public class ClientReferral implements Serializable {
     /**
      * Return the value associated with the column: programType
      */
+    @org.hibernate.annotations.Formula("(select p.type from program p where p.id = program_id)")
     public String getProgramType() {
         return _programType;
     }
@@ -373,6 +398,7 @@ public class ClientReferral implements Serializable {
     public String toString() {
         return super.toString();
     }
+    @jakarta.persistence.Column(name = "facility_id")
 
     public Integer getFacilityId() {
         return facilityId;
@@ -381,6 +407,7 @@ public class ClientReferral implements Serializable {
     public void setFacilityId(Integer facilityId) {
         this.facilityId = facilityId;
     }
+    @jakarta.persistence.Column(name = "select_vacancy")
 
     public String getSelectVacancy() {
         return selectVacancy;
@@ -389,6 +416,7 @@ public class ClientReferral implements Serializable {
     public void setSelectVacancy(String selectVacancy) {
         this.selectVacancy = selectVacancy;
     }
+    @jakarta.persistence.Transient
 
     public String getVacancyTemplateName() {
         return vacancyTemplateName;

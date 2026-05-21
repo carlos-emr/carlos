@@ -32,6 +32,7 @@
 <html>
 <%@ page import="io.github.carlos_emr.carlos.eform.data.*, io.github.carlos_emr.carlos.eform.*, java.util.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
@@ -40,6 +41,7 @@
     String status = (String) request.getAttribute("status");
 %>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script src="${pageContext.request.contextPath}/js/global.js"></script>
     <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
     <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
@@ -68,7 +70,7 @@
     </div>
 
     <script>
-        window.top.location.href = "<%=request.getContextPath()%>/administration/?show=Forms";
+        window.top.location.href = "<%=request.getContextPath()%>/administration?show=Forms";
     </script>
 
 </c:if>
@@ -88,14 +90,14 @@
     <div class="action-errors">
         <ul>
             <% for (String error : actionErrors) { %>
-                <li><%= error %></li>
+                <li><carlos:encode value='<%= error %>' context="html"/></li>
             <% } %>
         </ul>
     </div>
 <% } %>
         <ul>
             <%for (String importError : importErrors) {%>
-            <li class="text-danger"><%=importError%>
+            <li class="text-danger"><carlos:encode value='<%= importError %>' context="html"/>
             </li>
             <%}%>
         </ul>

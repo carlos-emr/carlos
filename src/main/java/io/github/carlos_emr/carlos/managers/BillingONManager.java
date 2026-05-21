@@ -212,7 +212,8 @@ public class BillingONManager {
     private void addBillingComment(String comment, Integer invoiceNo, Locale locale) {
         BillingONCHeader1 billingONCHeader1 = billingONCHeader1Dao.find(invoiceNo);
         //Log that we printed the invoice in billing comments
-        StringBuilder sb = new StringBuilder(billingONCHeader1.getComment().trim());
+        String existingComment = billingONCHeader1.getComment();
+        StringBuilder sb = new StringBuilder(existingComment == null ? "" : existingComment.trim());
 
         if (!sb.toString().isEmpty()) {
             sb.append("\n");

@@ -1,6 +1,7 @@
 <%--
-
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -16,17 +17,13 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-    This software was written for the
-    Department of Family Medicine
-    McMaster University
-    Hamilton
-    Ontario, Canada
-
-
-    Now maintained by the CARLOS EMR Project (2026+).
+    CARLOS EMR Project
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
+--%>
+<%--
+  Page role: Renders `DrilldownDisplay.jsp` for the CARLOS EMR workflow.
+  Keep request setup in the paired action and use CARLOS encoding helpers
+  for dynamic output rendered by the page.
 --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
@@ -42,6 +39,7 @@
 <!DOCTYPE html >
 <html lang="">
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title>Dashboard Drilldown</title>
 
     <link rel="stylesheet" type="text/css"
@@ -49,7 +47,7 @@
     <link rel="stylesheet" type="text/css" href="${ pageContext.request.contextPath }/css/fontawesome-all.min.css"/>
     <link rel="stylesheet" type="text/css" href="${ pageContext.request.contextPath }/web/css/Dashboard.css"/>
     <link rel="stylesheet" type="text/css"
-          href="${ pageContext.request.contextPath }/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css"/>
+          href="${ pageContext.request.contextPath }/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css"/>
     <script>var ctx = "${pageContext.request.contextPath}"</script>
     <script type="text/javascript"
             src="${ pageContext.request.contextPath }/library/jquery/jquery-3.7.1.min.js"></script>
@@ -57,9 +55,9 @@
     <script type="text/javascript"
             src="${ pageContext.request.contextPath }/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
     <script type="text/javascript"
-            src="${ pageContext.request.contextPath }/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
+            src="${ pageContext.request.contextPath }/library/DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js"></script>
     <script type="text/javascript"
-            src="${ pageContext.request.contextPath }/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
+            src="${ pageContext.request.contextPath }/library/DataTables/DataTables-1.13.11/js/dataTables.bootstrap5.min.js"></script>
     <script type="text/javascript"
             src="${ pageContext.request.contextPath }/library/jquery/jquery-ui-1.14.2.min.js"></script>
     <script type="text/javascript" src="${ pageContext.request.contextPath }/library/datetime-sort.js"></script>
@@ -414,7 +412,7 @@
                 <div class="modal-footer">
                     <form method="post" action="${ pageContext.request.contextPath }/web/dashboard/display/BulkPatientAction" style="display:inline">
                         <input type="hidden" name="method" value="addToDiseaseRegistry"/>
-                        <input type="hidden" name="dxUpdateICD9Code" value="${ fn:escapeXml(drilldown.dxUpdateICD9Code) }"/>
+                        <input type="hidden" name="dxUpdateICD9Code" value="${carlos:forHtmlAttribute(drilldown.dxUpdateICD9Code)}"/>
                         <button type="submit" id="confirmAddToDiseaseRegistry" class="btn btn-primary">Confirm</button>
                     </form>
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -445,7 +443,7 @@
                 <div class="modal-footer">
                     <form method="post" action="${ pageContext.request.contextPath }/web/dashboard/display/BulkPatientAction" style="display:inline">
                         <input type="hidden" name="method" value="excludePatients"/>
-                        <input type="hidden" name="indicatorId" value="${ fn:escapeXml(drilldown.id) }"/>
+                        <input type="hidden" name="indicatorId" value="${carlos:forHtmlAttribute(drilldown.id)}"/>
                         <button type="submit" id="confirmPatientExclusion" class="btn btn-primary">Confirm</button>
                     </form>
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>

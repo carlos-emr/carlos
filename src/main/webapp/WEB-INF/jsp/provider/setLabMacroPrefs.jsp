@@ -155,6 +155,7 @@ UserProperty up = upDao.getProp(curProviderNo, UserProperty.LAB_MACRO_JSON);
 <!DOCTYPE HTML>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
 
 <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
 <title><fmt:message key="provider.labMacroPrefs.msgPrefs"/></title>
@@ -411,13 +412,13 @@ if (submittedJSON == null && up != null && !StringUtils.isEmpty(up.getValue())) 
 
  <div class="mb-3 row" id="macro_<%=x%>">
     <div class="col-sm-2">
-        <label for="name_<%=x%>"><fmt:message key="global.macro" /></label><br><input type="text" id="name_<%=x%>" class="form-control form-control-sm" placeholder="<fmt:message key="name" />" value="<carlos:encode value='<%= name %>' context="html"/>">
+        <label for="name_<%=x%>"><fmt:message key="global.macro" /></label><br><input type="text" id="name_<%=x%>" class="form-control form-control-sm" placeholder="<fmt:message key="name" />" value="<carlos:encode value='<%= name %>' context="htmlAttribute"/>">
     </div>
     <div class="col-sm-3">
         <label for="comment_<%=x%>"><fmt:message key="provider.appointmentprovideradminmonth.btnLab" />&nbsp;<fmt:message key="oscarMDS.segmentDisplay.btnComment" /></label><br><input type="text" id="comment_<%=x%>" class="form-control form-control-sm" value="<carlos:encode value='<%= comment %>' context="htmlAttribute"/>" placeholder="<fmt:message key="oscarMDS.segmentDisplay.btnComment" />">
     </div>
     <div class="col-sm-2">
-        <label for="message_<%=x%>"><fmt:message key="global.tickler" /></label><br><input type="text" id="message_<%=x%>" class="form-control form-control-sm w-100" placeholder="<fmt:message key="tickler.ticklerMain.msgMessage" />" value="<carlos:encode value='<%= message %>' context="html"/>">
+        <label for="message_<%=x%>"><fmt:message key="global.tickler" /></label><br><input type="text" id="message_<%=x%>" class="form-control form-control-sm w-100" placeholder="<fmt:message key="tickler.ticklerMain.msgMessage" />" value="<carlos:encode value='<%= message %>' context="htmlAttribute"/>">
     </div>
     <div class="col-sm-2">
         <label for="ticklerTo_<%=x%>"><fmt:message key="tickler.ticklerMain.msgAssignedTo" /></label><br><select id="ticklerTo_<%=x%>" name="ticklerTo_<%=x%>" class="form-select form-select-sm w-100">

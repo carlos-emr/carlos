@@ -174,6 +174,7 @@
 <!DOCTYPE html>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
         <title>
@@ -317,7 +318,7 @@
         <input name="boxType" type="hidden" value="<%=pageType%>">
         <div class="input-group input-group-sm">
             <input name="searchString" type="text" class="form-control" placeholder="<fmt:message key="messenger.DisplayMessages.btnSearch"/>"
-                   value="<carlos:encode value='<%= DisplayMessagesBeanId.getFilter() %>' context="html"/>">
+                   value="<carlos:encode value='<%= DisplayMessagesBeanId.getFilter() %>' context="htmlAttribute"/>">
             <button name="btnSearch" type="submit" class="btn btn-primary" title="<fmt:message key="messenger.DisplayMessages.btnSearch"/>">
                 <i class="fa-solid fa-magnifying-glass"></i>
             </button>

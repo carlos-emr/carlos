@@ -83,9 +83,11 @@
     Locale requestLocale = request.getLocale();
     pageContext.setAttribute("requestLanguageTag", requestLocale != null ? requestLocale.toLanguageTag() : "");
 %>
+<c:set var="flatpickrLanguage" value="${pageContext.request.locale.language == 'es' || pageContext.request.locale.language == 'fr' || pageContext.request.locale.language == 'pl' || pageContext.request.locale.language == 'pt' ? pageContext.request.locale.language : 'en'}"/>
 <!DOCTYPE html>
 <html lang="${requestLanguageTag}">
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <meta charset="UTF-8">
     <title>
         <fmt:message key="oscarReport.RptByExample.MsgQueryByExamples"/> -
@@ -96,11 +98,85 @@
     <link rel="stylesheet" type="text/css" media="all"
           href="${pageContext.request.contextPath}/share/css/extractedFromPages.css">
 
+    <!-- Flatpickr -->
+        <script type="text/javascript" src="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.js"></script>
+        <c:if test="${flatpickrLanguage != 'en'}">
+        <script type="text/javascript" src="${pageContext.request.contextPath}/library/flatpickr/l10n/${carlos:forUriComponent(flatpickrLanguage)}.js"></script>
+        </c:if>
+        <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.css">
+
     <script type="text/javascript">
         function set(text) {
             document.getElementById('newQuery').value = text;
         }
     </script>
+ <script>
+          document.addEventListener("DOMContentLoaded", function () {
+            const localeCode = "${carlos:forJavaScript(flatpickrLanguage)}";
+            const fromPickerOptions = {
+              dateFormat: "Y-m-d",
+              allowInput: true,
+              onChange: syncFrom,
+              onClose: syncFrom
+            };
+            const toPickerOptions = {
+              dateFormat: "Y-m-d",
+              allowInput: true,
+              onChange: syncTo,
+              onClose: syncTo
+            };
+
+            const hasRequestedLocale = localeCode !== "en"
+              && window.flatpickr
+              && flatpickr.l10ns
+              && flatpickr.l10ns[localeCode];
+
+            if (hasRequestedLocale) {
+               fromPickerOptions.locale = localeCode;
+               toPickerOptions.locale = localeCode;
+             }
+
+            const fromPicker = flatpickr("#startDateInput", fromPickerOptions);
+            const toPicker = flatpickr("#endDateInput", toPickerOptions);
+            // Expose pickers so allYear() can update Flatpickr state, not just .value
+            window._FromPicker = fromPicker;
+            window._ToPicker = toPicker;
+        
+            function syncFrom(selectedDates, dateStr, instance) {
+              const fromDate = instance.selectedDates[0];
+              const toDate = toPicker.selectedDates[0];
+        
+              if (fromDate) {
+                toPicker.set("minDate", fromDate);
+        
+                // auto-correct if To < From
+                if (toDate && toDate < fromDate) {
+                  toPicker.setDate(fromDate, true);
+                }
+              } else {
+                toPicker.set("minDate", null);
+              }
+            }
+        
+            function syncTo(selectedDates, dateStr, instance) {
+              const toDate = instance.selectedDates[0];
+              const fromDate = fromPicker.selectedDates[0];
+        
+              if (toDate) {
+                fromPicker.set("maxDate", toDate);
+        
+                // auto-correct if From > To
+                if (fromDate && fromDate > toDate) {
+                  fromPicker.setDate(toDate, true);
+                }
+              } else {
+                fromPicker.set("maxDate", null);
+              }
+            }
+        
+          });
+        </script>
+
 </head>
 <body>
 
@@ -132,16 +208,17 @@
             <label for="startDateInput" class="form-label form-label-sm mb-0">
                 <fmt:message key="oscarReport.RptByExample.MsgAllQueriesExecutedFrom"/>:
             </label>
+            <fmt:message key="yyyy-mm-dd" var="datePlaceholder"/>
             <input type="text" id="startDateInput" name="startDate"
                    value="${carlos:forHtmlAttribute(startDate)}"
-                   class="form-control form-control-sm"
+                   class="form-control form-control-sm" placeholder="${carlos:forHtmlAttribute(datePlaceholder)}"
                    style="width:8em"/>
             <label for="endDateInput" class="form-label form-label-sm mb-0">
                 <fmt:message key="oscarReport.RptByExample.MsgTo"/>
             </label>
             <input type="text" id="endDateInput" name="endDate"
                    value="${carlos:forHtmlAttribute(endDate)}"
-                   class="form-control form-control-sm"
+                   class="form-control form-control-sm" placeholder="${carlos:forHtmlAttribute(datePlaceholder)}"
                    style="width:8em"/>
             <button type="submit" class="btn btn-primary btn-sm"><fmt:message key="oscarReport.RptByExample.MsgRefresh"/></button>
         </form>

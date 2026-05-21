@@ -205,6 +205,7 @@
 <!DOCTYPE html>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title><fmt:message key="tickler.ticklerAdd.title"/></title>
 
         <%
@@ -669,7 +670,7 @@
             }
             ChartNo = bFirstDisp ? "" : request.getParameter("chart_no") == null ? "" : request.getParameter("chart_no");
         %>
-        <form name="ADDAPPT" method="post" action="<%= request.getContextPath() %>/appointment/appointmentcontrol">
+        <form name="ADDAPPT" method="post" action="<%= request.getContextPath() %>/demographic/DemographicSearch">
             <input type="hidden" name="orderby" value="last_name">
             <input type="hidden" name="search_mode" value="<carlos:encode value='<%= searchMode %>' context="htmlAttribute"/>">
             <input type="hidden" name="originalpage" value="<carlos:encode value='<%= request.getContextPath() + "/tickler/ViewAddTickler" %>' context="htmlAttribute"/>">

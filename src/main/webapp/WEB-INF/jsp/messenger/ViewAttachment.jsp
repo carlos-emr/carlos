@@ -85,7 +85,7 @@
 <%@ page import="java.util.*, org.w3c.dom.*" %>
 <%@ page import="io.github.carlos_emr.carlos.messenger.docxfer.util.MsgCommxml" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilXML" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -121,6 +121,7 @@
 <!DOCTYPE html>
 <html lang="${pageContext.request.locale.language}">
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <meta charset="UTF-8">
     <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
     <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/messenger/encounterStyles.css">
@@ -281,7 +282,7 @@
         void DrawDoc(Element root, JspWriter out, String rootLabel)
                 throws jakarta.servlet.jsp.JspException, java.io.IOException {
             String safeRootLabel = rootLabel == null ? "" : rootLabel;
-            out.print(spanStartRoot + Encode.forHtml(safeRootLabel) + spanEnd);
+            out.print(spanStartRoot + SafeEncode.forHtml(safeRootLabel) + spanEnd);
             out.print(tblStartRoot);
 
             NodeList lst = root.getChildNodes();
@@ -296,7 +297,7 @@
 
         void DrawTable(Element tbl, JspWriter out)
                 throws jakarta.servlet.jsp.JspException, java.io.IOException {
-            out.print(spanStart + Encode.forHtml(tbl.getAttribute("name")) + spanEnd);
+            out.print(spanStart + SafeEncode.forHtml(tbl.getAttribute("name")) + spanEnd);
             out.print(tblStart);
 
             NodeList lst = tbl.getChildNodes();
@@ -315,8 +316,8 @@
                 // String sName = "item" + item.getAttribute("itemId");
                 // out.print("<input type=checkbox name='" + sName + "' onclick='javascript:chkClick();'/>");
             }
-            out.print(Encode.forHtml(item.getAttribute("name")) + ": "
-                    + Encode.forHtml(item.getAttribute("value")) + spanEnd);
+            out.print(SafeEncode.forHtml(item.getAttribute("name")) + ": "
+                    + SafeEncode.forHtml(item.getAttribute("value")) + spanEnd);
             out.print(tblStartContent);
 
             NodeList lst = item.getChildNodes();
@@ -338,9 +339,9 @@
                     Element fld = (Element) lst.item(i);
                     if (fld.getTagName().equals("fld")) {
                         out.print("<tr><td style='font-weight:bold'>");
-                        out.print(Encode.forHtml(fld.getAttribute("name")) + ": ");
+                        out.print(SafeEncode.forHtml(fld.getAttribute("name")) + ": ");
                         out.print("</td><td>");
-                        out.print(Encode.forHtml(fld.getAttribute("value")));
+                        out.print(SafeEncode.forHtml(fld.getAttribute("value")));
                         out.print("</td></tr>");
                     }
                 }
@@ -379,10 +380,10 @@
             <span class="text-muted small">
                 <fmt:message key="messenger.generatePreviewPDF.attachDocFor"/>
             </span>
-            <a href="javascript:popupStart(300,400,'About.jsp')" class="small text-decoration-none">
+            <a href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')" class="small text-decoration-none">
                 <fmt:message key="global.about"/>
             </a>
-            <a href="javascript:popupStart(300,400,'License.jsp')" class="small text-decoration-none">
+            <a href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')" class="small text-decoration-none">
                 <fmt:message key="global.license"/>
             </a>
         </div>
@@ -394,15 +395,15 @@
         <div class="mb-2">
             <button type="button"
                     class="btn btn-outline-secondary btn-sm"
-                    onclick="if (confirm('<%= Encode.forJavaScript((String) pageContext.getAttribute("closeConfirmMsg")) %>')) { top.window.close(); }">
+                    onclick="if (confirm('<%= SafeEncode.forJavaScript((String) pageContext.getAttribute("closeConfirmMsg")) %>')) { top.window.close(); }">
                 <i class="fa-regular fa-circle-xmark" aria-hidden="true"></i>
                 <fmt:message key="messenger.generatePreviewPDF.btnClose"/>
             </button>
         </div>
             <form method="POST" action="<%= request.getContextPath() %>/messenger/AdjustAttachments"><input
                     type="hidden" name="xmlDoc"
-                    value="<%= Encode.forHtmlAttribute(MsgCommxml.encode64(MsgCommxml.toXML(root))) %>"/> <input
-                    type="hidden" name="id" value="<%= Encode.forHtmlAttribute(String.valueOf(request.getAttribute("attId"))) %>"/>
+                    value="<%= SafeEncode.forHtmlAttribute(MsgCommxml.encode64(MsgCommxml.toXML(root))) %>"/> <input
+                    type="hidden" name="id" value="<%= SafeEncode.forHtmlAttribute((String) request.getAttribute("attId")) %>"/>
 
 <table class="MainTable" id="scrollNumber1" name="encounterTable">
 

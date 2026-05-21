@@ -167,7 +167,7 @@
                                 <security:oscarSec roleName="<%=roleName$%>" objectName="_billing" rights="r">
                                     <li>
                                         <a HREF="#"
-                                           ONCLICK="popupPage2('<%= request.getContextPath() %>/billing/CA/<%=prov%>/billingReportCenter.jsp?displaymode=billreport&providerview=<%=curUser_no%>');return false;"
+                                           ONCLICK="popupPage2('<%= request.getContextPath() %>/billing/CA/<%=prov%>/ViewBillingReportCenter?displaymode=billreport&providerview=<%=curUser_no%>');return false;"
                                            TITLE='<fmt:message key="global.genBillReport"/>'
                                            onMouseOver="window.status='<fmt:message key="global.genBillReport"/>';return true"><fmt:message key="global.billing"/></a>
                                     </li>

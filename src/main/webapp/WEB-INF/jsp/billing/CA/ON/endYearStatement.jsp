@@ -1,7 +1,7 @@
-<!DOCTYPE html>
 <%--
-
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2006-. OSCARservice, OpenSoft System. All Rights Reserved.
+
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -17,31 +17,32 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
-    Now maintained by the CARLOS EMR Project (2026+).
+    CARLOS EMR Project
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
 --%>
+<%--
+  Purpose: Supports endYearStatement in the Ontario billing workflow.
+  Keep request setup in the paired action and use CARLOS encoding helpers
+  for dynamic output rendered by the page.
+--%>
+<!DOCTYPE html>
 <%@ page language="java" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri='jakarta.tags.core' prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@ page import="java.util.List" %>
-<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title><fmt:message key="admin.admin.endYearStatement"/></title>
 
-    <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
-    <script type="text/javascript" src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
+    <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
+    <script type="text/javascript" src="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.js"></script>
 
-    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
-    <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet" type="text/css">
-    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+    <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
+    <link href="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.css" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" href="${pageContext.request.contextPath}/css/fontawesome-all.min.css">
 
     <script type="text/javascript">
         function popupPage(vheight, vwidth, varpage) { //open a new popup window
@@ -54,8 +55,8 @@
 
         function demographicSearch() {
             var search_param = document.getElementById('nameForlooksOnly').value;
-            var url = '<%= request.getContextPath() %>/demographic/ViewDemographicSearch2ReportResults';
-            url += '?originalpage=' + encodeURIComponent('<%=request.getContextPath()%>/billing/CA/ON/endYearStatement?demosearch=true');
+            var url = '${pageContext.request.contextPath}/demographic/ViewDemographicSearch2ReportResults';
+            url += '?originalpage=' + encodeURIComponent('${pageContext.request.contextPath}/billing/CA/ON/endYearStatement/demosearch');
             url += '&search_mode=search_name';
             url += '&orderby=last_name, first_name';
             url += '&limit1=0&limit2=5';
@@ -103,39 +104,36 @@
     </style>
 </head>
 
-<%
-    String name = "";
-    if (request.getParameter("firstNameParam") != null && request.getParameter("lastNameParam") != null) {
-        name = request.getParameter("firstNameParam") + " " + request.getParameter("lastNameParam");
-    }
-%>
+
 <body>
 <h3><fmt:message key="admin.admin.endYearStatement"/></h3>
 
 <div class="container-fluid">
 
     <div class="row card card-body bg-body-tertiary">
-        <form action="${pageContext.request.contextPath}/billing/CA/ON/endYearStatement" method="post">
-            <input type="hidden" name="demographicNoParam" id="demographicNoParam"/>
+        <form action="${pageContext.request.contextPath}/billing/CA/ON/endYearStatement/search" method="post">
+            <input type="hidden" name="demographicNoParam" id="demographicNoParam"
+                   value="${carlos:forHtmlAttribute(demographicNoParamEcho)}"/>
 
             <div class="col-md-5">
                 Patient Name: <br>
                 <div class="input-group">
-                    <input class="form-control" id="nameForlooksOnly" type="text" value="<carlos:encode value='<%= name %>' context="htmlAttribute"/>">
+                    <input class="form-control" id="nameForlooksOnly" type="text"
+                           value="${carlos:forHtmlAttribute(not empty patientNameDisplay ? patientNameDisplay : (not empty summary.patientName ? summary.patientName : ''))}">
                     <button class="btn btn-primary" type="button" value="Search" onclick="demographicSearch()"><i
                             class="fa-solid fa-magnifying-glass"></i></button>
                 </div>
             </div>
 
-            <input type="hidden" name="firstNameParam" id="fname" value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("firstNameParam")) %>' context="htmlAttribute"/>"/>
-            <input type="hidden" name="lastNameParam" id="lname" value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("lastNameParam")) %>' context="htmlAttribute"/>"/>
+            <input type="hidden" name="firstNameParam" id="fname" value="${carlos:forHtmlAttribute(firstNameParamEcho)}"/>
+            <input type="hidden" name="lastNameParam" id="lname" value="${carlos:forHtmlAttribute(lastNameParamEcho)}"/>
 
 
             <div class="col-md-2">
                 <label>Start Date:</label>
                 <div class="input-group">
                     <input type="text" class="form-control" style="width:90px" name="fromDateParam" id="fromDateParam"
-                           value="<carlos:encode value='<%= request.getAttribute("fromDateParam") != null ? (String)request.getAttribute("fromDateParam") : "" %>' context="htmlAttribute"/>"
+                           value="${carlos:forHtmlAttribute(empty fromDateParam ? '' : fromDateParam)}"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
@@ -146,17 +144,18 @@
                 <label>End Date:</label>
                 <div class="input-group">
                     <input type="text" class="form-control" style="width:90px" name="toDateParam" id="toDateParam"
-                           value="<carlos:encode value='<%= request.getAttribute("toDateParam") != null ? (String)request.getAttribute("toDateParam") : "" %>' context="htmlAttribute"/>"
+                           value="${carlos:forHtmlAttribute(empty toDateParam ? '' : toDateParam)}"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
             </div>
 
             <div class="col-md-10">
-                <input class="btn btn-secondary" type="submit" name="search" value="Create Statement"
+                <input class="btn btn-secondary" type="submit" value="Create Statement"
                        onclick="return validateFields();">
 
-                <input class="btn btn-secondary" type="submit" name="pdf" value="Print PDF"
+                <input class="btn btn-secondary" type="submit" value="Print PDF"
+                       formaction="${pageContext.request.contextPath}/billing/CA/ON/endYearStatement/pdf"
                        <c:if test="${empty result}">disabled="disabled"</c:if> >
             </div>
         </form>
@@ -164,19 +163,17 @@
 
     <div class="row">
 
-        <div style="color" red
-        "><% 
-    java.util.List<String> actionErrors = (java.util.List<String>) request.getAttribute("actionErrors");
-    if (actionErrors != null && !actionErrors.isEmpty()) {
-%>
-    <div class="action-errors">
-        <ul>
-            <% for (String error : actionErrors) { %>
-                <li><carlos:encode value='<%= error %>' context="html"/></li>
-            <% } %>
-        </ul>
-    </div>
-<% } %></div>
+        <div style="color:red">
+            <c:if test="${not empty actionErrors}">
+                <div class="action-errors">
+                    <ul>
+                        <c:forEach var="err" items="${actionErrors}">
+                            <li><carlos:encode value='${err}' context='html'/></li>
+                        </c:forEach>
+                    </ul>
+                </div>
+            </c:if>
+        </div>
 
     <c:if test="${not empty summary}">
         <table class="table table-striped table-sm">

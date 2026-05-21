@@ -143,6 +143,7 @@
 <html>
 
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title>CARLOS Prevention Review Screen</title><!--I18n-->
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css">
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
@@ -320,8 +321,8 @@
                         </td>
                         <td style="text-align:right">
                             <a
-                                href="javascript:popupStart(300,400,'About.jsp')"><fmt:message key="global.about"/></a>
-                            | <a href="javascript:popupStart(300,400,'License.jsp')"><fmt:message key="global.license"/></a>
+                                href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')"><fmt:message key="global.about"/></a>
+                            | <a href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')"><fmt:message key="global.license"/></a>
                         </td>
                     </tr>
                 </table>

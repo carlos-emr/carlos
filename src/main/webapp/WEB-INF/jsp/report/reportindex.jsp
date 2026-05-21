@@ -128,6 +128,7 @@
 <!DOCTYPE html>
 <html lang="${flatpickrLanguage}">
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <title><fmt:message key="report.reportindex.title"/></title>
 
@@ -396,7 +397,7 @@
                 </td>
                 <td style="width: 10px;"></td>
                 <td style="width: 300px;">
-                  <a href="<%= request.getContextPath() %>/billing/CA/<%=prov%>/billingReportCenter.jsp?displaymode=billreport&amp;providerview=<%=URLEncoder.encode(loggedInInfo1.getLoggedInProviderNo(), StandardCharsets.UTF_8)%>" target="_blank"><fmt:message key="global.genBillReport"/></a></td>
+                  <a href="<%= request.getContextPath() %>/billing/CA/<%=prov%>/ViewBillingReportCenter?displaymode=billreport&amp;providerview=<%=URLEncoder.encode(loggedInInfo1.getLoggedInProviderNo(), StandardCharsets.UTF_8)%>" target="_blank"><fmt:message key="global.genBillReport"/></a></td>
                 <td></td>
                 <td></td>
                 <td></td>

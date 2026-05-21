@@ -111,6 +111,7 @@
         </action>
         <action name="encounter/oscarMeasurements/adminFlowsheet/FlowSheetCustomAction" class="io.github.carlos_emr.carlos.commn.web.FlowSheetCustom2Action">
             <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/adminFlowsheet/EditFlowsheet.jsp</result>
+            <result name="error">/WEB-INF/jsp/encounter/oscarMeasurements/adminFlowsheet/EditFlowsheet.jsp</result>
             <result name="newflowsheet">/WEB-INF/jsp/encounter/oscarMeasurements/adminFlowsheet/NewFlowsheet.jsp</result>
         </action>
         <action name="encounter/oscarMeasurements/FlowSheetDrugAction" class="io.github.carlos_emr.carlos.commn.web.FlowSheetDrug2Action">
@@ -156,9 +157,6 @@
         <action name="appointment/editappointment" class="io.github.carlos_emr.carlos.appointment.gate.ViewAppointmentWrite2Action">
             <result name="success">/WEB-INF/jsp/appointment/editappointment.jsp</result>
         </action>
-        <action name="appointment/appointmentcontrol" class="io.github.carlos_emr.carlos.appointment.gate.ViewAppointment2Action">
-            <result name="success">/WEB-INF/jsp/appointment/appointmentcontrol.jsp</result>
-        </action>
         <action name="appointment/appointmentsearch" class="io.github.carlos_emr.carlos.appointment.gate.ViewAppointment2Action">
             <result name="success">/WEB-INF/jsp/appointment/appointmentsearch.jsp</result>
         </action>
@@ -202,6 +200,17 @@
             <result name="success">/WEB-INF/jsp/episode/success.jsp</result>
         </action>
         <action name="PageMonitoringService" class="io.github.carlos_emr.carlos.commn.web.PageMonitoring2Action"/>
+        <!--
+            Direct-response PDF actions intentionally use basicStack. The default
+            validation/workflow interceptors can rewrite a streamed NONE response to
+            input/error and render errorpage.jsp as "CARLOS Error: 0". See issue #2064.
+        -->
+        <action name="BillingInvoicePrint" class="io.github.carlos_emr.carlos.commn.web.BillingInvoicePrint2Action">
+            <interceptor-ref name="basicStack"/>
+        </action>
+        <action name="BillingInvoiceListPrint" class="io.github.carlos_emr.carlos.commn.web.BillingInvoiceListPrint2Action">
+            <interceptor-ref name="basicStack"/>
+        </action>
         <action name="BillingInvoice" class="io.github.carlos_emr.carlos.commn.web.BillingInvoice2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/ON/billingONCorrection.jsp</result>
             <result name="listSuccess">/WEB-INF/jsp/billing/CA/ON/billingONStatus.jsp</result>
@@ -212,7 +221,7 @@
             <result name="changedForm">/WEB-INF/jsp/admin/groupPreferences.jsp</result>
         </action>
         <action name="billing/CA/ON/ApplyPractitionerPremium" class="io.github.carlos_emr.carlos.commn.web.ApplyPractitionerPremium2Action">
-            <result name="success">/WEB-INF/jsp/billing/CA/ON/genRADesc.jsp</result>
+            <result name="success" type="chain">billing/CA/ON/ViewGenRADesc</result>
             <result name="failure">/WEB-INF/jsp/error/failure.jsp</result>
         </action>
         <action name="demographicSupport" class="io.github.carlos_emr.carlos.commn.web.Demographic2Action"/>

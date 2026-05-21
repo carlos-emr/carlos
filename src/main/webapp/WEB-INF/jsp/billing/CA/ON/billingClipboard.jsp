@@ -1,6 +1,7 @@
 <%--
-
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2006-. OSCARservice, OpenSoft System. All Rights Reserved.
+
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -16,30 +17,35 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
-    Now maintained by the CARLOS EMR Project (2026+).
+    CARLOS EMR Project
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
 --%>
+<%--
+  Purpose: Supports billingClipboard in the Ontario billing workflow.
+  Keep request setup in the paired action and use CARLOS encoding helpers
+  for dynamic output rendered by the page.
+--%>
+<%--
+    Ontario Billing clipboard popup. Two free-text textareas posted to
+    ViewPrintBillingClipboard for a print-preview render. Pure presentation,
+    no model lookups; ViewBillingClipboard2Action enforces _billing r.
+
+    @since 2006
+--%>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
-<%
-    if (session.getAttribute("user") == null)
-        response.sendRedirect(request.getContextPath() + "/logoutPage");
-    String user_no;
-    user_no = (String) session.getAttribute("user");
-    String asstProvider_no = "";
-    String color = "";
-    String premiumFlag = "";
-    String service_form = "", service_name = "";
-%>
 <html>
 <head>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
+    <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
     <title>oscarBilling :: Clip Board ::</title>
     <link rel="stylesheet" href="billing.css">
 
-    <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
+    <link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/share/css/extractedFromPages.css"/>
     <script language="JavaScript">
         <!--
 
@@ -77,7 +83,7 @@
 </table>
 <table width="100%" border="0" bgcolor="#EEEEFF">
     <form name="serviceform" method="post"
-          action="/billing/CA/ON/ViewPrintBillingClipboard">
+          action="${pageContext.request.contextPath}/billing/CA/ON/ViewPrintBillingClipboard">
         <tr>
             <td height="40"><input type="submit" name="Submit"
                                    value="Print Preview"></td>

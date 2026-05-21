@@ -30,9 +30,11 @@
 
 package io.github.carlos_emr.carlos.utility;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.Random;
 
+import jakarta.servlet.ServletContext;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.jsp.JspException;
 import jakarta.servlet.jsp.JspWriter;
@@ -83,9 +85,21 @@ public class CustomInterfaceTag extends TagSupport {
 
         if (customJs != null && customJs.length() > 0) {
             JspWriter out = super.pageContext.getOut();
-            String contextPath = this.pageContext.getServletContext().getContextPath();
+            ServletContext servletContext = this.pageContext.getServletContext();
+            String contextPath = servletContext.getContextPath();
             try {
                 if (getSection() != null && getSection().length() > 0) {
+                    String scriptPath = "/js/custom/" + customJs + "/" + getSection() + ".js";
+
+                    // Skip emitting the <script> tag when the theme has no file for this
+                    // section. This prevents 404s and MIME-type console errors for theme/
+                    // section combinations that are not provided (e.g. the default theme
+                    // ships only billing.js). See GitHub issue: 404 on main.js from admin.
+                    if (!scriptResourceExists(servletContext, scriptPath)) {
+                        logger.debug("Skipping <oscar:customInterface> script tag; resource not found: " + scriptPath);
+                        return SKIP_BODY;
+                    }
+
                     boolean hide_ConReport = props.isPropertyActive("hide_ConReport_link");
                     boolean cardswipe = props.getBooleanProperty("cardswipe", "false");
                     String customTag = "";
@@ -94,13 +108,36 @@ public class CustomInterfaceTag extends TagSupport {
                     }
 
                     int randomNo = new Random().nextInt();
-                    out.println("<script id=\"mainScript\" src=\"" + contextPath + "/js/custom/" + customJs + "/" + getSection() + ".js?no-cache=" + randomNo + "&autoRefresh=true\" hide_ConReport=\"" + hide_ConReport + "\" cardswipe=\"" + cardswipe + "\" " + customTag + " ></script>");
+                    out.println("<script id=\"mainScript\" src=\"" + contextPath + scriptPath + "?no-cache=" + randomNo + "&autoRefresh=true\" hide_ConReport=\"" + hide_ConReport + "\" cardswipe=\"" + cardswipe + "\" " + customTag + " ></script>");
                 }
             } catch (IOException e) {
                 logger.error("Error", e);
             }
         }
         return SKIP_BODY;
+    }
+
+    /**
+     * Checks whether a webapp-relative resource path exists on disk or in the
+     * deployed WAR. Tries {@link ServletContext#getResource(String)} first (works
+     * for unpacked and packed WARs), then falls back to
+     * {@link ServletContext#getRealPath(String)} for extra robustness.
+     *
+     * @param servletContext the servlet context
+     * @param path the webapp-relative resource path (e.g. {@code /js/custom/default/main.js})
+     * @return {@code true} if the resource exists; {@code false} otherwise
+     */
+    private boolean scriptResourceExists(ServletContext servletContext, String path) {
+        try {
+            if (servletContext.getResource(path) != null) {
+                return true;
+            }
+        } catch (java.net.MalformedURLException e) {
+            logger.debug("Malformed resource path: " + path, e);
+            return false;
+        }
+        String realPath = servletContext.getRealPath(path);
+        return realPath != null && new File(realPath).isFile();
     }
 
     @Override

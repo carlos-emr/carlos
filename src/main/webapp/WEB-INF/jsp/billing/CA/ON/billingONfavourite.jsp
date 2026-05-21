@@ -1,6 +1,7 @@
 <%--
-
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2006-. OSCARservice, OpenSoft System. All Rights Reserved.
+
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -16,432 +17,326 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
-    Now maintained by the CARLOS EMR Project (2026+).
+    CARLOS EMR Project
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
 --%>
-<!DOCTYPE html>
-<%
-    if (session.getAttribute("user") == null) {
-        response.sendRedirect("${pageContext.request.contextPath}/logoutPage");
-    }
-    String user_no = (String) session.getAttribute("user");
-
-%>
-<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp"
-         import="java.util.*,java.sql.*,io.github.carlos_emr.*,java.text.*,java.net.*" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingPageUtil" %>
-<%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
-
-<%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
-<% //
-    int serviceCodeLen = 5;
-    String msg = "Type in a name and search first to see if it is available.";
-    String action = "search"; // add/edit
-    //BillingServiceCode serviceCodeObj = new BillingServiceCode();
-    Properties prop = new Properties();
-    JdbcBillingPageUtil dbObj = new JdbcBillingPageUtil();
-    if (request.getParameter("submit") != null && request.getParameter("submit").equals("Save")) {
-        if (request.getParameter("action").startsWith("edit")) {
-            // update the service code
-            String name = request.getParameter("name");
-            String safeName = SafeEncode.forHtml(name);
-            if (name.equals(request.getParameter("action").substring("edit".length()))) {
-                String list = "";
-                for (int i = 0; i < BillingDataHlp.FIELD_SERVICE_NUM; i++) {
-                    if (request.getParameter("serviceCode" + i).length() == 5) {
-                        String unit = request.getParameter("serviceUnit" + i).length() > 0 ? request
-                                .getParameter("serviceUnit" + i) : "1";
-                        String at = request.getParameter("serviceAt" + i).length() > 0 ? request
-                                .getParameter("serviceAt" + i) : "1";
-                        list += request.getParameter("serviceCode" + i) + "|" + unit + "|" + at + "|";
-                    }
-                }
-
-                if (request.getParameter("dx").length() == 3) {
-                    list += request.getParameter("dx") + "|";
-                    if (request.getParameter("dx1").length() == 3) {
-                        list += request.getParameter("dx1") + "|";
-                        if (request.getParameter("dx2").length() == 3) {
-                            list += request.getParameter("dx2") + "|";
-                        }
-                    }
-                }
-
-                boolean ni = dbObj.updateBillingFavouriteList(name, list, user_no);
-                if (ni) {
-                    msg = safeName + " is updated.<br>"
-                            + "Type in a name and search first to see if it is available.";
-                    action = "search";
-                    prop.setProperty("name", name);
-                } else {
-                    msg = safeName + " is <font color='red'>NOT</font> updated. Action failed! Try edit it again.";
-                    action = "edit" + name;
-                    prop.setProperty("name", name);
-                    for (int i = 0; i < BillingDataHlp.FIELD_SERVICE_NUM; i++) {
-                        prop.setProperty("serviceCode" + i, request.getParameter("serviceCode" + i));
-                        prop.setProperty("serviceUnit" + i, request.getParameter("serviceUnit" + i));
-                        prop.setProperty("serviceAt" + i, request.getParameter("serviceAt" + i));
-                    }
-                    prop.setProperty("dx", request.getParameter("dx"));
-                    prop.setProperty("dx1", request.getParameter("dx1"));
-                    prop.setProperty("dx2", request.getParameter("dx2"));
-                }
-            } else {
-                msg = "You can <font color='red'>NOT</font> save the name - " + safeName
-                        + ". Please search the name first.";
-                action = "search";
-                prop.setProperty("name", name);
-            }
-
-        } else if (request.getParameter("action").startsWith("add")) {
-            String name = request.getParameter("name");
-            String safeName = SafeEncode.forHtml(name);
-            if (name.equals(request.getParameter("action").substring("add".length()))) {
-                String list = "";
-                for (int i = 0; i < BillingDataHlp.FIELD_SERVICE_NUM; i++) {
-                    if (request.getParameter("serviceCode" + i).length() == 5) {
-                        String unit = request.getParameter("serviceUnit" + i).length() > 0 ? request
-                                .getParameter("serviceUnit" + i) : "1";
-                        String at = request.getParameter("serviceAt" + i).length() > 0 ? request
-                                .getParameter("serviceAt" + i) : "1";
-                        if (at.length() == 3) {
-                            if (at.startsWith(".")) {
-                                at = "0" + at;
-                            } else {
-                                at = at + "0";
-                            }
-                        }
-                        list += request.getParameter("serviceCode" + i) + "|" + unit + "|" + at + "|";
-                    }
-                }
-
-                if (request.getParameter("dx").length() == 3) {
-                    list += request.getParameter("dx") + "|";
-                    if (request.getParameter("dx1").length() == 3) {
-                        list += request.getParameter("dx1") + "|";
-                        if (request.getParameter("dx2").length() == 3) {
-                            list += request.getParameter("dx2") + "|";
-                        }
-                    }
-                }
-
-                int ni = dbObj.addBillingFavouriteList(name, list, user_no);
-                if (ni > 0) {
-                    msg = safeName + " is added.<br>"
-                            + "Type in a name and search first to see if it is available.";
-                    action = "search";
-                    prop.setProperty("name", name);
-                } else {
-                    msg = safeName + " is <font color='red'>NOT</font> added. Action failed! Try edit it again.";
-                    action = "add" + name;
-                    prop.setProperty("name", name);
-                    for (int i = 0; i < BillingDataHlp.FIELD_SERVICE_NUM; i++) {
-                        prop.setProperty("serviceCode" + i, request.getParameter("serviceCode" + i));
-                        prop.setProperty("serviceUnit" + i, request.getParameter("serviceUnit" + i));
-                        prop.setProperty("serviceAt" + i, request.getParameter("serviceAt" + i));
-                    }
-                    prop.setProperty("dx", request.getParameter("dx"));
-                    prop.setProperty("dx1", request.getParameter("dx1"));
-                    prop.setProperty("dx2", request.getParameter("dx2"));
-                }
-            } else {
-                msg = "You can <font color='red'>NOT</font> save the name - " + safeName
-                        + ". Please search the name first.";
-                action = "search";
-                prop.setProperty("name", name);
-            }
-        } else {
-            msg = "You can <font color='red'>NOT</font> save the name. Please search the name first.";
-        }
-    } else if (request.getParameter("submit") != null && request.getParameter("submit").equals("Search")) {
-//				 @ OSCARSERVICE
-        if (request.getParameter("action").equals("Delete")) {
-            // delete the service code
-            String name = request.getParameter("name");
-            if (name == null || name.equals("")) {
-                msg = "nothing to delete, please choose a name.";
-                action = "search";
-            } else {
-                boolean ni = dbObj.delBillingFavouriteList(name, user_no);
-                String safeName = SafeEncode.forHtml(name);
-                if (ni) {
-                    msg = safeName + " is deleted.<br>"
-                            + "Type in a name and search first to see if it is available.";
-                    action = "search";
-                    prop.setProperty("name", name);
-                } else {
-                    msg = safeName + " is <font color='red'>NOT</font> deleted. Action failed! Try edit it again.";
-                    action = "edit" + name;
-                    prop.setProperty("name", name);
-                }
-            }
-        }
-        // @ OSCARSERVICE
-        else {
-            // check the input data
-            if (request.getParameter("name") == null) {
-                msg = "Please type in a right name.";
-            } else {
-                String name = request.getParameter("name");
-                List ni = dbObj.getBillingFavouriteOne(name);
-                if (ni != null && ni.size() > 0) {
-                    prop.setProperty("name", (String) ni.get(0));
-                    String list1 = (String) ni.get(1);
-                    String[] temp = list1.split("\\|");
-                    int n = 0;
-                    for (int i = 0; i < temp.length; i++) {
-                        if (temp[i].length() == 5) {
-                            prop.setProperty("serviceCode" + n, temp[i]);
-                            prop.setProperty("serviceUnit" + n, temp[i + 1]);
-                            prop.setProperty("serviceAt" + n, temp[i + 2]);
-                            i = i + 2;
-                            n++;
-                        } else if (temp[i].length() == 3) {
-                            if (prop.getProperty("dx", "").equals(""))
-                                prop.setProperty("dx", temp[i]);
-                            else if (prop.getProperty("dx1", "").equals(""))
-                                prop.setProperty("dx1", temp[i]);
-                            else if (prop.getProperty("dx2", "").equals(""))
-                                prop.setProperty("dx2", temp[i]);
-                        }
-                    }
-                    msg = "You can edit the name.";
-                    action = "edit" + name;
-
-                } else {
-                    prop.setProperty("name", name);
-                    msg = "It is a NEW name. You can add it.";
-                    action = "add" + name;
-                }
-            }
-        }
-    }
-%>
+<%--
+  Purpose: Add/Edit favourite service code macros for the Ontario billing workflow.
+  Expected request model data: favouriteModel (BillingOnFavouriteViewModel).
+  Security and mutation routing are handled by ViewBillingOnFavourite2Action; this
+  JSP is pure presentation.
+  Keep request setup in the paired action and use CARLOS encoding helpers for all
+  dynamic output rendered by the page.
+  @since 2026-04-13
+--%>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ page import="java.util.ResourceBundle" %>
+<%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+
+<%
+    // Resolve i18n strings needed inside <script> blocks.
+    ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
+    pageContext.setAttribute("ctx",             request.getContextPath());
+    pageContext.setAttribute("msgConfirmDelete", bundle.getString("billing.billingOnFavourite.msgConfirmDelete"));
+    pageContext.setAttribute("msgConfirmSave",   bundle.getString("billing.billingOnFavourite.msgConfirmSave"));
+    pageContext.setAttribute("alertInvalidCode", bundle.getString("billing.billingOnFavourite.alertInvalidServiceCode"));
+    pageContext.setAttribute("alertInvalidNum",  bundle.getString("billing.billingOnFavourite.alertInvalidNumber"));
+    pageContext.setAttribute("alertInvalidDx",   bundle.getString("billing.billingOnFavourite.alertInvalidDx"));
+%>
 <fmt:setBundle basename="oscarResources"/>
+<!DOCTYPE html>
+<html lang="${pageContext.request.locale.language}">
+<head>
+    <meta charset="UTF-8">
+    <title><fmt:message key="billing.billingOnFavourite.title"/></title>
+    <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
+    <%-- jQuery UI JS required for .autocomplete() — CSS is already in global-head.jspf --%>
+    <script src="${ctx}/library/jquery/jquery-ui-1.14.2.min.js"></script>
+    <style>
+        .billing-ac-item { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 3px 6px; cursor: pointer; }
+        .billing-ac-item strong { font-weight: 600; }
+        .ui-autocomplete { max-height: 280px; overflow-y: auto; overflow-x: hidden; z-index: 9999 !important; }
+        .ui-menu-item > div:hover, .ui-menu-item:hover { background-color: #e8f0fe; }
+        /* Fixed-width inputs sized to their expected content */
+        .fav-code { width: calc(6ch + 1rem); }
+        .fav-unit { width: calc(3ch + 1rem); }
+        .fav-at   { width: calc(4ch + 1rem); }
+        .fav-dx   { width: calc(4ch + 1rem); }
+    </style>
+</head>
+<body class="p-2">
 
-<html>
-    <head>
-        <title>Add/Edit Service Code</title>
+<h5 class="mb-3"><fmt:message key="billing.billingOnFavourite.title"/></h5>
 
-        <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
-        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap -->
+<c:if test="${not empty favouriteModel.messageKey}">
+    <div class="alert alert-${favouriteModel.messageLevel} py-1 mb-2 small">
+        <fmt:message key="${favouriteModel.messageKey}">
+            <c:if test="${not empty favouriteModel.messageName}">
+                <fmt:param value="${carlos:forHtml(favouriteModel.messageName)}"/>
+            </c:if>
+        </fmt:message>
+    </div>
+</c:if>
 
-        <script language="JavaScript">
+<%-- ===== Form 1: select an existing favourite to edit or delete ===== --%>
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <form method="post" name="baseur0" id="baseur0"
+              action="${ctx}/billing/CA/ON/ViewBillingONFavourite">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <label for="favSelect" class="fw-semibold mb-0">
+                    <fmt:message key="billing.billingOnFavourite.labelChooseFavourite"/>
+                </label>
+                <select name="name" id="favSelect" class="form-select form-select-sm" style="width: auto;">
+                    <option value=""><fmt:message key="billing.billingOnFavourite.optChooseOne"/></option>
+                    <c:forEach var="favName" items="${favouriteModel.names}">
+                        <option value="<carlos:encode value='${favName.value}' context='htmlAttribute'/>">
+                            <carlos:encode value="${favName.value}" context="html"/>
+                        </option>
+                    </c:forEach>
+                </select>
+                <%-- Hidden field provides submit=Search for isMutationSubmission --%>
+                <input type="hidden" name="submit" value="Search">
+                <button type="submit" name="action" value="Edit" class="btn btn-secondary btn-sm">
+                    <fmt:message key="billing.billingOnFavourite.btnEdit"/>
+                </button>
+                <button type="submit" name="action" value="Delete" id="btnDelete"
+                        class="btn btn-danger btn-sm">
+                    <fmt:message key="billing.billingOnFavourite.btnDelete"/>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
 
-            <!--
-            function setfocus() {
-                this.focus();
-                document.forms[0].name.focus();
-                document.forms[0].name.select();
+<%-- ===== Form 2: add / edit service code macro ===== --%>
+<div class="card">
+    <div class="card-body py-2">
+        <form method="post" name="baseurl" id="baseurl"
+              action="${ctx}/billing/CA/ON/ViewBillingONFavourite">
+
+            <%-- Name row + Search button (Search button comes before the hidden Save field
+                 so getParameter("submit") returns "Search" when Search is clicked) --%>
+            <div class="row align-items-center mb-2">
+                <label for="favName" class="col-auto col-form-label col-form-label-sm fw-semibold">
+                    <fmt:message key="billing.billingOnFavourite.labelName"/>
+                </label>
+                <div class="col">
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <input class="form-control form-control-sm" type="text" name="name" id="favName"
+                               value="<carlos:encode value='${favouriteModel.formFields[\"name\"]}' context='htmlAttribute'/>"
+                               maxlength="50"
+                               placeholder="<fmt:message key='billing.billingOnFavourite.nameHint'/>"/>
+                        <%-- value="Search" is the mutation-signal sentinel checked by isMutationSubmission --%>
+                        <button type="submit" name="submit" value="Search" class="btn btn-secondary btn-sm">
+                            <fmt:message key="billing.billingOnFavourite.btnSearch"/>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <%-- Service code rows --%>
+            <c:forEach begin="0" end="${favouriteModel.serviceFieldCount - 1}" var="i">
+                <c:set var="codeKey" value="serviceCode${i}"/>
+                <c:set var="unitKey" value="serviceUnit${i}"/>
+                <c:set var="atKey"   value="serviceAt${i}"/>
+                <div class="row align-items-center mb-1">
+                    <label class="col-auto col-form-label col-form-label-sm fw-semibold" style="min-width: 9rem;">
+                        <fmt:message key="billing.billingOnFavourite.labelServiceCode">
+                            <fmt:param value="${i + 1}"/>
+                        </fmt:message>
+                    </label>
+                    <div class="col">
+                        <div class="d-flex align-items-center gap-1 flex-wrap">
+                            <input class="form-control form-control-sm fav-code" type="text"
+                                   name="serviceCode${i}"
+                                   value="<carlos:encode value='${favouriteModel.formFields[codeKey]}' context='htmlAttribute'/>"
+                                   maxlength="5" onblur="upCaseCtrl(this)"/>
+                            <span class="text-muted small"><fmt:message key="billing.billingOnFavourite.codeHint"/></span>
+                            <label class="fw-semibold mb-0 ms-2">
+                                <fmt:message key="billing.billingOnFavourite.labelUnit"/>
+                            </label>
+                            <input class="form-control form-control-sm fav-unit" type="text"
+                                   name="serviceUnit${i}"
+                                   value="<carlos:encode value='${favouriteModel.formFields[unitKey]}' context='htmlAttribute'/>"
+                                   maxlength="2"/>
+                            <span class="text-muted small"><fmt:message key="billing.billingOnFavourite.unitHint"/></span>
+                            <label class="fw-semibold mb-0 ms-2">
+                                <fmt:message key="billing.billingOnFavourite.labelAt"/>
+                            </label>
+                            <input class="form-control form-control-sm fav-at" type="text"
+                                   name="serviceAt${i}"
+                                   value="<carlos:encode value='${favouriteModel.formFields[atKey]}' context='htmlAttribute'/>"
+                                   maxlength="4"/>
+                            <span class="text-muted small"><fmt:message key="billing.billingOnFavourite.atHint"/></span>
+                        </div>
+                    </div>
+                </div>
+            </c:forEach>
+
+            <%-- Dx row --%>
+            <div class="row align-items-center mb-2">
+                <label class="col-auto col-form-label col-form-label-sm fw-semibold" style="min-width: 9rem;">
+                    <fmt:message key="billing.billingOnFavourite.labelDx"/>
+                </label>
+                <div class="col">
+                    <div class="d-flex align-items-center gap-1 flex-wrap">
+                        <input class="form-control form-control-sm fav-dx" type="text" name="dx"
+                               value="<carlos:encode value='${favouriteModel.formFields[\"dx\"]}' context='htmlAttribute'/>"
+                               maxlength="4"/>
+                        <span class="text-muted small"><fmt:message key="billing.billingOnFavourite.dxHint"/></span>
+                        <label class="fw-semibold mb-0 ms-2">
+                            <fmt:message key="billing.billingOnFavourite.labelDx1"/>
+                        </label>
+                        <input class="form-control form-control-sm fav-dx" type="text" name="dx1"
+                               value="<carlos:encode value='${favouriteModel.formFields[\"dx1\"]}' context='htmlAttribute'/>"
+                               maxlength="4"/>
+                        <label class="fw-semibold mb-0 ms-2">
+                            <fmt:message key="billing.billingOnFavourite.labelDx2"/>
+                        </label>
+                        <input class="form-control form-control-sm fav-dx" type="text" name="dx2"
+                               value="<carlos:encode value='${favouriteModel.formFields[\"dx2\"]}' context='htmlAttribute'/>"
+                               maxlength="4"/>
+                    </div>
+                </div>
+            </div>
+
+            <%-- Save / Close row.
+                 The hidden submit=Save field comes after the Search button in DOM order, so
+                 getParameter("submit") still returns "Search" when Search is clicked, but
+                 returns "Save" when the visible (unnamed) save button is clicked. --%>
+            <div class="d-flex gap-2 justify-content-center pt-2 border-top">
+                <input type="hidden" name="action"
+                       value='<carlos:encode value="${favouriteModel.action}" context="htmlAttribute"/>'/>
+                <input type="hidden" name="submit" value="Save"/>
+                <button type="submit" class="btn btn-primary btn-sm" id="btnSave">
+                    <fmt:message key="admin.resourcebaseurl.btnSave"/>
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="window.close()">
+                    <fmt:message key="admin.resourcebaseurl.btnExit"/>
+                </button>
+            </div>
+
+        </form>
+    </div>
+</div>
+
+<script>
+    // i18n strings for confirm/alert dialogs
+    var i18n = {
+        confirmDelete: '${carlos:forJavaScript(msgConfirmDelete)}',
+        confirmSave:   '${carlos:forJavaScript(msgConfirmSave)}',
+        alertCode:     '${carlos:forJavaScript(alertInvalidCode)}',
+        alertNum:      '${carlos:forJavaScript(alertInvalidNum)}',
+        alertDx:       '${carlos:forJavaScript(alertInvalidDx)}'
+    };
+
+    document.getElementById('btnDelete').addEventListener('click', function (e) {
+        if (!confirm(i18n.confirmDelete)) { e.preventDefault(); }
+    });
+
+    document.getElementById('btnSave').addEventListener('click', function (e) {
+        if (!checkAllFields() || !confirm(i18n.confirmSave)) { e.preventDefault(); }
+    });
+
+    function upCaseCtrl(ctrl) { ctrl.value = ctrl.value.toUpperCase(); }
+
+    function isServiceCode(s) {
+        if (s.length === 0) return true;
+        if (s.length !== 5) return false;
+        if (s.charAt(0) < 'A' || s.charAt(0) > 'Z') return false;
+        if (s.charAt(4) < 'A' || s.charAt(4) > 'Z') return false;
+        for (var i = 1; i < 4; i++) {
+            var c = s.charAt(i);
+            if (c < '0' || c > '9') return false;
+        }
+        return true;
+    }
+
+    function isNumber(s) {
+        for (var i = 0; i < s.length; i++) {
+            var c = s.charAt(i);
+            if (c !== '.' && (c < '0' || c > '9')) return false;
+        }
+        return true;
+    }
+
+    function checkAllFields() {
+        var form = document.forms['baseurl'];
+        for (var i = 0; i < 10; i++) {
+            var code = form.elements['serviceCode' + i];
+            var unit = form.elements['serviceUnit' + i];
+            var at   = form.elements['serviceAt'   + i];
+            if (code && code.value.length > 0 && !isServiceCode(code.value)) {
+                alert(i18n.alertCode); return false;
             }
-
-            function onSearch() {
-                //document.forms[0].submit.value="Search";
-                var ret = checkServiceCode();
-                return ret;
+            if (unit && unit.value.length > 0 && !isNumber(unit.value)) {
+                alert(i18n.alertNum); return false;
             }
-
-            // @ OSCARSERVICE
-            function onDelete() {
-                var ret = false;
-                ret = confirm("Are you sure you want to Delete?");
-                return ret;
+            if (at && at.value.length > 0 && !isNumber(at.value)) {
+                alert(i18n.alertNum); return false;
             }
+        }
+        var dx = form.elements['dx'];
+        if (dx && dx.value.length > 0 && (!isNumber(dx.value) || dx.value.length !== 3)) {
+            alert(i18n.alertDx); return false;
+        }
+        return true;
+    }
 
-            // @ OSCARSERVICE
+    window.addEventListener('load', function () {
+        var f = document.forms['baseurl'];
+        if (f && f.elements['name']) {
+            f.elements['name'].focus();
+            f.elements['name'].select();
+        }
+    });
 
-            function onSave() {
-                //document.forms[0].submit.value="Save";
-                var ret = checkServiceCode();
-                if (ret == true) {
-                    ret = checkAllFields();
-                }
-                if (ret == true) {
-                    ret = confirm("Are you sure you want to save?");
-                }
-                return ret;
-            }
+    // Autocomplete — reuses the same pattern as billingON.jsp
+    jQuery(document).ready(function () {
+        var ctx = '${carlos:forJavaScript(ctx)}';
 
-            function checkServiceCode() {
-                var b = true;
-                if (document.forms[0].service_code.value.length != 5 || !isServiceCode(document.forms[0].service_code.value)) {
-                    b = false;
-                    alert("You must type in a service code with 5 (upper case) letters/digits. The service code ends with \'A\' or \'B\'...");
-                }
-                return b;
-            }
+        function renderCodeItem(ul, item) {
+            var li    = jQuery('<li>').addClass('ui-menu-item');
+            var inner = jQuery('<div>').addClass('billing-ac-item');
+            inner.append(
+                jQuery('<strong>').text(item.code || ''),
+                document.createTextNode(' – ' + (item.description || item.label || ''))
+            );
+            li.append(inner).appendTo(ul);
+            return li;
+        }
 
-            function isServiceCode(s) {
-                // temp for 0.
-                if (s.length == 0) return true;
-                if (s.length != 5) return false;
-                if ((s.charAt(0) < "A") || (s.charAt(0) > "Z")) return false;
-                if ((s.charAt(4) < "A") || (s.charAt(4) > "Z")) return false;
-
-                var i;
-                for (i = 1; i < s.length - 1; i++) {
-                    // Check that current character is number.
-                    var c = s.charAt(i);
-                    if (((c < "0") || (c > "9"))) return false;
-                }
-                return true;
-            }
-
-            function checkAllFields() {
-                var b = true;
-                for (var i = 0; i < 10; i++) {
-                    var fieldItem = eval("document.forms[1].serviceCode" + i);
-                    if (fieldItem.value.length > 0) {
-                        if (!isServiceCode(fieldItem.value)) {
-                            b = false;
-                            alert("You must type in a Service Code in the field!");
-                        }
+        function initCodeAutocomplete($inputs, ajaxUrl) {
+            $inputs.each(function () {
+                var $input = jQuery(this);
+                var inst = $input.autocomplete({
+                    source: function (request, response) {
+                        jQuery.getJSON(ctx + ajaxUrl, { term: request.term }, response);
+                    },
+                    minLength: 2,
+                    delay: 250,
+                    select: function (event, ui) {
+                        this.value = ui.item.code.toUpperCase();
+                        return false;
                     }
-                    var fieldItem1 = eval("document.forms[1].serviceUnit" + i);
-                    var fieldItem2 = eval("document.forms[1].serviceAt" + i);
-                    if (fieldItem1.value.length > 0) {
-                        if (!isNumber(fieldItem1.value)) {
-                            b = false;
-                            alert("You must type in a number in the field!");
-                        }
-                    }
-                    if (fieldItem2.value.length > 0) {
-                        if (!isNumber(fieldItem2.value)) {
-                            b = false;
-                            alert("You must type in a number in the field!");
-                        }
-                    }
-                }
-                var fieldItemDx = eval("document.forms[1].dx");
-                if (fieldItemDx.value.length > 0) {
-                    if (!isNumber(fieldItemDx.value) || fieldItemDx.value.length != 3) {
-                        b = false;
-                        alert("You must type in a number in the right Dx field!");
-                    }
-                }
-                return b;
-            }
+                }).data('ui-autocomplete');
+                if (inst) { inst._renderItem = renderCodeItem; }
+            });
+        }
 
-            function isNumber(s) {
-                var i;
-                for (i = 0; i < s.length; i++) {
-                    // Check that current character is number.
-                    var c = s.charAt(i);
-                    if (c == ".") continue;
-                    if (((c < "0") || (c > "9"))) return false;
-                }
-                // All characters are numbers.
-                return true;
-            }
-
-            function upCaseCtrl(ctrl) {
-                ctrl.value = ctrl.value.toUpperCase();
-            }
-
-            //-->
-
-        </script>
-    </head>
-    <body onLoad="setfocus()">
-    <h4>Add/Edit Service Code</h4>
-    <table style="width:100%;">
-        <tr class="myDarkGreen">
-            <th class="alert alert-info"><%=msg%>
-            </th>
-        </tr>
-    </table>
-
-    <form method="post" name="baseur0" action="/billing/CA/ON/ViewBillingONFavourite">
-        <table style="width:100%;">
-            <tr>
-                <td style="width:50%; text-align: center;"><select name="name" id="name">
-                    <option selected="selected" value="">- choose one -</option>
-                    <%
-                        //
-                        List sL = dbObj.getBillingFavouriteList();
-                        for (int i = 0; i < sL.size(); i = i + 2) {
-                    %>
-                    <option value="<carlos:encode value='<%= (String) sL.get(i) %>' context="htmlAttribute"/>"><carlos:encode value='<%= (String) sL.get(i) %>' context="html"/>
-                    </option>
-                    <%
-                        }
-                    %>
-                </select></td>
-                <td><input class="form-control form-control-sm d-inline-block w-auto" type="hidden" name="submit" value="Search"> <input class="btn btn-secondary"
-                                                                                                 type="submit"
-                                                                                                 name="action"
-                                                                                                 value=" Edit "> <input
-                        class="btn btn-secondary"
-                        type="submit" name="action" value="Delete"
-                        onClick="javascript:return onDelete();"></td>
-            </tr>
-
-        </table>
-    </form>
-    <form method="post" name="baseurl" action="/billing/CA/ON/ViewBillingONFavourite">
-        <table style="width:100%;" class="table table-striped table-sm">
-
-            <tr class="myGreen">
-                <td style="text-align:right"><b>Name</b></td>
-                <td><input class="form-control d-inline-block w-auto" type="text" name="name"
-                           value="<carlos:encode value='<%= prop.getProperty("name", "") %>' context="htmlAttribute"/>" maxlength='50'/>
-                    (e.g. Flu shot) <input class="btn btn-secondary" type="submit" name="submit" value="Search"
-                                           onclick="javascript:return onSearch();"></td>
-            </tr>
-
-            <%
-                for (int i = 0; i < BillingDataHlp.FIELD_SERVICE_NUM; i++) {
-
-            %>
-            <tr>
-                <td style="text-align:right"><b>Service Code <%=i + 1%>
-                </b></td>
-                <td><input class="form-control form-control-sm d-inline-block w-auto" type="text" name="serviceCode<%=i%>"
-                           value="<carlos:encode value='<%= prop.getProperty("serviceCode"+i, "") %>' context="htmlAttribute"/>"
-                           maxlength='50' onblur="upCaseCtrl(this)"/> (e.g. A001A) <b>Unit</b><input class="form-control form-control-sm d-inline-block w-auto"
-                                                                                                     type="text"
-                                                                                                     name="serviceUnit<%=i%>"
-                                                                                                     value="<carlos:encode value='<%= prop.getProperty("serviceUnit"+i, "") %>' context="htmlAttribute"/>"
-                                                                                                     maxlength='2'/>
-                    (e.g. 1, 12) <b>@</b><input class="form-control form-control-sm d-inline-block w-auto" type="text"
-                                                name="serviceAt<%=i%>"
-                                                value="<carlos:encode value='<%= prop.getProperty("serviceAt"+i, "") %>' context="htmlAttribute"/>"
-                                                maxlength='4'/> (e.g. 0.85)
-                </td>
-            </tr>
-            <%
-                }
-
-            %>
-
-            <tr>
-                <td style="text-align:right"><b>Dx</b></td>
-                <td><input class="form-control form-control-sm d-inline-block w-auto" type="text" name="dx"
-                           value="<carlos:encode value='<%= prop.getProperty("dx", "") %>' context="htmlAttribute"/>" maxlength='4'/>
-                    (e.g. 012) <b>Dx1</b> <input class="form-control form-control-sm d-inline-block w-auto" type="text" name="dx1"
-                                                 value="<carlos:encode value='<%= prop.getProperty("dx1", "") %>' context="htmlAttribute"/>" maxlength='4'/> <b>Dx2</b>
-                    <input class="form-control form-control-sm d-inline-block w-auto" type="text" name="dx2" value="<carlos:encode value='<%= prop.getProperty("dx2", "") %>' context="htmlAttribute"/>"
-                           maxlength='4'/></td>
-            </tr>
-            <tr>
-                <td style="text-align:center" class="myGreen" colspan="2"><input
-                        type="hidden" name="action" value='<carlos:encode value='<%= action %>' context="htmlAttribute"/>'> <input
-                        type="submit" name="submit" class="btn btn-primary"
-                        value="<fmt:message key="admin.resourcebaseurl.btnSave"/>"
-                        onclick="javascript:return onSave();"> <input class="btn btn-secondary" type="button"
-                                                                      name="Cancel"
-                                                                      value="<fmt:message key="admin.resourcebaseurl.btnExit"/>"
-                                                                      onClick="window.close()"></td>
-            </tr>
-        </table>
-    </form>
-    </body>
+        initCodeAutocomplete(
+            jQuery("input[name^='serviceCode']"),
+            '/billing/CA/ON/ViewBillingCodeSearchAjax'
+        );
+        initCodeAutocomplete(
+            jQuery("input[name='dx'], input[name='dx1'], input[name='dx2']"),
+            '/billing/CA/ON/ViewBillingDigSearchAjax'
+        );
+    });
+</script>
+</body>
 </html>

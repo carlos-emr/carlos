@@ -1,6 +1,7 @@
 <%--
-
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2006-. OSCARservice, OpenSoft System. All Rights Reserved.
+
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -16,290 +17,47 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
-    Now maintained by the CARLOS EMR Project (2026+).
+    CARLOS EMR Project
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
+--%>
+<%--
+  Purpose: This page provides an opportunity to review
+  and potentially print bills specified in billingON.jsp
+  Expected request model data includes: reviewModel.
+  Keep request setup in the paired action and use CARLOS encoding helpers
+  for dynamic output rendered by the page.
 --%>
 <!DOCTYPE html>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.DxresearchDAO" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Dxresearch" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
-<%! boolean bMultisites = IsPropertiesOn.isMultisitesEnable(); %>
-
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
 
-
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="jakarta.tags.core" prefix="c" %>
-
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
-<%@ taglib uri="carlos" prefix="carlos" %>
-<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp"
-         import="java.util.*,java.math.*,java.net.*,java.sql.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.appt.*" %>
-<%@ page import="io.github.carlos_emr.carlos.billing.ca.on.administration.*" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
-<%@ page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*, java.util.Properties" %>
-
-<% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
-<jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.DiagnosticCode" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao, io.github.carlos_emr.carlos.commn.model.BillingONCHeader1" %>
-
-
-<%
-    DiagnosticCodeDao diagnosticCodeDao = SpringUtils.getBean(DiagnosticCodeDao.class);
-    BillingONCHeader1Dao billingONCHeader1Dao = (BillingONCHeader1Dao) SpringUtils.getBean(BillingONCHeader1Dao.class);
-%>
-<%
-    //
-    if (session.getAttribute("user") == null) {
-        response.sendRedirect(request.getContextPath() + "/logoutPage");
-    }
-
-    String user_no = (String) session.getAttribute("user");
-    String providerview = request.getParameter("providerview") == null ? "" : request
-            .getParameter("providerview");
-    String asstProvider_no = "";
-    String color = "";
-    String premiumFlag = "";
-    String service_form = "";
-%>
-
-<%
-    Properties gstProp = new Properties();
-    GstControl2Action db = new GstControl2Action();
-    GstReport gstRep = new GstReport();
-    gstProp = db.readDatabase();
-    String gstFlag;
-    String flag = gstProp.getProperty("gstFlag", "");
-    String percent = gstProp.getProperty("gstPercent", "");
-    BigDecimal stotal = new BigDecimal(0);
-    BigDecimal gstTotal = new BigDecimal(0);
-    BigDecimal gstbilledtotal = new BigDecimal(0);
-    boolean dupServiceCode = false;
-%>
-
-<%
-    //
-    BillingReviewPrep prepObj = new BillingReviewPrep();
-    @SuppressWarnings("unchecked")
-    Vector<String>[] vecServiceParam = new Vector[3];
-    if (oscarVariables.getProperty("onBillingSingleClick", "").equals("yes")) {
-        vecServiceParam[0] = new Vector<String>();
-        vecServiceParam[1] = new Vector<String>();
-        vecServiceParam[2] = new Vector<String>();
-    } else {
-        vecServiceParam = prepObj.getRequestFormCodeVec(request, "xml_", "1", "1");
-    }
-
-    Vector<String>[] vecServiceParam0 = prepObj.getRequestCodeVec(request, "serviceCode", "serviceUnit", "serviceAt", BillingDataHlp.FIELD_SERVICE_NUM);
-    vecServiceParam[0].addAll(vecServiceParam0[0]);
-    vecServiceParam[1].addAll(vecServiceParam0[1]);
-    vecServiceParam[2].addAll(vecServiceParam0[2]);
-
-    //Check whether there are duplicated service code existing
-    //User double click a service code, and then check off that
-    //service code in billingON page will cause duplicated service
-    //code in billing review page.
-    TreeMap<String, Integer> mapServiceParam = new TreeMap<String, Integer>();
-    for (int i = 0; i < vecServiceParam[0].size(); i++) {
-        mapServiceParam.put(vecServiceParam[0].get(i), i);
-    }
-    if (mapServiceParam.size() != vecServiceParam[0].size())
-        dupServiceCode = true;
-
-    /////// hack used to order the billing codes
-    /////// Would make sense to change getServiceCodeReviewVec method to accept the hashtable
-    /////// But should cause that much of a performance hit. It's generally under 3 items
-    String billReferalDate = request.getParameter("service_date");
-    Vector v = new Vector();
-    for (int ii = 0; ii < vecServiceParam[0].size(); ii++) {
-        Hashtable h = new Hashtable();
-        h.put("serviceCode", vecServiceParam[0].get(ii));
-        h.put("serviceUnit", vecServiceParam[1].get(ii));
-        h.put("serviceAt", vecServiceParam[2].get(ii));
-        h.put("billReferenceDate", billReferalDate);
-        v.add(h);
-    }
-
-    Collections.sort(v, new BillingSortComparator());
-
-    vecServiceParam[0] = new Vector();
-    vecServiceParam[1] = new Vector();
-    vecServiceParam[2] = new Vector();
-
-    for (int ii = 0; ii < v.size(); ii++) {
-        Hashtable h = (Hashtable) v.get(ii);
-        vecServiceParam[0].add((String) h.get("serviceCode"));
-        vecServiceParam[1].add((String) h.get("serviceUnit"));
-        vecServiceParam[2].add((String) h.get("serviceAt"));
-    }
-    ///////--------
-
-    String warningMsg = "";
-    String errorFlag = "";
-    String errorMsg = "";
-
-    Vector vecCodeItem = prepObj.getServiceCodeReviewVec(vecServiceParam[0], vecServiceParam[1], vecServiceParam[2], billReferalDate);
-    Vector vecPercCodeItem = prepObj.getPercCodeReviewVec(vecServiceParam[0], vecServiceParam[1], vecCodeItem, billReferalDate);  //LINE CAUSING ERROR
-
-
-    Properties propCodeDesc = (new JdbcBillingCodeImpl()).getCodeDescByNames(vecServiceParam[0]);
-    String dxCode = request.getParameter("dxCode");
-    String dxDesc = prepObj.getDxDescription(dxCode);
-    String clinicview = oscarVariables.getProperty("clinic_view", "");
-    String clinicNo = oscarVariables.getProperty("clinic_no", "");
-    String visitType = oscarVariables.getProperty("visit_type", "");
-    String appt_no = request.getParameter("appointment_no");
-    String demoname = request.getParameter("demographic_name");
-    String demo_no = request.getParameter("demographic_no");
-    String apptProvider_no = request.getParameter("apptProvider_no");
-    String ctlBillForm = request.getParameter("billForm");
-    String assgProvider_no = request.getParameter("assgProvider_no");
-    String xmlBilltypeRaw = request.getParameter("xml_billtype");
-    String billType = (xmlBilltypeRaw != null && xmlBilltypeRaw.contains("|")) ? xmlBilltypeRaw.substring(0, xmlBilltypeRaw.indexOf("|")).trim() : "";
-    String demoSex = request.getParameter("DemoSex");
-    GregorianCalendar now = new GregorianCalendar();
-    int curYear = now.get(Calendar.YEAR);
-    int curMonth = (now.get(Calendar.MONTH) + 1);
-    int curDay = now.get(Calendar.DAY_OF_MONTH);
-    int dob_year = 0, dob_month = 0, dob_date = 0, age = 0;
-    String content = "";
-    String total = "";
-
-    //add to patientDx (or not)
-    if ("yes".equals(request.getParameter("addToPatientDx"))) {
-        String dxCodeMatch = request.getParameter("codeMatchToPatientDx");
-        String dxCodeAdd = dxCodeMatch.isEmpty() ? dxCode : dxCodeMatch;
-
-        DxresearchDAO dxresearchDao = SpringUtils.getBean(DxresearchDAO.class);
-        java.util.Date d = new java.util.Date();
-        Dxresearch dx = new Dxresearch(Integer.valueOf(demo_no), d, d, 'A', dxCodeAdd, "icd9", (byte) 0, user_no);
-        dxresearchDao.save(dx);
-    }
-
-    String msg = "<tr><td colspan='2'>Calculation</td></tr>";
-    String action = "edit";
-    Properties propHist = null;
-    Vector vecHist = new Vector();
-    // get providers's detail
-    String proOHIPNO = "", proRMA = "";
-
-    ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
-    Provider ppp = providerDao.getProvider(request.getParameter("xml_provider"));
-    if (ppp != null) {
-        proOHIPNO = ppp.getOhipNo();
-        proRMA = ppp.getRmaNo();
-    }
-    if (request.getParameter("xml_provider") != null)
-        providerview = request.getParameter("xml_provider");
-    // get patient's detail
-    String r_doctor = "", r_doctor_ohip = "";
-    String demoFirst = "", demoLast = "", demoHIN = "", demoVer = "", demoDOB = "", demoDOBYY = "", demoDOBMM = "", demoDOBDD = "", demoHCTYPE = "";
-    String strPatientAddr = "";
-
-    DemographicDao demoDao = SpringUtils.getBean(DemographicDao.class);
-    Demographic demo = demoDao.getDemographic(demo_no);
-    if (demo != null) {
-        strPatientAddr = demo.getFirstName() + " " + demo.getLastName() + "\n"
-                + demo.getAddress() + "\n"
-                + demo.getCity() + ", " + demo.getProvince() + "\n"
-                + demo.getPostal() + "\n"
-                + "Tel: " + demo.getPhone();
-
-        assgProvider_no = demo.getProviderNo();
-        demoFirst = demo.getFirstName();
-        demoLast = demo.getLastName();
-        demoHIN = demo.getHin();
-        demoVer = demo.getVer();
-        demoSex = demo.getSex();
-        if (demoSex.compareTo("M") == 0)
-            demoSex = "1";
-        if (demoSex.compareTo("F") == 0)
-            demoSex = "2";
-
-        demoHCTYPE = demo.getHcType() == null ? "" : demo.getHcType();
-        if (demoHCTYPE.compareTo("") == 0 || demoHCTYPE == null || demoHCTYPE.length() < 2) {
-            demoHCTYPE = "ON";
-        } else {
-            demoHCTYPE = demoHCTYPE.substring(0, 2).toUpperCase();
-        }
-        demoDOBYY = demo.getYearOfBirth();
-        demoDOBMM = demo.getMonthOfBirth();
-        demoDOBDD = demo.getDateOfBirth();
-
-        if (demo.getFamilyDoctor() == null) {
-            r_doctor = "N/A";
-            r_doctor_ohip = "000000";
-        } else {
-            r_doctor = SxmlMisc.getXmlContent(demo.getFamilyDoctor(), "rd") == null ? "" : SxmlMisc
-                    .getXmlContent(demo.getFamilyDoctor(), "rd");
-            r_doctor_ohip = SxmlMisc.getXmlContent(demo.getFamilyDoctor(), "rdohip") == null ? ""
-                    : SxmlMisc.getXmlContent(demo.getFamilyDoctor(), "rdohip");
-        }
-
-        demoDOBMM = demoDOBMM.length() == 1 ? ("0" + demoDOBMM) : demoDOBMM;
-        demoDOBDD = demoDOBDD.length() == 1 ? ("0" + demoDOBDD) : demoDOBDD;
-        demoDOB = demoDOBYY + demoDOBMM + demoDOBDD;
-
-        if (demo.getHin() == null) {
-            errorFlag = "1";
-            errorMsg = errorMsg
-                    + "<br><div class='alert alert-danger'>Error: The patient does not have a HIN </div><br>";
-        } else if (demo.getHin().equals("")) {
-            warningMsg += "<br><div class='alert alert-danger'>Warning: The patient does not have a HIN </div><br>";
-        }
-        if (r_doctor_ohip != null && r_doctor_ohip.length() > 0 && r_doctor_ohip.length() != 6) {
-            warningMsg += "<br><div class='alert alert-danger'>Warning: the referral doctor's no is wrong. </div><br>";
-        }
-        if (demoDOB.length() != 8) {
-            errorFlag = "1";
-            errorMsg = errorMsg
-                    + "<br><div class='alert alert-danger'>Error: The patient does not have a valid DOB. </div><br>";
-        }
-    }
-
-
-    // create msg
-    String wrongMsg = errorMsg + warningMsg;
-
-%>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
-<c:set var="demographicNo" value="${param.demographic_no}" scope="request"/>
+<c:set var="reviewModel" value="${reviewModel}" scope="page"/>
+<c:set var="demographicNo" value="${reviewModel.requestParamEchoes['demographic_no']}" scope="request"/>
 
+<%-- i18n message variables for JavaScript alerts and submit button values --%>
+<fmt:message var="msgEnterNumbers" key="oscar.billing.ca.on.billingON.review.alertEnterNumbers"/>
+<fmt:message var="msgEnterValidFee" key="oscar.billing.ca.on.billingON.review.alertEnterValidFee"/>
+<fmt:message var="msgSelectPaymentMethod" key="oscar.billing.ca.on.billingON.review.alertSelectPaymentMethod"/>
+<fmt:message var="msgNothingSelected" key="oscar.billing.ca.on.billingON.review.alertNothingSelected"/>
+<fmt:message var="msgConfirmAddDxRegistry" key="oscar.billing.ca.on.billingON.review.confirmAddDxRegistry"/>
+<fmt:message var="msgBtnBackToEdit" key="oscar.billing.ca.on.billingON.review.btnBackToEdit"/>
+<fmt:message var="msgBtnSave" key="global.btnSave"/>
+<fmt:message var="msgBtnSaveAndAdd" key="oscar.billing.ca.on.billingON.review.btnSaveAndAdd"/>
+<fmt:message var="msgBtnSavePrint" key="oscar.billing.ca.on.billingON.review.btnSavePrint"/>
+<fmt:message var="msgBtnSettlePrint" key="oscar.billing.ca.on.billingON.review.btnSettlePrint"/>
+<fmt:message var="msgBtnAddDxRegistry" key="oscar.billing.ca.on.billingON.review.btnAddDxRegistry"/>
 
-<%@page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
-<%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Site" %>
-<%@ page import="io.github.carlos_emr.carlos.appt.ApptUtil" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.*" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.administration.GstReport" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.administration.GstControl2Action" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.Billing3rdPartPrep" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingReviewPrep" %>
-<%@ page import="io.github.carlos_emr.carlos.prescript.data.RxProviderData" %>
-<%@ page import="io.github.carlos_emr.carlos.util.DateUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
-<%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="io.github.carlos_emr.SxmlMisc" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title>CARLOS Billing</title>
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap 2.3.1 -->
-
+    <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
 
     <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
 
@@ -341,9 +99,8 @@
 
         function scriptAttach(elementName) {
             var d = elementName;
-            //t0 = escape("document.forms[0].elements[\'"+d+"\'].value");
             t0 = d;
-            popupPage('600', '700', '/billing/CA/ON/ViewOnSearch3rdBillAddr?param=' + t0);
+            popupPage('600', '700', ctx + '/billing/CA/ON/ViewOnSearch3rdBillAddr?param=' + t0);
         }
 
         function showtotal() {
@@ -352,7 +109,6 @@
                 document.getElementById('payMethod_0').checked = true;
             }
             var subtotal = document.getElementById("total").value;
-            //subtotal = subtotal * 1 + document.getElementById("gst").value * 1;
             var element = document.getElementById("stotal");
             if (element != null)
                 element.value = subtotal;
@@ -361,21 +117,14 @@
         function validatePaymentNumberic(idx) {
             var oldVal = document.getElementById("percCodeSubtotal_" + idx).value;
             var val = document.getElementById("paid_" + idx).value;
-            /* if (val.length == 0) {
-                document.getElementById("paid_" + idx).value = "0.00";
-                oldVal = "0.00";
-                return;
-            } */
-            //var regexNumberic = /^([1-9]\d*|0)(\.\d{1,2})?$/;
             var regexNumberic = /^([1-9]\d{0,9}|0)(\.\d{1,2})?$/;
             if (!regexNumberic.test(val)) {
                 document.getElementById("paid_" + idx).value = oldVal;
-                alert("Please enter digital numbers !");
+                alert("${carlos:forJavaScript(msgEnterNumbers)}");
                 return;
             }
             oldVal = val;
         }
-
 
         function validateDiscountNumberic(idx) {
             var oldVal = "0.00";
@@ -385,11 +134,10 @@
                 oldVal = "0.00";
                 return;
             }
-            //var regexNumberic = /^([1-9]\d*|0)(\.\d{1,2})?$/;
             var regexNumberic = /^([1-9]\d{0,9}|0)(\.\d{1,2})?$/;
             if (!regexNumberic.test(val)) {
                 document.getElementById("discount_" + idx).value = oldVal;
-                alert("Please enter digital numbers !");
+                alert("${carlos:forJavaScript(msgEnterNumbers)}");
                 return;
             }
             oldVal = val;
@@ -403,16 +151,14 @@
                 oldVal = "0.00";
                 return;
             }
-            //var regexNumberic = /^([1-9]\d*|0)(\.\d{1,2})?$/;
             var regexNumberic = /^([1-9]\d{0,9}|0)(\.\d{1,2})?$/;
             if (!regexNumberic.test(val)) {
                 document.getElementById("percCodeSubtotal_" + idx).value = oldVal;
-                alert("Please enter digital numbers !");
+                alert("${carlos:forJavaScript(msgEnterNumbers)}");
                 return;
             }
             oldVal = val;
         }
-
 
         function updateElement(eId, data) {
             document.getElementById(eId).value = data;
@@ -421,7 +167,7 @@
         function checkTotal() {
             var totValue = document.getElementById("total").value;
             if (isNaN(totValue)) {
-                alert("Please enter a valid fee");
+                alert("${carlos:forJavaScript(msgEnterValidFee)}");
                 return false;
             }
             return true;
@@ -430,7 +176,7 @@
         function updateTotal(e) {
             var editedValue = e.value;
             if (isNaN(editedValue)) {
-                alert("Please enter a valid fee");
+                alert("${carlos:forJavaScript(msgEnterValidFee)}");
                 e.focus();
             } else {
                 var codeFees;
@@ -475,7 +221,6 @@
                 return true;
             }
 
-
             for (var idx = 0; idx < payMethods.length; ++idx) {
                 if (payMethods[idx].checked) {
                     checkedMethod = true;
@@ -484,11 +229,11 @@
             }
 
             if (!checkedMethod) {
-                alert("Please select a payment method");
+                alert("${carlos:forJavaScript(msgSelectPaymentMethod)}");
             } else if (settle == "Settle") {
                 document.forms['titlesearch'].btnPressed.value = 'Settle';
                 document.forms['titlesearch'].submit();
-                popupPage(700, 720, '/billing/CA/ON/ViewBillingON3rdInv');
+                popupPage(700, 720, ctx + '/billing/CA/ON/ViewBillingON3rdInv');
             }
 
             return checkedMethod;
@@ -503,8 +248,6 @@
                 el.style.display = "block";
             }
         }
-
-        //-->
 
     </script>
 
@@ -530,10 +273,8 @@
             margin-left: 1px;
         }
 
-
         div.dxBox h3 {
             background-color: silver;
-            /*font-size: 1.25em;*/
             font-size: 10pt;
             font-variant: small-caps;
             font-weight: bold;
@@ -542,7 +283,6 @@
             margin-bottom: 0px;
             padding-bottom: 0px;
         }
-
 
         div.dxBox form {
             margin-top: 0px;
@@ -557,7 +297,6 @@
             margin-bottom: 0px;
             padding-bottom: 0px;
         }
-
 
         .border1, .border1 th, .border1 td {
             border: 1px solid lightgray
@@ -574,18 +313,19 @@
 
 <body onload="showtotal(),calculatePayment()">
 
-<form method="post" name="titlesearch" action="<%= request.getContextPath() %>/billing/CA/ON/BillingONSave" onsubmit="return onSave();">
-    <input type="hidden" name="url_back" value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("url_back")) %>' context="htmlAttribute"/>">
-    <input type="hidden" name="billNo_old" id="billNo_old" value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("billNo_old")) %>' context="htmlAttribute"/>"/>
-    <input type="hidden" name="billStatus_old" id="billStatus_old" value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("billStatus_old")) %>' context="htmlAttribute"/>"/>
-    <input type="hidden" name="billForm" id="billForm" value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("billForm")) %>' context="htmlAttribute"/>"/>
+<form method="post" name="titlesearch" action="${pageContext.request.contextPath}/billing/CA/ON/BillingONSave" onsubmit="return onSave();">
+    <input type="hidden" name="url_back" value="<carlos:encode value='${reviewModel.requestParamEchoes[\"url_back\"]}' context='htmlAttribute'/>">
+    <input type="hidden" name="billNo_old" id="billNo_old" value="<carlos:encode value='${reviewModel.requestParamEchoes[\"billNo_old\"]}' context='htmlAttribute'/>"/>
+    <input type="hidden" name="billStatus_old" id="billStatus_old" value="<carlos:encode value='${reviewModel.requestParamEchoes[\"billStatus_old\"]}' context='htmlAttribute'/>"/>
+    <input type="hidden" name="billForm" id="billForm" value="<carlos:encode value='${reviewModel.requestParamEchoes[\"billForm\"]}' context='htmlAttribute'/>"/>
     <input type="hidden" name="payeename" id="payeename" value=""/>
+    <input type="hidden" name="billingAction" id="billingAction" value="SAVE"/>
     <table style="width:100%" class="myIvory">
         <tr>
             <td>
                 <table style="width:100%" class="myDarkGreen">
                     <tr style="background-color:silver;">
-                        <td><H4>&nbsp;Billing Confirmation</H4></td>
+                        <td><H4>&nbsp;<fmt:message key="oscar.billing.ca.on.billingON.review.heading"/></H4></td>
                         <td style="text-align:right"><input type="hidden" name="addition" value="Confirm"/></td>
                     </tr>
                 </table>
@@ -595,11 +335,23 @@
             <td>
                 <table style="width:100%" class="myYellow">
                     <tr>
-                        <td style="white-space:nowrap; width:10%; text-align:center"><carlos:encode value='<%= demoname %>' context="html"/>
-                            &nbsp;&nbsp; <%=demoSex.equals("1") ? "Male" : "Female"%> &nbsp;&nbsp;
-                            <%=" DOB: " + demoDOBYY + "/" + demoDOBMM + "/" + demoDOBDD + " &nbsp;&nbsp; HIN: " + demoHIN + "" + demoVer%>
+                        <td style="white-space:nowrap; width:10%; text-align:center"><carlos:encode value="${reviewModel.demoName}" context="html"/>
+                            &nbsp;&nbsp; <c:choose>
+                                <c:when test="${reviewModel.demoSexLabel eq 'Female'}"><fmt:message key="global.gender.female"/></c:when>
+                                <c:when test="${reviewModel.demoSexLabel eq 'Male'}"><fmt:message key="global.gender.male"/></c:when>
+                                <c:when test="${reviewModel.demoSexLabel eq 'Intersex'}"><fmt:message key="global.gender.intersex"/></c:when>
+                                <c:when test="${reviewModel.demoSexLabel eq 'Other'}"><fmt:message key="global.gender.other"/></c:when>
+                                <c:when test="${reviewModel.demoSexLabel eq 'Undisclosed'}"><fmt:message key="global.gender.undisclosed"/></c:when>
+                                <c:otherwise><carlos:encode value="${reviewModel.demoSexLabel}" context="html"/></c:otherwise>
+                            </c:choose> &nbsp;&nbsp;
+                            <carlos:encode value="${reviewModel.demoHeaderLine}" context="html"/>
                         </td>
-                        <td style="text-align:center"><%=wrongMsg%>
+                        <td style="text-align:center">
+                            <c:forEach var="alert" items="${reviewModel.reviewAlerts}">
+                                <div class="alert alert-danger" role="alert">
+                                    <carlos:encode value="${alert.message}" context="html"/>
+                                </div>
+                            </c:forEach>
                         </td>
                     </tr>
                 </table>
@@ -610,26 +362,20 @@
 
                             <table style="width:100%">
                                 <tr>
-                                    <!--<input type="text" name="checkFlag" id="checkFlag" value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("checkFlag")) %>' context="htmlAttribute"/>" />  -->
-                                    <td style="white-space:nowrap; width:30%; text-align:center"><b>Service Date</b><br>
-                                        <%
-                                        if (request.getParameter("service_date") != null) {
-                                            String[] serviceDateLines = request.getParameter("service_date").split("\\n");
-                                            for (int sdi = 0; sdi < serviceDateLines.length; sdi++) {
-                                                if (sdi > 0) out.print("<br>");
-                                                out.print(SafeEncode.forHtml(serviceDateLines[sdi]));
-                                            }
-                                        }
-                                        %>
+                                    <td style="white-space:nowrap; width:30%; text-align:center"><b><fmt:message key="global.serviceDate"/></b><br>
+                                        <c:forEach var="line" items="${reviewModel.serviceDateLines}" varStatus="lst">
+                                            <c:if test="${not lst.first}"><br></c:if>
+                                            <carlos:encode value="${line}" context="html"/>
+                                        </c:forEach>
                                     </td>
-                                    <td style="text-align:center; width:33%"><b>Diagnostic Code</b><br>
-                                        <carlos:encode value='<%= dxCode %>' context="html"/><br>
-                                        <carlos:encode value='<%= dxDesc %>' context="html"/>
+                                    <td style="text-align:center; width:33%"><b><fmt:message key="global.diagnosticCode"/></b><br>
+                                        ${carlos:forHtmlContent(reviewModel.dxCode)}<br>
+                                        ${carlos:forHtmlContent(reviewModel.dxDesc)}
                                     </td>
-                                    <td style="vertical-align:top"><b>Refer. Doctor</b><br>
-                                        <carlos:encode value='<%= StringUtils.noNull(request.getParameter("referralDocName")) %>' context="html"/><br>
-                                        <b>Refer. Doctor #</b><br>
-                                        <carlos:encode value='<%= StringUtils.noNull(request.getParameter("referralCode")) %>' context="html"/>
+                                    <td style="vertical-align:top"><b><fmt:message key="oscar.billing.ca.on.billingON.review.referralDoctor"/></b><br>
+                                        <carlos:encode value="${reviewModel.requestParamEchoes['referralDocName']}" context="html"/><br>
+                                        <b><fmt:message key="oscar.billing.ca.on.billingON.review.referralDoctor"/>&nbsp;#</b><br>
+                                        <carlos:encode value="${reviewModel.requestParamEchoes['referralCode']}" context="html"/>
                                     </td>
                                 </tr>
                             </table>
@@ -640,63 +386,58 @@
                             <table style="width:100%"
                                    class="myGreen">
                                 <tr>
-                                    <td style="white-space:nowrap;width:30%"><b>Billing Physician</b></td>
-                                    <%
-                                        String xmlProvider = request.getParameter("xml_provider");
-                                        int xmlProviderSeparatorIndex = xmlProvider == null ? -1 : xmlProvider.indexOf("|");
-                                    %>
-                                    <td style="width:20%"><carlos:encode value='<%= providerBean.getProperty(xmlProviderSeparatorIndex >= 0 ? xmlProvider.substring(0, xmlProviderSeparatorIndex) : "", "") %>' context="html"/>
+                                    <td style="white-space:nowrap;width:30%"><b><fmt:message key="oscar.billing.ca.on.billingON.billingPhysician"/></b></td>
+                                    <td style="width:20%"><carlos:encode value="${reviewModel.billingPhysicianLabel}" context="html"/>
                                     </td>
-                                    <td style="white-space:nowrap; width:30%"><b>MRP</b></td>
-                                    <td style="width:20%"><carlos:encode value='<%= assgProvider_no == null ? "N/A" : providerBean.getProperty(assgProvider_no, "") %>' context="html"/>
+                                    <td style="white-space:nowrap; width:30%"><b><fmt:message key="encounter.Index.msgMRP"/></b></td>
+                                    <td style="width:20%"><carlos:encode value="${reviewModel.mrpLabel}" context="html"/>
                                     </td>
                                 </tr>
                                 <tr>
 
-                                    <td style="width:30%"><b>Visit Type</b></td>
-                                    <td style="width:20%"><carlos:encode value='<%= request.getParameter("xml_visittype") != null && request.getParameter("xml_visittype").contains("|") ? request.getParameter("xml_visittype").substring(request.getParameter("xml_visittype").indexOf("|") + 1) : "" %>' context="html"/>
+                                    <td style="width:30%"><b><fmt:message key="billing.billingCorrection.formVisitType"/></b></td>
+                                    <td style="width:20%"><carlos:encode value="${reviewModel.visitTypeLabel}" context="html"/>
                                     </td>
 
-                                    <td style="width:30%"><b>Billing Type</b></td>
-                                    <td style="width:20%"><carlos:encode value='<%= request.getParameter("xml_billtype") != null && request.getParameter("xml_billtype").contains("|") ? request.getParameter("xml_billtype").substring(request.getParameter("xml_billtype").indexOf("|") + 1) : "" %>' context="html"/>
+                                    <td style="width:30%"><b><fmt:message key="oscar.billing.ca.on.billingON.billingType"/></b></td>
+                                    <td style="width:20%"><carlos:encode value="${reviewModel.billTypeLabel}" context="html"/>
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td><b>Visit Location</b></td>
-                                    <td><carlos:encode value='<%= request.getParameter("xml_location") != null && request.getParameter("xml_location").contains("|") ? request.getParameter("xml_location").substring(request.getParameter("xml_location").indexOf("|") + 1) : "" %>' context="html"/> &nbsp;
-                                        <% if (request.getParameter("m_review") != null) {
-                                            out.println("<b>Manual: Y</b>");
-                                        } %>
+                                    <td><b><fmt:message key="oscar.billing.ca.on.billingON.visitLocation"/></b></td>
+                                    <td><carlos:encode value="${reviewModel.locationLabel}" context="html"/> &nbsp;
+                                        <c:if test="${reviewModel.MReview}">
+                                            <b><fmt:message key="oscar.billing.ca.on.billingON.review.manualY"/></b>
+                                        </c:if>
                                     </td>
 
-                                    <% if (bMultisites) { %>
-                                    <td style="width:30%"><b>Billing Clinic</b></td>
-                                    <td style="width:20%; white-space:nowrap;"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("site")) %>' context="html"/>
-                                    </td>
-                                    <% } %>
+                                    <c:if test="${reviewModel.multisitesEnabled}">
+                                        <td style="width:30%"><b><fmt:message key="oscar.billing.ca.on.billingON.review.billingClinic"/></b></td>
+                                        <td style="width:20%; white-space:nowrap;"><carlos:encode value="${reviewModel.siteName}" context="html"/>
+                                        </td>
+                                    </c:if>
                                 </tr>
                                 <tr>
-                                    <td><b>SLI Code</b></td>
-                                    <td><carlos:encode value='<%= request.getParameter("xml_slicode") != null && request.getParameter("xml_slicode").contains("|") ? request.getParameter("xml_slicode").substring(request.getParameter("xml_slicode").indexOf("|") + 1) : "" %>' context="html"/>
+                                    <td><b><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode"/></b></td>
+                                    <td><carlos:encode value="${reviewModel.sliCodeLabel}" context="html"/>
                                         &nbsp;
                                     </td>
-                                    <% if (bMultisites) { %>
-                                    <td></td>
-                                    <td></td>
-                                    <% } %>
+                                    <c:if test="${reviewModel.multisitesEnabled}">
+                                        <td></td>
+                                        <td></td>
+                                    </c:if>
                                 </tr>
                                 <tr>
-                                    <td><b>Admission Date</b></td>
-                                    <td><carlos:encode value='<%= StringUtils.noNull(request.getParameter("xml_vdate")) %>' context="html"/>
+                                    <td><b><fmt:message key="oscar.billing.ca.on.billingON.admissionDate"/></b></td>
+                                    <td><carlos:encode value="${reviewModel.admissionDate}" context="html"/>
                                     </td>
                                     <td colspan="2"></td>
-                                    <% if (bMultisites) { %>
-                                    <td></td>
-                                    <td></td>
-                                    <% } %>
+                                    <c:if test="${reviewModel.multisitesEnabled}">
+                                        <td></td>
+                                        <td></td>
+                                    </c:if>
                                 </tr>
                             </table>
-
 
                         </td>
                     </tr>
@@ -708,346 +449,218 @@
         <tr>
             <td style="text-align:center">
                 <table class="border1" style="width:100%">
-                        <%  boolean codeValid = true;
-
-    //validation that user hasn't already had billed to OHIP an annual physical this year
-    String serviceCodeValue = null;
-    int srvCodeIdx = 0;
-    while (codeValid && (srvCodeIdx < BillingDataHlp.FIELD_SERVICE_NUM)) {
-
-         serviceCodeValue = request.getParameter("serviceCode" + srvCodeIdx);
-         //Only worry about this check if we are billing OHIP for A003
-         if (serviceCodeValue.equals("A003A") && request.getParameter("xml_billtype").matches("ODP.*")) {
-            BillingONCHeader1 bCh1 = billingONCHeader1Dao.getLastOHIPBillingDateForServiceCode(Integer.parseInt(demo_no),"A003A");
-            if (bCh1 != null) {
-                Calendar serviceDateCal = Calendar.getInstance();
-                java.util.Date serviceDate = null;
-                try {
-                    serviceDate = DateUtils.parseDate(request.getParameter("service_date"),request.getLocale());
-                    serviceDateCal.setTime(serviceDate);
-                } catch (java.text.ParseException e) {}
-
-                Calendar nextBillDateCal = Calendar.getInstance();
-                nextBillDateCal.setTime(bCh1.getBillingDate());
-                //year plus a day
-                nextBillDateCal.add(Calendar.YEAR,1);
-                nextBillDateCal.add(Calendar.DATE,1);
-                if (nextBillDateCal.after(serviceDateCal)) {
-                      //codeValid = false; the bill will not be rejected if its only the second A003A and the diagnosis differs
-    %>
-                    <tr style="color:white">
-                        <td align=center>
-                            <div class='myError'>
-                                (<fmt:message key="oscar.billing.ca.on.billingON.review.invoiceNo"/><%=String.valueOf(bCh1.getId())%>
-                                ) A003A - <fmt:message key="oscar.billing.ca.on.billingON.review.msgServiceCodeAlreadyBilled"/>
-                            </div>
-                        </td>
-                    </tr>
-                        <%
-                }
-            }
-        }
-        srvCodeIdx++;
-    }
-
-    //validation of user entered service codes
-    serviceCodeValue = null;
-    for (int i = 0; i < BillingDataHlp.FIELD_SERVICE_NUM; i++) {
-	serviceCodeValue = request.getParameter("serviceCode" + i);
-
-	if (!serviceCodeValue.equals("")) {
-		BillingServiceDao billingServiceDao = SpringUtils.getBean(BillingServiceDao.class);
-
-		List<Object> svcCodes = billingServiceDao.findBillingCodesByCodeAndTerminationDate(serviceCodeValue.trim().replaceAll("_","\\_"),
-				ConversionUtils.fromDateString(billReferalDate));
-
-	    if (svcCodes.isEmpty()) {
-			codeValid = false;
-		%>
-                    <tr class="alert alert-danger">
-                        <td align=center>
-                            &nbsp;<br>
-                            Service code "<carlos:encode value='<%= StringUtils.noNull(serviceCodeValue) %>' context="html"/>" is invalid. Please go back to correct it.
-                        </td>
-                    </tr>
-                        <%
-	    }
-	}
-    }
-
-    //validation of diagnostic code (dxcode)
-    String dxCodeValue = null;
-    for (int i = 0; i < 3; i++) {
-	if (i==0) dxCodeValue=dxCode;
-	else dxCodeValue=request.getParameter("dxCode" + i);
-	if (!dxCodeValue.equals("")) {
-		List<DiagnosticCode> dcodes = diagnosticCodeDao.findByDiagnosticCode(dxCodeValue.trim());
-		if(dcodes.size() == 0) {
-		codeValid = false;
-		%>
-                    <tr class="alert alert-danger">
-                        <td align=center>
-                            &nbsp;<br>
-                            Diagnostic code "<carlos:encode value='<%= dxCodeValue %>' context="html"/>" is invalid. Please go back to correct it.
-                        </td>
-                    </tr>
-                        <%
-	    }
-	}
-    }
-
-    if (codeValid) {
-%>
-                    <%--= msg --%>
+                    <%-- Pre-render validation rows. The legacy 80-line scriptlet
+                         block (3 inline DAO calls, A003A guard + service-code
+                         validity + dx-code validity) has been moved to
+                         BillingOnReviewValidator (run pre-render by
+                         BillingOnReviewViewModelAssembler). The JSP just iterates
+                         the resulting messages. --%>
+                    <c:forEach var="vm" items="${reviewModel.validationMessages}">
+                        <c:choose>
+                            <c:when test="${vm.severity == 'WARNING'}">
+                                <tr style="color:white">
+                                    <td align="center">
+                                        <div class="myError">${carlos:forHtmlContent(vm.text)}</div>
+                                    </td>
+                                </tr>
+                            </c:when>
+                            <c:otherwise>
+                                <tr class="alert alert-danger">
+                                    <td align="center">
+                                        &nbsp;<br>
+                                        ${carlos:forHtmlContent(vm.text)}
+                                    </td>
+                                </tr>
+                            </c:otherwise>
+                        </c:choose>
+                    </c:forEach>
+                    <c:if test="${reviewModel.codeValid}">
                     <tr class="myYellow">
-                        <td colspan='3'>Calculation</td>
-                        <%if (!"PAT".equals(billType)) {%>
-                        <td>Description</td>
-                        <%} else {%>
-                        <td style="width:14%">Description</td>
-                        <td style="width:3%">Payment</td>
-                        <td style="width:3%">Discount</td>
-                        <%}%>
+                        <td colspan='3'><fmt:message key="oscar.billing.ca.on.billingON.review.calculation"/></td>
+                        <c:choose>
+                            <c:when test="${reviewModel.billType ne 'PAT'}">
+                                <td><fmt:message key="global.description"/></td>
+                            </c:when>
+                            <c:otherwise>
+                                <td style="width:14%"><fmt:message key="global.description"/></td>
+                                <td style="width:3%"><fmt:message key="oscar.billing.ca.on.billingON.review.colPayment"/></td>
+                                <td style="width:3%"><fmt:message key="oscar.billing.ca.on.billingON.review.colDiscount"/></td>
+                            </c:otherwise>
+                        </c:choose>
                     </tr>
-                        <%  }
-			//Vector[] vecServiceParam = prepObj.getRequestCodeVec(request, "serviceDate", "serviceUnit", "serviceAt", 8);
-			//Vector vecCodeItem = prepObj.getServiceCodeReviewVec(vecServiceParam[0], vecServiceParam[1],
-			//				vecServiceParam[2]);
-			//Vector vecPercCodeItem = prepObj.getPercCodeReviewVec(vecServiceParam[0], vecCodeItem);
-				boolean bPerc = false;
-				int n = 0;
-				int nCode = 0;
-				int nPerc = 0;
-				Vector vecPercNo = new Vector();
-				Vector vecPercMin = new Vector();
-				Vector vecPercMax = new Vector();
-				for(int i=0; i<vecServiceParam[0].size(); i++) {
-					String codeName = vecServiceParam[0].get(i);
-					if(nCode<vecCodeItem.size() && codeName.equals( ((BillingReviewCodeItem)vecCodeItem.get(nCode)).getCodeName())) {
-						n++;
-						String codeDescription = ((BillingReviewCodeItem)vecCodeItem.get(nCode)).getCodeDescription();
-						String codeUnit = ((BillingReviewCodeItem)vecCodeItem.get(nCode)).getCodeUnit();
-						String codeFee = ((BillingReviewCodeItem)vecCodeItem.get(nCode)).getCodeFee();
-						String codeTotal = ((BillingReviewCodeItem)vecCodeItem.get(nCode)).getCodeTotal();
-                        String strWarning = ((BillingReviewCodeItem)vecCodeItem.get(nCode)).getMsg();
-                        String codeAt = ((BillingReviewCodeItem)vecCodeItem.get(nCode)).getCodeAt();
-                                                gstFlag = gstRep.getGstFlag(codeName,billReferalDate);  // Retrieve whether the code has gst involved
-                                                BigDecimal cTotal = new BigDecimal(codeTotal);
-                                                if ( gstFlag.equals("1") ){   // If it does, update the total with the gst calculated
-                                                    BigDecimal perc = new BigDecimal(percent);
-                                                    BigDecimal hund = new BigDecimal(100);
-                                                    stotal = cTotal;
-                                                    stotal = stotal.multiply(perc);
-                                                    stotal = stotal.divide(hund);
-                                                    gstTotal = gstTotal.add(stotal).setScale(2, BigDecimal.ROUND_HALF_UP);  // Total up GST Charged
-                                                    stotal = stotal.add(cTotal).setScale(2, BigDecimal.ROUND_HALF_UP); // Finally update the new codeTotal
-                                                    codeTotal = stotal + "";
-                                                    BigDecimal temp = new BigDecimal(codeTotal);
-                                                    gstbilledtotal = gstbilledtotal.add(temp).setScale(2, BigDecimal.ROUND_HALF_UP);
-                                                }
-                                                else {
-                                                    gstbilledtotal = gstbilledtotal.add(cTotal).setScale(2, BigDecimal.ROUND_HALF_UP);
-                                                }
-                        if (codeValid) {
-			%>
-                    <tr class="myGreen">
-                        <td style="text-align:center; width:3%"><%="" + n %>
-                        </td>
-                        <td style="text-align:right; width:12%"><%=codeName %> (<%=codeUnit %>)</td>
-                        <td>
-                            <% if (strWarning.length() > 0) { %>
-                            <span style="float:left;" class="alert alert-warning"><%=strWarning%></span>
-                            <%}%>
-                            <span style="float:right;"> <%=codeFee %> x <%=codeUnit %><% if (gstFlag.equals("1")) {%> + <%=percent%>% GST<%}%> =
-				<input type="text" name="percCodeSubtotal_<%=i %>" value="<%=codeTotal %>" id="percCodeSubtotal_<%=i %>"
-                       onBlur="calculateTotal();" onchange="validateFeeNumberic(<%=i%>)">
-				<input type="hidden" name="xserviceCode_<%=i %>" value="<%=codeName %>">
-				<input type="hidden" id="xserviceUnit_<%=i %>" name="xserviceUnit_<%=i %>" value="<%=codeUnit %>">
-                    </span>
-                        </td>
-                        <%if (!"PAT".equals(billType)) {%>
-                        <td style="width:25%"><%=propCodeDesc.getProperty(codeName, "") %>
-                        </td>
-                        <%
-                        } else {
-                            String paid_value = "0.00";
-                        %>
-                        <oscar:oscarPropertiesCheck property="BILLING_REVIEW_AUTO_PAYMENT" value="yes">
-                            <%paid_value = codeTotal; %>
-                        </oscar:oscarPropertiesCheck>
-                        <td style="white-space:nowrap; width:14%">
-                            <pre><%=codeDescription%></pre>
-                        </td>
-                        <td style="white-space:nowrap; width:3%"><input type="text" id="paid_<%=i%>" name="paid_<%=i %>"
-                                                                        value="<%=paid_value%>"
-                                                                        onBlur="calculatePayment();"
-                                                                        onchange="validatePaymentNumberic(<%=i %>)"/>
-                        </td>
-                        <td style="white-space:nowrap; width:3%"><input type="text" id="discount_<%=i%>"
-                                                                        name="discount_<%=i %>" value="0.00"
-                                                                        onBlur="calculateDiscount();"
-                                                                        onchange="validateDiscountNumberic(<%=i %>)"/>
-                        </td>
-                        <%}%>
-                    </tr>
-                        <%
-                        }
-						nCode++;
-					}
-					else if(nPerc<vecPercCodeItem.size() && codeName.equals( ((BillingReviewPercItem)vecPercCodeItem.get(nPerc)).getCodeName())) {
-			if (codeValid) {
-                                            %>
-                    <tr class="myPink">
-                        <td style="text-align:center;"><%="&nbsp;" %>
-                        </td>
-                        <td style="text-align:right;"><%=codeName %> (1)</td>
-                        <td style="text-align:right;">
-                            <% }
+                    </c:if>
 
-                                bPerc = true;
-                                BillingReviewPercItem percItem = (BillingReviewPercItem) vecPercCodeItem.get(nPerc);
-                                String percFee = percItem.getCodeFee();
-                                Vector vecPercFee = percItem.getVecCodeFee();
-                                Vector vecPercTotal = percItem.getVecCodeTotal();
-                                String codeUnit = percItem.getCodeUnit();
-                                for (int j = 0; j < vecPercTotal.size(); j++) {
-                                    String percTotal = (Float.parseFloat((String) vecPercTotal.get(j))) * Integer.parseInt(codeUnit) + "";
-                                    if (codeValid) {
-                            %>
-                            <input type="checkbox" id="percentCode" name="percCode_<%=i %>" value="<%=percTotal %>"
-                                   onclick="onCheckMaster();"/> <%=percTotal %>(<%=vecPercFee.get(j) %>x<%=percFee %>
-                            x<%=codeUnit %>) |
-                            <%
+                    <%-- Service-code rows --%>
+                    <c:forEach var="row" items="${reviewModel.serviceCodeRows}">
+                        <c:if test="${row.codeValid}">
+                            <tr class="myGreen">
+                                <td style="text-align:center; width:3%">${row.n}</td>
+                                <td style="text-align:right; width:12%"><carlos:encode value="${row.codeName}" context="html"/> (<carlos:encode value="${row.codeUnit}" context="html"/>)</td>
+                                <td>
+                                    <c:if test="${not empty row.warning}">
+                                        <span style="float:left;" class="alert alert-warning">${carlos:forHtmlContent(row.warning)}</span>
+                                    </c:if>
+                                    <span style="float:right;"> <carlos:encode value="${row.codeFee}" context="html"/> x <carlos:encode value="${row.codeUnit}" context="html"/><c:if test="${row.gstApplied}"> + <carlos:encode value="${reviewModel.gstPercent}" context="html"/>% GST</c:if> =
+                                        <input type="text" name="percCodeSubtotal_${row.rowIndex}" value="<carlos:encode value='${row.codeTotal}' context='htmlAttribute'/>" id="percCodeSubtotal_${row.rowIndex}"
+                                               onBlur="calculateTotal();" onchange="validateFeeNumberic(${row.rowIndex})">
+                                        <input type="hidden" name="xserviceCode_${row.rowIndex}" value="<carlos:encode value='${row.codeName}' context='htmlAttribute'/>">
+                                        <input type="hidden" id="xserviceUnit_${row.rowIndex}" name="xserviceUnit_${row.rowIndex}" value="<carlos:encode value='${row.codeUnit}' context='htmlAttribute'/>">
+                                    </span>
+                                </td>
+                                <c:choose>
+                                    <c:when test="${reviewModel.billType ne 'PAT'}">
+                                        <td style="width:25%"><carlos:encode value="${reviewModel.codeDescriptions[row.codeName]}" context="html"/></td>
+                                    </c:when>
+                                    <c:otherwise>
+                                        <c:set var="paidValue" value="0.00"/>
+                                        <oscar:oscarPropertiesCheck property="BILLING_REVIEW_AUTO_PAYMENT" value="yes">
+                                            <c:set var="paidValue" value="${row.codeTotal}"/>
+                                        </oscar:oscarPropertiesCheck>
+                                        <td style="white-space:nowrap; width:14%">
+                                            <pre><carlos:encode value="${row.codeDescription}" context="html"/></pre>
+                                        </td>
+                                        <td style="white-space:nowrap; width:3%">
+                                            <input type="text" id="paid_${row.rowIndex}" name="paid_${row.rowIndex}"
+                                                   value="<carlos:encode value='${paidValue}' context='htmlAttribute'/>"
+                                                   onBlur="calculatePayment();"
+                                                   onchange="validatePaymentNumberic(${row.rowIndex})"/>
+                                        </td>
+                                        <td style="white-space:nowrap; width:3%">
+                                            <input type="text" id="discount_${row.rowIndex}"
+                                                   name="discount_${row.rowIndex}" value="0.00"
+                                                   onBlur="calculateDiscount();"
+                                                   onchange="validateDiscountNumberic(${row.rowIndex})"/>
+                                        </td>
+                                    </c:otherwise>
+                                </c:choose>
+                            </tr>
+                        </c:if>
+                    </c:forEach>
+
+                    <%-- Percent-code rows --%>
+                    <c:forEach var="prow" items="${reviewModel.percCodeRows}">
+                        <c:if test="${reviewModel.codeValid}">
+                            <tr class="myPink">
+                                <td style="text-align:center;">&nbsp;</td>
+                                <td style="text-align:right;"><carlos:encode value="${prow.codeName}" context="html"/> (1)</td>
+                                <td style="text-align:right;">
+                                    <c:forEach var="seg" items="${prow.segments}">
+                                        <input type="checkbox" id="percentCode" name="percCode_${prow.rowIndex}" value="<carlos:encode value='${seg.percTotal}' context='htmlAttribute'/>"
+                                               onclick="onCheckMaster();"/> <carlos:encode value="${seg.percTotal}" context="html"/>(<carlos:encode value="${seg.factor}" context="html"/>x<carlos:encode value="${prow.percFee}" context="html"/>x<carlos:encode value="${prow.codeUnit}" context="html"/>) |
+                                    </c:forEach>
+                                    = <input type="text" name="percCodeSubtotal_${prow.rowIndex}" value="0.00"/>
+                                    <input type="hidden" name="xserviceCode_${prow.rowIndex}" value="<carlos:encode value='${prow.codeName}' context='htmlAttribute'/>"/>
+                                    <input type="hidden" name="xserviceUnit_${prow.rowIndex}" value="<carlos:encode value='${prow.codeUnit}' context='htmlAttribute'/>"/>
+                                </td>
+                                <td style="width:25%"><carlos:encode value="${reviewModel.codeDescriptions[prow.codeName]}" context="html"/></td>
+                            </tr>
+                        </c:if>
+                    </c:forEach>
+
+                    <c:if test="${reviewModel.codeValid}">
+                        <tr>
+                            <td style="text-align:left;" colspan="2">
+                            </td>
+                            <td style="text-align:right;" colspan='1' class="myGreen">
+
+                                <fmt:message key="global.total"/>: <input type="text" id="total" name="total" value="0.00"
+                                              onchange="onTotalChanged();"/>
+                                <input type="hidden" name="totalItem" value="${reviewModel.totalItem}"/></td>
+
+                            <script Language="JavaScript">
+
+                                function onCheckMaster() {
+                                    <c:forEach var="ph" items="${reviewModel.percJsHandlers}">
+                                    var nSubtotal = 0.00;
+                                    var nMin = ${carlos:forJavaScript(ph.min)};
+                                    var nMax = ${carlos:forJavaScript(ph.max)};
+                                    if (document.forms[0].percCode_${ph.iCheckNo}.length == undefined) {
+                                        if (document.forms[0].percCode_${ph.iCheckNo}.checked) {
+                                            nSubtotal = nSubtotal + (Number(document.forms[0].percCode_${ph.iCheckNo}.value) * 100);
+                                        }
                                     }
-                                }
-                                if (codeValid) {
-                            %> = <input type="text" name="percCodeSubtotal_<%=i %>" value="0.00"/>
-                            <input type="hidden" name="xserviceCode_<%=i %>" value="<%=codeName %>"/>
-                            <input type="hidden" name="xserviceUnit_<%=i %>" value="<%=codeUnit %>"/>
-                        </td>
-                        <td style="width:25%"><%=propCodeDesc.getProperty(codeName, "") %>
-                        </td>
-                    </tr>
-                        <%
-                                }
-						nPerc++;
-						vecPercNo.add(""+i);
-						String nMin = percItem.getCodeMinFee();
-						String nMax = percItem.getCodeMaxFee();
-						nMin = (nMin == null || "".equals(nMin))? "0" : nMin;
-						nMax = (nMax == null || "".equals(nMax))? "9999" : nMax;
-						vecPercMin.add(nMin);
-						vecPercMax.add(nMax);
-					}
-				}
-                        if (codeValid) {
-			%>
-                    <tr>
-                        <td style="text-align:left;" colspan="2">
-                        </td>
-                        <td style="text-align:right;" colspan='1' class="myGreen">
-
-                            Total: <input type="text" id="total" name="total" value="0.00"
-                                          onchange="onTotalChanged();"/>
-                            <input type="hidden" name="totalItem" value="<%=vecServiceParam[0].size() %>"/></td>
-
-                        <script Language="JavaScript">
-
-                            <!--
-                            function onCheckMaster() {
-                                <%
-                                    for(int i=0; i<vecPercNo.size(); i++) {
-                                        String iCheckNo = (String)vecPercNo.get(i);
-                                %>
-                                var nSubtotal = 0.00;
-                                var nMin = <%=vecPercMin.get(i)%>;
-                                var nMax = <%=vecPercMax.get(i)%>;
-                                //alert(":" + document.forms[0].percCode_<%=iCheckNo%>.type);
-                                if (document.forms[0].percCode_<%=iCheckNo%>.length == undefined) {
-                                    if (document.forms[0].percCode_<%=iCheckNo%>.checked) {
-                                        nSubtotal = nSubtotal + eval(document.forms[0].percCode_<%=iCheckNo%>.value * 100);
+                                    for (n = 0; n < document.forms[0].percCode_${ph.iCheckNo}.length; n++) {
+                                        if (document.forms[0].percCode_${ph.iCheckNo}[n].checked) {
+                                            nSubtotal = nSubtotal + (Number(document.forms[0].percCode_${ph.iCheckNo}[n].value) * 100);
+                                        }
                                     }
-                                }
-                                for (n = 0; n < document.forms[0].percCode_<%=iCheckNo%>.length; n++) {
-                                    // If a checkbox has been selected it will return true
-                                    if (document.forms[0].percCode_<%=iCheckNo%>[n].checked) {
-                                        nSubtotal = nSubtotal + eval(document.forms[0].percCode_<%=iCheckNo%>[n].value * 100);
+                                    nSubtotal = Math.round(nSubtotal);
+                                    ssubtotal = nSubtotal / 100 + "";
+                                    if (ssubtotal.indexOf(".") < 0) {
+                                        ssubtotal = ssubtotal + ".00";
+                                    } else if ((ssubtotal.length - ssubtotal.indexOf('.')) <= 2) {
+                                        ssubtotal = ssubtotal + "00".substring(0, (ssubtotal.length - ssubtotal.indexOf('.') - 1));
                                     }
-                                    //alert(nSubtotal+"here:" +document.forms[0].percCode_2.length);
+                                    document.forms[0].percCodeSubtotal_${ph.iCheckNo}.value = ssubtotal;
+                                    if (nMin > document.forms[0].percCodeSubtotal_${ph.iCheckNo}.value) {
+                                        document.forms[0].percCodeSubtotal_${ph.iCheckNo}.value = nMin;
+                                    } else if (nMax < document.forms[0].percCodeSubtotal_${ph.iCheckNo}.value) {
+                                        document.forms[0].percCodeSubtotal_${ph.iCheckNo}.value = nMax;
+                                    }
+                                    </c:forEach>
+                                    nSubtotal = 0.00;
+                                    for (var i = 0; i < document.forms[0].elements.length; i++) {
+                                        if (document.forms[0].elements[i].name.indexOf("percCodeSubtotal") >= 0) {
+                                            nSubtotal = nSubtotal + document.forms[0].elements[i].value * 10 * 10;
+                                        }
+                                    }
+                                    stotal = nSubtotal / 100 + "";
+                                    if (stotal.indexOf(".") < 0) {
+                                        stotal = stotal + ".00";
+                                    } else if ((stotal.length - stotal.indexOf('.')) <= 2) {
+                                        stotal = stotal + "00".substring(0, (stotal.length - stotal.indexOf('.') - 1));
+                                    }
+                                    var num = new Number(stotal);
+                                    document.forms[0].total.value = num.toFixed(2);
                                 }
-                                nSubtotal = Math.round(nSubtotal);
-                                ssubtotal = nSubtotal / 100 + "";
-                                if (ssubtotal.indexOf(".") < 0) {
-                                    ssubtotal = ssubtotal + ".00";
-                                } else if ((ssubtotal.length - ssubtotal.indexOf('.')) <= 2) {
-                                    //alert(ssubtotal.length + " : " + ssubtotal.indexOf("."));
-                                    ssubtotal = ssubtotal + "00".substring(0, (ssubtotal.length - ssubtotal.indexOf('.') - 1));
-                                }
-                                document.forms[0].percCodeSubtotal_<%=iCheckNo%>.value = ssubtotal;
-                                if (nMin > document.forms[0].percCodeSubtotal_<%=iCheckNo%>.value) {
-                                    document.forms[0].percCodeSubtotal_<%=iCheckNo%>.value = nMin;
-                                } else if (nMax < document.forms[0].percCodeSubtotal_<%=iCheckNo%>.value) {
-                                    document.forms[0].percCodeSubtotal_<%=iCheckNo%>.value = nMax;
-                                }
-                                <%	}
-                                %>
-                                nSubtotal = 0.00;
+
+                                var ntotal = 0.00;
                                 for (var i = 0; i < document.forms[0].elements.length; i++) {
                                     if (document.forms[0].elements[i].name.indexOf("percCodeSubtotal") >= 0) {
-                                        nSubtotal = nSubtotal + document.forms[0].elements[i].value * 10 * 10;
+                                        ntotal = ntotal + (document.forms[0].elements[i].value * 10 * 10);
                                     }
-                                    //alert(i + ":" + nSubtotal);
                                 }
-                                stotal = nSubtotal / 100 + "";
+                                stotal = ntotal / 100 + "";
                                 if (stotal.indexOf(".") < 0) {
                                     stotal = stotal + ".00";
                                 } else if ((stotal.length - stotal.indexOf('.')) <= 2) {
-                                    //alert(stotal.length + " : " + stotal.indexOf("."));
                                     stotal = stotal + "00".substring(0, (stotal.length - stotal.indexOf('.') - 1));
                                 }
                                 var num = new Number(stotal);
                                 document.forms[0].total.value = num.toFixed(2);
-                            }
 
-                            var ntotal = 0.00;
-                            for (var i = 0; i < document.forms[0].elements.length; i++) {
-                                if (document.forms[0].elements[i].name.indexOf("percCodeSubtotal") >= 0) {
-                                    ntotal = ntotal + (document.forms[0].elements[i].value * 10 * 10);
-                                    //alert(":::" + document.forms[0].elements[i].value*10*10);
-                                }
-                                //alert(ntotal);
-                            }
-                            stotal = ntotal / 100 + "";
-                            //alert(stotal);
-                            if (stotal.indexOf(".") < 0) {
-                                stotal = stotal + ".00";
-                            } else if ((stotal.length - stotal.indexOf('.')) <= 2) {
-                                //alert(stotal.length + " : " + stotal.indexOf("."));
-                                stotal = stotal + "00".substring(0, (stotal.length - stotal.indexOf('.') - 1));
-                            }
-                            var num = new Number(stotal);
-                            document.forms[0].total.value = num.toFixed(2);
+                            </script>
 
-                            -->
-                        </script>
-
-                    </tr>
-                        <% } %>
+                        </tr>
+                    </c:if>
+                    <c:if test="${reviewModel.totalsParseFailed}">
+                        <tr>
+                            <td colspan="4" style="text-align:center;">
+                                <div class='alert alert-danger' role='alert' style='margin: 8px 0;'>
+                                    <strong><fmt:message key="oscar.billing.ca.on.billingON.review.totalsParseFailed"/></strong>
+                                    <fmt:message key="oscar.billing.ca.on.billingON.review.totalsParseFailedDetail"/>
+                                </div>
+                            </td>
+                        </tr>
+                    </c:if>
                     <tr>
 
                         <td colspan="4" style="text-align:center; background-color:silver">
-                            <input type="submit" name="button" value="Back to Edit" class="btn btn-secondary" style="width: 120px;"/>
-                                <% if (codeValid && !dupServiceCode) { %>
-                            <input type="submit" name="submit" value="Save" class="btn btn-primary"
-                                   style="width: 120px;" onClick="onClickSave();"/>
-                            <input type="submit" name="submit" value="Save & Add Another Bill" class="btn btn-secondary"
-                                   onClick="onClickSave();"/>
-                                <% }else if (dupServiceCode){%>
+                            <input type="submit" value="<carlos:encode value='${msgBtnBackToEdit}' context='htmlAttribute'/>" class="btn btn-secondary"
+                                   onclick="document.getElementById('billingAction').value='BACK_TO_EDIT';"/>
+                            <c:choose>
+                                <c:when test="${reviewModel.codeValid and not reviewModel.dupServiceCode and not reviewModel.totalsParseFailed}">
+                                    <input type="submit" value="<carlos:encode value='${msgBtnSave}' context='htmlAttribute'/>" class="btn btn-primary"
+                                           onclick="document.getElementById('billingAction').value='SAVE'; onClickSave();"/>
+                                    <input type="submit" value="<carlos:encode value='${msgBtnSaveAndAdd}' context='htmlAttribute'/>" class="btn btn-secondary"
+                                           onclick="document.getElementById('billingAction').value='SAVE_ADD_ANOTHER'; onClickSave();"/>
+                                </c:when>
+                                <c:when test="${reviewModel.dupServiceCode}">
                         <td>
-                            <div class='alert alert-danger'>Warning: Duplicate service codes entered</div>
+                            <div class='alert alert-danger'><fmt:message key="oscar.billing.ca.on.billingON.review.dupServiceCodes"/></div>
                         </td>
-                            <% }
-                                    %>
+                                </c:when>
+                            </c:choose>
             </td>
         </tr>
     </table>
@@ -1055,195 +668,99 @@
     </td>
     </tr>
 
-    <% if (bPerc) {
-        out.println("<tr><td style='text-align:center'><br><span class='alert alert-info' >* Click the code you want the % code to apply to [1 or 2 ...].</span></td></tr>");
-    } %>
-    <% if (codeValid) {
-        if (request.getParameter("xml_billtype") != null && request.getParameter("xml_billtype").matches("ODP.*|WCB.*|NOT.*|BON.*")) { %>
+    <c:if test="${reviewModel.percRendered}">
+        <tr><td style='text-align:center'><br><span class='alert alert-info'><fmt:message key="oscar.billing.ca.on.billingON.review.percCodeHint"/></span></td></tr>
+    </c:if>
+
+    <c:if test="${reviewModel.codeValid and reviewModel.publicPayer}">
     <tr>
         <td>
             <br>
-            Billing Notes:<br>
-            <%
-                String tempLoc = "";
-                if (!bMultisites) {
-                    CarlosProperties props = CarlosProperties.getInstance();
-                    boolean bMoreAddr = props.getProperty("scheduleSiteID", "").equals("") ? false : true;
-                    if (bMoreAddr) {
-                        tempLoc = request.getParameter("siteId") != null ? request.getParameter("siteId").trim() : "";
-                    } else {
-                        tempLoc = props.getProperty("BILLING_NOTE", "");
-                    }
-                } else {
-                    tempLoc = request.getParameter("site");
-                }
-            %>
-            <textarea name="comment" style="width:600px;"><carlos:encode value='<%= StringUtils.noNull(tempLoc) %>' context="html"/></textarea>
+            <fmt:message key="billing.billingCorrection.msgNotes"/>:<br>
+            <textarea name="comment" style="width:600px;"><carlos:encode value="${reviewModel.billingNotes}" context="html"/></textarea>
         </td>
     </tr>
     <tr>
         <td>
-            <% }
-            } %>
-            <%
-                //
-                if (request.getParameter("xml_billtype") != null && !request.getParameter("xml_billtype").matches("ODP.*|WCB.*|NOT.*|BON.*")) {
-                    JdbcBillingPageUtil pObj = new JdbcBillingPageUtil();
-                    List al = pObj.getPaymentType();
+    </c:if>
 
-                    Billing3rdPartPrep privateObj = new Billing3rdPartPrep();
-                    RxProviderData.Provider provider = new RxProviderData().getProvider((String) session.getAttribute("user"));
-
-                /*
-                = propClinic.getProperty("clinic_name", "") + "\n"
-		+ propClinic.getProperty("clinic_address", "") + "\n"
-		+ propClinic.getProperty("clinic_city", "") + ", " + propClinic.getProperty("clinic_province", "") + "\n"
-		+ propClinic.getProperty("clinic_postal", "") + "\n"
-		+ "Tel: " + propClinic.getProperty("clinic_phone", "") + "\n"
-		+ "Fax: " + propClinic.getProperty("clinic_fax", "") ;
-                */
-                    String strClinicAddr = provider.getClinicName().replaceAll("\\(\\d{6}\\)", "") + "\n"
-                            + provider.getClinicAddress() + "\n"
-                            + provider.getClinicCity() + "," + provider.getClinicProvince() + "\n"
-                            + provider.getClinicPostal() + "\n"
-                            + "Tel: " + provider.getClinicPhone() + "\n"
-                            + "Fax: " + provider.getClinicFax();
-
-                    if (codeValid) {
-            %>
-
-            <%
-                // for satellite clinics
-                String clinicAddress = null;
-// get Site ID from billingON.jsp
-                if (bMultisites) {
-                    String siteName = request.getParameter("site");
-                    SiteDao siteDao = (SiteDao) WebApplicationContextUtils.getWebApplicationContext(application).getBean(SiteDao.class);
-                    List<Site> sites = siteDao.getActiveSitesByProviderNo((String) session.getAttribute("user"));
-                    Site s = ApptUtil.getSiteFromName(sites, siteName);
-
-                    if (s == null)
-                        clinicAddress = strClinicAddr;
-                    else {
-                        clinicAddress = s.getName() + "\n" + s.getAddress() + "\n" + s.getCity() + ", " + s.getProvince() + " " + s.getPostal() + "\nTel: " + s.getPhone() + "\nFax: " + s.getFax();
-                    }
-
-                } else {
-                    String siteID = request.getParameter("siteId");
-                    CarlosProperties props2 = CarlosProperties.getInstance();
-                    if (props2.getProperty("clinicSatelliteCity") != null) {
-                        //compare the site id with clinicSatelliteCity to get the current address index
-                        //in properties file  clinicSatelliteCity and scheduleSiteID must have same value
-                        String[] clinicCity = props2.getProperty("clinicSatelliteCity", "").split("\\|");
-                        //current address index
-                        int siteFlag = 0;
-                        for (int i = 0; i < clinicCity.length; i++) {
-                            if (siteID.equals(clinicCity[i])) siteFlag = i;
-                        }
-                        String[] temp0 = props2.getProperty("clinicSatelliteName", "").split("\\|");
-                        String[] temp1 = props2.getProperty("clinicSatelliteAddress", "").split("\\|");
-                        String[] temp3 = props2.getProperty("clinicSatelliteProvince", "").split("\\|");
-                        String[] temp4 = props2.getProperty("clinicSatellitePostal", "").split("\\|");
-                        String[] temp5 = props2.getProperty("clinicSatellitePhone", "").split("\\|");
-                        String[] temp6 = props2.getProperty("clinicSatelliteFax", "").split("\\|");
-                        clinicAddress = temp0[siteFlag] + "\n" + temp1[siteFlag] + "\n" + clinicCity[siteFlag] + ", " + temp3[siteFlag] + " " + temp4[siteFlag] + "\nTel: " + temp5[siteFlag] + "\nFax: " + temp6[siteFlag];
-                    } else {
-                        clinicAddress = strClinicAddr;
-                    }
-                }
-                CarlosProperties props = CarlosProperties.getInstance();
-                String tempLoc = props.getProperty("BILLING_NOTE", "");
-            %>
+    <c:if test="${reviewModel.codeValid and reviewModel.privatePayer}">
         </td>
     </tr>
     <tr>
         <td>
             <table class="border1" style="width:100%">
                 <tr class="myYellow">
-                    <td colspan='2'>Private Billing</td>
+                    <td colspan='2'><fmt:message key="oscar.billing.ca.on.billingON.review.privateBilling"/></td>
                 </tr>
                 <tr>
                     <td style="width:80%">
 
                         <table id="privateBillInfo" style="width:100%">
                             <tr>
-                                <td>Bill To [<a href=# onclick="scriptAttach('billTo'); return false;">Search</a>]<br>
-                                    <textarea name="billto" id="billTo" cols=30 rows=6><carlos:encode value='<%= StringUtils.noNull(strPatientAddr) %>' context="html"/></textarea>
+                                <td><fmt:message key="billing.billingCorrection.msgPayer"/> [<a href="#" onclick="scriptAttach('billTo'); return false;"><fmt:message key="global.btnSearch"/></a>]<br>
+                                    <textarea name="billto" id="billTo" cols="30" rows="6">${carlos:forHtmlContent(reviewModel.patientAddress)}</textarea>
                                 </td>
-                                <td>Remit To [<a href=# onclick="scriptAttach('remitTo'); return false;">Search</a>]<br>
-                                    <textarea name="remitto" id="remitTo" value="" cols=30
-                                              rows=6><%=clinicAddress%></textarea></td>
-                                <td>Payee<br>
-                                    <%
-                                        String providerNo = request.getParameter("xml_provider");
-                                        if (providerNo != null) {
-                                            int indexnumber = providerNo.indexOf("|");
-                                            if (indexnumber != -1) {
-                                                providerNo = providerNo.substring(0, indexnumber);
-                                            }
-                                        }
-
-                                        String payeename = "";
-                                        String lname = "";
-                                        String fname = "";
-                                        if (providerNo != null) {
-                                            Provider p = providerDao.getProvider(providerNo);
-                                            if (p != null) {
-                                                lname = p.getLastName() != null ? p.getLastName() : "";
-                                                fname = p.getFirstName() != null ? p.getFirstName() : "";
-                                            }
-                                        }
-                                        payeename = fname + " " + lname;
-
-                                        Properties prop = CarlosProperties.getInstance();
-                                        String payee = prop.getProperty("PAYEE", "");
-                                        payee = payee.trim();
-                                        if (payee.length() > 0) {
-                                    %>
-                                    <textarea id="payee" name="payee" value="" cols=20 rows=6><carlos:encode value='<%= payee %>' context="html"/></textarea></td>
-                                    <% } else { %>
-                                <textarea id="payee" name="payee" value="" cols=20 rows=6><carlos:encode value='<%= payeename %>' context="html"/></textarea>
+                                <td><fmt:message key="oscar.billing.ca.on.billingON.review.remitTo"/> [<a href="#" onclick="scriptAttach('remitTo'); return false;"><fmt:message key="global.btnSearch"/></a>]<br>
+                                    <c:if test="${reviewModel.clinicAddressUnavailable}">
+                                        <div class="alert alert-danger" role="alert"><fmt:message key="oscar.billing.ca.on.billingON.review.clinicAddressUnavailable"/></div>
+                                    </c:if>
+                                    <textarea name="remitto" id="remitTo" value="" cols="30"
+                                              rows="6">${carlos:forHtmlContent(reviewModel.clinicAddress)}</textarea></td>
+                                <td><fmt:message key="oscar.billing.ca.on.billingON.review.payee"/><br>
+                                    <c:choose>
+                                        <c:when test="${reviewModel.payeeFromConfigSet}">
+                                            <textarea id="payee" name="payee" value="" cols="20" rows="6"><carlos:encode value="${reviewModel.payeeFromConfig}" context="html"/></textarea></td>
+                                        </c:when>
+                                        <c:otherwise>
+                                            <textarea id="payee" name="payee" value="" cols="20" rows="6"><carlos:encode value="${reviewModel.payeeName}" context="html"/></textarea>
                     </td>
-                    <input type="hidden" name="payeename1" id="payeename1" value="<carlos:encode value='<%= payeename %>' context="htmlAttribute"/>"/>
-                    <% } %>
+                    <input type="hidden" name="payeename1" id="payeename1" value="<carlos:encode value='${reviewModel.payeeName}' context='htmlAttribute'/>"/>
+                                        </c:otherwise>
+                                    </c:choose>
                 </tr>
             </table>
             <table style="width:100%">
                 <tr>
                     <td>
-                        Billing Notes:<br>
-                        <textarea name="comment" cols=100 rows=6><carlos:encode value='<%= StringUtils.noNull(tempLoc) %>' context="html"/></textarea>
+                        <fmt:message key="billing.billingCorrection.msgNotes"/>:<br>
+                        <textarea name="comment" cols="100" rows="6"><carlos:encode value="${reviewModel.billingNotes}" context="html"/></textarea>
                     </td>
                     <td style="text-align:right">
                         <input type="hidden" name="provider_no"
-                               value="<%= providerNo != null ? SafeEncode.forHtmlAttribute(providerNo) : "" %>"/>
-                        GST Billed:<input type="text" id="gst" name="gst" value="<%=gstTotal%>"><br>
-                        <input type="hidden" id="gstBilledTotal" name="gstBilledTotal" value="<%=gstbilledtotal%>">
-                        Total:<input type="text" id="stotal" disabled name="stotal" value="0.00"><br>
-                        Payments:<input type="text" disabled name="payment1" id="payment" value="0.00"
+                               value="<carlos:encode value='${reviewModel.payeeProviderNo}' context='htmlAttribute'/>"/>
+                        <fmt:message key="admin.gstReport.table.gstBilled"/>:<input type="text" id="gst" name="gst" value="<carlos:encode value='${reviewModel.gstTotal}' context='htmlAttribute'/>"><br>
+                        <input type="hidden" id="gstBilledTotal" name="gstBilledTotal" value="<carlos:encode value='${reviewModel.gstBilledTotal}' context='htmlAttribute'/>">
+                        <fmt:message key="global.total"/>:<input type="text" id="stotal" disabled name="stotal" value="0.00"><br>
+                        <fmt:message key="oscar.billing.ca.on.billingON.review.payments"/>:<input type="text" disabled name="payment1" id="payment" value="0.00"
                                         onDblClick="settlePayment();"/><br/>
-                        Discount:<input type="text" disabled name="discount2" id="discount" value="0.00">
+                        <fmt:message key="oscar.billing.ca.on.billingON.review.discount"/>:<input type="text" disabled name="discount2" id="discount" value="0.00">
                     </td>
                 </tr>
             </table>
 
         <td class="myGreen">
-            Payment Method:<br/>
-            <% for (int i = 0; i < al.size(); i = i + 2) { %>
-            <input type="radio" name="payMethod" value="<%=al.get(i) %>" id="payMethod_<%=i %>"/><%=al.get(i + 1) %>
-            <br/>
-            <% } %>
+            <fmt:message key="oscar.billing.ca.on.billingON.review.paymentMethod"/>:<br/>
+            <c:if test="${reviewModel.paymentTypeLookupFailed}">
+                <div class="alert alert-danger" role="alert">
+                    <fmt:message key="oscar.billing.ca.on.billingON.review.paymentTypesUnavailable"/>
+                </div>
+            </c:if>
+            <c:forEach var="pt" items="${reviewModel.paymentTypes}" varStatus="pst">
+                <input type="radio" name="payMethod" value="<carlos:encode value='${pt.id}' context='htmlAttribute'/>" id="payMethod_${pst.index * 2}"/><carlos:encode value="${pt.label}" context="html"/>
+                <br/>
+            </c:forEach>
         </td>
     </tr>
     <tr>
         <td colspan='2' align='center' bgcolor="silver">
-            <input type="submit" name="submit" value="Save & Print Invoice" class="btn btn-secondary"
-                   style="width: 150px;"/>
-            <input type="submit" name="submit" id="settlePrintBtn" class="btn btn-primary"
-                   value="Settle & Print Invoice"
-                   onClick="document.forms['titlesearch'].btnPressed.value='Settle'; document.forms['titlesearch'].submit();javascript:popupPage(700,720,'/billing/CA/ON/ViewBillingON3rdInv');"
-                   style="width: 160px;"/>
-            <input type="hidden" name="btnPressed" value="">
+            <input type="submit" value="<carlos:encode value='${msgBtnSavePrint}' context='htmlAttribute'/>" class="btn btn-secondary"
+                   style="width: 150px;"
+                   onclick="document.getElementById('billingAction').value='SAVE_PRINT';"/>
+            <input type="button" id="settlePrintBtn" class="btn btn-primary"
+                   value="<carlos:encode value='${msgBtnSettlePrint}' context='htmlAttribute'/>"
+                   style="width: 160px;"
+                   onclick="document.getElementById('billingAction').value='SETTLE_PRINT'; document.forms['titlesearch'].submit(); popupPage(700,720,'${pageContext.request.contextPath}/billing/CA/ON/ViewBillingON3rdInv');"/>
             <input type="hidden" name="total_payment" id="total_payment" value="0.00"/>
             <input type="hidden" name="total_discount" id="total_discount" value="0.00"/>
             <input type="hidden" name="refund" id="refund" value="0.00"/>
@@ -1254,26 +771,17 @@
     </td></tr>
     <tr>
         <td>
+    </c:if>
 
-
-            <% }
-            } %>
-            <%
-                for (Enumeration e = request.getParameterNames(); e.hasMoreElements(); ) {
-                    String temp = e.nextElement().toString();
-            %>
-            <input type="hidden" name="<carlos:encode value='<%= temp %>' context="htmlAttribute"/>"
-                   value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter(temp)) %>' context="htmlAttribute"/>"/>
-            <%
-                }
-
-            %>
+            <c:forEach var="pp" items="${reviewModel.allRequestParams}">
+                <input type="hidden" name="<carlos:encode value='${pp.name}' context='htmlAttribute'/>"
+                       value="<carlos:encode value='${pp.value}' context='htmlAttribute'/>"/>
+            </c:forEach>
         </td>
     </tr>
     </table>
 
 </form>
-
 
 <script language="JavaScript">
     function calculatePayment() {
@@ -1322,7 +830,7 @@
         var regexNumberic = /^([1-9]\d{0,9}|0)(\.\d{1,2})?$/;
         if (!regexNumberic.test(val)) {
             calculateTotal();
-            alert("Please enter digital numbers !");
+            alert("${carlos:forJavaScript(msgEnterNumbers)}");
             return;
         }
 
@@ -1333,10 +841,8 @@
 
     function addToDiseaseRegistry() {
         if (validateItems()) {
-            var url = "<%=request.getContextPath()%>/oscarResearch/oscarDxResearch/dxResearch";
-            //var data = Form.serialize(dxForm);
+            var url = ctx + "/oscarResearch/oscarDxResearch/dxResearch";
             data = jQuery('#dxForm').serialize();
-            //new Ajax.Updater('dxListing',url, {method: 'post',postBody: data,asynchronous:true,onComplete: getNewCurrentDxCodeList});
             jQuery.post(url, data, function (data) {
                 jQuery("#dxListing").html(data);
                 getNewCurrentDxCodeList();
@@ -1355,19 +861,15 @@
                 break;
             }
         }
-        if (!ret) alert("Error: Nothing was selected");
-        else ret = confirm("Are you sure to add to the patient's disease registry?");
+        if (!ret) alert("${carlos:forJavaScript(msgNothingSelected)}");
+        else ret = confirm("${carlos:forJavaScript(msgConfirmAddDxRegistry)}");
         return ret;
     }
 
-
     function getNewCurrentDxCodeList(origRequest) {
-        //alert("calling get NEW current Dx Code List");
-        var url = "<%= request.getContextPath() %>/oscarResearch/oscarDxResearch/ViewCurrentCodeList";
+        var url = ctx + "/oscarResearch/oscarDxResearch/ViewCurrentCodeList";
         var ran_number = Math.round(Math.random() * 1000000);
-        var params = "demographicNo=<carlos:encode value='<%= StringUtils.noNull(demo_no) %>' context="javaScript"/>&rand=" + ran_number;  //hack to get around ie caching the page
-        //alert(params);
-        //new Ajax.Updater('dxFullListing',url, {method:'get',parameters:params,asynchronous:true});
+        var params = "demographicNo=" + encodeURIComponent("${carlos:forJavaScript(reviewModel.requestParamEchoes['demographic_no'])}") + "&rand=" + ran_number;
 
         jQuery.ajax({
             url: url,
@@ -1384,34 +886,33 @@
     }
 </script>
 
-
 <oscar:oscarPropertiesCheck property="DX_QUICK_LIST_BILLING_REVIEW" value="yes">
 
     <div class="dxBox">
-        <h3>&nbsp;Current Patient Dx List &nbsp;<a href="#" onclick="toggle('dxFullListing'); return false;"
-                                                   style="font-size:small;">show/hide</a></h3>
+        <h3>&nbsp;<fmt:message key="oscar.billing.ca.on.billingON.review.currentPatientDxList"/> &nbsp;<a href="#" onclick="toggle('dxFullListing'); return false;"
+                                                   style="font-size:small;"><fmt:message key="oscar.billing.ca.on.billingON.review.showHide"/></a></h3>
         <div class="wrapper" id="dxFullListing">
             <jsp:include page="/oscarResearch/oscarDxResearch/ViewCurrentCodeList">
-                <jsp:param name="demographicNo" value="<%= StringUtils.noNull(demo_no) %>"/>
+                <jsp:param name="demographicNo" value="${reviewModel.requestParamEchoes['demographic_no']}"/>
             </jsp:include>
         </div>
     </div>
 
     <div class="dxBox">
 
-        <h3>&nbsp;Dx Quick Pick Add Lists &nbsp;<a href="#" onclick="toggle('dxForm'); return false;"
-                                                   style="font-size:small;">show/hide</a></h3>
+        <h3>&nbsp;<fmt:message key="oscar.billing.ca.on.billingON.review.dxQuickPick"/> &nbsp;<a href="#" onclick="toggle('dxForm'); return false;"
+                                                   style="font-size:small;"><fmt:message key="oscar.billing.ca.on.billingON.review.showHide"/></a></h3>
         <form id="dxForm">
-            <input type="hidden" name="demographicNo" value="<carlos:encode value='<%= StringUtils.noNull(demo_no) %>' context="htmlAttribute"/>"/>
-            <input type="hidden" name="providerNo" value="<%=session.getAttribute("user")%>"/>
+            <input type="hidden" name="demographicNo" value="<carlos:encode value='${reviewModel.requestParamEchoes[\"demographic_no\"]}' context='htmlAttribute'/>"/>
+            <input type="hidden" name="providerNo" value="<carlos:encode value='${reviewModel.loggedInUserNo}' context='htmlAttribute'/>"/>
             <input type="hidden" name="forward" value=""/>
             <input type="hidden" name="forwardTo" value="codeList"/>
             <div class="wrapper" id="dxListing">
                 <jsp:include page="/WEB-INF/jsp/oscarResearch/oscarDxResearch/quickCodeList.jsp">
-                    <jsp:param name="demographicNo" value="<%= StringUtils.noNull(demo_no) %>"/>
+                    <jsp:param name="demographicNo" value="${reviewModel.requestParamEchoes['demographic_no']}"/>
                 </jsp:include>
             </div>
-            <input type="button" value="Add To Disease Registry" class="btn btn-secondary" onclick="addToDiseaseRegistry()"/>
+            <input type="button" value="<carlos:encode value='${msgBtnAddDxRegistry}' context='htmlAttribute'/>" class="btn btn-secondary" onclick="addToDiseaseRegistry()"/>
         </form>
     </div>
 

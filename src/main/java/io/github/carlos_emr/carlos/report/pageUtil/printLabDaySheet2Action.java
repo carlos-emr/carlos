@@ -43,7 +43,7 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.commons.io.FilenameUtils;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
@@ -118,7 +118,7 @@ public class printLabDaySheet2Action extends ActionSupport {
                     if (resolved != null) {
                         safeXmlStyleFile = resolved;
                     } else {
-                        logger.error("Invalid xmlStyle parameter rejected: {}", LogSanitizer.sanitize(baseName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                        logger.error("Invalid xmlStyle parameter rejected: {}", LogSafe.sanitize(baseName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                     }
                 }
                 
@@ -143,7 +143,9 @@ public class printLabDaySheet2Action extends ActionSupport {
             MiscUtils.getLogger().error("Error", e);
         }
 
-        return SUCCESS;
+        // This action streams the PDF directly and its Struts mapping has no success result.
+        // Returning SUCCESS makes Struts render the global error page over the PDF as "0".
+        return NONE;
 
     }
 

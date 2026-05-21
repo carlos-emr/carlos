@@ -1,6 +1,7 @@
 <%--
-
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2006-. OSCARservice, OpenSoft System. All Rights Reserved.
+
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -16,11 +17,8 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
-    Now maintained by the CARLOS EMR Project (2026+).
+    CARLOS EMR Project
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
 --%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -133,6 +131,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title>Add/Edit 3rd Bill Address</title>
         <link rel="stylesheet" type="text/css" href="billingON.css"/>
@@ -332,7 +331,13 @@
         %>
         </form>
         <br>
-        <a href="<%= request.getContextPath() %>/billing/CA/BC/OnAddEdit3rdAddr">Add/Edit Address</a></center>
+        <form method="post" action="<%= request.getContextPath() %>/billing/CA/BC/OnAddEdit3rdAddr"
+              style="display:inline">
+            <button type="submit" class="link-button"
+                    style="background:none;border:none;color:#0066cc;text-decoration:underline;cursor:pointer;padding:0;font:inherit;">
+                Add/Edit Address
+            </button>
+        </form></center>
     </body>
 </html>
 <%!

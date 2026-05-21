@@ -44,9 +44,11 @@
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <link rel="stylesheet" href="<%= request.getContextPath() %>/web.css"/>
     <script language="JavaScript">
@@ -70,6 +72,8 @@
 
     <%-- Read request attributes set by DemographicAddRecord2Action --%>
     <%
+        java.util.List<String> fieldLengthValidationErrors =
+            (java.util.List<String>) request.getAttribute("fieldLengthValidationErrors");
         String dem = (String) request.getAttribute("demographicNo");
         String fromAppt = (String) request.getAttribute("fromAppt");
         String start_time2 = (String) request.getAttribute("startTime");
@@ -99,10 +103,26 @@
 
         io.github.carlos_emr.carlos.commn.model.Demographic hinDuplicateDemo =
             (io.github.carlos_emr.carlos.commn.model.Demographic) request.getAttribute("hinDuplicateDemo");
+
+        boolean appointmentReturn = ("1".equals(fromAppt) || "true".equalsIgnoreCase(String.valueOf(fromAppt)))
+            && start_time2 != null && start_time2.trim().length() > 0 && !"null".equalsIgnoreCase(start_time2.trim())
+            && provider_no2 != null && provider_no2.trim().length() > 0
+            && year2 != null && year2.trim().length() > 0
+            && month2 != null && month2.trim().length() > 0
+            && day2 != null && day2.trim().length() > 0;
     %>
 
     <%-- HIN duplicate result --%>
-    <% if (hinDuplicateDemo != null) { %>
+    <% if (fieldLengthValidationErrors != null && !fieldLengthValidationErrors.isEmpty()) { %>
+    <span style="color:red;">One or more demographic fields exceed the maximum allowed length.</span><br><br>
+    <ul>
+        <% for (String validationError : fieldLengthValidationErrors) { %>
+        <li><carlos:encode value='<%= validationError %>'/></li>
+        <% } %>
+    </ul>
+    <a href="#" onClick="history.go(-1);return false;"><b>&lt;-
+        <fmt:message key="global.btnBack"/></b></a>
+    <% } else if (hinDuplicateDemo != null) { %>
     <span style="color:red;">
         <fmt:message key="demographic.demographicaddarecord.msgDuplicatedHINError"/></span><br>
     <fmt:message key="demographic.msgDuplicatedHINDetail"/>
@@ -113,8 +133,9 @@
     <% } else { %>
 
     <%-- Appointment return form (JS-driven redirect back to appointment booking) --%>
-    <% if (start_time2 != null && !start_time2.equals("null")) { %>
+    <% if (appointmentReturn) { %>
     <form method="post" name="addappt">
+        <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
         <script language="JavaScript">
             <%-- URL parameters are encoded with forUriComponent(), whose output alphabet
                  (A-Za-z0-9-._~ and %XX hex sequences) contains no JS-unsafe characters,

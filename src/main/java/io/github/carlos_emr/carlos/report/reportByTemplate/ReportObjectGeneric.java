@@ -36,7 +36,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.util.StringUtils;
@@ -214,7 +214,7 @@ public class ReportObjectGeneric implements ReportObject {
     public String[] getParameterizedSQL(Map parameters) {
         String sql = (new ReportManager()).getSQL(this.templateId);
         if (sql == null) {
-            MiscUtils.getLogger().error("Template SQL not found for templateId: {}", LogSanitizer.sanitize(this.templateId)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            MiscUtils.getLogger().error("Template SQL not found for templateId: {}", LogSafe.sanitize(this.templateId)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             return new String[]{""};
         }
         return parameterizeTemplate(sql, parameters);
@@ -232,7 +232,7 @@ public class ReportObjectGeneric implements ReportObject {
     public String[] getParameterizedSQL(int sequenceNo, Map parameters) {
         String sql = (new ReportManager()).getSQL(this.templateId);
         if (sql == null) {
-            MiscUtils.getLogger().error("Template SQL not found for templateId: {}", LogSanitizer.sanitize(this.templateId)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            MiscUtils.getLogger().error("Template SQL not found for templateId: {}", LogSafe.sanitize(this.templateId)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             return new String[]{""};
         }
         String[] parts = sql.split(";");

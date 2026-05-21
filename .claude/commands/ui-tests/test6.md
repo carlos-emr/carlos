@@ -55,9 +55,9 @@ Test 6 validates the core clinical documentation workflow:
 - Save encounter and view history
 - Print preview
 
-**Duration**: ~20-25 minutes
-**Steps**: 22
-**Screenshots**: 22
+**Duration**: ~22-28 minutes
+**Steps**: 26
+**Screenshots**: 26
 
 ## Pre-Flight Checks
 
@@ -113,10 +113,21 @@ Follow the 22-step workflow defined in `docs/ui-tests/test-6/test-6-EXECUTION.md
 21. **Print Preview** - Print encounter note preview, screenshot
 22. **Encounter History** - View encounter history list, screenshot
 
+### Phase 9: Autosave Draft Survival Regression — #1873 (Steps 23-26)
+23. **Probe Typed & Autosaved** - Open fresh encounter, type `$PROBE` token, wait ≥7s, screenshot
+24. **Exit Without Save** - Click Exit, accept confirm dialog, assert tmpsave row still contains `$PROBE`, screenshot
+25. **Draft Restored** - Reopen encounter, accept restore-draft prompt, assert note textarea contains `$PROBE`, screenshot
+26. **Cancel Clears (Negative Control)** - Click explicit Cancel button, assert tmpsave rows matching `$PROBE` are deleted, screenshot
+
+Full per-step procedure — including the required DB assertion in step 24 that
+gates on `#1873` — is in `docs/ui-tests/test-6/test-6-EXECUTION.md` under
+"Phase 9: Autosave Draft Survival Regression".
+
 ## Key Requirements
 
 - Create unique timestamp: `TIMESTAMP=$(date +%Y%m%d-%H%M%S-%3N)`
-- Save screenshots to: `ui-test-runs/$TIMESTAMP/test-6/screenshots/test-6-{01-22}-*.png`
+- Save screenshots to: `ui-test-runs/$TIMESTAMP/test-6/screenshots/test-6-{01-26}-*.png`
+- Before Phase 9, clear stale tmpsave rows for the test patient+provider (see Phase 9 pre-requisite)
 - **IMPORTANT**: Press Enter after typing in search fields
 - E-Chart may open in new window/tab - handle appropriately
 - Capture browser console messages after test completes
@@ -253,8 +264,8 @@ After completing all 22 steps:
 ## Success Criteria
 
 Test passes when:
-- All 22 steps complete
-- All 22 screenshots captured
+- All 26 steps complete
+- All 26 screenshots captured
 - E-Chart opens successfully
 - Encounter created and saved
 - Vital signs recorded
@@ -263,5 +274,7 @@ Test passes when:
 - All panels accessible
 - Print preview works
 - Only expected console warnings present
+- Phase 9: autosave probe row survives Exit-without-save (issue #1873 regression guard)
+- Phase 9: explicit Cancel button still deletes the tmpsave row (negative control)
 
 See full criteria in `docs/ui-tests/test-6/test-6-README.md`

@@ -398,6 +398,7 @@
 %>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
 
     <link href="${ pageContext.request.contextPath }/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
     <link rel="stylesheet" href="${ pageContext.request.contextPath }/css/fontawesome-all.min.css">
@@ -501,7 +502,7 @@
         <div>
             <div class="input-group">
                 <input type="text" placeholder="<fmt:message key="admin.providerrole.formSearch"/>" name="keyword"
-                       value="<carlos:encode value='<%= keyword %>' context="html"/>"/>
+                       value="<carlos:encode value='<%= keyword %>' context="htmlAttribute"/>"/>
                 <input type="submit" class="btn btn-primary" name="search" value="<fmt:message key='admin.providerrole.filter'/>" >
             </div>
         </div>

@@ -189,7 +189,7 @@ class LogReport2ActionTest extends CarlosUnitTestBase {
         sampleLog.setIp("10.0.0.1");
         sampleLog.setProviderNo("prov-target");
         sampleLog.setDemographicId(7);
-        sampleLog.setData("line1\nline2");
+        sampleLog.setData("line1\n<line2>");
         when(oscarLogDao.findForReport(any(), any(), any(), any(), any())).thenReturn(List.of(sampleLog));
 
         String result = new LogReport2Action().execute();
@@ -205,7 +205,6 @@ class LogReport2ActionTest extends CarlosUnitTestBase {
         assertThat(row.getProperty("content")).isEqualTo("login");
         assertThat(row.getProperty("provider_no")).isEqualTo("prov-target");
         assertThat(row.getProperty("demographic_no")).isEqualTo("7");
-        // The action pre-encodes and injects <br/> line breaks for the data column.
-        assertThat(row.getProperty("data")).isEqualTo("line1<br/>line2");
+        assertThat(row.getProperty("data")).isEqualTo("line1\n<line2>");
     }
 }

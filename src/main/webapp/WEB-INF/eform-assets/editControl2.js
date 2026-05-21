@@ -111,7 +111,7 @@ var cfg_layout = '[select-block]|[bold][italic]|[unordered][ordered][rule]|[undo
 var cfg_formatblock = '<option value="">&mdash; format &mdash;</option>  <option value="<p>">Paragraph</option>  <option value="<h1>">Heading 1</option>  <option value="<h2>">Heading 2 <H2></option>  <option value="<h3>">Heading 3 <H3></option>  <option value="<h4>">Heading 4 <H4></option>  <option value="<h5>">Heading 5 <H5></option>  <option value="<h6>">Heading 6 <H6></option>  </select>';
 var cfg_formatface = '<option value="">&mdash; font face &mdash;</option>  <option value="Arial,Helvetica,sans-serif">Arial</option> <option value="Courier">Courier</option> <option value="Times New Roman">Times</option> </select>';
 var cfg_formatfontsize = '<option value="">&mdash; font size &mdash;</option>  <option value="1">1</option>  <option value="2">2</option> <option value="3">3</option> <option value="4">4</option> <option value="5">5</option> <option value="6">6</option> <option value="7">7</option> </select>';
-var cfg_formattemplate = '<option value="">&mdash; template &mdash;</option>  <option value="blank">blank</option>  </select>';
+var cfg_formattemplate = '<option value="">&mdash; template &mdash;</option>  <option value="blank.rtl">blank</option>  </select>';
 var cfg_isrc = '';  				// path to icons degrades to text buttons if icons not found
 var cfg_filesrc = '';				// path to blank.html and editor_help.html
 var cfg_template = 'blank.rtl';		// style and content template of the editor's iframe itself.
@@ -376,7 +376,7 @@ function loadDefaultTemplate() {
     	if (isIE()) { setTimeout(parseTemplate, 1000); } //if M$ like browser
 	} else {
 		var blankTemplate = '<html><head><title>Blank Document Template</title><meta http-equiv=\"Content-Type\" content=\"text/html; charset=iso-8859-1\"><style type=\"text/css\">body {font-size: 1em; font-family:\"Times New Roman\", Times, serif; background-color: #FFFFFF;}</style><style type=\"text/css\" media=\"print\">* {color: #000000;}.DoNotPrint {display: none;}</style></head><body contenteditable onLoad=\"document.designMode = \'on\';\"></body></html>';
-		document.getElementById(cfg_editorname).src = "data:text/html;charset=utf-8," + escape(blankTemplate);
+		document.getElementById(cfg_editorname).srcdoc = blankTemplate;
 	}	
 }
 
@@ -1602,6 +1602,5 @@ _global.saveAs = saveAs.saveAs = saveAs
 if (typeof module !== 'undefined') {
   module.exports = saveAs;
 }
-
 
 

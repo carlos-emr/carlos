@@ -38,6 +38,7 @@
 <%@page import="org.hl7.fhir.dstu3.model.codesystems.PractitionerSpecialty" %>
 <%@page import="org.hl7.fhir.dstu3.model.ContactPoint" %>
 <%@page import="org.hl7.fhir.dstu3.model.Identifier" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@page import="org.hl7.fhir.dstu3.model.HumanName" %>
 <%@page import="org.hl7.fhir.dstu3.model.Immunization" %>
 <%@page import="org.hl7.fhir.dstu3.model.Patient" %>
@@ -101,6 +102,11 @@
 
     Integer preventionId = (Integer) request.getAttribute("preventionId");
     String demographicNo = (String) request.getAttribute("demographicNo");
+    String editPreventionUrl = request.getContextPath()
+            + "/prevention/ViewAddPreventionData?id="
+            + SafeEncode.forUriComponent(String.valueOf(preventionId))
+            + "&demographic_no="
+            + SafeEncode.forUriComponent(demographicNo);
     String submittingProviderNo = null;
     String sender = null;
     String sourceName = null;
@@ -335,6 +341,7 @@
 <html>
 
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title>CARLOS Prevention Review Screen</title><!--I18n-->
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css">
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
@@ -512,8 +519,8 @@
                         </td>
                         <td style="text-align:right">
                             <a
-                                href="javascript:popupStart(300,400,'About.jsp')"><fmt:message key="global.about"/></a>
-                            | <a href="javascript:popupStart(300,400,'License.jsp')"><fmt:message key="global.license"/></a>
+                                href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')"><fmt:message key="global.about"/></a>
+                            | <a href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')"><fmt:message key="global.license"/></a>
                         </td>
                     </tr>
                 </table>
@@ -853,7 +860,7 @@
                            value="Submit" <%=(!validationErrors.isEmpty()) ? " disabled=\"disabled\" " : "" %>/>
                     &nbsp;&nbsp;
                     <input type="button" value="Edit Prevention"
-                           onClick="window.location.href='<%=request.getContextPath()%>/prevention/AddPrevention?id=<%=preventionId %>&demographic_no=<%=demographicNo%>'"/>
+                           onClick="window.location.href='<%=SafeEncode.forJavaScriptAttribute(editPreventionUrl)%>'"/>
                     &nbsp;&nbsp;
                     <input type="button" value="Cancel" onClick="window.close()"/>
                 </form>

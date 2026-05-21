@@ -1,6 +1,7 @@
 <%--
-
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -16,17 +17,13 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-    This software was written for the
-    Department of Family Medicine
-    McMaster University
-    Hamilton
-    Ontario, Canada
-
-
-    Now maintained by the CARLOS EMR Project (2026+).
+    CARLOS EMR Project
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
+--%>
+<%--
+  Page role: Renders `documentReport.jsp` for the CARLOS EMR workflow.
+  Keep request setup in the paired action and use CARLOS encoding helpers
+  for dynamic output rendered by the page.
 --%>
 <!DOCTYPE html>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -160,18 +157,19 @@
 %>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title><fmt:message key="dms.documentReport.titleDocumentManager"/></title>
 
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
-        <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css"
+        <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css"
               rel="stylesheet" type="text/css"/>
 
         <script src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"
                 type="text/javascript"></script>
         <script type="text/javascript"
-                src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
+                src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js"></script>
         <script type="text/javascript"
-                src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
+                src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/js/dataTables.bootstrap5.min.js"></script>
         <%
             CtlDocClassDao docClassDao = (CtlDocClassDao) SpringUtils.getBean(CtlDocClassDao.class);
             List<String> reportClasses = docClassDao.findUniqueReportClasses();
@@ -585,7 +583,7 @@
                                             href="javascript:void(0);"
                                             title="<carlos:encode value='<%= curdoc.getDescription() %>' context="htmlAttribute"/>"
                                             style="word-break: break-word;overflow-wrap: anywhere;overflow: hidden;text-overflow: ellipsis;text-decoration: none;"
-                                            onclick="popupFocusPage(500,700,'<%=url%>','demographic_document');">
+                                            onclick="popupFocusPage(500,700,'<carlos:encode value="<%= url %>" context='javaScriptAttribute'/>','demographic_document');">
                                         <carlos:encode value='<%= curdoc.getDescription() %>' context="html"/>
                                     </a>
                                 </td>

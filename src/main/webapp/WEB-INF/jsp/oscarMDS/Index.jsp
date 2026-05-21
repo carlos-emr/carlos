@@ -78,6 +78,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title>
         <fmt:message key="oscarMDS.index.title"/>
     </title>
@@ -190,7 +191,7 @@ MDS.index.btnSearch"/>"
                                    style="color: #FFFFFF;"><fmt:message key="inboxmanager.document.incomingDocs"/></a>
 
                                 <% if (!CarlosProperties.getInstance().isBritishColumbiaBillingRegion()) { %>
-                                <a href="javascript:popupStart(800,1000, '${pageContext.servletContext.contextPath}/oscarMDS/SubmitLab')"
+                                <a href="javascript:popupStart(800,1000, '${pageContext.servletContext.contextPath}/oscarMDS/ViewCreateLab')"
                                    style="color: #FFFFFF;"><fmt:message key="global.createLab"/></a>
                                 <a href="javascript:popupPage(400, 1050,'${pageContext.servletContext.contextPath}/hospitalReportManager/Statement')"
                                    style="color: #FFFFFF;">HRM Status/Upload</a>

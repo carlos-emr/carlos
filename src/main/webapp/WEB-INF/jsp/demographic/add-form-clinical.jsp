@@ -20,18 +20,21 @@
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.service.ProgramManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.waitinglist.WaitingList" %>
-<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<fmt:setBundle basename="oscarResources"/>
+
+<%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <c:set var="ctx" value="${ pageContext.request.contextPath }"/>
+
 <%-- Retrieve variables from request attributes (set by DemographicAdd2Action) --%>
 <%
     String curUser_no = (String) request.getAttribute("curUser_no");
@@ -61,7 +64,7 @@
     ProgramManager pm = (ProgramManager) request.getAttribute("programManager");
     ProgramManager2 programManager2 = (ProgramManager2) request.getAttribute("programManager2");
     ProfessionalSpecialistDao professionalSpecialistDao = (ProfessionalSpecialistDao) request.getAttribute("professionalSpecialistDao");
-    
+
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     int nStrShowLen = 20;
@@ -76,74 +79,84 @@
 <jsp:useBean id="apptMainBean" class="io.github.carlos_emr.AppointmentMainBean" scope="session"/>
 
 <%-- === Original content === --%>
-                            <td id="demoDoctorLbl" align="right">
-                                <b><% if (oscarProps.getProperty("demographicLabelDoctor") != null) {
-                                    out.print(oscarProps.getProperty("demographicLabelDoctor", ""));
-                                } else { %>
-                                    <fmt:message key="demographic.demographicaddrecordhtm.formDoctor"/> <% } %>
-                                    : </b></td>
-                            <td id="demoDoctorCell" align="left">
-                                <select name="staff">
+<%-- Completes the cross-file row opened at the end of add-form-personal.jsp --%>
+                            <div class="col-sm-2 text-end" id="demoDoctorLbl">
+                                <label class="fw-bold col-form-label py-0">
+                                    <% if (oscarProps.getProperty("demographicLabelDoctor") != null) {
+                                         out.print(SafeEncode.forHtml(oscarProps.getProperty("demographicLabelDoctor", "")));
+                                    } else { %>
+                                    <fmt:message key="demographic.demographicaddrecordhtm.formDoctor"/>
+                                    <% } %>:
+                                </label>
+                            </div>
+                            <div class="col-sm-4" id="demoDoctorCell">
+                                <select name="staff" class="form-select">
                                     <option value=""></option>
                                     <%
                                         for (Provider p : providerDao.getActiveProvidersByRole("doctor")) {
                                             String docProviderNo = p.getProviderNo();
                                     %>
-                                    <option id="doc<%=docProviderNo%>"
-                                            value="<%=docProviderNo%>"><carlos:encode value='<%= p.getFormattedName() %>' context="html"/>
-                                    </option>
+                                    <option id="doc<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(docProviderNo) %>" value="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(docProviderNo) %>"><carlos:encode value='<%= p.getFormattedName() %>' context="html"/></option>                                    <%
+                                        }
+                                    %>
+
+                                </select>
+                            </div>
+                            <div class="col-sm-2 text-end" id="nurseLbl">
+                                <label class="fw-bold col-form-label py-0"><fmt:message key="demographic.demographicaddrecordhtm.formNurse"/>:</label>
+                            </div>
+                            <div class="col-sm-4" id="nurseCell">
+                                <select name="cust1" class="form-select">
+                                    <option value=""></option>
+                                    <%
+                                        for (Provider p : providerDao.getActiveProvidersByRole("nurse")) {
+                                    %>
+                                    <option value="<%= SafeEncode.forHtmlAttribute(p.getProviderNo()) %>"><carlos:encode value='<%= p.getFormattedName() %>' context="html"/></option>
                                     <%
                                         }
                                     %>
+                                </select>
+                            </div>
+                        </div><%-- end cross-file row --%>
+
+                        <div class="row mb-2 align-items-center">
+                            <div class="col-sm-2 text-end" id="midwifeLbl">
+                                <label class="fw-bold col-form-label py-0"><fmt:message key="demographic.demographicaddrecordhtm.formMidwife"/>:</label>
+                            </div>
+                            <div class="col-sm-4" id="midwifeCell">
+                                <select name="cust4" class="form-select">
                                     <option value=""></option>
-                                </select></td>
-                            <td id="nurseLbl" align="right"><b><fmt:message key="demographic.demographicaddrecordhtm.formNurse"/>: </b></td>
-                            <td id="nurseCell"><select name="cust1">
-                                <option value=""></option>
-                                <%
-                                    for (Provider p : providerDao.getActiveProvidersByRole("nurse")) {
-                                %>
-                                <option value="<%=p.getProviderNo()%>"><carlos:encode value='<%= p.getFormattedName() %>' context="html"/>
-                                </option>
-                                <%
-                                    }
+                                    <%
+                                        for (Provider p : providerDao.getActiveProvidersByRole("midwife")) {
+                                    %>
+                                    <option value="<%= SafeEncode.forHtmlAttribute(p.getProviderNo()) %>"><carlos:encode value='<%= p.getFormattedName() %>' context="html"/></option>
+                                    <%
+                                        }
+                                    %>
+                                </select>
+                            </div>
+                            <div class="col-sm-2 text-end" id="residentLbl">
+                                <label class="fw-bold col-form-label py-0"><fmt:message key="demographic.demographicaddrecordhtm.formResident"/>:</label>
+                            </div>
+                            <div class="col-sm-4" id="residentCell">
+                                <select name="cust2" class="form-select">
+                                    <option value=""></option>
+                                    <%
+                                        for (Provider p : providerDao.getActiveProvidersByRole("doctor")) {
+                                    %>
+                                    <option value="<%= SafeEncode.forHtmlAttribute(p.getProviderNo()) %>"><carlos:encode value='<%= p.getFormattedName() %>' context="html"/></option>
+                                    <%
+                                        }
+                                    %>
+                                </select>
+                            </div>
+                        </div>
 
-                                %>
-                            </select></td>
-                        </tr>
-                        <tr valign="top">
-                            <td id="midwifeLbl" align="right"><b><fmt:message key="demographic.demographicaddrecordhtm.formMidwife"/>: </b></td>
-                            <td id="midwifeCell"><select name="cust4">
-                                <option value=""></option>
-                                <%
-                                    for (Provider p : providerDao.getActiveProvidersByRole("midwife")) {
-                                %>
-                                <option value="<%=p.getProviderNo()%>">
-                                    <carlos:encode value='<%= p.getFormattedName() %>' context="html"/>
-                                </option>
-                                <%
-                                    }
-
-                                %>
-                            </select></td>
-                            <td id="residentLbl" align="right"><b><fmt:message key="demographic.demographicaddrecordhtm.formResident"/>: </b></td>
-                            <td id="residentCell" align="left"><select name="cust2">
-                                <option value=""></option>
-                                <%
-                                    for (Provider p : providerDao.getActiveProvidersByRole("doctor")) {
-                                %>
-                                <option value="<%=p.getProviderNo()%>">
-                                    <carlos:encode value='<%= p.getFormattedName() %>' context="html"/>
-                                </option>
-                                <%
-                                    }
-
-                                %>
-                            </select></td>
-                        </tr>
-                        <tr id="rowWithReferralDoc" valign="top">
-                            <td id="referralDocLbl" align="right"><b><fmt:message key="demographic.demographicaddrecordhtm.formReferalDoctor"/>:</b></td>
-                            <td id="referralDocCell" align="left">
+                        <div class="row mb-2 align-items-center" id="rowWithReferralDoc">
+                            <div class="col-sm-2 text-end" id="referralDocLbl">
+                                <label class="fw-bold col-form-label py-0"><fmt:message key="demographic.demographicaddrecordhtm.formReferalDoctor"/>:</label>
+                            </div>
+                            <div class="col-sm-4" id="referralDocCell">
                                 <% if ("true".equals(oscarProps.getProperty("isMRefDocSelectList", ""))) {
                                     // drop down list
                                     Properties prop = null;
@@ -151,7 +164,6 @@
 
                                     List<ProfessionalSpecialist> specialists = professionalSpecialistDao.findAll();
                                     for (ProfessionalSpecialist specialist : specialists) {
-
                                         if (specialist != null && specialist.getReferralNo() != null && !specialist.getReferralNo().equals("")) {
                                             prop = new Properties();
                                             prop.setProperty("referral_no", specialist.getReferralNo());
@@ -160,150 +172,182 @@
                                             vecRef.add(prop);
                                         }
                                     }
-                                %> <select name="r_doctor"
-                                           onChange="changeRefDoc()">
-                                <option value=""></option>
-                                <% for (int k = 0; k < vecRef.size(); k++) {
-                                    prop = (Properties) vecRef.get(k);
                                 %>
-                                <option
-                                        value="<%=prop.getProperty("last_name")+","+prop.getProperty("first_name")%>">
-                                    <%=Misc.getShortStr((prop.getProperty("last_name") + "," + prop.getProperty("first_name")), "", nStrShowLen)%>
-                                </option>
-                                <% } %>
-                            </select>
-                                <script language="Javascript">
-
+                                <select name="r_doctor" onChange="changeRefDoc()" class="form-select">
+                                    <option value=""></option>
+                                    <% for (int k = 0; k < vecRef.size(); k++) {
+                                        prop = (Properties) vecRef.get(k);
+                                    %>
+                                    <option
+                                            value="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(prop.getProperty("last_name") + "," + prop.getProperty("first_name")) %>"
+                                            data-referral-no="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(prop.getProperty("referral_no", "")) %>">
+                                      <%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtml(Misc.getShortStr((prop.getProperty("last_name") + "," + prop.getProperty("first_name")), "", nStrShowLen)) %>
+                                    </option>
+                                    <% } %>
+                                </select>
+                                <script>
                                     function changeRefDoc() {
-//alert(document.forms[1].r_doctor.value);
-                                        var refName = document.forms[1].r_doctor.options[document.forms[1].r_doctor.selectedIndex].value;
-                                        var refNo = "";
-                                        <% for(int k=0; k<vecRef.size(); k++) {
-  		prop= (Properties) vecRef.get(k);
-  	%>
-                                        if (refName.indexOf("<%=prop.getProperty("last_name")+","+prop.getProperty("first_name")%>") >= 0) {
-                                            refNo = '<%=prop.getProperty("referral_no", "")%>';
-                                        }
-                                        <% } %>
-                                        document.forms[1].r_doctor_ohip.value = refNo;
+                                        var option = document.forms[1].r_doctor.options[document.forms[1].r_doctor.selectedIndex];
+                                        document.forms[1].r_doctor_ohip.value = option ? (option.getAttribute("data-referral-no") || "") : "";
                                     }
-
                                 </script>
-                                <% } else {%> <input type="text" name="r_doctor" maxlength="40"
-                                                     value=""> <% } %>
-                            </td>
-                            <td id="referralDocNoLbl" align="right"><b><fmt:message key="demographic.demographicaddrecordhtm.formReferalDoctorN"/>:</b></td>
-                            <td id="referralDocNoCell" align="left"><input type="text"
-                                                                           name="r_doctor_ohip"
-                                                                           maxlength="6"> <% if ("ON".equals(prov)) { %>
-                                <a
-                                        href="javascript:referralScriptAttach2('r_doctor_ohip','r_doctor')"><fmt:message key="demographic.demographiceditdemographic.btnSearch"/>
-                                    #</a> <% } %>
-                            </td>
-                        </tr>
-                        <tr valign="top">
-                            <td align="right" id="rosterStatusLbl" nowrap><b><fmt:message key="demographic.demographicaddrecordhtm.formPCNRosterStatus"/>: </b></td>
-                            <td id="rosterStatus" align="left">
-                                <!--input type="text" name="roster_status" onBlur="upCaseCtrl(this)"-->
-                                <select id="roster_status" name="roster_status" style="width: 160px">
-                                    <option value=""></option>
-                                    <option value="RO"><fmt:message key="demographic.demographicaddrecordhtm.RO-rostered"/></option>
-                                    <option value="FS"><fmt:message key="demographic.demographicaddrecordhtm.FS-feeforservice"/></option>
+                                <% } else { %>
+                                <input type="text" name="r_doctor" maxlength="40" class="form-control" value="">
+                                <% } %>
+                            </div>
+                            <div class="col-sm-2 text-end" id="referralDocNoLbl">
+                                <label class="fw-bold col-form-label py-0"><fmt:message key="demographic.demographicaddrecordhtm.formReferalDoctorN"/>:</label>
+                            </div>
+                            <div class="col-sm-4" id="referralDocNoCell">
+                                <div class="d-flex gap-1 align-items-center">
+                                    <input type="text" name="r_doctor_ohip" maxlength="6" class="form-control">
+                                    <% if ("ON".equals(prov)) { %>
+                                    <a href="javascript:referralScriptAttach2('r_doctor_ohip','r_doctor')"><fmt:message key="demographic.demographiceditdemographic.btnSearch"/> #</a>
+                                    <% } %>
+                                </div>
+                            </div>
+                        </div>
 
+                        <div class="row mb-2 align-items-center">
+                            <div class="col-sm-2 text-end" id="rosterStatusLbl">
+                                <label class="fw-bold col-form-label py-0"><fmt:message key="demographic.demographicaddrecordhtm.formPCNRosterStatus"/>:</label>
+                            </div>
+                            <div class="col-sm-4" id="rosterStatus">
+                                <div class="d-flex gap-1 align-items-center">
+                                    <select id="roster_status" name="roster_status" class="form-select">
+                                        <option value=""></option>
+                                        <option value="RO"><fmt:message key="demographic.demographicaddrecordhtm.RO-rostered"/></option>
+                                        <option value="FS"><fmt:message key="demographic.demographicaddrecordhtm.FS-feeforservice"/></option>
+                                        <%
+                                            for (String status : demographicDao.getRosterStatuses()) {%>
+                                        <option value="<%= SafeEncode.forHtmlAttribute(status) %>"><%= SafeEncode.forHtml(status) %></option>
+                                        <% } // end while %>
+                                    </select>
+                                    <input type="button" onClick="newStatus1();" class="btn btn-outline-secondary btn-sm"
+                                           value="<fmt:message key="demographic.demographicaddrecordhtm.AddNewRosterStatus"/>"/>
+                                </div>
+                            </div>
+                            <div class="col-sm-2 text-end" id="rosterDateLbl">
+                                <label class="fw-bold col-form-label py-0"><fmt:message key="demographic.demographicaddrecordhtm.formPCNDateJoined"/>:</label>
+                            </div>
+                            <div class="col-sm-4">
+                                <div class="d-flex gap-1 align-items-center">
+                                    <input type="text" placeholder="<fmt:message key="yyyy-mm-dd"/>"
+                                           name="roster_date" id="roster_date"
+                                           class="form-control"
+                                           value="<%=today %>" size="12"
+                                           onchange="parseDateField('roster_date');">
+                                    <img src="<%= request.getContextPath() %>/images/cal.gif" id="roster_date_cal">
+                                    <input type="hidden" name="roster_date_year">
+                                    <input type="hidden" name="roster_date_month">
+                                    <input type="hidden" name="roster_date_date">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mb-2 align-items-center">
+                            <div class="col-sm-2 text-end" id="rosterEnrolledToLbl">
+                                <label class="fw-bold col-form-label py-0"><fmt:message key="demographic.demographicaddrecordhtm.formRosterEnrolledTo"/>:</label>
+                            </div>
+                            <div class="col-sm-4" id="rosterEnrolledTo">
+                                <select id="roster_enrolled_to" name="roster_enrolled_to" class="form-select">
+                                    <option value=""></option>
                                     <%
-                                        for (String status : demographicDao.getRosterStatuses()) {%>
-                                    <option value="<%=status%>"><%=status%>
-                                    </option>
-                                    <% } // end while %>
-                                </select> <input type="button" onClick="newStatus1();" value="<fmt:message key="demographic.demographicaddrecordhtm.AddNewRosterStatus"/> "/></td>
-                            <td id="rosterDateLbl" align="right" nowrap><b><fmt:message key="demographic.demographicaddrecordhtm.formPCNDateJoined"/>: </b></td>
-                            <td class="rosterDateCell" align="left"><input type="text" name="roster_date_year"
-                                                                           size="4" maxlength="4"> <input type="text"
-                                                                                                          name="roster_date_month"
-                                                                                                          size="2"
-                                                                                                          maxlength="2">
-                                <input
-                                        type="text" name="roster_date_date" size="2" maxlength="2">
-                            </td>
-                        </tr>
-                        <tr valign="top">
-                            <td align="right" id="rosterEnrolledToLbl"><b><fmt:message key="demographic.demographicaddrecordhtm.formRosterEnrolledTo"/>: </b></td>
-                            <td id="rosterEnrolledTo" align="left">
-                                <select id="roster_enrolled_to" name="roster_enrolled_to">
-                                    <option value=""></option>
-                                            <%
-						for (Provider p : providerDao.getActiveProvidersByRole("doctor")) {
-								String docProviderNo = p.getProviderNo();
-					%>
-                                    <option id="<%=docProviderNo%>" value="<%=docProviderNo%>"><%=p.getFormattedName()%>
-                                    </option>
-                                            <%
-						}
-					%>
-                                    <option value=""></option>
-                            </td>
-                            <td id="chartNoLbl" align="right"><b><fmt:message key="demographic.demographicaddrecordhtm.formChartNo"/>:</b></td>
-                            <td id="chartNo" align="left"><input type="text" id="chart_no" name="chart_no"
-                                                                 value="<carlos:encode value='<%= chartNoVal %>' context="htmlAttribute"/>">
-                            </td>
-
-                        </tr>
-                        <tr valign="top">
-                            <td id="ptStatusLbl" align="right"><b><fmt:message key="demographic.demographicaddrecordhtm.formPatientStatus"/>:</b></td>
-                            <td id="ptStatusCell" align="left">
-                                <select id="patient_status" name="patient_status" style="width: 160px">
-                                    <option value="AC"><fmt:message key="demographic.demographicaddrecordhtm.AC-Active"/></option>
-                                    <option value="IN"><fmt:message key="demographic.demographicaddrecordhtm.IN-InActive"/></option>
-                                    <option value="DE"><fmt:message key="demographic.demographicaddrecordhtm.DE-Deceased"/></option>
-                                    <option value="MO"><fmt:message key="demographic.demographicaddrecordhtm.MO-Moved"/></option>
-                                    <option value="FI"><fmt:message key="demographic.demographicaddrecordhtm.FI-Fired"/></option>
+                                        for (Provider p : providerDao.getActiveProvidersByRole("doctor")) {
+                                            String docProviderNo = p.getProviderNo();
+                                    %>
+                                    <option id="<%= SafeEncode.forHtmlAttribute(docProviderNo) %>" value="<%= SafeEncode.forHtmlAttribute(docProviderNo) %>"><%= SafeEncode.forHtml(p.getFormattedName()) %></option>
                                     <%
-                                        for (String status : demographicDao.search_ptstatus()) { %>
-                                    <option value="<%=status%>"><%=status%>
-                                    </option>
-                                    <% } // end while %>
-                                </select> <input type="button" onClick="newStatus();" value="<fmt:message key="demographic.demographicaddrecordhtm.AddNewPatient"/> ">
+                                        }
+                                    %>
+                                    <option value=""></option>
+                                </select>
+                            </div>
+                            <div class="col-sm-2 text-end" id="chartNoLbl">
+                                <label class="fw-bold col-form-label py-0"><fmt:message key="demographic.demographicaddrecordhtm.formChartNo"/>:</label>
+                            </div>
+                            <div class="col-sm-4" id="chartNo">
+                                <input type="text" id="chart_no" name="chart_no" class="form-control"
+                                       value="<carlos:encode value='<%= chartNoVal %>' context="htmlAttribute"/>">
+                            </div>
+                        </div>
 
-                            </td>
-                            <td align="right" nowrap>
-                                <b>Patient Status Date:</b>
-                            </td>
-                            <td align="left">
-                                <input type="text" placeholder="yyyy-mm-dd"
-                                       name="patient_status_date" id="patient_status_date"
-                                       value="<%=today %>" size="12"> <img
-                                    src="<%= request.getContextPath() %>/images/cal.gif" id="patient_status_date_cal">
-                            </td>
-                        </tr>
+                        <div class="row mb-2 align-items-center">
+                            <div class="col-sm-2 text-end" id="ptStatusLbl">
+                                <label class="fw-bold col-form-label py-0"><fmt:message key="demographic.demographicaddrecordhtm.formPatientStatus"/>:</label>
+                            </div>
+                            <div class="col-sm-4" id="ptStatusCell">
+                                <div class="d-flex gap-1 align-items-center">
+                                    <select id="patient_status" name="patient_status" class="form-select">
+                                        <option value="AC"><fmt:message key="demographic.demographicaddrecordhtm.AC-Active"/></option>
+                                        <option value="IN"><fmt:message key="demographic.demographicaddrecordhtm.IN-InActive"/></option>
+                                        <option value="DE"><fmt:message key="demographic.demographicaddrecordhtm.DE-Deceased"/></option>
+                                        <option value="MO"><fmt:message key="demographic.demographicaddrecordhtm.MO-Moved"/></option>
+                                        <option value="FI"><fmt:message key="demographic.demographicaddrecordhtm.FI-Fired"/></option>
+                                        <%
+                                            for (String status : demographicDao.search_ptstatus()) { %>
+                                        <option value="<%= SafeEncode.forHtmlAttribute(status) %>"><%= SafeEncode.forHtml(status) %></option>
+                                        <% } // end while %>
+                                    </select>
+                                    <input type="button" onClick="newStatus();" class="btn btn-outline-secondary btn-sm"
+                                           value="<fmt:message key="demographic.demographicaddrecordhtm.AddNewPatient"/>">
+                                </div>
+                            </div>
+                            <div class="col-sm-2 text-end">
+                                <label class="fw-bold col-form-label py-0"><fmt:message key="demographic.addFormClinical.labelPatientStatusDate"/>:</label>
+                            </div>
+                            <div class="col-sm-4">
+                                <div class="d-flex gap-1 align-items-center">
+                                    <input type="text" placeholder="<fmt:message key="yyyy-mm-dd"/>"
+                                           name="patient_status_date" id="patient_status_date"
+                                           class="form-control"
+                                           value="<%=today %>" size="12">
+                                    <img src="<%= request.getContextPath() %>/images/cal.gif" id="patient_status_date_cal">
+                                </div>
+                            </div>
+                        </div>
 
+                        <div class="row mb-2 align-items-center">
+                            <div class="col-sm-2 text-end" id="joinDateLbl">
+                                <label class="fw-bold col-form-label py-0"><fmt:message key="demographic.demographicaddrecordhtm.formDateJoined"/>:</label>
+                            </div>
+                            <div class="col-sm-4" id="joinDateCell">
+                                <div class="d-flex gap-1 align-items-center">
+                                    <input type="text" placeholder="<fmt:message key="yyyy-mm-dd"/>"
+                                           name="date_joined" id="date_joined"
+                                           class="form-control"
+                                           value="<%=today %>" size="12"
+                                           onchange="parseDateField('date_joined');">
+                                    <img src="<%= request.getContextPath() %>/images/cal.gif" id="date_joined_cal">
+                                    <input type="hidden" name="date_joined_year">
+                                    <input type="hidden" name="date_joined_month">
+                                    <input type="hidden" name="date_joined_date">
+                                </div>
+                            </div>
+                            <div class="col-sm-2 text-end" id="endDateLbl">
+                                <label class="fw-bold col-form-label py-0"><fmt:message key="demographic.demographicaddrecordhtm.formEndDate"/>:</label>
+                            </div>
+                            <div class="col-sm-4" id="endDateCell">
+                                <div class="d-flex gap-1 align-items-center">
+                                    <input type="text" placeholder="<fmt:message key="yyyy-mm-dd"/>"
+                                           name="end_date" id="end_date"
+                                           class="form-control"
+                                           value="<%=today %>" size="12"
+                                           onchange="parseDateField('end_date');">
+                                    <img src="<%= request.getContextPath() %>/images/cal.gif" id="end_date_cal">
+                                    <input type="hidden" name="end_date_year">
+                                    <input type="hidden" name="end_date_month">
+                                    <input type="hidden" name="end_date_date">
+                                </div>
+                            </div>
+                        </div>
 
-                        <tr valign="top">
-                            <td id="joinDateLbl" align="right"><b><fmt:message key="demographic.demographicaddrecordhtm.formDateJoined"/></b><b>:
-                            </b></td>
-                            <td id="joinDateCell" align="left"><input type="text" name="date_joined_year"
-                                                                      placeholder="yyyy"
-                                                                      size="4" maxlength="4" value="<%=curYear%>">
-                                <input
-                                        type="text" placeholder="mm" name="date_joined_month" size="2" maxlength="2"
-                                        value="<%=curMonth%>"> <input type="text" placeholder="dd"
-                                                                      name="date_joined_date" size="2" maxlength="2"
-                                                                      value="<%=curDay%>">
-                            </td>
-                            <td id="endDateLbl" align="right"><b><fmt:message key="demographic.demographicaddrecordhtm.formEndDate"/></b><b>: </b></td>
-                            <td id="endDateCell" align="left"><input type="text" placeholder="yyyy" name="end_date_year"
-                                                                     size="4" maxlength="4"> <input type="text"
-                                                                                                    placeholder="mm"
-                                                                                                    name="end_date_month"
-                                                                                                    size="2"
-                                                                                                    maxlength="2">
-                                <input
-                                        type="text" placeholder="dd" name="end_date_date" size="2" maxlength="2"></td>
-                        </tr>
-
-                        <tr valign="top">
-                            <td id="phuLbl" align="right"><b><fmt:message key="demographic.demographicaddrecordhtm.formPHU"/>:</b></td>
-                            <td id="phuLblCell" align="left">
-                                <select id="PHU" name="PHU">
+                        <div class="row mb-2 align-items-center">
+                            <div class="col-sm-2 text-end" id="phuLbl">
+                                <label class="fw-bold col-form-label py-0"><fmt:message key="demographic.demographicaddrecordhtm.formPHU"/>:</label>
+                            </div>
+                            <div class="col-sm-4" id="phuLblCell">
+                                <select id="PHU" name="PHU" class="form-select">
                                     <option value=""><fmt:message key="demographic.demographicaddrecordhtm.optSelectBelow"/></option>
                                     <%
                                         String defaultPhu = CarlosProperties.getInstance().getProperty("default_phu");
@@ -318,8 +362,7 @@
                                                         selected = " selected=\"selected\" ";
                                                     }
                                     %>
-                                    <option value="<%=llItem.getValue()%>" <%=selected%>><%=llItem.getLabel()%>
-                                    </option>
+                                    <option value="<%= SafeEncode.forHtmlAttribute(llItem.getValue()) %>" <%=selected%>><%= SafeEncode.forHtmlContent(llItem.getLabel()) %></option>
                                     <%
                                             }
                                         }
@@ -328,14 +371,10 @@
                                     <option value=""><fmt:message key="demographic.demographicaddrecordhtm.optNoneAvailable"/></option>
                                     <%
                                         }
-
                                     %>
                                 </select>
-                            </td>
-                            <td><!-- placeholder --></td>
-                            <td><!-- placeholder --></td>
-                        </tr>
-
+                            </div>
+                        </div>
 
                         <% //"Has Primary Care Physician" & "Employment Status" fields
                             final String hasPrimary = "Has Primary Care Physician";
@@ -347,74 +386,62 @@
 
                             if (hasHasPrimary || hasEmpStatus) {
                         %>
-                        <tr valign="top">
-                            <% if (hasHasPrimary) {
-                            %>
-                            <td style="text-align: right;"><b><%=hasPrimary.replace(" ", "&nbsp;")%>:</b></td>
-                            <td>
-                                <select name="<%=hasPrimary.replace(" ", "")%>">
-                                    <option value="N/A" <%="N/A".equals(hasPrimaryCarePhysician) ? "selected" : ""%>>
-                                        N/A
-                                    </option>
-                                    <option value="Yes" <%="Yes".equals(hasPrimaryCarePhysician) ? "selected" : ""%>>
-                                        Yes
-                                    </option>
-                                    <option value="No" <%="No".equals(hasPrimaryCarePhysician) ? "selected" : ""%>>No
-                                    </option>
+                        <div class="row mb-2 align-items-center">
+                            <% if (hasHasPrimary) { %>
+                            <div class="col-sm-2 text-end">
+                                <label class="fw-bold col-form-label py-0"><fmt:message key="demographic.addFormClinical.labelHasPrimaryCarePhy"/>:</label>
+                            </div>
+                            <div class="col-sm-4">
+                                <select name="<%=hasPrimary.replace(" ", "")%>" class="form-select">
+                                    <option value="N/A" <%="N/A".equals(hasPrimaryCarePhysician) ? "selected" : ""%>><fmt:message key="demographic.addFormClinical.optNA"/></option>
+                                    <option value="Yes" <%="Yes".equals(hasPrimaryCarePhysician) ? "selected" : ""%>><fmt:message key="demographic.addFormClinical.optYes"/></option>
+                                    <option value="No" <%="No".equals(hasPrimaryCarePhysician) ? "selected" : ""%>><fmt:message key="demographic.addFormClinical.optNo"/></option>
                                 </select>
-                            </td>
+                            </div>
                             <% }
                                 if (hasEmpStatus) {
                             %>
-                            <td style="text-align: right;"><b><%=empStatus.replace(" ", "&nbsp;")%>:</b></td>
-                            <td>
-                                <select name="<%=empStatus.replace(" ", "")%>">
-                                    <option value="N/A" <%="N/A".equals(employmentStatus) ? "selected" : ""%>>N/A
-                                    </option>
-                                    <option value="FULL TIME" <%="FULL TIME".equals(employmentStatus) ? "selected" : ""%>>
-                                        FULL TIME
-                                    </option>
-                                    <option value="ODSP" <%="ODSP".equals(employmentStatus) ? "selected" : ""%>>ODSP
-                                    </option>
-                                    <option value="OW" <%="OW".equals(employmentStatus) ? "selected" : ""%>>OW</option>
-                                    <option value="PART TIME" <%="PART TIME".equals(employmentStatus) ? "selected" : ""%>>
-                                        PART TIME
-                                    </option>
-                                    <option value="UNEMPLOYED" <%="UNEMPLOYED".equals(employmentStatus) ? "selected" : ""%>>
-                                        UNEMPLOYED
-                                    </option>
+                            <div class="col-sm-2 text-end">
+                                <label class="fw-bold col-form-label py-0"><fmt:message key="demographic.addFormClinical.labelEmploymentStatus"/>:</label>
+                            </div>
+                            <div class="col-sm-4">
+                                <select name="<%=empStatus.replace(" ", "")%>" class="form-select">
+                                    <option value="N/A" <%="N/A".equals(employmentStatus) ? "selected" : ""%>><fmt:message key="demographic.addFormClinical.optNA"/></option>
+                                    <option value="FULL TIME" <%="FULL TIME".equals(employmentStatus) ? "selected" : ""%>><fmt:message key="demographic.addFormClinical.optFullTime"/></option>
+                                    <option value="ODSP" <%="ODSP".equals(employmentStatus) ? "selected" : ""%>><fmt:message key="demographic.addFormClinical.optODSP"/></option>
+                                    <option value="OW" <%="OW".equals(employmentStatus) ? "selected" : ""%>><fmt:message key="demographic.addFormClinical.optOW"/></option>
+                                    <option value="PART TIME" <%="PART TIME".equals(employmentStatus) ? "selected" : ""%>><fmt:message key="demographic.addFormClinical.optPartTime"/></option>
+                                    <option value="UNEMPLOYED" <%="UNEMPLOYED".equals(employmentStatus) ? "selected" : ""%>><fmt:message key="demographic.addFormClinical.optUnemployed"/></option>
                                 </select>
-                            </td>
-                        </tr>
+                            </div>
+                        </div>
                         <% }
                         }
 
-//customized key
+                        //customized key
                             if (oscarVariables.getProperty("demographicExt") != null) {
                                 boolean bExtForm = oscarVariables.getProperty("demographicExtForm") != null ? true : false;
                                 String[] propDemoExtForm = bExtForm ? (oscarVariables.getProperty("demographicExtForm", "").split("\\|")) : null;
                                 String[] propDemoExt = oscarVariables.getProperty("demographicExt", "").split("\\|");
                                 for (int k = 0; k < propDemoExt.length; k = k + 2) {
                         %>
-                        <tr valign="top">
-                            <td style="text-align: right;"><b><%=propDemoExt[k] %>
-                            </b><b>: </b></td>
-                            <td style="text-align: left;">
+                        <div class="row mb-2 align-items-center">
+                            <div class="col-sm-2 text-end"><label class="fw-bold col-form-label py-0"><%= SafeEncode.forHtmlContent(propDemoExt[k]) %>:</label></div>
+                            <div class="col-sm-4">
                                 <% if (bExtForm) {
-                                    out.println(propDemoExtForm[k]);
+                                    out.println(propDemoExtForm[k]); //do not encode as you will break HTML field templates
                                 } else { %>
-                                <input type="text" name="<%=propDemoExt[k].replace(' ', '_') %>" value="">
+                                <input type="text" name="<%= SafeEncode.forHtmlAttribute(propDemoExt[k].replace(' ', '_')) %>" class="form-control" value="">
                                 <% } %>
-                            </td>
-                            <td style="text-align: right;"><%=(k + 1) < propDemoExt.length ? ("<b>" + propDemoExt[k + 1] + ": </b>") : "&nbsp;" %>
-                            </td>
-                            <td style="text-align: left;">
+                            </div>
+                            <div class="col-sm-2 text-end"><%=(k + 1) < propDemoExt.length ? ("<label class=\"fw-bold col-form-label py-0\">" + SafeEncode.forHtmlContent(propDemoExt[k + 1]) + ":</label>") : "&nbsp;" %></div>
+                            <div class="col-sm-4">
                                 <% if (bExtForm && (k + 1) < propDemoExt.length) {
-                                    out.println(propDemoExtForm[k + 1]);
-                                } else { %> <%=(k + 1) < propDemoExt.length ? "<input type=\"text\" name=\"" + propDemoExt[k + 1].replace(' ', '_') + "\"  value=''>" : "&nbsp;" %>
+                                    out.println(propDemoExtForm[k + 1]); //do not encode as you will break HTML field templates
+                                } else { %> <%=(k + 1) < propDemoExt.length ? "<input type=\"text\" name=\"" + SafeEncode.forHtmlAttribute(propDemoExt[k + 1].replace(' ', '_')) + "\" class=\"form-control\" value=''>" : "&nbsp;" %>
                                 <% } %>
-                            </td>
-                        </tr>
+                            </div>
+                        </div>
                         <% }
                         }
                             if (oscarVariables.getProperty("demographicExtJScript") != null) {
@@ -422,20 +449,17 @@
                             }
                         %>
 
-
                         <%
                             if (oscarProps.getProperty("EXTRA_DEMO_FIELDS") != null) {
                                 String fieldJSP = oscarProps.getProperty("EXTRA_DEMO_FIELDS");
                                 fieldJSP += ".jsp";
                         %>
-                        <tr>
-                            <td colspan="4">
+                        <div class="row mb-2">
+                            <div class="col-12">
                                 <jsp:include page="<%=fieldJSP%>"/>
-
                                 <%}%>
-                            </td>
-                        </tr>
-
+                            </div>
+                        </div>
 
                         <%
                             String wLReadonly = "";
@@ -444,54 +468,57 @@
                                 wLReadonly = "readonly";
                             }
                         %>
-                        <tr>
-                            <td id="waitListTbl" colspan="4">
-                                <table border="1" width="100%">
-                                    <tr valign="top">
-                                        <td align="right"><b> <fmt:message key="demographic.demographicaddarecordhtm.msgWaitList"/>: </b></td>
-                                        <td align="left"><select id="name_list_id" name="list_id">
-                                            <% if (wLReadonly.equals("")) { %>
-                                            <option value="0">--Select Waiting List--</option>
-                                            <%} else { %>
-                                            <option value="0"><fmt:message key="demographic.demographicaddarecordhtm.optCreateWaitList"/>
-                                            </option>
-                                            <%} %>
-                                            <%
-                                                for (WaitingListName wln : waitingListNameDao.findCurrentByGroup(((ProviderPreference) session.getAttribute(SessionConstants.LOGGED_IN_PROVIDER_PREFERENCE)).getMyGroupNo())) {
+                        <div class="row mb-2">
+                            <div class="col-12" id="waitListTbl">
+                                <div class="border p-2">
+                                    <div class="row mb-2 align-items-center">
+                                        <div class="col-sm-2 text-end">
+                                            <label class="fw-bold col-form-label py-0"><fmt:message key="demographic.demographicaddarecordhtm.msgWaitList"/>:</label>
+                                        </div>
+                                        <div class="col-sm-4">
+                                            <select id="name_list_id" name="list_id" class="form-select">
+                                                <% if (wLReadonly.equals("")) { %>
+                                                <option value="0"><fmt:message key="demographic.addFormClinical.optSelectWaitList"/></option>
+                                                <%} else { %>
+                                                <option value="0"><fmt:message key="demographic.demographicaddarecordhtm.optCreateWaitList"/></option>
+                                                <%} %>
+                                                <%
+                                                    for (WaitingListName wln : waitingListNameDao.findCurrentByGroup(((ProviderPreference) session.getAttribute(SessionConstants.LOGGED_IN_PROVIDER_PREFERENCE)).getMyGroupNo())) {
+                                                %>
+                                                <option value="<%= SafeEncode.forHtmlAttribute(wln.getId().toString()) %>"><%= SafeEncode.forHtml(wln.getName()) %></option>
+                                                <%
+                                                    }
+                                                %>
+                                            </select>
+                                        </div>
+                                        <div class="col-sm-2 text-end">
+                                            <label class="fw-bold col-form-label py-0"><fmt:message key="demographic.demographicaddarecordhtm.msgWaitListNote"/>:</label>
+                                        </div>
+                                        <div class="col-sm-4">
+                                            <input type="text" id="waiting_list_note" name="waiting_list_note" class="form-control" <%=wLReadonly%>>
+                                        </div>
+                                    </div>
+                                    <div class="row mb-2 align-items-center">
+                                        <div class="col-sm-2 text-end">
+                                            <label class="fw-bold col-form-label py-0"><fmt:message key="demographic.demographicaddarecordhtm.msgDateOfReq"/>:</label>
+                                        </div>
+                                        <div class="col-sm-4">
+                                            <div class="d-flex gap-1 align-items-center">
+                                                <input type="text" placeholder="<fmt:message key="yyyy-mm-dd"/>"
+                                                       name="waiting_list_referral_date"
+                                                       id="waiting_list_referral_date"
+                                                       class="form-control"
+                                                       value="" size="12" <%=wLReadonly%>>
+                                                <img src="<%= request.getContextPath() %>/images/cal.gif" id="referral_date_cal">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
 
-                                            %>
-                                            <option value="<%=wln.getId()%>"><%=wln.getName()%>
-                                            </option>
-                                            <%
-                                                }
-                                            %>
-                                        </select></td>
-                                        <td align="right" nowrap><b><fmt:message key="demographic.demographicaddarecordhtm.msgWaitListNote"/>: </b></td>
-                                        <td align="left"><input type="text" id="waiting_list_note"
-                                                                name="waiting_list_note"
-                                                <%=wLReadonly%>></td>
-                                    </tr>
-
-                                    <tr>
-
-                                        <td align="right" nowrap><b><fmt:message key="demographic.demographicaddarecordhtm.msgDateOfReq"/>:</b></td>
-                                        <td align="left"><input type="text" placeholder="yyyy-mm-dd"
-                                                                name="waiting_list_referral_date"
-                                                                id="waiting_list_referral_date"
-                                                                value="" size="12" <%=wLReadonly%>> <img
-                                                src="<%= request.getContextPath() %>/images/cal.gif" id="referral_date_cal">
-                                        </td>
-                                        <td><!-- placeholder --></td>
-                                        <td><!-- placeholder --></td>
-                                    </tr>
-                                </table>
-                            </td>
-                        </tr>
-
-
-                            <%-- TOGGLE PRIVACY CONSENT MODULE --%>
+                        <%-- TOGGLE PRIVACY CONSENT MODULE --%>
                         <oscar:oscarPropertiesCheck property="privateConsentEnabled" value="true">
-
                             <%
                                 String[] privateConsentPrograms2 = CarlosProperties.getInstance().getProperty("privateConsentPrograms", "").split(",");
                                 ProgramProvider pp3 = programManager2.getCurrentProgramInDomain(loggedInInfo, loggedInInfo.getLoggedInProviderNo());
@@ -505,24 +532,22 @@
                                 }
 
                                 if (showConsents) { %>
-                            <!-- consents -->
-                            <tr valign="top">
-
-                                <td colspan="4">
-                                    <input type="checkbox" name="privacyConsent" value="yes"><b>Privacy Consent (verbal)
-                                    Obtained</b>
-                                    <br/>
-                                    <input type="checkbox" name="informedConsent" value="yes"><b>Informed Consent
-                                    (verbal) Obtained</b>
-                                    <br/>
-                                </td>
-
-                            </tr>
-
+                            <%-- consents --%>
+                            <div class="row mb-2">
+                                <div class="col-12">
+                                    <div class="form-check">
+                                        <input type="checkbox" name="privacyConsent" value="yes" class="form-check-input" id="privacyConsentChk">
+                                        <label class="form-check-label fw-bold" for="privacyConsentChk"><fmt:message key="demographic.addFormClinical.optPrivacyConsentObtained"/></label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="checkbox" name="informedConsent" value="yes" class="form-check-input" id="informedConsentChk">
+                                        <label class="form-check-label fw-bold" for="informedConsentChk"><fmt:message key="demographic.addFormClinical.optInformedConsentObtained"/></label>
+                                    </div>
+                                </div>
+                            </div>
                             <% } %>
 
                             <oscar:oscarPropertiesCheck property="USE_NEW_PATIENT_CONSENT_MODULE" value="true">
-
                                 <c:forEach items="${ consentTypes }" var="consentType" varStatus="count">
                                     <c:set var="patientConsent" value=""/>
                                     <c:forEach items="${ patientConsents }" var="consent">
@@ -530,129 +555,70 @@
                                             <c:set var="patientConsent" value="${ consent }"/>
                                         </c:if>
                                     </c:forEach>
-                                    <tr class="privacyConsentRow" id="${ count.index }">
-                                        <td class="alignRight" style="width:16%;vertical-align:top;">
-                                            <div style="font-weight:bold;white-space:nowrap;">
-                                                ${carlos:forHtml(consentType.name)}
-                                            </div>
-                                        </td>
-
-                                        <td colspan="2" style="padding-left:10px;vertical-align:top;">
+                                     <c:set var="stableConsentKey" value="consent_${consentType.id}"/>
+                                    <div class="row mb-2 align-items-start privacyConsentRow" id="privacyConsentRow_${count.index}">
+                                        <div class="col-sm-2 text-end">
+                                            <span class="fw-bold">${carlos:forHtml(consentType.name)}</span>
+                                        </div>
+                                        <div class="col-sm-6">
                                             ${carlos:forHtml(consentType.description)}
-                                        </td>
-
-                                        <td id="consentStatusDate" style="width:31%;vertical-align:top;">
-                                            <input type="radio"
-                                                   name="${ consentType.type }"
-                                                   id="optin_${ consentType.type }"
-                                                   value="0"
-                                            />
-                                            <label for="optin_${ consentType.type }"><fmt:message key="demographic.demographicaddrecordhtm.optIn"/></label>
-                                            <input type="radio"
-                                                   name="${ consentType.type }"
-                                                   id="optout_${ consentType.type }"
-                                                   value="1"
-                                            />
-                                            <label for="optout_${ consentType.type }"><fmt:message key="demographic.demographicaddrecordhtm.optOut"/></label>
-                                            <input type="button"
-                                                   name="clearRadio_${consentType.type}_btn"
-                                                   onclick="consentClearBtn('${consentType.type}')" value="<fmt:message key='demographic.demographicaddrecordhtm.clear'/>"/>
-
-                                        </td>
-
-                                    </tr>
+                                        </div>
+                                        <div class="col-sm-4" id="consentStatusDate">
+                                            <div class="form-check form-check-inline">
+                                                 <input type="radio" name="${carlos:forHtmlAttribute(consentType.type)}" id="optin_${stableConsentKey}" value="0" class="form-check-input"/>
+                                                 <label class="form-check-label" for="optin_${stableConsentKey}"><fmt:message key="demographic.demographicaddrecordhtm.optIn"/></label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                 <input type="radio" name="${carlos:forHtmlAttribute(consentType.type)}" id="optout_${stableConsentKey}" value="1" class="form-check-input"/>
+                                                 <label class="form-check-label" for="optout_${stableConsentKey}"><fmt:message key="demographic.demographicaddrecordhtm.optOut"/></label>
+                                            </div>
+                                            <input type="button" class="btn btn-outline-secondary btn-sm"
+                                                    name="clearRadio_${stableConsentKey}_btn"
+                                                    onclick="consentClearBtn('${carlos:forJavaScript(consentType.type)}')" value="<fmt:message key='demographic.demographicaddrecordhtm.clear'/>"/>
+                                        </div>
+                                    </div>
                                 </c:forEach>
-
                             </oscar:oscarPropertiesCheck>
-
                         </oscar:oscarPropertiesCheck>
+                        <%
+                        // CAISI program has been deprecated, just a stub to leave here
+                        String _pvid = loggedInInfo.getLoggedInProviderNo();
+                        Program[] bedP = new Program[0];
+                        Program oscarProgram = programDao.getProgramByName("OSCAR");
+                        String programId = "";
+                        if (oscarProgram != null) {
+                          programId = String.valueOf(oscarProgram.getId());
+                        }
+                        %>                
+                        <input type="hidden" name="rps" value="<%= SafeEncode.forHtmlAttribute(programId) %>" >
+                        <input type="hidden" name="sp" value="<%= SafeEncode.forHtmlAttribute(programId) %>" >
 
-                        <tr valign="top">
-                            <td colspan="4">
-                                <table>
-                                    <tr bgcolor="#CCCCFF" class="category_table_heading">
-                                        <th colspan="2" class="alignLeft"><fmt:message key="demographic.demographicaddrecordhtm.programAdmissions"/></th>
-                                    </tr>
-                                    <tr>
-                                        <td><fmt:message key="demographic.demographicaddrecordhtm.residentialStatus"/></td>
-                                        <td><fmt:message key="demographic.demographicaddrecordhtm.servicePrograms"/></td>
-                                    </tr>
-                                    <tr>
-                                        <td>
-                                            <select id="rsid" name="rps">
-                                                <%
-                                                    String _pvid = loggedInInfo.getLoggedInProviderNo();
-                                                    Program[] bedP = new Program[0];
-                                                    Program oscarProgram = programDao.getProgramByName("OSCAR");
-                                                    
-                                                    // Always use OSCAR program as default if it exists
-                                                    if (oscarProgram != null) {
-                                                %>
-                                                <option value="<%=oscarProgram.getId()%>" selected="selected"><%=oscarProgram.getName()%></option>
-                                                <%
-                                                    }
-                                                    
-                                                    for (Program _p : bedP) {
-                                                        // Skip OSCAR program since we already added it
-                                                        if (oscarProgram != null && _p.getId().equals(oscarProgram.getId())) {
-                                                            continue;
-                                                        }
-                                                %>
-                                                <option value="<%=_p.getId()%>"><%=_p.getName()%></option>
-                                                <%
-                                                    }
-                                                    
-                                                    // If no OSCAR program and no bed programs, still need a value
-                                                    if (oscarProgram == null && bedP.length == 0) {
-                                                %>
-                                                <option value=""><fmt:message key="demographic.demographicaddrecordhtm.noProgramsAvailable"/></option>
-                                                <%
-                                                    }
-                                                %>
-                                            </select>
-                                        </td>
-                                        <td>
-                                            <ul>
-                                                <%
-                                                    List<Program> servP = pm.getServicePrograms();
-                                                    for (Program _p : servP) {
-                                                %>
-                                                <li>
-                                                    <input type="checkbox" name="sp"
-                                                           value="<%=_p.getId()%>"/><%=_p.getName()%>
-                                                </li>
-                                                <%}%>
-                                            </ul>
-                                        </td>
-                                    </tr>
-                                </table>
-                            </td>
-                        </tr>
 
-                        <tr>
-                            <td colspan="4">
-                                <table width="100%" bgcolor="#EEEEFF">
-                                    <tr>
-                                        <td id="alertLbl" width="10%" align="right"><font
-                                                color="#FF0000"><b><fmt:message key="demographic.demographicaddrecordhtm.formAlert"/>: </b></font></td>
-                                        <td id="alertCell"><textarea id="cust3" name="cust3" style="width: 100%"
-                                                                     rows="2"></textarea>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td id="notesLbl" align="right"><b><fmt:message key="demographic.demographicaddrecordhtm.formNotes"/> : </b></td>
-                                        <td id="notesCell"><textarea id="content" name="content" style="width: 100%"
-                                                                     rows="2"></textarea>
-                                        </td>
-                                    </tr>
-                                </table>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td colspan="4">
+                        <div class="row mb-2">
+                            <div class="col-12">
+                                <div class="row mb-2 align-items-center">
+                                    <div class="col-sm-1 text-end" id="alertLbl">
+                                        <label class="fw-bold col-form-label py-0 text-danger"><fmt:message key="demographic.demographicaddrecordhtm.formAlert"/>:</label>
+                                    </div>
+                                    <div class="col-sm-11" id="alertCell">
+                                        <textarea id="cust3" name="cust3" class="form-control" rows="2"></textarea>
+                                    </div>
+                                </div>
+                                <div class="row mb-2 align-items-center">
+                                    <div class="col-sm-1 text-end" id="notesLbl">
+                                        <label class="fw-bold col-form-label py-0"><fmt:message key="demographic.demographicaddrecordhtm.formNotes"/>:</label>
+                                    </div>
+                                    <div class="col-sm-11" id="notesCell">
+                                        <textarea id="content" name="content" class="form-control" rows="2"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mb-2">
+                            <div class="col-12">
                                 <div>
                                     <%
-                                        //    Integer fid = ((Facility)session.getAttribute("currentFacility")).getRegistrationIntake();
                                         Facility facility = loggedInInfo.getCurrentFacility();
                                         Integer fid = null;
                                         if (facility != null) fid = facility.getRegistrationIntake();
@@ -668,24 +634,27 @@
                                             width="100%"></iframe>
                                     <%}%>
                                 </div>
-                            </td>
-                        </tr>
-                        <tr bgcolor="#CCCCFF">
-                            <td colspan="4">
-                                <input type="hidden" name="dboperation"
-                                       value="add_record"> <input type="hidden" name="displaymode" value="Add Record">
+                            </div>
+                        </div>
+
+                        <div class="row mb-2 py-2" style="background-color:#CCCCFF;">
+                            <div class="col-12">
+                                <input type="hidden" name="dboperation" value="add_record">
+                                <input type="hidden" name="displaymode" value="Add Record">
                                 <input type="submit" id="btnAddRecord" name="btnAddRecord"
+                                       class="btn btn-primary"
                                        value="<fmt:message key="demographic.demographicaddrecordhtm.btnAddRecord"/>"/>
                                 <input type="button" id="btnSwipeCard" name="Button"
+                                       class="btn btn-secondary"
                                        value="<fmt:message key="demographic.demographicaddrecordhtm.btnSwipeCard"/>"
                                        onclick="window.open('zadddemographicswipe.htm','', 'scrollbars=yes,resizable=yes,width=600,height=300')"
                                        ;>
-
                                 <input type="button" name="closeButton"
+                                       class="btn btn-secondary"
                                        value="<fmt:message key="demographic.demographicaddrecordhtm.btnCancel"/>"
                                        onclick="self.close();">
+                            </div>
+                        </div>
 
-                            </td>
-                        </tr>
-                    </table>
+                    </div><%-- /#addDemographicTbl --%>
                 </form>

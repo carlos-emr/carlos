@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
+import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.MyGroup;
@@ -1007,22 +1008,24 @@ public class OscarAppointmentDaoQueryIntegrationTest extends CarlosTestBase {
             Appointment appt = createAndPersist(today, PROVIDER_NO, 100, "A");
 
             // When
-            List<Object[]> result = oscarAppointmentDao.findAppointmentAndProviderByAppointmentNo(appt.getId());
+            List<io.github.carlos_emr.carlos.commn.dao.projection.AppointmentProviderRow> result =
+                    oscarAppointmentDao.findAppointmentAndProviderByAppointmentNo(appt.getId());
 
             // Then
             assertThat(result).hasSize(1);
-            Object[] row = result.get(0);
-            assertThat(row).hasSize(2);
-            assertThat(row[0]).isInstanceOf(Appointment.class);
-            assertThat(row[1]).isInstanceOf(Provider.class);
-            assertThat(((Appointment) row[0]).getId()).isEqualTo(appt.getId());
+            io.github.carlos_emr.carlos.commn.dao.projection.AppointmentProviderRow row = result.get(0);
+            // After projection: row carries only the location, appointment providerNo,
+            // and provider OHIP no — the legacy Object[] of (Appointment, Provider) entities
+            // was dropped to avoid lazy-init leakage.
+            assertThat(row.appointmentProviderNo()).isEqualTo(PROVIDER_NO);
         }
 
         @Test
         @DisplayName("should return empty list for non-existent appointment")
         void shouldReturnEmptyList_whenAppointmentDoesNotExist() {
             // When
-            List<Object[]> result = oscarAppointmentDao.findAppointmentAndProviderByAppointmentNo(99999);
+            List<io.github.carlos_emr.carlos.commn.dao.projection.AppointmentProviderRow> result =
+                    oscarAppointmentDao.findAppointmentAndProviderByAppointmentNo(99999);
 
             // Then
             assertThat(result).isEmpty();
@@ -1047,21 +1050,42 @@ public class OscarAppointmentDaoQueryIntegrationTest extends CarlosTestBase {
     class GetAllDemographicNoSince {
 
         @Test
-        @DisplayName("should return demographic numbers for appointments updated since date")
-        void shouldReturnDemographicNos_whenAppointmentsUpdatedSinceDate() {
-            // Given
-            Appointment appt = createAndPersist(today, PROVIDER_NO, 400, "A");
+        @DisplayName("should bind program IDs as a collection")
+        void shouldBindProgramIds_asCollection() {
+            Date cutoff = new Date(System.currentTimeMillis() - 60_000);
 
-            // Note: This method accepts List<Program> and constructs a comma-separated
-            // string of program IDs. Due to the unusual parameter binding pattern
-            // (passing string of IDs as ?2), this test may need adjustment after
-            // Hibernate 6 migration.
-            // Note: This method's unusual parameter binding (comma-separated program IDs as
-            // a single string parameter) may behave differently in Hibernate 6.
-            // Verifying the DAO interface is available and the method signature is correct.
-            assertThat(oscarAppointmentDao).isNotNull();
-            assertThat(appt).isNotNull();
-            assertThat(appt.getDemographicNo()).isEqualTo(400);
+            Appointment programOneAppointment = createTestAppointment(today, PROVIDER_NO, 54321, "A");
+            programOneAppointment.setProgramId(PROGRAM_ID);
+            entityManager.persist(programOneAppointment);
+
+            Appointment programTwoAppointment = createTestAppointment(today, PROVIDER_NO, 54322, "A");
+            programTwoAppointment.setProgramId(PROGRAM_ID + 1);
+            entityManager.persist(programTwoAppointment);
+
+            Appointment otherProgramAppointment = createTestAppointment(today, PROVIDER_NO, 54323, "A");
+            otherProgramAppointment.setProgramId(PROGRAM_ID + 2);
+            entityManager.persist(otherProgramAppointment);
+
+            entityManager.flush();
+            entityManager.clear();
+
+            Program programOne = new Program();
+            programOne.setId(PROGRAM_ID);
+            Program programTwo = new Program();
+            programTwo.setId(PROGRAM_ID + 1);
+
+            List<Integer> result = oscarAppointmentDao.getAllDemographicNoSince(cutoff, List.of(programOne, programTwo));
+
+            assertThat(result).contains(54321, 54322);
+            assertThat(result).doesNotContain(54323);
+        }
+
+        @Test
+        @DisplayName("should return empty list when programs are empty")
+        void shouldReturnEmptyList_whenProgramsAreEmpty() {
+            List<Integer> result = oscarAppointmentDao.getAllDemographicNoSince(new Date(), List.of());
+
+            assertThat(result).isEmpty();
         }
     }
 
@@ -1089,6 +1113,30 @@ public class OscarAppointmentDaoQueryIntegrationTest extends CarlosTestBase {
 
             // Then
             assertThat(result).isNull();
+        }
+
+        @Test
+        @DisplayName("should return earliest appointment when multiple appointments exist today")
+        void shouldReturnEarliestAppointment_whenMultipleAppointmentsToday() {
+            // Given
+            Calendar cal = Calendar.getInstance();
+            cal.set(Calendar.HOUR_OF_DAY, 0);
+            cal.set(Calendar.MINUTE, 0);
+            cal.set(Calendar.SECOND, 0);
+            cal.set(Calendar.MILLISECOND, 0);
+            Date currentDate = cal.getTime();
+
+            Appointment later = createAndPersistWithTimes(currentDate, PROVIDER_NO, 12345, "A", time1100, time1200);
+            Appointment earlier = createAndPersistWithTimes(currentDate, PROVIDER_NO, 12345, "A", time0900, time1000);
+            entityManager.clear();
+
+            // When
+            Appointment result = oscarAppointmentDao.findDemoAppointmentToday(12345);
+
+            // Then
+            assertThat(result).isNotNull();
+            assertThat(result.getId()).isEqualTo(earlier.getId());
+            assertThat(result.getId()).isNotEqualTo(later.getId());
         }
     }
 

@@ -190,7 +190,7 @@ public class ProgramManagerImpl implements ProgramManager {
     }
 
     public void saveProgram(Program program) {
-        if (program.getHoldingTank()) {
+        if (program.isHoldingTank()) {
             programDao.resetHoldingTank();
         }
         programDao.saveProgram(program);
@@ -244,7 +244,8 @@ public class ProgramManagerImpl implements ProgramManager {
         programFunctionalUserDAO.deleteFunctionalUserType(Long.valueOf(id));
     }
 
-    public List<FunctionalUserType> getFunctionalUsers(String programId) {
+    @Override
+    public List<ProgramFunctionalUser> getFunctionalUsers(String programId) {
         return programFunctionalUserDAO.getFunctionalUsers(Long.valueOf(programId));
     }
 

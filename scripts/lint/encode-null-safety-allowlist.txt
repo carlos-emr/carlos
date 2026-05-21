@@ -13,3 +13,11 @@
 # Example:
 #   src/main/webapp/WEB-INF/jsp/some/file-where-null-string-is-desired.jsp
 #   src/main/webapp/legacy/**/*.jsp
+
+# Legacy non-billing JSPs that predate this guard. Keep the allowlist explicit
+# so new billing work remains covered while these pages await focused cleanup.
+src/main/webapp/WEB-INF/jsp/appointment/appointmentsearch.jsp
+src/main/webapp/WEB-INF/jsp/messenger/ViewAttachment.jsp
+src/main/webapp/WEB-INF/jsp/messenger/ViewPDFAttachment.jsp
+src/main/webapp/WEB-INF/jsp/messenger/attachmentFrameset.jsp
+src/main/webapp/WEB-INF/jsp/messenger/generatePreviewPDF.jsp

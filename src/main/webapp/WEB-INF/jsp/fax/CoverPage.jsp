@@ -55,6 +55,7 @@
 
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title>CARLOS Fax</title>
 
     <c:set var="ctx" value="${ pageContext.request.contextPath }" scope="page"/>
@@ -205,7 +206,7 @@
                     <td id="oscarFaxHeaderCenterColumn"><carlos:encode value='${ transactionType }' context="forHtml"/></td>
                     <td id="oscarFaxHeaderRightColumn" align=right>
 						<span class="HelpAboutLogout"> 
-							<a style="font-size: 10px; font-style: normal;" href="${ ctx }encounter/About.jsp"
+							<a style="font-size: 10px; font-style: normal;" href="${pageContext.request.contextPath}/encounter/ViewAbout"
                                target="_new">About</a>
 							<a style="font-size: 10px; font-style: normal;" target="_blank"
                                href="http://www.oscarmanual.org/search?SearchableText=&Title=Chart+Interface&portal_type%3Alist=Document">Help</a>

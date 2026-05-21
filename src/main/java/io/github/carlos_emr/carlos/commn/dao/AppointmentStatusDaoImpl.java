@@ -31,11 +31,17 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import jakarta.persistence.Query;
 
+import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 import io.github.carlos_emr.carlos.commn.model.AppointmentStatus;
+import io.github.carlos_emr.carlos.config.CacheConfig;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -45,24 +51,29 @@ public class AppointmentStatusDaoImpl extends AbstractDaoImpl<AppointmentStatus>
         super(AppointmentStatus.class);
     }
 
+    @Cacheable(value = CacheConfig.APPOINTMENT_STATUSES, key = "'all'")
     @SuppressWarnings("unchecked")
     @Override
     public List<AppointmentStatus> findAll() {
         Query query = entityManager.createQuery("FROM " + modelClass.getSimpleName());
-        return query.getResultList();
+        return Collections.unmodifiableList(new ArrayList<>(query.getResultList()));
     }
 
+    @Cacheable(value = CacheConfig.APPOINTMENT_STATUSES, key = "'active'")
     @Override
     public List<AppointmentStatus> findActive() {
-        Query q = entityManager.createQuery("select a from AppointmentStatus a where a.active=?1");
+        Query q = entityManager.createQuery("select a from AppointmentStatus a where a.active=?1 order by a.id");
         q.setParameter(1, 1);
 
         @SuppressWarnings("unchecked")
         List<AppointmentStatus> results = q.getResultList();
 
-        return results;
+        return Collections.unmodifiableList(new ArrayList<>(results));
     }
 
+    @Cacheable(value = CacheConfig.APPOINTMENT_STATUSES, key = "'status:' + #status",
+               condition = "#status != null && !#status.isEmpty()",
+               unless = "#result == null")
     @Override
     public AppointmentStatus findByStatus(String status) {
         if (status == null || status.length() == 0) {
@@ -84,6 +95,7 @@ public class AppointmentStatusDaoImpl extends AbstractDaoImpl<AppointmentStatus>
         return null;
     }
 
+    @CacheEvict(value = CacheConfig.APPOINTMENT_STATUSES, allEntries = true)
     @Override
     public void modifyStatus(int ID, String strDesc, String strColor) {
         AppointmentStatus appts = find(ID);
@@ -93,12 +105,57 @@ public class AppointmentStatusDaoImpl extends AbstractDaoImpl<AppointmentStatus>
         }
     }
 
+    @CacheEvict(value = CacheConfig.APPOINTMENT_STATUSES, allEntries = true)
     public void changeStatus(int ID, int iActive) {
         AppointmentStatus appts = find(ID);
         if (appts != null) {
             appts.setActive(iActive);
         }
     }
+
+    @CacheEvict(value = CacheConfig.APPOINTMENT_STATUSES, allEntries = true)
+    @Override
+    public void persist(AbstractModel<?> o) { super.persist(o); }
+
+    @CacheEvict(value = CacheConfig.APPOINTMENT_STATUSES, allEntries = true)
+    @Override
+    public void merge(AbstractModel<?> o) { super.merge(o); }
+
+    @CacheEvict(value = CacheConfig.APPOINTMENT_STATUSES, allEntries = true)
+    @Override
+    public void remove(AbstractModel<?> o) { super.remove(o); }
+
+    @CacheEvict(value = CacheConfig.APPOINTMENT_STATUSES, allEntries = true)
+    @Override
+    public boolean remove(Object id) { return super.remove(id); }
+
+    @CacheEvict(value = CacheConfig.APPOINTMENT_STATUSES, allEntries = true)
+    @Override
+    public AppointmentStatus saveEntity(AppointmentStatus entity) { return super.saveEntity(entity); }
+
+    // batch* methods use a separate EntityManager and invoke persist/remove on it directly,
+    // bypassing the Spring proxy — so @CacheEvict on persist/remove never fires through this
+    // path. Override both overloads to restore eviction at the proxied boundary.
+    //
+    // beforeInvocation = true: AbstractDaoImpl.batchPersist commits sub-batches inside its
+    // loop, so a later sub-batch failure leaves earlier sub-batches persisted to the DB.
+    // Default beforeInvocation = false would skip eviction on exception, pinning stale
+    // entries in the cache until TTL.
+    @CacheEvict(value = CacheConfig.APPOINTMENT_STATUSES, allEntries = true, beforeInvocation = true)
+    @Override
+    public void batchPersist(List<AppointmentStatus> oList) { super.batchPersist(oList); }
+
+    @CacheEvict(value = CacheConfig.APPOINTMENT_STATUSES, allEntries = true, beforeInvocation = true)
+    @Override
+    public void batchPersist(List<AppointmentStatus> oList, int batchSize) { super.batchPersist(oList, batchSize); }
+
+    @CacheEvict(value = CacheConfig.APPOINTMENT_STATUSES, allEntries = true, beforeInvocation = true)
+    @Override
+    public void batchRemove(List<AppointmentStatus> oList) { super.batchRemove(oList); }
+
+    @CacheEvict(value = CacheConfig.APPOINTMENT_STATUSES, allEntries = true, beforeInvocation = true)
+    @Override
+    public void batchRemove(List<AppointmentStatus> oList, int batchSize) { super.batchRemove(oList, batchSize); }
 
     /**
      * I don't know about this one...but i'm just converting it to a JPA entity for

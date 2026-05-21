@@ -1,6 +1,7 @@
 <%--
-
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -16,17 +17,13 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-    This software was written for the
-    Department of Family Medicine
-    McMaster University
-    Hamilton
-    Ontario, Canada
-
-
-    Now maintained by the CARLOS EMR Project (2026+).
+    CARLOS EMR Project
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
+--%>
+<%--
+  Page role: Renders `EditFlowsheet.jsp` for the CARLOS EMR workflow.
+  Keep request setup in the paired action and use CARLOS encoding helpers
+  for dynamic output rendered by the page.
 --%>
 <% long startTime = System.currentTimeMillis(); %>
 <%@ page
@@ -221,6 +218,20 @@
     String encodedDisplayNameForUri = SafeEncode.forUriComponent(displayNameValue);
     String encodedDisplayNameForJsUri = SafeEncode.forJavaScript(SafeEncode.forUriComponent(displayNameValue));
     String demographic = request.getParameter("demographic");
+    Object demographicAttribute = request.getAttribute("demographic");
+    if ((demographic == null || demographic.trim().isEmpty()) && demographicAttribute != null) {
+        demographic = String.valueOf(demographicAttribute);
+    }
+    if (demographic != null) {
+        demographic = demographic.trim();
+    }
+    boolean hasErrorMessage = request.getAttribute("errorMessage") != null;
+    boolean hasDemographic = demographic != null && !demographic.isEmpty();
+    boolean demographicIsNumeric = !hasDemographic || demographic.matches("\\d+");
+    if (hasDemographic && !demographicIsNumeric && !hasErrorMessage) {
+        %> <script> alert("Invalid demographic number. Please enter a valid number."); </script> <%
+        return;
+    }
     String scope = request.getParameter("scope");
     MeasurementTemplateFlowSheetConfig templateConfig = MeasurementTemplateFlowSheetConfig.getInstance();
     Hashtable<String, String> flowsheetNames = templateConfig.getFlowsheetDisplayNames();
@@ -231,7 +242,7 @@
     if ("clinic".equals(scope)) {
         custList = flowSheetCustomizationDao.getFlowSheetCustomizations(flowsheet);
     } else {
-        if (demographic == null || demographic.isEmpty()) {
+        if (!hasDemographic || !demographicIsNumeric) {
             custList = flowSheetCustomizationDao.getFlowSheetCustomizations(flowsheet, (String) session.getAttribute("user"));
         } else {
             custList = flowSheetCustomizationDao.getFlowSheetCustomizations(flowsheet, (String) session.getAttribute("user"), Integer.parseInt(demographic));
@@ -242,27 +253,25 @@
     EctMeasurementTypesBeanHandler hd = new EctMeasurementTypesBeanHandler();
     Vector<EctMeasurementTypesBean> vec = hd.getMeasurementTypeVector();
     String demographicStr = new String();
-    String demoStash = new String();
-    if (demographic != null) {
+    if (hasDemographic && demographicIsNumeric) {
         demographicStr = "&demographic=" + SafeEncode.forUriComponent(demographic);
-        session.setAttribute("demoNo" + session.getAttribute("user"), demographic);
-    } else {
-        String demoNo = (String) session.getAttribute("demoNo" + session.getAttribute("user"));
-        if (demoNo != null) demoStash = "&demographic=" + SafeEncode.forUriComponent(demoNo);
     }
 
     XMLOutputter outp = new XMLOutputter();
     outp.setFormat(Format.getPrettyFormat());
 
     DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
-    Demographic demo = demographicDao.getDemographic(demographic);
-	if (demographic != null && demo == null) {
-		%> <script> alert("Invalid demographic number. Please enter a valid number."); </script> <%
-		return;
-	}
+    Demographic demo = null;
+    if (hasDemographic && demographicIsNumeric) {
+        demo = demographicDao.getDemographic(demographic);
+    }
+    if (hasDemographic && demographicIsNumeric && demo == null && !hasErrorMessage) {
+        %> <script> alert("Invalid demographic number. Please enter a valid number."); </script> <%
+        return;
+    }
 %>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="${pageContext.request.locale.language}">
 
 <head>
     <title>Edit Flowsheet</title><!--I18n-->
@@ -276,7 +285,7 @@
     <link rel="apple-touch-icon-precomposed" href="ico/apple-touch-icon-57-precomposed.png">
     <link rel="shortcut icon" href="ico/favicon.png">
 
-    <link rel="stylesheet" type="text/css" href="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css">
+    <link rel="stylesheet" type="text/css" href="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css">
 
 <style>
 
@@ -798,8 +807,8 @@ Flowsheet: <span style="font-weight:normal">${carlos:forHtml(requestScope.displa
 </div>
     <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
     <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
-    <script type="text/javascript" src="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
-    <script type="text/javascript" src="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
+    <script type="text/javascript" src="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js"></script>
+    <script type="text/javascript" src="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.11/js/dataTables.bootstrap5.min.js"></script>
     <script src="<%=request.getContextPath() %>/library/jquery/jquery.validate-1.21.0.min.js"></script>
 
     <script>

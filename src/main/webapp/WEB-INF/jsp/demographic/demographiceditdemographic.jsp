@@ -49,7 +49,6 @@
     - Country of birth and language fields (ISO 639-2 / country code lookup)
     - Provincial ID and other identifier fields
     - Archive access for historical demographic record versions
-    - CBI reminder on save (configurable via CBI_REMIND_ON_UPDATE_DEMOGRAPHIC property)
     - Bootstrap 5 dismissible alert container for non-blocking UI messages
     - All i18n strings pre-computed server-side and safely encoded for JavaScript
     - Session null check with redirect to logout if session has expired
@@ -147,6 +146,8 @@
 
 <jsp:useBean id="apptMainBean" class="io.github.carlos_emr.AppointmentMainBean" scope="session"/>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
+
+<%@ include file="/WEB-INF/jspf/demographic-field-length-limits.jspf" %>
 
 
 <%
@@ -301,6 +302,7 @@
 <!DOCTYPE html>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <title><fmt:message key="demographic.demographiceditdemographic.title"/></title>
 
@@ -364,7 +366,6 @@
                 msgWrongReferral:             '<carlos:encode value='<%= oscarResources.getString("demographic.demographiceditdemographic.msgWrongReferral") %>' context="javaScriptBlock"/>',
                 msgPromptStatus:              '<carlos:encode value='<%= oscarResources.getString("demographic.demographiceditdemographic.msgPromptStatus") %>' context="javaScriptBlock"/>',
                 msgInvalidEntry:              '<carlos:encode value='<%= oscarResources.getString("demographic.demographiceditdemographic.msgInvalidEntry") %>' context="javaScriptBlock"/>',
-                updateCBIReminder:            '<carlos:encode value='<%= oscarResources.getString("demographic.demographiceditdemographic.updateCBIReminder") %>' context="javaScriptBlock"/>',
                 btnCancel:                    '<carlos:encode value='<%= oscarResources.getString("global.btnCancel") %>' context="javaScriptBlock"/>',
                 btnBack:                      '<carlos:encode value='<%= oscarResources.getString("global.btnBack") %>' context="javaScriptBlock"/>',
                 msgConfirmClearConsent:       '<carlos:encode value='<%= oscarResources.getString("demographic.demographiceditdemographic.msgConfirmClearConsent") %>' context="javaScriptBlock"/>',
@@ -534,19 +535,14 @@
 
             function rosterEnrolledToValid(trueIfBlank) {
                 var val = document.updatedelete.roster_enrolled_to.value.trim();
-                var errMsg = '';
 
                 if (trueIfBlank) {
-                    errMsg += i18n.msgLeaveBlank;
-                    if (val == "") return true;
+                    // blank or non-blank is acceptable when trueIfBlank=true
+                    return true;
                 }
 
-                if (val == "") {
-                    errMsg += i18n.msgWrongRosterEnrolledTo;
-                }
-
-                if (errMsg != '') {
-                    showAlert(errMsg);
+                if (val === '') {
+                    showAlert(i18n.msgWrongRosterEnrolledTo);
                     return false;
                 }
                 return true;
@@ -852,11 +848,6 @@
                 });
 
             });
-
-
-            function showCbiReminder() {
-                return confirm(i18n.updateCBIReminder);
-            }
 
 
             var addressHistory = "";
@@ -1663,7 +1654,7 @@
                                                                 <h3>&nbsp;<fmt:message key="demographic.demographiceditdemographic.msgOtherContacts"/>:
                                                                     <b><a
                                                                             href="javascript: function myFunction() {return false; }"
-                                                                            onClick="popup(700,960,'Contact?method=manage&demographic_no=<%=demographic.getDemographicNo()%>','ManageContacts')">
+                                                                            onClick="popup(700,960,'${ctx}/demographic/Contact?method=manage&demographic_no=<%=demographic.getDemographicNo()%>','ManageContacts')">
                                                                         <fmt:message key="demographic.demographiceditdemographic.msgManageContacts"/><!--i18n--></a></b>
                                                                 </h3>
                                                                 <ul>
@@ -4934,10 +4925,7 @@
                                                     <div class="toolbar-left">
                                                         <span id="updateButton" style="display: none;">
                                                             <security:oscarSec roleName="<%=roleName$%>" objectName="_demographic" rights="w">
-                                                                <%
-                                                                    boolean showCbiReminder = oscarProps.getBooleanProperty("CBI_REMIND_ON_UPDATE_DEMOGRAPHIC", "true");
-                                                                %>
-                                                                <input type="submit" class="btn-toolbar-update" <%=(showCbiReminder?"onclick='return showCbiReminder()'":"")%>
+                                                                <input type="submit" class="btn-toolbar-update"
                                                                        value="<fmt:message key="demographic.demographiceditdemographic.btnUpdate"/>">
                                                             </security:oscarSec>
                                                         </span>

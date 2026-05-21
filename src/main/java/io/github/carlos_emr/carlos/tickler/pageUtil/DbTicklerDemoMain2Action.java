@@ -38,7 +38,7 @@ import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -131,10 +131,10 @@ public final class DbTicklerDemoMain2Action extends ActionSupport {
                             loggedInInfo.getLoggedInProviderNo(), status);
                 }
             } catch (NumberFormatException e) {
-                MiscUtils.getLogger().error("Invalid tickler checkbox value: {}", LogSanitizer.sanitize(ticklerIdStr), e);
+                MiscUtils.getLogger().error("Invalid tickler checkbox value: {}", LogSafe.sanitize(ticklerIdStr), e);
                 failCount++;
             } catch (Exception e) {
-                MiscUtils.getLogger().error("Failed to update tickler status for ID: {}", LogSanitizer.sanitize(ticklerIdStr), e);
+                MiscUtils.getLogger().error("Failed to update tickler status for ID: {}", LogSafe.sanitize(ticklerIdStr), e);
                 failCount++;
             }
         }

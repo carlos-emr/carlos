@@ -1,6 +1,7 @@
 <%--
-
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2006-. OSCARservice, OpenSoft System. All Rights Reserved.
+
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -16,50 +17,34 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
-    Now maintained by the CARLOS EMR Project (2026+).
+    CARLOS EMR Project
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
 --%>
-<%
-
-    if (((String) session.getAttribute("userrole")).indexOf("admin") >= 0 ||
-            ((String) session.getAttribute("userrole")).indexOf("doctor") >= 0) {
-        request.getRequestDispatcher("/billing/CA/ON/ViewBillingONNewReport").include(request, response);
-        return;
-    }
-    String user_no = (String) session.getAttribute("user");
-    int nItems = 0;
-    String strLimit1 = "0";
-    String strLimit2 = "5";
-    if (request.getParameter("limit1") != null) strLimit1 = request.getParameter("limit1");
-    if (request.getParameter("limit2") != null) strLimit2 = request.getParameter("limit2");
-    String providerview = request.getParameter("providerview") == null ? "all" : request.getParameter("providerview");
-%>
-
-<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.ReportProvider" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.ReportProviderDao" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%--
+  Purpose: Supports billingReportCenter in the Ontario billing workflow.
+  Expected request model data includes: reportCenterModel.
+  Keep request setup in the paired action and use CARLOS encoding helpers
+  for dynamic output rendered by the page.
+--%>
+<%--
+    billingReportCenter.jsp (view) - Ontario billing report center landing.
+    Rendered by ViewBillingReportCenter2Action which:
+      - enforces _report r privilege
+      - redirects admin/doctor roles to the new-report dashboard
+      - resolves the provider-list select rows + the three echoed
+        parameters into ${reportCenterModel}.
+    Pure presentation here — no DAO lookups inline.
+    @since 2006
+--%>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%
-    ReportProviderDao reportProviderDao = SpringUtils.getBean(ReportProviderDao.class);
-%>
-<%
-    GregorianCalendar now = new GregorianCalendar();
-    int curYear = now.get(Calendar.YEAR);
-    int curMonth = (now.get(Calendar.MONTH) + 1);
-    int curDay = now.get(Calendar.DAY_OF_MONTH);
-
-    String xml_vdate = request.getParameter("xml_vdate") == null ? "" : request.getParameter("xml_vdate");
-    String xml_appointment_date = request.getParameter("xml_appointment_date") == null ? "" : request.getParameter("xml_appointment_date");
-%>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Billing Report Center</title>
 
@@ -108,11 +93,11 @@
             &nbsp;Billing Report Center
         </h4>
         <span style="float:right;">
-            <a href="#" onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/ViewManageProvider?action=billingreport'); return false;" class="btn btn-sm btn-secondary">Manage Provider List</a>
+            <a href="#" onClick="popupPage(700,720,'${pageContext.request.contextPath}/oscarReport/ViewManageProvider?action=billingreport'); return false;" class="btn btn-sm btn-secondary">Manage Provider List</a>
         </span>
     </div>
 
-    <form name="serviceform" method="post" action="/billing/CA/ON/ViewBillingReportControl">
+    <form name="serviceform" method="post" action="${pageContext.request.contextPath}/billing/CA/ON/ViewBillingReportControl">
         <div class="d-flex flex-wrap align-items-center gap-2" style="margin-bottom:10px;">
             <div class="form-check form-check-inline">
                 <input class="form-check-input" type="radio" name="reportAction" value="unbilled" checked>
@@ -137,34 +122,21 @@
 
             &nbsp;&nbsp;Provider
             <select name="providerview" class="form-select form-select-sm" style="width:auto; display:inline-block;">
-                <%
-                    String proFirst = "";
-                    String proLast = "";
-                    String proOHIP = "";
-                    String specialty_code;
-                    String billinggroup_no;
-                    int Count = 0;
-
-                    for (Object[] res : reportProviderDao.search_reportprovider("billingreport")) {
-                        ReportProvider rp = (ReportProvider) res[0];
-                        Provider p = (Provider) res[1];
-                        proFirst = p.getFirstName();
-                        proLast = p.getLastName();
-                        proOHIP = p.getProviderNo();
-                %>
-                <option value="<carlos:encode value='<%= proOHIP %>' context="htmlAttribute"/>" <%=providerview.equals(proOHIP) ? "selected" : ""%>><carlos:encode value='<%= proLast + ", " + proFirst %>' context="html"/></option>
-                <%
-                    }
-                %>
+                <c:forEach var="row" items="${reportCenterModel.providerRows}">
+                    <option value="<carlos:encode value='${row.ohip}' context='htmlAttribute'/>"
+                            <c:if test="${reportCenterModel.selectedProviderView eq row.ohip}">selected</c:if>>
+                        <carlos:encode value="${row.displayName}" context="html"/>
+                    </option>
+                </c:forEach>
             </select>
 
             <input type="hidden" name="verCode" value="V03">
 
             <label style="margin-left:10px;">From:
-                <input type="date" name="xml_vdate" class="form-control form-control-sm" style="width:auto; display:inline-block;" value="<carlos:encode value='<%= xml_vdate %>' context="htmlAttribute"/>">
+                <input type="date" name="xml_vdate" class="form-control form-control-sm" style="width:auto; display:inline-block;" value="<carlos:encode value='${reportCenterModel.xmlVdate}' context='htmlAttribute'/>">
             </label>
             <label>To:
-                <input type="date" name="xml_appointment_date" class="form-control form-control-sm" style="width:auto; display:inline-block;" value="<carlos:encode value='<%= xml_appointment_date %>' context="htmlAttribute"/>">
+                <input type="date" name="xml_appointment_date" class="form-control form-control-sm" style="width:auto; display:inline-block;" value="<carlos:encode value='${reportCenterModel.xmlAppointmentDate}' context='htmlAttribute'/>">
             </label>
 
             <input type="submit" name="Submit" class="btn btn-sm btn-primary" value="Create Report">

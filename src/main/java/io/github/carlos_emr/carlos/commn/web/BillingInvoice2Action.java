@@ -28,6 +28,7 @@
  */
 package io.github.carlos_emr.carlos.commn.web;
 
+import java.io.ByteArrayOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -53,7 +54,7 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 public class BillingInvoice2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -77,7 +78,6 @@ public class BillingInvoice2Action extends ActionSupport {
 
     public String getPrintPDF() throws IOException {
         String invoiceNo = request.getParameter("invoiceNo");
-        String actionResult = "failure";
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_billing", "r", null)) {
             throw new SecurityException("missing required sec object (_billing)");
@@ -91,27 +91,45 @@ public class BillingInvoice2Action extends ActionSupport {
 
             // Check if we have a valid invoice number after sanitization
             if (sanitizedInvoiceNo.isEmpty()) {
-                MiscUtils.getLogger().error("Invalid invoice number - no digits found: {}", LogSanitizer.sanitize(invoiceNo)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
-                return "error";  // or handle appropriately
+                return failPdfResponse("Invalid invoice number - no digits found: " + LogSafe.sanitize(invoiceNo), null);
             }
 
             try {
                 int invoiceId = Integer.parseInt(sanitizedInvoiceNo);
 
-                response.setContentType("application/pdf"); // octet-stream
-                response.setHeader("Content-Disposition", "attachment; filename=\"BillingInvoice" + sanitizedInvoiceNo + "_" + UtilDateUtilities.getToday("yyyy-MM-dd.hh.mm.ss") + ".pdf\"");
-                
-                boolean bResult = processPrintPDF(invoiceId, request.getLocale(), response.getOutputStream());
-                
-                if (bResult) {
-                    actionResult = "success";
+                // Buffer before touching the servlet response: PdfRecordPrinter logs and swallows
+                // Jasper failures, so direct streaming can turn Struts error JSPs into corrupt PDF downloads.
+                ByteArrayOutputStream pdfBuffer = new ByteArrayOutputStream();
+                boolean bResult;
+                try {
+                    bResult = renderPrintPDF(invoiceId, request.getLocale(), pdfBuffer);
+                } catch (RuntimeException e) {
+                    return failPdfResponse("Billing invoice PDF generation failed for invoiceNo " + invoiceId, e);
+                } catch (LinkageError e) {
+                    return failPdfResponse("Billing invoice PDF exporter dependency failure for invoiceNo " + invoiceId, e);
                 }
+                
+                if (bResult && isPdf(pdfBuffer)) {
+                    try {
+                        response.setContentType("application/pdf"); // octet-stream
+                        response.setHeader("Content-Disposition", "attachment; filename=\"BillingInvoice" + sanitizedInvoiceNo + "_" + UtilDateUtilities.getToday("yyyy-MM-dd.hh.mm.ss") + ".pdf\"");
+                        pdfBuffer.writeTo(response.getOutputStream());
+                        addPrintedBillingComment(invoiceId, request.getLocale());
+                    } catch (RuntimeException | IOException e) {
+                        return failPdfResponse("Billing invoice PDF response write failed for invoiceNo " + invoiceId, e);
+                    }
+
+                    // Direct-response PDF actions must not return JSP result names. See:
+                    // https://github.com/carlos-emr/carlos/issues/2064
+                    // Returning a named result would forward a JSP into the download and corrupt the PDF.
+                    return NONE;
+                }
+                return failPdfResponse("Billing invoice PDF generation produced no PDF output for invoiceNo " + invoiceId, null);
             } catch (NumberFormatException e) {
-                MiscUtils.getLogger().error("Invoice number too large or invalid: " + sanitizedInvoiceNo, e);
-                return "error";
+                return failPdfResponse("Invoice number too large or invalid: " + sanitizedInvoiceNo, e);
             }
         }
-        return actionResult;
+        return failPdfResponse("Billing invoice PDF generation requested without invoiceNo", null);
     }
 
     private String sanitizeInvoiceNumber(String input) {
@@ -127,35 +145,55 @@ public class BillingInvoice2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
-        String actionResult = "failure";
         String[] invoiceNos = request.getParameterValues("invoiceAction");
 
         ArrayList<Object> fileList = new ArrayList<Object>();
-        OutputStream fos = null;
+        ArrayList<Integer> renderedInvoiceNos = new ArrayList<Integer>();
         if (invoiceNos != null) {
             for (String invoiceNoStr : invoiceNos) {
                 try {
                     Integer invoiceNo = Integer.parseInt(invoiceNoStr);
                     String filename = "BillingInvoice" + invoiceNo + "_" + UtilDateUtilities.getToday("yyyy-MM-dd.hh.mm.ss") + ".pdf";
                     String savePath = CarlosProperties.getInstance().getProperty("INVOICE_DIR") + "/" + filename;
-                    fos = new FileOutputStream(savePath);
-                    processPrintPDF(invoiceNo, request.getLocale(), fos);
-                    fileList.add(savePath);
+                    try (OutputStream fos = new FileOutputStream(savePath)) {
+                        if (renderPrintPDF(invoiceNo, request.getLocale(), fos)) {
+                            fileList.add(savePath);
+                            renderedInvoiceNos.add(invoiceNo);
+                        }
+                    }
                 } catch (Exception e) {
                     MiscUtils.getLogger().error("Error", e);
-                } finally {
-                    if (fos != null) fos.close(); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- PDF file stream close
                 }
             }
         }
         if (!fileList.isEmpty()) {
-            response.setContentType("application/pdf"); // octet-stream
-            response.setHeader("Content-Disposition", "attachment; filename=\"BillingInvoices" + "_" + UtilDateUtilities.getToday("yyyy-MM-dd.hh.mm.ss") + ".pdf\"");
-            ConcatPDF.concat(fileList, response.getOutputStream());
-            actionResult = "listSuccess";
+            try {
+                // Merge to memory first for the same reason as the single-invoice path above:
+                // Struts result handling must only be bypassed after real PDF bytes exist.
+                ByteArrayOutputStream pdfBuffer = new ByteArrayOutputStream();
+                ConcatPDF.concat(fileList, pdfBuffer);
+                if (isPdf(pdfBuffer)) {
+                    try {
+                        response.setContentType("application/pdf"); // octet-stream
+                        response.setHeader("Content-Disposition", "attachment; filename=\"BillingInvoices" + "_" + UtilDateUtilities.getToday("yyyy-MM-dd.hh.mm.ss") + ".pdf\"");
+                        pdfBuffer.writeTo(response.getOutputStream());
+                        for (Integer invoiceNo : renderedInvoiceNos) {
+                            addPrintedBillingComment(invoiceNo, request.getLocale());
+                        }
+                    } catch (RuntimeException | IOException e) {
+                        return failPdfResponse("Billing invoice list PDF response write failed", e);
+                    }
+                    // Direct-response PDF actions must not return JSP result names. See:
+                    // https://github.com/carlos-emr/carlos/issues/2064
+                    return NONE;
+                }
+                return failPdfResponse("Billing invoice list PDF merge produced no PDF output for " + renderedInvoiceNos.size() + " invoice(s)", null);
+            } catch (Exception e) {
+                return failPdfResponse("Billing invoice list PDF merge failed", e);
+            }
         }
 
-        return actionResult;
+        return failPdfResponse("Billing invoice list PDF generation produced no invoices", null);
     }
 
     /*
@@ -214,7 +252,7 @@ public class BillingInvoice2Action extends ActionSupport {
         // return mapping.findForward(actionResult);
     }
 
-    private boolean processPrintPDF(Integer invoiceNo, Locale locale, OutputStream os) {
+    private boolean renderPrintPDF(Integer invoiceNo, Locale locale, OutputStream os) {
 
         boolean bResult = false;
 
@@ -222,13 +260,45 @@ public class BillingInvoice2Action extends ActionSupport {
             //Create PDF of the invoice
             PdfRecordPrinter printer = new PdfRecordPrinter(os);
             printer.printBillingInvoice(invoiceNo, locale);
-
-            BillingONManager billingManager = SpringUtils.getBean(BillingONManager.class);
-            billingManager.addPrintedBillingComment(invoiceNo, locale);
             bResult = true;
         }
 
         return bResult;
+    }
+
+    private void addPrintedBillingComment(Integer invoiceNo, Locale locale) {
+        BillingONManager billingManager = SpringUtils.getBean(BillingONManager.class);
+        try {
+            billingManager.addPrintedBillingComment(invoiceNo, locale);
+        } catch (RuntimeException e) {
+            // The PDF response is the user-visible result; a non-critical audit/comment failure
+            // must not let Struts render an error JSP over the binary download. See issue #2064.
+            MiscUtils.getLogger().error("Failed to record printed billing comment for invoiceNo {}", invoiceNo, e);
+        }
+    }
+
+    private String failPdfResponse(String logMessage, Throwable e) throws IOException {
+        if (e == null) {
+            MiscUtils.getLogger().error(logMessage);
+        } else {
+            MiscUtils.getLogger().error(logMessage, e);
+        }
+        if (!response.isCommitted()) {
+            // Dedicated PDF actions own their error response too. Returning a named result here
+            // lets Struts render errorpage.jsp with "CARLOS Error: 0" instead of a real status.
+            // See PR #2043 and issue #2064.
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unable to generate billing invoice PDF");
+        }
+        return NONE;
+    }
+
+    private boolean isPdf(ByteArrayOutputStream pdfBuffer) {
+        byte[] bytes = pdfBuffer.toByteArray();
+        return bytes.length >= 4
+                && bytes[0] == '%'
+                && bytes[1] == 'P'
+                && bytes[2] == 'D'
+                && bytes[3] == 'F';
     }
 
 }

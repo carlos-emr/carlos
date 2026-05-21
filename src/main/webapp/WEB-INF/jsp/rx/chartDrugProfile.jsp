@@ -102,6 +102,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="<%= request.getContextPath()%>/js/global.js"></script>
     <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
     <title><fmt:message key="oscarRx.chartDrugProfile.title"/></title>
@@ -151,7 +152,7 @@
 
             <fieldset>
                 <legend>Med List</legend>
-                <form action="rx/chartDrugProfile.jsp">
+                <form action="<%= request.getContextPath() %>/rx/ViewChartDrugProfile">
                     <input type="hidden" name="labType" value="<carlos:encode value='<%= labType %>' context="htmlAttribute"/>"/>
                     <input type="hidden" name="demographic_no" value="<carlos:encode value='<%= demographicNo %>' context="htmlAttribute"/>"/>
                     <input type="hidden" name="testName" value="<carlos:encode value='<%= testName %>' context="htmlAttribute"/>"/>

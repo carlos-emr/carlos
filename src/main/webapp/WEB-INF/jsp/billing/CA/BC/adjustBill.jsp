@@ -1,6 +1,7 @@
 <%--
-
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -16,19 +17,14 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-    This software was written for the
-    Department of Family Medicine
-    McMaster University
-    Hamilton
-    Ontario, Canada
-
-
-    Now maintained by the CARLOS EMR Project (2026+).
+    CARLOS EMR Project
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
 --%>
-
+<%--
+  Page role: Renders `adjustBill.jsp` for the British Columbia billing workflow.
+  Keep request setup in the paired action and use CARLOS encoding helpers
+  for dynamic output rendered by the page.
+--%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -60,7 +56,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.administration.GstControl2Action" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.service.GstSettingsService" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.administration.GstReport" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
@@ -159,11 +155,13 @@
         request.setAttribute("invoiceNo", String.valueOf(bm.getBillingNo()));
     }
     GstReport gstReport = new GstReport();
-    String gstPercent = (new GstControl2Action()).readDatabase().getProperty("gstPercent", "");
+    java.math.BigDecimal __gstBd = io.github.carlos_emr.carlos.utility.SpringUtils.getBean(GstSettingsService.class).getCurrentPercent();
+    String gstPercent = __gstBd == null ? "" : __gstBd.toPlainString();
 
 %>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title><fmt:message key='billing.billingCorrection.title'/></title>
     <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/calendar/calendar.css"
           title="win2k-cold-1"/>
@@ -537,7 +535,7 @@
     }
 
 %>
-<form style="reprocessBilling" action="${pageContext.request.contextPath}/billing/CA/BC/reprocessBill" method="post" onsubmit="return checkSubmitType()">
+<form name="reprocessBilling" action="${pageContext.request.contextPath}/billing/CA/BC/reprocessBill" method="post" onsubmit="return checkSubmitType()">
     <input type="hidden" name="update_date" value="<carlos:encode value='<%= UpdateDate %>' context="htmlAttribute"/>"/>
     <input type="hidden" name="demoNo" value="<carlos:encode value='<%= DemoNo %>' context="htmlAttribute"/>"/>
     <input type="hidden" name="billNumber" value="<carlos:encode value='<%= allFields.getProperty("billingNo", "") %>' context="htmlAttribute"/>"/>

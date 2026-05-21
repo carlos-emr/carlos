@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.login;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.Date;
 import java.util.List;
 
@@ -46,7 +48,6 @@ import io.github.carlos_emr.carlos.managers.MfaManager;
 import io.github.carlos_emr.carlos.managers.SecurityManager;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.carlos.model.security.LdapSecurity;
 import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
@@ -84,13 +85,6 @@ import io.github.carlos_emr.carlos.log.LogConst;
  *   <li>Failed migration is logged but does not prevent login</li>
  * </ul>
  *
- * <p>LDAP integration:
- * <ul>
- *   <li>If LDAP authentication is enabled, Security object is wrapped in {@link LdapSecurity}</li>
- *   <li>LDAP delegates password validation to LDAP server while maintaining local Security record</li>
- *   <li>LDAP configuration via {@link CarlosProperties#isLdapAuthenticationEnabled()}</li>
- * </ul>
- *
  * <p>Usage pattern:
  * <pre>
  * LoginCheckLoginBean bean = new LoginCheckLoginBean();
@@ -109,15 +103,27 @@ import io.github.carlos_emr.carlos.log.LogConst;
  * @see LoginCheckLogin for brute force protection and authentication coordination
  * @see SecurityManager for password hashing and validation
  * @see MfaManager for multi-factor authentication operations
- * @see LdapSecurity for LDAP authentication integration
  * @since 2026-02-10
  */
 public final class LoginCheckLoginBean {
     /** Logger instance for authentication events and errors */
     private static final Logger logger = MiscUtils.getLogger();
 
-    /** Log message prefix for authentication-related log entries */
+    /**
+     * Legacy authentication grep anchor shared with {@link Login2Action}.
+     *
+     * <p>Operational log searches still use this distinctive prefix to identify credential
+     * decisions emitted by the older login bean. Keep the token stable unless log dashboards and
+     * runbooks are migrated at the same time.</p>
+     */
     private static final String LOG_PRE = "Login!@#$: ";
+
+    /**
+     * Pre-computed BCrypt hash of a random decoy password, used only to equalize missing-user
+     * authentication timing with the normal password-validation path.
+     */
+    private static final String MISSING_USER_DUMMY_PASSWORD_HASH =
+            "{bcrypt}$2b$10$YzOXP.2axkRiYS07sVHWkuyvQjcuwR.bGeZd5WHQVJ23py57UES8C";
 
     /** Security manager for password encoding, validation, and hash migration */
     private final SecurityManager securityManager = SpringUtils.getBean(SecurityManager.class);
@@ -159,16 +165,17 @@ public final class LoginCheckLoginBean {
      * Initializes the bean with authentication credentials.
      *
      * <p>This method must be called before {@link #authenticate()}. It sets the
-     * username, password, PIN, and IP address fields via their respective setters,
-     * which perform validation and whitespace normalization.
+     * username, password, PIN, and IP address fields via their respective setters. The password and
+     * PIN setters preserve legacy space-to-backspace transformation behavior; username and IP are
+     * stored as supplied.
      *
      * @param user_name String the username to authenticate
      * @param password String the plain-text password
      * @param pin1 String the 4-digit provider PIN (may be null if PIN not required)
      * @param ip1 String the client IP address for LAN/WAN detection
      * @see #setUsername for username storage
-     * @see #setPassword for password whitespace normalization
-     * @see #setPin for PIN whitespace normalization
+     * @see #setPassword for legacy password space-to-backspace transformation
+     * @see #setPin for legacy PIN space-to-backspace transformation
      * @see #setIp for IP address storage
      */
     public void ini(String user_name, String password, String pin1, String ip1) {
@@ -228,6 +235,8 @@ public final class LoginCheckLoginBean {
 
         // Fail authentication if user not found in security table
         if (security == null) {
+            // Result intentionally ignored; BCrypt cost matches real users to prevent username enumeration.
+            validateDummyPassword();
             return cleanNullObj(LOG_PRE + "No Such User: " + username);
         }
 
@@ -265,14 +274,18 @@ public final class LoginCheckLoginBean {
         boolean auth = false;
 
         userpassword = security.getPassword();
-        // Legacy password (< 20 chars): plain-text comparison
+        // Legacy password (< 20 chars): compare without prefix-length timing leakage.
         if (userpassword.length() < 20) {
-            auth = password.equals(userpassword);
+            auth = MessageDigest.isEqual(
+                    password.getBytes(StandardCharsets.UTF_8),
+                    userpassword.getBytes(StandardCharsets.UTF_8));
             // Migrate legacy password to BCrypt on successful authentication
             if (auth) {
                 boolean isPasswordUpgraded = this.securityManager.upgradeSavePasswordHash(this.password, this.security);
                 if (!isPasswordUpgraded)
                     logger.error("Error while upgrading password hash");
+            } else {
+                validateDummyPassword();
             }
         }
         // Modern password (>= 20 chars): BCrypt validation
@@ -306,7 +319,7 @@ public final class LoginCheckLoginBean {
      *
      * <p>Security measures:
      * <ul>
-     *   <li>Clears userpassword and password fields to prevent memory-based attacks</li>
+     *   <li>Drops object references to userpassword and password fields after the failed attempt</li>
      *   <li>Logs failed attempt with OWASP-encoded username for PHI protection</li>
      *   <li>Returns null to indicate authentication failure</li>
      * </ul>
@@ -319,10 +332,26 @@ public final class LoginCheckLoginBean {
         logger.warn(errorMsg);
         // SECURITY: OWASP encode username for HTML context to prevent injection in logs
         LogAction.addLogSynchronous("", "failed", LogConst.CON_LOGIN, Encode.forHtmlContent(username), ip);
-        // Clear sensitive data from memory
+        // Drop references after the failed attempt. These are immutable Strings, so this does not
+        // wipe already-allocated heap contents.
         userpassword = null;
         password = null;
         return null;
+    }
+
+    /**
+     * Builds a throwaway security record for the missing-user password validation path.
+     *
+     * @return Security object containing only the precomputed BCrypt dummy password hash
+     */
+    private static Security missingUserDummySecurity() {
+        Security dummySecurity = new Security();
+        dummySecurity.setPassword(MISSING_USER_DUMMY_PASSWORD_HASH);
+        return dummySecurity;
+    }
+
+    private void validateDummyPassword() {
+        securityManager.validatePassword(password == null ? "" : password, missingUserDummySecurity());
     }
 
     /**
@@ -334,7 +363,7 @@ public final class LoginCheckLoginBean {
      *
      * <p>Security measures:
      * <ul>
-     *   <li>Clears userpassword and password fields to prevent memory-based attacks</li>
+     *   <li>Drops object references to userpassword and password fields after the expired attempt</li>
      *   <li>Logs expiration event with OWASP-encoded username for PHI protection</li>
      *   <li>Returns ["expired"] array to indicate account expiration</li>
      * </ul>
@@ -347,7 +376,8 @@ public final class LoginCheckLoginBean {
         logger.warn(errorMsg);
         // SECURITY: OWASP encode username for HTML context to prevent injection in logs
         LogAction.addLogSynchronous("", "expired", LogConst.CON_LOGIN, Encode.forHtmlContent(username), ip);
-        // Clear sensitive data from memory
+        // Drop references after the expired attempt. These are immutable Strings, so this does not
+        // wipe already-allocated heap contents.
         userpassword = null;
         password = null;
         return new String[]{"expired"};
@@ -359,7 +389,6 @@ public final class LoginCheckLoginBean {
      * <p>This method performs multiple database queries to collect all user information:
      * <ol>
      *   <li>Query security table for username to get Security record</li>
-     *   <li>Wrap with LdapSecurity if LDAP authentication is enabled</li>
      *   <li>Query provider table for first name, last name, profession, email</li>
      *   <li>Query sec_user_role table for comma-separated role list</li>
      * </ol>
@@ -373,16 +402,8 @@ public final class LoginCheckLoginBean {
      *   <li>rolename - Comma-separated list of role names (e.g., "doctor,admin")</li>
      * </ul>
      *
-     * <p>LDAP integration:
-     * <ul>
-     *   <li>If LDAP enabled, Security is wrapped in {@link LdapSecurity}</li>
-     *   <li>LdapSecurity delegates password validation to LDAP server</li>
-     *   <li>Local Security record maintained for session management</li>
-     * </ul>
-     *
-     * @return Security the user's security record (wrapped in LdapSecurity if LDAP enabled), or null if user not found
+     * @return Security the user's security record, or null if user not found
      * @see SecurityDao#findByUserName for database lookup
-     * @see LdapSecurity for LDAP authentication wrapper
      */
     private Security getUserID() {
 
@@ -393,10 +414,6 @@ public final class LoginCheckLoginBean {
 
         if (security == null) {
             return null;
-        }
-        // Wrap with LDAP authentication adapter if LDAP is enabled
-        else if (CarlosProperties.isLdapAuthenticationEnabled()) {
-            security = new LdapSecurity(security);
         }
 
         // Populate provider information from provider table
@@ -451,30 +468,30 @@ public final class LoginCheckLoginBean {
     }
 
     /**
-     * Sets the password for authentication, removing whitespace.
+     * Sets the password for authentication using the legacy space-to-backspace transformation.
      *
-     * <p>This method replaces all space characters with backspace to prevent
-     * accidental whitespace in passwords. This is a security measure to ensure
-     * password consistency.
+     * <p>This method replaces ASCII space characters with backspace characters. This preserves
+     * historical authentication behavior; it does not trim or remove all whitespace.
      *
-     * @param password String the plain-text password (whitespace will be removed)
+     * @param password String the plain-text password
      */
     public void setPassword(String password) {
-        // Remove whitespace from password for security consistency
-        this.password = password.replace(' ', '\b');
+        // Preserve legacy space-to-backspace behavior.
+        this.password = password == null ? "" : password.replace(' ', '\b');
     }
 
     /**
-     * Sets the provider PIN for local/remote access control, removing whitespace.
+     * Sets the provider PIN for local/remote access control using the legacy space-to-backspace
+     * transformation.
      *
-     * <p>This method replaces all space characters with backspace to prevent
-     * accidental whitespace in PINs.
+     * <p>This method replaces ASCII space characters with backspace characters. It does not trim or
+     * remove all whitespace.
      *
-     * @param pin1 String the 4-digit provider PIN (whitespace will be removed, may be null)
+     * @param pin1 String the 4-digit provider PIN (may be null)
      */
     public void setPin(String pin1) {
         if (pin1 != null) {
-            // Remove whitespace from PIN for security consistency
+            // Preserve legacy space-to-backspace behavior.
             this.pin = pin1.replace(' ', '\b');
         }
     }

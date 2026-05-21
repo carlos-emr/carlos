@@ -1,6 +1,7 @@
 <%--
-
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2006-. OSCARservice, OpenSoft System. All Rights Reserved.
+
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -16,62 +17,30 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
-    Now maintained by the CARLOS EMR Project (2026+).
+    CARLOS EMR Project
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
 --%>
+<%--
+  Purpose: Supports billingResearchCodeSearch in the Ontario billing workflow.
+  Expected request model data includes: codeSearchModel.
+  Keep request setup in the paired action and use CARLOS encoding helpers
+  for dynamic output rendered by the page.
+--%>
+<%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
-    String user_no = (String) session.getAttribute("user");
-%>
-<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.Ichppccode" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.IchppccodeDao" %>
-
-<%
-    IchppccodeDao ichppccodeDao = SpringUtils.getBean(IchppccodeDao.class);
-%>
-<% String search = "", search2 = "";
-    search = request.getParameter("search");
-    if (search.compareTo("") == 0) {
-        search = "search_research_code";
-    }
-
-    String codeName = "", codeName1 = "", codeName2 = "";
-    codeName = request.getParameter("name");
-    codeName1 = request.getParameter("name1");
-    codeName2 = request.getParameter("name2");
-    String desc = "", desc1 = "", desc2 = "";
-
-    if (codeName.compareTo("") == 0 || codeName == null) {
-        codeName = " ";
-        desc = " ";
-    } else {
-        codeName = codeName + "%";
-        desc = codeName + "%";
-    }
-    if (codeName1.compareTo("") == 0 || codeName1 == null) {
-        codeName1 = " ";
-        desc1 = " ";
-    } else {
-        codeName1 = codeName1 + "%";
-        desc1 = codeName1 + "%";
-    }
-    if (codeName2.compareTo("") == 0 || codeName2 == null) {
-        codeName2 = " ";
-        desc2 = " ";
-    } else {
-        codeName2 = codeName2 + "%";
-        desc2 = codeName2 + "%";
-    }
-
-
-%>
+    // ViewBillingResearchCodeSearch2Action enforces _billing r and assembles
+    // the view model with the IchppccodeDao lookup the JSP body used to
+    // perform. Defensive fallback: empty stub if forwarded here without the
+    // canonical action.
+    %>
 <html>
 <head>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
+    <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
     <title>Research Code Search</title>
     <script LANGUAGE="JavaScript">
         <!--
@@ -90,12 +59,11 @@
 
 <body bgcolor="#FFFFFF" text="#000000">
 
-
 <h3><font face="Arial, Helvetica, sans-serif">Research
     (ICHPPC) Code Search <font face="Arial, Helvetica, sans-serif"
                                color="#FF0000">(Maximum 3 selections)</font></font></h3>
 <form name="servicecode" id="servicecode" method="post"
-      action="/billing/CA/ON/BillingResearchCodeUpdate">
+      action="${pageContext.request.contextPath}/billing/CA/ON/BillingResearchCodeUpdate">
     <table width="600" border="1">
 
         <tr bgcolor="#FFBC9B">
@@ -105,70 +73,38 @@
                                      size="2">Description</font></b></td>
         </tr>
 
+        <c:forEach var="__row" items="${codeSearchModel.rows}" varStatus="__rowStatus">
+            <c:set var="__color" value="${__rowStatus.index % 2 == 0 ? '#FFFFFF' : '#F9E6F0'}"/>
 
-        <% ResultSet rslocal = null;
-            ResultSet rslocal2 = null;
-
-
-            String color = "";
-            int Count = 0;
-            int intCount = 0;
-            String numCode = "";
-            String textCode = "";
-            String searchType = "";
-// Retrieving Provider
-
-            String Dcode = "", DcodeDesc = "";
-
-            for (Ichppccode i : ichppccodeDao.search_research_code(codeName, codeName1, codeName2, desc, desc1, desc2)) {
-                intCount = intCount + 1;
-                Dcode = i.getId();
-                DcodeDesc = i.getDescription();
-                if (Count == 0) {
-                    Count = 1;
-                    color = "#FFFFFF";
-                } else {
-                    Count = 0;
-                    color = "#F9E6F0";
-                }
-        %>
-
-        <tr bgcolor="<%=color%>">
+        <tr bgcolor="<carlos:encode value='${__color}' context='htmlAttribute'/>">
             <td width="12%"><font face="Arial, Helvetica, sans-serif"
-                                  size="2"><input type="checkbox" name="code_<%=Dcode%>"><%=Dcode%>
+                                  size="2"><input type="checkbox" name="code_<carlos:encode value='${__row.code}' context='htmlAttribute'/>"><carlos:encode value="${__row.code}" context="html"/>
             </font></td>
             <td width="88%"><font face="Arial, Helvetica, sans-serif"
-                                  size="2"><%=DcodeDesc%>
+                                  size="2"><carlos:encode value="${__row.description}" context="html"/>
             </font></td>
         </tr>
-        <%
-            }
-        %>
+        </c:forEach>
 
-        <% if (intCount == 0) { %>
-        <tr bgcolor="<%=color%>">
+        <c:if test="${codeSearchModel.noMatch}">
+        <tr>
             <td colspan="2"><font face="Arial, Helvetica, sans-serif"
-                                  size="2">No match found. <%// =i%>
-            </font></td>
-
+                                  size="2">No match found.</font></td>
         </tr>
-        <% }%>
+        </c:if>
 
-        <% if (intCount == 1) { %>
+        <c:if test="${codeSearchModel.autoSelect}">
         <script LANGUAGE="JavaScript">
             <!--
-            CodeAttach('<%=Dcode%>');
+            CodeAttach('<carlos:encode value="${codeSearchModel.autoSelectCode}" context="javaScriptBlock"/>');
             -->
-
         </script>
-        <% } %>
+        </c:if>
     </table>
     <input type="submit" name="submit" value="Confirm"><input
         type="button" name="cancel" value="Cancel"
         onclick="javascript:window.close()">
-    <form>
-        <p></p>
-        <p>&nbsp;</p>
-        <h3>&nbsp;</h3>
+    <p></p>
+</form>
 </body>
 </html>

@@ -249,6 +249,7 @@
 <!DOCTYPE html>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <title><fmt:message key="demographic.demographiceditdemographic.title"/></title>
 
@@ -312,7 +313,6 @@
                 msgWrongReferral:             '<carlos:encode value='<%= oscarResources.getString("demographic.demographiceditdemographic.msgWrongReferral") %>' context="javaScriptBlock"/>',
                 msgPromptStatus:              '<carlos:encode value='<%= oscarResources.getString("demographic.demographiceditdemographic.msgPromptStatus") %>' context="javaScriptBlock"/>',
                 msgInvalidEntry:              '<carlos:encode value='<%= oscarResources.getString("demographic.demographiceditdemographic.msgInvalidEntry") %>' context="javaScriptBlock"/>',
-                updateCBIReminder:            '<carlos:encode value='<%= oscarResources.getString("demographic.demographiceditdemographic.updateCBIReminder") %>' context="javaScriptBlock"/>',
                 btnCancel:                    '<carlos:encode value='<%= oscarResources.getString("global.btnCancel") %>' context="javaScriptBlock"/>',
                 btnBack:                      '<carlos:encode value='<%= oscarResources.getString("global.btnBack") %>' context="javaScriptBlock"/>',
                 msgConfirmClearConsent:       '<carlos:encode value='<%= oscarResources.getString("demographic.demographiceditdemographic.msgConfirmClearConsent") %>' context="javaScriptBlock"/>',
@@ -410,6 +410,7 @@
             }
 
             function checkDob() {
+                syncDobParts();  // ensure hidden part-fields reflect current visible input
                 var yyyy = document.updatedelete.year_of_birth.value;
                 var mm = document.updatedelete.month_of_birth.value;
                 var dd = document.updatedelete.date_of_birth.value;
@@ -482,19 +483,14 @@
 
             function rosterEnrolledToValid(trueIfBlank) {
                 var val = document.updatedelete.roster_enrolled_to.value.trim();
-                var errMsg = '';
 
                 if (trueIfBlank) {
-                    errMsg += i18n.msgLeaveBlank;
-                    if (val == "") return true;
+                    // blank or non-blank is acceptable when trueIfBlank=true
+                    return true;
                 }
 
-                if (val == "") {
-                    errMsg += i18n.msgWrongRosterEnrolledTo;
-                }
-
-                if (errMsg != '') {
-                    showAlert(errMsg);
+                if (val === '') {
+                    showAlert(i18n.msgWrongRosterEnrolledTo);
                     return false;
                 }
                 return true;
@@ -802,11 +798,6 @@
             });
 
 
-            function showCbiReminder() {
-                return confirm(i18n.updateCBIReminder);
-            }
-
-
             var addressHistory = "";
             var homePhoneHistory = "";
             var workPhoneHistory = "";
@@ -943,7 +934,123 @@
 		}
 	%>
         </script>
+            <%
+            if("true".equals(oscarProps.getProperty("iso3166.2.enabled"))) {
+            %>
+        <script>
+            jQuery(document).ready(function () {
 
+                jQuery("#country").on('change', function () {
+                    updateProvinces('');
+                });
+
+                jQuery("#residentialCountry").on('change', function () {
+                    updateResidentialProvinces('');
+                });
+
+                jQuery.ajax({
+                    type: "POST",
+                    url: '<%=request.getContextPath()%>/demographicSupport',
+                    data: { method: 'getCountryAndProvinceCodes' },
+                    dataType: 'json',
+                    success: function (data) {
+                        jQuery('#country').append(jQuery('<option>').text('').attr('value', ''));
+                        jQuery('#residentialCountry').append(jQuery('<option>').text('').attr('value', ''));
+                        jQuery.each(data, function (i, value) {
+                            jQuery('#country').append(jQuery('<option>').text(value.label).attr('value', value.value));
+                            jQuery('#residentialCountry').append(jQuery('<option>').text(value.label).attr('value', value.value));
+                        });
+
+                        var demoProvince = '<carlos:encode value='<%=demographic.getProvince()%>' context="javaScriptBlock"/>';
+                        var resiProvince = '<carlos:encode value='<%=demographic.getResidentialProvince()%>' context="javaScriptBlock"/>';
+
+                        var defaultProvince = '<carlos:encode value='<%= CarlosProperties.getInstance().getProperty("demographic.default_province","") %>' context="javaScriptBlock"/>';
+                        // override defaultProvince with actual stored demographic's province if present
+                        if (demoProvince.length > 0) { defaultProvince = demoProvince; }
+                        if (defaultProvince.indexOf('-') < 0) {
+                            defaultProvince = 'CA-ON';
+                        }
+                        var defaultCountry = defaultProvince.split('-')[0];
+                        jQuery("#country").val(defaultCountry);
+                        updateProvinces(defaultProvince);
+
+                        // initialize residential province separately to avoid overwriting demo values
+                        var defaultResiProvince = '<carlos:encode value='<%= CarlosProperties.getInstance().getProperty("demographic.default_province","") %>' context="javaScriptBlock"/>';
+                        if (resiProvince.length > 0) { defaultResiProvince = resiProvince; }
+                        if (defaultResiProvince.indexOf('-') < 0) {
+                            defaultResiProvince = 'CA-ON';
+                        }
+                        var resiCountry = defaultResiProvince.split('-')[0];
+                        jQuery("#residentialCountry").val(resiCountry);
+                        updateResidentialProvinces(defaultResiProvince);
+                    },
+                    error: function (xhr, status, error) {
+                        console.error('Failed to load country codes:', error);
+                        jQuery('#country').empty().append(jQuery('<option>').text('Unable to load countries').attr('value', ''));
+                        jQuery('#residentialCountry').empty().append(jQuery('<option>').text('Unable to load countries').attr('value', ''));
+                    }
+                });
+            });
+
+        </script>
+        <% } %>
+        <script>
+            function updateProvinces(province) {
+                var country = jQuery("#country").val();
+                if(country == '') {
+                    console.log('empty country');
+                    return;
+                }
+                jQuery.ajax({
+                    type: "POST",
+                    url: '<%=request.getContextPath()%>/demographicSupport',
+                    data: { method: 'getCountryAndProvinceCodes', country: country },
+                    dataType: 'json',
+                    success: function (data) {
+                        jQuery('#province').empty();
+                        jQuery.each(data, function (i, value) {
+                            jQuery('#province').append(jQuery('<option>').text(value.label).attr('value', value.value));
+                        });
+
+                        if (province != null) {
+                            jQuery("#province").val(province);
+                        }
+                    },
+                    error: function (xhr, status, error) {
+                        console.error('Failed to load provinces:', error);
+                        jQuery('#province').empty().append(jQuery('<option>').text('Unable to load provinces').attr('value', ''));
+                    }
+                });
+            }
+
+            function updateResidentialProvinces(province) {
+                var country = jQuery("#residentialCountry").val();
+                if(country == '') {
+                    console.log('empty residential country');
+                    return;
+                }
+                jQuery.ajax({
+                    type: "POST",
+                    url: '<%=request.getContextPath()%>/demographicSupport',
+                    data: { method: 'getCountryAndProvinceCodes', country: country },
+                    dataType: 'json',
+                    success: function (data) {
+                        jQuery('#residentialProvince').empty();
+                        jQuery.each(data, function (i, value) {
+                            jQuery('#residentialProvince').append(jQuery('<option>').text(value.label).attr('value', value.value));
+                        });
+
+                        if (province != null) {
+                            jQuery("#residentialProvince").val(province);
+                        }
+                    },
+                    error: function (xhr, status, error) {
+                        console.error('Failed to load residential provinces:', error);
+                        jQuery('#residentialProvince').empty().append(jQuery('<option>').text('Unable to load provinces').attr('value', ''));
+                    }
+                });
+            }
+        </script>
         <style>
             /* for the search buttons at the top of the page
 			this should be removed if the page is updated to bootstrap
@@ -1407,7 +1514,6 @@
 
     <script type="text/javascript">
 
-
         Calendar.setup({
             inputField: "paper_chart_archived_date",
             ifFormat: "%Y-%m-%d",
@@ -1416,6 +1522,51 @@
             singleClick: true,
             step: 1
         });
+
+        /* -------------------------------------------------------
+         * DOB single-input: calendar picker + hidden-field sync
+         * The server expects separate year_of_birth / month_of_birth /
+         * date_of_birth parameters; we derive them from the one visible
+         * yyyy-mm-dd field every time it changes or the calendar selects.
+         * ------------------------------------------------------- */
+        Calendar.setup({
+            inputField: "dob",
+            ifFormat: "%Y-%m-%d",
+            showsTime: false,
+            button: "dob_cal",
+            singleClick: true,
+            step: 1,
+            onSelect: function() { syncDobParts(); }
+        });
+
+        function syncDobParts() {
+            var dobEl = document.getElementById('dob');
+            var yearEl = document.getElementById('year_of_birth');
+            var monthEl = document.getElementById('month_of_birth');
+            var dayEl = document.getElementById('date_of_birth');
+            var val = dobEl ? dobEl.value.trim() : '';
+
+            if (!yearEl || !monthEl || !dayEl) {
+                return;
+            }
+
+            yearEl.value = '';
+            monthEl.value = '';
+            dayEl.value = '';
+
+            var parts = val.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+            if (parts) {
+                yearEl.value = parts[1];
+                monthEl.value = parts[2];
+                dayEl.value = parts[3];
+            }
+        }
+
+        var dobEl = document.getElementById('dob');
+        if (dobEl) {
+            dobEl.addEventListener('change', syncDobParts);
+            dobEl.addEventListener('blur',   syncDobParts);
+        }
 
         function callEligibilityWebService(url, id) {
             var ran_number = Math.round(Math.random() * 1000000);
