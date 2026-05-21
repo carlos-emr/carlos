@@ -94,17 +94,17 @@ public class DbConnectionFilter implements jakarta.servlet.Filter {
     public static void releaseAllThreadDbResources() {
         try {
             LegacyJdbcQuery.releaseThreadResources();
-        } catch (Throwable e) {
+        } catch (Exception e) {
             logger.error("Error releasing legacy JDBC thread resources.", e);
         }
         try {
             releaseThreadLocalDbConnection();
-        } catch (Throwable e) {
+        } catch (Exception e) {
             logger.error("Error releasing thread-local DB connection.", e);
         }
         try {
             OscarTrackingBasicDataSource.releaseThreadConnections();
-        } catch (Throwable e) {
+        } catch (Exception e) {
             logger.error("Error releasing Oscar tracking thread connections.", e);
         }
     }

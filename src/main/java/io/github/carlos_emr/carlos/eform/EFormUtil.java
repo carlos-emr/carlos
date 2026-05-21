@@ -559,12 +559,15 @@ public class EFormUtil {
         setFormStatus(fid, true);
     }
 
-    @Deprecated
-    public static ArrayList<String> getValues(ArrayList<String> names, String sql) {
+    /**
+     * @deprecated DatabaseAP SQL must be passed as {@link ParameterizedSql}.
+     */
+    @Deprecated(since = "2026-05-21", forRemoval = true)
+    public static ArrayList<String> getValues(List<String> names, String sql) {
         throw new UnsupportedOperationException("DatabaseAP SQL must be passed as ParameterizedSql");
     }
 
-    public static ArrayList<String> getValues(ArrayList<String> names, ParameterizedSql sql) {
+    public static ArrayList<String> getValues(List<String> names, ParameterizedSql sql) {
         // gets the values for each column name in the sql (used by DatabaseAP)
         ArrayList<String> values = new ArrayList<String>();
         try (ResultSet rs = getSQL(sql)) {
@@ -588,12 +591,15 @@ public class EFormUtil {
         return (values);
     }
 
-    @Deprecated
-    public static ArrayNode getJsonValues(ArrayList<String> names, String sql) {
+    /**
+     * @deprecated DatabaseAP SQL must be passed as {@link ParameterizedSql}.
+     */
+    @Deprecated(since = "2026-05-21", forRemoval = true)
+    public static ArrayNode getJsonValues(List<String> names, String sql) {
         throw new UnsupportedOperationException("DatabaseAP SQL must be passed as ParameterizedSql");
     }
 
-    public static ArrayNode getJsonValues(ArrayList<String> names, ParameterizedSql sql) {
+    public static ArrayNode getJsonValues(List<String> names, ParameterizedSql sql) {
         // gets the values for each column name in the sql (used by DatabaseAP)
         ArrayNode values = objectMapper.createArrayNode();
         try (ResultSet rs = getSQL(sql)) {
@@ -656,7 +662,7 @@ public class EFormUtil {
                 + "LEFT JOIN eform ON eform.fid=eform_groups.fid WHERE eform.status=1 OR eform_groups.fid=0 "
                 + "GROUP BY eform_groups.group_name";
         ArrayList<HashMap<String, String>> al = new ArrayList<HashMap<String, String>>();
-        try (ResultSet rs = getSQL(sql)) {
+        try (ResultSet rs = getSQL(new ParameterizedSql(sql, List.of()))) {
             if (rs == null) {
                 return al;
             }
@@ -1315,7 +1321,7 @@ public class EFormUtil {
     }
 
 
-    @Deprecated
+    @Deprecated(since = "2026-05-21", forRemoval = true)
     private static ResultSet getSQL(String sql) {
         if (sql == null) {
             logger.error("Blocked unsafe SQL execution in legacy eForm path", new SecurityException("Null SQL is not allowed"));

@@ -124,9 +124,8 @@ public final class LegacyJdbcQuery {
      * try-with-resources.</p>
      *
      * @return a connection participating in Spring transaction synchronization
-     * @throws SQLException when the configured data source cannot provide a connection
      */
-    public static Connection getConnection() throws SQLException {
+    public static Connection getConnection() {
         DataSource dataSource = dataSource();
         return registerThreadResource(releasingConnection(DataSourceUtils.getConnection(dataSource), dataSource));
     }

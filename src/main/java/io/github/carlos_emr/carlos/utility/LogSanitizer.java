@@ -6,7 +6,7 @@ package io.github.carlos_emr.carlos.utility;
  *
  * @deprecated use {@link LogSafe} instead.
  */
-@Deprecated
+@Deprecated(since = "2026-05-20", forRemoval = false)
 public final class LogSanitizer {
 
     private LogSanitizer() {

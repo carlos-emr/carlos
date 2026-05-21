@@ -53,12 +53,12 @@ public class dbExtract implements AutoCloseable {
     public dbExtract() {
     }
 
-    public void openConnection() throws SQLException {
+    public void openConnection() {
         try {
 
             //establish connection with the specified username, password and url
             con = LegacyJdbcQuery.getConnection();
-        } catch (SQLException e) {
+        } catch (RuntimeException e) {
             MiscUtils.getLogger().debug("Cannot get connection ");
             MiscUtils.getLogger().debug("Exception is: " + e);
             closeConnection();

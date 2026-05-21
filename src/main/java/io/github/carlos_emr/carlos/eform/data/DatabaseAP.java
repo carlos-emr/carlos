@@ -299,24 +299,26 @@ public class DatabaseAP {
 
     private static QuoteContext quoteContext(String sql, int position) {
         QuoteTracker tracker = new QuoteTracker();
-        for (int i = 0; i < position; i++) {
-            char current = sql.charAt(i);
-            char next = i + 1 < sql.length() ? sql.charAt(i + 1) : '\0';
-            if (tracker.consume(current, next, i)) {
-                i++;
-            }
+        int index = 0;
+        while (index < position) {
+            char current = sql.charAt(index);
+            char next = index + 1 < sql.length() ? sql.charAt(index + 1) : '\0';
+            index += tracker.consume(current, next, index) ? 2 : 1;
         }
         return tracker.context();
     }
 
     private static int findClosingQuote(String sql, int after, char quote) {
-        for (int i = after; i < sql.length(); i++) {
-            char current = sql.charAt(i);
-            char next = i + 1 < sql.length() ? sql.charAt(i + 1) : '\0';
+        int index = after;
+        while (index < sql.length()) {
+            char current = sql.charAt(index);
+            char next = index + 1 < sql.length() ? sql.charAt(index + 1) : '\0';
             if (current == quote && next == quote) {
-                i++;
+                index += 2;
             } else if (current == quote) {
-                return i;
+                return index;
+            } else {
+                index++;
             }
         }
         return -1;
