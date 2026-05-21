@@ -41,6 +41,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -82,6 +83,10 @@ import java.util.regex.Pattern;
  * <h3>PHI Safety</h3>
  * <p>Log entries contain only: remote IP, request URI, and rule category. Parameter names
  * and values are NEVER logged to protect Patient Health Information.</p>
+ *
+ * <p>CRLF checks intentionally allow literal newlines in parameter values so clinical
+ * free-text fields can remain multi-line; encoded CR/LF in parameter values and literal
+ * or encoded CR/LF in the raw query string are still reported.</p>
  *
  * <h3>Double-Encoding Detection</h3>
  * <p>Parameter values are URL-decoded up to twice if a {@code %} character remains after
@@ -430,7 +435,7 @@ public class WafFilter implements Filter {
         // Runs BEFORE the allowlist so that TRACE to /images/, /csrfguard, etc. is still blocked.
         if (protocolEnforcementEnabled) {
             String method = httpReq.getMethod();
-            if (method != null && blockedMethods.contains(method.toUpperCase())) {
+            if (method != null && blockedMethods.contains(method.toUpperCase(Locale.ROOT))) {
                 if (block(httpReq, httpResp, "protocol", method)) {
                     return;
                 }
@@ -481,10 +486,10 @@ public class WafFilter implements Filter {
             if (checkInjectionPatterns(httpReq, httpResp, decodedQs, "query")) {
                 return;
             }
-            // CRLF must also be checked on the raw query string. checkInjectionPatterns() does not
-            // include CRLF because those checks run per-parameter-value below. However, a CRLF payload
-            // can appear directly in the query string without being parsed as a parameter value
-            // (e.g. GET /search.do?%0d%0aContent-Type:%20text/html), so we check it here too.
+            // CRLF must also be checked on the raw query string. Parameter-value checks below
+            // only reject encoded CR/LF so legitimate multi-line clinical text is not blocked.
+            // A CRLF payload can appear directly in the query string without being parsed as a
+            // parameter value (e.g. GET /search.do?%0d%0aContent-Type:%20text/html).
             if (headerInjectionEnabled) {
                 if (CRLF_ENCODED.matcher(queryString).find() || CRLF_LITERAL.matcher(decodedQs).find()) {
                     if (block(httpReq, httpResp, "crlf", "query")) {
@@ -833,7 +838,7 @@ public class WafFilter implements Filter {
         if (val == null || val.trim().isEmpty()) {
             return defaultValue;
         }
-        String trimmed = val.trim().toLowerCase();
+        String trimmed = val.trim().toLowerCase(Locale.ROOT);
         return "true".equals(trimmed) || "yes".equals(trimmed) || "on".equals(trimmed);
     }
 
@@ -893,7 +898,7 @@ public class WafFilter implements Filter {
         for (String token : val.split(",")) {
             String trimmed = token.trim();
             if (!trimmed.isEmpty()) {
-                parsed.add(trimmed.toUpperCase());
+                parsed.add(trimmed.toUpperCase(Locale.ROOT));
             }
         }
         return parsed.isEmpty() ? defaultValue : Collections.unmodifiableSet(parsed);
