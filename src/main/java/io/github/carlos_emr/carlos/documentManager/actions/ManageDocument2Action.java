@@ -52,8 +52,10 @@ import io.github.carlos_emr.carlos.documentManager.IncomingDocUtil;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.HtmlResponse;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.RequestNegotiation;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
@@ -919,7 +921,14 @@ public class ManageDocument2Action extends ActionSupport {
         }
 
         if (docxml != null && !docxml.trim().equals("")) {
-            setResponse(response, docxml.getBytes());
+            // Legacy OSCAR 12 stored HTML document body. Rendering it as HTML is the documented
+            // behaviour for this _edoc-gated display route; encoding would defeat the feature.
+            // Writer (not OutputStream) is required so LogoutBroadcastFilter can append the
+            // cross-window logout listener.
+            String renderContentType = RequestNegotiation.isHtmlContentType(contentType)
+                    ? contentType
+                    : HtmlResponse.DEFAULT_HTML_CONTENT_TYPE_WITH_CHARSET;
+            HtmlResponse.writeStoredHtml(response, renderContentType, docxml);
             return;
         }
 
@@ -931,9 +940,22 @@ public class ManageDocument2Action extends ActionSupport {
         String data = "doc_no=" + doc_no;
         LogAction.addLog(loggedInInfo, LogConst.READ, "Document", null, demoNo, data);
 
+        // Preserve the inline filename for both uploaded HTML and binary document display paths.
+        response.setHeader("Content-Disposition", "inline; filename=\"" + sanitizeHeaderValue(filename) + "\"");
+        if (contentBytes == null) {
+            response.setContentLength(0);
+            return;
+        }
+        if (RequestNegotiation.isHtmlContentType(contentType)) {
+            // Stored HTML document file (text/html content-type). Rendering the file contents as
+            // HTML is the documented behaviour for this _edoc-gated display route; encoding would
+            // defeat the feature. LogoutBroadcastFilter can only append the cross-window logout
+            // listener to writer-backed HTML, which is why this path uses the writer.
+            HtmlResponse.writeStoredHtml(response, contentType, contentBytes);
+            return;
+        }
         response.setContentType(contentType);
         response.setContentLength(contentBytes.length);
-        response.setHeader("Content-Disposition", "inline; filename=\"" + sanitizeHeaderValue(filename) + "\"");
         log.debug("about to Print to stream");
         try (ServletOutputStream outs = response.getOutputStream()) {
             outs.write(contentBytes); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- binary document download with validated content-type

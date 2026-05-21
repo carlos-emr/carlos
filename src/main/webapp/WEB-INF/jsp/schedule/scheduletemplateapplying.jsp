@@ -52,16 +52,13 @@
     @since 2001-02-01
 --%>
 <!DOCTYPE html>
-<%@ page import="java.util.*, java.net.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*, java.lang.*" %>
-<jsp:useBean id="scheduleRscheduleBean" class="io.github.carlos_emr.RscheduleBean" scope="session"/>
-<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
-<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
-<%@ taglib uri="carlos" prefix="carlos" %>
+<%@ page import="java.util.*" %>
+<%@ page import="java.net.*" %>
+<%@ page import="java.lang.*" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.*" %>
+<%@ page import="io.github.carlos_emr.carlos.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ScheduleDate" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleDateDao" %>
@@ -69,11 +66,6 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.RScheduleDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ScheduleTemplate" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateDao" %>
-<%
-    ScheduleDateDao scheduleDateDao = SpringUtils.getBean(ScheduleDateDao.class);
-    RScheduleDao rScheduleDao = SpringUtils.getBean(RScheduleDao.class);
-    ScheduleTemplateDao scheduleTemplateDao = SpringUtils.getBean(ScheduleTemplateDao.class);
-%>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
 <%@ page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Site" %>
@@ -81,7 +73,21 @@
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
-<html lang="${pageContext.request.locale.language}">
+
+<jsp:useBean id="scheduleRscheduleBean" class="io.github.carlos_emr.RscheduleBean" scope="session"/>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
+<%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
+<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%
+    ScheduleDateDao scheduleDateDao = SpringUtils.getBean(ScheduleDateDao.class);
+    RScheduleDao rScheduleDao = SpringUtils.getBean(RScheduleDao.class);
+    ScheduleTemplateDao scheduleTemplateDao = SpringUtils.getBean(ScheduleTemplateDao.class);
+%>
+<html lang="<%= SafeEncode.forHtmlAttribute(request.getLocale().toLanguageTag()) %>">
 
     <%
         if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
@@ -183,6 +189,8 @@
     <%
         String today = UtilDateUtilities.DateToString(new java.util.Date(), "yyyy-MM-dd");
         String lastYear = (Integer.parseInt(today.substring(0, today.indexOf('-'))) - 2) + today.substring(today.indexOf('-'));
+        String providerNoForJavaScript = SafeEncode.forJavaScriptBlock(StringUtils.noNull(request.getParameter("provider_no")));
+        String providerNameForJavaScript = SafeEncode.forJavaScriptBlock(StringUtils.noNull(request.getParameter("provider_name")));
 
         if (request.getParameter("delete") != null && request.getParameter("delete").equals("1")) { //delete rschedule
 
@@ -304,26 +312,39 @@
                 window.location.href = ref;
             }
 
+            function setFormValue(form, name, value) {
+                var controls = Array.prototype.slice.call(form.elements).filter(function(control) {
+                    return control.name === name;
+                });
+                if (controls.length > 0) {
+                    controls[0].value = value;
+                    for (var i = 1; i < controls.length; i++) {
+                        if (controls[i].type === 'hidden') {
+                            controls[i].parentNode.removeChild(controls[i]);
+                        }
+                    }
+                    return;
+                }
+                var input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = name;
+                input.value = value;
+                form.appendChild(input);
+            }
+
             function onBtnDelete(s) {
                 if (confirm(i18n.msgDeleteConfirmation)) {
-                    var form = document.createElement('form');
+                    var form = document.forms['schedule'];
+                    if (!form) {
+                        return;
+                    }
                     form.method = 'post';
                     form.action = "${pageContext.request.contextPath}/schedule/TemplateApplying";
-                    var fields = {
-                        'provider_no': '<carlos:encode value='<%= request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "" %>' context="javaScriptBlock"/>',
-                        'provider_name': '<carlos:encode value='<%= request.getParameter("provider_name") != null ? request.getParameter("provider_name") : "" %>' context="javaScriptBlock"/>',
-                        'sdate': s.options[s.selectedIndex].value,
-                        'delete': '1',
-                        'deldate': 'all'
-                    };
-                    for (var key in fields) {
-                        var input = document.createElement('input');
-                        input.type = 'hidden';
-                        input.name = key;
-                        input.value = fields[key];
-                        form.appendChild(input);
-                    }
-                    document.body.appendChild(form);
+                    setFormValue(form, 'provider_no', '<%= providerNoForJavaScript %>');
+                    setFormValue(form, 'provider_name', '<%= providerNameForJavaScript %>');
+                    setFormValue(form, 'sdate', s.options[s.selectedIndex].value);
+                    setFormValue(form, 'delete', '1');
+                    setFormValue(form, 'deldate', 'all');
                     form.submit();
                 }
             }

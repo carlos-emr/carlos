@@ -51,6 +51,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -194,6 +195,28 @@ class DisplayImage2ActionTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should write HTML assets through writer when eform read privilege is granted")
+        void shouldWriteHtmlAssetsThroughWriter_whenEformReadPrivilegeGranted() throws Exception {
+            mockRequest.setParameter("imagefile", "custom.html");
+            Files.writeString(tempDir.resolve("custom.html"), "<html><body>form</body></html>", StandardCharsets.UTF_8);
+            MockHttpServletResponse trackingResponse = spy(new MockHttpServletResponse());
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(trackingResponse);
+            action = new DisplayImage2Action();
+
+            when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_eform"), eq("r"), isNull()))
+                    .thenReturn(true);
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(trackingResponse.getContentType()).startsWith("text/html");
+            assertThat(trackingResponse.getCharacterEncoding()).isEqualTo(StandardCharsets.UTF_8.name());
+            assertThat(trackingResponse.getContentAsString()).isEqualTo("<html><body>form</body></html>");
+            verify(trackingResponse).getWriter();
+            verify(trackingResponse, never()).getOutputStream();
+        }
+
+        @Test
         @DisplayName("should throw SecurityException when vaccine brands requested without either privilege")
         void shouldThrowSecurityException_whenVaccineBrandsRequestedWithoutEitherPrivilege() {
             mockRequest.setParameter("imagefile", DisplayImage2Action.VACCINE_BRANDS_FILE);
@@ -220,4 +243,5 @@ class DisplayImage2ActionTest extends CarlosUnitTestBase {
                     .isInstanceOf(SecurityException.class);
         }
     }
+
 }
