@@ -82,6 +82,7 @@ import org.apache.xmlbeans.XmlOptions;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import jakarta.servlet.ServletContext;
 import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
@@ -126,7 +127,6 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
-import jakarta.servlet.ServletContext;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.awt.*;
@@ -241,11 +241,6 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
         ArrayList<String[]> logs = new ArrayList<>();
         validXmlFileList = new ArrayList<>();
         String[] logResult;
-        ServletContext servletContext = ServletActionContext.getServletContext();
-        File safeDir = (File) servletContext.getAttribute("jakarta.servlet.context.tempdir");
-        if (safeDir == null) {
-            throw new IllegalStateException("Unable to access servlet temp directory");
-        }
 
         /*
          * get filename, filetype, and input stream of the import; then
@@ -253,28 +248,11 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
          * thread to close gracefully while the import is being processed.
          */
         String filename = importFileFileName;
-        Path filePath = importFile.toPath().normalize();
+        Path filePath = PathValidationUtils.validateUpload(importFile).toPath();
 
-        // Get context of the temp directory, get the file path to the the temp directory
-        ServletContext servletContext = ServletActionContext.getServletContext();
-        if (servletContext == null && request != null) {
-            servletContext = request.getServletContext();
-        }
-        if (servletContext == null) {
-            throw new IllegalStateException("ServletContext is required to validate demographic import upload path");
-        }
-
-        // Validate the paths using PathValidationUtils
-        File safeDir = (File) servletContext.getAttribute("jakarta.servlet.context.tempdir"); // Use a safe directory
-        try {
-            filePath = PathValidationUtils.validateExistingPath(filePath.toFile(), safeDir).toPath();
-        } catch (FileValidationException | SecurityException e) {
-            throw new IllegalArgumentException("Invalid file path: Access outside the allowed directory is not permitted.");
-        }
         if (filename == null || filename.trim().isEmpty()) {
             filename = importFile.getName();
         }
-        Path filePath = PathValidationUtils.validateUpload(importFile).toPath();
 
         int dotIndex = filename.lastIndexOf('.');
         String filetype = (dotIndex == -1) ? "" : filename.substring(dotIndex + 1).toLowerCase();
@@ -354,6 +332,12 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
         for (Path validXmlFile : validXmlFileList) {
             logResult = importContacts(loggedInInfo, validXmlFile.toString(), warnings, request, this.getTimeshiftInDays(), students, courseId);
             logs.add(logResult);
+        }
+
+        ServletContext servletContext = ServletActionContext.getServletContext();
+        File safeDir = (File) servletContext.getAttribute("jakarta.servlet.context.tempdir");
+        if (safeDir == null || !safeDir.isDirectory()) {
+            throw new IllegalStateException("Unable to access servlet temp directory");
         }
 
         /*

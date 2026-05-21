@@ -37,6 +37,7 @@ import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.UploadedFileUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.JDBCUtil;
 
@@ -47,6 +48,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.*;
 import java.util.Enumeration;
 import java.util.List;
+import java.nio.file.Files;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
@@ -69,26 +71,14 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
         File tmpFile = File.createTempFile("tmp", ".zip");
         tmpFile.deleteOnExit();
 
-        // Get context of the temp directory, get the file path to the the temp directory
-        ServletContext servletContext = ServletActionContext.getServletContext();
-
-        // Validate the paths
-        File safeDir = (File) servletContext.getAttribute("jakarta.servlet.context.tempdir"); // Use a safe directory
-        
-        if (safeDir == null) {
-            throw new IllegalStateException("Temporary directory attribute is not set.");
-        }
-        
-        File normalizedFile = file1.toPath().normalize().toFile();
-
-        // Validate file path using PathValidationUtils
+        File validatedFile;
         try {
-            normalizedFile = PathValidationUtils.validateExistingPath(normalizedFile, safeDir);
+            validatedFile = PathValidationUtils.validateUpload(file1);
         } catch (SecurityException e) {
-            throw new IllegalArgumentException("Invalid file path: " + normalizedFile.getPath());
+            throw new IllegalArgumentException("Invalid file path: " + file1.getAbsolutePath(), e);
         }
 
-       try (InputStream is = new FileInputStream(normalizedFile);
+       try (InputStream is = Files.newInputStream(validatedFile.toPath());
             OutputStream fos = new FileOutputStream(tmpFile)) {
             byte[] data = new byte[BUFFER];
             int count;
@@ -120,7 +110,7 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
     public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
         if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
             UploadedFile uploaded = uploadedFiles.get(0);
-            this.file1 = new File(uploaded.getAbsolutePath());
+            this.file1 = UploadedFileUtils.getUploadedFile(uploaded);
             this.file1ContentType = uploaded.getContentType();
             this.file1FileName = uploaded.getOriginalName();
         }

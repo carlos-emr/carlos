@@ -53,6 +53,7 @@ import io.github.carlos_emr.carlos.documentManager.IncomingDocUtil;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -81,7 +82,6 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
     private static final Set<String> ALLOWED_INCOMING_DOC_FOLDERS = getAllowedIncomingDocFolders();
     private static final String INVALID_INCOMING_DESTINATION_MESSAGE = "Invalid incoming document destination.";
     private static final String PREFERRED_QUEUE_SESSION_KEY = "preferredQueue";
-    private static final int MAX_DOCUMENT_FILENAME_ATTEMPTS = 100;
     private static final String UNIQUE_DOCUMENT_FILENAME_ERROR =
             "Unable to create a unique document filename. Please try again.";
     private static Logger logger = MiscUtils.getLogger();
@@ -121,21 +121,26 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
         UploadedFile uploadedFile = this.filedataUpload;
         ValidatedUpload docFile = null;
         String destination = request.getParameter("destination");
+        String queueId = normalizeIncomingParam(request.getParameter("queue"));
+        String destFolder = normalizeIncomingParam(request.getParameter("destFolder"));
         ResourceBundle props = ResourceBundle.getBundle("oscarResources");
         if (uploadedFile == null) {
             map.put("error", 4);
         } else {
             try {
-                docFile = PathValidationUtils.validateUpload(docFile);
+                docFile = ValidatedUpload.from(uploadedFile);
+            } catch (FileValidationException e) {
+                logger.error("Invalid upload source - potential path traversal: {}", LogSanitizer.sanitize(uploadedFile.getOriginalName()));
+                map.put("error", "Invalid file upload");
             } catch (SecurityException e) {
-                logger.error("Invalid upload source - potential path traversal: {}", LogSafe.sanitize(docFile.getPath()));
+                logger.error("Invalid upload source - potential path traversal: {}", LogSanitizer.sanitize(uploadedFile.getOriginalName()));
                 map.put("error", "Invalid file upload");
             }
         }
 
         ValidatedUpload uploadedTempFile = docFile;
         try {
-            if (docFile != null && destination != null && destination.equals("incomingDocs")) {
+            if (docFile != null && "incomingDocs".equals(destination)) {
                 String fileName = this.filedataFileName;
                 if (fileName == null || fileName.trim().isEmpty()) {
                     map.put("error", PathValidationUtils.INVALID_FILENAME_MESSAGE);
@@ -144,98 +149,26 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                 } else if (docFile.length() == 0) {
                     map.put("error", 4);
                     throw new FileNotFoundException();
+                } else if (!isValidIncomingDestination(queueId, destFolder)) {
+                    map.put("error", INVALID_INCOMING_DESTINATION_MESSAGE);
                 } else {
-                    boolean success = writeToIncomingDocs(docFile, queueId, destFolder, sanitizedFileName);
-                    if (!success) {
-                        map.put("error", "Failed to write file. Please contact administrator");
-                        MiscUtils.getLogger().error("Failed to write file to {}", LogSafe.sanitize(destFolder)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-                    } else {
-                        map.put("name", docFile.getName());
-                        map.put("size", docFile.length());
-                    }
-                }
-
-            }
-            deleteUploadedTempFile(docFile);
-            docFile = null;
-        } else if (docFile != null) {
-            try {
-                int numberOfPages = 0;
-                String fileName = PathValidationUtils.validateFileName(this.filedataFileName);
-                String user = (String) request.getSession().getAttribute("user");
-                SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
-                EDoc newDoc = new EDoc("", "", fileName, "", user, user, this.getSource(), 'A',
-                        simpleDateFormat.format(Calendar.getInstance().getTime()),
-                        "", "", "demographic", "-1", 0);
-                newDoc.setDocPublic("0");
-
-                // if the document was added in the context of a program
-                ProgramManager2 programManager = SpringUtils.getBean(ProgramManager2.class);
-                LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-                ProgramProvider pp = programManager.getCurrentProgramInDomain(loggedInInfo, loggedInInfo.getLoggedInProviderNo());
-                if (pp != null && pp.getProgramId() != null) {
-                    newDoc.setProgramId(pp.getProgramId().intValue());
-                }
-
-                fileName = newDoc.getFileName();
-                String filePath = newDoc.getFilePath();
-                // save local file;
-                if (docFile.length() == 0) {
-                    map.put("error", 4);
-                    deleteUploadedTempFile(docFile);
-                    docFile = null;
-                    throw new FileNotFoundException();
-                }
-
-                // write file to local dir
-                writeLocalFile(docFile, fileName);
-                newDoc.setContentType(this.filedataContentType);
-                if (fileName.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
-                    newDoc.setContentType("application/pdf");
-                    // get number of pages when document is a PDF
-                    numberOfPages = countNumOfPages(filePath);
-                }
-                newDoc.setNumberOfPages(numberOfPages);
-                String doc_no = EDocUtil.addDocumentSQL(newDoc);
-                LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
-
-                String providerId = request.getParameter("providers");
-                if (providerId != null) {
-                    WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
-                    ProviderInboxRoutingDao providerInboxRoutingDao = (ProviderInboxRoutingDao) ctx.getBean(ProviderInboxRoutingDao.class);
-                    providerInboxRoutingDao.addToProviderInbox(providerId, Integer.parseInt(doc_no), "DOC");
-                }
-
-                String queueId = request.getParameter("queue");
-                if (queueId != null && !queueId.equals("-1")) {
-                    if (!queueId.trim().matches("\\d+")) {
-                        logger.warn("Invalid queue ID format — skipping queue link");
-                        request.getSession().removeAttribute(PREFERRED_QUEUE_SESSION_KEY);
-                    } else {
-                        try {
-                            String sanitizedFileName = validateIncomingDocsFileName(fileName);
-                            File f = new File(IncomingDocUtil.getAndCreateIncomingDocumentFilePathName(queueId, destFolder, sanitizedFileName));
-                            if (f.exists()) {
-                                map.put("error", sanitizedFileName + " " + props.getString("dms.documentUpload.alreadyExists"));
-                            } else {
-                                boolean success = writeToIncomingDocs(docFile, queueId, destFolder, sanitizedFileName);
-                                if (!success) {
-                                    map.put("error", "Failed to write file. Please contact administrator");
-                                    MiscUtils.getLogger().error("Failed to write file to {}", LogSanitizer.sanitize(destFolder)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
-                                } else {
-                                    map.put("name", sanitizedFileName);
-                                    map.put("size", docFile.length());
-                                    storePreferredQueue(queueId);
-                                }
-                            }
-                        } catch (FileValidationException e) {
-                            map.put("error", e.getMessage());
-                        } catch (IllegalArgumentException | SecurityException e) {
-                            logger.warn("Rejected invalid incoming document destination");
-                            map.put("error", INVALID_INCOMING_DESTINATION_MESSAGE);
+                    try {
+                        String sanitizedFileName = validateIncomingDocsFileName(fileName);
+                        boolean success = writeToIncomingDocs(docFile, queueId, destFolder, sanitizedFileName);
+                        if (!success) {
+                            map.put("error", "Failed to write file. Please contact administrator");
+                            MiscUtils.getLogger().error("Failed to write file to {}", LogSanitizer.sanitize(destFolder)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                        } else {
+                            map.put("name", sanitizedFileName);
+                            map.put("size", docFile.length());
+                            storePreferredQueue(queueId);
                         }
+                    } catch (FileValidationException e) {
+                        map.put("error", e.getMessage());
+                    } catch (IllegalArgumentException | SecurityException e) {
+                        logger.warn("Rejected invalid incoming document destination");
+                        map.put("error", INVALID_INCOMING_DESTINATION_MESSAGE);
                     }
-
                 }
             } else if (docFile != null) {
                 File copiedDocumentFile = null;
@@ -250,7 +183,6 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                             "", "", "demographic", "-1", 0);
                     newDoc.setDocPublic("0");
 
-                    // if the document was added in the context of a program
                     ProgramManager2 programManager = SpringUtils.getBean(ProgramManager2.class);
                     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
                     ProgramProvider pp = programManager.getCurrentProgramInDomain(loggedInInfo, loggedInInfo.getLoggedInProviderNo());
@@ -258,52 +190,49 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                         newDoc.setProgramId(pp.getProgramId().intValue());
                     }
 
-                    fileName = newDoc.getFileName();
-                    // save local file;
+                    String fileNameInDoc = newDoc.getFileName();
                     if (docFile.length() == 0) {
                         map.put("error", 4);
                         throw new FileNotFoundException();
                     }
 
-                    // write file to local dir
-                    copiedDocumentFile = writeLocalFile(docFile, fileName);
-                    fileName = copiedDocumentFile.getName();
-                    newDoc.setFileName(fileName);
+                    copiedDocumentFile = writeLocalFile(docFile, fileNameInDoc);
+                    fileNameInDoc = copiedDocumentFile.getName();
+                    newDoc.setFileName(fileNameInDoc);
                     newDoc.setFilePath(copiedDocumentFile.getPath());
                     newDoc.setContentType(this.filedataContentType);
-                    if (fileName.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
+                    if (fileNameInDoc.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
                         newDoc.setContentType("application/pdf");
-                        // get number of pages when document is a PDF
                         numberOfPages = countNumOfPages(copiedDocumentFile.getPath());
                     }
                     newDoc.setNumberOfPages(numberOfPages);
-                    String doc_no = EDocUtil.addDocumentSQL(newDoc);
+                    String docNo = EDocUtil.addDocumentSQL(newDoc);
                     documentRecordCreated = true;
-                    LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
+                    LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, docNo, request.getRemoteAddr());
 
                     String providerId = request.getParameter("providers");
                     if (providerId != null) {
                         WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
                         ProviderInboxRoutingDao providerInboxRoutingDao = (ProviderInboxRoutingDao) ctx.getBean(ProviderInboxRoutingDao.class);
-                        providerInboxRoutingDao.addToProviderInbox(providerId, Integer.parseInt(doc_no), "DOC");
+                        providerInboxRoutingDao.addToProviderInbox(providerId, Integer.parseInt(docNo), "DOC");
                     }
 
-                    String queueId = request.getParameter("queue");
-                    if (queueId != null && !queueId.equals("-1")) {
-                        if (!queueId.trim().matches("\\d+")) {
+                    String queueIdParam = request.getParameter("queue");
+                    if (queueIdParam != null && !queueIdParam.equals("-1")) {
+                        if (!queueIdParam.trim().matches("\\d+")) {
                             logger.warn("Invalid queue ID format — skipping queue link");
                             request.getSession().removeAttribute(PREFERRED_QUEUE_SESSION_KEY);
                         } else {
                             WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
                             QueueDocumentLinkDao queueDocumentLinkDAO = (QueueDocumentLinkDao) ctx.getBean(QueueDocumentLinkDao.class);
-                            int qid = Integer.parseInt(queueId.trim());
-                            Integer did = Integer.parseInt(doc_no.trim());
+                            int qid = Integer.parseInt(queueIdParam.trim());
+                            Integer did = Integer.parseInt(docNo.trim());
                             queueDocumentLinkDAO.addActiveQueueDocumentLink(qid, did);
                             storePreferredQueue(qid);
                         }
                     }
 
-                    map.put("name", fileName);
+                    map.put("name", fileNameInDoc);
                     map.put("size", docFile.length());
                 } catch (FileValidationException e) {
                     deleteCopiedDocumentIfUnpersisted(copiedDocumentFile, documentRecordCreated);
@@ -367,7 +296,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
         File baseDir = new File(documentDir);
         IOException lastCollision = null;
 
-        for (int attempt = 0; attempt < MAX_DOCUMENT_FILENAME_ATTEMPTS; attempt++) {
+        for (int attempt = 0; attempt < PathValidationUtils.MAX_UPLOAD_FILENAME_COLLISION_RETRIES; attempt++) {
             File destinationFile = PathValidationUtils.validatePath(
                     fileNameWithCollisionSuffix(fileName, attempt), baseDir);
             boolean fileCreatedByRequest = false;
