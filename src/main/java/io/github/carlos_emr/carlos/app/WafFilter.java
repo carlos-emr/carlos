@@ -762,8 +762,15 @@ public class WafFilter implements Filter {
                 byteCount = 0;
                 while (i + 2 < value.length() && value.charAt(i) == '%'
                         && isHex(value.charAt(i + 1)) && isHex(value.charAt(i + 2))) {
-                    bytes[byteCount++] = (byte) Integer.parseInt(value.substring(i + 1, i + 3), 16);
-                    i += 3;
+                    try {
+                        bytes[byteCount++] = (byte) Integer.parseInt(value.substring(i + 1, i + 3), 16);
+                        i += 3;
+                    } catch (NumberFormatException ignored) {
+                        // Defensive fallback: preserve the escape sequence literally.
+                        result.append('%').append(value.charAt(i + 1)).append(value.charAt(i + 2));
+                        i += 3;
+                        break;
+                    }
                 }
                 result.append(new String(bytes, 0, byteCount, StandardCharsets.UTF_8));
             } else {
