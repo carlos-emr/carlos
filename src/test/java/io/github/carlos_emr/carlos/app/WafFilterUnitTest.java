@@ -234,6 +234,32 @@ class WafFilterUnitTest {
         }
 
         @Test
+        @DisplayName("should detect SQLi when stacked CREATE statement is present")
+        void shouldDetectSqli_whenStackedCreate() throws Exception {
+            when(request.getParameterNames()).thenReturn(
+                    Collections.enumeration(java.util.List.of("id")));
+            when(request.getParameterValues("id")).thenReturn(new String[]{"1; CREATE USER attacker"});
+
+            filter.doFilter(request, response, chain);
+
+            verify(response).sendError(anyInt(), anyString());
+            verify(chain, never()).doFilter(request, response);
+        }
+
+        @Test
+        @DisplayName("should detect SQLi when MySQL hash comment follows a quote")
+        void shouldDetectSqli_whenMysqlHashComment() throws Exception {
+            when(request.getParameterNames()).thenReturn(
+                    Collections.enumeration(java.util.List.of("id")));
+            when(request.getParameterValues("id")).thenReturn(new String[]{"admin' #"});
+
+            filter.doFilter(request, response, chain);
+
+            verify(response).sendError(anyInt(), anyString());
+            verify(chain, never()).doFilter(request, response);
+        }
+
+        @Test
         @DisplayName("should detect SQLi when time-based SLEEP() is present")
         void shouldDetectSqli_whenTimeBased() throws Exception {
             when(request.getParameterNames()).thenReturn(
@@ -415,6 +441,32 @@ class WafFilterUnitTest {
         }
 
         @Test
+        @DisplayName("should detect XSS when tag brackets are numeric HTML entities")
+        void shouldDetectXss_whenTagBracketsAreNumericEntities() throws Exception {
+            when(request.getParameterNames()).thenReturn(
+                    Collections.enumeration(java.util.List.of("content")));
+            when(request.getParameterValues("content")).thenReturn(new String[]{"&#x3c;script&#x3e;alert(1)"});
+
+            filter.doFilter(request, response, chain);
+
+            verify(response).sendError(anyInt(), anyString());
+            verify(chain, never()).doFilter(request, response);
+        }
+
+        @Test
+        @DisplayName("should allow benign numeric HTML entities")
+        void shouldAllowXss_whenNumericHtmlEntityIsBenign() throws Exception {
+            when(request.getParameterNames()).thenReturn(
+                    Collections.enumeration(java.util.List.of("content")));
+            when(request.getParameterValues("content")).thenReturn(new String[]{"Patient&#39;s note&#160;continued"});
+
+            filter.doFilter(request, response, chain);
+
+            verify(chain).doFilter(request, response);
+            verify(response, never()).sendError(anyInt(), anyString());
+        }
+
+        @Test
         @DisplayName("should detect XSS when vbscript: URI is present")
         void shouldDetectXss_whenVbscriptUri() throws Exception {
             when(request.getParameterNames()).thenReturn(
@@ -567,6 +619,19 @@ class WafFilterUnitTest {
         }
 
         @Test
+        @DisplayName("should detect command injection when scripting interpreter follows metachar")
+        void shouldDetectCmdInjection_whenScriptingInterpreter() throws Exception {
+            when(request.getParameterNames()).thenReturn(
+                    Collections.enumeration(java.util.List.of("name")));
+            when(request.getParameterValues("name")).thenReturn(new String[]{"valid; python -c print(1)"});
+
+            filter.doFilter(request, response, chain);
+
+            verify(response).sendError(anyInt(), anyString());
+            verify(chain, never()).doFilter(request, response);
+        }
+
+        @Test
         @DisplayName("should detect command injection when $() subshell is present")
         void shouldDetectCmdInjection_whenSubshell() throws Exception {
             when(request.getParameterNames()).thenReturn(
@@ -641,16 +706,16 @@ class WafFilterUnitTest {
         }
 
         @Test
-        @DisplayName("should detect CRLF injection when literal CR+LF is in param value")
-        void shouldDetectCrlf_whenLiteralCrLf() throws Exception {
+        @DisplayName("should allow multi-line text when literal CR+LF is in param value")
+        void shouldAllowMultilineText_whenLiteralCrLfInParamValue() throws Exception {
             when(request.getParameterNames()).thenReturn(
-                    Collections.enumeration(java.util.List.of("redirect")));
-            when(request.getParameterValues("redirect")).thenReturn(new String[]{"/home\r\nSet-Cookie: evil=1"});
+                    Collections.enumeration(java.util.List.of("note")));
+            when(request.getParameterValues("note")).thenReturn(new String[]{"Line one\r\nLine two"});
 
             filter.doFilter(request, response, chain);
 
-            verify(response).sendError(anyInt(), anyString());
-            verify(chain, never()).doFilter(request, response);
+            verify(chain).doFilter(request, response);
+            verify(response, never()).sendError(anyInt(), anyString());
         }
 
         @Test
@@ -821,6 +886,41 @@ class WafFilterUnitTest {
 
             verify(response).sendError(anyInt(), anyString());
             verify(chain, never()).doFilter(request, response);
+        }
+
+        @Test
+        @DisplayName("should count repeated parameter values toward parameter limit")
+        void shouldBlock_whenRepeatedParameterValuesExceedLimit() throws Exception {
+            when(request.getRequestURI()).thenReturn("/carlos/login.do");
+            when(request.getParameterNames()).thenReturn(
+                    Collections.enumeration(java.util.List.of("param")));
+            when(request.getParameterValues("param")).thenReturn(
+                    new String[]{"v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11"});
+
+            filter.doFilter(request, response, chain);
+
+            verify(response).sendError(anyInt(), anyString());
+            verify(chain, never()).doFilter(request, response);
+        }
+
+        @Test
+        @DisplayName("should continue inspecting params after limit in detect mode")
+        void shouldContinueInspectingParams_whenLimitExceededInDetectMode() throws Exception {
+            when(mockProps.getProperty("WAF_MODE")).thenReturn("detect");
+            when(mockProps.getProperty("WAF_MAX_PARAM_COUNT")).thenReturn("1");
+            WafFilter detectFilter = new WafFilter();
+            detectFilter.init(mock(FilterConfig.class));
+
+            when(request.getParameterNames()).thenReturn(
+                    Collections.enumeration(java.util.List.of("first", "second")));
+            when(request.getParameterValues("first")).thenReturn(new String[]{"safe"});
+            when(request.getParameterValues("second")).thenReturn(new String[]{"<script>alert(1)</script>"});
+
+            detectFilter.doFilter(request, response, chain);
+
+            verify(request).getParameterValues("second");
+            verify(chain).doFilter(request, response);
+            verify(response, never()).sendError(anyInt(), anyString());
         }
 
         @Test
@@ -1000,6 +1100,18 @@ class WafFilterUnitTest {
         void shouldReturnUnchanged_whenNoEncoding() {
             String safe = "safe-parameter-value";
             assertThat(WafFilter.decode(safe)).isEqualTo(safe);
+        }
+
+        @Test
+        @DisplayName("should decode valid escapes when invalid percent escape is present")
+        void shouldDecodeValidEscapes_whenInvalidPercentEscapeIsPresent() {
+            assertThat(WafFilter.decode("%ZZ%27%20OR%201=1")).isEqualTo("%ZZ' OR 1=1");
+        }
+
+        @Test
+        @DisplayName("should decode double-encoded valid escapes when invalid percent escape is present")
+        void shouldDecodeDoubleEncodedEscapes_whenInvalidPercentEscapeIsPresent() {
+            assertThat(WafFilter.decode("%ZZ%253cscript%253e")).isEqualTo("%ZZ<script>");
         }
 
         @Test

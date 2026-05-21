@@ -95,7 +95,7 @@ import java.util.regex.Pattern;
 public class WafFilter implements Filter {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(WafFilter.class);
-    private static final Logger WAF_LOGGER = LoggerFactory.getLogger("waf.filter");
+    private static final Logger WAF_LOGGER = LoggerFactory.getLogger("waf.ratelimit");
 
     // -----------------------------------------------------------------------
     // SQL Injection patterns — OWASP CRS 942xxx
@@ -115,9 +115,9 @@ public class WafFilter implements Filter {
                     + "|['\"]\\w+['\"]\\s*=\\s*['\"]\\w+['\"]"       // string:  OR 'x'='x, OR 'admin'='admin'
                     + ")");
 
-    /** Stacked queries: '; DROP TABLE, ; DELETE FROM, ; INSERT INTO, ; TRUNCATE, ; UPDATE table */
+    /** Stacked queries: '; DROP TABLE, ; DELETE FROM, ; INSERT INTO, ; TRUNCATE, ; UPDATE table, etc. */
     private static final Pattern SQLI_STACKED =
-            Pattern.compile("(?i);\\s*(drop|truncate|delete\\s+from|insert\\s+into|update\\s+\\w+)\\b");
+            Pattern.compile("(?i);\\s*(drop|truncate|delete\\s+from|insert\\s+into|update\\s+\\w+|create|alter|grant|revoke)\\b");
 
     /** Time-based blind injection: SLEEP(), WAITFOR DELAY, BENCHMARK() */
     private static final Pattern SQLI_TIME_BASED =
@@ -137,7 +137,7 @@ public class WafFilter implements Filter {
 
     /** Comment-based termination: closing quote followed by SQL comment */
     private static final Pattern SQLI_COMMENT =
-            Pattern.compile("(?i)'\\s*(--|/\\*)");
+            Pattern.compile("(?i)'\\s*(--|/\\*|#)");
 
     private static final Pattern[] SQLI_PATTERNS = {
         SQLI_UNION_SELECT, SQLI_TAUTOLOGY, SQLI_STACKED, SQLI_TIME_BASED,
@@ -174,12 +174,19 @@ public class WafFilter implements Filter {
     private static final Pattern XSS_MATH          = Pattern.compile("(?i)<\\s*math\\b");
     private static final Pattern XSS_EXPRESSION    = Pattern.compile("(?i)\\bexpression\\s*\\(");
     private static final Pattern XSS_EVAL          = Pattern.compile("(?i)\\beval\\s*\\(");
-    private static final Pattern XSS_HTML_ENTITY   = Pattern.compile("&#[xX]?[0-9a-fA-F]{1,6};");
+    /**
+     * Detects encoded angle brackets (&lt; and &gt;) via numeric entities, which are
+     * commonly used to obfuscate tags (e.g. &#x3c;script&#x3e;). This is narrower than
+     * a generic numeric-entity matcher to avoid flagging benign encoded content.
+     */
+    private static final Pattern XSS_HTML_ENCODED_TAG_BRACKETS  = Pattern.compile(
+        "(?i)&#(?:x0*3[cC]|0*60|x0*3[eE]|0*62);?"
+    );
 
     private static final Pattern[] XSS_PATTERNS = {
         XSS_SCRIPT_OPEN, XSS_SCRIPT_CLOSE, XSS_EVENT_HANDLER, XSS_JAVASCRIPT_URI,
         XSS_VBSCRIPT_URI, XSS_DATA_HTML_URI, XSS_IFRAME, XSS_OBJECT, XSS_EMBED,
-        XSS_SVG, XSS_MATH, XSS_EXPRESSION, XSS_EVAL, XSS_HTML_ENTITY
+        XSS_SVG, XSS_MATH, XSS_EXPRESSION, XSS_EVAL, XSS_HTML_ENCODED_TAG_BRACKETS
     };
 
     // -----------------------------------------------------------------------
@@ -229,7 +236,7 @@ public class WafFilter implements Filter {
 
     /** Shell metacharacter followed by a dangerous command */
     private static final Pattern CMD_SHELL_COMMAND =
-            Pattern.compile("(?i)[;&|]\\s*(?:id|whoami|uname|ls|dir|cat|type|echo|wget|curl|nc|netcat|bash|sh|cmd|powershell)\\b");
+            Pattern.compile("(?i)[;&|]\\s*(?:id|whoami|uname|ls|dir|cat|type|echo|wget|curl|nc|netcat|bash|sh|cmd|powershell|python|perl|ruby|php)\\b");
 
     /** Command substitution subshell: $( */
     private static final Pattern CMD_SUBSHELL =
@@ -474,12 +481,9 @@ public class WafFilter implements Filter {
             // can appear directly in the query string without being parsed as a parameter value
             // (e.g. GET /search.do?%0d%0aContent-Type:%20text/html), so we check it here too.
             if (headerInjectionEnabled) {
-                for (Pattern p : CRLF_PATTERNS) {
-                    if (p.matcher(decodedQs).find()) {
-                        if (block(httpReq, httpResp, "crlf", "query")) {
-                            return;
-                        }
-                        break;
+                if (CRLF_ENCODED.matcher(queryString).find() || CRLF_LITERAL.matcher(decodedQs).find()) {
+                    if (block(httpReq, httpResp, "crlf", "query")) {
+                        return;
                     }
                 }
             }
@@ -500,21 +504,24 @@ public class WafFilter implements Filter {
 
         while (paramNames.hasMoreElements()) {
             String paramName = paramNames.nextElement();
-            paramCount++;
-
-            // --- Request limits: parameter count ---
-            if (requestLimitsEnabled && paramCount > paramLimit) {
-                if (block(httpReq, httpResp, "req_limits", "too_many_params")) {
-                    return;
-                }
-                break;
-            }
 
             // Inspect ALL values for this parameter name. Using getParameterValues() instead of
             // getParameter() prevents bypass via repeated params (e.g. foo=safe&foo=<script>).
             String[] rawValues = httpReq.getParameterValues(paramName);
             if (rawValues == null) {
                 continue;
+            }
+            paramCount += Math.max(rawValues.length, 1);
+
+            // --- Request limits: parameter count ---
+            if (requestLimitsEnabled && paramCount > paramLimit) {
+                // In ENFORCE mode, block() returns true and we immediately return,
+                // short-circuiting further processing. In DETECT mode, block() returns
+                // false, and we continue iterating so that all parameters are inspected
+                // and logged even after exceeding the limit.
+                if (block(httpReq, httpResp, "req_limits", "too_many_params")) {
+                    return;
+                }
             }
 
             for (String rawValue : rawValues) {
@@ -539,12 +546,9 @@ public class WafFilter implements Filter {
                 String decodedValue = decode(rawValue);
 
                 if (headerInjectionEnabled) {
-                    for (Pattern p : CRLF_PATTERNS) {
-                        if (p.matcher(decodedValue).find()) {
-                            if (block(httpReq, httpResp, "crlf", "header_injection")) {
-                                return;
-                            }
-                            break;
+                    if (CRLF_ENCODED.matcher(rawValue).find()) {
+                        if (block(httpReq, httpResp, "crlf", "header_injection")) {
+                            return;
                         }
                     }
                 }
@@ -716,7 +720,7 @@ public class WafFilter implements Filter {
      * (e.g., {@code %252e%252e%252f} → {@code %2e%2e%2f} → {@code ../}).
      *
      * @param value the raw value to decode
-     * @return the decoded string, or the original value if decoding fails
+     * @return the decoded string, or a best-effort value with valid escapes decoded
      */
     static String decode(String value) {
         if (value == null) {
@@ -728,17 +732,52 @@ public class WafFilter implements Filter {
                 return decoded;
             }
             // Second pass to catch double-encoded payloads (e.g. %252e%252e%252f → %2e%2e%2f → ../).
-            // If the second decode fails (e.g. the remaining % is not a valid escape), preserve the
-            // first-decoded result — never fall back to the original, which would hide the
-            // partially-exposed payload.
+            // If the second decode fails (e.g. the remaining % is not a valid escape), decode valid
+            // escapes from the first-decoded result and preserve invalid sequences as literals.
             try {
                 return URLDecoder.decode(decoded, StandardCharsets.UTF_8);
             } catch (IllegalArgumentException ignored) {
-                return decoded;
+                return lenientUrlDecode(decoded);
             }
         } catch (IllegalArgumentException e) {
-            return value;
+            String decoded = lenientUrlDecode(value);
+            if (!decoded.contains("%")) {
+                return decoded;
+            }
+            return lenientUrlDecode(decoded);
         }
+    }
+
+    private static String lenientUrlDecode(String value) {
+        StringBuilder result = new StringBuilder(value.length());
+        byte[] bytes = new byte[value.length()];
+        int byteCount = 0;
+        for (int i = 0; i < value.length();) {
+            char ch = value.charAt(i);
+            if (ch == '+') {
+                result.append(' ');
+                i++;
+            } else if (ch == '%' && i + 2 < value.length()
+                    && isHex(value.charAt(i + 1)) && isHex(value.charAt(i + 2))) {
+                byteCount = 0;
+                while (i + 2 < value.length() && value.charAt(i) == '%'
+                        && isHex(value.charAt(i + 1)) && isHex(value.charAt(i + 2))) {
+                    bytes[byteCount++] = (byte) Integer.parseInt(value.substring(i + 1, i + 3), 16);
+                    i += 3;
+                }
+                result.append(new String(bytes, 0, byteCount, StandardCharsets.UTF_8));
+            } else {
+                result.append(ch);
+                i++;
+            }
+        }
+        return result.toString();
+    }
+
+    private static boolean isHex(char ch) {
+        return (ch >= '0' && ch <= '9')
+                || (ch >= 'a' && ch <= 'f')
+                || (ch >= 'A' && ch <= 'F');
     }
 
     /**
