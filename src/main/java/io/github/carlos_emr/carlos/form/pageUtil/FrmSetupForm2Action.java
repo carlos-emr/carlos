@@ -366,9 +366,18 @@ public final class FrmSetupForm2Action extends ActionSupport {
             int parsedFormId = parseRequiredInt(formId, "form ID");
             int parsedDemographicNo = parseRequiredInt(demographicNo, "demographic number");
             PreparedStatement ps = connection.prepareStatement(selectRecordSql()); // NOSONAR java:S2095,java:S2077 - caller owns and closes this PreparedStatement; table name is allowlisted.
-            ps.setInt(1, parsedFormId);
-            ps.setInt(2, parsedDemographicNo);
-            return ps;
+            try {
+                ps.setInt(1, parsedFormId);
+                ps.setInt(2, parsedDemographicNo);
+                return ps;
+            } catch (SQLException | RuntimeException e) {
+                try {
+                    ps.close();
+                } catch (SQLException closeException) {
+                    e.addSuppressed(closeException);
+                }
+                throw e;
+            }
         }
 
         private static int parseRequiredInt(String value, String fieldName) throws SQLException {
