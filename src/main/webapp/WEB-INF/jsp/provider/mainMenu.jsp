@@ -381,7 +381,6 @@
 <script>
     var scheduleNavActive = <%=scheduleNavActive%>;
     var contextPath = document.getElementById("contextPath").value;
-    var existingPopup = typeof window.popup === 'function' ? window.popup : null;
 
     function appendScheduleMenuQueryParam(url, key, value) {
         var parts = String(url).split('#');
@@ -412,9 +411,13 @@
     }
 
     function openMenuPopup(height, width, url, windowName) {
-        if (existingPopup) {
-            return existingPopup(height, width, url, windowName);
+        if (typeof window.popup === 'function' && window.popup !== fallbackMenuPopup) {
+            return window.popup(height, width, url, windowName);
         }
+        return fallbackMenuPopup(height, width, url, windowName);
+    }
+
+    function fallbackMenuPopup(height, width, url, windowName) {
         var windowprops = "height=" + height + ",width=" + width
             + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=50,screenY=50,top=0,left=0";
         var opened = window.open(url, windowName, windowprops);
@@ -424,10 +427,9 @@
         return opened;
     }
 
-    if (!existingPopup) {
-        window.popup = function(height, width, url, windowName) {
-            return openMenuPopup(height, width, url, windowName);
-        };
+    if (typeof window.popup !== 'function') {
+        // Some schedule-shell pages include this shared menu without the legacy popup helper.
+        window.popup = fallbackMenuPopup;
     }
 
     if (typeof newWindow !== 'function') {

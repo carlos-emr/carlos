@@ -59,6 +59,12 @@ class ScheduleNavigationAssetRegressionTest {
             Path.of("src", "main", "webapp", "WEB-INF", "jsp", "provider", "mainMenu.jsp");
     private static final Path TOPNAV_CSS =
             Path.of("src", "main", "webapp", "css", "topnav.css");
+    private static final String STATUS_SORT_PRESERVES_SCHEDULE_NAV =
+            "DisplayMessages?orderby=status<%=boxTypeQuerySuffix%>"
+                    + "<%=demographicQuerySuffix%><%=scheduleNavQuerySuffix%>";
+    private static final String MESSAGE_LINK_PRESERVES_SCHEDULE_NAV =
+            "ViewMessage?messageID=<carlos:encode value='<%= dm.getMessageId() %>'"
+                    + " context=\"uriComponent\"/>&boxType=<%=pageType%><%=scheduleNavQuerySuffix%>";
 
     @Test
     @DisplayName("should default schedule navigation to focused mode only for carlosdoc")
@@ -100,10 +106,8 @@ class ScheduleNavigationAssetRegressionTest {
                 .contains("String boxTypeQuerySuffix = pageType > 0 ? \"&boxType=\" + pageType : \"\";")
                 .contains("String demographicQuerySuffix = pageType == 3 && demographic_no != null")
                 .contains("ViewCreateMessage<%=scheduleNavFirstQuerySuffix%>")
-                .contains("DisplayMessages?orderby=status<%=boxTypeQuerySuffix%>"
-                        + "<%=demographicQuerySuffix%><%=scheduleNavQuerySuffix%>")
-                .contains("ViewMessage?messageID=<carlos:encode value='<%= dm.getMessageId() %>'"
-                        + " context=\"uriComponent\"/>&boxType=<%=pageType%><%=scheduleNavQuerySuffix%>");
+                .contains(STATUS_SORT_PRESERVES_SCHEDULE_NAV)
+                .contains(MESSAGE_LINK_PRESERVES_SCHEDULE_NAV);
         assertThat(viewMessage)
                 .contains("boolean showScheduleNav = \"1\".equals(request.getParameter(\"scheduleNav\"));")
                 .contains("<jsp:include page=\"/WEB-INF/jsp/provider/mainMenu.jsp\"/>")
@@ -115,8 +119,8 @@ class ScheduleNavigationAssetRegressionTest {
                 .contains("ClearMessage<%=scheduleNavFirstQuerySuffix%>")
                 .contains("DisplayMessages<%=scheduleNavFirstQuerySuffix%>");
         assertThat(mainMenu)
-                .contains("var existingPopup = typeof window.popup === 'function' ? window.popup : null;")
-                .contains("window.popup = function(height, width, url, windowName)");
+                .contains("window.popup !== fallbackMenuPopup")
+                .contains("window.popup = fallbackMenuPopup;");
     }
 
     /**
