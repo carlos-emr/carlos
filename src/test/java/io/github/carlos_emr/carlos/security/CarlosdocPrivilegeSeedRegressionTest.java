@@ -41,6 +41,10 @@ class CarlosdocPrivilegeSeedRegressionTest {
     private static final Path OSCARDATA = Path.of("database", "mysql", "oscardata.sql");
     private static final Path MIGRATION = Path.of("database", "mysql", "updates",
             "update-2026-05-21-carlosdoc-schedule-group-privilege.sql");
+    private static final String ADMIN_GROUP_CREATE_GRANT =
+            "insert into `secObjPrivilege` values('admin','_admin.schedule.groupCreate','x',0,'999998');";
+    private static final String CARLOSDOC_GROUP_CREATE_OVERRIDE =
+            "insert into `secObjPrivilege` values('999998','_admin.schedule.groupCreate','o',1,'999998');";
 
     @Test
     @DisplayName("should keep carlosdoc in admin role and preserve schedule access")
@@ -61,8 +65,10 @@ class CarlosdocPrivilegeSeedRegressionTest {
 
         assertThat(seedSql).contains(
                 "('_admin.schedule.groupCreate', 'Create schedule provider groups', 0)",
-                "insert into `secObjPrivilege` values('admin','_admin.schedule.groupCreate','x',0,'999998');",
-                "insert into `secObjPrivilege` values('999998','_admin.schedule.groupCreate','o',1,'999998');");
+                ADMIN_GROUP_CREATE_GRANT,
+                CARLOSDOC_GROUP_CREATE_OVERRIDE);
+        assertThat(seedSql.indexOf(CARLOSDOC_GROUP_CREATE_OVERRIDE))
+                .isGreaterThan(seedSql.indexOf(ADMIN_GROUP_CREATE_GRANT));
     }
 
     @Test

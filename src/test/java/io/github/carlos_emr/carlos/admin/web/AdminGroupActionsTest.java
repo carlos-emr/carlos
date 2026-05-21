@@ -89,6 +89,7 @@ class AdminGroupActionsTest extends CarlosWebTestBase {
         assertThat(executeAction(new AdminSaveMyGroup2Action())).isEqualTo(ActionSupport.NONE);
         assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
 
+        // Security is checked before method validation so unauthorized callers do not learn route behavior.
         verifySecurityCheck(SCHEDULE_GROUP_CREATE_OBJECT, "w");
     }
 }
