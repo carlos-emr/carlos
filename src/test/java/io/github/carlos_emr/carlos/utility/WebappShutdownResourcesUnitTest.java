@@ -97,9 +97,9 @@ public class WebappShutdownResourcesUnitTest {
         URL testClassesUrl = testClassesUrl();
         URL mainClassesUrl = mainClassesUrl();
 
-        try (URLClassLoader webappClassLoaderParent = new URLClassLoader(new URL[0], getClass().getClassLoader());
+        try (URLClassLoader intermediateParentLoader = new URLClassLoader(new URL[0], getClass().getClassLoader());
              ChildFirstTestClassLoader childClassLoader = new ChildFirstTestClassLoader(
-                     testClassesUrl, mainClassesUrl, webappClassLoaderParent)) {
+                     testClassesUrl, mainClassesUrl, intermediateParentLoader)) {
             Class<?> helperClass = childClassLoader.loadClass(
                     WebappShutdownResourcesUnitTest.class.getName() + "$DriverRegistrationHelper");
             Method registerDriver = helperClass.getMethod("registerDriver");
@@ -109,7 +109,7 @@ public class WebappShutdownResourcesUnitTest {
             Driver driver = (Driver) registerDriver.invoke(null);
 
             try {
-                int deregistered = (Integer) deregisterWebappDrivers.invoke(null, webappClassLoaderParent);
+                int deregistered = (Integer) deregisterWebappDrivers.invoke(null, intermediateParentLoader);
 
                 assertThat(deregistered).isEqualTo(1);
                 assertThat((Boolean) isDriverRegistered.invoke(null, driver)).isFalse();
@@ -199,6 +199,10 @@ public class WebappShutdownResourcesUnitTest {
         }
     }
 
+    /**
+     * @return URL for compiled test classes so custom class loaders can load the
+     * helper driver classes from the same bytecode as the test JVM
+     */
     private static URL testClassesUrl() throws Exception {
         return WebappShutdownResourcesUnitTest.class.getProtectionDomain()
                 .getCodeSource()
@@ -207,6 +211,10 @@ public class WebappShutdownResourcesUnitTest {
                 .toURL();
     }
 
+    /**
+     * @return URL for compiled main classes so custom class loaders can load an
+     * isolated copy of the shutdown utility under test
+     */
     private static URL mainClassesUrl() throws Exception {
         return WebappShutdownResources.class.getProtectionDomain()
                 .getCodeSource()

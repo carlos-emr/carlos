@@ -202,6 +202,8 @@ public final class WebappShutdownResources {
 
     /**
      * Walks a class loader's parent chain looking for an expected ancestor.
+     * Traversal stops at {@code null}, which represents the bootstrap boundary
+     * above the last Java-visible class loader.
      *
      * @param candidate class loader to inspect
      * @param expectedAncestor class loader expected to appear in the parent chain
