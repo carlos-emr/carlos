@@ -940,7 +940,6 @@ public class ManageDocument2Action extends ActionSupport {
         String data = "doc_no=" + doc_no;
         LogAction.addLog(loggedInInfo, LogConst.READ, "Document", null, demoNo, data);
 
-        response.setContentType(contentType);
         // Preserve the inline filename for both uploaded HTML and binary document display paths.
         response.setHeader("Content-Disposition", "inline; filename=\"" + sanitizeHeaderValue(filename) + "\"");
         if (contentBytes == null) {
@@ -955,6 +954,7 @@ public class ManageDocument2Action extends ActionSupport {
             HtmlResponse.writeStoredHtml(response, contentType, contentBytes);
             return;
         }
+        response.setContentType(contentType);
         response.setContentLength(contentBytes.length);
         log.debug("about to Print to stream");
         try (ServletOutputStream outs = response.getOutputStream()) {
