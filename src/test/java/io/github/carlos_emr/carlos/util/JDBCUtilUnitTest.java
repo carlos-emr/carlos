@@ -62,6 +62,13 @@ class JDBCUtilUnitTest extends CarlosUnitTestBase {
         assertThat(target.formName()).isEqualTo("formFoo");
         assertThat(target.demographicNo()).isEqualTo("123");
         assertThat(target.timeStamp()).isEqualTo("20260520145500");
+
+        JDBCUtil.FormImportTarget underscoredTarget =
+                JDBCUtil.parseImportFileName("formGrowth0_36_456_2026-05-20T14:55:00.xml");
+
+        assertThat(underscoredTarget.formName()).isEqualTo("formGrowth0_36");
+        assertThat(underscoredTarget.demographicNo()).isEqualTo("456");
+        assertThat(underscoredTarget.timeStamp()).isEqualTo("2026-05-20T14:55:00");
     }
 
     @Test
@@ -79,6 +86,12 @@ class JDBCUtilUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(() -> JDBCUtil.parseImportFileName("formFoo_abc_20260520145500.xml"))
                 .isInstanceOf(JDBCUtil.XmlImportException.class);
         assertThatThrownBy(() -> JDBCUtil.parseImportFileName("formFoo_123_20260520145500.txt"))
+                .isInstanceOf(JDBCUtil.XmlImportException.class);
+        assertThatThrownBy(() -> JDBCUtil.parseImportFileName("1formFoo_123_20260520145500.xml"))
+                .isInstanceOf(JDBCUtil.XmlImportException.class);
+        assertThatThrownBy(() -> JDBCUtil.parseImportFileName("formFoo_123_.xml"))
+                .isInstanceOf(JDBCUtil.XmlImportException.class);
+        assertThatThrownBy(() -> JDBCUtil.parseImportFileName("formFoo_123_2026.05.20.xml"))
                 .isInstanceOf(JDBCUtil.XmlImportException.class);
     }
 

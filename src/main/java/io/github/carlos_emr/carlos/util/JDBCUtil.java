@@ -40,8 +40,6 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -67,8 +65,7 @@ import org.xml.sax.SAXException;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 
 public class JDBCUtil {
-    private static final Pattern FORM_IMPORT_FILE_NAME =
-            Pattern.compile("^([A-Za-z]\\w*)_(\\d+)_([\\w:-]+)\\.xml$");
+    private static final String XML_EXTENSION = ".xml";
     // Legacy built-in form table that is valid but not registered in encounterForm.
     private static final Set<String> INTERNAL_FORM_TABLES = Set.of("formGrowth0_36");
     private static final Set<String> IMPORT_TARGET_MANAGED_FIELDS = Set.of("demographic_no", "formEdited");
@@ -166,15 +163,78 @@ public class JDBCUtil {
     }
 
     public static FormImportTarget parseImportFileName(String fileName) throws XmlImportException {
-        if (fileName == null || fileName.contains("/") || fileName.contains("\\")) {
+        if (fileName == null || fileName.contains("/") || fileName.contains("\\")
+                || !fileName.endsWith(XML_EXTENSION)) {
             throw new XmlImportException("Invalid form XML import entry name");
         }
 
-        Matcher matcher = FORM_IMPORT_FILE_NAME.matcher(fileName);
-        if (!matcher.matches()) {
+        String entryName = fileName.substring(0, fileName.length() - XML_EXTENSION.length());
+        int timestampDelimiter = entryName.lastIndexOf('_');
+        int demographicDelimiter = timestampDelimiter > 0 ? entryName.lastIndexOf('_', timestampDelimiter - 1) : -1;
+        if (demographicDelimiter <= 0 || demographicDelimiter == timestampDelimiter - 1
+                || timestampDelimiter == entryName.length() - 1) {
             throw new XmlImportException("Invalid form XML import entry name");
         }
-        return new FormImportTarget(matcher.group(1), matcher.group(2), matcher.group(3));
+
+        String formName = entryName.substring(0, demographicDelimiter);
+        String demographicNo = entryName.substring(demographicDelimiter + 1, timestampDelimiter);
+        String timeStamp = entryName.substring(timestampDelimiter + 1);
+        if (!isValidFormImportFormName(formName)
+                || !isAsciiDigits(demographicNo)
+                || !isValidFormImportTimestamp(timeStamp)) {
+            throw new XmlImportException("Invalid form XML import entry name");
+        }
+        return new FormImportTarget(formName, demographicNo, timeStamp);
+    }
+
+    private static boolean isValidFormImportFormName(String value) {
+        if (value.isEmpty() || !isAsciiLetter(value.charAt(0))) {
+            return false;
+        }
+        for (int i = 1; i < value.length(); i++) {
+            char current = value.charAt(i);
+            if (!isAsciiLetterOrDigit(current) && current != '_') {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean isValidFormImportTimestamp(String value) {
+        if (value.isEmpty()) {
+            return false;
+        }
+        for (int i = 0; i < value.length(); i++) {
+            char current = value.charAt(i);
+            if (!isAsciiLetterOrDigit(current) && current != '_' && current != ':' && current != '-') {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean isAsciiDigits(String value) {
+        if (value.isEmpty()) {
+            return false;
+        }
+        for (int i = 0; i < value.length(); i++) {
+            if (!isAsciiDigit(value.charAt(i))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean isAsciiLetterOrDigit(char value) {
+        return isAsciiLetter(value) || isAsciiDigit(value);
+    }
+
+    private static boolean isAsciiLetter(char value) {
+        return (value >= 'A' && value <= 'Z') || (value >= 'a' && value <= 'z');
+    }
+
+    private static boolean isAsciiDigit(char value) {
+        return value >= '0' && value <= '9';
     }
 
     static String validateImportFormTable(String formName) throws XmlImportException {
