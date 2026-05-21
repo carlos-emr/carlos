@@ -32,6 +32,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.CacheManager;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -50,7 +51,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * <p>{@code SecProvider} and {@code Provider} map to the same {@code provider} table
  * (see CLAUDE.md "Dual Entity Mappings to Same Table"). Writes via {@link SecProviderDao}
- * must therefore evict the provider caches that {@link ProviderDao} populates, otherwise
+ * must therefore evict the provider caches that provider DAO reads populate, otherwise
  * admin updates through the security UI would leave stale data in the provider caches.</p>
  */
 @DisplayName("SecProviderDao cache invalidation")
@@ -59,16 +60,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("cache")
 @Tag("security")
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
+@Isolated
 class SecProviderDaoCacheIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private SecProviderDao secProviderDao;
 
     @Autowired
-    private ProviderDao providerDao;
+    private ProviderDataDao providerDataDao;
 
     @Autowired
-    private ProviderDataDao providerDataDao;
+    private ProviderDao providerDao;
 
     @Autowired
     private CacheManager cacheManager;
@@ -168,19 +170,14 @@ class SecProviderDaoCacheIntegrationTest extends CarlosTestBase {
     }
 
     private void seedProviderCaches() {
-        // Create a concrete provider so the DAO read path itself populates the providerNames
-        // cache — proves the eviction wipes realistic caching-path entries, not just entries
-        // we stuffed in directly with cache.put.
-        String seedProviderNo = uniquePrefix + "SE";
-        providerNosToCleanUp.add(seedProviderNo);
-        SecProvider seed = buildSecProvider(seedProviderNo, "CacheSeed", "Provider");
-        transactionTemplate.executeWithoutResult(status -> secProviderDao.save(seed));
+        String providerNo = uniquePrefix + "SE";
+        providerNosToCleanUp.add(providerNo);
+        transactionTemplate.executeWithoutResult(status -> secProviderDao.save(buildSecProvider(providerNo, "CacheSeed", "Provider")));
+        clearProviderCaches();
 
-        transactionTemplate.executeWithoutResult(status -> {
-            providerDao.getActiveProviders();
-            providerDao.getActiveProviderSummaries();
-            providerDao.getProviderName(seedProviderNo);
-        });
+        providerDao.getProviderName(providerNo);
+        providerDao.getActiveProviders();
+        providerDao.getActiveProviderSummaries();
     }
 
     private void assertAllThreeCachesPopulated() {

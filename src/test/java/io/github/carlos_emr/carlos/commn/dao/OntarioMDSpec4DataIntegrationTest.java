@@ -34,6 +34,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.transaction.annotation.Transactional;
@@ -70,6 +71,7 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("integration")
 @Tag("dao")
 @Transactional
+@Isolated
 public class OntarioMDSpec4DataIntegrationTest extends CarlosTestBase {
 
     @Autowired
@@ -128,17 +130,23 @@ public class OntarioMDSpec4DataIntegrationTest extends CarlosTestBase {
     }
 
     private Provider createProvider(String firstName, String lastName, String providerNo, String specialty) {
-        Provider provider = new Provider();
-        provider.setFirstName(firstName);
-        provider.setLastName(lastName);
-        provider.setProviderNo(providerNo);
-        provider.setSpecialty(specialty);
-        provider.setProviderType("doctor");
-        provider.setSex("M");
-        provider.setSignedConfidentiality(new Date());
-        provider.setStatus("1");
-        providerDao.saveProvider(provider);
-        return provider;
+        entityManager.createNativeQuery("""
+                MERGE INTO provider (
+                    provider_no, first_name, last_name, specialty, provider_type,
+                    sex, signed_confidentiality, status
+                ) KEY(provider_no) VALUES (
+                    :providerNo, :firstName, :lastName, :specialty, 'doctor',
+                    'M', CURRENT_TIMESTAMP, '1'
+                )
+                """)
+                .setParameter("providerNo", providerNo)
+                .setParameter("firstName", firstName)
+                .setParameter("lastName", lastName)
+                .setParameter("specialty", specialty)
+                .executeUpdate();
+        entityManager.flush();
+
+        return providerDao.getProvider(providerNo);
     }
 
     private Demographic createDemographic(String lastName, String firstName, String providerNo) {
