@@ -193,6 +193,7 @@ final class StatementClosingResultSet implements InvocationHandler {
         } catch (SQLException | RuntimeException statementFailure) {
             if (resultSetFailure == null) {
                 rethrowCloseFailure(statementFailure);
+                return;
             }
             resultSetFailure.addSuppressed(statementFailure);
         }
