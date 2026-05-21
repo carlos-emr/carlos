@@ -29,7 +29,7 @@ import java.io.InputStreamReader;
 import java.util.ArrayList;
 
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimBatchAcknowledgementReportRecordDto;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 /**
  * Parses fixed-format Ontario claim batch acknowledgement report files.
@@ -101,12 +101,12 @@ public class BillingClaimBatchAcknowledgementReportParser {
             // page reflects a partial-read mid-stream failure rather than
             // surfacing a clean-parse outcome.
             MiscUtils.getLogger().error("Batch ack parse failed (file={}, line={}, IOException)",
-                    LogSanitizer.sanitize(sourceName), lineNumber, ioe);
+                    LogSafe.sanitize(sourceName), lineNumber, ioe);
             verdict = false;
             batchAcknowledgementRecords.clear();
         } catch (StringIndexOutOfBoundsException ioe) {
             MiscUtils.getLogger().error("Batch ack parse failed (file={}, line={}, malformed record layout)",
-                    LogSanitizer.sanitize(sourceName), lineNumber, ioe);
+                    LogSafe.sanitize(sourceName), lineNumber, ioe);
             verdict = false;
             batchAcknowledgementRecords.clear();
         }

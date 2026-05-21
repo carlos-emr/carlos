@@ -249,6 +249,7 @@
 <!DOCTYPE html>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <title><fmt:message key="demographic.demographiceditdemographic.title"/></title>
 
@@ -933,7 +934,123 @@
 		}
 	%>
         </script>
+            <%
+            if("true".equals(oscarProps.getProperty("iso3166.2.enabled"))) {
+            %>
+        <script>
+            jQuery(document).ready(function () {
 
+                jQuery("#country").on('change', function () {
+                    updateProvinces('');
+                });
+
+                jQuery("#residentialCountry").on('change', function () {
+                    updateResidentialProvinces('');
+                });
+
+                jQuery.ajax({
+                    type: "POST",
+                    url: '<%=request.getContextPath()%>/demographicSupport',
+                    data: { method: 'getCountryAndProvinceCodes' },
+                    dataType: 'json',
+                    success: function (data) {
+                        jQuery('#country').append(jQuery('<option>').text('').attr('value', ''));
+                        jQuery('#residentialCountry').append(jQuery('<option>').text('').attr('value', ''));
+                        jQuery.each(data, function (i, value) {
+                            jQuery('#country').append(jQuery('<option>').text(value.label).attr('value', value.value));
+                            jQuery('#residentialCountry').append(jQuery('<option>').text(value.label).attr('value', value.value));
+                        });
+
+                        var demoProvince = '<carlos:encode value='<%=demographic.getProvince()%>' context="javaScriptBlock"/>';
+                        var resiProvince = '<carlos:encode value='<%=demographic.getResidentialProvince()%>' context="javaScriptBlock"/>';
+
+                        var defaultProvince = '<carlos:encode value='<%= CarlosProperties.getInstance().getProperty("demographic.default_province","") %>' context="javaScriptBlock"/>';
+                        // override defaultProvince with actual stored demographic's province if present
+                        if (demoProvince.length > 0) { defaultProvince = demoProvince; }
+                        if (defaultProvince.indexOf('-') < 0) {
+                            defaultProvince = 'CA-ON';
+                        }
+                        var defaultCountry = defaultProvince.split('-')[0];
+                        jQuery("#country").val(defaultCountry);
+                        updateProvinces(defaultProvince);
+
+                        // initialize residential province separately to avoid overwriting demo values
+                        var defaultResiProvince = '<carlos:encode value='<%= CarlosProperties.getInstance().getProperty("demographic.default_province","") %>' context="javaScriptBlock"/>';
+                        if (resiProvince.length > 0) { defaultResiProvince = resiProvince; }
+                        if (defaultResiProvince.indexOf('-') < 0) {
+                            defaultResiProvince = 'CA-ON';
+                        }
+                        var resiCountry = defaultResiProvince.split('-')[0];
+                        jQuery("#residentialCountry").val(resiCountry);
+                        updateResidentialProvinces(defaultResiProvince);
+                    },
+                    error: function (xhr, status, error) {
+                        console.error('Failed to load country codes:', error);
+                        jQuery('#country').empty().append(jQuery('<option>').text('Unable to load countries').attr('value', ''));
+                        jQuery('#residentialCountry').empty().append(jQuery('<option>').text('Unable to load countries').attr('value', ''));
+                    }
+                });
+            });
+
+        </script>
+        <% } %>
+        <script>
+            function updateProvinces(province) {
+                var country = jQuery("#country").val();
+                if(country == '') {
+                    console.log('empty country');
+                    return;
+                }
+                jQuery.ajax({
+                    type: "POST",
+                    url: '<%=request.getContextPath()%>/demographicSupport',
+                    data: { method: 'getCountryAndProvinceCodes', country: country },
+                    dataType: 'json',
+                    success: function (data) {
+                        jQuery('#province').empty();
+                        jQuery.each(data, function (i, value) {
+                            jQuery('#province').append(jQuery('<option>').text(value.label).attr('value', value.value));
+                        });
+
+                        if (province != null) {
+                            jQuery("#province").val(province);
+                        }
+                    },
+                    error: function (xhr, status, error) {
+                        console.error('Failed to load provinces:', error);
+                        jQuery('#province').empty().append(jQuery('<option>').text('Unable to load provinces').attr('value', ''));
+                    }
+                });
+            }
+
+            function updateResidentialProvinces(province) {
+                var country = jQuery("#residentialCountry").val();
+                if(country == '') {
+                    console.log('empty residential country');
+                    return;
+                }
+                jQuery.ajax({
+                    type: "POST",
+                    url: '<%=request.getContextPath()%>/demographicSupport',
+                    data: { method: 'getCountryAndProvinceCodes', country: country },
+                    dataType: 'json',
+                    success: function (data) {
+                        jQuery('#residentialProvince').empty();
+                        jQuery.each(data, function (i, value) {
+                            jQuery('#residentialProvince').append(jQuery('<option>').text(value.label).attr('value', value.value));
+                        });
+
+                        if (province != null) {
+                            jQuery("#residentialProvince").val(province);
+                        }
+                    },
+                    error: function (xhr, status, error) {
+                        console.error('Failed to load residential provinces:', error);
+                        jQuery('#residentialProvince').empty().append(jQuery('<option>').text('Unable to load provinces').attr('value', ''));
+                    }
+                });
+            }
+        </script>
         <style>
             /* for the search buttons at the top of the page
 			this should be removed if the page is updated to bootstrap

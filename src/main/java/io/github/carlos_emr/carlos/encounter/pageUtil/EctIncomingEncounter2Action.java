@@ -45,7 +45,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.daos.DefaultIssueDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramAccessDAO;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAO;
@@ -122,7 +122,7 @@ public class EctIncomingEncounter2Action extends ActionSupport {
 
         // Validate demographicNo is numeric before crossing the trust boundary
         if (!demoNo.matches("\\d+")) {
-            log.error("EctIncomingEncounter2Action called with non-numeric demographicNo: {}", LogSanitizer.sanitize(demoNo));
+            log.error("EctIncomingEncounter2Action called with non-numeric demographicNo: {}", LogSafe.sanitize(demoNo));
             return "failure";
         }
 
@@ -145,7 +145,7 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
             String apptListNo = request.getParameter("appointmentNo");
             if (apptListNo != null && !apptListNo.matches("\\d{1,9}")) {
-                log.warn("Invalid non-numeric appointmentNo in appointmentList branch: {}", LogSanitizer.sanitize(apptListNo));
+                log.warn("Invalid non-numeric appointmentNo in appointmentList branch: {}", LogSafe.sanitize(apptListNo));
                 return "failure";
             }
             bean.setUpEncounterPage(loggedInInfo, apptListNo);
@@ -179,11 +179,11 @@ public class EctIncomingEncounter2Action extends ActionSupport {
                 String selectClientmo = request.getParameter("selectId");
                 String lastId = request.getParameter("noteId");
                 if (selectClientmo == null || !selectClientmo.matches("\\d{1,9}")) {
-                    log.warn("Invalid selectId for PEAttach: {}", LogSanitizer.sanitize(selectClientmo)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                    log.warn("Invalid selectId for PEAttach: {}", LogSafe.sanitize(selectClientmo)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                     return "failure";
                 }
                 if (lastId == null || !lastId.matches("\\d{1,9}")) {
-                    log.warn("Invalid noteId for PEAttach: {}", LogSanitizer.sanitize(lastId)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                    log.warn("Invalid noteId for PEAttach: {}", LogSafe.sanitize(lastId)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                     return "failure";
                 }
                 CaseManagementNote note = caseManagementNoteDao.getNote(Long.parseLong(lastId));
@@ -200,7 +200,7 @@ public class EctIncomingEncounter2Action extends ActionSupport {
 
             bean.providerNo = request.getParameter("providerNo");
             if (bean.providerNo != null && !bean.providerNo.isEmpty() && !bean.providerNo.matches("[a-zA-Z0-9]{1,6}")) {
-                log.warn("Invalid providerNo: {}", LogSanitizer.sanitize(bean.providerNo));
+                log.warn("Invalid providerNo: {}", LogSafe.sanitize(bean.providerNo));
                 return "failure";
             }
             if (bean.providerNo == null || bean.providerNo.isEmpty()) {
@@ -212,7 +212,7 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             if (bean.appointmentNo == null || "null".equalsIgnoreCase(bean.appointmentNo) || bean.appointmentNo.isEmpty()) {
                 bean.appointmentNo = null;
             } else if (!bean.appointmentNo.matches("\\d{1,9}")) {
-                log.warn("Invalid appointmentNo: {}", LogSanitizer.sanitize(bean.appointmentNo));
+                log.warn("Invalid appointmentNo: {}", LogSafe.sanitize(bean.appointmentNo));
                 return "failure";
             }
             // use this one.
@@ -222,7 +222,7 @@ public class EctIncomingEncounter2Action extends ActionSupport {
 
             bean.curProviderNo = request.getParameter("curProviderNo");
             if (bean.curProviderNo != null && !bean.curProviderNo.isEmpty() && !bean.curProviderNo.matches("[a-zA-Z0-9]{1,6}")) {
-                log.warn("Invalid curProviderNo: {}", LogSanitizer.sanitize(bean.curProviderNo));
+                log.warn("Invalid curProviderNo: {}", LogSafe.sanitize(bean.curProviderNo));
                 return "failure";
             }
             Provider provider = loggedInInfo.getLoggedInProvider();
@@ -268,7 +268,7 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             bean.check = "myCheck";
             bean.oscarMsgID = request.getParameter("msgId");
             if (bean.oscarMsgID != null && !bean.oscarMsgID.matches("\\d+")) {
-                log.warn("Invalid msgId: {}", LogSanitizer.sanitize(bean.oscarMsgID));
+                log.warn("Invalid msgId: {}", LogSafe.sanitize(bean.oscarMsgID));
                 return "failure";
             }
             String sourceParam = request.getParameter("source");

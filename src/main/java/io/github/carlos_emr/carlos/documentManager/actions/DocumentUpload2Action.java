@@ -63,7 +63,7 @@ import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 import java.util.List;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 public class DocumentUpload2Action extends ActionSupport implements UploadedFilesAware {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -95,7 +95,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             try {
                 docFile = PathValidationUtils.validateUpload(docFile);
             } catch (SecurityException e) {
-                logger.error("Invalid upload source - potential path traversal: {}", LogSanitizer.sanitize(docFile.getPath()));
+                logger.error("Invalid upload source - potential path traversal: {}", LogSafe.sanitize(docFile.getPath()));
                 map.put("error", "Invalid file upload");
                 docFile = null; // Treat as if no file was uploaded
             }
@@ -121,7 +121,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                     boolean success = writeToIncomingDocs(docFile, queueId, destFolder, sanitizedFileName);
                     if (!success) {
                         map.put("error", "Failed to write file. Please contact administrator");
-                        MiscUtils.getLogger().error("Failed to write file to {}", LogSanitizer.sanitize(destFolder)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                        MiscUtils.getLogger().error("Failed to write file to {}", LogSafe.sanitize(destFolder)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                     } else {
                         map.put("name", docFile.getName());
                         map.put("size", docFile.length());
@@ -293,7 +293,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
         try {
             destinationFile = PathValidationUtils.validatePath(fileName, parentDir);
         } catch (SecurityException e) {
-            logger.error("Destination file is outside allowed directory: {}", LogSanitizer.sanitize(fileName));
+            logger.error("Destination file is outside allowed directory: {}", LogSafe.sanitize(fileName));
             return false;
         }
 

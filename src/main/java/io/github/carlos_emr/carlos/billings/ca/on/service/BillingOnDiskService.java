@@ -38,7 +38,7 @@ import io.github.carlos_emr.carlos.providers.data.ProviderBillCenter;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.DateRange;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.beans.factory.ObjectFactory;
 /**
@@ -446,7 +446,7 @@ public class BillingOnDiskService {
         }
         throw new BillingValidationException(
                 "Billing disk generation could not resolve provider ["
-                        + LogSanitizer.sanitizeForDisplay(providerNo) + "]");
+                        + LogSafe.sanitizeForDisplay(providerNo) + "]");
     }
 
     private static boolean isSoloGroupNo(String groupNo) {

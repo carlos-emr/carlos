@@ -107,7 +107,7 @@ public class ManageCss2Action extends ActionSupport {
             // of letting the next field-set NPE without an operator signal.
             if (cssStyle == null) {
                 MiscUtils.getLogger().warn("ManageCss2Action.save: CSS style not found for editStyle={}",
-                        io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(this.getEditStyle()));
+                        io.github.carlos_emr.carlos.utility.LogSafe.sanitize(this.getEditStyle()));
                 addActionError("CSS style not found.");
                 this.setStyles(styles);
                 return "init";
@@ -151,7 +151,7 @@ public class ManageCss2Action extends ActionSupport {
                 .deleteByStyleId(this.getEditStyle());
         if (!deleted) {
             MiscUtils.getLogger().warn("ManageCss2Action.delete: CSS style not found for editStyle={}",
-                    io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(this.getEditStyle()));
+                    io.github.carlos_emr.carlos.utility.LogSafe.sanitize(this.getEditStyle()));
             addActionError("CSS style not found.");
             this.setStyles(cssStylesDao.findAll());
             return "init";

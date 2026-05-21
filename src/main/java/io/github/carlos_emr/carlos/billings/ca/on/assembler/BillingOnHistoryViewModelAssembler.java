@@ -121,7 +121,7 @@ public class BillingOnHistoryViewModelAssembler {
             // ops can grep for it without spamming production.
             MiscUtils.getLogger().debug(
                     "Non-numeric demographicNo [{}] in resolvePatientName; rendering blank",
-                    io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(demographicNo), e);
+                    io.github.carlos_emr.carlos.utility.LogSafe.sanitize(demographicNo), e);
             return new PatientNameLookup("", false);
         } catch (RuntimeException ex) {
             MiscUtils.getLogger().warn(

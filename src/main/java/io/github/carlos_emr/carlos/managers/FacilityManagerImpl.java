@@ -62,6 +62,6 @@ public class FacilityManagerImpl implements FacilityManager {
         //--- log action ---
         LogAction.addLogSynchronous(loggedInInfo, "FacilityManager.getAllFacilities", null);
 
-        return (results);
+        return results;
     }
 }

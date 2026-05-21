@@ -37,6 +37,7 @@
 "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="${ctx}/js/global.js"></script>
     <title>HospitalBilling</title>
     <link rel="stylesheet" type="text/css" href="billingON.css"/>
@@ -59,6 +60,7 @@
 
         <!--
         window.focus();
+        var billingContextPath = "<carlos:encode value='${ctx}' context='javaScriptBlock'/>";
 
         function checkSli() {
             var needsSli = false;
@@ -72,10 +74,11 @@
         }
 
         function gotoBillingOB() {
+            var a = "";
             if (self.location.href.lastIndexOf("?") > 0) {
                 a = self.location.href.substring(self.location.href.lastIndexOf("?"));
             }
-            self.location.href = "/billing" + a;
+            self.location.href = billingContextPath + "/billing" + a;
         }
 
         function findObj(n, d) { //v4.0

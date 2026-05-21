@@ -46,6 +46,7 @@
 
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <title><fmt:message key="provider.pref.title"/></title>
     <script src="${carlos:forHtmlAttribute(ctx)}/js/checkPassword.js.jsp"></script>

@@ -31,36 +31,144 @@
 
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import jakarta.persistence.Query;
 
+import io.github.carlos_emr.carlos.commn.model.AbstractModel;
+import io.github.carlos_emr.carlos.config.CacheConfig;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Repository;
 import io.github.carlos_emr.carlos.commn.model.AppointmentType;
 
 @Repository
 public class AppointmentTypeDaoImpl extends AbstractDaoImpl<AppointmentType> implements AppointmentTypeDao {
+    private static final String ALL_KEY = "all";
+    private static final String NAME_KEY_PREFIX = "name:";
 
-    public AppointmentTypeDaoImpl() {
+    /*
+     * Reads use CacheManager directly instead of @Cacheable so cache hits can return
+     * fresh entity copies. @Cacheable would return the cached entity/list instance.
+     */
+    private final CacheManager cacheManager;
+
+    @Autowired
+    public AppointmentTypeDaoImpl(CacheManager cacheManager) {
         super(AppointmentType.class);
+        this.cacheManager = cacheManager;
     }
 
     @Override
     public List<AppointmentType> listAll() {
+        List<AppointmentType> cached = getCachedList(ALL_KEY);
+        if (cached != null) {
+            return copyAppointmentTypes(cached);
+        }
+
         String sqlCommand = "select x from AppointmentType x order by x.name";
         Query query = entityManager.createQuery(sqlCommand);
 
         @SuppressWarnings("unchecked")
         List<AppointmentType> results = query.getResultList();
 
-        return (results);
-
+        List<AppointmentType> snapshot = copyAppointmentTypes(results);
+        List<AppointmentType> response = copyAppointmentTypes(results);
+        cache().put(ALL_KEY, Collections.unmodifiableList(snapshot));
+        return response;
     }
 
     @Override
     public AppointmentType findByAppointmentTypeByName(String name) {
+        String cacheKey = NAME_KEY_PREFIX + name;
+        if (name != null && !name.isEmpty()) {
+            AppointmentType cached = getCachedAppointmentType(cacheKey);
+            if (cached != null) {
+                return AppointmentType.copyOf(cached);
+            }
+        }
+
         Query query = entityManager.createQuery("from AppointmentType atype where atype.name = ?1").setParameter(1, name);
-        return this.getSingleResultOrNull(query);
+        AppointmentType result = this.getSingleResultOrNull(query);
+        if (result != null && name != null && !name.isEmpty()) {
+            cache().put(cacheKey, AppointmentType.copyOf(result));
+        }
+        return AppointmentType.copyOf(result);
     }
+
+    private Cache cache() {
+        Cache cache = cacheManager.getCache(CacheConfig.APPOINTMENT_TYPES);
+        if (cache == null) {
+            throw new IllegalStateException("Cache not configured: " + CacheConfig.APPOINTMENT_TYPES);
+        }
+        return cache;
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<AppointmentType> getCachedList(String key) {
+        Cache.ValueWrapper wrapper = cache().get(key);
+        return wrapper == null ? null : (List<AppointmentType>) wrapper.get();
+    }
+
+    private AppointmentType getCachedAppointmentType(String key) {
+        Cache.ValueWrapper wrapper = cache().get(key);
+        return wrapper == null ? null : (AppointmentType) wrapper.get();
+    }
+
+    private List<AppointmentType> copyAppointmentTypes(List<AppointmentType> source) {
+        List<AppointmentType> copies = new ArrayList<>(source.size());
+        for (AppointmentType appointmentType : source) {
+            copies.add(AppointmentType.copyOf(appointmentType));
+        }
+        return copies;
+    }
+
+    @CacheEvict(value = CacheConfig.APPOINTMENT_TYPES, allEntries = true)
+    @Override
+    public void persist(AbstractModel<?> o) { super.persist(o); }
+
+    @CacheEvict(value = CacheConfig.APPOINTMENT_TYPES, allEntries = true)
+    @Override
+    public void merge(AbstractModel<?> o) { super.merge(o); }
+
+    @CacheEvict(value = CacheConfig.APPOINTMENT_TYPES, allEntries = true)
+    @Override
+    public void remove(AbstractModel<?> o) { super.remove(o); }
+
+    @CacheEvict(value = CacheConfig.APPOINTMENT_TYPES, allEntries = true)
+    @Override
+    public boolean remove(Object id) { return super.remove(id); }
+
+    @CacheEvict(value = CacheConfig.APPOINTMENT_TYPES, allEntries = true)
+    @Override
+    public AppointmentType saveEntity(AppointmentType entity) { return super.saveEntity(entity); }
+
+    // batch* methods use a separate EntityManager and invoke persist/remove on it directly,
+    // bypassing the Spring proxy, so @CacheEvict on persist/remove never fires through this
+    // path. Override both overloads to restore eviction at the proxied boundary.
+    //
+    // beforeInvocation = true: AbstractDaoImpl.batchPersist commits sub-batches inside its
+    // loop, so a later sub-batch failure leaves earlier sub-batches persisted to the DB.
+    // Default beforeInvocation = false would skip eviction on exception, pinning stale
+    // entries in the cache until TTL.
+    @CacheEvict(value = CacheConfig.APPOINTMENT_TYPES, allEntries = true, beforeInvocation = true)
+    @Override
+    public void batchPersist(List<AppointmentType> oList) { super.batchPersist(oList); }
+
+    @CacheEvict(value = CacheConfig.APPOINTMENT_TYPES, allEntries = true, beforeInvocation = true)
+    @Override
+    public void batchPersist(List<AppointmentType> oList, int batchSize) { super.batchPersist(oList, batchSize); }
+
+    @CacheEvict(value = CacheConfig.APPOINTMENT_TYPES, allEntries = true, beforeInvocation = true)
+    @Override
+    public void batchRemove(List<AppointmentType> oList) { super.batchRemove(oList); }
+
+    @CacheEvict(value = CacheConfig.APPOINTMENT_TYPES, allEntries = true, beforeInvocation = true)
+    @Override
+    public void batchRemove(List<AppointmentType> oList, int batchSize) { super.batchRemove(oList, batchSize); }
 
 }
  

@@ -43,8 +43,12 @@
         <action name="location" class="io.github.carlos_emr.carlos.login.gate.ViewAuthenticatedPage2Action">
             <result name="success">/WEB-INF/jsp/login/location.jsp</result>
         </action>
-        <action name="select_facility" class="io.github.carlos_emr.carlos.login.gate.ViewAuthenticatedPage2Action">
+        <action name="select_facility" class="io.github.carlos_emr.carlos.login.gate.SelectFacility2Action">
             <result name="success">/WEB-INF/jsp/login/select_facility.jsp</result>
+            <result name="provider" type="redirect">/provider/providercontrol</result>
+            <result name="caisiPMM">/PMmodule/ProviderInfo</result>
+            <result name="programLocation">/WEB-INF/jsp/login/location.jsp</result>
+            <result name="failure">/WEB-INF/jsp/error/failure.jsp</result>
         </action>
         <action name="securityError" class="io.github.carlos_emr.carlos.login.gate.ViewPublicPage2Action">
             <result name="success">/WEB-INF/jsp/error/securityError.jsp</result>
@@ -63,6 +67,24 @@
             <result name="success">/WEB-INF/jsp/login/index.jsp</result>
         </action>
         <action name="login" class="io.github.carlos_emr.carlos.login.Login2Action">
+            <result name="provider" type="redirect">/provider/providercontrol</result>
+            <result name="failure">/WEB-INF/jsp/login/logout.jsp</result>
+            <result name="error">/WEB-INF/jsp/login/loginfailed.jsp</result>
+            <result name="caisiPMM">/PMmodule/ProviderInfo</result>
+            <result name="forcepasswordreset">/WEB-INF/jsp/login/forcepasswordreset.jsp</result>
+            <result name="programLocation">/WEB-INF/jsp/login/location.jsp</result>
+            <result name="mfaHandler">/WEB-INF/jsp/mfa/mfa_handler.jsp</result>
+        </action>
+        <action name="forcepasswordresetSubmit" class="io.github.carlos_emr.carlos.login.Login2Action">
+            <result name="provider" type="redirect">/provider/providercontrol</result>
+            <result name="failure">/WEB-INF/jsp/login/logout.jsp</result>
+            <result name="error">/WEB-INF/jsp/login/loginfailed.jsp</result>
+            <result name="caisiPMM">/PMmodule/ProviderInfo</result>
+            <result name="forcepasswordreset">/WEB-INF/jsp/login/forcepasswordreset.jsp</result>
+            <result name="programLocation">/WEB-INF/jsp/login/location.jsp</result>
+            <result name="mfaHandler">/WEB-INF/jsp/mfa/mfa_handler.jsp</result>
+        </action>
+        <action name="mfa/loginMfa" class="io.github.carlos_emr.carlos.login.Login2Action">
             <result name="provider" type="redirect">/provider/providercontrol</result>
             <result name="failure">/WEB-INF/jsp/login/logout.jsp</result>
             <result name="error">/WEB-INF/jsp/login/loginfailed.jsp</result>

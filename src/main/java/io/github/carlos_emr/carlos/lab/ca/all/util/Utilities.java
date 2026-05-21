@@ -55,7 +55,7 @@ import java.util.ArrayList;
 import java.util.Date;
 
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
@@ -141,8 +141,8 @@ public class Utilities {
             retVal = targetFile.getParent() + File.separator + "LabUpload." + targetFile.getName().replaceAll(".enc", "") + "." + (new Date()).getTime();
 
             logger.debug("saveFile place={}, retVal={}",
-                    LogSanitizer.sanitize(place, 1024),
-                    LogSanitizer.sanitize(retVal, 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                    LogSafe.sanitize(place, 1024),
+                    LogSafe.sanitize(retVal, 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
 
             try (OutputStream os = Files.newOutputStream(Paths.get(retVal));
                 BufferedInputStream bis = new BufferedInputStream(stream)) {
@@ -154,9 +154,9 @@ public class Utilities {
                 }
             }
         } catch (FileNotFoundException fnfe) {
-            logger.error("Unable to create or write to file: {}", LogSanitizer.sanitize(filename), fnfe); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            logger.error("Unable to create or write to file: {}", LogSafe.sanitize(filename), fnfe); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
         } catch (IOException ioe) {
-            logger.error("Error processing file: {}", LogSanitizer.sanitize(filename), ioe); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            logger.error("Error processing file: {}", LogSafe.sanitize(filename), ioe); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
         }
         return retVal;
     }
@@ -235,7 +235,7 @@ public class Utilities {
             logger.error("Error", ioe);
             return retVal;
         } catch (IllegalArgumentException iae) {
-            logger.error("Invalid filename: {}", LogSanitizer.sanitize(filename), iae); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            logger.error("Invalid filename: {}", LogSafe.sanitize(filename), iae); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             return null;
         }
 

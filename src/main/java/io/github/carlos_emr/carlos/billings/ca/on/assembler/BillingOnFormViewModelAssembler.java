@@ -45,7 +45,7 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.ProviderPreference;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.web.admin.ProviderPreferencesUIBean;
 import io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnRequestParameters;
@@ -426,7 +426,7 @@ public class BillingOnFormViewModelAssembler {
                     b.siteContextDegraded(true);
                     MiscUtils.getLogger().warn(
                             "Site-suggest lookup failed for provider={}; rendering empty suggestion",
-                            LogSanitizer.sanitize(apptProviderNo), e);
+                            LogSafe.sanitize(apptProviderNo), e);
                 }
             }
         }
@@ -440,7 +440,7 @@ public class BillingOnFormViewModelAssembler {
                 admDate = nullToEmpty(admissionDateLoader.getAdmissionDate(loggedInInfo, demoNo));
             } catch (RuntimeException e) {
                 MiscUtils.getLogger().error(
-                        "Admission-date lookup failed for demo={}", LogSanitizer.sanitize(demoNo), e);
+                        "Admission-date lookup failed for demo={}", LogSafe.sanitize(demoNo), e);
                 b.admissionDateUnavailable(true);
             }
         }
@@ -593,7 +593,7 @@ public class BillingOnFormViewModelAssembler {
             } catch (RuntimeException e) {
                 MiscUtils.getLogger().warn(
                         "assgProvider display lookup failed for provider={}; rendering blank",
-                        LogSanitizer.sanitize(apptProviderNo), e);
+                        LogSafe.sanitize(apptProviderNo), e);
                 return new ResolvedAssgProviderDisplay("", true);
             }
         }
@@ -632,7 +632,7 @@ public class BillingOnFormViewModelAssembler {
             unavailable = true;
             MiscUtils.getLogger().error(
                     "Billing history rows lookup failed for demo={}; rendering with empty history",
-                    LogSanitizer.sanitize(demoNo), rtEx);
+                    LogSafe.sanitize(demoNo), rtEx);
         }
         return new LoadedBillingHistoryRows(rows, unavailable);
     }
@@ -708,7 +708,7 @@ public class BillingOnFormViewModelAssembler {
         } catch (NumberFormatException nfe) {
             MiscUtils.getLogger().warn(
                     "Invalid demographic_no for dx lookup: {}",
-                    LogSanitizer.sanitize(demoNo), nfe);
+                    LogSafe.sanitize(demoNo), nfe);
         }
         return patientDx;
     }
@@ -743,12 +743,12 @@ public class BillingOnFormViewModelAssembler {
             unavailable = true;
             MiscUtils.getLogger().error(
                     "Billing history data-shape regression for demo={} — BillingOnClaimLoader returned unexpected types",
-                    LogSanitizer.sanitize(demoNo), ccEx);
+                    LogSafe.sanitize(demoNo), ccEx);
         } catch (RuntimeException rtEx) {
             unavailable = true;
             MiscUtils.getLogger().error(
                     "Billing history lookup failed for demo={}; rendering with empty history",
-                    LogSanitizer.sanitize(demoNo), rtEx);
+                    LogSafe.sanitize(demoNo), rtEx);
         }
         return new LoadedBillingHistory(history, unavailable);
     }

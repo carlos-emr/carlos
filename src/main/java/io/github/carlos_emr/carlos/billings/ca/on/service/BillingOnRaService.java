@@ -37,7 +37,7 @@ import java.util.Set;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingRaDetailDto;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
@@ -557,10 +557,10 @@ public class BillingOnRaService {
                     } catch (RuntimeException rowFailure) {
                         _logger.error(
                                 "Failed to render RA error-report row (raNo={}, billingNo={}, claimNo={}, serviceCode={})",
-                                LogSanitizer.sanitize(raNo),
-                                LogSanitizer.sanitize(String.valueOf(billingNo)),
-                                LogSanitizer.sanitize(rr == null ? "" : rr.getClaimNo()),
-                                LogSanitizer.sanitize(rr == null ? "" : rr.getServiceCode()),
+                                LogSafe.sanitize(raNo),
+                                LogSafe.sanitize(String.valueOf(billingNo)),
+                                LogSafe.sanitize(rr == null ? "" : rr.getClaimNo()),
+                                LogSafe.sanitize(rr == null ? "" : rr.getServiceCode()),
                                 rowFailure);
                         appendLoadFailureMarker(ret);
                     }
@@ -570,8 +570,8 @@ public class BillingOnRaService {
             throw sec;
         } catch (Exception e) {
             _logger.error("Failed to load RA error report (raNo={}, providerOhipNo={}); reconciliation grid may silently drop entries",
-                    LogSanitizer.sanitize(raNo),
-                    LogSanitizer.sanitize(providerOhipNo), e);
+                    LogSafe.sanitize(raNo),
+                    LogSafe.sanitize(providerOhipNo), e);
             // Append a sentinel row so downstream consumers can detect the
             // partial load and refuse to persist a $-balance computed from
             // an incomplete grid. Mirrors the marker pattern in getRASummary.
@@ -657,7 +657,7 @@ public class BillingOnRaService {
                         amountUnreadable = true;
                         MiscUtils.getLogger().error(
                                 "RA reconciliation: header {} row had unreadable amountPay [{}]; flagged for operator follow-up",
-                                LogSanitizer.sanitize(id), LogSanitizer.sanitize(amountpay), e);
+                                LogSafe.sanitize(id), LogSafe.sanitize(amountpay), e);
                         amountpay = "0.00";
                     }
 
@@ -686,10 +686,10 @@ public class BillingOnRaService {
                 } catch (RuntimeException rowFailure) {
                     _logger.error(
                             "Failed to render RA summary row (raHeaderId={}, billingNo={}, claimNo={}, serviceCode={})",
-                            LogSanitizer.sanitize(id),
-                            LogSanitizer.sanitize(r == null ? "" : String.valueOf(r.getBillingNo())),
-                            LogSanitizer.sanitize(r == null ? "" : r.getClaimNo()),
-                            LogSanitizer.sanitize(r == null ? "" : r.getServiceCode()),
+                            LogSafe.sanitize(id),
+                            LogSafe.sanitize(r == null ? "" : String.valueOf(r.getBillingNo())),
+                            LogSafe.sanitize(r == null ? "" : r.getClaimNo()),
+                            LogSafe.sanitize(r == null ? "" : r.getServiceCode()),
                             rowFailure);
                     appendLoadFailureMarker(ret);
                 }
@@ -698,8 +698,8 @@ public class BillingOnRaService {
             throw sec;
         } catch (Exception e) {
             _logger.error("Failed to load RA summary (raHeaderId={}, providerOhipNo={}); rows may be silently dropped",
-                    LogSanitizer.sanitize(id),
-                    LogSanitizer.sanitize(providerOhipNo), e);
+                    LogSafe.sanitize(id),
+                    LogSafe.sanitize(providerOhipNo), e);
             // Append a sentinel marker row so downstream consumers
             // (BillingRaReportService.getRASummary) can detect the partial
             // load and bump xml_partial_count, which propagates into the
@@ -738,8 +738,8 @@ public class BillingOnRaService {
         if (h == null) {
             MiscUtils.getLogger().warn(
                     "RA settlement: billing header [{}] not found; status [{}] was not applied",
-                    io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(id),
-                    io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(status));
+                    io.github.carlos_emr.carlos.utility.LogSafe.sanitize(id),
+                    io.github.carlos_emr.carlos.utility.LogSafe.sanitize(status));
             return false;
         }
         if (h.isActive()) {

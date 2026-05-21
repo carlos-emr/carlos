@@ -78,6 +78,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
 
 
         <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>

@@ -22,6 +22,9 @@
 package io.github.carlos_emr.carlos.utility;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
+
+import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -39,8 +42,10 @@ import jakarta.servlet.FilterConfig;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
@@ -90,6 +95,42 @@ class ResponseSanitizationFilterUnitTest {
     // -------------------------------------------------------------------------
     // containsStackTrace() — static helper, tested independently
     // -------------------------------------------------------------------------
+
+    @Nested
+    @DisplayName("enabled property parsing")
+    class EnabledPropertyParsing {
+
+        @Test
+        @DisplayName("should keep sanitization enabled when configured with truthy alias")
+        void shouldKeepSanitizationEnabled_whenConfiguredWithTruthyAlias() {
+            assertThat(ResponseSanitizationFilter.parseEnabledProperty("yes")).isTrue();
+            assertThat(ResponseSanitizationFilter.parseEnabledProperty("on")).isTrue();
+            assertThat(ResponseSanitizationFilter.parseEnabledProperty("1")).isTrue();
+        }
+
+        @Test
+        @DisplayName("should disable sanitization when configured with falsy alias")
+        void shouldDisableSanitization_whenConfiguredWithFalsyAlias() {
+            assertThat(ResponseSanitizationFilter.parseEnabledProperty("no")).isFalse();
+            assertThat(ResponseSanitizationFilter.parseEnabledProperty("off")).isFalse();
+            assertThat(ResponseSanitizationFilter.parseEnabledProperty("0")).isFalse();
+        }
+
+        @Test
+        @DisplayName("should warn and keep sanitization enabled when property is unrecognized")
+        void shouldWarnAndKeepSanitizationEnabled_whenPropertyIsUnrecognized() {
+            try (LogCapture capture = LogCapture.forLogger(ResponseSanitizationFilter.class)) {
+                assertThat(ResponseSanitizationFilter.parseEnabledProperty("ture\r\nfalse")).isTrue();
+
+                assertThat(capture.events()).anySatisfy(event -> {
+                    assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                    assertThat(event.getMessage().getFormattedMessage())
+                            .contains("Unrecognized response.sanitization.enabled value")
+                            .contains("\\r\\n");
+                });
+            }
+        }
+    }
 
     @Nested
     @DisplayName("containsStackTrace()")
@@ -212,7 +253,7 @@ class ResponseSanitizationFilterUnitTest {
 
         @Test
         @DisplayName("should pass through error response with stack trace unchanged")
-        void shouldPassThrough_errorWithStackTrace_whenDisabled() throws Exception {
+        void shouldPassThroughErrorWithStackTrace_whenDisabled() throws Exception {
             MockHttpServletRequest request = new MockHttpServletRequest();
             MockHttpServletResponse response = new MockHttpServletResponse();
             String stackTraceBody = "java.lang.NullPointerException\n"
@@ -261,8 +302,31 @@ class ResponseSanitizationFilterUnitTest {
         }
 
         @Test
+        @DisplayName("should overwrite stale Content-Length when replaying safe writer response")
+        void shouldOverwriteStaleContentLength_whenReplayingSafeWriterResponse() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/provider/providercontrol");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            String body = "<html><body>Provider control</body></html>";
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(200);
+                httpRes.setContentType("text/html;charset=UTF-8");
+                httpRes.setContentLength(0);
+                res.getWriter().write(body);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(response.getContentAsString()).isEqualTo(body);
+            assertThat(response.getHeader("Content-Length"))
+                    .isEqualTo(String.valueOf(body.getBytes(StandardCharsets.UTF_8).length));
+        }
+
+        @Test
         @DisplayName("should pass through 404 response without stack trace unchanged")
-        void shouldPassThrough_404WithoutStackTrace() throws Exception {
+        void shouldPassThroughWithoutSanitization_whenStatusIs404() throws Exception {
             MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/missing.jsp");
             MockHttpServletResponse response = new MockHttpServletResponse();
             String body = "<html><body><h1>Not Found</h1></body></html>";
@@ -329,7 +393,7 @@ class ResponseSanitizationFilterUnitTest {
 
         @Test
         @DisplayName("should sanitize 500 response containing a stack trace")
-        void shouldSanitize_500ResponseWithStackTrace() throws Exception {
+        void shouldSanitizeStackTrace_whenResponseStatusIs500() throws Exception {
             MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/index");
             MockHttpServletResponse response = new MockHttpServletResponse();
             String stackTraceBody = "java.lang.NullPointerException\n"
@@ -359,7 +423,7 @@ class ResponseSanitizationFilterUnitTest {
 
         @Test
         @DisplayName("should sanitize 404 response containing a stack trace")
-        void shouldSanitize_404ResponseWithStackTrace() throws Exception {
+        void shouldSanitizeStackTrace_whenStatusIs404() throws Exception {
             MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/missing");
             MockHttpServletResponse response = new MockHttpServletResponse();
             String body = "org.springframework.web.servlet.NoHandlerFoundException\n"
@@ -420,6 +484,308 @@ class ResponseSanitizationFilterUnitTest {
             filter.doFilter(request, response, chain);
 
             assertThat(response.getContentType()).contains("text/html");
+        }
+
+        @Test
+        @DisplayName("should sanitize text error written through output stream")
+        void shouldSanitizeTextError_whenWrittenThroughOutputStream() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/error.jsp");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(500);
+                httpRes.setContentType("text/plain;charset=UTF-8");
+                res.getOutputStream().write(("java.lang.IllegalStateException: failed\n"
+                        + "\tat io.github.carlos_emr.carlos.ErrorPage.render(ErrorPage.java:42)")
+                        .getBytes(StandardCharsets.UTF_8));
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getStatus()).isEqualTo(500);
+            assertThat(response.getContentType()).isEqualTo("text/html;charset=UTF-8");
+            assertThat(response.getContentAsString()).contains("Reference ID:");
+            assertThat(response.getContentAsString()).doesNotContain("IllegalStateException");
+            assertThat(response.getContentAsString()).doesNotContain("io.github.carlos_emr");
+        }
+
+        @Test
+        @DisplayName("should sanitize late error after output stream was opened")
+        void shouldSanitizeLateError_whenOutputStreamOpenedBeforeStatusChange() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/error.jsp");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            FilterChain chain = (req, res) -> {
+                res.getOutputStream().write(("java.lang.IllegalStateException: failed\n"
+                        + "\tat io.github.carlos_emr.carlos.ErrorPage.render(ErrorPage.java:42)")
+                        .getBytes(StandardCharsets.UTF_8));
+                ((HttpServletResponse) res).setStatus(500);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getStatus()).isEqualTo(500);
+            assertThat(response.getContentType()).isEqualTo("text/html;charset=UTF-8");
+            assertThat(response.getContentAsString()).contains("Reference ID:");
+            assertThat(response.getContentAsString()).doesNotContain("IllegalStateException");
+            assertThat(response.getContentAsString()).doesNotContain("io.github.carlos_emr");
+        }
+
+        @Test
+        @DisplayName("should pass through successful PDF output stream")
+        void shouldPassThroughSuccessfulPdf_whenWrittenThroughOutputStream() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/Download/report.pdf");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            byte[] pdfBytes = "%PDF-1.7\nbody".getBytes(StandardCharsets.UTF_8);
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(200);
+                httpRes.setContentType("application/pdf");
+                res.getOutputStream().write(pdfBytes);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(response.getContentType()).isEqualTo("application/pdf");
+            assertThat(response.getContentAsByteArray()).isEqualTo(pdfBytes);
+        }
+
+        @Test
+        @DisplayName("should pass through successful HTML output stream")
+        void shouldPassThroughSuccessfulHtml_whenWrittenThroughOutputStream() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/index");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            byte[] htmlBytes = "<html><body><input id=\"username\"></body></html>"
+                    .getBytes(StandardCharsets.UTF_8);
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(200);
+                httpRes.setContentType("text/html;charset=UTF-8");
+                res.getOutputStream().write(htmlBytes);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(response.getContentType()).isEqualTo("text/html;charset=UTF-8");
+            assertThat(response.getContentAsByteArray()).isEqualTo(htmlBytes);
+        }
+
+        @Test
+        @DisplayName("should sanitize oversized error response before passthrough")
+        void shouldSanitizeOversizedErrorResponse_beforePassthrough() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/error.jsp");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            String stackTraceBody = "java.lang.IllegalStateException: failed\n"
+                    + "\tat io.github.carlos_emr.carlos.ErrorPage.render(ErrorPage.java:42)\n"
+                    + "A".repeat(ResponseSanitizationFilter.MAX_CAPTURE_CHARS + 1);
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(500);
+                httpRes.setContentType("text/html");
+                res.getWriter().write(stackTraceBody);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getStatus()).isEqualTo(500);
+            String sanitized = response.getContentAsString();
+            assertThat(sanitized).doesNotContain("IllegalStateException");
+            assertThat(sanitized).doesNotContain("io.github.carlos_emr");
+            assertThat(sanitized).contains("Reference ID:");
+            assertThat(response.getHeader("Content-Length"))
+                    .isEqualTo(String.valueOf(response.getContentAsByteArray().length));
+        }
+
+        @Test
+        @DisplayName("should drop entity headers when replacing stack trace body")
+        void shouldDropEntityHeaders_whenReplacingStackTraceBody() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/Download/report.pdf");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(500);
+                httpRes.setContentType("text/html");
+                httpRes.setHeader("Content-Disposition", "attachment; filename=report.pdf");
+                httpRes.setHeader("Content-Encoding", "gzip");
+                httpRes.setHeader("ETag", "\"old\"");
+                httpRes.setHeader("X-Frame-Options", "SAMEORIGIN");
+                res.getWriter().write("java.lang.IllegalStateException: failed\n"
+                        + "\tat io.github.carlos_emr.carlos.ErrorPage.render(ErrorPage.java:42)");
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getStatus()).isEqualTo(500);
+            assertThat(response.getContentType()).isEqualTo("text/html;charset=UTF-8");
+            assertThat(response.getHeader("Content-Disposition")).isNull();
+            assertThat(response.getHeader("Content-Encoding")).isNull();
+            assertThat(response.getHeader("ETag")).isNull();
+            assertThat(response.getHeader("X-Frame-Options")).isEqualTo("SAMEORIGIN");
+            assertThat(response.getContentAsString()).contains("Reference ID:");
+        }
+
+        @Test
+        @DisplayName("should not log stack trace body when sanitizing error")
+        void shouldNotLogStackTraceBody_whenSanitizingError() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest(
+                    "GET", "/carlos/error.jsp;jsessionid=secret123");
+            request.setRequestURI("/carlos/error.jsp;jsessionid=secret123");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            String body = "java.lang.IllegalStateException: demographic_no=42\n"
+                    + "\tat io.github.carlos_emr.carlos.ErrorPage.render(ErrorPage.java:42)";
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(500);
+                httpRes.setContentType("text/html");
+                res.getWriter().write(body);
+            };
+
+            try (LogCapture capture = LogCapture.forLogger(ResponseSanitizationFilter.class)) {
+                filter.doFilter(request, response, chain);
+
+                String logText = capture.events().stream()
+                        .map(event -> event.getMessage().getFormattedMessage())
+                        .reduce("", (left, right) -> left + "\n" + right);
+                assertThat(logText)
+                        .doesNotContain("demographic_no")
+                        .doesNotContain("secret123")
+                        .doesNotContain("jsessionid");
+                assertThat(logText).contains("/carlos/error.jsp");
+            }
+        }
+
+        @Test
+        @DisplayName("should sanitize oversized error response even without stack trace prefix")
+        void shouldSanitizeOversizedErrorResponse_evenWithoutStackTracePrefix() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/error.jsp");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            String largeErrorBody = "<html><body>"
+                    + "A".repeat(ResponseSanitizationFilter.MAX_CAPTURE_CHARS + 1)
+                    + "java.lang.IllegalStateException: leaked later\n"
+                    + "\tat io.github.carlos_emr.carlos.ErrorPage.render(ErrorPage.java:42)"
+                    + "</body></html>";
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(500);
+                httpRes.setContentType("text/html");
+                res.getWriter().write(largeErrorBody);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getStatus()).isEqualTo(500);
+            String sanitized = response.getContentAsString();
+            assertThat(sanitized).contains("Reference ID:");
+            assertThat(sanitized).doesNotContain("leaked later");
+            assertThat(sanitized).doesNotContain("io.github.carlos_emr");
+        }
+
+        @Test
+        @DisplayName("should sanitize oversized error response even without stack trace markers")
+        void shouldSanitizeOversizedErrorResponse_whenNoStackTraceMarkersExist() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/error.jsp");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            String largeErrorBody = "<html><body>"
+                    + "A".repeat(ResponseSanitizationFilter.MAX_CAPTURE_CHARS + 1)
+                    + "</body></html>";
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(500);
+                httpRes.setContentType("text/html");
+                res.getWriter().write(largeErrorBody);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getStatus()).isEqualTo(500);
+            assertThat(response.getContentAsString()).contains("Reference ID:");
+            assertThat(response.getContentAsString()).doesNotContain(largeErrorBody);
+        }
+
+        @Test
+        @DisplayName("should log discarded bytes after oversized error response is sanitized")
+        void shouldLogDiscardedBytes_afterOversizedErrorResponseSanitized() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/error.jsp");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            String stackTraceBody = "java.lang.IllegalStateException: failed\n"
+                    + "\tat io.github.carlos_emr.carlos.ErrorPage.render(ErrorPage.java:42)\n"
+                    + "A".repeat(ResponseSanitizationFilter.MAX_CAPTURE_CHARS + 1);
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(500);
+                httpRes.setContentType("text/html");
+                res.getWriter().write(stackTraceBody);
+                res.getWriter().write("tail");
+                res.getWriter().flush();
+            };
+
+            try (LogCapture capture = LogCapture.forLogger(ResponseSanitizationFilter.class)) {
+                filter.doFilter(request, response, chain);
+
+                assertThat(capture.events()).anySatisfy(event -> {
+                    assertThat(event.getLevel()).isEqualTo(Level.DEBUG);
+                    assertThat(event.getMessage().getFormattedMessage())
+                            .contains("discarded")
+                            .contains("bytes after sanitized large-error response");
+                });
+            }
+        }
+
+        @Test
+        @DisplayName("should warn when sanitized error cannot be sent after commit")
+        void shouldWarn_whenSanitizedErrorCannotBeSentAfterCommit() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/error.jsp");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            response.setStatus(500);
+            response.setCommitted(true);
+            String stackTraceBody = "java.lang.IllegalStateException: failed\n"
+                    + "\tat io.github.carlos_emr.carlos.ErrorPage.render(ErrorPage.java:42)\n"
+                    + "A".repeat(ResponseSanitizationFilter.MAX_CAPTURE_CHARS + 1);
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setContentType("text/html");
+                res.getWriter().write(stackTraceBody);
+            };
+
+            try (LogCapture capture = LogCapture.forLogger(ResponseSanitizationFilter.class)) {
+                filter.doFilter(request, response, chain);
+
+                assertThat(capture.events()).anySatisfy(event -> {
+                    assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                    assertThat(event.getMessage().getFormattedMessage())
+                            .contains("Cannot send sanitized error")
+                            .contains("response already committed");
+                });
+            }
+        }
+
+        @Test
+        @DisplayName("should throw when captured response cannot reset buffer before replay")
+        void shouldThrow_whenCapturedResponseCannotResetBufferBeforeReplay() {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/page.jsp");
+            MockHttpServletResponse response = new ResetBufferFailingResponse();
+            String body = "<html><body>ok</body></html>";
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(200);
+                httpRes.setContentType("text/html");
+                res.getWriter().write(body);
+            };
+
+            assertThatThrownBy(() -> filter.doFilter(request, response, chain))
+                    .isInstanceOf(IOException.class)
+                    .hasMessageContaining("Cannot reset buffer before replaying captured response");
         }
     }
 
@@ -521,6 +887,133 @@ class ResponseSanitizationFilterUnitTest {
             String body = response.getContentAsString();
             assertThat(body).doesNotContain("Servlet init failed");
             assertThat(body).contains("Reference ID:");
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // DISPLAY_ERROR — requires BOTH properties for full developer error display
+    // response.sanitization.enabled=false is the gating control; DISPLAY_ERROR
+    // alone does NOT bypass RSF sanitization.
+    // -------------------------------------------------------------------------
+
+    @Nested
+    @DisplayName("when DISPLAY_ERROR is set but sanitization is still enabled")
+    class DisplayErrorWithSanitizationEnabled {
+
+        @BeforeEach
+        void initWithDisplayErrorOnlyAndSanitizationOn() throws Exception {
+            // response.sanitization.enabled=true (default) AND DISPLAY_ERROR=true:
+            // sanitization is NOT bypassed — DISPLAY_ERROR alone is not sufficient.
+            when(mockProperties.getProperty(ResponseSanitizationFilter.ENABLED_PROPERTY, ""))
+                    .thenReturn("true");
+            when(mockProperties.isPropertyActive(ResponseSanitizationFilter.DISPLAY_ERROR_PROPERTY))
+                    .thenReturn(true);
+            filter = new ResponseSanitizationFilter();
+            FilterConfig filterConfig = mock(FilterConfig.class);
+            filter.init(filterConfig);
+        }
+
+        @Test
+        @DisplayName("should still sanitize stack trace when only DISPLAY_ERROR is set")
+        void shouldStillSanitize_whenOnlyDisplayErrorIsSet()
+                throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest();
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            String stackTraceBody = "java.lang.NullPointerException\n"
+                    + "\tat io.github.carlos_emr.carlos.SomeClass.method(SomeClass.java:42)";
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(500);
+                httpRes.getWriter().write(stackTraceBody);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            // RSF remains active — DISPLAY_ERROR alone does not bypass sanitization.
+            assertThat(response.getContentAsString()).doesNotContain("NullPointerException");
+            assertThat(response.getContentAsString()).contains("Reference ID:");
+        }
+
+        @Test
+        @DisplayName("should replace stack trace body with Reference ID when only DISPLAY_ERROR is set")
+        void shouldReplaceWithReferenceId_whenOnlyDisplayErrorIsSet() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest();
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(500);
+                httpRes.getWriter().write("java.lang.RuntimeException: sensitive detail");
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getContentAsString()).doesNotContain("RuntimeException");
+            assertThat(response.getContentAsString()).contains("Reference ID:");
+        }
+    }
+
+    @Nested
+    @DisplayName("when both DISPLAY_ERROR and sanitization=false are set (developer mode)")
+    class DisplayErrorWithSanitizationDisabled {
+
+        @BeforeEach
+        void initWithBothPropertiesSet() throws Exception {
+            // response.sanitization.enabled=false AND DISPLAY_ERROR=true:
+            // both must be set — this is the correct two-property developer configuration.
+            when(mockProperties.getProperty(ResponseSanitizationFilter.ENABLED_PROPERTY, ""))
+                    .thenReturn("false");
+            when(mockProperties.isPropertyActive(ResponseSanitizationFilter.DISPLAY_ERROR_PROPERTY))
+                    .thenReturn(true);
+            filter = new ResponseSanitizationFilter();
+            FilterConfig filterConfig = mock(FilterConfig.class);
+            filter.init(filterConfig);
+        }
+
+        @Test
+        @DisplayName("should pass through stack trace unchanged when both properties are set")
+        void shouldPassThroughStackTrace_whenBothPropertiesSet() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest();
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            String stackTraceBody = "java.lang.NullPointerException\n"
+                    + "\tat io.github.carlos_emr.carlos.SomeClass.method(SomeClass.java:42)";
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(500);
+                httpRes.getWriter().write(stackTraceBody);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            // RSF is disabled by response.sanitization.enabled=false — raw details pass through.
+            assertThat(response.getContentAsString()).isEqualTo(stackTraceBody);
+        }
+
+        @Test
+        @DisplayName("should not replace body with Reference ID when both properties are set")
+        void shouldNotReplaceWithReferenceId_whenBothPropertiesSet() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest();
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(500);
+                httpRes.getWriter().write("java.lang.RuntimeException: raw developer detail");
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getContentAsString()).contains("RuntimeException");
+            assertThat(response.getContentAsString()).doesNotContain("Reference ID:");
+        }
+    }
+
+    private static class ResetBufferFailingResponse extends MockHttpServletResponse {
+        @Override
+        public void resetBuffer() {
+            throw new IllegalStateException("already committed");
         }
     }
 }

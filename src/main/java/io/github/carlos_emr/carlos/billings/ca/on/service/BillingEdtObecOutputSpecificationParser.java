@@ -37,7 +37,7 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 /**
  * Parses fixed-format Ontario EDT OBEC output specification files.
@@ -140,19 +140,19 @@ public class BillingEdtObecOutputSpecificationParser {
             edtObecOutputSpecificationRecords.clear();
             MiscUtils.getLogger().error(
                     "EDT/OBEC parse failed (file={}, line={}, IOException), verdict=false",
-                    LogSanitizer.sanitize(sourceName), lineNumber, ioe);
+                    LogSafe.sanitize(sourceName), lineNumber, ioe);
         } catch (StringIndexOutOfBoundsException ioe) {
             verdict = false;
             edtObecOutputSpecificationRecords.clear();
             MiscUtils.getLogger().error(
                     "EDT/OBEC parse failed (file={}, line={}, malformed record layout), verdict=false",
-                    LogSanitizer.sanitize(sourceName), lineNumber, ioe);
+                    LogSafe.sanitize(sourceName), lineNumber, ioe);
         } catch (NumberFormatException nfe) {
             verdict = false;
             edtObecOutputSpecificationRecords.clear();
             MiscUtils.getLogger().error(
                     "EDT/OBEC parse failed (file={}, line={}, nonnumeric response code), verdict=false",
-                    LogSanitizer.sanitize(sourceName), lineNumber, nfe);
+                    LogSafe.sanitize(sourceName), lineNumber, nfe);
         }
         return verdict;
     }

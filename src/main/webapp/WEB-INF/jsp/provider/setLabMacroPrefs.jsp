@@ -155,6 +155,7 @@ UserProperty up = upDao.getProp(curProviderNo, UserProperty.LAB_MACRO_JSON);
 <!DOCTYPE HTML>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
 
 <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
 <title><fmt:message key="provider.labMacroPrefs.msgPrefs"/></title>

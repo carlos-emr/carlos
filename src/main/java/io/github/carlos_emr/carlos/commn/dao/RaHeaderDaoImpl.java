@@ -75,12 +75,12 @@ public class RaHeaderDaoImpl extends AbstractDaoImpl<RaHeader> implements RaHead
                 "SELECT r " +
                         "FROM RaHeader r, RaDetail t, Provider p " +
                         "WHERE r.id = t.raHeaderNo " +
-                        "AND p.OhipNo = t.providerOhipNo " +
+                        "AND p.ohipNo = t.providerOhipNo " +
                         "AND r.status <> ?1 " +
                         "AND (" +
-                        "   p.ProviderNo = ?2" +
-                        "   OR p.Team = (" +
-                        "       SELECT pp.Team FROM Provider pp WHERE pp.ProviderNo = ?2 " +
+                        "   p.providerNo = ?2" +
+                        "   OR p.team = (" +
+                        "       SELECT pp.team FROM Provider pp WHERE pp.providerNo = ?2 " +
                         "   ) " +
                         ") GROUP BY r.id" +
                         " ORDER BY r.paymentDate DESC, r.readDate DESC";
@@ -95,11 +95,11 @@ public class RaHeaderDaoImpl extends AbstractDaoImpl<RaHeader> implements RaHead
         String sql = "SELECT r " +
                 "FROM RaHeader r, RaDetail t, Provider p " +
                 "WHERE r.id = t.raHeaderNo " +
-                "AND p.OhipNo = t.providerOhipNo " +
+                "AND p.ohipNo = t.providerOhipNo " +
                 "AND r.status <> ?1 " +
                 "AND EXISTS (" +
                 "   FROM ProviderSite s " +
-                "   WHERE p.ProviderNo = s.id.providerNo " +
+                "   WHERE p.providerNo = s.id.providerNo " +
                 "   AND s.id.siteId IN (" +
                 "       SELECT ss.id.siteId FROM ProviderSite ss WHERE ss.id.providerNo = ?2 " +
                 "   ) " +
@@ -114,7 +114,7 @@ public class RaHeaderDaoImpl extends AbstractDaoImpl<RaHeader> implements RaHead
 
     @Override
     public List<Object[]> findHeadersAndProvidersById(Integer id) {
-        String sql = "SELECT r, p FROM RaDetail r, Provider p WHERE p.OhipNo = r.providerOhipNo AND r.raHeaderNo = ?1 GROUP BY r.providerOhipNo";
+        String sql = "SELECT r, p FROM RaDetail r, Provider p WHERE p.ohipNo = r.providerOhipNo AND r.raHeaderNo = ?1 GROUP BY r.providerOhipNo";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, id);
         return query.getResultList();

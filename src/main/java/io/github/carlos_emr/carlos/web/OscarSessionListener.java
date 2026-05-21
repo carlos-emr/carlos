@@ -31,6 +31,7 @@ package io.github.carlos_emr.carlos.web;
 import io.github.carlos_emr.carlos.commn.dao.CasemgmtNoteLockDao;
 import io.github.carlos_emr.carlos.commn.exception.UserSessionNotFoundException;
 import io.github.carlos_emr.carlos.commn.model.CasemgmtNoteLock;
+import io.github.carlos_emr.carlos.login.PendingMfaChallenges;
 import io.github.carlos_emr.carlos.managers.UserSessionManager;
 import io.github.carlos_emr.carlos.managers.UserSessionManagerImpl;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -52,6 +53,7 @@ public class OscarSessionListener implements HttpSessionListener {
     public void sessionDestroyed(HttpSessionEvent se) {
         String id = se.getSession().getId();
         MiscUtils.getLogger().info("session is being destroyed - " + id);
+        PendingMfaChallenges.clearFromSession(se.getSession());
 
         CasemgmtNoteLockDao casemgmtNoteLockDao = SpringUtils.getBean(CasemgmtNoteLockDao.class);
 

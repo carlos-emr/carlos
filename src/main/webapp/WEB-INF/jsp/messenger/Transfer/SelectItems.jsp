@@ -129,6 +129,7 @@
 <%@ page import="io.github.carlos_emr.carlos.messenger.docxfer.send.MsgGenerate" %>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
 
     <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
@@ -361,8 +362,8 @@
                     <td>Document Transfer</td>
                     <td></td>
                     <td style="text-align: right"><a
-                            href="javascript:popupStart(300,400,'About.jsp')">About</a> | <a
-                            href="javascript:popupStart(300,400,'License.jsp')">License</a></td>
+                            href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')">About</a> | <a
+                            href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')">License</a></td>
                 </tr>
             </table>
         </td>

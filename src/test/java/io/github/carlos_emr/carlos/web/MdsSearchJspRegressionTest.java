@@ -1,0 +1,113 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.web;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+/**
+ * Guards the MDS search JSP against server-side tags leaking into JavaScript.
+ *
+ * @since 2026-05-19
+ */
+@DisplayName("MDS search JSP regressions")
+@Tag("unit")
+@Tag("regression")
+@Tag("security")
+class MdsSearchJspRegressionTest {
+
+    private static final Pattern SCRIPT_BLOCK_PATTERN = Pattern.compile("(?is)<script\\b[^>]*>(.*?)</script>");
+    private static final Pattern SCRIPTLET_BLOCK_PATTERN = Pattern.compile("(?is)<%(.*?)%>");
+    private static final Pattern ON_SUBMIT_FUNCTION_PATTERN = Pattern.compile("\\bfunction\\s+onSubmitCheck\\s*\\(");
+    private static final Path SEARCH_JSP = projectBaseDirectory()
+            .resolve(Path.of("src", "main", "webapp", "WEB-INF", "jsp", "oscarMDS", "Search.jsp"));
+
+    @Test
+    @DisplayName("should precompute providerNo encoding before JavaScript builds search URL")
+    void shouldPrecomputeProviderNoEncoding_beforeJavaScriptBuildsSearchUrl() throws IOException {
+        String jsp = Files.readString(SEARCH_JSP, StandardCharsets.UTF_8);
+        String onSubmitScript = onSubmitScriptBlock(jsp);
+
+        assertThat(providerNoEncodingScriptlet(jsp))
+                .contains("SafeEncode.forJavaScript")
+                .contains("SafeEncode.forUriComponent")
+                .contains("request.getParameter(\"providerNo\")");
+        assertThat(onSubmitScript)
+                .contains("&providerNo=<%= encodedProviderNo %>")
+                .contains("&searchProviderNo=\" + encodeURIComponent(")
+                .doesNotContain("<c:")
+                .doesNotContain("<carlos:")
+                .doesNotContain("<e:")
+                .doesNotContain("<fn:")
+                .doesNotContain("<jsp:");
+    }
+
+    private static Path projectBaseDirectory() {
+        String baseDirectory = System.getProperty(
+                "maven.multiModuleProjectDirectory",
+                System.getProperty("basedir", System.getProperty("user.dir")));
+        Path projectBase = Path.of(baseDirectory).toAbsolutePath().normalize();
+        assertThat(projectBase.resolve("pom.xml"))
+                .as("CARLOS project base directory should contain pom.xml")
+                .exists();
+        assertThat(projectBase.resolve("src/main/webapp"))
+                .as("CARLOS project base directory should contain web application sources")
+                .isDirectory();
+        return projectBase;
+    }
+
+    private static String providerNoEncodingScriptlet(String jsp) {
+        int firstScriptTag = jsp.indexOf("<script");
+        Matcher matcher = SCRIPTLET_BLOCK_PATTERN.matcher(jsp);
+        while (matcher.find()) {
+            if (firstScriptTag >= 0 && matcher.start() > firstScriptTag) {
+                break;
+            }
+            String scriptletBody = matcher.group(1);
+            if (scriptletBody.contains("encodedProviderNo")) {
+                return scriptletBody;
+            }
+        }
+        throw new IllegalStateException("Unable to locate MDS search provider number encoding scriptlet");
+    }
+
+    private static String onSubmitScriptBlock(String jsp) {
+        Matcher matcher = SCRIPT_BLOCK_PATTERN.matcher(jsp);
+        while (matcher.find()) {
+            String scriptBody = matcher.group(1);
+            if (ON_SUBMIT_FUNCTION_PATTERN.matcher(scriptBody).find()) {
+                return scriptBody;
+            }
+        }
+        throw new IllegalStateException("Unable to locate MDS search submit script block");
+    }
+}
