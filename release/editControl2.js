@@ -1124,50 +1124,222 @@ if (location.search) {
 var formPath = vPath + "/eform/efmshowform_data.jsp?fid=74&LabName="
 var measureArray = [];
 var measureDateArray = [];
+var pendingMeasureRequests = [];
+var pendingMeasureFlush = null;
+var pendingMeasureMarkerId = null;
+var measureInsertionMarkerSequence = 0;
 
 /**
- * Retrieves measurement/lab history for a given measurement type and inserts
- * a formatted summary into the editor. Called by labgrid() and labgrid2()
- * (the "Lab Grid" and "Vitals" sidebar buttons).
+ * Queues measurement/lab history retrieval for a given measurement type and
+ * inserts formatted summaries into the editor after all same-tick queued
+ * requests complete. Called by labgrid() and labgrid2() (the "Lab Grid" and
+ * "Vitals" sidebar buttons).
  *
- * Makes a synchronous XHR to efmshowform_data.jsp to fetch measurement data
- * for the current patient, then formats it as "TYPE: value (date), value (date), ..."
+ * Uses asynchronous XHR to fetch measurement data for the current patient,
+ * then formats it as "TYPE: value (date), value (date), ..."
  *
  * @param {string} measure - Measurement type code (e.g., "HB", "BP", "A1C")
  * @param {number} max - Maximum number of historical values to display
+ * @return {Promise} resolves after the queued result has been inserted
  */
 function getMeasures(measure, max) {
-    var xmlhttp = new XMLHttpRequest();
-    // pathArray was originally used to build newURL; kept for potential future use by callers.
-    var pathArray = window.location.pathname.split('/'); void pathArray;
-    var newURL = "..//encounter/oscarMeasurements/SetupDisplayHistory.do?type=" + measure;
-    xmlhttp.onreadystatechange = function() {
-        if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
-            var str = xmlhttp.responseText; //local variable
-            if (!str) {
-                return;
-            }
-            var myRe = /<td width="10">([0-9.,]+)<\/td>/g; //for the measurement
-            var myArray;
-            measureArray = []
-            measureDateArray = []
-            var i = 0;
-            while ((myArray = myRe.exec(str)) !== null) {
-                measureArray[i] = myArray[1];
-                i = i + 1;
-            }
+    return new Promise(function(resolve) {
+        if (pendingMeasureRequests.length === 0) {
+            pendingMeasureMarkerId = createMeasureInsertionMarker();
+        }
 
-            var myRe = /<td width="150">([0-9,-]+)<\/td>\s*<td width="150">/g; //the first date is the observation date
-            var myArray;
-            var i = 0;
-            while ((myArray = myRe.exec(str)) !== null) {
-                measureDateArray[i] = myArray[1];
-                i = i + 1;
-            }
+        pendingMeasureRequests.push({
+            measure: measure,
+            max: max,
+            resolve: resolve
+        });
+
+        if (pendingMeasureFlush === null) {
+            pendingMeasureFlush = window.setTimeout(flushMeasureRequests, 0);
+        }
+    });
+}
+
+function flushMeasureRequests() {
+    var requests = pendingMeasureRequests.slice();
+    var markerId = pendingMeasureMarkerId;
+    pendingMeasureRequests = [];
+    pendingMeasureFlush = null;
+    pendingMeasureMarkerId = null;
+
+    Promise.all(requests.map(function(request) {
+        return fetchMeasureHistory(request.measure).then(function(history) {
+            return {
+                request: request,
+                history: history
+            };
+        });
+    })).then(function(results) {
+        insertMeasureBatchAtMarker(markerId, results);
+        results.forEach(function(result) {
+            result.request.resolve(result.history);
+        });
+    });
+}
+
+function createMeasureInsertionMarker() {
+    var editorIframe = document.getElementById(cfg_editorname);
+    var editorDoc = editorIframe && editorIframe.contentWindow ? editorIframe.contentWindow.document : null;
+    if (!editorDoc || !editorDoc.body) {
+        return null;
+    }
+
+    var marker = editorDoc.createElement("span");
+    var markerId = "measure-insertion-marker-" + (++measureInsertionMarkerSequence);
+    marker.id = markerId;
+    marker.setAttribute("data-measure-insertion-marker", "true");
+    marker.style.display = "inline-block";
+    marker.style.width = "0";
+    marker.style.overflow = "hidden";
+
+    insertNodeAtCurrentSelection(editorDoc, marker);
+
+    if (editorIframe.contentWindow && editorIframe.contentWindow.focus) {
+        editorIframe.contentWindow.focus();
+    }
+
+    return markerId;
+}
+
+function insertNodeAtCurrentSelection(editorDoc, node) {
+    var sel = editorDoc.getSelection ? editorDoc.getSelection() : null;
+    if (sel && sel.rangeCount > 0) {
+        var range = sel.getRangeAt(0).cloneRange();
+        range.collapse(false);
+        range.insertNode(node);
+        range.setStartAfter(node);
+        range.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(range);
+    } else {
+        editorDoc.body.appendChild(node);
+        if (sel && editorDoc.createRange) {
+            var appendRange = editorDoc.createRange();
+            appendRange.setStartAfter(node);
+            appendRange.collapse(true);
+            sel.removeAllRanges();
+            sel.addRange(appendRange);
         }
     }
-    xmlhttp.open("GET", newURL, false);
-    xmlhttp.send();
+}
+
+function insertMeasureBatchAtMarker(markerId, results) {
+    var marker = findMeasureInsertionMarker(markerId);
+    if (markerId && !marker) {
+        logMeasureInsertionWarning("marker missing before async measurement batch insertion; falling back to current cursor");
+    }
+
+    try {
+        results.forEach(function(result) {
+            insertMeasureHistory(result.request.measure, result.request.max, result.history, marker);
+        });
+    } finally {
+        removeMeasureInsertionMarker(marker);
+    }
+}
+
+function findMeasureInsertionMarker(markerId) {
+    if (!markerId) {
+        return null;
+    }
+
+    var editorIframe = document.getElementById(cfg_editorname);
+    var editorDoc = editorIframe && editorIframe.contentWindow ? editorIframe.contentWindow.document : null;
+    if (!editorDoc || !editorDoc.getElementById) {
+        return null;
+    }
+
+    return editorDoc.getElementById(markerId);
+}
+
+function removeMeasureInsertionMarker(marker) {
+    if (marker && marker.parentNode) {
+        marker.parentNode.removeChild(marker);
+    }
+}
+
+function fetchMeasureHistory(measure) {
+    return new Promise(function(resolve) {
+        var xmlhttp = new XMLHttpRequest();
+        // pathArray was originally used to build newURL; kept for potential future use by callers.
+        var pathArray = window.location.pathname.split('/'); void pathArray;
+        var newURL = "../encounter/oscarMeasurements/SetupDisplayHistory.do?type=" + encodeURIComponent(measure);
+        xmlhttp.onreadystatechange = function() {
+            if (xmlhttp.readyState == 4) {
+                if (xmlhttp.status == 200) {
+                    var str = xmlhttp.responseText; //local variable
+                    var history = parseMeasureHistory(str);
+                    resolve(history);
+                } else {
+                    logMeasureHistoryError(measure, "HTTP " + xmlhttp.status);
+                    resolve(emptyMeasureHistory());
+                }
+            }
+        }
+        xmlhttp.onerror = function() {
+            logMeasureHistoryError(measure, "network error");
+            resolve(emptyMeasureHistory());
+        };
+        xmlhttp.open("GET", newURL, true);
+        xmlhttp.send();
+    });
+}
+
+function emptyMeasureHistory() {
+    return {
+        values: [],
+        dates: []
+    };
+}
+
+function parseMeasureHistory(str) {
+    var measureArray = [];
+    var measureDateArray = [];
+
+    if (str) {
+        var myRe = /<td width="10">([0-9.,]+)<\/td>/g; //for the measurement
+        var myArray;
+        var i = 0;
+        while ((myArray = myRe.exec(str)) !== null) {
+            measureArray[i] = myArray[1];
+            i = i + 1;
+        }
+
+        myRe = /<td width="150">([0-9,-]+)<\/td>\s*<td width="150">/g; //the first date is the observation date
+        i = 0;
+        while ((myArray = myRe.exec(str)) !== null) {
+            measureDateArray[i] = myArray[1];
+            i = i + 1;
+        }
+    }
+
+    return {
+        values: measureArray,
+        dates: measureDateArray
+    };
+}
+
+function logMeasureHistoryError(measure, detail) {
+    if (window.console && window.console.warn) {
+        window.console.warn("Unable to retrieve measurement history for " + measure + ": " + detail);
+    }
+}
+
+function logMeasureInsertionWarning(detail) {
+    if (window.console && window.console.warn) {
+        window.console.warn("Unable to restore original async measurement insertion point: " + detail);
+    }
+}
+
+function insertMeasureHistory(measure, max, history, marker) {
+    var measureArray = history.values;
+    var measureDateArray = history.dates;
+
     //alert(this.patient_name.value)
     if (measureArray.length > 0) {
         //myGraphWindow = "<a href=" + formPath + measure + "&GraphType=Bar" + "&mA=" + measureArray + "&mDA=" + measureDateArray + " target='_blank'>" + measure + ": " + "</a>"
@@ -1175,7 +1347,7 @@ function getMeasures(measure, max) {
 
        
  //myGraphWindow = formPath + measure + measureArray + measureDateArray + measure + ": "
-         doHtml("<font size='3'>"+myGraphWindow +"</font>");
+         doHtmlAtMarker(marker, "<font size='3'>"+myGraphWindow +"</font>");
         var displaynum = measureArray.length
         if (measureArray.length > max) {
             displaynum = max
@@ -1183,10 +1355,24 @@ function getMeasures(measure, max) {
         for (var jj = 0; jj < displaynum; jj++) {
             var d = new Date(measureDateArray[jj])
             var LabDate = "(" + d.getFullYear() + "/" + (d.getMonth() + 1) + "); "
-            doHtml("<font size='3'>"+measureArray[jj].bold()+ "</font>"+"<font size='2'>"+LabDate+ "</font>")
+            doHtmlAtMarker(marker, "<font size='3'>"+measureArray[jj].bold()+ "</font>"+"<font size='2'>"+LabDate+ "</font>")
         }
-           doHtml("<br></br>");
+           doHtmlAtMarker(marker, "<br></br>");
     }
+}
+
+function doHtmlAtMarker(marker, value) {
+    if (!marker || !marker.parentNode || !marker.ownerDocument || !marker.ownerDocument.createRange) {
+        logMeasureInsertionWarning("marker invalid during async measurement insertion; using current cursor");
+        doHtml(value);
+        return;
+    }
+
+    var range = marker.ownerDocument.createRange();
+    range.setStartBefore(marker);
+    range.setEndBefore(marker);
+    var frag = range.createContextualFragment(value);
+    range.insertNode(frag);
 }
 
 // end lab grid //
@@ -1537,5 +1723,3 @@ _global.saveAs = saveAs.saveAs = saveAs
 if (typeof module !== 'undefined') {
   module.exports = saveAs;
 }
-
-

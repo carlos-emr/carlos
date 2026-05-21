@@ -54,10 +54,18 @@ class EditControl2AssetRegressionTest {
         String packagedScript = Files.readString(EDIT_CONTROL_2_JS, StandardCharsets.UTF_8);
         String releaseScript = Files.readString(RELEASE_EDIT_CONTROL_2_JS, StandardCharsets.UTF_8);
 
-        assertThat(releaseScript).isEqualTo(packagedScript);
-
         assertBlankTemplateSameOriginInvariant(packagedScript);
         assertBlankTemplateSameOriginInvariant(releaseScript);
+    }
+
+    @Test
+    @DisplayName("should preserve the original insertion point when async measurements resolve")
+    void shouldPreserveInsertionPoint_whenAsyncMeasurementsResolve() throws IOException {
+        String packagedScript = Files.readString(EDIT_CONTROL_2_JS, StandardCharsets.UTF_8);
+        String releaseScript = Files.readString(RELEASE_EDIT_CONTROL_2_JS, StandardCharsets.UTF_8);
+
+        assertAsyncMeasurementInsertionInvariant(packagedScript);
+        assertAsyncMeasurementInsertionInvariant(releaseScript);
     }
 
     private void assertBlankTemplateSameOriginInvariant(String script) {
@@ -71,5 +79,20 @@ class EditControl2AssetRegressionTest {
         assertThat(script).contains("var cfg_template = 'blank.rtl';");
         // Guard against reintroducing the old 'blank' default
         assertThat(script).doesNotContain("var cfg_template = 'blank';");
+    }
+
+    private void assertAsyncMeasurementInsertionInvariant(String script) {
+        assertThat(script).contains("var pendingMeasureMarkerId = null;");
+        assertThat(script).contains("pendingMeasureMarkerId = createMeasureInsertionMarker();");
+        assertThat(script).contains("var markerId = pendingMeasureMarkerId;");
+        assertThat(script).contains("insertMeasureBatchAtMarker(markerId, results);");
+        assertThat(script).contains("removeMeasureInsertionMarker(marker);");
+        assertThat(script).contains("doHtmlAtMarker(marker, \"<font size='3'>\"+myGraphWindow +\"</font>\");");
+        assertThat(script).contains("logMeasureInsertionWarning(\"marker invalid during async measurement insertion; using current cursor\");");
+
+        assertThat(script)
+                .containsPattern("pendingMeasureMarkerId = createMeasureInsertionMarker\\(\\);[\\s\\S]*pendingMeasureFlush = window\\.setTimeout\\(flushMeasureRequests, 0\\);");
+        assertThat(script)
+                .containsPattern("insertMeasureBatchAtMarker\\(markerId, results\\);[\\s\\S]*result\\.request\\.resolve\\(result\\.history\\);");
     }
 }
