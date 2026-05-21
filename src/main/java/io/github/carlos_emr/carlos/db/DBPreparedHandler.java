@@ -282,7 +282,7 @@ public final class DBPreparedHandler {
 
     public synchronized String getNewProviderNo() {
         try {
-            String pno = Misc.getRandomNumber(6);
+            String pno = newProviderNoCandidate();
             String sql = "select count(*) from provider where provider_no= ?";
             while (true) {
                 try (PreparedStatement ps = DbConnectionFilter.getThreadLocalDbConnection().prepareStatement(sql)) {
@@ -294,14 +294,20 @@ public final class DBPreparedHandler {
                     }
                 }
 
-                do {
-                    pno = Misc.getRandomNumber(6);
-                } while (pno != null && pno.startsWith("0"));
+                pno = newProviderNoCandidate();
             }
         } catch (Exception ex) {
             MiscUtils.getLogger().error("Failed to generate new provider number", ex);
             return "";
         }
+    }
+
+    private static String newProviderNoCandidate() {
+        String pno;
+        do {
+            pno = Misc.getRandomNumber(6);
+        } while (pno != null && pno.startsWith("0"));
+        return pno;
     }
 
 }

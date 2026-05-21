@@ -26,6 +26,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStreamReader;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -151,7 +152,7 @@ public class BillingOnRaService {
             safeFile = PathValidationUtils.validateExistingPath(
                     Path.of(filePathName).toFile(),
                     Path.of(documentDir).toFile());
-        } catch (FileValidationException e) {
+        } catch (FileValidationException | InvalidPathException e) {
             _logger.error("RA import rejected invalid path: {}", LogSanitizer.sanitize(filePathName), e);
             throw new SecurityException("Invalid RA import path", e);
         }

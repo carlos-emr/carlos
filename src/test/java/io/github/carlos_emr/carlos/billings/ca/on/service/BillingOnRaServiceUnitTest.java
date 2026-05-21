@@ -346,6 +346,16 @@ class BillingOnRaServiceUnitTest {
     }
 
     @Test
+    void shouldRejectMalformedPath_whenImportRaFileCalledDirectly() {
+        assertThatThrownBy(() -> service.importRAFile("invalid\u0000ra-file.txt"))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("Invalid RA import path");
+
+        verify(raHeaderDao, never()).persist(any(RaHeader.class));
+        verify(raDetailDao, never()).persist(any(RaDetail.class));
+    }
+
+    @Test
     void shouldRejectImport_whenDocumentDirMissing() {
         CarlosProperties.getInstance().remove("DOCUMENT_DIR");
 
