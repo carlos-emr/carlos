@@ -187,7 +187,7 @@
 
 %>
 <!DOCTYPE html>
-<html lang="<%=SafeEncode.forHtmlAttribute(request.getLocale().toLanguageTag())%>">
+<html>
     <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title><fmt:message key="messenger.CreateMessage.title"/></title>
