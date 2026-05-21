@@ -29,9 +29,14 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.nio.charset.Charset;
+import java.nio.charset.IllegalCharsetNameException;
 import java.nio.charset.StandardCharsets;
+import java.nio.charset.UnsupportedCharsetException;
 import java.util.ArrayList;
 import java.util.List;
+
+import org.apache.logging.log4j.Logger;
+import org.apache.struts2.ActionSupport;
 
 /**
  * Centralized response handling for stored HTML content that must remain
@@ -39,8 +44,6 @@ import java.util.List;
  *
  * <p>Callers must perform route-specific authorization and decide whether
  * rendering stored HTML is appropriate before using this class.</p>
- *
- * @since 2026-05-20
  */
 public final class HtmlResponse {
     /** Default HTML Content-Type used when callers have decoded HTML text but no stored content type. */
@@ -50,8 +53,61 @@ public final class HtmlResponse {
     private static final Charset DEFAULT_HTML_CHARSET = StandardCharsets.UTF_8;
     private static final String DEFAULT_HTML_CONTENT_TYPE = "text/html";
     private static final int BUFFER_SIZE = 4096;
+    private static final Logger LOGGER = MiscUtils.getLogger();
 
-    private HtmlResponse() {
+    private final String contentType;
+    private final String html;
+    private final byte[] htmlBytes;
+    private final InputStream htmlStream;
+
+    private HtmlResponse(String contentType, String html, byte[] htmlBytes, InputStream htmlStream) {
+        this.contentType = contentType;
+        this.html = html;
+        this.htmlBytes = htmlBytes;
+        this.htmlStream = htmlStream;
+    }
+
+    /**
+     * Creates an HTML response from a character string. A charset parameter in
+     * {@code contentType} controls how the string is encoded when written; absent
+     * or invalid charsets fall back to UTF-8. A {@code null} body writes no bytes.
+     *
+     * @param contentType response Content-Type header value, optionally with charset
+     * @param html HTML body characters; may be {@code null}
+     * @return immutable response value to write to an HTTP response
+     * @since 2026-05-21
+     */
+    public static HtmlResponse of(String contentType, String html) {
+        return new HtmlResponse(contentType, html, null, null);
+    }
+
+    /**
+     * Creates an HTML response from bytes. The byte array is retained by reference;
+     * callers should not mutate it after construction. A charset parameter in
+     * {@code contentType} is preserved for clients but the bytes are not transcoded.
+     *
+     * @param contentType response Content-Type header value, optionally with charset
+     * @param htmlBytes HTML body bytes; may be {@code null}
+     * @return immutable response value to write to an HTTP response
+     * @since 2026-05-21
+     */
+    public static HtmlResponse of(String contentType, byte[] htmlBytes) {
+        return new HtmlResponse(contentType, null, htmlBytes, null);
+    }
+
+    /**
+     * Creates an HTML response from a stream. The stream is consumed once during
+     * writing and is not closed by this value; callers remain responsible for the
+     * stream lifecycle. A charset parameter in {@code contentType} is preserved for
+     * clients but stream bytes are not transcoded.
+     *
+     * @param contentType response Content-Type header value, optionally with charset
+     * @param htmlStream HTML body stream; may be {@code null}
+     * @return response value to write once to an HTTP response
+     * @since 2026-05-21
+     */
+    public static HtmlResponse of(String contentType, InputStream htmlStream) {
+        return new HtmlResponse(contentType, null, null, htmlStream);
     }
 
     /**
@@ -70,10 +126,6 @@ public final class HtmlResponse {
         return resolveCharsetFromParameters(splitContentTypeParameters(contentType));
     }
 
-    /**
-     * Resolves the charset from already-parsed Content-Type parameters. See
-     * {@link #resolveCharset(String)} for fallback semantics.
-     */
     private static Charset resolveCharsetFromParameters(List<String> parameters) {
         for (String parameter : parameters) {
             int equals = parameter.indexOf('=');
@@ -87,12 +139,55 @@ public final class HtmlResponse {
             }
             try {
                 return Charset.forName(charsetName);
-            } catch (IllegalArgumentException e) {
+            } catch (IllegalCharsetNameException e) {
+                LOGGER.warn("Stored HTML declared malformed charset {}; falling back to UTF-8", LogSafe.sanitize(charsetName));
+                return DEFAULT_HTML_CHARSET;
+            } catch (UnsupportedCharsetException e) {
+                LOGGER.warn("Stored HTML declared unsupported charset {}; falling back to UTF-8", LogSafe.sanitize(charsetName));
                 return DEFAULT_HTML_CHARSET;
             }
         }
 
         return DEFAULT_HTML_CHARSET;
+    }
+
+    /**
+     * Writes this stored HTML response through the servlet writer and returns the
+     * Struts direct-response result.
+     *
+     * @param response servlet response to write to
+     * @return {@link ActionSupport#NONE}
+     * @throws IOException when response writing fails
+     */
+    @SuppressWarnings({"XSS_SERVLET", "findsecbugs:XSS_SERVLET"})
+    public String writeTo(HttpServletResponse response) throws IOException {
+        Charset charset = prepareHtmlResponse(response, contentType);
+        InputStream stream = bodyStream(charset);
+        if (stream == null) {
+            response.getWriter();
+            return ActionSupport.NONE;
+        }
+
+        char[] buffer = new char[BUFFER_SIZE];
+        PrintWriter writer = response.getWriter();
+        try (InputStreamReader reader = new InputStreamReader(new NonClosingInputStream(stream), charset)) {
+            int count;
+            while ((count = reader.read(buffer)) != -1) {
+                // nosemgrep: java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss, java.servlets.security.servletresponse-writer-xss-deepsemgrep.servletresponse-writer-xss-deepsemgrep, java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- intentional stored HTML rendering; callers must authorize routes before invoking
+                writer.write(buffer, 0, count);
+            }
+        }
+        return ActionSupport.NONE;
+    }
+
+    private InputStream bodyStream(Charset charset) {
+        if (html != null) {
+            return new ByteArrayInputStream(html.getBytes(charset));
+        }
+        if (htmlBytes != null) {
+            return new ByteArrayInputStream(htmlBytes);
+        }
+        return htmlStream;
     }
 
     /**
@@ -103,13 +198,9 @@ public final class HtmlResponse {
      * @param html stored HTML body
      * @throws IOException when response writing fails
      */
-    @SuppressWarnings({"XSS_SERVLET", "findsecbugs:XSS_SERVLET"})
     public static void writeStoredHtml(HttpServletResponse response, String contentType, String html)
             throws IOException {
-        prepareHtmlResponse(response, contentType);
-        PrintWriter writer = response.getWriter();
-        // nosemgrep: java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss, java.servlets.security.servletresponse-writer-xss-deepsemgrep.servletresponse-writer-xss-deepsemgrep, java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- intentional stored HTML rendering; callers must authorize routes before invoking
-        writer.write(html == null ? "" : html);
+        of(contentType, html == null ? "" : html).writeTo(response);
     }
 
     /**
@@ -123,14 +214,7 @@ public final class HtmlResponse {
      */
     public static void writeStoredHtml(HttpServletResponse response, String contentType, byte[] htmlBytes)
             throws IOException {
-        if (htmlBytes == null) {
-            prepareHtmlResponse(response, contentType);
-            // Preserve the writer-backed contract so LogoutBroadcastFilter can append
-            // logout listeners even when callers pass a null body.
-            response.getWriter();
-            return;
-        }
-        writeStoredHtml(response, contentType, new ByteArrayInputStream(htmlBytes));
+        of(contentType, htmlBytes).writeTo(response);
     }
 
     /**
@@ -142,35 +226,13 @@ public final class HtmlResponse {
      * @param htmlStream stored HTML byte stream; not closed by this method
      * @throws IOException when response writing fails
      */
-    @SuppressWarnings({"XSS_SERVLET", "findsecbugs:XSS_SERVLET"})
     public static void writeStoredHtml(HttpServletResponse response, String contentType, InputStream htmlStream)
             throws IOException {
-        Charset charset = prepareHtmlResponse(response, contentType);
-        if (htmlStream == null) {
-            // Preserve the writer-backed contract so LogoutBroadcastFilter can append
-            // logout listeners even when callers pass a null stream.
-            response.getWriter();
-            return;
-        }
-
-        char[] buffer = new char[BUFFER_SIZE];
-        PrintWriter writer = response.getWriter();
-        try (InputStreamReader reader = new InputStreamReader(new NonClosingInputStream(htmlStream), charset)) {
-            int count;
-            while ((count = reader.read(buffer)) != -1) {
-                // nosemgrep: java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss, java.servlets.security.servletresponse-writer-xss-deepsemgrep.servletresponse-writer-xss-deepsemgrep, java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- intentional stored HTML rendering; callers must authorize routes before invoking
-                writer.write(buffer, 0, count);
-            }
-        }
+        of(contentType, htmlStream).writeTo(response);
     }
 
     /**
      * Sets the HTML Content-Type header and returns the charset used to decode stored bytes.
-     *
-     * <p>Parses Content-Type parameters exactly once and reuses the parsed list to
-     * resolve the charset and to build the aligned response Content-Type header,
-     * avoiding the redundant parsing that previously occurred in
-     * {@code resolveCharset} and {@code contentTypeWithCharset}.</p>
      */
     private static Charset prepareHtmlResponse(HttpServletResponse response, String contentType) {
         String effectiveContentType = (contentType == null || contentType.isBlank())
@@ -183,9 +245,6 @@ public final class HtmlResponse {
         return charset;
     }
 
-    /**
-     * Removes matching outer quotes from an HTTP header parameter value and unescapes quoted text.
-     */
     private static String stripQuotes(String value) {
         if (value.length() >= 2
                 && ((value.startsWith("\"") && value.endsWith("\""))
@@ -224,9 +283,6 @@ public final class HtmlResponse {
         return alignedContentType.toString();
     }
 
-    /**
-     * Appends a normalized Content-Type parameter to the response header value.
-     */
     private static void appendContentTypeParameter(StringBuilder contentType, String parameter) {
         contentType.append(';').append(parameter);
     }
@@ -254,13 +310,11 @@ public final class HtmlResponse {
                 continue;
             }
             if (inQuote && c == '\\') {
-                // Preserve the escape marker until stripQuotes() unescapes the full quoted value.
                 current.append(c);
                 escaped = true;
                 continue;
             }
             if (c == '"' || c == '\'') {
-                // Track quoted parameter values so semicolons inside quotes do not split params.
                 if (!inQuote) {
                     inQuote = true;
                     quote = c;
@@ -272,7 +326,6 @@ public final class HtmlResponse {
                 continue;
             }
             if (c == ';' && !inQuote) {
-                // Only unquoted semicolons delimit Content-Type parameters.
                 addParameter(parameters, current);
                 continue;
             }
@@ -282,9 +335,6 @@ public final class HtmlResponse {
         return parameters;
     }
 
-    /**
-     * Adds the accumulated parameter and resets the buffer for the next parameter.
-     */
     private static void addParameter(List<String> parameters, StringBuilder current) {
         String parameter = current.toString().trim();
         if (!parameter.isEmpty()) {
@@ -293,9 +343,6 @@ public final class HtmlResponse {
         current.setLength(0);
     }
 
-    /**
-     * Unescapes backslash escapes inside a quoted HTTP header parameter value.
-     */
     private static String unescapeQuotedValue(String value) {
         StringBuilder unescaped = new StringBuilder(value.length());
         boolean escaped = false;
@@ -311,7 +358,6 @@ public final class HtmlResponse {
             }
         }
         if (escaped) {
-            // A dangling escape is malformed but preserving it avoids silently changing the value.
             unescaped.append('\\');
         }
         return unescaped.toString();

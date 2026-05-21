@@ -115,8 +115,11 @@ public class DisplayImage2Action extends ActionSupport {
             OutputStream outputStream = response.getOutputStream();
             IOUtils.copy(stream, outputStream);
             return NONE;
-        } catch (IOException e) {
+        } catch (IOException | IllegalStateException e) {
             MiscUtils.getLogger().error("Error streaming eform image to response", e);
+            if (!response.isCommitted()) {
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            }
             return NONE;
         }
     }
