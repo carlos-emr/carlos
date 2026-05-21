@@ -138,4 +138,18 @@ class GenerateOutFiles2ActionTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE);
         assertThat(response.getContentAsString()).isEmpty();
     }
+
+    @Test
+    @DisplayName("should reject malformed CSV when generating XLS")
+    void shouldRejectMalformedCsv_whenGeneratingXls() throws Exception {
+        request.setParameter("getXLS", "Export to XLS");
+        request.setParameter("csv", "\"unterminated");
+
+        String result = new GenerateOutFiles2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        assertThat(response.getHeader("Content-Disposition")).isNull();
+        assertThat(response.getContentAsString()).isEmpty();
+    }
 }

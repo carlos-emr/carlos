@@ -58,7 +58,7 @@ import org.apache.commons.csv.CSVPrinter;
 public class SQLReporter implements Reporter {
 
     /**
-     * Maximum number of characters ({@code String.length()}) of CSV data that may be
+     * Maximum number of UTF-8 bytes of CSV data that may be
      * carried forward to the export form. Prevents very large report results from
      * being retained in server-side or client-side request state.
      */
@@ -132,15 +132,7 @@ public class SQLReporter implements Reporter {
 
         String[] result = executeQuery(sql, sqlParams, false);
 
-        String csv = result[1];
-        if (csv != null) {
-            int csvBytes = csv.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
-            if (csvBytes > MAX_CSV_EXPORT_LENGTH) {
-                MiscUtils.getLogger().warn("generateReport: CSV result for template '{}' exceeds export size limit ({} bytes); not exposing CSV download", LogSanitizer.sanitize(templateId), csvBytes); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
-                request.setAttribute("errormsg", "Warning: Report result is too large to download as CSV. Please narrow your search criteria.");
-                csv = "";
-            }
-        }
+        String csv = enforceCsvExportLimit(request, "generateReport", templateId, result[1]);
 
         request.setAttribute("csv", csv);
         request.setAttribute("sql", sql);
@@ -176,7 +168,8 @@ public class SQLReporter implements Reporter {
                 }
                 Object[] sqlParams = extractParams(parameterizedResult);
                 String[] result = executeQuery(sql, sqlParams, true);
-                request.setAttribute("csv-" + x, result[1]);
+                String csv = enforceCsvExportLimit(request, "generateSequencedReport", templateId, result[1]);
+                request.setAttribute("csv-" + x, csv);
                 request.setAttribute("sql-" + x, sql);
                 request.setAttribute("resultsethtml-" + x, result[0]);
                 x++;
@@ -231,6 +224,19 @@ public class SQLReporter implements Reporter {
             MiscUtils.getLogger().error("Error", e);
         }
         return new String[]{rsHtml, csv};
+    }
+
+    private String enforceCsvExportLimit(HttpServletRequest request, String operation, String templateId, String csv) {
+        if (csv == null) {
+            return null;
+        }
+        int csvBytes = csv.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
+        if (csvBytes > MAX_CSV_EXPORT_LENGTH) {
+            MiscUtils.getLogger().warn("{}: CSV result for template '{}' exceeds export size limit ({} bytes); not exposing CSV download", operation, LogSanitizer.sanitize(templateId), csvBytes); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            request.setAttribute("errormsg", "Warning: Report result is too large to download as CSV. Please narrow your search criteria.");
+            return "";
+        }
+        return csv;
     }
 
     /** Extracts parameter values from a parameterized SQL result array (index 1..n). */

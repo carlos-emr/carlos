@@ -27,7 +27,9 @@ import java.util.Map;
 import io.github.carlos_emr.carlos.commn.dao.ReportTemplatesDao;
 import io.github.carlos_emr.carlos.commn.model.ReportTemplates;
 import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.carlos.report.data.RptResultStruct;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.util.UtilMisc;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -93,6 +95,49 @@ class SQLReporterSessionStorageTest extends CarlosUnitTestBase {
             verify(reportManagers.constructed().get(0)).getReportTemplateNoParam("1");
             verify(request).setAttribute("csv", "");
             verify(session, never()).setAttribute(eq("csv"), any());
+        }
+    }
+
+    @Test
+    @DisplayName("should suppress oversized sequenced CSV export payloads")
+    void shouldSuppressOversizedCsvExportPayloads_forSequencedReport() throws Exception {
+        ReportTemplatesDao reportTemplatesDao = mock(ReportTemplatesDao.class);
+        registerMock(ReportTemplatesDao.class, reportTemplatesDao);
+        ReportTemplates activeTemplate = new ReportTemplates();
+        activeTemplate.setActive(1);
+        when(reportTemplatesDao.find(1)).thenReturn(activeTemplate);
+
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        Map<String, String[]> parameters = Map.of();
+        when(request.getParameter("templateId")).thenReturn("1");
+        when(request.getParameterMap()).thenReturn(parameters);
+
+        ReportObjectGeneric report = mock(ReportObjectGeneric.class);
+        when(report.isSequence()).thenReturn(true);
+        when(report.getParameterizedSQL(0, parameters)).thenReturn(new String[]{"select 1"});
+        when(report.getParameterizedSQL(1, parameters)).thenReturn(null);
+
+        ResultSet resultSet = mock(ResultSet.class);
+        when(resultSet.isBeforeFirst()).thenReturn(true);
+
+        String oversizedCell = "a".repeat(SQLReporter.MAX_CSV_EXPORT_LENGTH + 1);
+        try (MockedConstruction<ReportManager> reportManagers = mockConstruction(ReportManager.class,
+                (mock, context) -> {
+                    when(mock.getReportTemplateNoParam("1")).thenReturn(report);
+                });
+             MockedStatic<DBHandler> dbHandler = mockStatic(DBHandler.class);
+             MockedStatic<RptResultStruct> resultStruct = mockStatic(RptResultStruct.class);
+             MockedStatic<UtilMisc> utilMisc = mockStatic(UtilMisc.class)) {
+            dbHandler.when(() -> DBHandler.GetPreSQL(eq("select 1"), any(Object[].class))).thenReturn(resultSet);
+            resultStruct.when(() -> RptResultStruct.getStructure2(resultSet)).thenReturn("<table></table>");
+            utilMisc.when(() -> UtilMisc.getArrayFromResultSet(resultSet)).thenReturn(new String[][]{{oversizedCell}});
+
+            boolean generated = new SQLReporter().generateReport(request);
+
+            assertThat(generated).isTrue();
+            verify(reportManagers.constructed().get(0)).getReportTemplateNoParam("1");
+            verify(request).setAttribute("csv-0", "");
+            verify(request).setAttribute("errormsg", "Warning: Report result is too large to download as CSV. Please narrow your search criteria.");
         }
     }
 }

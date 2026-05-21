@@ -95,8 +95,6 @@ public class GenerateOutFiles2Action extends ActionSupport {
                 return NONE;
             }
             MiscUtils.getLogger().debug("Generating Spread Sheet file for the 'report by template' module ..");
-            response.setContentType("application/octet-stream");
-            response.setHeader("Content-Disposition", "attachment; filename=\"oscarReport.xls\"");
 
             // Parse the POST'd CSV string into a 2-D array for POI cell population.
             String[][] data;
@@ -112,8 +110,12 @@ public class GenerateOutFiles2Action extends ActionSupport {
                 }
             } catch (IOException e) {
                 MiscUtils.getLogger().error("Error parsing CSV", e);
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                 return NONE;
             }
+
+            response.setContentType("application/octet-stream");
+            response.setHeader("Content-Disposition", "attachment; filename=\"oscarReport.xls\"");
 
             // HSSFWorkbook is Closeable; try-with-resources ensures the in-memory workbook
             // is released even if wb.write() throws.
