@@ -274,8 +274,7 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
         tempUploadFile = File.createTempFile("add-edit-document", ".pdf");
         Files.writeString(tempUploadFile.toPath(), "test");
 
-        action.setDocFile(tempUploadFile);
-        action.setDocFileFileName("echart-upload.pdf");
+        bindDocFileUpload(tempUploadFile, "echart-upload.pdf");
         action.setAppointmentNo("123");
 
         try (MockedStatic<AddEditDocument2Action> addEditDocumentActionMock = mockStatic(AddEditDocument2Action.class, CALLS_REAL_METHODS)) {
@@ -303,8 +302,7 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
         String originalDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", documentDir.toString());
 
-        action.setDocFile(tempUploadFile);
-        action.setDocFileFileName("echart-upload.pdf");
+        bindDocFileUpload(tempUploadFile, "echart-upload.pdf");
         action.setAppointmentNo("123");
 
         try (MockedStatic<AddEditDocument2Action> addEditDocumentActionMock = mockStatic(AddEditDocument2Action.class, CALLS_REAL_METHODS)) {
@@ -328,12 +326,12 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should not expose upload metadata setters as Struts parameters")
-    void shouldNotExposeUploadMetadataSetters_asStrutsParameters() throws Exception {
-        assertThat(AddEditDocument2Action.class.getMethod("setDocFile", File.class)
-                .isAnnotationPresent(StrutsParameter.class)).isFalse();
-        assertThat(AddEditDocument2Action.class.getMethod("setFiledata", File.class)
-                .isAnnotationPresent(StrutsParameter.class)).isFalse();
+    @DisplayName("should not expose direct upload file setters as Struts parameters")
+    void shouldNotExposeDirectUploadFileSetters_asStrutsParameters() throws Exception {
+        assertThatThrownBy(() -> AddEditDocument2Action.class.getMethod("setDocFile", File.class))
+                .isInstanceOf(NoSuchMethodException.class);
+        assertThatThrownBy(() -> AddEditDocument2Action.class.getMethod("setFiledata", File.class))
+                .isInstanceOf(NoSuchMethodException.class);
         assertThat(AddEditDocument2Action.class.getMethod("setDocFileFileName", String.class)
                 .isAnnotationPresent(StrutsParameter.class)).isFalse();
         assertThat(AddEditDocument2Action.class.getMethod("setDocFileContentType", String.class)
@@ -355,5 +353,15 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
         assertThat(result).isEqualTo("failAdd");
         Hashtable<String, String> errors = (Hashtable<String, String>) request.getAttribute("docerrors");
         assertThat(errors).containsEntry("uploaderror", "dms.error.uploadError");
+    }
+
+    private void bindDocFileUpload(File uploadFile, String originalName) {
+        UploadedFile uploadedFile = mock(UploadedFile.class);
+        when(uploadedFile.getInputName()).thenReturn("docFile");
+        when(uploadedFile.getContent()).thenReturn(uploadFile);
+        when(uploadedFile.getOriginalName()).thenReturn(originalName);
+        when(uploadedFile.getContentType()).thenReturn("application/pdf");
+
+        action.withUploadedFiles(List.of(uploadedFile));
     }
 }

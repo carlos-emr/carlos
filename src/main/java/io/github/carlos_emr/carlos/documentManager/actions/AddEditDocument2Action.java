@@ -814,10 +814,12 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
      * @return boolean true when the destination file exists, is a regular file, and matches the source size
      */
     private boolean isWrittenUploadComplete(File writtenFile, long expectedFileSize) {
-        return writtenFile != null
-                && writtenFile.exists()
-                && writtenFile.isFile()
-                && writtenFile.length() == expectedFileSize;
+        try {
+            Path writtenPath = resolveWrittenDocumentPath(writtenFile);
+            return Files.isRegularFile(writtenPath) && Files.size(writtenPath) == expectedFileSize;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     /**
@@ -831,12 +833,21 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         }
 
         try {
-            File documentDir = new File(CarlosProperties.getInstance().getDocumentDirectory());
-            File validatedWrittenFile = PathValidationUtils.validateExistingPath(writtenFile, documentDir);
-            Files.deleteIfExists(validatedWrittenFile.toPath()); // codeql[java/path-injection] -- validatedWrittenFile is constrained to DOCUMENT_DIR by PathValidationUtils.validateExistingPath
+            Path writtenPath = resolveWrittenDocumentPath(writtenFile);
+            Files.deleteIfExists(writtenPath); // codeql[java/path-injection] -- writtenPath is constrained to DOCUMENT_DIR by PathValidationUtils.validateExistingPath
         } catch (Exception e) {
             MiscUtils.getLogger().warn("Failed to delete incomplete uploaded document file");
         }
+    }
+
+    private Path resolveWrittenDocumentPath(File writtenFile) throws IOException {
+        if (writtenFile == null) {
+            throw new IOException("Written upload file is missing");
+        }
+
+        File documentDir = new File(CarlosProperties.getInstance().getDocumentDirectory());
+        File validatedWrittenFile = PathValidationUtils.validateExistingPath(writtenFile, documentDir);
+        return validatedWrittenFile.toPath().normalize().toAbsolutePath();
     }
 
     private boolean filled(String s) {
@@ -855,7 +866,6 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
     private String sourceFacility = "";
     private File docFile;
 
-    private File filedata;
 
     private String docPublic = "";
     private String mode = "";
@@ -969,10 +979,6 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return docFile;
     }
 
-    public void setDocFile(File docFile) {
-        this.docFile = docFile;
-    }
-
     public String getMode() {
         return mode;
     }
@@ -1043,14 +1049,6 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
     @StrutsParameter
     public void setHtml(String html) {
         this.html = html;
-    }
-
-    public File getFiledata() {
-        return filedata;
-    }
-
-    public void setFiledata(File Filedata) {
-        this.filedata = Filedata;
     }
 
     public String getAppointmentNo() {
