@@ -31,20 +31,24 @@
 
 package io.github.carlos_emr.carlos.commn.dao;
 
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
+import jakarta.persistence.PersistenceException;
 import jakarta.persistence.Query;
 
+import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.stereotype.Repository;
 
 @Repository
 public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarLogDao {
+
+    private static final Logger logger = MiscUtils.getLogger();
 
     public OscarLogDaoImpl() {
         super(OscarLog.class);
@@ -151,7 +155,7 @@ public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarL
 
     @Override
     public List<Integer> getDemographicIdsOpenedSinceTime(Date value) {
-        String sqlCommand = "select distinct demographicId from " + modelClass.getSimpleName() + " where dateTime >= ?1";
+        String sqlCommand = "select distinct x.demographicId from " + modelClass.getSimpleName() + " x where x.created >= ?1";
 
         Query query = entityManager.createQuery(sqlCommand);
         query.setParameter(1, value);
@@ -278,17 +282,16 @@ public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarL
             return mysqlFamilyCache;
         }
         try {
-            Boolean detected = entityManager.unwrap(org.hibernate.Session.class)
-                    .doReturningWork(connection -> {
-                        String product = connection.getMetaData().getDatabaseProductName();
-                        return product != null
-                                && (product.equalsIgnoreCase("MySQL") || product.equalsIgnoreCase("MariaDB"));
-                    });
-            mysqlFamilyCache = detected != null && detected;
-        } catch (Exception e) {
+            String product = entityManager.unwrap(org.hibernate.Session.class)
+                    .doReturningWork(connection -> connection.getMetaData().getDatabaseProductName());
+            mysqlFamilyCache = product != null
+                    && (product.equalsIgnoreCase("MySQL") || product.equalsIgnoreCase("MariaDB"));
+            return mysqlFamilyCache;
+        } catch (PersistenceException e) {
+            logger.warn("Unable to determine database product for OscarLog query selection; using portable log table", e);
             mysqlFamilyCache = false;
+            return mysqlFamilyCache;
         }
-        return mysqlFamilyCache;
     }
 
     /*
@@ -296,12 +299,10 @@ public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarL
      */
     @Override
     public int purgeLogEntries(Date maxDateToRemove) {
-        SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-
-        String sqlCommand = "delete from " + modelClass.getSimpleName() + " WHERE dateTime <= ?1";
+        String sqlCommand = "delete from " + modelClass.getSimpleName() + " WHERE created <= ?1";
 
         Query query = entityManager.createQuery(sqlCommand);
-        query.setParameter(1, formatter.format(maxDateToRemove));
+        query.setParameter(1, maxDateToRemove);
         int ret = query.executeUpdate();
 
         return ret;

@@ -52,6 +52,7 @@
 <fmt:message var="dtLanguageCode" key="global.i18n.datatablescode"/>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title><fmt:message key="billing.billingONHistory.title"/></title>
     <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
     <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css">

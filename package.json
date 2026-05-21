@@ -14,7 +14,8 @@
     "write-heading-ids": "docusaurus write-heading-ids",
     "test:login-playwright": "node scripts/login-playwright-checks.js",
     "test:echart-playwright": "node scripts/echart-playwright-checks.js",
-    "test:browser-surfaces-playwright": "node scripts/browser-surface-playwright-checks.js"
+    "test:browser-surfaces-playwright": "node scripts/browser-surface-playwright-checks.js",
+    "test:schedule-links-playwright": "node scripts/schedule-links-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

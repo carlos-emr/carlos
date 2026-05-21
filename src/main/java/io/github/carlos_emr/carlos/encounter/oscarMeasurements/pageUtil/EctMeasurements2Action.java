@@ -33,6 +33,7 @@ import org.apache.struts2.ActionSupport;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.logging.log4j.Logger;
 import org.owasp.encoder.Encode;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.validator.GenericValidator;
@@ -48,7 +49,9 @@ import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.commn.model.SecRole;
 import io.github.carlos_emr.carlos.commn.model.Validations;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
@@ -75,10 +78,23 @@ public class EctMeasurements2Action extends ActionSupport {
 
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
+    private static final Logger logger = MiscUtils.getLogger();
 
     public String execute() throws ServletException, IOException {
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            logger.warn("Rejected measurement submission request with method {} from {}",
+                    LogSafe.sanitize(String.valueOf(request.getMethod())),
+                    LogSafe.sanitize(String.valueOf(request.getRemoteAddr())));
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_measurement", "w",
                 null)) {
+            logger.warn("Denied measurement submission request with method {} from {}",
+                    LogSafe.sanitize(String.valueOf(request.getMethod())),
+                    LogSafe.sanitize(String.valueOf(request.getRemoteAddr())));
             throw new SecurityException("missing required sec object (_measurement)");
         }
 
@@ -91,7 +107,6 @@ public class EctMeasurements2Action extends ActionSupport {
 
         String demographicNo = request.getParameter("demographicNo");
         String providerNo = (String) session.getAttribute("user");
-        String prog_no = new EctProgram(session).getProgram(providerNo);
 
         String template = request.getParameter("template");
         MeasurementFlowSheet mFlowsheet = null;
@@ -295,7 +310,7 @@ public class EctMeasurements2Action extends ActionSupport {
                 response.setContentType("application/json");
                 response.setCharacterEncoding("UTF-8");
                 response.getWriter().write(obj.toString());
-                return null;
+                return NONE;
             }
 
             response.sendRedirect(request.getContextPath() + "/encounter/oscarMeasurements/ViewAddMeasurementData");
@@ -304,6 +319,7 @@ public class EctMeasurements2Action extends ActionSupport {
 
         if (valid && !skipCreateNote) {
             // create note
+            String prog_no = new EctProgram(session).getProgram(providerNo);
             CaseManagementManager cmm = (CaseManagementManager) SpringUtils.getBean(CaseManagementManager.class);
 
             SecRoleDao secRoleDao = (SecRoleDao) SpringUtils.getBean(SecRoleDao.class);
@@ -336,6 +352,7 @@ public class EctMeasurements2Action extends ActionSupport {
 
         } // create note
 
+        session.removeAttribute("textOnEncounter");
         if (ajax) {
             ObjectNode json = objectMapper.createObjectNode();
             json.put("encounterText", textOnEncounter);
@@ -344,7 +361,7 @@ public class EctMeasurements2Action extends ActionSupport {
             response.setCharacterEncoding("UTF-8");
 
             objectMapper.writeValue(response.getWriter(), json);
-            return null;
+            return NONE;
         } else {
             request.setAttribute("textOnEncounter", Encode.forJavaScript(textOnEncounter));
             return SUCCESS;
