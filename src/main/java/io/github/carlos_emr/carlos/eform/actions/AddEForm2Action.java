@@ -43,10 +43,12 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.match.IMatchManager;
 import io.github.carlos_emr.carlos.match.MatchManager;
 import io.github.carlos_emr.carlos.match.MatchManagerException;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.eform.data.EForm;
@@ -102,6 +104,13 @@ public class AddEForm2Action extends ActionSupport {
             return null;
         }
         return eformLink;
+    }
+
+    static String validateTemplateFileName(String rawFileName) {
+        if (rawFileName == null || rawFileName.isEmpty()) {
+            return rawFileName;
+        }
+        return PathValidationUtils.validateFileName(rawFileName);
     }
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -185,6 +194,17 @@ public class AddEForm2Action extends ActionSupport {
         curForm.setContextPath(request.getContextPath());
 		curForm.setRealPath(request.getServletContext().getRealPath(File.separator));
 		curForm.setImagePath(request.getContextPath());
+        String validatedTemplateFileName;
+        try {
+            validatedTemplateFileName = validateTemplateFileName(curForm.getFormFileName());
+        } catch (FileValidationException e) {
+            request.setAttribute("errorMessage", e.getMessage());
+            logger.warn("Rejected invalid eForm template filename");
+            return ERROR;
+        }
+        if (validatedTemplateFileName != null && !validatedTemplateFileName.isEmpty()) {
+            curForm.setFormFileName(validatedTemplateFileName);
+        }
 
         //add eform_link value from session attribute
         ArrayList<String> openerNames = curForm.getOpenerNames();
@@ -353,14 +373,6 @@ public class AddEForm2Action extends ActionSupport {
                 path = path.substring(0, path.indexOf(uri));
                 path += request.getContextPath();
 
-                String rawFileName = curForm.getFormFileName();
-                if (rawFileName != null && !rawFileName.isEmpty()) {
-                    String sanitized = MiscUtils.sanitizeFileName(rawFileName);
-                    if (sanitized.isEmpty() || ".".equals(sanitized) || "..".equals(sanitized)) {
-                        throw new IllegalArgumentException("eForm filename sanitization resulted in unusable filename");
-                    }
-                    curForm.setFormFileName(sanitized);
-                }
                 EFormUtil.writeEformTemplate(LoggedInInfo.getLoggedInInfoFromSession(request), paramNames, paramValues, curForm, fdid, program_no, path);
             }
 

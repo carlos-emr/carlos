@@ -36,6 +36,7 @@ import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -73,12 +74,12 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
 
             // Sanitize the filename and track if it changed
             String originalFileName = imageFileName;
-            imageFileName = MiscUtils.sanitizeFileName(imageFileName);
+            imageFileName = PathValidationUtils.validateFileName(imageFileName);
             boolean fileNameWasSanitized = !originalFileName.equals(imageFileName);
 
             // Validate that sanitized filename is not empty
             if (imageFileName == null || imageFileName.isEmpty()) {
-                MiscUtils.getLogger().warn("Image upload rejected: filename '{}' empty after sanitization", originalFileName);
+                MiscUtils.getLogger().warn("Image upload rejected: filename empty after sanitization");
                 addActionError("Invalid filename: filename cannot be empty after sanitization");
                 return ERROR;
             }
@@ -112,6 +113,10 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
             request.setAttribute("status", "uploaded");
             return SUCCESS;
 
+        } catch (FileValidationException e) {
+            MiscUtils.getLogger().warn("Rejected invalid image upload filename");
+            addActionError(e.getMessage());
+            return ERROR;
         } catch (SecurityException se) {
             MiscUtils.getLogger().warn("SecurityException during image upload: " + se.getMessage(), se);
             addActionError("Upload failed: invalid file or security policy violation");

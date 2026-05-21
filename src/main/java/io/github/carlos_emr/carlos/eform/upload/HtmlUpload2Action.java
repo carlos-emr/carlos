@@ -36,13 +36,12 @@ import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
-
-import org.apache.commons.io.FilenameUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -67,14 +66,22 @@ public class HtmlUpload2Action extends ActionSupport implements UploadedFilesAwa
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_eform", "w", null)) {
             throw new SecurityException("missing required sec object (_eform)");
         }
+        if (uploadValidationError != null) {
+            request.setAttribute("errorMessage", uploadValidationError);
+            return "fail";
+        }
         try {
             File validatedFormHtml = PathValidationUtils.validateUpload(formHtml);
+            formHtmlFileName = PathValidationUtils.validateFileName(formHtmlFileName);
             String formHtmlStr = new String(Files.readAllBytes(validatedFormHtml.toPath()));
             formHtmlStr = formHtmlStr.replaceAll("\\\\n", "\\\\\\\\n");
-            String fileName = formHtmlFileName != null ? formHtmlFileName : formHtml.getName();
-            EFormUtil.saveEForm(formName, subject, fileName, formHtmlStr, showLatestFormOnly, patientIndependent, roleType);
+            EFormUtil.saveEForm(formName, subject, formHtmlFileName, formHtmlStr, showLatestFormOnly, patientIndependent, roleType);
             request.setAttribute("status", "success");
             return SUCCESS;
+        } catch (FileValidationException e) {
+            request.setAttribute("errorMessage", e.getMessage());
+            MiscUtils.getLogger().warn("Rejected invalid eForm HTML filename");
+            return "fail";
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
             return "fail";
@@ -85,6 +92,7 @@ public class HtmlUpload2Action extends ActionSupport implements UploadedFilesAwa
     private File formHtml;
     private String formHtmlContentType;
     private String formHtmlFileName;
+    private String uploadValidationError;
     private String formName;
     private String subject;
     private boolean showLatestFormOnly;
@@ -102,14 +110,10 @@ public class HtmlUpload2Action extends ActionSupport implements UploadedFilesAwa
             this.formHtml = PathValidationUtils.validateUpload(new File(uploaded.getAbsolutePath()));
             this.formHtmlContentType = uploaded.getContentType();
             String rawName = uploaded.getOriginalName();
-            if (rawName != null) {
-                String sanitizedName = MiscUtils.sanitizeFileName(FilenameUtils.getName(rawName));
-                if (sanitizedName == null || sanitizedName.trim().isEmpty()) {
-                    this.formHtmlFileName = null;
-                } else {
-                    this.formHtmlFileName = sanitizedName;
-                }
-            } else {
+            try {
+                this.formHtmlFileName = PathValidationUtils.validateFileName(rawName);
+            } catch (FileValidationException e) {
+                this.uploadValidationError = e.getMessage();
                 this.formHtmlFileName = null;
             }
         }

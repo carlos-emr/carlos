@@ -46,6 +46,7 @@ import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.documentManager.IncomingDocUtil;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -142,9 +143,19 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                 }
 
             }
-        } else {
+        } else if (docFile != null) {
             int numberOfPages = 0;
-            String fileName = MiscUtils.sanitizeFileName(this.filedataFileName);
+            String fileName;
+            try {
+                fileName = PathValidationUtils.validateFileName(this.filedataFileName);
+            } catch (FileValidationException e) {
+                logger.warn("Rejected invalid document upload filename");
+                map.put("error", props.getString("dms.error.invalidFilename"));
+                docFile.delete();
+                docFile = null;
+                writeUploadResponse(map);
+                return null;
+            }
             String user = (String) request.getSession().getAttribute("user");
             SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
             EDoc newDoc = new EDoc("", "", fileName, "", user, user, this.getSource(), 'A',
@@ -210,6 +221,11 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                 docFile = null;
             }
         }
+        writeUploadResponse(map);
+        return null;
+    }
+
+    private void writeUploadResponse(HashMap<String, Object> map) throws IOException {
         ArrayNode jsonArray = objectMapper.createArrayNode();
         ObjectNode jsonObject = objectMapper.valueToTree(map);
         jsonArray.add(jsonObject);
@@ -218,7 +234,6 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
         response.setCharacterEncoding("UTF-8");
 
         objectMapper.writeValue(response.getOutputStream(), jsonArray);
-        return null;
     }
 
     /**

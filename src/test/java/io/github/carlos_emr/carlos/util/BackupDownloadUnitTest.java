@@ -90,6 +90,21 @@ class BackupDownloadUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should reject GET when filename is hidden")
+    void shouldRejectGet_whenFilenameIsHidden() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/servlet/BackupDownload");
+        request.addParameter("filename", ".env");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        RecordingBackupDownload servlet = new RecordingBackupDownload();
+
+        servlet.service(request, response);
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(servlet.downloadCalled).isFalse();
+        verify(securityInfoManager, never()).hasPrivilege(any(), any(), any(), any());
+    }
+
+    @Test
     @DisplayName("should reject GET when session is missing")
     void shouldRejectGet_whenSessionIsMissing() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/servlet/BackupDownload");

@@ -38,7 +38,9 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 public class OscarDownload extends GenericDownload {
     private static final Logger log = MiscUtils.getLogger();
@@ -51,7 +53,7 @@ public class OscarDownload extends GenericDownload {
         try {
             HttpSession session = req.getSession(true);
             String rawFilename = req.getParameter("filename");
-            String filename = rawFilename == null ? null : MiscUtils.sanitizeFileName(rawFilename);
+            String filename = rawFilename == null ? null : PathValidationUtils.validateFileName(rawFilename);
             String homepath = req.getParameter("homepath");
 
             if (filename == null || filename.isBlank()) {
@@ -81,6 +83,9 @@ public class OscarDownload extends GenericDownload {
             } else {
                 res.sendError(HttpServletResponse.SC_FORBIDDEN, "You have no right to download the file(s).");
             }
+        } catch (FileValidationException e) {
+            log.warn("OscarDownload rejected invalid filename from {}", req.getRemoteAddr());
+            res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid filename parameter.");
         } catch (IOException e) {
             throw e;
         } catch (Exception e) {
