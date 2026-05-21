@@ -65,7 +65,7 @@ public class HtmlTeleplanHelper {
         String dateStr = "";
         try {
             dateStr = new SimpleDateFormat("yyyyMMdd").format(new Date());
-        } catch (Exception e) {
+        } catch (Exception e) { /* ignored */
         }
         StringBuilder htmlContentHeader = new StringBuilder();
         htmlContentHeader.append("<tr> \n");
