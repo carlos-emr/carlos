@@ -426,9 +426,10 @@ return base + joiner + encodeURIComponent(key) + '=' + encodeURIComponent(value)
 }
 
 function openScheduleSection(url, popupAction, clickEvent) {
-// Only focused mode enters the schedule shell; tab mode intentionally keeps the legacy tab/popup flow.
+var usesScheduleShell = scheduleNavigationMode === 'focused' || scheduleNavigationMode === 'tab';
+var targetUrl = usesScheduleShell ? appendQueryParam(url, 'scheduleNav', '1') : url;
 if (scheduleNavigationMode === 'focused' && !(clickEvent && clickEvent.altKey)) {
-window.location.href = appendQueryParam(url, 'scheduleNav', '1');
+window.location.href = targetUrl;
 return false;
 }
 if (scheduleNavigationMode === 'focused' && clickEvent && clickEvent.altKey && typeof popupTab === 'function') {
@@ -437,7 +438,7 @@ popupTab(url);
 return false;
 }
 if (typeof popupAction === 'function') {
-popupAction(url);
+popupAction(targetUrl);
 }
 return false;
 }

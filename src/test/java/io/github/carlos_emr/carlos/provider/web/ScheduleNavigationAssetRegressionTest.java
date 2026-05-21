@@ -102,6 +102,7 @@ class ScheduleNavigationAssetRegressionTest {
         String viewMessage = Files.readString(VIEW_MESSAGE_JSP, StandardCharsets.UTF_8);
         String createMessage = Files.readString(CREATE_MESSAGE_JSP, StandardCharsets.UTF_8);
         String mainMenu = Files.readString(MAIN_MENU_JSP, StandardCharsets.UTF_8);
+        String scheduleScript = Files.readString(SCHEDULE_PAGE_SCRIPT, StandardCharsets.UTF_8);
         String topnavCss = Files.readString(TOPNAV_CSS, StandardCharsets.UTF_8);
 
         assertThat(documentReport)
@@ -130,6 +131,12 @@ class ScheduleNavigationAssetRegressionTest {
                 .contains("!window.popup.scheduleMenuFallback")
                 .contains("fallbackMenuPopup.scheduleMenuFallback = true;")
                 .contains("window.popup = fallbackMenuPopup;");
+        assertThat(scheduleScript)
+                .contains("var usesScheduleShell = scheduleNavigationMode === 'focused'"
+                        + " || scheduleNavigationMode === 'tab';")
+                .contains("var targetUrl = usesScheduleShell ? appendQueryParam(url, 'scheduleNav', '1')"
+                        + " : url;")
+                .contains("popupAction(targetUrl);");
     }
 
     /**
