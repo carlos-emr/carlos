@@ -1603,13 +1603,14 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.5.5</version>
                 <configuration>
-                    <!-- Keep the integration-heavy test suite serialized because several
-                         legacy tests still share fixed fixtures, filesystem paths, and
-                         Spring static state that are not safe across concurrent forks. -->
-                    <forkCount>1</forkCount>
+                    <!-- Each fork is a separate JVM with its own H2 mem:testdb instance,
+                         so forks are completely isolated and safe to run in parallel. -->
+                    <forkCount>4</forkCount>
                     <reuseForks>true</reuseForks>
-                    <!-- Keep classes sequential within the fork because Spring integration
-                         tests share application-context caches and fixed seed data. -->
+                    <!-- Run test classes in parallel within each fork. Tests that share
+                         static state or fixed external resources use @Isolated. -->
+                    <parallel>classes</parallel>
+                    <threadCount>2</threadCount>
                     <perCoreThreadCount>false</perCoreThreadCount>
                     <includes>
                         <include>**/test/**/*Test.java</include>

@@ -106,8 +106,8 @@ public class CdsClientFormDaoIntegrationTest extends CarlosTestBase {
     class FindByFacilityClient {
 
         @Test
-        @DisplayName("should return all forms for matching facility and client")
-        void shouldReturnAllForms_forMatchingFacilityAndClient() throws Exception {
+        @DisplayName("should return forms ordered by created descending for matching facility and client")
+        void shouldReturnFormsOrderedByCreatedDesc_forMatchingFacilityAndClient() throws Exception {
             int facilityId = 10102;
             int clientId = 10902;
 
@@ -129,10 +129,7 @@ public class CdsClientFormDaoIntegrationTest extends CarlosTestBase {
             List<CdsClientForm> result = dao.findByFacilityClient(facilityId, clientId);
             List<CdsClientForm> expectedResult = Arrays.asList(clientForm2, clientForm1);
 
-            assertThat(result).hasSameSizeAs(expectedResult);
-            for (int i = 0; i < expectedResult.size(); i++) {
-                assertThat(result.get(i)).isEqualTo(expectedResult.get(i));
-            }
+            assertThat(result).containsExactlyElementsOf(expectedResult);
         }
     }
 
@@ -183,10 +180,10 @@ public class CdsClientFormDaoIntegrationTest extends CarlosTestBase {
     }
 
     private void setCreated(CdsClientForm form, Date created) {
-        entityManager.flush();
-        entityManager.createNativeQuery("update CdsClientForm set created = ? where id = ?")
-                .setParameter(1, created)
-                .setParameter(2, form.getId())
+        hibernateTemplate.flush();
+        entityManager.createQuery("update CdsClientForm f set f.created = :created where f.id = :id")
+                .setParameter("created", created)
+                .setParameter("id", form.getId())
                 .executeUpdate();
         entityManager.clear();
     }
