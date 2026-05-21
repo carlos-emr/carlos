@@ -155,18 +155,18 @@ public final class WebappShutdownResources {
                     WebappShutdownResources.class.getClassLoader());
             cleanupThreadClass.getMethod("checkedShutdown").invoke(null);
         } catch (ClassNotFoundException | NoClassDefFoundError e) {
-            logger.debug("MySQL abandoned connection cleanup thread class is not available on the classpath", e);
+            logger.debug("Cleanup thread class {} is not available on the classpath", cleanupThreadClassName, e);
         } catch (InvocationTargetException e) {
             Throwable cause = e.getCause();
             if (cause instanceof IllegalStateException) {
-                logger.debug("MySQL abandoned connection cleanup thread was already stopped", cause);
+                logger.debug("Cleanup thread {} was already stopped", cleanupThreadClassName, cause);
                 return;
             }
-            logger.warn("Unable to stop MySQL abandoned connection cleanup thread", cause);
+            logger.warn("Unable to stop cleanup thread {}", cleanupThreadClassName, cause);
         } catch (IllegalStateException e) {
-            logger.debug("MySQL abandoned connection cleanup thread was already stopped", e);
+            logger.debug("Cleanup thread {} was already stopped", cleanupThreadClassName, e);
         } catch (ReflectiveOperationException | RuntimeException e) {
-            logger.warn("Unable to stop MySQL abandoned connection cleanup thread", e);
+            logger.warn("Unable to stop cleanup thread {}", cleanupThreadClassName, e);
         }
     }
 }
