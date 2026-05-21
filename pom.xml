@@ -93,7 +93,7 @@
         <!-- Apache CXF Version -->
         <cxf.version>4.1.5</cxf.version>
         <!-- Netty Version (for transitive dependency security fixes) -->
-        <netty.version>4.1.132.Final</netty.version>
+        <netty.version>4.1.133.Final</netty.version>
         <!-- Drools 10.x KIE API (upgraded from 7.74.1.Final for Jakarta EE compatibility) -->
         <drools.version>10.1.0</drools.version>
         <!-- Spring -->
@@ -264,16 +264,33 @@
             <!-- Override transitive org.hl7.fhir.core (6.5.27) from hapi-fhir-structures-dstu3.
                  Fixes: CVE-2024-45294, CVE-2024-51132, CVE-2024-52007 (all patched in 6.4.0),
                  CVE-2026-33180 HTTP auth credential leak in redirects (patched in 6.9.0),
-                 CVE-2026-34359 credential leak via URL prefix matching on redirect (patched in 6.9.4). -->
+                 CVE-2026-34359 credential leak via URL prefix matching on redirect (patched in 6.9.4),
+                 CVE-2026-42236 FHIRPath ReDoS in matches()/replaceMatches() (patched in 6.9.7). -->
             <dependency>
                 <groupId>ca.uhn.hapi.fhir</groupId>
                 <artifactId>org.hl7.fhir.utilities</artifactId>
-                <version>6.9.4</version>
+                <version>6.9.7</version>
             </dependency>
             <dependency>
                 <groupId>ca.uhn.hapi.fhir</groupId>
                 <artifactId>org.hl7.fhir.dstu3</artifactId>
-                <version>6.9.4</version>
+                <version>6.9.7</version>
+            </dependency>
+            <!-- Override transitive dependency versions for current security fixes. -->
+            <dependency>
+                <groupId>org.apache.neethi</groupId>
+                <artifactId>neethi</artifactId>
+                <version>3.2.2</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-configuration2</artifactId>
+                <version>2.15.0</version>
+            </dependency>
+            <dependency>
+                <groupId>io.opentelemetry</groupId>
+                <artifactId>opentelemetry-api</artifactId>
+                <version>1.62.0</version>
             </dependency>
             <!-- Override transitive Artemis 2.50.0 from cxf-services-wsn-core.
                  Security fix for missing authentication on critical functions (patched in 2.52.0);
@@ -1578,12 +1595,9 @@
                          so forks are completely isolated and safe to run in parallel. -->
                     <forkCount>4</forkCount>
                     <reuseForks>true</reuseForks>
-                    <!-- Run test classes in parallel within each fork.
-                         Safe because: integration tests use @Transactional @Rollback (each test
-                         gets its own transaction), and the few static-mock unit tests don't share
-                         Spring context with integration tests. -->
-                    <parallel>classes</parallel>
-                    <threadCount>2</threadCount>
+                    <!-- Keep classes sequential within each fork because Spring integration
+                         tests share application-context caches and fixed seed data. Forks
+                         still run independently with separate H2 mem:testdb instances. -->
                     <perCoreThreadCount>false</perCoreThreadCount>
                     <includes>
                         <include>**/test/**/*Test.java</include>

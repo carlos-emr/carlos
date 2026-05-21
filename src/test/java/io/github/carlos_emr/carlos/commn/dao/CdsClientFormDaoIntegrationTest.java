@@ -30,6 +30,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -70,27 +71,29 @@ public class CdsClientFormDaoIntegrationTest extends CarlosTestBase {
          * Ensures that the latest client form is returned.
          */
         @Test
-        @DisplayName("should return first persisted form as latest for facility and client")
+        @DisplayName("should return newest form for facility and client")
         void shouldReturnLatestForm_forFacilityAndClient() throws Exception {
-            int facilityId = 101;
-            int clientId = 109;
+            int facilityId = 10101;
+            int clientId = 10901;
 
             CdsClientForm clientForm1 = new CdsClientForm();
             EntityDataGenerator.generateTestDataForModelClass(clientForm1);
             clientForm1.setClientId(clientId);
             clientForm1.setFacilityId(facilityId);
+            ReflectionTestUtils.setField(clientForm1, "created", dfm.parse("20200101"));
 
             CdsClientForm clientForm2 = new CdsClientForm();
             EntityDataGenerator.generateTestDataForModelClass(clientForm2);
             clientForm2.setClientId(clientId);
             clientForm2.setFacilityId(facilityId);
+            ReflectionTestUtils.setField(clientForm2, "created", dfm.parse("20200102"));
 
             dao.persist(clientForm1);
             dao.persist(clientForm2);
             hibernateTemplate.flush();
 
             CdsClientForm result = dao.findLatestByFacilityClient(facilityId, clientId);
-            assertThat(result).isEqualTo(clientForm1);
+            assertThat(result).isEqualTo(clientForm2);
         }
     }
 
@@ -102,25 +105,27 @@ public class CdsClientFormDaoIntegrationTest extends CarlosTestBase {
         @Test
         @DisplayName("should return all forms for matching facility and client")
         void shouldReturnAllForms_forMatchingFacilityAndClient() throws Exception {
-            int facilityId = 101;
-            int clientId = 109;
+            int facilityId = 10102;
+            int clientId = 10902;
 
             CdsClientForm clientForm1 = new CdsClientForm();
             EntityDataGenerator.generateTestDataForModelClass(clientForm1);
             clientForm1.setClientId(clientId);
             clientForm1.setFacilityId(facilityId);
+            ReflectionTestUtils.setField(clientForm1, "created", dfm.parse("20200101"));
 
             CdsClientForm clientForm2 = new CdsClientForm();
             EntityDataGenerator.generateTestDataForModelClass(clientForm2);
             clientForm2.setClientId(clientId);
             clientForm2.setFacilityId(facilityId);
+            ReflectionTestUtils.setField(clientForm2, "created", dfm.parse("20200102"));
 
             dao.persist(clientForm1);
             dao.persist(clientForm2);
             hibernateTemplate.flush();
 
             List<CdsClientForm> result = dao.findByFacilityClient(facilityId, clientId);
-            List<CdsClientForm> expectedResult = Arrays.asList(clientForm1, clientForm2);
+            List<CdsClientForm> expectedResult = Arrays.asList(clientForm2, clientForm1);
 
             assertThat(result).hasSameSizeAs(expectedResult);
             for (int i = 0; i < expectedResult.size(); i++) {
@@ -137,8 +142,8 @@ public class CdsClientFormDaoIntegrationTest extends CarlosTestBase {
         @Test
         @DisplayName("should return only signed forms within date range")
         void shouldReturnOnlySignedForms_withinDateRange() throws Exception {
-            int facilityId = 101;
-            String formVersion = "1.1.0";
+            int facilityId = 10103;
+            String formVersion = "1.1.0-test";
             Date startDate = new Date(dfm.parse("20090101").getTime());
             Date endDate = new Date(dfm.parse("21001231").getTime());
 
