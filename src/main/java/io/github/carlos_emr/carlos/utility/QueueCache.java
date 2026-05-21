@@ -104,6 +104,9 @@ public final class QueueCache<K, V> {
     }
 
     public QueueCache(int pools, int objectsToCache, QueueCacheValueCloner<V> cloner) {
+        if (pools <= 0) {
+            throw new IllegalArgumentException("pools must be greater than 0");
+        }
         this.cloner = null;
         this.cloner = cloner;
         this.data = new HashMap[pools];

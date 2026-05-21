@@ -99,7 +99,7 @@ async function assertLoggedOutPage(page, label) {
   const html = await page.content();
   const looksLoggedOut = /\/index|\/logout|login/i.test(url)
     || /username|password|logged out|session expired|you have been logged out/i.test(bodyText + html);
-  assert(looksLoggedOut, `${label} did not look logged out; url=${url}; body=${bodyText.slice(0, 300)}`);
+  assert(looksLoggedOut, `${label} did not look logged out; url=${url}; path=${new URL(url).pathname}; bodyLength=${bodyText.length}`);
   assert(!/provider\/(providercontrol|ViewAppointmentAdminDay)/i.test(url), `${label} stayed on authenticated URL ${url}`);
 }
 

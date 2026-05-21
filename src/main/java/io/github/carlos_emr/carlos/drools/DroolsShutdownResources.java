@@ -32,7 +32,12 @@ import org.kie.internal.concurrent.ExecutorProviderFactory;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-/** Releases Drools compiler resources that retain the webapp class loader. */
+/**
+ * Releases Drools process-wide compiler resources that can otherwise retain the
+ * CARLOS webapp class loader across Tomcat redeploys.
+ *
+ * @since 2026-05-21
+ */
 public final class DroolsShutdownResources {
 
     private static final Logger logger = MiscUtils.getLogger();
@@ -41,11 +46,27 @@ public final class DroolsShutdownResources {
     private DroolsShutdownResources() {
     }
 
+    /**
+     * Clears cached Drools rule bases and shuts down Drools executor singletons.
+     * Cache clearing is best-effort: executor shutdown is still attempted if the
+     * cache flush fails.
+     *
+     * @return number of queued Drools tasks dropped during forced executor shutdown
+     * @since 2026-05-21
+     */
     public static int shutdownExecutors() {
-        RuleBaseFactory.flushAllCached();
+        flushRuleBaseCache();
         int dropped = shutdownCompilerPool();
         dropped += shutdownKieExecutor();
         return dropped;
+    }
+
+    static void flushRuleBaseCache() {
+        try {
+            RuleBaseFactory.flushAllCached();
+        } catch (Throwable t) {
+            logger.warn("Unable to flush Drools rule base cache during shutdown", t);
+        }
     }
 
     // Drools owns this process-wide singleton; shutdown plus bounded await is the safe cleanup contract.

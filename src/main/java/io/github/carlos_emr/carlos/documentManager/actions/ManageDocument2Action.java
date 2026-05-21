@@ -789,6 +789,9 @@ public class ManageDocument2Action extends ActionSupport {
      * @param pageNum int the 1-based page number to render
      */
     public void getPage(int pageNum) {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "r", null)) {
+            throw new SecurityException("missing required sec object (_edoc)");
+        }
 
         String doc_no = request.getParameter("doc_no");
         log.debug("Document No :{}", LogSafe.sanitize(doc_no));

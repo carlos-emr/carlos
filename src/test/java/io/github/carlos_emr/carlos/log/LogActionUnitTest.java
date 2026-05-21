@@ -27,6 +27,7 @@ class LogActionUnitTest {
     }
 
     @Test
+    @Tag("create")
     void shouldPersistSynchronously_whenExecutorRejectsAuditTask() {
         OscarLogDao oscarLogDao = mock(OscarLogDao.class);
         LogAction.setOscarLogDaoForTesting(oscarLogDao);
@@ -42,6 +43,7 @@ class LogActionUnitTest {
     }
 
     @Test
+    @Tag("delete")
     void shouldShutdownExecutor_whenAlreadyTerminated() {
         ControllableExecutorService executor = new ControllableExecutorService(true, List.of());
         LogAction.setExecutorServiceForTesting(executor);
@@ -53,6 +55,7 @@ class LogActionUnitTest {
     }
 
     @Test
+    @Tag("delete")
     void shouldCallShutdownNow_whenAwaitTerminationTimesOut() {
         Runnable droppedTask = () -> { };
         ControllableExecutorService executor = new ControllableExecutorService(false, List.of(droppedTask));
@@ -65,6 +68,7 @@ class LogActionUnitTest {
     }
 
     @Test
+    @Tag("delete")
     void shouldCallShutdownNowAndRestoreInterrupt_whenAwaitTerminationIsInterrupted() {
         ControllableExecutorService executor = new ControllableExecutorService(false, List.of(), true);
         LogAction.setExecutorServiceForTesting(executor);

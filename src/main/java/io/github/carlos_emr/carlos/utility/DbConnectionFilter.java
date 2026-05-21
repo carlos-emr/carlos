@@ -33,6 +33,7 @@ import java.sql.SQLException;
 import java.util.Collections;
 import java.util.Set;
 import java.util.WeakHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.FilterConfig;
@@ -48,7 +49,9 @@ import io.github.carlos_emr.carlos.util.SqlUtils;
 public class DbConnectionFilter implements jakarta.servlet.Filter {
     private static final Logger logger = MiscUtils.getLogger();
 
-    private static ThreadLocal<Connection> dbConnection = new ThreadLocal<Connection>();
+    private static ThreadLocal<AtomicReference<Connection>> dbConnection = new ThreadLocal<AtomicReference<Connection>>();
+    private static final Set<AtomicReference<Connection>> trackedConnectionHolders = Collections.synchronizedSet(
+            Collections.newSetFromMap(new WeakHashMap<AtomicReference<Connection>, Boolean>()));
     private static final Set<Connection> trackedConnections = Collections.synchronizedSet(
             Collections.newSetFromMap(new WeakHashMap<Connection, Boolean>()));
 
@@ -61,13 +64,20 @@ public class DbConnectionFilter implements jakarta.servlet.Filter {
      */
     @Deprecated(forRemoval = true)
     public static Connection getThreadLocalDbConnection() throws SQLException {
-        Connection c = dbConnection.get();
+        AtomicReference<Connection> holder = dbConnection.get();
+        if (holder == null) {
+            holder = new AtomicReference<Connection>();
+            dbConnection.set(holder);
+            trackedConnectionHolders.add(holder);
+        }
+
+        Connection c = holder.get();
         if (c == null || c.isClosed()) {
             if (c != null) {
                 trackedConnections.remove(c);
             }
             c = getDbConnection();
-            dbConnection.set(c);
+            holder.set(c);
             trackedConnections.add(c);
         }
 
@@ -90,15 +100,20 @@ public class DbConnectionFilter implements jakarta.servlet.Filter {
     }
 
     public static void releaseThreadLocalDbConnection() {
+        AtomicReference<Connection> holder = dbConnection.get();
         try {
-            Connection c = dbConnection.get();
+            Connection c = holder == null ? null : holder.getAndSet(null);
             SqlUtils.closeResources(c, null, null);
             if (c != null) {
                 trackedConnections.remove(c);
             }
-            dbConnection.remove();
         } catch (Exception e) {
             logger.error("Error closing db connection.", e);
+        } finally {
+            if (holder != null) {
+                trackedConnectionHolders.remove(holder);
+            }
+            dbConnection.remove();
         }
     }
 
@@ -107,8 +122,32 @@ public class DbConnectionFilter implements jakarta.servlet.Filter {
         OscarTrackingBasicDataSource.releaseThreadConnections();
     }
 
+    /**
+     * Releases all JDBC resources known to the legacy thread-local connection
+     * tracker. This shutdown-only API first clears the current thread's resources,
+     * then closes and removes every tracked raw connection. It is idempotent and
+     * must not be used during normal request handling.
+     *
+     * @since 2026-05-21
+     */
     public static void releaseAllKnownDbResources() {
         releaseAllThreadDbResources();
+        AtomicReference<Connection>[] holders;
+        synchronized (trackedConnectionHolders) {
+            holders = trackedConnectionHolders.toArray(new AtomicReference[0]);
+        }
+        for (AtomicReference<Connection> holder : holders) {
+            Connection c = holder.getAndSet(null);
+            try {
+                SqlUtils.closeResources(c, null, null);
+            } finally {
+                if (c != null) {
+                    trackedConnections.remove(c);
+                }
+                trackedConnectionHolders.remove(holder);
+            }
+        }
+
         Connection[] connections;
         synchronized (trackedConnections) {
             connections = trackedConnections.toArray(new Connection[0]);

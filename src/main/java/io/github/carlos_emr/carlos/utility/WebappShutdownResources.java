@@ -95,26 +95,68 @@ public final class WebappShutdownResources {
         int run() throws Throwable;
     }
 
+    /**
+     * Ordered shutdown phases executed for a stopping CARLOS webapp.
+     *
+     * @since 2026-05-21
+     */
     public enum ShutdownStep {
+        /** Release legacy raw JDBC thread-local resources. */
         DB_THREAD_RESOURCES,
+        /** Clear tracked datasource diagnostic and connection state. */
         TRACKING_DATA_SOURCE,
+        /** Stop the asynchronous audit-log executor. */
         LOG_ACTION_EXECUTOR,
+        /** Stop Drools compiler and KIE executor resources. */
         DROOLS_EXECUTORS,
+        /** Cancel the QueueCache shared timer. */
         QUEUE_CACHE_TIMER,
+        /** Stop MySQL Connector/J's abandoned cleanup thread. */
         MYSQL_CLEANUP_THREAD,
+        /** Deregister JDBC drivers owned by the webapp class loader. */
         JDBC_DRIVERS
     }
 
+    /**
+     * Result of one shutdown phase.
+     *
+     * @param step phase that was executed
+     * @param successful whether the phase completed without throwing
+     * @param count phase-specific count, such as dropped tasks or deregistered drivers
+     * @param failure thrown failure when {@code successful} is false; otherwise {@code null}
+     * @since 2026-05-21
+     */
     public record ShutdownStepResult(ShutdownStep step, boolean successful, int count, Throwable failure) {
+        /**
+         * Creates a successful step result.
+         *
+         * @param step completed phase
+         * @param count phase-specific count
+         * @return successful result
+         * @since 2026-05-21
+         */
         static ShutdownStepResult success(ShutdownStep step, int count) {
             return new ShutdownStepResult(step, true, count, null);
         }
 
+        /**
+         * Creates a failed step result.
+         *
+         * @param step failed phase
+         * @param failure throwable raised by the phase
+         * @return failed result containing the captured {@link Throwable}
+         * @since 2026-05-21
+         */
         static ShutdownStepResult failure(ShutdownStep step, Throwable failure) {
             return new ShutdownStepResult(step, false, 0, failure);
         }
     }
 
+    /**
+     * Immutable report for all shutdown phases executed by {@link #releaseForContext(ClassLoader)}.
+     *
+     * @since 2026-05-21
+     */
     public static final class ShutdownReport {
         private final List<ShutdownStepResult> results;
 
@@ -122,18 +164,34 @@ public final class WebappShutdownResources {
             this.results = List.copyOf(results);
         }
 
+        /**
+         * @return ordered per-phase results
+         * @since 2026-05-21
+         */
         public List<ShutdownStepResult> results() {
             return results;
         }
 
+        /**
+         * @return true when every shutdown phase succeeded
+         * @since 2026-05-21
+         */
         public boolean successful() {
             return results.stream().allMatch(ShutdownStepResult::successful);
         }
 
+        /**
+         * @return number of shutdown phases that captured a failure; non-zero when one or more phases captured a {@link Throwable}
+         * @since 2026-05-21
+         */
         public long failureCount() {
             return results.stream().filter(result -> !result.successful()).count();
         }
 
+        /**
+         * @return number of JDBC drivers deregistered by the JDBC driver phase
+         * @since 2026-05-21
+         */
         public int deregisteredDriverCount() {
             return results.stream()
                     .filter(result -> result.step() == ShutdownStep.JDBC_DRIVERS)

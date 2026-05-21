@@ -67,14 +67,45 @@ public final class HtmlResponse {
         this.htmlStream = htmlStream;
     }
 
+    /**
+     * Creates an HTML response from a character string. A charset parameter in
+     * {@code contentType} controls how the string is encoded when written; absent
+     * or invalid charsets fall back to UTF-8. A {@code null} body writes no bytes.
+     *
+     * @param contentType response Content-Type header value, optionally with charset
+     * @param html HTML body characters; may be {@code null}
+     * @return immutable response value to write to an HTTP response
+     * @since 2026-05-21
+     */
     public static HtmlResponse of(String contentType, String html) {
         return new HtmlResponse(contentType, html, null, null);
     }
 
+    /**
+     * Creates an HTML response from bytes. The byte array is retained by reference;
+     * callers should not mutate it after construction. A charset parameter in
+     * {@code contentType} is preserved for clients but the bytes are not transcoded.
+     *
+     * @param contentType response Content-Type header value, optionally with charset
+     * @param htmlBytes HTML body bytes; may be {@code null}
+     * @return immutable response value to write to an HTTP response
+     * @since 2026-05-21
+     */
     public static HtmlResponse of(String contentType, byte[] htmlBytes) {
         return new HtmlResponse(contentType, null, htmlBytes, null);
     }
 
+    /**
+     * Creates an HTML response from a stream. The stream is consumed once during
+     * writing and is not closed by this value; callers remain responsible for the
+     * stream lifecycle. A charset parameter in {@code contentType} is preserved for
+     * clients but stream bytes are not transcoded.
+     *
+     * @param contentType response Content-Type header value, optionally with charset
+     * @param htmlStream HTML body stream; may be {@code null}
+     * @return response value to write once to an HTTP response
+     * @since 2026-05-21
+     */
     public static HtmlResponse of(String contentType, InputStream htmlStream) {
         return new HtmlResponse(contentType, null, null, htmlStream);
     }

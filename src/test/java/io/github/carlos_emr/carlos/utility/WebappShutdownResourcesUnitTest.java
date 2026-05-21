@@ -82,9 +82,13 @@ public class WebappShutdownResourcesUnitTest {
                     deregisterDriver.invoke(null, driver);
                 }
                 java.util.List<Driver> currentDrivers = Collections.list(DriverManager.getDrivers());
-                for (Driver existingDriver : existingDrivers) {
-                    if (!currentDrivers.contains(existingDriver)) {
-                        DriverManager.registerDriver(existingDriver);
+                try {
+                    assertThat(currentDrivers).containsAll(existingDrivers);
+                } finally {
+                    for (Driver existingDriver : existingDrivers) {
+                        if (!currentDrivers.contains(existingDriver)) {
+                            DriverManager.registerDriver(existingDriver);
+                        }
                     }
                 }
             }
@@ -119,9 +123,13 @@ public class WebappShutdownResourcesUnitTest {
                     deregisterDriver.invoke(null, driver);
                 }
                 java.util.List<Driver> currentDrivers = Collections.list(DriverManager.getDrivers());
-                for (Driver existingDriver : existingDrivers) {
-                    if (!currentDrivers.contains(existingDriver)) {
-                        DriverManager.registerDriver(existingDriver);
+                try {
+                    assertThat(currentDrivers).containsAll(existingDrivers);
+                } finally {
+                    for (Driver existingDriver : existingDrivers) {
+                        if (!currentDrivers.contains(existingDriver)) {
+                            DriverManager.registerDriver(existingDriver);
+                        }
                     }
                 }
             }
@@ -166,9 +174,13 @@ public class WebappShutdownResourcesUnitTest {
                     deregisterParentDriver.invoke(null, parentDriver);
                 }
                 java.util.List<Driver> currentDrivers = Collections.list(DriverManager.getDrivers());
-                for (Driver existingDriver : existingDrivers) {
-                    if (!currentDrivers.contains(existingDriver)) {
-                        DriverManager.registerDriver(existingDriver);
+                try {
+                    assertThat(currentDrivers).containsAll(existingDrivers);
+                } finally {
+                    for (Driver existingDriver : existingDrivers) {
+                        if (!currentDrivers.contains(existingDriver)) {
+                            DriverManager.registerDriver(existingDriver);
+                        }
                     }
                 }
             }

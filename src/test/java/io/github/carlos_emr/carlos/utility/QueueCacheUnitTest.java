@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.utility;
 
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -28,13 +29,14 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Unit tests for {@link QueueCache} lifecycle behavior.
  */
 @Tag("unit")
 @DisplayName("QueueCache")
-class QueueCacheUnitTest {
+class QueueCacheUnitTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void setUp() {
@@ -47,6 +49,8 @@ class QueueCacheUnitTest {
     }
 
     @Test
+    @Tag("unit")
+    @Tag("delete")
     void shouldCancelSharedTimer_whenShutdownInvoked() {
         new QueueCache<String, String>(2, 10, 1_000L, null);
 
@@ -58,6 +62,8 @@ class QueueCacheUnitTest {
     }
 
     @Test
+    @Tag("unit")
+    @Tag("create")
     void shouldSkipSharedTimerScheduling_afterShutdown() {
         QueueCache.shutdownSharedTimer();
 
@@ -67,6 +73,8 @@ class QueueCacheUnitTest {
     }
 
     @Test
+    @Tag("unit")
+    @Tag("delete")
     void shouldBeIdempotent_whenShutdownInvokedTwice() {
         new QueueCache<String, String>(2, 10, 1_000L, null);
 
@@ -77,9 +85,21 @@ class QueueCacheUnitTest {
     }
 
     @Test
+    @Tag("unit")
+    @Tag("update")
     void shouldClampShiftPeriodToOne_whenMaxTimeToCacheIsLessThanPools() {
         new QueueCache<String, String>(5, 10, 1L, null);
 
         assertThat(QueueCache.isSharedTimerInitialized()).isTrue();
     }
+
+    @Test
+    @Tag("unit")
+    @Tag("create")
+    void shouldRejectInvalidPoolCount_whenConstructingCache() {
+        assertThatThrownBy(() -> new QueueCache<String, String>(0, 10, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("pools must be greater than 0");
+    }
+
 }

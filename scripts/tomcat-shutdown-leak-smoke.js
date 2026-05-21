@@ -20,15 +20,15 @@ const startupTimeoutMs = Number(process.env.STARTUP_TIMEOUT_MS || 120000);
 const shutdownTimeoutMs = Number(process.env.SHUTDOWN_TIMEOUT_MS || 60000);
 
 const leakPatterns = [
-  /LogAction\.executorService/i,
-  /QueueCache/i,
-  /mysql-cj-abandoned-connection-cleanup/i,
-  /AbandonedConnectionCleanupThread/i,
-  /registered the JDBC driver/i,
-  /ForkJoinPool-\d+-worker/i,
-  /drools-worker/i,
-  /com\.github\.javaparser\.ParserConfiguration/i,
-  /StaticJavaParser/i,
+  /clearReferencesThreads[^\n]+LogAction\.executorService/,
+  /clearReferencesThreads[^\n]+\bQueueCache\b/,
+  /clearReferencesThreads[^\n]+mysql-cj-abandoned-connection-cleanup/,
+  /clearReferencesThreads[^\n]+AbandonedConnectionCleanupThread/,
+  /clearReferencesJdbc[^\n]+registered the JDBC driver/,
+  /clearReferencesThreads[^\n]+ForkJoinPool-\d+-worker/,
+  /clearReferencesThreads[^\n]+drools-worker-\d+/,
+  /clearReferencesThreadLocals[^\n]+com\.github\.javaparser\.ParserConfiguration/,
+  /clearReferencesThreadLocals[^\n]+StaticJavaParser/,
 ];
 
 function wait(ms) {

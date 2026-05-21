@@ -1,5 +1,6 @@
 package io.github.carlos_emr.carlos.login;
 
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.WebappShutdownResources;
 import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletContextEvent;
@@ -15,9 +16,10 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 
 @Tag("unit")
-class StartupUnitTest {
+class StartupUnitTest extends CarlosUnitTestBase {
 
     @Test
+    @Tag("delete")
     void shouldUseThreadContextClassLoader_whenDestroyedWithNullEvent() throws Exception {
         ClassLoader original = Thread.currentThread().getContextClassLoader();
         ClassLoader fallback = new ClassLoader(original) {
@@ -37,6 +39,7 @@ class StartupUnitTest {
     }
 
     @Test
+    @Tag("delete")
     void shouldUseThreadContextClassLoader_whenServletContextIsNull() throws Exception {
         ClassLoader original = Thread.currentThread().getContextClassLoader();
         ClassLoader fallback = new ClassLoader(original) {
@@ -57,6 +60,7 @@ class StartupUnitTest {
     }
 
     @Test
+    @Tag("delete")
     void shouldUseServletContextClassLoader_whenAvailable() throws Exception {
         ClassLoader webappClassLoader = new ClassLoader(getClass().getClassLoader()) {
         };

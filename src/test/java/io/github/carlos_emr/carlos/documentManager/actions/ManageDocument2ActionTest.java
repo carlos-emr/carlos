@@ -122,6 +122,18 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldReturnNoneAndSendForbidden_whenShowPageDeniesAuthorization() {
+        request.setParameter("method", "showPage");
+        request.setParameter("page", "1");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+        assertThat(action.getActionErrors()).isEmpty();
+    }
+
+    @Test
     void shouldSanitizeFilename_whenBuildingContentDispositionHeader() throws Exception {
         Method sanitize = ManageDocument2Action.class.getDeclaredMethod("sanitizeHeaderValue", String.class);
         sanitize.setAccessible(true);

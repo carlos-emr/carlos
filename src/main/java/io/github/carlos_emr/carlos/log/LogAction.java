@@ -85,6 +85,13 @@ public class LogAction {
         return localDao;
     }
 
+    /**
+     * Gracefully shuts down the shared audit-log executor during webapp shutdown.
+     * Waits up to the configured timeout, logs any queued tasks dropped by
+     * {@code shutdownNow()}, and restores the interrupt flag if interrupted.
+     *
+     * @since 2026-05-21
+     */
     public static void shutdownExecutorService() {
         executorService.shutdown();
         try {
