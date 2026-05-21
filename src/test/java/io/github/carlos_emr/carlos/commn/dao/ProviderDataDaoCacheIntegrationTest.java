@@ -78,7 +78,6 @@ class ProviderDataDaoCacheIntegrationTest extends CarlosTestBase {
     void setUpTransactionsAndCaches() {
         transactionTemplate = new TransactionTemplate(transactionManager);
         transactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-        String nanoStr = String.valueOf(System.nanoTime());
         uniquePrefix = "T" + Long.toString(System.nanoTime(), 36);
         uniquePrefix = uniquePrefix.substring(Math.max(0, uniquePrefix.length() - 4));
         clearProviderCaches();
