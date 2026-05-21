@@ -45,6 +45,7 @@
 
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
 
         <jsp:include page="head-includes.jsp"/>
 

@@ -59,6 +59,7 @@
 %>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title><fmt:message key="report.appointmentReceipt.title"/></title>
     </head>
     <body>

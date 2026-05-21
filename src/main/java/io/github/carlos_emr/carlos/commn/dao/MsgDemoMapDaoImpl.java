@@ -70,7 +70,7 @@ public class MsgDemoMapDaoImpl extends AbstractDaoImpl<MsgDemoMap> implements Ms
     @SuppressWarnings("unchecked")
     @Override
     public List<Object[]> getMessagesAndDemographicsByMessageId(Integer messageId) {
-        String sql = "SELECT m, d FROM MsgDemoMap m, Demographic d WHERE m.messageID = :msgId AND d.DemographicNo = m.demographic_no ORDER BY d.LastName, d.FirstName";
+        String sql = "SELECT m, d FROM MsgDemoMap m, Demographic d WHERE m.messageID = :msgId AND d.demographicNo = m.demographic_no ORDER BY d.lastName, d.firstName";
         Query query = entityManager.createQuery(sql);
         query.setParameter("msgId", messageId);
         return query.getResultList();

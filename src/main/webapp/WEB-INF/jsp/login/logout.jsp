@@ -48,6 +48,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <!DOCTYPE html>
 <html><head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
 <meta http-equiv="refresh" content="1;url=logout">
 <style>
 body{margin:0;display:flex;align-items:center;justify-content:center;

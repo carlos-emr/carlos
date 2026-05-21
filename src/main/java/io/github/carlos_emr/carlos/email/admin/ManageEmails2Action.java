@@ -155,8 +155,14 @@ public class ManageEmails2Action extends ActionSupport {
             demographic_no = null;
         }
 
-        List<EmailStatusResult> emailStatusResults = emailManager.getEmailStatusByDateDemographicSenderStatus(loggedInInfo, dateBeginStr, dateEndStr, demographic_no, senderEmailAddress, emailStatus);
-        request.setAttribute("emailStatusResults", emailStatusResults);
+        try {
+            List<EmailStatusResult> emailStatusResults = emailManager.getEmailStatusByDateDemographicSenderStatus(loggedInInfo, dateBeginStr, dateEndStr, demographic_no, senderEmailAddress, emailStatus);
+            request.setAttribute("emailStatusResults", emailStatusResults);
+        } catch (IllegalArgumentException e) {
+            logger.warn("Invalid email search filters", e);
+            request.setAttribute("emailValidationError", e.getMessage());
+            request.setAttribute("emailStatusResults", List.of());
+        }
 
         return "emailstatus";
     }

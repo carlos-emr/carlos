@@ -580,7 +580,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
             } else if (note.isInvoice()) {
                 String winName = "invoice" + demographicNo;
                 int hash = Math.abs(winName.hashCode());
-                String url = "popupPage(700,800,'" + hash + "','" + request.getContextPath() + SafeEncode.forHtml(((NoteDisplayNonNote) note).getLinkInfo()) + "'); return false;";
+                String url = "popupPage(700,800,'" + hash + "','" + request.getContextPath() + SafeEncode.forJavaScriptAttribute(((NoteDisplayNonNote) note).getLinkInfo()) + "'); return false;";
             %>
             <div class="view-links"
                  style="<%=(note.isDocument()||note.isCpp()||note.isEformData()||note.isEncounterForm()||note.isInvoice())?(bgColour):""%>">
@@ -744,7 +744,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
 
 
                     <%
-                        if (facility.isEnableEncounterTime() || (program != null && program.isEnableEncounterTime())) {
+                        if (facility.isEnableEncounterTime() || (program != null && program.getEnableEncounterTime())) {
                     %>
                     <div style="clear: right; margin-right: 3px; float: right;">
                         <fmt:message key="encounter.encounterTime.title"/>:&nbsp;<span
@@ -752,7 +752,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
                     </div>
                     <% } %>
                     <%
-                        if (facility.isEnableEncounterTransportationTime() || (program != null && program.isEnableEncounterTransportationTime())) {
+                        if (facility.isEnableEncounterTransportationTime() || (program != null && program.getEnableEncounterTransportationTime())) {
                     %>
                     <div style="clear: right; margin-right: 3px; float: right;">
                         <fmt:message key="encounter.encounterTransportation.title"/>:&nbsp;<span
@@ -861,11 +861,15 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
     boolean renderMoreNotesScript = request.getAttribute("moreNotes") == null;
     boolean hasNoteLock = casemgmtNoteLock != null;
     boolean noteLocked = renderMoreNotesScript && hasNoteLock && casemgmtNoteLock.isLocked();
-    boolean noteLockedBySameUser = renderMoreNotesScript
-            && hasNoteLock
-            && !noteLocked
-            && casemgmtNoteLock.isLockedBySameUser()
-            && !Objects.equals(casemgmtNoteLock.getSessionId(), request.getRequestedSessionId());
+    boolean noteLockedBySameUser = false;
+    String noteLockIpAddress = "";
+    if (renderMoreNotesScript && hasNoteLock && !noteLocked) {
+        noteLockedBySameUser = casemgmtNoteLock.isLockedBySameUser()
+                && !Objects.equals(casemgmtNoteLock.getSessionId(), request.getRequestedSessionId());
+        if (noteLockedBySameUser) {
+            noteLockIpAddress = casemgmtNoteLock.getIpAddress();
+        }
+    }
 
     String singleLineFormat = "false";
     if (renderMoreNotesScript) {
@@ -924,7 +928,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
     }
 
     if (<%= noteLockedBySameUser %>) {
-        var viewEditedNote = confirm("You have started to edit this note in another window at <carlos:encode value='<%= casemgmtNoteLock.getIpAddress() %>' context="javaScript"/>.\nDo you wish to continue?");
+        var viewEditedNote = confirm("You have started to edit this note in another window at <carlos:encode value='<%= noteLockIpAddress %>' context="javaScript"/>.\nDo you wish to continue?");
         if (viewEditedNote) {
             doscroll();
             var params = "method=updateNoteLock&demographicNo=" + demographicNo;

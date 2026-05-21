@@ -22,6 +22,7 @@
 
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
 
     <title><fmt:message key="admin.manageEmails.title"/></title>
     <meta name="viewport" content="width=device-width,initial-scale=1.0">

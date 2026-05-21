@@ -86,6 +86,7 @@
 <html>
 
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title>
             <fmt:message key="encounter.Index.measurements"/>
         </title><!--I18n-->

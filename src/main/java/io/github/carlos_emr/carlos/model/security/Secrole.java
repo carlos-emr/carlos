@@ -29,6 +29,9 @@ package io.github.carlos_emr.carlos.model.security;
 import java.util.Calendar;
 
 
+@jakarta.persistence.Entity
+@jakarta.persistence.Table(name = "secRole")
+@jakarta.persistence.Access(jakarta.persistence.AccessType.PROPERTY)
 public class Secrole implements java.io.Serializable {
 
     // Fields
@@ -47,10 +50,16 @@ public class Secrole implements java.io.Serializable {
     public void setId(Long id) {
         this.id = id;
     }
+    @jakarta.persistence.Id
+
+    @jakarta.persistence.GeneratedValue(strategy = jakarta.persistence.GenerationType.IDENTITY)
+
+    @jakarta.persistence.Column(name = "role_no")
 
     public Long getId() {
         return id;
     }
+    @jakarta.persistence.Transient
 
     public boolean isActive() {
         return active;
@@ -59,6 +68,7 @@ public class Secrole implements java.io.Serializable {
     public void setActive(boolean active) {
         this.active = active;
     }
+    @jakarta.persistence.Transient
 
     public Calendar getLastUpdateDate() {
         return lastUpdateDate;
@@ -67,6 +77,7 @@ public class Secrole implements java.io.Serializable {
     public void setLastUpdateDate(Calendar lastUpdateDate) {
         this.lastUpdateDate = lastUpdateDate;
     }
+    @jakarta.persistence.Transient
 
     public String getLastUpdateUser() {
         return lastUpdateUser;
@@ -75,6 +86,7 @@ public class Secrole implements java.io.Serializable {
     public void setLastUpdateUser(String lastUpdateUser) {
         this.lastUpdateUser = lastUpdateUser;
     }
+    @jakarta.persistence.Transient
 
     public int getOrderByIndex() {
         return orderByIndex;
@@ -100,6 +112,8 @@ public class Secrole implements java.io.Serializable {
 
     // Property accessors
 
+    @jakarta.persistence.Column(name = "role_name")
+
 
     public String getRoleName() {
         return this.roleName;
@@ -108,6 +122,7 @@ public class Secrole implements java.io.Serializable {
     public void setRoleName(String roleName) {
         this.roleName = roleName;
     }
+    @jakarta.persistence.Column(name = "description", length = 60)
 
     public String getDescription() {
         return this.description;
@@ -116,6 +131,7 @@ public class Secrole implements java.io.Serializable {
     public void setDescription(String description) {
         this.description = description;
     }
+    @jakarta.persistence.Transient
 
     public String getName() {
         return roleName;
@@ -134,5 +150,9 @@ public class Secrole implements java.io.Serializable {
         if (this.getId().longValue() == r.getId().longValue()) return true;
 
         return false;
+    }
+
+    public int hashCode() {
+        return getId() == null ? 0 : Long.hashCode(getId());
     }
 }

@@ -65,7 +65,7 @@ public class Hl7PidDao extends AbstractDaoImpl<Hl7Pid> {
     }
 
     public List<Object[]> findSigned(Integer pid) {
-        String sql = "SELECT hl7_pid, hl7_link, provider FROM Hl7Pid hl7_pid, Hl7Link hl7_link, Provider provider WHERE hl7_pid.id = hl7_link.id AND provider.ProviderNo = hl7_link.providerNo AND hl7_pid.id = :pid";
+        String sql = "SELECT hl7_pid, hl7_link, provider FROM Hl7Pid hl7_pid, Hl7Link hl7_link, Provider provider WHERE hl7_pid.id = hl7_link.id AND provider.providerNo = hl7_link.providerNo AND hl7_pid.id = :pid";
         Query query = entityManager.createQuery(sql);
         query.setParameter("pid", pid);
         return query.getResultList();

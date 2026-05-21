@@ -88,7 +88,8 @@
 
 <html>
 <head>
-    <title>Documents In Queues</title>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
+    <title><fmt:message key="inboxmanager.documentsInQueues"/></title>
 
     <link rel="stylesheet" type="text/css"
           href="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui.theme-1.14.2.min.css"/>
@@ -106,9 +107,13 @@
           href="${pageContext.servletContext.contextPath}/share/css/OscarStandardLayout.css">
     <link rel="stylesheet" type="text/css" href="${pageContext.servletContext.contextPath}/share/css/global.css"/>
 
+    <fmt:message key="inboxmanager.document.documents" var="documentsLabel"/>
+    <fmt:message key="global.hl7" var="hl7Label"/>
     <script type="text/javascript">
         var contextpath = "${pageContext.servletContext.contextPath}";
         const ctx = contextpath;
+        var documentLabel = '<carlos:encode value="${documentsLabel}" context="javaScript"/>';
+        var hl7Label = '<carlos:encode value="${hl7Label}" context="javaScript"/>';
     </script>
 
     <script type="text/javascript" src="${pageContext.servletContext.contextPath}/share/javascript/carlos-ajax.js"></script>
@@ -2032,7 +2037,13 @@
                 var doc_lab = checkType(current_first_doclab);
                 if (doc_lab == 'DOC') {
                     //oscarLog('docDesc_'+current_first_doclab);
-                    $('docDesc_' + current_first_doclab).focus();
+                    // $() is the Prototype-style shim defined above (document.getElementById),
+                    // which returns null when the element is not yet in the DOM — so a plain
+                    // truthiness check is the correct null guard here (do not change to .length).
+                    var docDesc = $('docDesc_' + current_first_doclab);
+                    if (docDesc) {
+                        docDesc.focus();
+                    }
                 } else if (doc_lab == 'HL7') {
                     //do nothing
                 }
@@ -2147,14 +2158,24 @@
 
         }
 
+        function normalizePatientNumber(patientId) {
+            var patientIdText = String(patientId);
+            if (!/^-?\d+$/.test(patientIdText)) {
+                throw new Error('Invalid patient id');
+            }
+            return patientIdText;
+        }
+
         function createNewDocEle(patientId) {
-            var newEle = '<dt><a id="patient' + patientId + 'docs" href="javascript:void(0);" onclick="resetCurrentFirstDocLab();showSubType(\'' + patientId + '\',\'DOC\');un_bold(this);" title="Documents">Documents(<span id="pDocNum_' + patientId + '">1</span>)</a></dt>';
+            var safePatientId = normalizePatientNumber(patientId);
+            var newEle = '<dt><a id="patient' + safePatientId + 'docs" href="javascript:void(0);" onclick="resetCurrentFirstDocLab();showSubType(\'' + safePatientId + '\',\'DOC\');un_bold(this);" title="' + documentLabel + '">' + documentLabel + '(<span id="pDocNum_' + safePatientId + '">1</span>)</a></dt>';
             //oscarLog('newEle='+newEle);
             return newEle;
         }
 
         function createNewHL7Ele(patientId) {
-            var newEle = '<dt><a id="patient' + patientId + 'hl7s" href="javascript:void(0);" onclick="resetCurrentFirstDocLab();showSubType(\'' + patientId + '\',\'HL7\');un_bold(this);" title="HL7s">HL7s(<span id="pLabNum_' + patientId + '">1</span>)</a></dt>';
+            var safePatientId = normalizePatientNumber(patientId);
+            var newEle = '<dt><a id="patient' + safePatientId + 'hl7s" href="javascript:void(0);" onclick="resetCurrentFirstDocLab();showSubType(\'' + safePatientId + '\',\'HL7\');un_bold(this);" title="' + hl7Label + '">' + hl7Label + '(<span id="pLabNum_' + safePatientId + '">1</span>)</a></dt>';
             //oscarLog('newEle='+newEle);
             return newEle;
         }
@@ -2503,12 +2524,12 @@
     <%= (request.getParameter("fname") == null ? "" : "<input type=\"hidden\" name=\"fname\" value=\"" + SafeEncode.forHtmlAttribute(request.getParameter("fname")) + "\">") %>
     <%= (request.getParameter("hnum") == null ? "" : "<input type=\"hidden\" name=\"hnum\" value=\"" + SafeEncode.forHtmlAttribute(request.getParameter("hnum")) + "\">") %>
     <input type="hidden" name="selectedProviders">
-    <button type="button" class="btn btn-secondary btn-sm" style="font-size:14px !important;" onclick="window.close();">Back</button>
+    <button type="button" class="btn btn-secondary btn-sm" style="font-size:14px !important;" onclick="window.close();"><fmt:message key="global.btnBack"/></button>
 </div>
 <table id="pendingDocs" width="100%">
     <tr>
-        <th style="background:#f5f5f5;border-bottom:1px solid #ddd;padding:6px 10px;font-size:12px;">Queues</th>
-        <th style="background:#f5f5f5;border-bottom:1px solid #ddd;padding:6px 10px;font-size:12px;">Documents</th>
+        <th style="background:#f5f5f5;border-bottom:1px solid #ddd;padding:6px 10px;font-size:12px;"><fmt:message key="inboxmanager.document.queues"/></th>
+        <th style="background:#f5f5f5;border-bottom:1px solid #ddd;padding:6px 10px;font-size:12px;"><fmt:message key="inboxmanager.document.documents"/></th>
     </tr>
     <tr>
         <td valign="top" id="queueNames" width="10%">

@@ -91,6 +91,7 @@ version 0.2.080 fixed BNK.png again for export
 FOR STAND ALONE USE
 -->
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <meta content="text/html; charset=UTF-8" http-equiv="Content-Type">
     <title><fmt:message key="eform.visual.editor.title"/></title>
 
