@@ -21,6 +21,9 @@
  */
 package io.github.carlos_emr.carlos.report.reportByTemplate.actions;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+
 import io.github.carlos_emr.carlos.report.reportByTemplate.SQLReporter;
 import io.github.carlos_emr.carlos.services.security.SecurityManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -41,7 +44,10 @@ import jakarta.servlet.http.HttpServletResponse;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for report-by-template CSV and spreadsheet export handling.
@@ -93,7 +99,9 @@ class GenerateOutFiles2ActionTest extends CarlosUnitTestBase {
         String result = new GenerateOutFiles2Action().execute();
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
-        assertThat(response.getContentAsString()).isEqualTo("from-request");
+        assertThat(response.getContentAsString(StandardCharsets.UTF_8)).isEqualTo("from-request");
+        assertThat(response.getContentType()).isEqualTo("text/csv;charset=UTF-8");
+        assertThat(response.getCharacterEncoding()).isEqualTo(StandardCharsets.UTF_8.name());
         assertThat(response.getHeader("Content-Disposition")).isEqualTo("attachment; filename=\"oscarReport.csv\"");
     }
 
@@ -151,5 +159,22 @@ class GenerateOutFiles2ActionTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
         assertThat(response.getHeader("Content-Disposition")).isNull();
         assertThat(response.getContentAsString()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should set server error status when XLS write fails")
+    void shouldSetServerErrorStatus_whenXlsWriteFails() throws Exception {
+        HttpServletResponse failingResponse = mock(HttpServletResponse.class);
+        when(failingResponse.isCommitted()).thenReturn(false);
+        when(failingResponse.getOutputStream()).thenThrow(new IOException("write failed"));
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(failingResponse);
+        request.setParameter("getXLS", "Export to XLS");
+        request.setParameter("csv", "alpha,beta\n1,2");
+
+        String result = new GenerateOutFiles2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        verify(failingResponse).reset();
+        verify(failingResponse).setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
     }
 }

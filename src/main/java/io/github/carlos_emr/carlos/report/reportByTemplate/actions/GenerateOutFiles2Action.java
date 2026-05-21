@@ -47,6 +47,7 @@ import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
 import java.io.IOException;
 import java.io.StringReader;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
@@ -79,10 +80,11 @@ public class GenerateOutFiles2Action extends ActionSupport {
             if (!validateCsv(csv)) {
                 return NONE;
             }
-            response.setContentType("application/octet-stream");
+            response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+            response.setContentType("text/csv;charset=UTF-8");
             response.setHeader("Content-Disposition", "attachment; filename=\"oscarReport.csv\"");
             try {
-                response.getWriter().write(csv); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer, java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss, java.servlets.security.servletresponse-writer-xss-deepsemgrep.servletresponse-writer-xss-deepsemgrep -- application/octet-stream CSV export data
+                response.getOutputStream().write(csv.getBytes(StandardCharsets.UTF_8));
             } catch (Exception ioe) {
                 MiscUtils.getLogger().error("Error", ioe);
             }
@@ -135,6 +137,7 @@ public class GenerateOutFiles2Action extends ActionSupport {
                 wb.write(response.getOutputStream());
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Error writing XLS", e);
+                setServerErrorIfPossible();
             }
             return NONE;
         }
@@ -159,13 +162,20 @@ public class GenerateOutFiles2Action extends ActionSupport {
             return false;
         }
         // Byte length, not char length: one char can be up to 4 UTF-8 bytes.
-        int byteLen = csv.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
+        int byteLen = csv.getBytes(StandardCharsets.UTF_8).length;
         if (byteLen > SQLReporter.MAX_CSV_EXPORT_LENGTH) {
             MiscUtils.getLogger().warn("GenerateOutFiles2Action: CSV export payload exceeds size limit ({} bytes)", byteLen);
             response.setStatus(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE);
             return false;
         }
         return true;
+    }
+
+    private void setServerErrorIfPossible() {
+        if (!response.isCommitted()) {
+            response.reset();
+        }
+        response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
     }
 
 }

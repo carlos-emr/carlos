@@ -64,6 +64,9 @@ public class SQLReporter implements Reporter {
      */
     public static final int MAX_CSV_EXPORT_LENGTH = 5 * 1024 * 1024;
 
+    private static final String CSV_EXPORT_LIMIT_MESSAGE =
+            "Warning: Report result is too large to download as CSV. Please narrow your search criteria.";
+
     /** Value of {@link ReportTemplates#getActive()} that indicates an active template. */
     private static final int ACTIVE_STATUS = 1;
 
@@ -228,12 +231,14 @@ public class SQLReporter implements Reporter {
 
     private String enforceCsvExportLimit(HttpServletRequest request, String operation, String templateId, String csv) {
         if (csv == null) {
-            return null;
+            MiscUtils.getLogger().warn("{}: CSV result for template '{}' was null; not exposing CSV download", operation, LogSafe.sanitize(templateId)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            request.setAttribute("errormsg", CSV_EXPORT_LIMIT_MESSAGE);
+            return "";
         }
         int csvBytes = csv.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
         if (csvBytes > MAX_CSV_EXPORT_LENGTH) {
             MiscUtils.getLogger().warn("{}: CSV result for template '{}' exceeds export size limit ({} bytes); not exposing CSV download", operation, LogSafe.sanitize(templateId), csvBytes); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-            request.setAttribute("errormsg", "Warning: Report result is too large to download as CSV. Please narrow your search criteria.");
+            request.setAttribute("errormsg", CSV_EXPORT_LIMIT_MESSAGE);
             return "";
         }
         return csv;

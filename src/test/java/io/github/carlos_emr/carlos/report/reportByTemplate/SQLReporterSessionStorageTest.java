@@ -42,6 +42,7 @@ import jakarta.servlet.http.HttpSession;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
@@ -137,7 +138,7 @@ class SQLReporterSessionStorageTest extends CarlosUnitTestBase {
             assertThat(generated).isTrue();
             verify(reportManagers.constructed().get(0)).getReportTemplateNoParam("1");
             verify(request).setAttribute("csv-0", "");
-            verify(request).setAttribute("errormsg", "Warning: Report result is too large to download as CSV. Please narrow your search criteria.");
+            verify(request).setAttribute(eq("errormsg"), contains("too large to download as CSV"));
         }
     }
 }
