@@ -71,11 +71,16 @@ class JspTaglibDeclarationRegressionTest {
      * because CARLOS still contains migration-era JSPs with either namespace.
      */
     private static final Map<String, Pattern> STANDARD_TAGLIB_URIS = Map.of(
-            "c", Pattern.compile("^(?:http://java\\.sun\\.com/jsp/jstl/core|jakarta\\.tags\\.core)$"),
-            "fmt", Pattern.compile("^(?:http://java\\.sun\\.com/jsp/jstl/fmt|jakarta\\.tags\\.fmt)$"),
-            "fn", Pattern.compile("^(?:http://java\\.sun\\.com/jsp/jstl/functions|jakarta\\.tags\\.functions)$"),
-            "sql", Pattern.compile("^(?:http://java\\.sun\\.com/jsp/jstl/sql|jakarta\\.tags\\.sql)$"),
-            "x", Pattern.compile("^(?:http://java\\.sun\\.com/jsp/jstl/xml|jakarta\\.tags\\.xml)$"));
+            "c", standardJstlUriPattern("core"),
+            "fmt", standardJstlUriPattern("fmt"),
+            "fn", standardJstlUriPattern("functions"),
+            "sql", standardJstlUriPattern("sql"),
+            "x", standardJstlUriPattern("xml"));
+    /*
+     * Precompile one usage regex per standard prefix. The scanner evaluates
+     * every JSP asset, so building these once avoids per-file pattern churn
+     * while keeping the prefix-specific tag and EL matching logic explicit.
+     */
     private static final Map<String, Pattern> STANDARD_TAGLIB_USAGE = Map.of(
             "c", taglibUsagePattern("c"),
             "fmt", taglibUsagePattern("fmt"),
@@ -168,7 +173,8 @@ class JspTaglibDeclarationRegressionTest {
     private static String stripTemplateComments(String jsp) {
         // Remove JSP comments before HTML comments so HTML-comment text inside an
         // inactive JSP block cannot confuse the HTML comment matcher.
-        return HTML_COMMENT.matcher(JSP_TEMPLATE_COMMENT.matcher(jsp).replaceAll("")).replaceAll("");
+        String withoutJspComments = JSP_TEMPLATE_COMMENT.matcher(jsp).replaceAll("");
+        return HTML_COMMENT.matcher(withoutJspComments).replaceAll("");
     }
 
     private static boolean usesPrefix(String jsp, String prefix) {
@@ -189,6 +195,11 @@ class JspTaglibDeclarationRegressionTest {
         // line breaks when matching EL expressions split across lines.
         return Pattern.compile("(?is)<\\s*" + Pattern.quote(prefix) + "\\s*:|\\$\\{[^}]*\\b"
                 + Pattern.quote(prefix) + ":");
+    }
+
+    private static Pattern standardJstlUriPattern(String taglibName) {
+        return Pattern.compile("^(?:http://java\\.sun\\.com/jsp/jstl/" + Pattern.quote(taglibName)
+                + "|jakarta\\.tags\\." + Pattern.quote(taglibName) + ")$");
     }
 
     /**
