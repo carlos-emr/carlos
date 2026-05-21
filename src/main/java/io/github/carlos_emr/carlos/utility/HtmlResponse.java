@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.utility;
 
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.ByteArrayInputStream;
+import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -138,7 +139,7 @@ public final class HtmlResponse {
      *
      * @param response servlet response to write to
      * @param contentType HTML content type used to set response headers and resolve the stream charset
-     * @param htmlStream stored HTML byte stream; closed when the decoding reader is closed after writing
+     * @param htmlStream stored HTML byte stream; not closed by this method
      * @throws IOException when response writing fails
      */
     @SuppressWarnings({"XSS_SERVLET", "findsecbugs:XSS_SERVLET"})
@@ -154,7 +155,7 @@ public final class HtmlResponse {
 
         char[] buffer = new char[BUFFER_SIZE];
         PrintWriter writer = response.getWriter();
-        try (InputStreamReader reader = new InputStreamReader(htmlStream, charset)) {
+        try (InputStreamReader reader = new InputStreamReader(new NonClosingInputStream(htmlStream), charset)) {
             int count;
             while ((count = reader.read(buffer)) != -1) {
                 // nosemgrep: java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss, java.servlets.security.servletresponse-writer-xss-deepsemgrep.servletresponse-writer-xss-deepsemgrep, java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- intentional stored HTML rendering; callers must authorize routes before invoking
@@ -314,5 +315,19 @@ public final class HtmlResponse {
             unescaped.append('\\');
         }
         return unescaped.toString();
+    }
+
+    /**
+     * Allows closing decoder resources without taking ownership of the caller's stream.
+     */
+    private static final class NonClosingInputStream extends FilterInputStream {
+        private NonClosingInputStream(InputStream in) {
+            super(in);
+        }
+
+        @Override
+        public void close() {
+            // Caller-owned stream is closed by the caller.
+        }
     }
 }

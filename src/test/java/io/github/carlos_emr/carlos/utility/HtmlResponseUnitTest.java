@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.utility;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 
@@ -99,6 +100,20 @@ class HtmlResponseUnitTest {
     }
 
     @Test
+    @DisplayName("should leave stream open when writing stream content")
+    void shouldLeaveStreamOpen_whenWritingStreamContent() throws Exception {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        CloseTrackingInputStream html = new CloseTrackingInputStream(
+                "<html><body>owned by caller</body></html>".getBytes(StandardCharsets.UTF_8));
+
+        HtmlResponse.writeStoredHtml(response, "text/html; charset=UTF-8", html);
+
+        assertThat(html.isClosed()).isFalse();
+        html.close();
+        assertThat(html.isClosed()).isTrue();
+    }
+
+    @Test
     @DisplayName("should replace invalid charset header with fallback charset")
     void shouldReplaceInvalidCharsetHeader_withFallbackCharset() throws Exception {
         MockHttpServletResponse response = new MockHttpServletResponse();
@@ -109,5 +124,23 @@ class HtmlResponseUnitTest {
         assertThat(response.getContentType()).isEqualTo("text/html;charset=UTF-8");
         assertThat(response.getCharacterEncoding()).isEqualTo(StandardCharsets.UTF_8.name());
         assertThat(response.getContentAsString()).isEqualTo("<html><body>fallback</body></html>");
+    }
+
+    private static final class CloseTrackingInputStream extends ByteArrayInputStream {
+        private boolean closed;
+
+        private CloseTrackingInputStream(byte[] buf) {
+            super(buf);
+        }
+
+        private boolean isClosed() {
+            return closed;
+        }
+
+        @Override
+        public void close() throws IOException {
+            closed = true;
+            super.close();
+        }
     }
 }
