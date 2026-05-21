@@ -48,6 +48,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.*;
+import java.nio.file.Files;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.zip.ZipEntry;
@@ -73,10 +74,6 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
             throw new SecurityException("missing required sec object (_form)");
         }
 
-        // Temporary file handling
-        File tmpFile = File.createTempFile("tmp", ".zip");
-        tmpFile.deleteOnExit();
-
         if (uploadValidationError != null) {
             throw new IllegalArgumentException(uploadValidationError);
         }
@@ -84,6 +81,8 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
             throw new IllegalArgumentException("Invalid file upload");
         }
 
+        // Temporary file handling
+        File tmpFile = File.createTempFile("tmp", ".zip");
         try {
             copyValidatedUploadToTemp(file1, tmpFile);
 
@@ -116,9 +115,19 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
             }
         } catch (JDBCUtil.XmlImportException e) {
             throw new ServletException("Error importing XML form data", e);
+        } finally {
+            deleteTemporaryArchive(tmpFile);
         }
 
         return SUCCESS;
+    }
+
+    private void deleteTemporaryArchive(File tmpFile) {
+        try {
+            Files.deleteIfExists(tmpFile.toPath());
+        } catch (IOException e) {
+            MiscUtils.getLogger().warn("Unable to delete temporary form XML import archive {}", tmpFile.getName(), e);
+        }
     }
 
     private void copyValidatedUploadToTemp(File upload, File destination) throws IOException {
