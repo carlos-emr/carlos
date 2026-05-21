@@ -1890,9 +1890,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
                 }
             }
 
-            // Flush and clear L1 cache to prevent heap exhaustion during large imports
-            contactDao.flush();
-            contactDao.clear();
+            flushAndClearPersistenceContext();
 
             //RISK FACTORS
             RiskFactors[] rFactors = patientRec.getRiskFactorsArray();
@@ -2114,9 +2112,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
             }
 
 
-            // Flush and clear L1 cache to prevent heap exhaustion during large imports
-            contactDao.flush();
-            contactDao.clear();
+            flushAndClearPersistenceContext();
 
             //MEDICATIONS & TREATMENTS
             MedicationsAndTreatments[] medArray = patientRec.getMedicationsAndTreatmentsArray();
@@ -2494,9 +2490,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
                 }
             }
 
-            // Flush and clear L1 cache to prevent heap exhaustion during large imports
-            contactDao.flush();
-            contactDao.clear();
+            flushAndClearPersistenceContext();
 
             //LABORATORY RESULTS
             LaboratoryResults[] labResultArr = patientRec.getLaboratoryResultsArray();
@@ -2603,9 +2597,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
 
             }
 
-            // Flush and clear L1 cache to prevent heap exhaustion during large imports
-            contactDao.flush();
-            contactDao.clear();
+            flushAndClearPersistenceContext();
 
             //REPORTS RECEIVED
 
@@ -2916,9 +2908,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
                 }
             }
 
-            // Flush and clear L1 cache to prevent heap exhaustion during large imports
-            contactDao.flush();
-            contactDao.clear();
+            flushAndClearPersistenceContext();
 
             //CARE ELEMENTS
             CareElements[] careElems = patientRec.getCareElementsArray();

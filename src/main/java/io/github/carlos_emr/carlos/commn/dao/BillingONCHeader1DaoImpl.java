@@ -120,13 +120,13 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
             this.persist(b);
             i++;
             if (i % 25 == 0) {
-                entityManager.flush();
-                entityManager.clear();
+                this.flush();
+                this.clear();
             }
         }
         if (i > 0 && i % 25 != 0) {
-            entityManager.flush();
-            entityManager.clear();
+            this.flush();
+            this.clear();
         }
     }
 

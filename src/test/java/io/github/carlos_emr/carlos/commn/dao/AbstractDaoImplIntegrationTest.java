@@ -448,10 +448,14 @@ public class AbstractDaoImplIntegrationTest extends CarlosTestBase {
             // When
             facilityDao.clear();
 
-            // Then — entity should be re-fetchable from database
+            // Then — entity should be re-fetchable from database as a NEW managed instance
             Facility refetched = facilityDao.find(savedId);
             assertThat(refetched).isNotNull();
             assertThat(refetched.getName()).isEqualTo("Clear Refetch Test");
+            // Identity check: clear() must have produced a fresh instance, not the original
+            assertThat(refetched).isNotSameAs(newFacility);
+            // The re-fetched entity should be managed by the (now-repopulated) persistence context
+            assertThat(facilityDao.contains(refetched)).isTrue();
         }
     }
 
