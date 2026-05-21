@@ -59,9 +59,17 @@ class ScheduleNavigationAssetRegressionTest {
             Path.of("src", "main", "webapp", "WEB-INF", "jsp", "provider", "mainMenu.jsp");
     private static final Path TOPNAV_CSS =
             Path.of("src", "main", "webapp", "css", "topnav.css");
+    /**
+     * Verifies sortable mailbox-header URLs keep their existing query state and
+     * append the schedule navigation flag after box/demographic parameters.
+     */
     private static final String STATUS_SORT_LINK_PATTERN =
             "DisplayMessages?orderby=status<%=boxTypeQuerySuffix%>"
                     + "<%=demographicQuerySuffix%><%=scheduleNavQuerySuffix%>";
+    /**
+     * Verifies message-detail links retain both the selected mailbox and the
+     * focused schedule-shell flag when users drill into an individual message.
+     */
     private static final String MESSAGE_LINK_PATTERN =
             "ViewMessage?messageID=<carlos:encode value='<%= dm.getMessageId() %>'"
                     + " context=\"uriComponent\"/>&boxType=<%=pageType%><%=scheduleNavQuerySuffix%>";
@@ -119,7 +127,8 @@ class ScheduleNavigationAssetRegressionTest {
                 .contains("ClearMessage<%=scheduleNavFirstQuerySuffix%>")
                 .contains("DisplayMessages<%=scheduleNavFirstQuerySuffix%>");
         assertThat(mainMenu)
-                .contains("window.popup !== fallbackMenuPopup")
+                .contains("!window.popup.scheduleMenuFallback")
+                .contains("fallbackMenuPopup.scheduleMenuFallback = true;")
                 .contains("window.popup = fallbackMenuPopup;");
     }
 

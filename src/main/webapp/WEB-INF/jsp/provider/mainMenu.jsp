@@ -421,11 +421,12 @@
     }
 
     function openMenuPopup(height, width, url, windowName) {
-        if (typeof window.popup === 'function' && window.popup !== fallbackMenuPopup) {
+        if (typeof window.popup === 'function' && !window.popup.scheduleMenuFallback) {
             return window.popup(height, width, url, windowName);
         }
         return fallbackMenuPopup(height, width, url, windowName);
     }
+    fallbackMenuPopup.scheduleMenuFallback = true;
 
     if (typeof window.popup !== 'function') {
         // Some schedule-shell pages include this shared menu without the legacy popup helper.
