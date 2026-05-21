@@ -61,6 +61,15 @@ class StrutsGlobalConfigUnitTest extends CarlosUnitTestBase {
     private static final String EXPECTED_ALLOWLIST_PACKAGE = "io.github.carlos_emr.carlos";
     private static final Path STRUTS_XML =
             Path.of("src", "main", "webapp", "WEB-INF", "classes", "struts.xml");
+    /**
+     * The default {@code globalAllowedMethods} entries declared by the {@code struts-default}
+     * package in {@code struts-default.xml} shipped by Apache Struts. Actions inheriting from
+     * {@code struts-default} (directly or transitively) may invoke these methods under Strict
+     * Method Invocation without a per-action {@code <allowed-methods>} entry.
+     *
+     * <p>Source: {@code org.apache.struts2/core/src/main/resources/struts-default.xml} —
+     * {@code <global-allowed-methods>execute,input,back,cancel,browse,save,delete,list,index</global-allowed-methods>}.
+     */
     private static final Set<String> DEFAULT_STRUTS_GLOBAL_ALLOWED_METHODS =
             Set.of("execute", "input", "back", "cancel", "browse", "save", "delete", "list", "index");
 
@@ -160,6 +169,10 @@ class StrutsGlobalConfigUnitTest extends CarlosUnitTestBase {
 
         NodeList includes = parent.getElementsByTagName("include");
         List<String> violations = new ArrayList<>();
+        // Also scan the root struts.xml so that a future non-default method added directly
+        // (rather than via an included module) cannot bypass the SMI allowlist contract.
+        collectNonDefaultMethodViolations(STRUTS_XML.getFileName().toString(), parent, violations);
+        collectAllowedMethodOrderViolations(STRUTS_XML.getFileName().toString(), parent, violations);
         for (int i = 0; i < includes.getLength(); i++) {
             if (includes.item(i) instanceof Element include) {
                 String fileName = include.getAttribute("file");
@@ -239,10 +252,14 @@ class StrutsGlobalConfigUnitTest extends CarlosUnitTestBase {
     }
 
     private static Set<String> collectAllowedMethods(Element action) {
-        NodeList allowedMethodNodes = action.getElementsByTagName("allowed-methods");
         LinkedHashSet<String> allowedMethods = new LinkedHashSet<>();
-        for (int i = 0; i < allowedMethodNodes.getLength(); i++) {
-            String[] methods = allowedMethodNodes.item(i).getTextContent().split(",");
+        // Only direct children: <allowed-methods> nested inside other descendants of <action>
+        // are not part of this action's SMI contract.
+        for (Element child : childElements(action)) {
+            if (!"allowed-methods".equals(child.getTagName())) {
+                continue;
+            }
+            String[] methods = child.getTextContent().split(",");
             for (String method : methods) {
                 String trimmed = method.trim();
                 if (!trimmed.isEmpty()) {
