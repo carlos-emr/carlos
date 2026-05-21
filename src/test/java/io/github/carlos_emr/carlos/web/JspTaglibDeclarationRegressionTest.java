@@ -56,12 +56,12 @@ class JspTaglibDeclarationRegressionTest {
     private static final Pattern HTML_COMMENT = Pattern.compile("<!--.*?-->", Pattern.DOTALL);
     private static final Pattern TAGLIB_DIRECTIVE = Pattern.compile("<%@\\s*taglib\\b(.*?)%>", Pattern.DOTALL);
     private static final Pattern ATTRIBUTE = Pattern.compile("\\b(uri|prefix)\\s*=\\s*(['\"])(.*?)\\2");
-    private static final String SHARED_TAGLIB_FILE_NAMES =
+    private static final String SHARED_TAGLIB_FILE_NAMES_PATTERN =
             "taglibs\\.jsp|taglibs\\.jspf|common-taglibs\\.jsp|common-tags\\.jsp";
-    private static final Pattern SHARED_TAGLIB_FILE = Pattern.compile("^(?:" + SHARED_TAGLIB_FILE_NAMES + ")$");
+    private static final Pattern SHARED_TAGLIB_FILE = Pattern.compile("^(?:" + SHARED_TAGLIB_FILE_NAMES_PATTERN + ")$");
     private static final Pattern SHARED_TAGLIB_INCLUDE = Pattern.compile(
-            "(?s)<%@\\s*include[^>]+file\\s*=\\s*\"[^\"]*(?:" + SHARED_TAGLIB_FILE_NAMES + ")\""
-                    + "|<jsp:include[^>]+page\\s*=\\s*\"[^\"]*(?:" + SHARED_TAGLIB_FILE_NAMES + ")\"");
+            "(?s)<%@\\s*include[^>]+file\\s*=\\s*\"[^\"]*(?:" + SHARED_TAGLIB_FILE_NAMES_PATTERN + ")\""
+                    + "|<jsp:include[^>]+page\\s*=\\s*\"[^\"]*(?:" + SHARED_TAGLIB_FILE_NAMES_PATTERN + ")\"");
     private static final Map<String, Pattern> STANDARD_TAGLIB_URIS = Map.of(
             "c", Pattern.compile("^(?:http://java\\.sun\\.com/jsp/jstl/core|jakarta\\.tags\\.core)$"),
             "fmt", Pattern.compile("^(?:http://java\\.sun\\.com/jsp/jstl/fmt|jakarta\\.tags\\.fmt)$"),
@@ -165,11 +165,32 @@ class JspTaglibDeclarationRegressionTest {
         return STANDARD_TAGLIB_USAGE.get(prefix).matcher(jsp).find();
     }
 
+    /**
+     * Builds the standard taglib usage regex for one prefix.
+     *
+     * <p>The expression intentionally covers both server-side tag syntax
+     * ({@code <c:if>}, allowing whitespace around the prefix separator) and
+     * EL function syntax ({@code ${fn:contains(...)}}, including use inside a
+     * larger EL expression). Any file matching either form must declare the
+     * corresponding JSTL taglib unless it includes a shared taglib file.</p>
+     */
     private static Pattern taglibUsagePattern(String prefix) {
         return Pattern.compile("(?is)<\\s*" + Pattern.quote(prefix) + "\\s*:|\\$\\{[^}]*\\b"
                 + Pattern.quote(prefix) + ":");
     }
 
+    /**
+     * Returns whether the JSP declares the requested taglib prefix with an
+     * accepted URI.
+     *
+     * <p>JSP taglib directives are parsed as {@code <%@ taglib ... %>} blocks
+     * instead of a single attribute-order-specific regex so both
+     * {@code <%@ taglib uri="..." prefix="c" %>} and
+     * {@code <%@ taglib prefix="c" uri="..." %>} are handled. Both attributes
+     * must match: the prefix confirms the namespace used by tags and EL
+     * functions, while the URI pattern confirms that the prefix points to the
+     * expected legacy or Jakarta JSTL library rather than another custom taglib.</p>
+     */
     private static boolean declaresPrefix(String jsp, String prefix, Pattern uriPattern) {
         Matcher taglibMatcher = TAGLIB_DIRECTIVE.matcher(jsp);
         while (taglibMatcher.find()) {

@@ -42,7 +42,9 @@ TAGLIB_INCLUDES="taglibs\.jsp|taglibs\.jspf|common-taglibs\.jsp|common-tags\.jsp
 # Strip HTML and JSP comment blocks before running structural checks.
 strip_template_comments() {
     # Use Perl instead of sed ranges so one-line comments do not delete
-    # everything until the next later comment block in the file.
+    # everything until the next later comment block in the file. The -0 flag
+    # reads the full file as one string, -p prints the transformed input, -e
+    # supplies the inline script, and each regex s flag lets "." span lines.
     perl -0pe 's/<!--.*?-->//gs; s/<%--.*?--%>//gs' "$1"
 }
 
