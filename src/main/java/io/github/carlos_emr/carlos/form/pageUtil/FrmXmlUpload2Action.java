@@ -54,6 +54,11 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesAware {
+    static final int MAX_XML_IMPORT_ENTRIES = 200;
+    static final long MAX_XML_IMPORT_ENTRY_BYTES = 10L * 1024L * 1024L;
+    static final long MAX_XML_IMPORT_TOTAL_BYTES = 50L * 1024L * 1024L;
+    static final long MAX_XML_IMPORT_COMPRESSION_RATIO = 100L;
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -61,6 +66,7 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private String uploadValidationError;
 
+    @SuppressWarnings("java:S5042")
     public String execute()
             throws ServletException, IOException {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_form", "r", null)) {
@@ -84,12 +90,16 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
             // Unzip and process entries
             try (ZipFile zf = new ZipFile(tmpFile)) {
                 Enumeration<? extends ZipEntry> entries = zf.entries();
+                int importedEntries = 0;
+                long totalUncompressedBytes = 0L;
                 while (entries.hasMoreElements()) {
                     ZipEntry entry = entries.nextElement();
                     String entryName = entry.getName();
                     if (entry.isDirectory()) {
                         continue;
                     }
+                    long entrySize = validateArchiveEntry(entry, ++importedEntries, totalUncompressedBytes);
+                    totalUncompressedBytes += entrySize;
                     String safeEntryName;
                     try {
                         JDBCUtil.FormImportTarget importTarget = JDBCUtil.parseImportFileName(entryName);
@@ -114,6 +124,35 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
     private void copyValidatedUploadToTemp(File upload, File destination) throws IOException {
         File validatedUpload = PathValidationUtils.validateUpload(upload);
         FileUtils.copyFile(validatedUpload, destination);
+    }
+
+    static long validateArchiveEntry(ZipEntry entry, int entryCount, long totalUncompressedBytes)
+            throws JDBCUtil.XmlImportException {
+        if (entryCount > MAX_XML_IMPORT_ENTRIES) {
+            throw new JDBCUtil.XmlImportException("Form XML import archive contains too many entries");
+        }
+
+        long entrySize = entry.getSize();
+        if (entrySize < 0) {
+            throw new JDBCUtil.XmlImportException("Form XML import archive entry size is unavailable");
+        }
+        if (entrySize > MAX_XML_IMPORT_ENTRY_BYTES) {
+            throw new JDBCUtil.XmlImportException("Form XML import archive entry is too large");
+        }
+        if (totalUncompressedBytes > MAX_XML_IMPORT_TOTAL_BYTES - entrySize) {
+            throw new JDBCUtil.XmlImportException("Form XML import archive is too large");
+        }
+
+        long compressedSize = entry.getCompressedSize();
+        if (entrySize > 0 && compressedSize <= 0) {
+            throw new JDBCUtil.XmlImportException("Form XML import archive compressed size is unavailable");
+        }
+        if (compressedSize > 0 && compressedSize <= Long.MAX_VALUE / MAX_XML_IMPORT_COMPRESSION_RATIO
+                && entrySize > compressedSize * MAX_XML_IMPORT_COMPRESSION_RATIO) {
+            throw new JDBCUtil.XmlImportException("Form XML import archive entry compression ratio is too high");
+        }
+
+        return entrySize;
     }
 
     private File file1; // Uploaded file
