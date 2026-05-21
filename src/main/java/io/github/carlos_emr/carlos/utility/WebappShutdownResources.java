@@ -173,6 +173,17 @@ public final class WebappShutdownResources {
         return deregistered;
     }
 
+    /**
+     * Determines whether a JDBC driver should be treated as owned by the stopping
+     * webapp. Direct webapp drivers and drivers loaded by child class loaders are
+     * owned. When the servlet container passes a wrapper child loader, drivers loaded
+     * by the same loader as this shutdown utility are also owned if that loader is an
+     * ancestor of the supplied webapp loader.
+     *
+     * @param driverClassLoader class loader that loaded the JDBC driver class
+     * @param webappClassLoader class loader associated with the stopping webapp
+     * @return true when the driver belongs to the webapp class loader hierarchy
+     */
     static boolean isWebappOwnedDriver(ClassLoader driverClassLoader, ClassLoader webappClassLoader) {
         if (driverClassLoader == null) {
             return false;
@@ -186,6 +197,13 @@ public final class WebappShutdownResources {
                 && isSameOrChildClassLoader(webappClassLoader, shutdownResourcesClassLoader);
     }
 
+    /**
+     * Walks a class loader's parent chain looking for an expected ancestor.
+     *
+     * @param candidate class loader to inspect
+     * @param expectedAncestor class loader expected to appear in the parent chain
+     * @return true when candidate is the same class loader as expectedAncestor or a descendant of it
+     */
     private static boolean isSameOrChildClassLoader(ClassLoader candidate, ClassLoader expectedAncestor) {
         for (ClassLoader current = candidate; current != null; current = current.getParent()) {
             if (current == expectedAncestor) {

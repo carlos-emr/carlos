@@ -153,6 +153,61 @@ public class WebappShutdownResourcesUnitTest {
     }
 
     @Test
+    void shouldPreserveJdbcDriver_whenLoadedBySharedParentClassLoader() throws Exception {
+        java.util.List<Driver> existingDrivers = Collections.list(DriverManager.getDrivers());
+        URL testClassesUrl = WebappShutdownResourcesUnitTest.class.getProtectionDomain()
+                .getCodeSource()
+                .getLocation()
+                .toURI()
+                .toURL();
+        URL mainClassesUrl = WebappShutdownResources.class.getProtectionDomain()
+                .getCodeSource()
+                .getLocation()
+                .toURI()
+                .toURL();
+
+        try (ChildFirstTestClassLoader sharedParentClassLoader = new ChildFirstTestClassLoader(
+                     testClassesUrl, mainClassesUrl, getClass().getClassLoader());
+             ChildFirstTestClassLoader webappClassLoader = new ChildFirstTestClassLoader(
+                     testClassesUrl, mainClassesUrl, sharedParentClassLoader)) {
+            Class<?> parentHelperClass = sharedParentClassLoader.loadClass(
+                    WebappShutdownResourcesUnitTest.class.getName() + "$DriverRegistrationHelper");
+            Class<?> webappHelperClass = webappClassLoader.loadClass(
+                    WebappShutdownResourcesUnitTest.class.getName() + "$DriverRegistrationHelper");
+            Method registerParentDriver = parentHelperClass.getMethod("registerDriver");
+            Method deregisterParentDriver = parentHelperClass.getMethod("deregisterDriver", Driver.class);
+            Method isParentDriverRegistered = parentHelperClass.getMethod("isDriverRegistered", Driver.class);
+            Method registerWebappDriver = webappHelperClass.getMethod("registerDriver");
+            Method deregisterWebappDriver = webappHelperClass.getMethod("deregisterDriver", Driver.class);
+            Method deregisterWebappDrivers = webappHelperClass.getMethod("deregisterWebappDrivers", ClassLoader.class);
+            Method isWebappDriverRegistered = webappHelperClass.getMethod("isDriverRegistered", Driver.class);
+            Driver parentDriver = (Driver) registerParentDriver.invoke(null);
+            Driver webappDriver = (Driver) registerWebappDriver.invoke(null);
+
+            try {
+                int deregistered = (Integer) deregisterWebappDrivers.invoke(null, webappClassLoader);
+
+                assertThat(deregistered).isEqualTo(1);
+                assertThat((Boolean) isParentDriverRegistered.invoke(null, parentDriver)).isTrue();
+                assertThat((Boolean) isWebappDriverRegistered.invoke(null, webappDriver)).isFalse();
+            } finally {
+                if ((Boolean) isWebappDriverRegistered.invoke(null, webappDriver)) {
+                    deregisterWebappDriver.invoke(null, webappDriver);
+                }
+                if ((Boolean) isParentDriverRegistered.invoke(null, parentDriver)) {
+                    deregisterParentDriver.invoke(null, parentDriver);
+                }
+                java.util.List<Driver> currentDrivers = Collections.list(DriverManager.getDrivers());
+                for (Driver existingDriver : existingDrivers) {
+                    if (!currentDrivers.contains(existingDriver)) {
+                        DriverManager.registerDriver(existingDriver);
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
     void shouldRunAllShutdownSteps_whenEarlierStepThrows() {
         ClassLoader unrelatedClassLoader = new ClassLoader(null) {
         };
