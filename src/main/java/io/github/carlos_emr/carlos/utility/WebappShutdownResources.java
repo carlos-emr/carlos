@@ -177,9 +177,11 @@ public final class WebappShutdownResources {
      * Determines whether a JDBC driver should be treated as owned by the stopping
      * webapp. Direct webapp drivers and drivers loaded by child class loaders are
      * owned. When the servlet container passes a wrapper child loader, drivers loaded
-     * by the same loader as this shutdown utility are also owned if that loader is an
-     * ancestor of the supplied webapp loader. This method is package-visible so tests
-     * can pin the class loader hierarchy rules without mutating DriverManager state.
+     * by {@code WebappShutdownResources.class.getClassLoader()} are also owned if
+     * that loader is an ancestor of the supplied webapp loader; this handles servlet
+     * containers that report a wrapper child loader while CARLOS classes live in its
+     * parent. This method is package-visible so tests can pin the class loader
+     * hierarchy rules without mutating DriverManager state.
      *
      * @param driverClassLoader class loader that loaded the JDBC driver class
      * @param webappClassLoader class loader associated with the stopping webapp

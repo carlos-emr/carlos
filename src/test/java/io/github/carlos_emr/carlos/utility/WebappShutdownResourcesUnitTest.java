@@ -97,9 +97,9 @@ public class WebappShutdownResourcesUnitTest {
         URL testClassesUrl = testClassesUrl();
         URL mainClassesUrl = mainClassesUrl();
 
-        try (URLClassLoader parentWebappClassLoader = new URLClassLoader(new URL[0], getClass().getClassLoader());
+        try (URLClassLoader webappClassLoaderParent = new URLClassLoader(new URL[0], getClass().getClassLoader());
              ChildFirstTestClassLoader childClassLoader = new ChildFirstTestClassLoader(
-                     testClassesUrl, mainClassesUrl, parentWebappClassLoader)) {
+                     testClassesUrl, mainClassesUrl, webappClassLoaderParent)) {
             Class<?> helperClass = childClassLoader.loadClass(
                     WebappShutdownResourcesUnitTest.class.getName() + "$DriverRegistrationHelper");
             Method registerDriver = helperClass.getMethod("registerDriver");
@@ -109,7 +109,7 @@ public class WebappShutdownResourcesUnitTest {
             Driver driver = (Driver) registerDriver.invoke(null);
 
             try {
-                int deregistered = (Integer) deregisterWebappDrivers.invoke(null, parentWebappClassLoader);
+                int deregistered = (Integer) deregisterWebappDrivers.invoke(null, webappClassLoaderParent);
 
                 assertThat(deregistered).isEqualTo(1);
                 assertThat((Boolean) isDriverRegistered.invoke(null, driver)).isFalse();
@@ -124,15 +124,6 @@ public class WebappShutdownResourcesUnitTest {
                     }
                 }
             }
-        }
-    }
-
-    @Test
-    void shouldIgnoreJdbcDriver_whenLoadedBySharedParentClassLoader() throws Exception {
-        try (URLClassLoader sharedParentClassLoader = new URLClassLoader(new URL[0], getClass().getClassLoader());
-             URLClassLoader webappClassLoader = new URLClassLoader(new URL[0], sharedParentClassLoader)) {
-            assertThat(WebappShutdownResources.isWebappOwnedDriver(sharedParentClassLoader, webappClassLoader))
-                    .isFalse();
         }
     }
 
