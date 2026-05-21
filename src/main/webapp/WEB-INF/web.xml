@@ -148,6 +148,8 @@
     <filter-mapping>
         <filter-name>LogoutBroadcastFilter</filter-name>
         <url-pattern>/*</url-pattern>
+        <dispatcher>REQUEST</dispatcher>
+        <dispatcher>FORWARD</dispatcher>
     </filter-mapping>
 
     <!-- HttpMethodGuardFilter: blocks GET requests on mutator actions and JSPs.
