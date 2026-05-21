@@ -627,8 +627,11 @@
                         <li><a href="#"
                                onclick="popupPage(500,screen.width,'${pageContext.request.contextPath}/appointment/appointmentTypeAction'); return false;"><fmt:message key="admin.admin.appointmentTypeList"/></a></li>
 
-                        <li><a href="#"
-                               onclick='popupPage(360,600, "${pageContext.request.contextPath}/admin/AdminNewGroup?submit=blank");return false;'><fmt:message key="admin.admin.btnAddGroupNoRecord"/></a></li>
+                        <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.schedule.groupCreate"
+                                           rights="w" reverse="<%=false%>">
+                            <li><a href="#"
+                                   onclick='popupPage(360,600, "${pageContext.request.contextPath}/admin/AdminNewGroup?submit=blank");return false;'><fmt:message key="admin.admin.btnAddGroupNoRecord"/></a></li>
+                        </security:oscarSec>
                         <li><a href="#"
                                onclick='popupPage(360,600, "${pageContext.request.contextPath}/admin/ViewAdminDisplayMyGroup");return false;'><fmt:message key="admin.admin.btnSearchGroupNoRecords"/></a></li>
                         <li><a href="#"
