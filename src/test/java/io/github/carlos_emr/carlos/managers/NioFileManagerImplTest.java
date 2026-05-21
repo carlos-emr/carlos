@@ -74,6 +74,66 @@ class NioFileManagerImplTest {
     }
 
     @Test
+    @DisplayName("deleteTempFile returns false for missing allowed temp files")
+    void deleteTempFileReturnsFalseWhenTempFileIsMissing() throws Exception {
+        Path catalinaBase = Paths.get("target", "nio-catalina-base-" + UUID.randomUUID()).toAbsolutePath();
+        Path workDir = catalinaBase.resolve("work");
+        Path missingFile = workDir.resolve("missing.tmp");
+
+        try {
+            Files.createDirectories(workDir);
+            System.setProperty("catalina.base", catalinaBase.toString());
+            resetAllowedTempDirectories();
+
+            boolean deleted = new NioFileManagerImpl().deleteTempFile(missingFile.toString());
+
+            assertThat(deleted).isFalse();
+        } finally {
+            Files.deleteIfExists(missingFile);
+            Files.deleteIfExists(workDir);
+            Files.deleteIfExists(catalinaBase);
+        }
+    }
+
+    @Test
+    @DisplayName("deleteTempFile rejects paths that are outside allowed temp directories")
+    void deleteTempFileRejectsPathsOutsideAllowedTempDirectory() throws Exception {
+        Path outsideFile = Paths.get("target", "nio-temp-outside-delete-" + UUID.randomUUID() + ".tmp").toAbsolutePath();
+        Files.writeString(outsideFile, "outside");
+
+        try {
+            assertThatThrownBy(() -> new NioFileManagerImpl().deleteTempFile(outsideFile.toString()))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("Path traversal attempt detected");
+        } finally {
+            Files.deleteIfExists(outsideFile);
+        }
+    }
+
+    @Test
+    @DisplayName("deleteTempFile rejects directories outside allowed temp directories")
+    void deleteTempFileRejectsOutsideDirectories() throws Exception {
+        Path outsideDir = Paths.get("target", "nio-temp-outside-delete-dir-" + UUID.randomUUID()).toAbsolutePath();
+        Files.createDirectories(outsideDir);
+
+        try {
+            assertThatThrownBy(() -> new NioFileManagerImpl().deleteTempFile(outsideDir.toString()))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("Path traversal attempt detected");
+        } finally {
+            Files.deleteIfExists(outsideDir);
+        }
+    }
+
+    @Test
+    @DisplayName("deleteTempFile ignores blank inputs")
+    void deleteTempFileReturnsFalseForBlankInput() {
+        assertThat(new NioFileManagerImpl().deleteTempFile(null)).isFalse();
+        assertThat(new NioFileManagerImpl().deleteTempFile("")).isFalse();
+        assertThat(new NioFileManagerImpl().deleteTempFile("   ")).isFalse();
+    }
+
+    @Test
     @DisplayName("deleteTempFile rejects directories in allowed temp directories")
     void deleteTempFileRejectsDirectoriesInAllowedTempDirectories() throws Exception {
         Path catalinaBase = Paths.get("target", "nio-catalina-base-" + UUID.randomUUID()).toAbsolutePath();

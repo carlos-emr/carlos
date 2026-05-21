@@ -430,33 +430,27 @@ public class NioFileManagerImpl implements NioFileManager {
                 return false;
             }
 
-            // Validate against the same temp allowlist used for uploads.
-            // This includes java.io.tmpdir and Tomcat work directories.
             File tempFile = new File(fileName).getCanonicalFile();
             if (!PathValidationUtils.isInAllowedTempDirectory(tempFile)) {
-                log.error("Attempt to delete file outside of allowed temp directories: {}", LogSanitizer.sanitize(fileName));
+                log.error("Attempt to delete file outside allowed temp directories: {}", LogSanitizer.sanitize(fileName));
                 throw new SecurityException("Path traversal attempt detected");
             }
 
-            Path tempfile = tempFile.toPath();
-
-            if (!Files.exists(tempfile)) { // codeql[java/path-injection] -- tempFile is canonicalized and temp-dir allowlisted above.
+            if (!tempFile.exists()) {
                 return false;
             }
-
-            if (!Files.isRegularFile(tempfile)) { // codeql[java/path-injection] -- tempFile is canonicalized and temp-dir allowlisted above.
+            if (!tempFile.isFile()) {
                 log.error("Attempt to delete a non-file temp path: {}", LogSanitizer.sanitize(fileName));
                 throw new SecurityException("Temp deletion target must be a regular file");
             }
-            
-            return Files.deleteIfExists(tempfile); // codeql[java/path-injection] -- tempFile is canonicalized and temp-dir allowlisted above.
+            return Files.deleteIfExists(tempFile.toPath());
         } catch (SecurityException e) {
             log.error("Security violation while attempting to delete file: {}", LogSanitizer.sanitize(fileName), e);
             throw e; // Re-throw security exceptions
         } catch (IOException e) {
             log.error("Error while deleting temp cache image file {}", LogSanitizer.sanitize(fileName), e);
+            return false;
         }
-        return false;
     }
 
 
