@@ -138,7 +138,7 @@ public final class HtmlResponse {
      *
      * @param response servlet response to write to
      * @param contentType HTML content type used to set response headers and resolve the stream charset
-     * @param htmlStream stored HTML byte stream; closed after the response is written
+     * @param htmlStream stored HTML byte stream; closed when the decoding reader is closed after writing
      * @throws IOException when response writing fails
      */
     @SuppressWarnings({"XSS_SERVLET", "findsecbugs:XSS_SERVLET"})
