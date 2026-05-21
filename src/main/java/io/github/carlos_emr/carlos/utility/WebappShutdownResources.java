@@ -24,9 +24,13 @@ package io.github.carlos_emr.carlos.utility;
 import java.sql.Driver;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 
 import com.mysql.cj.jdbc.AbandonedConnectionCleanupThread;
+import io.github.carlos_emr.carlos.drools.DroolsShutdownResources;
+import io.github.carlos_emr.carlos.log.LogAction;
 import org.apache.logging.log4j.Logger;
 
 /**
@@ -38,30 +42,110 @@ import org.apache.logging.log4j.Logger;
 public final class WebappShutdownResources {
 
     private static final Logger logger = MiscUtils.getLogger();
-    private static final int MAX_CLASS_LOADER_ANCESTRY_DEPTH = 64;
-
     private WebappShutdownResources() {
     }
 
     /**
      * Releases shutdown-sensitive resources for the supplied web application class loader.
+     * The call order is significant: servlet-thread DB state and datasource tracking are released before
+     * async log workers, Drools executors, cache timers, MySQL cleanup, and finally webapp-owned
+     * JDBC driver deregistration.
      *
      * @param webappClassLoader class loader associated with the stopping CARLOS webapp
+     * @return per-step shutdown report for audit logging
      */
-    public static void releaseForContext(ClassLoader webappClassLoader) {
-        DbConnectionFilter.releaseAllThreadDbResources();
-        OscarTrackingBasicDataSource.clearTrackingState();
-        QueueCache.shutdownSharedTimer();
-        shutdownMySqlAbandonedConnectionCleanupThread();
-        deregisterJdbcDrivers(webappClassLoader);
+    public static ShutdownReport releaseForContext(ClassLoader webappClassLoader) {
+        List<ShutdownStepResult> results = new ArrayList<>();
+        runStep(results, ShutdownStep.DB_THREAD_RESOURCES, () -> {
+            DbConnectionFilter.releaseAllKnownDbResources();
+            return 0;
+        });
+        runStep(results, ShutdownStep.TRACKING_DATA_SOURCE, () -> {
+            OscarTrackingBasicDataSource.clearTrackingState();
+            return 0;
+        });
+        runStep(results, ShutdownStep.LOG_ACTION_EXECUTOR, () -> {
+            LogAction.shutdownExecutorService();
+            return 0;
+        });
+        runStep(results, ShutdownStep.DROOLS_EXECUTORS, () -> DroolsShutdownResources.shutdownExecutors());
+        runStep(results, ShutdownStep.QUEUE_CACHE_TIMER, () -> {
+            QueueCache.shutdownSharedTimer();
+            return 0;
+        });
+        runStep(results, ShutdownStep.MYSQL_CLEANUP_THREAD, () -> {
+            shutdownMySqlAbandonedConnectionCleanupThread();
+            return 0;
+        });
+        runStep(results, ShutdownStep.JDBC_DRIVERS, () -> deregisterJdbcDrivers(webappClassLoader));
+        return new ShutdownReport(results);
+    }
+
+    private static void runStep(List<ShutdownStepResult> results, ShutdownStep step, ShutdownOperation operation) {
+        try {
+            results.add(ShutdownStepResult.success(step, operation.run()));
+        } catch (Throwable t) {
+            logger.warn("Shutdown step {} failed", step, t);
+            results.add(ShutdownStepResult.failure(step, t));
+        }
+    }
+
+    @FunctionalInterface
+    private interface ShutdownOperation {
+        int run() throws Throwable;
+    }
+
+    public enum ShutdownStep {
+        DB_THREAD_RESOURCES,
+        TRACKING_DATA_SOURCE,
+        LOG_ACTION_EXECUTOR,
+        DROOLS_EXECUTORS,
+        QUEUE_CACHE_TIMER,
+        MYSQL_CLEANUP_THREAD,
+        JDBC_DRIVERS
+    }
+
+    public record ShutdownStepResult(ShutdownStep step, boolean successful, int count, Throwable failure) {
+        static ShutdownStepResult success(ShutdownStep step, int count) {
+            return new ShutdownStepResult(step, true, count, null);
+        }
+
+        static ShutdownStepResult failure(ShutdownStep step, Throwable failure) {
+            return new ShutdownStepResult(step, false, 0, failure);
+        }
+    }
+
+    public static final class ShutdownReport {
+        private final List<ShutdownStepResult> results;
+
+        private ShutdownReport(List<ShutdownStepResult> results) {
+            this.results = List.copyOf(results);
+        }
+
+        public List<ShutdownStepResult> results() {
+            return results;
+        }
+
+        public boolean successful() {
+            return results.stream().allMatch(ShutdownStepResult::successful);
+        }
+
+        public long failureCount() {
+            return results.stream().filter(result -> !result.successful()).count();
+        }
+
+        public int deregisteredDriverCount() {
+            return results.stream()
+                    .filter(result -> result.step() == ShutdownStep.JDBC_DRIVERS)
+                    .mapToInt(ShutdownStepResult::count)
+                    .sum();
+        }
     }
 
     /**
-     * Deregisters JDBC drivers loaded by the stopping webapp class loader only.
+     * Deregisters JDBC drivers loaded directly by the stopping webapp class loader only.
      * Drivers loaded by Tomcat or another parent loader are left registered because
-     * they may be shared with other applications. Package-private visibility keeps
-     * the lifecycle helper scoped to the utility package while allowing focused
-     * tests to exercise the class-loader filtering contract directly.
+     * they may be shared with other applications.
      *
      * @param webappClassLoader class loader whose drivers should be deregistered
      * @return number of JDBC drivers successfully deregistered
@@ -73,7 +157,7 @@ public final class WebappShutdownResources {
         int deregistered = 0;
 
         for (Driver driver : Collections.list(DriverManager.getDrivers())) {
-            if (!isOwnedByWebappClassLoader(driver.getClass().getClassLoader(), classLoader)) {
+            if (driver.getClass().getClassLoader() != classLoader) {
                 continue;
             }
 
@@ -90,59 +174,10 @@ public final class WebappShutdownResources {
     }
 
     /**
-     * Determines whether a resource class loader belongs to the stopping webapp
-     * loader. Child loaders are included because libraries may create scoped
-     * class loaders beneath the webapp loader; parent loaders are excluded to avoid
-     * deregistering Tomcat/common drivers shared with other applications.
-     *
-     * @param resourceClassLoader ClassLoader that loaded a shutdown-sensitive resource
-     * @param owningWebappClassLoader The stopping web application ClassLoader
-     * @return true when the resource should be treated as CARLOS webapp-owned
-     */
-    static boolean isOwnedByWebappClassLoader(ClassLoader resourceClassLoader, ClassLoader owningWebappClassLoader) {
-        // Bootstrap or missing loaders are not webapp-owned JDBC resources.
-        if (resourceClassLoader == null || owningWebappClassLoader == null) {
-            return false;
-        }
-        // Direct match covers the standard Tomcat webapp class-loader case.
-        if (resourceClassLoader == owningWebappClassLoader) {
-            return true;
-        }
-        // Nested library loaders below the webapp are owned by the stopping webapp.
-        return isAncestor(owningWebappClassLoader, resourceClassLoader);
-    }
-
-    /**
-     * Walks from a resource ClassLoader toward its parents to determine whether it
-     * is nested beneath the supplied webapp ClassLoader.
-     *
-     * @param possibleAncestor The webapp ClassLoader that may own the resource
-     * @param classLoader The resource ClassLoader to inspect
-     * @return true when the resource ClassLoader is a child of the webapp ClassLoader
-     */
-    private static boolean isAncestor(ClassLoader possibleAncestor, ClassLoader classLoader) {
-        // Shutdown checks a small DriverManager snapshot; avoid caching class-loader
-        // relationships so this cleanup path never retains loaders after redeploy.
-        // Normal servlet containers have shallow hierarchies; cap the walk to avoid
-        // pathological custom loader chains during shutdown.
-        ClassLoader current = classLoader.getParent();
-        int depth = 0;
-        while (current != null && depth < MAX_CLASS_LOADER_ANCESTRY_DEPTH) {
-            if (current == possibleAncestor) {
-                return true;
-            }
-            current = current.getParent();
-            depth++;
-        }
-        return false;
-    }
-
-    /**
      * Stops MySQL Connector/J's abandoned-connection cleanup thread during webapp
      * shutdown. A stopped cleanup thread is expected on repeated shutdown paths, so
      * that state is logged at debug level; unexpected runtime failures are warnings
-     * because shutdown should continue best-effort. Package-private visibility keeps
-     * direct use inside the utility package and supports focused lifecycle tests.
+     * because shutdown should continue best-effort.
      */
     static void shutdownMySqlAbandonedConnectionCleanupThread() {
         try {

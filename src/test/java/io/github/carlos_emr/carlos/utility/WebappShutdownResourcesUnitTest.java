@@ -38,15 +38,18 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Isolated;
+import org.mockito.MockedStatic;
+
+import io.github.carlos_emr.carlos.drools.DroolsShutdownResources;
+import io.github.carlos_emr.carlos.log.LogAction;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mockStatic;
 
 /**
  * Unit tests for {@link WebappShutdownResources}.
  * The @Isolated annotation keeps the DriverManager mutation test from running beside
  * connection-opening tests that depend on JVM-global driver registrations.
- *
- * @since 2026-05-19
  */
 @Tag("unit")
 @DisplayName("WebappShutdownResources")
@@ -83,7 +86,9 @@ public class WebappShutdownResourcesUnitTest {
                 assertThat(deregistered).isEqualTo(1);
                 assertThat((Boolean) isDriverRegistered.invoke(null, driver)).isFalse();
             } finally {
-                deregisterDriver.invoke(null, driver);
+                if ((Boolean) isDriverRegistered.invoke(null, driver)) {
+                    deregisterDriver.invoke(null, driver);
+                }
                 java.util.List<Driver> currentDrivers = Collections.list(DriverManager.getDrivers());
                 for (Driver existingDriver : existingDrivers) {
                     if (!currentDrivers.contains(existingDriver)) {
@@ -95,21 +100,28 @@ public class WebappShutdownResourcesUnitTest {
     }
 
     @Test
-    void shouldTreatChildClassLoaderResource_asWebappOwned() {
-        ClassLoader webappClassLoader = getClass().getClassLoader();
-        ClassLoader scopedChildLoader = new ClassLoader(webappClassLoader) {
+    void shouldRunAllShutdownSteps_whenEarlierStepThrows() {
+        ClassLoader unrelatedClassLoader = new ClassLoader(null) {
         };
 
-        assertThat(WebappShutdownResources.isOwnedByWebappClassLoader(scopedChildLoader, webappClassLoader)).isTrue();
-    }
+        try (MockedStatic<DbConnectionFilter> dbConnections = mockStatic(DbConnectionFilter.class);
+             MockedStatic<OscarTrackingBasicDataSource> tracking = mockStatic(OscarTrackingBasicDataSource.class);
+             MockedStatic<LogAction> logAction = mockStatic(LogAction.class);
+             MockedStatic<DroolsShutdownResources> droolsShutdown = mockStatic(DroolsShutdownResources.class);
+             MockedStatic<QueueCache> queueCache = mockStatic(QueueCache.class)) {
+            dbConnections.when(DbConnectionFilter::releaseAllKnownDbResources)
+                    .thenThrow(new AssertionError("db cleanup failed"));
 
-    @Test
-    void shouldLeaveParentClassLoaderResource_registeredForSharedContainerUse() {
-        ClassLoader parentClassLoader = getClass().getClassLoader();
-        ClassLoader testWebappLoader = new ClassLoader(parentClassLoader) {
-        };
+            WebappShutdownResources.ShutdownReport report = WebappShutdownResources.releaseForContext(unrelatedClassLoader);
 
-        assertThat(WebappShutdownResources.isOwnedByWebappClassLoader(parentClassLoader, testWebappLoader)).isFalse();
+            assertThat(report.results()).hasSize(7);
+            assertThat(report.results().get(0).successful()).isFalse();
+            assertThat(report.failureCount()).isEqualTo(1);
+            tracking.verify(OscarTrackingBasicDataSource::clearTrackingState);
+            logAction.verify(LogAction::shutdownExecutorService);
+            droolsShutdown.verify(DroolsShutdownResources::shutdownExecutors);
+            queueCache.verify(QueueCache::shutdownSharedTimer);
+        }
     }
 
     public static final class DriverRegistrationHelper {
@@ -135,7 +147,7 @@ public class WebappShutdownResourcesUnitTest {
             return Collections.list(DriverManager.getDrivers()).contains(driver);
         }
 
-        private static final class TestDriver implements Driver {
+        public static final class TestDriver implements Driver {
 
             @Override
             public Connection connect(String url, Properties info) {

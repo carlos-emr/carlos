@@ -644,11 +644,11 @@ For the full Drools DRL language reference, see the [Drools Documentation](https
 
 ### Drools 7.74.1 → 10.0.0 (Jakarta EE Migration)
 
-Drools was upgraded from 7.74.1.Final to 10.0.0 for Jakarta EE compatibility. Drools 10.0.0 requires JDK 17+ (CARLOS uses JDK 21) and uses the executable model by default.
+Drools was upgraded from 7.74.1.Final to 10.0.0 for Jakarta EE compatibility. Drools 10.0.0 requires JDK 17+ (CARLOS uses JDK 21).
 
 **Key changes:**
-1. **Replaced `KieHelper` with standard KIE API**: The internal `org.kie.internal.utils.KieHelper` class throws `UnsupportedOperationException` in Drools 10 with the executable model. `DroolsHelper.createKieBaseFromDrl()` now uses the standard `KieServices` → `KieFileSystem` → `KieBuilder` → `KieContainer` pipeline.
-2. **Replaced individual dependencies with `drools-engine` aggregator**: The four individual dependencies (`kie-api`, `drools-core`, `drools-compiler`, `drools-mvel`) were replaced by the single `drools-engine` aggregator dependency which includes the executable model compiler.
+1. **Replaced `KieHelper` with standard KIE API**: `DroolsHelper.createKieBaseFromDrl()` uses the standard `KieServices` -> `KieFileSystem` -> `KieBuilder` -> `KieContainer` pipeline.
+2. **Use `drools-engine` plus `drools-mvel`**: `drools-engine` provides the KIE engine and compiler, while `drools-mvel` is required by the standard DRL compiler path used to avoid executable-model JavaParser thread-local leaks.
 3. **Removed `mvel2` override**: Drools 10 manages its own MVEL dependency; the explicit `mvel2:2.5.2.Final` override is no longer needed.
 4. **Thread safety via unique ReleaseId**: Each compilation uses a UUID-based `ReleaseId` to isolate concurrent compilations in the global KIE repository.
 5. **DRL files unchanged**: All 39 DRL files are fully backward-compatible with Drools 10.0.0 syntax.

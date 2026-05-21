@@ -30,6 +30,9 @@ package io.github.carlos_emr.carlos.utility;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.Collections;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.FilterConfig;
@@ -46,6 +49,7 @@ public class DbConnectionFilter implements jakarta.servlet.Filter {
     private static final Logger logger = MiscUtils.getLogger();
 
     private static ThreadLocal<Connection> dbConnection = new ThreadLocal<Connection>();
+    private static final Set<Connection> trackedConnections = Collections.newSetFromMap(new ConcurrentHashMap<Connection, Boolean>());
 
     /**
      * @deprecated Raw JDBC connections obtained here bypass Spring's transaction
@@ -60,6 +64,7 @@ public class DbConnectionFilter implements jakarta.servlet.Filter {
         if (c == null || c.isClosed()) {
             c = getDbConnection();
             dbConnection.set(c);
+            trackedConnections.add(c);
         }
 
         return (c);
@@ -84,6 +89,9 @@ public class DbConnectionFilter implements jakarta.servlet.Filter {
         try {
             Connection c = dbConnection.get();
             SqlUtils.closeResources(c, null, null);
+            if (c != null) {
+                trackedConnections.remove(c);
+            }
             dbConnection.remove();
         } catch (Exception e) {
             logger.error("Error closing db connection.", e);
@@ -93,6 +101,17 @@ public class DbConnectionFilter implements jakarta.servlet.Filter {
     public static void releaseAllThreadDbResources() {
         releaseThreadLocalDbConnection();
         OscarTrackingBasicDataSource.releaseThreadConnections();
+    }
+
+    public static void releaseAllKnownDbResources() {
+        releaseAllThreadDbResources();
+        for (Connection c : trackedConnections.toArray(new Connection[0])) {
+            try {
+                SqlUtils.closeResources(c, null, null);
+            } finally {
+                trackedConnections.remove(c);
+            }
+        }
     }
 
     /**

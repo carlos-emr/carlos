@@ -31,8 +31,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Unit tests for {@link QueueCache} lifecycle behavior.
- *
- * @since 2026-05-19
  */
 @Tag("unit")
 @DisplayName("QueueCache")
@@ -66,5 +64,22 @@ class QueueCacheUnitTest {
         new QueueCache<String, String>(2, 10, 1_000L, null);
 
         assertThat(QueueCache.isSharedTimerInitialized()).isFalse();
+    }
+
+    @Test
+    void shouldBeIdempotent_whenShutdownInvokedTwice() {
+        new QueueCache<String, String>(2, 10, 1_000L, null);
+
+        QueueCache.shutdownSharedTimer();
+        QueueCache.shutdownSharedTimer();
+
+        assertThat(QueueCache.isSharedTimerInitialized()).isFalse();
+    }
+
+    @Test
+    void shouldClampShiftPeriodToOne_whenMaxTimeToCacheIsLessThanPools() {
+        new QueueCache<String, String>(5, 10, 1L, null);
+
+        assertThat(QueueCache.isSharedTimerInitialized()).isTrue();
     }
 }

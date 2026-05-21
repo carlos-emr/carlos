@@ -110,6 +110,16 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
      */
     static void clearTrackingState() {
         releaseThreadConnections();
+        HashMap<Connection, StackTraceElement[]> trackedConnections = new HashMap<Connection, StackTraceElement[]>(debugMap);
+        for (Connection c : trackedConnections.keySet()) {
+            try {
+                if (!c.isClosed()) {
+                    c.close();
+                }
+            } catch (SQLException e) {
+                logger.error("Error closing tracked jdbc connection during shutdown.", e);
+            }
+        }
         debugMap.clear();
     }
 

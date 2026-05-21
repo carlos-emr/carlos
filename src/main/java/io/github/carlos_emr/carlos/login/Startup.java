@@ -195,7 +195,13 @@ public class Startup implements ServletContextListener {
     }
 
     public void contextDestroyed(ServletContextEvent arg0) {
-        WebappShutdownResources.releaseForContext(getWebappClassLoader(arg0));
+        WebappShutdownResources.ShutdownReport report = WebappShutdownResources.releaseForContext(getWebappClassLoader(arg0));
+        if (report.successful()) {
+            logger.info("Webapp shutdown cleanup completed; deregistered JDBC drivers={}", report.deregisteredDriverCount());
+        } else {
+            logger.warn("Webapp shutdown cleanup completed with {} failed step(s); deregistered JDBC drivers={}",
+                    report.failureCount(), report.deregisteredDriverCount());
+        }
     }
 
     /**

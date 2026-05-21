@@ -30,8 +30,11 @@
 
 package io.github.carlos_emr.carlos.log;
 
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -47,8 +50,75 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 public class LogAction {
     private static Logger logger = MiscUtils.getLogger();
-    private static OscarLogDao oscarLogDao = (OscarLogDao) SpringUtils.getBean(OscarLogDao.class);
-    private static ExecutorService executorService = Executors.newCachedThreadPool(new DeamonThreadFactory(LogAction.class.getSimpleName() + ".executorService", Thread.MAX_PRIORITY));
+    private static volatile OscarLogDao oscarLogDao;
+    private static ExecutorService executorService = createExecutorService();
+    private static final int EXECUTOR_SHUTDOWN_TIMEOUT_SECONDS = 5;
+
+    private static ExecutorService createExecutorService() {
+        return Executors.newCachedThreadPool(new DeamonThreadFactory(LogAction.class.getSimpleName() + ".executorService", Thread.MAX_PRIORITY));
+    }
+
+    static void setExecutorServiceForTesting(ExecutorService testExecutorService) {
+        executorService = testExecutorService;
+    }
+
+    static void resetExecutorServiceForTesting() {
+        executorService.shutdownNow();
+        executorService = createExecutorService();
+    }
+
+    static void setOscarLogDaoForTesting(OscarLogDao testOscarLogDao) {
+        oscarLogDao = testOscarLogDao;
+    }
+
+    private static OscarLogDao getOscarLogDao() {
+        OscarLogDao localDao = oscarLogDao;
+        if (localDao == null) {
+            synchronized (LogAction.class) {
+                localDao = oscarLogDao;
+                if (localDao == null) {
+                    localDao = (OscarLogDao) SpringUtils.getBean(OscarLogDao.class);
+                    oscarLogDao = localDao;
+                }
+            }
+        }
+        return localDao;
+    }
+
+    public static void shutdownExecutorService() {
+        executorService.shutdown();
+        try {
+            if (!executorService.awaitTermination(EXECUTOR_SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                logDroppedAuditTasks(executorService.shutdownNow());
+            }
+        } catch (InterruptedException e) {
+            logDroppedAuditTasks(executorService.shutdownNow());
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private static void executeAsync(OscarLog oscarLog) {
+        try {
+            executorService.execute(new AddLogExecutorTask(oscarLog));
+        } catch (RejectedExecutionException e) {
+            logger.warn("Audit log executor rejected task; persisting synchronously", e);
+            addLogSynchronous(oscarLog);
+        }
+    }
+
+    private static void logDroppedAuditTasks(List<Runnable> droppedTasks) {
+        if (droppedTasks.isEmpty()) {
+            return;
+        }
+        StringBuilder taskTypes = new StringBuilder();
+        for (Runnable task : droppedTasks) {
+            if (taskTypes.length() > 0) {
+                taskTypes.append(", ");
+            }
+            taskTypes.append(task.getClass().getName());
+        }
+        logger.warn("Audit log executor shutdown dropped {} queued task(s): {}", droppedTasks.size(), taskTypes);
+    }
 
     public static void addLogSynchronous(LoggedInInfo loggedInInfo, String action, String data) {
         OscarLog logEntry = new OscarLog();
@@ -98,7 +168,7 @@ public class LogAction {
             logger.error("Unexpected error", e);
         }
         logEntry.setData(data);
-        executorService.execute(new AddLogExecutorTask(logEntry));
+        executeAsync(logEntry);
     }
 
     /**
@@ -122,7 +192,7 @@ public class LogAction {
 
         oscarLog.setData(data);
 
-        executorService.execute(new AddLogExecutorTask(oscarLog));
+        executeAsync(oscarLog);
     }
 
     /**
@@ -145,7 +215,7 @@ public class LogAction {
      */
     public static void addLogSynchronous(OscarLog oscarLog) {
         try {
-            oscarLogDao.persist(oscarLog);
+            getOscarLogDao().persist(oscarLog);
         } catch (Exception e) {
             logger.error("Error in logger.", e);
             logger.error("Error logging entry : " + oscarLog);
@@ -167,6 +237,6 @@ public class LogAction {
         log.setContentId(entityId);
         log.setIp(request.getRemoteAddr());
 
-        oscarLogDao.persist(log);
+        getOscarLogDao().persist(log);
     }
 }

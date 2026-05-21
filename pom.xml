@@ -703,11 +703,17 @@
 
         <!-- ==================== Rules Engine (Drools) ==================== -->
 
-        <!-- Drools 10.x KIE engine aggregator (upgraded from 7.74.1.Final for Jakarta EE)
-             Includes: kie-api, drools-core, drools-compiler, drools-model-compiler (executable model) -->
+        <!-- Drools 10.x KIE engine aggregator (upgraded from 7.74.1.Final for Jakarta EE). -->
         <dependency>
             <groupId>org.drools</groupId>
             <artifactId>drools-engine</artifactId>
+            <version>${drools.version}</version>
+        </dependency>
+
+        <!-- Required by the standard KIE DRL compiler path used by DroolsHelper. -->
+        <dependency>
+            <groupId>org.drools</groupId>
+            <artifactId>drools-mvel</artifactId>
             <version>${drools.version}</version>
         </dependency>
 

@@ -134,32 +134,31 @@ public class ManageDocument2Action extends ActionSupport {
     private static final Map<String, ActionHandler> ACTIONS = new HashMap<>();
 
     // Method-based dispatch consolidates all document operations (view, update, refile,
-    // add, etc.) under a single action class, keeping struts.xml minimal. Most handlers
-    // return null because they write directly to the response stream (images, PDFs, JSON).
+    // add, etc.) under a single action class, keeping struts.xml minimal.
     static {
         ACTIONS.put("refileDocumentAjax", ctx -> ctx.refileDocumentAjax());
-        ACTIONS.put("viewDocPage", ctx -> { ctx.viewDocPage(); return null; });
-        ACTIONS.put("display", ctx -> { ctx.display(); return null; });
-        ACTIONS.put("viewAnnotationAcknowledgementTickler", ctx -> { ctx.viewAnnotationAcknowledgementTickler(); return null; });
-        ACTIONS.put("viewDocumentDescription", ctx -> { ctx.viewDocumentDescription(); return null; });
-        ACTIONS.put("viewIncomingDocPageAsPdf", ctx -> { ctx.viewIncomingDocPageAsPdf(); return null; });
-        ACTIONS.put("viewIncomingDocPageAsImage", ctx -> { ctx.viewIncomingDocPageAsImage(); return null; });
-        ACTIONS.put("displayIncomingDocs", ctx -> { ctx.displayIncomingDocs(); return null; });
-        ACTIONS.put("documentUpdate", ctx -> { ctx.documentUpdate(); return null; });
-        ACTIONS.put("documentUpdateAjax", ctx -> { ctx.documentUpdateAjax(); return null; });
-        ACTIONS.put("getDemoNameAjax", ctx -> { ctx.getDemoNameAjax(); return null; });
-        ACTIONS.put("showPage", ctx -> { ctx.showPage(); return null; });
-        ACTIONS.put("view", ctx -> { ctx.view(); return null; });
+        ACTIONS.put("viewDocPage", ctx -> ctx.directResponse("viewDocPage", ctx::viewDocPage));
+        ACTIONS.put("display", ctx -> ctx.directResponse("display", ctx::display));
+        ACTIONS.put("viewAnnotationAcknowledgementTickler", ctx -> ctx.directResponse("viewAnnotationAcknowledgementTickler", ctx::viewAnnotationAcknowledgementTickler));
+        ACTIONS.put("viewDocumentDescription", ctx -> ctx.directResponse("viewDocumentDescription", ctx::viewDocumentDescription));
+        ACTIONS.put("viewIncomingDocPageAsPdf", ctx -> ctx.directResponse("viewIncomingDocPageAsPdf", ctx::viewIncomingDocPageAsPdf));
+        ACTIONS.put("viewIncomingDocPageAsImage", ctx -> ctx.directResponse("viewIncomingDocPageAsImage", ctx::viewIncomingDocPageAsImage));
+        ACTIONS.put("displayIncomingDocs", ctx -> ctx.directResponse("displayIncomingDocs", ctx::displayIncomingDocs));
+        ACTIONS.put("documentUpdate", ctx -> ctx.documentUpdate());
+        ACTIONS.put("documentUpdateAjax", ctx -> ctx.directResponse("documentUpdateAjax", ctx::documentUpdateAjax));
+        ACTIONS.put("getDemoNameAjax", ctx -> ctx.directResponse("getDemoNameAjax", ctx::getDemoNameAjax));
+        ACTIONS.put("showPage", ctx -> ctx.directResponse("showPage", ctx::showPage));
+        ACTIONS.put("view", ctx -> ctx.directResponse("view", ctx::view));
         ACTIONS.put("addIncomingDocument", ctx -> ctx.addIncomingDocument());
         //  Enable calling the method to remove providers
         ACTIONS.put("removeLinkFromDocument", new ActionHandler() {
             public String handle(ManageDocument2Action action) {
                 action.removeLinkFromDocument();
-                return null;
+                return NONE;
             }
         });
-        ACTIONS.put("viewDocumentInfo", ctx -> { ctx.viewDocumentInfo(); return null; });
-        ACTIONS.put("searchDocumentDescriptions", ctx -> { ctx.searchDocumentDescriptions(); return null; });
+        ACTIONS.put("viewDocumentInfo", ctx -> ctx.directResponse("viewDocumentInfo", ctx::viewDocumentInfo));
+        ACTIONS.put("searchDocumentDescriptions", ctx -> ctx.directResponse("searchDocumentDescriptions", ctx::searchDocumentDescriptions));
     }
 
     /**
@@ -176,8 +175,23 @@ public class ManageDocument2Action extends ActionSupport {
         if (handler != null) {
             try {
                 return handler.handle(this);
+            } catch (SecurityException e) {
+                log.warn("Authorization denied in {}(): {}",
+                        LogSafe.sanitize(method), LogSafe.sanitize(e.getMessage()));
+                if (response.isCommitted()) {
+                    return NONE;
+                }
+                try {
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                } catch (IOException ioe) {
+                    log.error("Unable to send authorization failure for {}():", LogSafe.sanitize(method), ioe);
+                }
+                return NONE;
             } catch (Exception e) {
                 log.error("Error in {}():", LogSafe.sanitize(method), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                if (response.isCommitted()) {
+                    return NONE;
+                }
                 addActionError("An error occurred while processing the document. Please try again or contact your system administrator.");
                 return "error";
             }
@@ -203,6 +217,29 @@ public class ManageDocument2Action extends ActionSupport {
     @FunctionalInterface
     private interface ActionHandler {
         String handle(ManageDocument2Action ctx) throws Exception;
+    }
+
+    @FunctionalInterface
+    private interface DirectResponseHandler {
+        void handle() throws Exception;
+    }
+
+    private String directResponse(String method, DirectResponseHandler handler) throws Exception {
+        try {
+            handler.handle();
+        } catch (SecurityException e) {
+            log.warn("Authorization denied in direct response handler {}(): {}",
+                    LogSafe.sanitize(method), LogSafe.sanitize(e.getMessage()));
+            if (!response.isCommitted()) {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            }
+        } catch (Exception e) {
+            log.error("Error in direct response handler {}():", LogSafe.sanitize(method), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+            if (!response.isCommitted()) {
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            }
+        }
+        return NONE;
     }
 
     /**
@@ -416,7 +453,7 @@ public class ManageDocument2Action extends ActionSupport {
         } catch (Exception e) {
             log.error("Failed to refile document {} to queue {}", LogSafe.sanitize(documentId), LogSafe.sanitize(queueId), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
         }
-        return null;
+        return NONE;
     }
 
     /**
@@ -914,9 +951,10 @@ public class ManageDocument2Action extends ActionSupport {
             contentBytes = Files.readAllBytes(file);
         } else {
             if (docxml == null || docxml.trim().equals("")) {
-                // Only throw exception if the file does not exist and the docxml is null/empty to serve HTML files that were uploaded in OSCAR 12,
-                // where HTML file uploads contents were stored in the docxml field of the document table, and the file was never saved.
-                throw new IllegalStateException("Local document doesn't exist for eDoc (ID " + d.getId() + "): " + file.getFileName());
+                // No stored HTML fallback is available, so fail before any response bytes are written.
+                log.warn("Local document file is missing for eDoc. documentId={}, fileName={}",
+                        LogSafe.sanitizeObject(d.getId()), LogSafe.sanitizeObject(file.getFileName()));
+                throw new IllegalStateException("Local document file is missing");
             }
         }
 
