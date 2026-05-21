@@ -34,7 +34,7 @@ class UserPropertyScheduleNavigationModeTest extends CarlosUnitTestBase {
     @DisplayName("should use saved mode when valid")
     void shouldUseSavedMode_whenValid() {
         String mode = UserProperty.resolveScheduleNavigationMode(
-                UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED, true, "123456");
+                UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED, true);
 
         assertThat(mode).isEqualTo(UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED);
     }
@@ -42,7 +42,7 @@ class UserPropertyScheduleNavigationModeTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should fallback to popup when saved mode is invalid")
     void shouldFallbackToPopup_whenSavedModeInvalid() {
-        String mode = UserProperty.resolveScheduleNavigationMode("unexpected", true, "123456");
+        String mode = UserProperty.resolveScheduleNavigationMode("unexpected", true);
 
         assertThat(mode).isEqualTo(UserProperty.SCHEDULE_NAVIGATION_MODE_POPUP);
     }
@@ -50,23 +50,15 @@ class UserPropertyScheduleNavigationModeTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should preserve legacy tab behavior when no mode is saved")
     void shouldPreserveLegacyTabs_whenModeMissing() {
-        String mode = UserProperty.resolveScheduleNavigationMode(null, true, "123456");
+        String mode = UserProperty.resolveScheduleNavigationMode(null, true);
 
         assertThat(mode).isEqualTo(UserProperty.SCHEDULE_NAVIGATION_MODE_TAB);
     }
 
     @Test
-    @DisplayName("should default known providers to focused when no mode is saved")
-    void shouldDefaultKnownProvidersToFocused_whenModeMissing() {
-        String mode = UserProperty.resolveScheduleNavigationMode(null, false, "999998");
-
-        assertThat(mode).isEqualTo(UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED);
-    }
-
-    @Test
-    @DisplayName("should default other providers to focused when no mode is saved")
-    void shouldDefaultOtherProvidersToFocused_whenModeMissing() {
-        String mode = UserProperty.resolveScheduleNavigationMode(null, false, "123456");
+    @DisplayName("should default to focused when no mode is saved and legacy tabs are disabled")
+    void shouldDefaultToFocused_whenModeMissingAndLegacyTabsDisabled() {
+        String mode = UserProperty.resolveScheduleNavigationMode(null, false);
 
         assertThat(mode).isEqualTo(UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED);
     }

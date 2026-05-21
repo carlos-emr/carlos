@@ -52,8 +52,7 @@
         String savedMode = navProp != null ? navProp.getValue() : null;
         scheduleNavigationMode = UserProperty.resolveScheduleNavigationMode(
                 savedMode,
-                tabProp != null && "yes".equalsIgnoreCase(tabProp.getValue()),
-                curProviderNo);
+                tabProp != null && "yes".equalsIgnoreCase(tabProp.getValue()));
         openEncounterInTab = UserProperty.SCHEDULE_NAVIGATION_MODE_TAB.equals(scheduleNavigationMode);
     }
     pageContext.setAttribute("scheduleNavigationModeValue", scheduleNavigationMode);

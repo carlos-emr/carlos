@@ -75,8 +75,8 @@ class ScheduleNavigationAssetRegressionTest {
                     + " context=\"uriComponent\"/>&boxType=<%=pageType%><%=scheduleNavQuerySuffix%>";
 
     @Test
-    @DisplayName("should default schedule navigation to focused mode only for carlosdoc")
-    void shouldDefaultScheduleNavigation_forCarlosdocOnly() throws IOException {
+    @DisplayName("should resolve schedule navigation without Carlosdoc provider special case")
+    void shouldResolveScheduleNavigation_withoutCarlosdocProviderSpecialCase() throws IOException {
         String scheduleScript = Files.readString(SCHEDULE_PAGE_SCRIPT, StandardCharsets.UTF_8);
         String providerPreference = Files.readString(PROVIDER_PREFERENCE_JSP, StandardCharsets.UTF_8);
         String normalizedScheduleScript = normalizeWhitespace(scheduleScript);
@@ -85,11 +85,11 @@ class ScheduleNavigationAssetRegressionTest {
         assertThat(normalizedScheduleScript)
                 .contains("String scheduleNavigationMode = UserProperty.SCHEDULE_NAVIGATION_MODE_POPUP;")
                 .contains("scheduleNavigationMode = UserProperty.resolveScheduleNavigationMode( savedMode,"
-                        + " tabProp != null && \"yes\".equalsIgnoreCase(tabProp.getValue()), curProviderNo);")
+                        + " tabProp != null && \"yes\".equalsIgnoreCase(tabProp.getValue()));")
                 .doesNotContain("CARLOSDOC_PROVIDER_NO");
         assertThat(normalizedProviderPreference)
                 .contains("String scheduleNavigationMode = UserProperty.resolveScheduleNavigationMode("
-                        + " props.get(UserProperty.SCHEDULE_NAVIGATION_MODE), encOpenInTab, providerNo);")
+                        + " props.get(UserProperty.SCHEDULE_NAVIGATION_MODE), encOpenInTab);")
                 .doesNotContain("CARLOSDOC_PROVIDER_NO");
     }
 
