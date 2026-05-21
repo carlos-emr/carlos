@@ -34,6 +34,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%
@@ -90,7 +91,6 @@
 
     <body>
     <%@ include file="efmTopNav.jspf" %>
-<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
     <h3><fmt:message key="admin.admin.frmGroups"/></h3>
     <div class="row">

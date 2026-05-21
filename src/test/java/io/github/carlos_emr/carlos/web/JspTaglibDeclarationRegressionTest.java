@@ -52,13 +52,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("unit")
 class JspTaglibDeclarationRegressionTest {
     private static final String BASEDIR_PROPERTY = "basedir";
-    /** Matches JSP template comments so tag usage inside inactive code is ignored. */
+    // Matches JSP template comments so tag usage inside inactive code is ignored.
     private static final Pattern JSP_TEMPLATE_COMMENT = Pattern.compile("<%--.*?--%>", Pattern.DOTALL);
-    /** Matches HTML comments so commented-out tag usage is ignored after JSP comments are removed. */
+    // Matches HTML comments so commented-out tag usage is ignored after JSP comments are removed.
     private static final Pattern HTML_COMMENT = Pattern.compile("<!--.*?-->", Pattern.DOTALL);
-    /** Captures the attribute body of each {@code <%@ taglib ... %>} directive as group 1. */
+    // Captures the attribute body of each <%@ taglib ... %> directive as group 1.
     private static final Pattern TAGLIB_DIRECTIVE = Pattern.compile("<%@\\s*taglib\\b(.*?)%>", Pattern.DOTALL);
-    /** Captures directive attributes as name (group 1), quote character (group 2), and value (group 3). */
+    // Captures directive attributes as name (group 1), quote character (group 2), and value (group 3).
     private static final Pattern ATTRIBUTE = Pattern.compile("\\b(uri|prefix)\\s*=\\s*(['\"])(.*?)\\2");
     private static final String SHARED_TAGLIB_FILE_NAMES_PATTERN =
             "taglibs\\.jsp|taglibs\\.jspf|common-taglibs\\.jsp|common-tags\\.jsp";
@@ -190,6 +190,12 @@ class JspTaglibDeclarationRegressionTest {
      * larger EL expression). Any file matching either form must declare the
      * corresponding JSTL taglib unless it includes a shared taglib file.</p>
      */
+    /**
+     * Builds a regex that detects standard JSTL usage for one prefix.
+     *
+     * @param prefix the taglib prefix to inspect, such as {@code c} or {@code fmt}
+     * @return a pattern matching both JSP tag syntax and EL function syntax for the prefix
+     */
     private static Pattern taglibUsagePattern(String prefix) {
         // (?i) makes prefix matching case-insensitive; (?s) lets "." span
         // line breaks when matching EL expressions split across lines.
@@ -197,6 +203,12 @@ class JspTaglibDeclarationRegressionTest {
                 + Pattern.quote(prefix) + ":");
     }
 
+    /**
+     * Builds the accepted URI pattern for a standard JSTL library.
+     *
+     * @param taglibName the JSTL URI suffix, such as {@code core}, {@code fmt}, or {@code functions}
+     * @return a pattern matching both legacy {@code java.sun.com} and Jakarta EE {@code jakarta.tags} URIs
+     */
     private static Pattern standardJstlUriPattern(String taglibName) {
         return Pattern.compile("^(?:http://java\\.sun\\.com/jsp/jstl/" + Pattern.quote(taglibName)
                 + "|jakarta\\.tags\\." + Pattern.quote(taglibName) + ")$");
