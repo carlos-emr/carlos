@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.tickler.dao;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.dao.TicklerDao;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
+import io.github.carlos_emr.carlos.test.support.IntegrationTestSeedService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -82,8 +83,12 @@ public abstract class TicklerDaoBaseIntegrationTest extends CarlosTestBase {
      */
     @BeforeEach
     protected void setUp() {
+        ensureProviderExists("999998");
+        ensureProviderExists("999999");
+
         // Create test ticklers with varying statuses and assignments
         for (int i = 1; i <= 5; i++) {
+            ensureDemographicExists(1000 + i);
             Tickler tickler = new Tickler();
             tickler.setDemographicNo(1000 + i);
             tickler.setMessage("Test tickler " + i);
@@ -97,6 +102,14 @@ public abstract class TicklerDaoBaseIntegrationTest extends CarlosTestBase {
         entityManager.flush();
     }
 
+    private void ensureProviderExists(String providerNo) {
+        IntegrationTestSeedService.ensureProviderExists(entityManager, providerNo);
+    }
+
+    protected void ensureDemographicExists(Integer demographicNo) {
+        IntegrationTestSeedService.ensureDemographicExists(entityManager, demographicNo);
+    }
+
     /**
      * Helper method to create and persist a tickler with specified attributes.
      *
@@ -106,6 +119,8 @@ public abstract class TicklerDaoBaseIntegrationTest extends CarlosTestBase {
      * @return Tickler the created and persisted tickler instance
      */
     protected Tickler createTickler(Integer demoNo, String message, Tickler.STATUS status) {
+        ensureDemographicExists(demoNo);
+
         Tickler tickler = new Tickler();
         tickler.setDemographicNo(demoNo);
         tickler.setMessage(message);
@@ -126,6 +141,7 @@ public abstract class TicklerDaoBaseIntegrationTest extends CarlosTestBase {
      */
     protected void createBulkTestData(int count, Integer baseDemo) {
         for (int i = 0; i < count; i++) {
+            ensureDemographicExists(baseDemo + i);
             Tickler tickler = new Tickler();
             tickler.setDemographicNo(baseDemo + i);
             tickler.setMessage("Bulk test tickler " + i);

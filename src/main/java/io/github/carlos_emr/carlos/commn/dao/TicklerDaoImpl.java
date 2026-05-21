@@ -118,6 +118,11 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
     }
 
     @Override
+    public Tickler find(int id) {
+        return find(Integer.valueOf(id));
+    }
+
+    @Override
     public List<Tickler> findActiveByMessageForPatients(List<Integer> demographicNos, String remString) {
 
         //weird logic here, beware.
