@@ -66,7 +66,8 @@ class DemographicEditJspSplitRegressionTest {
     private static final Path MASTER_JSP = WEBAPP_ROOT.resolve("WEB-INF/jsp/demographic/edit.jsp");
     private static final Pattern JSP_FORWARD = Pattern.compile(
             "(?is)<jsp:forward\\b([^>]*)>(.*?)</jsp:forward>|<jsp:forward\\b([^>]*)/\\s*>");
-    private static final Pattern JSP_INCLUDE = Pattern.compile("(?is)<jsp:include\\b([^>]*)/\\s*>");
+    private static final Pattern JSP_INCLUDE = Pattern.compile(
+            "(?is)<jsp:include\\b([^>]*)>(.*?)</jsp:include>|<jsp:include\\b([^>]*)/\\s*>");
     private static final Pattern JSP_PAGE_ATTRIBUTE = Pattern.compile("\\bpage\\s*=\\s*(['\"])(.*?)\\1");
     private static final Pattern JSP_PARAM = Pattern.compile("(?is)<jsp:param\\b[^>]*/\\s*>");
     private static final Set<String> REQUIRED_EDIT_FRAGMENTS = Set.of(
@@ -130,6 +131,20 @@ class DemographicEditJspSplitRegressionTest {
                 .containsExactlyInAnyOrderElementsOf(REQUIRED_EDIT_FRAGMENTS);
     }
 
+    @Test
+    @DisplayName("should parse include pages with optional JSP params")
+    void shouldParseIncludePages_withOptionalJspParams() {
+        String jsp = """
+                <jsp:include page="edit-view.jsp">
+                    <jsp:param name="section" value="view"/>
+                </jsp:include>
+                <jsp:include flush="true" page='edit-form-personal.jsp' />
+                """;
+
+        assertThat(jspIncludePages(jsp))
+                .containsExactlyInAnyOrder("edit-view.jsp", "edit-form-personal.jsp");
+    }
+
     private static String removeJspCommentsAndDirectives(String jsp) {
         return jsp
                 .replaceAll("(?s)<%--.*?--%>", "")
@@ -167,10 +182,7 @@ class DemographicEditJspSplitRegressionTest {
         Set<String> pages = new HashSet<>();
         Matcher includeMatcher = JSP_INCLUDE.matcher(jsp);
         while (includeMatcher.find()) {
-            Matcher pageMatcher = JSP_PAGE_ATTRIBUTE.matcher(includeMatcher.group(1));
-            if (pageMatcher.find()) {
-                pages.add(pageMatcher.group(2));
-            }
+            pages.add(pageAttribute(includeMatcher));
         }
         return pages;
     }
