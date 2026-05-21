@@ -103,6 +103,7 @@ class GenerateOutFiles2ActionTest extends CarlosUnitTestBase {
         assertThat(response.getContentType()).isEqualTo("text/csv;charset=UTF-8");
         assertThat(response.getCharacterEncoding()).isEqualTo(StandardCharsets.UTF_8.name());
         assertThat(response.getHeader("Content-Disposition")).isEqualTo("attachment; filename=\"oscarReport.csv\"");
+        assertThat(response.getHeader("X-Content-Type-Options")).isEqualTo("nosniff");
     }
 
     @Test
