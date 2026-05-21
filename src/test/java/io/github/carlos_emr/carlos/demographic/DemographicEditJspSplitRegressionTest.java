@@ -100,6 +100,7 @@ class DemographicEditJspSplitRegressionTest {
     void shouldDispatchLegacyWrapper_toEditActionWithRequestParameters() throws Exception {
         String legacyJsp = Files.readString(LEGACY_JSP, StandardCharsets.UTF_8);
         RecordingServletContext servletContext = new RecordingServletContext();
+        // The legacy ajax result is returned from demographic/Contact and then forwards through this JSP wrapper.
         MockHttpServletRequest request = new MockHttpServletRequest(servletContext, "POST", "/demographic/Contact");
         MockHttpServletResponse response = new MockHttpServletResponse();
         request.setParameter("postMethod", "ajax");

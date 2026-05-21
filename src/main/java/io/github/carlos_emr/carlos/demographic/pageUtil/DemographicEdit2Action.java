@@ -123,20 +123,21 @@ public class DemographicEdit2Action extends ActionSupport {
             addActionError("demographic_no is required");
             return ERROR;
         }
-        demographic_no = demographic_no.trim();
+        String trimmedDemographicNo = demographic_no.trim();
         try {
-            Integer.parseInt(demographic_no);
+            Integer.parseInt(trimmedDemographicNo);
         } catch (NumberFormatException e) {
             logger.warn("DemographicEdit2Action: non-numeric demographic_no='{}'", LogSafe.sanitize(demographic_no)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             addActionError("Invalid demographic_no: must be numeric");
             return ERROR;
         }
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", demographic_no)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", trimmedDemographicNo)) {
             logger.warn(
                     "DemographicEdit2Action: provider {} lacks _demographic read privilege for patient record",
                     loggedInInfo.getLoggedInProviderNo());
             throw new SecurityException("missing required sec object (_demographic)");
         }
+        demographic_no = trimmedDemographicNo;
 
         CarlosProperties oscarProps = CarlosProperties.getInstance();
         String prov = StringUtils.trimToEmpty(oscarProps.getProperty("billregion", "")).toUpperCase();
