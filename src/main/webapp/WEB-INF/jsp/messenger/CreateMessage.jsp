@@ -172,6 +172,8 @@
     String delegate = "";
     String delegateName = "";
     boolean recall = (request.getParameter("recall") != null);
+    boolean showScheduleNav = "1".equals(request.getParameter("scheduleNav"));
+    String scheduleNavFirstQuerySuffix = showScheduleNav ? "?scheduleNav=1" : "";
 
     if (recall) {
         String subjectText = messagingManager.getLabRecallMsgSubjectPref(LoggedInInfo.getLoggedInInfoFromSession(request));
@@ -222,6 +224,9 @@
     <%-- global.css: CARLOS color overrides for Bootstrap (messenger pages don't use global-head.jspf) --%>
     <link rel="stylesheet" href="<%=request.getContextPath() %>/share/css/global.css">
     <link href="<%=request.getContextPath() %>/css/fontawesome-all.min.css" rel="stylesheet"><!-- fontawesome 6.x -->
+    <% if (showScheduleNav) { %>
+    <link rel="stylesheet" href="<%=request.getContextPath()%>/css/topnav.css">
+    <% } %>
     <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
 
     <style>
@@ -431,6 +436,9 @@ function validateFields() {
 </script>
 </head>
 <body>
+<% if (showScheduleNav) { %>
+<jsp:include page="/WEB-INF/jsp/provider/mainMenu.jsp"/>
+<% } %>
 <%-- Dismissable Bootstrap alert container — alerts from showAlert() are appended here --%>
 <div id="msg-alert-container" style="position:sticky; top:0; z-index:1050; padding:0 0.5rem;"></div>
 <table style="width:100%;">
@@ -457,10 +465,10 @@ function validateFields() {
 			<tr>
 
 						<td><div style="display:flex; padding-left:10px;">
-						    <a class="btn btn-primary" href="<%=request.getContextPath()%>/messenger/DisplayMessages">
+						    <a class="btn btn-primary" href="<%=request.getContextPath()%>/messenger/DisplayMessages<%=scheduleNavFirstQuerySuffix%>">
 								<fmt:message key="messenger.ViewMessage.btnInbox" />
 							</a>
-                            <a class="btn btn-outline-secondary" href="<%=request.getContextPath()%>/messenger/ClearMessage">
+                            <a class="btn btn-outline-secondary" href="<%=request.getContextPath()%>/messenger/ClearMessage<%=scheduleNavFirstQuerySuffix%>">
 								<fmt:message key="messenger.CreateMessage.btnClear" />
 							</a>
                             <button type="button" class="btn btn-outline-secondary" onclick="BackToCarlos()">
@@ -475,6 +483,9 @@ function validateFields() {
 			<tr>
 				<td><!-- colspan -->
 				<form action="${pageContext.request.contextPath}/messenger/CreateMessage" method="post" onsubmit="return validateFields()">
+                    <% if (showScheduleNav) { %>
+                    <input type="hidden" name="scheduleNav" value="1">
+                    <% } %>
 				<table class="card card-body bg-body-tertiary" style="width:100%">
 						<tr class="subheader">
 							<th><fmt:message key="messenger.CreateMessage.msgRecipients" /></th>

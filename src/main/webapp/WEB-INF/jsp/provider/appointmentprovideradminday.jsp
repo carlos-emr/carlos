@@ -967,11 +967,34 @@
                                 </oscar:oscarPropertiesCheck>
                             </caisi:isModuleLoad>
 
+                            <%
+                                String loggedInProviderNo = loggedInInfo1.getLoggedInProviderNo();
+                                Provider loggedInProvider = loggedInInfo1.getLoggedInProvider();
+                                String loggedInProviderFirstName = loggedInProvider != null ? loggedInProvider.getFirstName() : null;
+                                String loggedInProviderLastName = loggedInProvider != null ? loggedInProvider.getLastName() : null;
+                                String loggedInProviderName = StringUtils.trim(
+                                        StringUtils.defaultString(loggedInProviderFirstName)
+                                                + " "
+                                                + StringUtils.defaultString(loggedInProviderLastName));
+                                String encodedLoggedInProviderName = URLEncoder.encode(loggedInProviderName, StandardCharsets.UTF_8);
+                                String scheduleMessengerUrl = request.getContextPath() + "/messenger/DisplayMessages?providerNo=" + loggedInProviderNo + "&userName=" + encodedLoggedInProviderName;
+                                String scheduleConsultationUrl = request.getContextPath() + "/encounter/IncomingConsultation?providerNo=" + loggedInProviderNo + "&userName=" + encodedLoggedInProviderName;
+                                String scheduleDocumentReportUrl = request.getContextPath() + "/documentManager/ViewDocumentReport?function=providers&functionid=" + loggedInProviderNo + "&curUser=" + loggedInProviderNo;
+                                String scheduleReportIndexUrl = request.getContextPath() + "/report/ViewReportindex";
+                                String scheduleAdministrationUrl = request.getContextPath() + "/administration";
+                                String scheduleTicklerUrl = request.getContextPath() + "/tickler/ViewTicklerMain";
+                                String scheduleMessengerUrlForJsAttribute = SafeEncode.forJavaScriptAttribute(scheduleMessengerUrl);
+                                String scheduleConsultationUrlForJsAttribute = SafeEncode.forJavaScriptAttribute(scheduleConsultationUrl);
+                                String scheduleDocumentReportUrlForJsAttribute = SafeEncode.forJavaScriptAttribute(scheduleDocumentReportUrl);
+                                String scheduleReportIndexUrlForJsAttribute = SafeEncode.forJavaScriptAttribute(scheduleReportIndexUrl);
+                                String scheduleAdministrationUrlForJsAttribute = SafeEncode.forJavaScriptAttribute(scheduleAdministrationUrl);
+                                String scheduleTicklerUrlForJsAttribute = SafeEncode.forJavaScriptAttribute(scheduleTicklerUrl);
+                            %>
                             <fmt:message var="ticklerTitle" key="global.tickler"/>
                             <security:oscarSec roleName="<%=roleName$%>" objectName="_tickler" rights="r">
                                 <li>
                                     <a HREF="#"
-                                       ONCLICK="popupPage2('<%= request.getContextPath() %>/tickler/ViewTicklerMain','${carlos:forJavaScript(ticklerTitle)}');return false;"
+                                       ONCLICK="return openScheduleSection('<%=scheduleTicklerUrlForJsAttribute%>', function(u){ popupPage2(u,'${carlos:forJavaScript(ticklerTitle)}'); }, event);"
                                        TITLE='${carlos:forHtmlAttribute(ticklerTitle)}'>
                                         <span id="oscar_new_tickler"><fmt:message key="global.btntickler"/></span></a>
                                 </li>
@@ -981,9 +1004,9 @@
                                 <security:oscarSec roleName="<%=roleName$%>" objectName="_msg" rights="r">
                                     <li>
                                         <a HREF="#"
-                                           ONCLICK="popupOscarRx(600,1024,'<%=request.getContextPath()%>/messenger/DisplayMessages?providerNo=<%=loggedInInfo1.getLoggedInProviderNo()%>&userName=<%=URLEncoder.encode(loggedInInfo1.getLoggedInProvider().getFirstName()+" "+loggedInInfo1.getLoggedInProvider().getLastName(), StandardCharsets.UTF_8)%>')"
+                                           ONCLICK="return openScheduleSection('<%=scheduleMessengerUrlForJsAttribute%>', function(u){ popupOscarRx(600,1024,u); }, event);"
                                            title="<fmt:message key="global.messenger"/>">
-                                            <span id="oscar_new_msg"><fmt:message key="global.msg"/></span></a>
+                                              <span id="oscar_new_msg"><fmt:message key="global.msg"/></span></a>
                                     </li>
                                 </security:oscarSec>
                             </caisi:isModuleLoad>
@@ -991,9 +1014,9 @@
                                 <security:oscarSec roleName="<%=roleName$%>" objectName="_con" rights="r">
                                     <li id="con">
                                         <a HREF="#"
-                                           ONCLICK="popupOscarRx(625,1024,'<%=request.getContextPath()%>/encounter/IncomingConsultation?providerNo=<%=loggedInInfo1.getLoggedInProviderNo()%>&userName=<%=URLEncoder.encode(loggedInInfo1.getLoggedInProvider().getFirstName()+" "+loggedInInfo1.getLoggedInProvider().getLastName(), StandardCharsets.UTF_8)%>')"
+                                           ONCLICK="return openScheduleSection('<%=scheduleConsultationUrlForJsAttribute%>', function(u){ popupOscarRx(625,1024,u); }, event);"
                                            title="<fmt:message key="provider.appointmentProviderAdminDay.viewConReq"/>">
-                                            <span id="oscar_aged_consults"><fmt:message key="global.con"/></span></a>
+                                              <span id="oscar_aged_consults"><fmt:message key="global.con"/></span></a>
                                     </li>
                                 </security:oscarSec>
                             </caisi:isModuleLoad>
@@ -1012,7 +1035,7 @@
                                 <security:oscarSec roleName="<%=roleName$%>" objectName="_edoc" rights="r">
                                     <li>
                                         <a HREF="#"
-                                           onclick="popup('700', '1024', '<%= request.getContextPath() %>/documentManager/ViewDocumentReport?function=providers&functionid=<%=loggedInInfo1.getLoggedInProviderNo()%>&curUser=<%=loggedInInfo1.getLoggedInProviderNo()%>', 'edocView');"
+                                           onclick="return openScheduleSection('<%=scheduleDocumentReportUrlForJsAttribute%>', function(u){ popup('700', '1024', u, 'edocView'); }, event);"
                                            TITLE='<fmt:message key="provider.appointmentProviderAdminDay.viewEdoc"/>'><fmt:message key="global.edoc"/></a>
                                     </li>
                                 </security:oscarSec>
@@ -1022,7 +1045,7 @@
                                 <security:oscarSec roleName="<%=roleName$%>" objectName="_report" rights="r">
                                     <li>
                                         <a HREF="#"
-                                           ONCLICK="popupPage2('<%= request.getContextPath() %>/report/ViewReportindex','reportPage');return false;"
+                                           ONCLICK="return openScheduleSection('<%=scheduleReportIndexUrlForJsAttribute%>', function(u){ popupPage2(u,'reportPage'); }, event);"
                                            TITLE='<fmt:message key="global.genReport"/>'><fmt:message key="global.report"/></a>
                                     </li>
                                 </security:oscarSec>
@@ -1053,7 +1076,7 @@
                                     <li id="admin2">
                                         <a href="javascript:void(0)" id="admin-panel"
                                            title="<fmt:message key="admin.admin.page.title"/>"
-                                       onclick="newWindow('<%=request.getContextPath()%>/administration','admin')"><fmt:message key="provider.mainMenu.administration"/></a>
+                                       onclick="return openScheduleSection('<%=scheduleAdministrationUrlForJsAttribute%>', function(u){ newWindow(u,'admin'); }, event);"><fmt:message key="provider.mainMenu.administration"/></a>
                                     </li>
 
                                 </security:oscarSec>

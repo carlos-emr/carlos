@@ -73,6 +73,7 @@
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     String userfirstname = (String) session.getAttribute("userfirstname");
     String userlastname = (String) session.getAttribute("userlastname");
+    boolean showScheduleNav = "1".equals(request.getParameter("scheduleNav"));
 %>
 
 <!doctype html>
@@ -85,6 +86,9 @@
     <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet" type="text/css">
     <link href="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css">
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+    <% if (showScheduleNav) { %>
+    <link rel="stylesheet" href="<%=request.getContextPath()%>/css/topnav.css">
+    <% } %>
 
 
     <style>
@@ -259,6 +263,9 @@
 </head>
 
 <body>
+<% if (showScheduleNav) { %>
+    <jsp:include page="/WEB-INF/jsp/provider/mainMenu.jsp"/>
+<% } %>
 <div class="container-fluid">
     <div class="row">
 
