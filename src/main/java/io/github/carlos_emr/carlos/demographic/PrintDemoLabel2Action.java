@@ -236,7 +236,14 @@ public class PrintDemoLabel2Action extends ActionSupport {
                 osc.fillDocumentStream(parameters, sos, "pdf", templateStream, connection, exportPdfJavascript);
             }
         } catch (IOException | SQLException e) {
-            MiscUtils.getLogger().error("Error", e);
+            MiscUtils.getLogger().error("Error generating demographic label PDF", e);
+            if (!response.isCommitted()) {
+                try {
+                    response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                } catch (IOException sendErrorException) {
+                    MiscUtils.getLogger().error("Error sending demographic label PDF failure response", sendErrorException);
+                }
+            }
         }
 
         // Action writes PDF bytes directly to response.getOutputStream() above, so return
