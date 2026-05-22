@@ -30,9 +30,7 @@
 
 package io.github.carlos_emr.carlos.form;
 
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -57,7 +55,6 @@ import org.w3c.dom.Document;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
-import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.util.JDBCUtil;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
@@ -176,8 +173,9 @@ public class FrmRecordHelp {
                     String archiveFileName = formClass + "_" + demographicNo + "_" + now + ".xml";
 
                     try {
-                        File archiveDir = Path.of(place).toAbsolutePath().normalize().toFile();
-                        String fileName = PathValidationUtils.validatePath(archiveFileName, archiveDir).getPath();
+                        if (!place.endsWith(System.getProperty("file.separator")))
+                            place = place + System.getProperty("file.separator");
+                        String fileName = place + archiveFileName;
                         Document doc = JDBCUtil.toDocument(rs);
                         JDBCUtil.saveAsXML(doc, fileName);
                     } catch (SQLException | ParserConfigurationException | TransformerException | IOException |
