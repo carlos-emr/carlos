@@ -23,6 +23,7 @@ import java.nio.file.Files;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.ResourceBundle;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -104,7 +105,10 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
 
         if (docFile != null && destination != null && destination.equals("incomingDocs")) {
             String fileName = this.filedataFileName;
-            if (!fileName.toLowerCase().endsWith(".pdf")) {
+            String sanitizedFileName = sanitizeFileNameForIncomingDocs(fileName);
+            if (sanitizedFileName == null) {
+                map.put("error", props.getString("dms.error.invalidFilename"));
+            } else if (!sanitizedFileName.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
                 map.put("error", props.getString("dms.documentUpload.onlyPdf"));
             } else if (docFile.length() == 0) {
                 map.put("error", 4);
@@ -113,11 +117,9 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                 String queueId = request.getParameter("queue");
                 String destFolder = request.getParameter("destFolder");
 
-                // Sanitize filename to prevent path traversal
-                String sanitizedFileName = sanitizeFileNameForIncomingDocs(fileName);
                 File f = new File(IncomingDocUtil.getAndCreateIncomingDocumentFilePathName(queueId, destFolder, sanitizedFileName));
                 if (f.exists()) {
-                    map.put("error", fileName + " " + props.getString("dms.documentUpload.alreadyExists"));
+                    map.put("error", sanitizedFileName + " " + props.getString("dms.documentUpload.alreadyExists"));
                 } else {
                     boolean success = writeToIncomingDocs(docFile, queueId, destFolder, sanitizedFileName);
                     if (!success) {
@@ -335,7 +337,12 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             return null;
         }
 
-        String baseName = FilenameUtils.getName(fileName);
+        String baseName;
+        try {
+            baseName = FilenameUtils.getName(fileName);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
 
         // Ensure baseName doesn't contain any path separators
         if (baseName.contains("/") || baseName.contains("\\") || baseName.contains("..")) {
@@ -347,8 +354,8 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             return null;
         }
 
-        // Ensure baseName is not empty and ends with .pdf
-        if (baseName.trim().isEmpty() || !baseName.toLowerCase().endsWith(".pdf") || baseName.equals(".pdf")) {
+        // Ensure baseName is not empty
+        if (baseName.trim().isEmpty()) {
             return null;
         }
 
