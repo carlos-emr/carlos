@@ -938,6 +938,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
      * @param writtenFile File the destination returned by {@link #writeLocalFile(InputStream, String)}
      * @return Path the validated, normalized destination path under {@code DOCUMENT_DIR}
      * @throws IOException when the destination is missing or cannot be resolved safely
+     * @throws SecurityException when the destination does not resolve inside {@code DOCUMENT_DIR}
      */
     private Path resolveWrittenDocumentPath(File writtenFile) throws IOException {
         if (writtenFile == null) {
