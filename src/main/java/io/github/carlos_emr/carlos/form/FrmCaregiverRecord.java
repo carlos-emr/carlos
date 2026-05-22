@@ -80,15 +80,15 @@ public class FrmCaregiverRecord extends FrmRecord {
                         String name = md.getColumnName(i);
 
                         String value;
-                        MiscUtils.getLogger().debug(" name = " + name + " type = " + md.getColumnTypeName(i) + " scale = " + md.getScale(i));
+                        MiscUtils.getLogger().debug("name = {} type = {} scale = {}", name, md.getColumnTypeName(i), md.getScale(i));
                         if (md.getColumnTypeName(i).equalsIgnoreCase("TINY")) {
 
                             if (rs.getInt(i) == 1) {
                                 value = "checked='checked'";
-                                MiscUtils.getLogger().debug("checking " + name);
+                                MiscUtils.getLogger().debug("checking {}", name);
                             } else {
                                 value = "";
-                                MiscUtils.getLogger().debug("not checking " + name);
+                                MiscUtils.getLogger().debug("not checking {}", name);
                             }
                         } else {
                             if (md.getColumnTypeName(i).equalsIgnoreCase("date")) {

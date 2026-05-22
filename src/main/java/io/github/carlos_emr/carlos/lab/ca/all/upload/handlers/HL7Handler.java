@@ -114,7 +114,7 @@ public class HL7Handler implements MessageHandler {
                         while (resultStatus.isEmpty() && i < h.getOBRCount()) {
                             j = 0;
                             while (resultStatus.isEmpty() && j < h.getOBXCount(i)) {
-                                logger.info("obr(" + i + ") obx(" + j + ") abnormal ? : " + h.getOBXAbnormalFlag(i, j));
+                                logger.info("obr({}) obx({}) abnormal ? : {}", i, j, h.getOBXAbnormalFlag(i, j));
                                 if (h.isOBXAbnormal(i, j)) {
                                     resultStatus = "A";
                                     update.setString(1, resultStatus);

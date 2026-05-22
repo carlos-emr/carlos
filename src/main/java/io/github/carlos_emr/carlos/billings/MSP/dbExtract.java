@@ -59,12 +59,10 @@ public class dbExtract implements AutoCloseable {
             //establish connection with the specified username, password and url
             con = LegacyJdbcQuery.getConnection();
         } catch (SQLException e) {
-            MiscUtils.getLogger().debug("Cannot get connection ");
-            MiscUtils.getLogger().debug("Exception is: " + e);
+            MiscUtils.getLogger().debug("Cannot get connection", e);
             closeConnection();
         } catch (RuntimeException e) {
-            MiscUtils.getLogger().debug("Cannot get connection ");
-            MiscUtils.getLogger().debug("Exception is: " + e);
+            MiscUtils.getLogger().debug("Cannot get connection", e);
             closeConnection();
             throw e;
         }
@@ -141,7 +139,7 @@ public class dbExtract implements AutoCloseable {
         try {
             resource.close();
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error closing " + resourceName, e);
+            MiscUtils.getLogger().error("Error closing JDBC resource", e);
         }
     }
 }

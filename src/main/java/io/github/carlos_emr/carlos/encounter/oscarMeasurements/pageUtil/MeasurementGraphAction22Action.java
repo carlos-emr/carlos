@@ -673,13 +673,13 @@ public class MeasurementGraphAction22Action extends ActionSupport {
 
 
         ArrayList<Map<String, Serializable>> list = null;
-        MiscUtils.getLogger().debug(" lab type >" + labType + "< >" + labType.equals("loinc") + "<" + testName + " " + identifier);
+        MiscUtils.getLogger().debug("lab type >{}< >{}< {} {}", labType, labType.equals("loinc"), testName, identifier);
         if (labType.equals("loinc")) {
             try {
 
                 try (Connection conn = LegacyJdbcQuery.getConnection()) {
                     list = CommonLabTestValues.findValuesByLoinc2(demographicNo.toString(), identifier, conn);
-                    MiscUtils.getLogger().debug("List ->" + list.size());
+                    MiscUtils.getLogger().debug("List ->{}", list.size());
                 }
             } catch (Exception ed) {
                 MiscUtils.getLogger().error("Error", ed);
