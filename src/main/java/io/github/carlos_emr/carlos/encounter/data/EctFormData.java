@@ -56,7 +56,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 public class EctFormData {
 
-    private static final Pattern FORM_TABLE_NAME = Pattern.compile("^[A-Za-z0-9_]+$");
+    private static final Pattern FORM_TABLE_NAME = Pattern.compile("^\\w+$");
+    private static final String LEGACY_FORM_SQL = "SELECT form_no, demographic_no, form_date from form where demographic_no=? order by form_no desc";
     // Legacy built-in form table that is valid but not registered in encounterForm.
     private static final Set<String> INTERNAL_FORM_TABLES = Set.of("formGrowth0_36");
     private static Logger logger = MiscUtils.getLogger();
@@ -170,9 +171,7 @@ public class EctFormData {
                     }
                 }
             } else {
-                String sql = groupedLegacyFormSql();
-
-                try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo)) {
+                try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(LEGACY_FORM_SQL, demographicNo)) {
                     while (rs.next()) {
                         PatientForm frm = new PatientForm(formName, rs.getInt("form_no"), rs.getInt("demographic_no"), rs.getDate("form_date"), rs.getDate("form_date"));
                         forms.add(frm);
@@ -233,9 +232,7 @@ public class EctFormData {
                     }
                 }
             } else {
-                String sql = patientLegacyFormSql();
-
-                try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo)) {
+                try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(LEGACY_FORM_SQL, demographicNo)) {
                     while (rs.next()) {
                         PatientForm frm = new PatientForm(formName, rs.getInt("form_no"), rs.getInt("demographic_no"), rs.getDate("form_date"), rs.getDate("form_date"));
 
@@ -269,13 +266,17 @@ public class EctFormData {
             return null;
         }
         if (!FORM_TABLE_NAME.matcher(normalizedTable).matches()) {
-            logger.warn("Rejected invalid encounter form table name: {}", LogSafe.sanitize(normalizedTable));
+            if (logger.isWarnEnabled()) {
+                logger.warn("Rejected invalid encounter form table name: {}", LogSafe.sanitize(normalizedTable));
+            }
             return null;
         }
         if ("form".equals(normalizedTable) || INTERNAL_FORM_TABLES.contains(normalizedTable) || isKnownEncounterFormTable(normalizedTable)) {
             return normalizedTable;
         }
-        logger.warn("Rejected unknown encounter form table name: {}", LogSafe.sanitize(normalizedTable));
+        if (logger.isWarnEnabled()) {
+            logger.warn("Rejected unknown encounter form table name: {}", LogSafe.sanitize(normalizedTable));
+        }
         return null;
     }
 
@@ -283,16 +284,8 @@ public class EctFormData {
         return "SELECT max(ID) ID, demographic_no, formCreated, date(formEdited) 'lastEdited', max(formEdited) 'frmEdited' FROM " + trustedTable + " WHERE demographic_no=? group by lastEdited";
     }
 
-    private static String groupedLegacyFormSql() {
-        return "SELECT form_no, demographic_no, form_date from form where demographic_no=? order by form_no desc";
-    }
-
     private static String patientFormTableSql(String trustedTable) {
         return "SELECT ID, demographic_no, formCreated, formEdited FROM " + trustedTable + " WHERE demographic_no=? ORDER BY ID DESC";
-    }
-
-    private static String patientLegacyFormSql() {
-        return "SELECT form_no, demographic_no, form_date from form where demographic_no=? order by form_no desc";
     }
 
     private static boolean isKnownEncounterFormTable(String table) {

@@ -50,6 +50,10 @@ import jakarta.persistence.Query;
 import jakarta.persistence.Tuple;
 
 public class CategoryData {
+    private static final String COUNT_COLUMN = "count";
+    private static final String SQL_EQUALS_PARAM = " = ? ";
+    private static final String SQL_IS_NOT_NULL = " IS NOT NULL ";
+    private static final String SQL_IS_NOT_NULL_NO_PREFIX = "IS NOT NULL ";
 
     private final SystemPreferencesDao systemPreferencesDao = SpringUtils.getBean(SystemPreferencesDao.class);
 
@@ -313,7 +317,7 @@ public class CategoryData {
                 + (dateSearchType.equals("receivedCreated") ? " RIGHT JOIN hl7TextMessage message ON plr.lab_no = message.lab_id" : "")
                 + " WHERE plr.lab_type = 'HL7' "
                 + (providerSearch ? " AND plr.provider_no = ? " : "")
-                + " AND plr.status " + (matchesAnyStatus() ? " IS NOT NULL " : " = ? ")
+                + " AND plr.status " + (matchesAnyStatus() ? SQL_IS_NOT_NULL : SQL_EQUALS_PARAM)
                 + labAbnormalSql
                 + labDateSql
                 + " AND (plr2.demographic_no IS NULL"
@@ -334,10 +338,10 @@ public class CategoryData {
         if (patientSearch) {
             sql = " SELECT HIGH_PRIORITY COUNT(1) as count "
                     + " FROM patientLabRouting cd, demographic d, providerLabRouting plr, hl7TextInfo info "
-                    + " WHERE d.last_name" + (StringUtils.isEmpty(patientLastName) ? " IS NOT NULL " : " like ?  ")
-                    + " AND d.first_name" + (StringUtils.isEmpty(patientFirstName) ? " IS NOT NULL " : " like ? ")
-                    + " AND d.hin" + (StringUtils.isEmpty(patientHealthNumber) ? " IS NOT NULL " : " like ? ")
-                    + " AND plr.status " + (matchesAnyStatus() ? " IS NOT NULL " : " = ? ")
+                    + " WHERE d.last_name" + (StringUtils.isEmpty(patientLastName) ? SQL_IS_NOT_NULL : " like ?  ")
+                    + " AND d.first_name" + (StringUtils.isEmpty(patientFirstName) ? SQL_IS_NOT_NULL : " like ? ")
+                    + " AND d.hin" + (StringUtils.isEmpty(patientHealthNumber) ? SQL_IS_NOT_NULL : " like ? ")
+                    + " AND plr.status " + (matchesAnyStatus() ? SQL_IS_NOT_NULL : SQL_EQUALS_PARAM)
                     + (providerSearch ? "AND plr.provider_no = ? " : "")
                     + " AND plr.lab_type = 'HL7' "
                     + " AND cd.lab_type = 'HL7' "
@@ -352,7 +356,7 @@ public class CategoryData {
         } else if (providerSearch || bindsStatusParameter()) {
             sql = "SELECT HIGH_PRIORITY COUNT(1) as count "
                     + " FROM providerLabRouting plr, hl7TextInfo info "
-                    + " WHERE plr.status " + (matchesAnyStatus() ? " IS NOT NULL " : " = ?")
+                    + " WHERE plr.status " + (matchesAnyStatus() ? SQL_IS_NOT_NULL : SQL_EQUALS_PARAM)
                     + (providerSearch ? " AND plr.provider_no = ? " : " ")
                     + " AND plr.lab_type = 'HL7'  "
                     + " AND info.lab_no = plr.lab_no"
@@ -375,7 +379,7 @@ public class CategoryData {
                 + "LEFT JOIN providerLabRouting plr ON plr.lab_no = cd.document_no"
                 + documentJoinSql
                 + " WHERE plr.lab_type = 'DOC' "
-                + " AND plr.status " + (matchesAnyStatus() ? " IS NOT NULL " : " = ? ")
+                + " AND plr.status " + (matchesAnyStatus() ? SQL_IS_NOT_NULL : SQL_EQUALS_PARAM)
                 + (providerSearch ? " AND plr.provider_no = ? " : "")
                 + " AND cd.module_id = -1 "
                 + documentAbnormalSql
@@ -397,13 +401,13 @@ public class CategoryData {
                 + " LEFT JOIN providerLabRouting plr ON cd.lab_no = plr.lab_no"
                 + " LEFT JOIN hl7TextInfo info ON cd.lab_no = info.lab_no"
                 + (dateSearchType.equals("receivedCreated") ? " LEFT JOIN hl7TextMessage message ON cd.lab_no = message.lab_id" : "")
-                + " WHERE   d.last_name" + (StringUtils.isEmpty(patientLastName) ? " IS NOT NULL " : "  like ? ")
-                + " AND d.first_name" + (StringUtils.isEmpty(patientFirstName) ? " IS NOT NULL " : " like ? ")
-                + " AND d.hin" + (StringUtils.isEmpty(patientHealthNumber) ? " IS NOT NULL " : " like ? ")
+                + " WHERE   d.last_name" + (StringUtils.isEmpty(patientLastName) ? SQL_IS_NOT_NULL : "  like ? ")
+                + " AND d.first_name" + (StringUtils.isEmpty(patientFirstName) ? SQL_IS_NOT_NULL : " like ? ")
+                + " AND d.hin" + (StringUtils.isEmpty(patientHealthNumber) ? SQL_IS_NOT_NULL : " like ? ")
                 + " AND plr.lab_type = 'HL7' "
                 + " AND cd.lab_type = 'HL7' "
-                + " AND plr.status " + (matchesAnyStatus() ? " IS NOT NULL " : " = ? ")
-                + (dateSearchType.equals("receivedCreated") ? " AND message.lab_id IS NOT NULL " : " AND info.lab_no IS NOT NULL ")
+                + " AND plr.status " + (matchesAnyStatus() ? SQL_IS_NOT_NULL : SQL_EQUALS_PARAM)
+                + (dateSearchType.equals("receivedCreated") ? " AND message.lab_id" + SQL_IS_NOT_NULL : " AND info.lab_no" + SQL_IS_NOT_NULL)
                 + (providerSearch ? " AND plr.provider_no = ? " : "")
                 + labAbnormalSql
                 + labDateSql
@@ -420,7 +424,7 @@ public class CategoryData {
             int totalCount = 0;
             while (rs.next()) {
                 int id = rs.getInt("demographic_no");
-                int count = rs.getInt("count");
+                int count = rs.getInt(COUNT_COLUMN);
                 // Updating patient info if it already exists.
                 if (patients.containsKey(id)) {
                     info = patients.get(id);
@@ -454,9 +458,9 @@ public class CategoryData {
         sql.append(" AND cd.lab_type = 'HL7' ");
         
         if (matchesAnyStatus()) {
-            sql.append(" AND plr.status IS NOT NULL ");
+            sql.append(" AND plr.status").append(SQL_IS_NOT_NULL);
         } else {
-            sql.append(" AND plr.status = ? ");
+            sql.append(" AND plr.status").append(SQL_EQUALS_PARAM);
         }
         
         if (providerSearch) {
@@ -490,11 +494,11 @@ public class CategoryData {
                 + "LEFT JOIN demographic d  ON cd.module_id = d.demographic_no "
                 + "LEFT JOIN providerLabRouting plr ON cd.document_no = plr.lab_no "
                 + documentJoinSql
-                + " WHERE   d.last_name" + (StringUtils.isEmpty(patientLastName) ? " IS NOT NULL " : " like ?  ")
-                + " AND d.hin" + (StringUtils.isEmpty(patientHealthNumber) ? " IS NOT NULL " : " like ? ")
-                + " AND d.first_name" + (StringUtils.isEmpty(patientFirstName) ? " IS NOT NULL " : " like ? ")
+                + " WHERE   d.last_name" + (StringUtils.isEmpty(patientLastName) ? SQL_IS_NOT_NULL : " like ?  ")
+                + " AND d.hin" + (StringUtils.isEmpty(patientHealthNumber) ? SQL_IS_NOT_NULL : " like ? ")
+                + " AND d.first_name" + (StringUtils.isEmpty(patientFirstName) ? SQL_IS_NOT_NULL : " like ? ")
                 + " AND plr.lab_type = 'DOC' "
-                + " AND plr.status " + (matchesAnyStatus() ? " IS NOT NULL " : " = ? ")
+                + " AND plr.status " + (matchesAnyStatus() ? SQL_IS_NOT_NULL : SQL_EQUALS_PARAM)
                 + (providerSearch ? "AND plr.provider_no = ? " : "")
                 + documentAbnormalSql
                 + documentDateSql
@@ -512,7 +516,7 @@ public class CategoryData {
             int count = 0;
             while (rs.next()) {
                 info = new PatientInfo(rs.getInt("demographic_no"), rs.getString("first_name"), rs.getString("last_name"));
-                info.setDocCount(rs.getInt("count"));
+                info.setDocCount(rs.getInt(COUNT_COLUMN));
                 patients.put(info.getId(), info);
                 count += info.getDocCount();
             }
@@ -529,7 +533,7 @@ public class CategoryData {
     }
 
     private int readCount(ResultSet rs) throws SQLException {
-        return rs.next() ? rs.getInt("count") : 0;
+        return rs.next() ? rs.getInt(COUNT_COLUMN) : 0;
     }
 
     private void addPatientSearchParams(List<Object> params) {
@@ -549,9 +553,9 @@ public class CategoryData {
            .append(" LEFT JOIN HRMDocument h ON hd.hrmDocumentId = h.id ")
            .append(" JOIN demographic d ON hd.demographicNo = d.demographic_no ")
            .append(" WHERE 1=1 ")
-           .append(" AND d.last_name ").append(StringUtils.isNotEmpty(patientLastName) ? "LIKE :patientLastName " : "IS NOT NULL ")
-           .append(" AND d.hin ").append(StringUtils.isNotEmpty(patientHealthNumber) ? "LIKE :patientHealthNumber " : "IS NOT NULL ")
-           .append(" AND d.first_name ").append(StringUtils.isNotEmpty(patientFirstName) ? "LIKE :patientFirstName " : "IS NOT NULL ")
+           .append(" AND d.last_name ").append(StringUtils.isNotEmpty(patientLastName) ? "LIKE :patientLastName " : SQL_IS_NOT_NULL_NO_PREFIX)
+           .append(" AND d.hin ").append(StringUtils.isNotEmpty(patientHealthNumber) ? "LIKE :patientHealthNumber " : SQL_IS_NOT_NULL_NO_PREFIX)
+           .append(" AND d.first_name ").append(StringUtils.isNotEmpty(patientFirstName) ? "LIKE :patientFirstName " : SQL_IS_NOT_NULL_NO_PREFIX)
            .append(hrmViewed).append(hrmSignedOff).append(hrmDateSql).append(hrmProviderSql)
            .append(" GROUP BY d.demographic_no ");
 
@@ -573,7 +577,7 @@ public class CategoryData {
 		List<Tuple> results = query.getResultList();
 
 		for (Tuple result : results) {
-			Integer hrmCount = ((Number) result.get("count")).intValue(); // Extracting count as Integer
+			Integer hrmCount = ((Number) result.get(COUNT_COLUMN)).intValue(); // Extracting count as Integer
 			Integer id = result.get("demographic_no", Integer.class); // Extracting demographicNo as Integer
 
 			// Updating patient info if it already exists
@@ -618,7 +622,7 @@ public class CategoryData {
 
 		// Process the results
 		for (Tuple result : results) {
-			Integer hrmCount = ((Number) result.get("count")).intValue(); // Extracting count as Integer
+			Integer hrmCount = ((Number) result.get(COUNT_COLUMN)).intValue(); // Extracting count as Integer
 			count += hrmCount; // Accumulate the total count
         }
 

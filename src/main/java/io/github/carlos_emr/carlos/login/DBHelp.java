@@ -50,6 +50,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 @Deprecated
 public final class DBHelp {
     private static final Logger logger = MiscUtils.getLogger();
+    private static final String QUERY_ERROR_MESSAGE = "Error";
 
 
     // searchDBRecord(String) removed — all callers migrated to searchDBRecord(String, Object...).
@@ -67,7 +68,7 @@ public final class DBHelp {
         try {
             ret = LegacyJdbcQuery.getPreparedResultSet(LegacyJdbcQuery.trustedReportSelectSql(sql), params);
         } catch (SQLException e) {
-            logger.error("Error", e);
+            logger.error(QUERY_ERROR_MESSAGE, e);
         }
         return ret;
     }
@@ -77,7 +78,7 @@ public final class DBHelp {
         try {
             ret = LegacyJdbcQuery.getPreparedResultSet(sql);
         } catch (SQLException e) {
-            logger.error("Error", e);
+            logger.error(QUERY_ERROR_MESSAGE, e);
         }
         return ret;
     }
@@ -87,7 +88,7 @@ public final class DBHelp {
         try {
             ret = LegacyJdbcQuery.getPreparedResultSet(sql, params);
         } catch (SQLException e) {
-            logger.error("Error", e);
+            logger.error(QUERY_ERROR_MESSAGE, e);
         }
         return ret;
     }

@@ -287,23 +287,23 @@ public class DatabaseAP {
             int start = value.indexOf("${", position);
             if (start < 0) {
                 substituted.append(unescapeSqlLiteralPart(value.substring(position), quote));
-                break;
-            }
-
-            int end = value.indexOf("}", start);
-            if (end < 0) {
-                substituted.append(unescapeSqlLiteralPart(value.substring(position), quote));
-                break;
-            }
-
-            String name = value.substring(start + 2, end);
-            if (replacements.containsKey(name)) {
-                substituted.append(unescapeSqlLiteralPart(value.substring(position, start), quote));
-                substituted.append(nullSafeSqlLiteralValue(replacements.get(name)));
+                position = value.length();
             } else {
-                substituted.append(unescapeSqlLiteralPart(value.substring(position, end + 1), quote));
+                int end = value.indexOf("}", start);
+                if (end < 0) {
+                    substituted.append(unescapeSqlLiteralPart(value.substring(position), quote));
+                    position = value.length();
+                } else {
+                    String name = value.substring(start + 2, end);
+                    if (replacements.containsKey(name)) {
+                        substituted.append(unescapeSqlLiteralPart(value.substring(position, start), quote));
+                        substituted.append(nullSafeSqlLiteralValue(replacements.get(name)));
+                    } else {
+                        substituted.append(unescapeSqlLiteralPart(value.substring(position, end + 1), quote));
+                    }
+                    position = end + 1;
+                }
             }
-            position = end + 1;
         }
         return substituted.toString();
     }

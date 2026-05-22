@@ -184,8 +184,10 @@ public class RptTableFieldNameCaption {
     private String validateEncounterFormTableName(String tableName) {
         // Validate table name to prevent SQL injection.
         // Table names are interpolated as identifiers, so only bare identifier characters are allowed.
-        if (tableName == null || !tableName.matches("^[a-zA-Z0-9_]+$")) {
-            logger.error("Invalid table name: {}", LogSafe.sanitize(tableName));
+        if (tableName == null || !tableName.matches("^\\w+$")) {
+            if (logger.isErrorEnabled()) {
+                logger.error("Invalid table name: {}", LogSafe.sanitize(tableName));
+            }
             return null;
         }
 
@@ -200,7 +202,9 @@ public class RptTableFieldNameCaption {
         }
 
         if (!isValidTable) {
-            logger.error("Table name not found in encounterForm list: {}", LogSafe.sanitize(tableName));
+            if (logger.isErrorEnabled()) {
+                logger.error("Table name not found in encounterForm list: {}", LogSafe.sanitize(tableName));
+            }
             return null;
         }
         return tableName;

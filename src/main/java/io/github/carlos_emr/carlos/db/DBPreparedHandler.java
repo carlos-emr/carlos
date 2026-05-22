@@ -45,63 +45,63 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 public final class DBPreparedHandler {
 
     ResultSet rs = null;
-    synchronized public void procExecute(String procName, String[] param) throws SQLException {
+    public synchronized void procExecute(String procName, String[] param) throws SQLException {
         LegacyJdbcQuery.procExecute(procName, param);
     }
 
-    synchronized public ResultSet queryResults(String preparedSQL, String[] param, int[] intparam) throws SQLException {
+    public synchronized ResultSet queryResults(String preparedSQL, String[] param, int[] intparam) throws SQLException {
         rs = LegacyJdbcQuery.queryResults(preparedSQL, param, intparam);
         return rs;
     }
 
-    synchronized public ResultSet queryResults(String preparedSQL, int param) throws SQLException {
+    public synchronized ResultSet queryResults(String preparedSQL, int param) throws SQLException {
         rs = LegacyJdbcQuery.queryResults(preparedSQL, param);
         return rs;
     }
 
-    synchronized public ResultSet queryResults(String preparedSQL, int[] param) throws SQLException {
+    public synchronized ResultSet queryResults(String preparedSQL, int[] param) throws SQLException {
         return LegacyJdbcQuery.queryResults(preparedSQL, param);
     }
 
-    synchronized public ResultSet queryResults(String preparedSQL, String param) throws SQLException {
+    public synchronized ResultSet queryResults(String preparedSQL, String param) throws SQLException {
         rs = LegacyJdbcQuery.queryResults(preparedSQL, param);
         return rs;
     }
 
-    synchronized public ResultSet queryResults_paged(String preparedSQL, String param, int iOffSet) throws SQLException {
+    public synchronized ResultSet queryResults_paged(String preparedSQL, String param, int iOffSet) throws SQLException {
         rs = LegacyJdbcQuery.queryResultsPaged(preparedSQL, param, iOffSet);
         return rs;
     }
 
-    synchronized public ResultSet queryResults(String preparedSQL, String[] param) throws SQLException {
+    public synchronized ResultSet queryResults(String preparedSQL, String[] param) throws SQLException {
         rs = LegacyJdbcQuery.queryResults(preparedSQL, param);
         return (rs);
     }
 
-    synchronized public ResultSet queryResults_paged(String preparedSQL, String[] param, int iOffSet) throws SQLException {
+    public synchronized ResultSet queryResults_paged(String preparedSQL, String[] param, int iOffSet) throws SQLException {
         rs = LegacyJdbcQuery.queryResultsPaged(preparedSQL, param, iOffSet);
         return (rs);
     }
 
-    synchronized public ResultSet queryResults(String preparedSQL, DBPreparedHandlerParam[] param) throws SQLException { // nosemgrep: formatted-sql-string -- parameterized query infrastructure; params are bound via PreparedStatement
+    public synchronized ResultSet queryResults(String preparedSQL, DBPreparedHandlerParam[] param) throws SQLException { // nosemgrep: formatted-sql-string -- parameterized query infrastructure; params are bound via PreparedStatement
         rs = LegacyJdbcQuery.queryResults(preparedSQL, param);
         return (rs);
     }
 
-    synchronized public ResultSet queryResults_paged(String preparedSQL, DBPreparedHandlerParam[] param, int iOffSet) throws SQLException {
+    public synchronized ResultSet queryResults_paged(String preparedSQL, DBPreparedHandlerParam[] param, int iOffSet) throws SQLException {
         rs = LegacyJdbcQuery.queryResultsPaged(preparedSQL, param, iOffSet);
         return (rs);
     }
 
-    synchronized public LegacyJdbcQuery.CaisiResult queryResultsCaisi(String preparedSQL, int param) throws SQLException {
+    public synchronized LegacyJdbcQuery.CaisiResult queryResultsCaisi(String preparedSQL, int param) throws SQLException {
         return LegacyJdbcQuery.queryResultsCaisi(preparedSQL, param);
     }
 
-    synchronized public LegacyJdbcQuery.CaisiResult queryResultsCaisi(String preparedSQL, String param) throws SQLException {
+    public synchronized LegacyJdbcQuery.CaisiResult queryResultsCaisi(String preparedSQL, String param) throws SQLException {
         return LegacyJdbcQuery.queryResultsCaisi(preparedSQL, param);
     }
 
-    synchronized public LegacyJdbcQuery.CaisiResult queryResultsCaisi(String preparedSQL, String[] param) throws SQLException {
+    public synchronized LegacyJdbcQuery.CaisiResult queryResultsCaisi(String preparedSQL, String[] param) throws SQLException {
         return LegacyJdbcQuery.queryResultsCaisi(preparedSQL, param);
     }
 
@@ -114,7 +114,7 @@ public final class DBPreparedHandler {
      * parameterized overloads, or a curated report template, instead.
      */
     @Deprecated(forRemoval = true)
-    synchronized public ResultSet queryResults(String preparedSQL) throws SQLException {
+    public synchronized ResultSet queryResults(String preparedSQL) throws SQLException {
         throw new SQLException("Direct SQL execution is disabled; use parameterized query overloads.");
     }
 
@@ -131,8 +131,8 @@ public final class DBPreparedHandler {
                 do {
                     pno = Misc.getRandomNumber(6);
                 } while (pno != null && pno.startsWith("0"));
-                try (ResultSet rs = queryResults(sql, pno)) {
-                    if (rs.next() && rs.getInt(1) > 0) {
+                try (ResultSet providerResultSet = queryResults(sql, pno)) {
+                    if (providerResultSet.next() && providerResultSet.getInt(1) > 0) {
                         collision = true;
                     }
                 }

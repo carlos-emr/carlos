@@ -48,6 +48,7 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 public class FrmData {
     private static final Logger _log = MiscUtils.getLogger();
+    private static final String FORM_TABLE_IDENTIFIER_PATTERN = "[a-zA-Z]\\w*";
     private static EncounterFormDao encounterFormDao = (EncounterFormDao) SpringUtils.getBean(EncounterFormDao.class);
 
     public class Form {
@@ -125,7 +126,7 @@ public class FrmData {
         ArrayList<PatientForm> forms = new ArrayList<PatientForm>();
 
         // Validate table name: must be an alphanumeric identifier (no SQL-special characters)
-        if (table == null || !table.matches("[a-zA-Z][a-zA-Z0-9_]*")) {
+        if (table == null || !table.matches(FORM_TABLE_IDENTIFIER_PATTERN)) {
             throw new IllegalArgumentException("Invalid form table name");
         }
         // Build query with validated table identifier and parameterized demoNo
@@ -161,7 +162,7 @@ public class FrmData {
         if (table.isEmpty()) {
             return null;
         }
-        if (!table.matches("[a-zA-Z][a-zA-Z0-9_]*")) {
+        if (!table.matches(FORM_TABLE_IDENTIFIER_PATTERN)) {
             throw new IllegalArgumentException("Invalid form table name returned from database");
         }
         String selectClause = "SELECT ID, demographic_no, formCreated, formEdited FROM ";
@@ -213,7 +214,7 @@ public class FrmData {
         }
 
         // Defense-in-depth: validate table name from DB (consistent with getPatientForms / getCurrentPatientForm)
-        if (!table.isEmpty() && !table.matches("[a-zA-Z][a-zA-Z0-9_]*")) {
+        if (!table.isEmpty() && !table.matches(FORM_TABLE_IDENTIFIER_PATTERN)) {
             throw new IllegalArgumentException("Invalid form table name returned from database");
         }
 

@@ -138,31 +138,38 @@ public class JDBCUtil {
 
             // Table identifiers cannot be JDBC-bound. formName is accepted only after
             // strict filename parsing plus the encounterForm/internal table allowlist.
-            String existsSql = "SELECT * FROM " + formName + " WHERE demographic_no=? AND formEdited=?";
-            MiscUtils.getLogger().debug("{}", existsSql);
-            try (ResultSet existing = LegacyJdbcQuery.getPreparedResultSet(
-                    LegacyJdbcQuery.trustedSelectSql(existsSql), target.demographicNo(), target.timeStamp())) {
-                if (existing.first()) {
-                    return;
-                }
-            } catch (SQLException e) {
-                throw new XmlImportException("Unable to check existing form XML import row", e);
+            if (importRowExists(formName, target)) {
+                return;
             }
-
-            String insertSql = "SELECT * FROM " + formName + " WHERE demographic_no=? AND ID='0'";
-            MiscUtils.getLogger().debug("sql: {}", insertSql);
-            Object[] insertParams = {target.demographicNo()};
-            try (ResultSet insert = LegacyJdbcQuery.getPreparedResultSet(
-                    LegacyJdbcQuery.trustedSelectSql(insertSql), true, insertParams)) {
-                insert.moveToInsertRow();
-                toResultSet(doc, insert);
-                applyTrustedImportTarget(target, insert);
-                insert.insertRow();
-            } catch (SQLException e) {
-                throw new XmlImportException("Unable to insert form XML import row", e);
-            }
+            insertImportRow(formName, target, doc);
         } catch (XmlImportException e) {
             MiscUtils.getLogger().debug("Errors {}", e.getMessage(), e);
+        }
+    }
+
+    private static boolean importRowExists(String formName, FormImportTarget target) throws XmlImportException {
+        String existsSql = "SELECT * FROM " + formName + " WHERE demographic_no=? AND formEdited=?";
+        MiscUtils.getLogger().debug("{}", existsSql);
+        try (ResultSet existing = LegacyJdbcQuery.getPreparedResultSet(
+                LegacyJdbcQuery.trustedSelectSql(existsSql), target.demographicNo(), target.timeStamp())) {
+            return existing.first();
+        } catch (SQLException e) {
+            throw new XmlImportException("Unable to check existing form XML import row", e);
+        }
+    }
+
+    private static void insertImportRow(String formName, FormImportTarget target, Document doc) throws XmlImportException {
+        String insertSql = "SELECT * FROM " + formName + " WHERE demographic_no=? AND ID='0'";
+        MiscUtils.getLogger().debug("sql: {}", insertSql);
+        Object[] insertParams = {target.demographicNo()};
+        try (ResultSet insert = LegacyJdbcQuery.getPreparedResultSet(
+                LegacyJdbcQuery.trustedSelectSql(insertSql), true, insertParams)) {
+            insert.moveToInsertRow();
+            toResultSet(doc, insert);
+            applyTrustedImportTarget(target, insert);
+            insert.insertRow();
+        } catch (SQLException e) {
+            throw new XmlImportException("Unable to insert form XML import row", e);
         }
     }
 

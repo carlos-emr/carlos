@@ -41,7 +41,6 @@ import java.util.regex.Pattern;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
@@ -102,8 +101,6 @@ public final class FrmSetupForm2Action extends ActionSupport {
          **/
         //System.gc();
         MiscUtils.getLogger().debug("SetupFormAction is called");
-        HttpSession session = request.getSession(true);
-
         EctSessionBean bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
         EctEChartBean chartBean = new EctEChartBean();
         String contextPath = request.getContextPath();

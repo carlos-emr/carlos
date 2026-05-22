@@ -106,7 +106,7 @@ public class SQLReporter implements Reporter {
         }
 
         ReportObject curReport = (new ReportManager()).getReportTemplateNoParam(templateId);
-        Map parameterMap = request.getParameterMap();
+        Map<String, String[]> parameterMap = request.getParameterMap();
 
         if (curReport.isSequence()) {
             return generateSequencedReport(request);
@@ -151,7 +151,7 @@ public class SQLReporter implements Reporter {
         }
 
         ReportObject curReport = (new ReportManager()).getReportTemplateNoParam(templateId);
-        Map parameterMap = request.getParameterMap();
+        Map<String, String[]> parameterMap = request.getParameterMap();
 
         int x = 0;
         if (curReport instanceof ReportObjectGeneric) {

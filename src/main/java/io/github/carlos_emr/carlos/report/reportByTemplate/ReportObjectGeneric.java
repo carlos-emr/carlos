@@ -211,11 +211,11 @@ public class ReportObjectGeneric implements ReportObject {
      *         empty string if a required parameter is missing from the request map or if the template
      *         SQL cannot be found for the configured templateId (an error is logged in that case)
      */
-    public String[] getParameterizedSQL(Map parameters) {
+    public String[] getParameterizedSQL(Map<String, String[]> parameters) {
         return toLegacyArray(buildParameterizedSql(parameters));
     }
 
-    public ParameterizedSql buildParameterizedSql(Map parameters) {
+    public ParameterizedSql buildParameterizedSql(Map<String, String[]> parameters) {
         String sql = (new ReportManager()).getSQL(this.templateId);
         if (sql == null) {
             MiscUtils.getLogger().error("Template SQL not found for templateId: {}", LogSafe.sanitize(this.templateId)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
@@ -233,12 +233,12 @@ public class ReportObjectGeneric implements ReportObject {
      * @return {@code String[]} in the same format as {@link #getParameterizedSQL(Map)}, or {@code null}
      *         if {@code sequenceNo} is out of range
      */
-    public String[] getParameterizedSQL(int sequenceNo, Map parameters) {
+    public String[] getParameterizedSQL(int sequenceNo, Map<String, String[]> parameters) {
         ParameterizedSql parameterizedSql = buildParameterizedSql(sequenceNo, parameters);
         return parameterizedSql == null ? null : toLegacyArray(parameterizedSql);
     }
 
-    public ParameterizedSql buildParameterizedSql(int sequenceNo, Map parameters) {
+    public ParameterizedSql buildParameterizedSql(int sequenceNo, Map<String, String[]> parameters) {
         String sql = (new ReportManager()).getSQL(this.templateId);
         if (sql == null) {
             MiscUtils.getLogger().error("Template SQL not found for templateId: {}", LogSafe.sanitize(this.templateId)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
@@ -307,7 +307,7 @@ public class ReportObjectGeneric implements ReportObject {
      * @return parameterized SQL and parameter values; returns an empty SQL string if a required
      *         parameter is missing
      */
-    ParameterizedSql parameterizeTemplateSql(String sql, Map parameters) {
+    ParameterizedSql parameterizeTemplateSql(String sql, Map<String, String[]> parameters) {
         List<Object> params = new ArrayList<>();
 
         int cursor1;
@@ -319,9 +319,9 @@ public class ReportObjectGeneric implements ReportObject {
             }
             String paramId = sql.substring(cursor1 + 1, cursor2);
 
-            String[] substValues = (String[]) parameters.get(paramId);
+            String[] substValues = parameters.get(paramId);
             if (substValues == null) {
-                substValues = (String[]) parameters.get(paramId + ":list");
+                substValues = parameters.get(paramId + ":list");
                 if (substValues != null) {
                     if (substValues.length == 0 || substValues[0] == null) {
                         MiscUtils.getLogger().warn("Report template list parameter '{}' has no values", paramId);
