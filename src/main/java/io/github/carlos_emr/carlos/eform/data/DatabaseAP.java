@@ -253,11 +253,13 @@ public class DatabaseAP {
             return end + 1;
         }
 
-        return appendKnownPlaceholder(sql, parameterized, params, position, start, end, replacements.get(name));
+        return appendKnownPlaceholder(sql, parameterized, params, position, start, end, replacements);
     }
 
     private static int appendKnownPlaceholder(String sql, StringBuilder parameterized, List<Object> params,
-            int position, int start, int end, Object value) {
+            int position, int start, int end, Map<String, ?> replacements) {
+        String name = sql.substring(start + 2, end);
+        Object value = replacements.get(name);
         QuotedPlaceholder quotedPlaceholder = findQuotedPlaceholder(sql, start, end);
         if (quotedPlaceholder == null) {
             parameterized.append(sql, position, start);
@@ -268,14 +270,42 @@ public class DatabaseAP {
 
         parameterized.append(sql, position, quotedPlaceholder.start());
         parameterized.append("?");
-        params.add(placeholderValue(value, quotedPlaceholder));
+        params.add(placeholderValue(value, quotedPlaceholder, replacements));
         return quotedPlaceholder.end();
     }
 
-    private static Object placeholderValue(Object value, QuotedPlaceholder quotedPlaceholder) {
-        String prefix = unescapeSqlLiteralPart(quotedPlaceholder.prefix(), quotedPlaceholder.quote());
-        String suffix = unescapeSqlLiteralPart(quotedPlaceholder.suffix(), quotedPlaceholder.quote());
+    private static Object placeholderValue(Object value, QuotedPlaceholder quotedPlaceholder, Map<String, ?> replacements) {
+        String prefix = substituteQuotedLiteralPart(quotedPlaceholder.prefix(), quotedPlaceholder.quote(), replacements);
+        String suffix = substituteQuotedLiteralPart(quotedPlaceholder.suffix(), quotedPlaceholder.quote(), replacements);
         return prefix.isEmpty() && suffix.isEmpty() ? value : prefix + nullSafeSqlLiteralValue(value) + suffix;
+    }
+
+    private static String substituteQuotedLiteralPart(String value, char quote, Map<String, ?> replacements) {
+        StringBuilder substituted = new StringBuilder();
+        int position = 0;
+        while (position < value.length()) {
+            int start = value.indexOf("${", position);
+            if (start < 0) {
+                substituted.append(unescapeSqlLiteralPart(value.substring(position), quote));
+                break;
+            }
+
+            int end = value.indexOf("}", start);
+            if (end < 0) {
+                substituted.append(unescapeSqlLiteralPart(value.substring(position), quote));
+                break;
+            }
+
+            String name = value.substring(start + 2, end);
+            if (replacements.containsKey(name)) {
+                substituted.append(unescapeSqlLiteralPart(value.substring(position, start), quote));
+                substituted.append(nullSafeSqlLiteralValue(replacements.get(name)));
+            } else {
+                substituted.append(unescapeSqlLiteralPart(value.substring(position, end + 1), quote));
+            }
+            position = end + 1;
+        }
+        return substituted.toString();
     }
 
     private static QuotedPlaceholder findQuotedPlaceholder(String sql, int placeholderStart, int placeholderEnd) {

@@ -143,23 +143,20 @@ public class FrmDischargeSummaryRecord extends FrmRecord {
 
             String sql4 = "SELECT issue_id from casemgmt_issue where demographic_no=? and resolved=0";
 
-            ResultSet rs4 = null;
-
-            try {
-                rs4 = LegacyJdbcQuery.getPreparedResultSet(sql4, demographicNo);
+            try (ResultSet rs4 = LegacyJdbcQuery.getPreparedResultSet(sql4, demographicNo)) {
                 while (rs4.next()) {
 
                     String sql5 = "SELECT description from issue where issue_id=?";
-                    ResultSet rs5 = LegacyJdbcQuery.getPreparedResultSet(sql5, rs4.getInt("issue_id"));
-                    if (rs5.next()) {
-                        if (rs4.isFirst()) {
-                            issues.append(Misc.getString(rs5, "description"));
-                        } else {
-                            issues.append(";");
-                            issues.append(Misc.getString(rs5, "description"));
+                    try (ResultSet rs5 = LegacyJdbcQuery.getPreparedResultSet(sql5, rs4.getInt("issue_id"))) {
+                        if (rs5.next()) {
+                            if (rs4.isFirst()) {
+                                issues.append(Misc.getString(rs5, "description"));
+                            } else {
+                                issues.append(";");
+                                issues.append(Misc.getString(rs5, "description"));
+                            }
                         }
                     }
-                    rs5.close();
 
                 }
             } catch (SQLException e) {
@@ -167,23 +164,13 @@ public class FrmDischargeSummaryRecord extends FrmRecord {
                 logger.error("", e);
             } finally {
                 props.setProperty("currentIssues", issues.toString());
-                if (rs4 != null) {
-                    try {
-                        rs4.close();
-                    } catch (SQLException e) {
-
-                        logger.error("", e);
-                    }
-                }
             }
 
 
             StringBuilder prescriptions = new StringBuilder();
             String sql5 = "SELECT special from drugs where demographic_no=? and archived=0 ORDER BY rx_date DESC, drugid DESC";
-            ResultSet rs5 = null;
 
-            try {
-                rs5 = LegacyJdbcQuery.getPreparedResultSet(sql5, demographicNo);
+            try (ResultSet rs5 = LegacyJdbcQuery.getPreparedResultSet(sql5, demographicNo)) {
                 while (rs5.next()) {
                     if (rs5.isFirst()) {
                         prescriptions.append(Misc.getString(rs5, "special"));
@@ -193,20 +180,9 @@ public class FrmDischargeSummaryRecord extends FrmRecord {
                     }
                 }
                 props.setProperty("prescriptionSummary", prescriptions.toString());
-                rs5.close();
             } catch (SQLException e) {
 
                 logger.error("", e);
-            } finally {
-
-                if (rs5 != null) {
-                    try {
-                        rs5.close();
-                    } catch (SQLException e) {
-
-                        logger.error("", e);
-                    }
-                }
             }
 
 

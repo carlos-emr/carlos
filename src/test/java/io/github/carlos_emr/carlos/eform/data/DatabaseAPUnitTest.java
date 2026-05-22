@@ -52,6 +52,21 @@ class DatabaseAPUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should parameterize multiple placeholders inside one quoted literal")
+    void shouldParameterize_multiplePlaceholdersInsideOneQuotedLiteral() {
+        Map<String, Object> replacements = new LinkedHashMap<>();
+        replacements.put("code", "A'1");
+        replacements.put("suffix", "B2");
+
+        ParameterizedSql sql = DatabaseAP.parameterizeSql(
+                "select * from demographic where chart_no like '%${code}-${suffix}%'",
+                replacements);
+
+        assertThat(sql.getSql()).isEqualTo("select * from demographic where chart_no like ?");
+        assertThat(sql.getParams()).containsExactly("%A'1-B2%");
+    }
+
+    @Test
     @DisplayName("should preserve legacy null replacement inside quoted literals")
     void shouldPreserve_legacyNullReplacementInsideQuotedLiterals() {
         Map<String, Object> replacements = new LinkedHashMap<>();
