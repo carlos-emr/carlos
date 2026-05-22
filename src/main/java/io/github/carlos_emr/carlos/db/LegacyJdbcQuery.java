@@ -136,7 +136,13 @@ public final class LegacyJdbcQuery {
      */
     public static Connection getConnection() {
         DataSource dataSource = dataSource();
-        return registerThreadResource(releasingConnection(DataSourceUtils.getConnection(dataSource), dataSource));
+        Connection connection = DataSourceUtils.getConnection(dataSource);
+        try {
+            return registerThreadResource(releasingConnection(connection, dataSource));
+        } catch (RuntimeException e) {
+            DataSourceUtils.releaseConnection(connection, dataSource);
+            throw e;
+        }
     }
 
     /**
@@ -207,8 +213,14 @@ public final class LegacyJdbcQuery {
 
         DataSource dataSource = dataSource();
         Connection connection = DataSourceUtils.getConnection(dataSource);
-        AutoCloseable connectionResource = registerThreadResource(
-                () -> DataSourceUtils.releaseConnection(connection, dataSource));
+        AutoCloseable connectionResource;
+        try {
+            connectionResource = registerThreadResource(
+                    () -> DataSourceUtils.releaseConnection(connection, dataSource));
+        } catch (RuntimeException e) {
+            DataSourceUtils.releaseConnection(connection, dataSource);
+            throw e;
+        }
         try (CallableStatement stmt = connection.prepareCall(sql.toString())) {
             if (params != null) {
                 for (int i = 0; i < params.length; i++) {

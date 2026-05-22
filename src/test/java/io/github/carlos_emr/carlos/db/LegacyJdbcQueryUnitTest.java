@@ -11,11 +11,16 @@ package io.github.carlos_emr.carlos.db;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -25,6 +30,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import javax.sql.DataSource;
+
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -42,6 +50,11 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 @Tag("database")
 @DisplayName("LegacyJdbcQuery transition boundary")
 class LegacyJdbcQueryUnitTest extends CarlosUnitTestBase {
+
+    @AfterEach
+    void releaseLegacyJdbcResources() {
+        LegacyJdbcQuery.releaseThreadResources();
+    }
 
     @Test
     @DisplayName("shouldAllowSelectOnlyQueries_forAdminReportBoundary")
@@ -235,6 +248,47 @@ class LegacyJdbcQueryUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should release acquired connection when getConnection registration fails")
+    void shouldReleaseAcquiredConnection_whenGetConnectionRegistrationFails() throws Exception {
+        DataSource dataSource = mock(DataSource.class);
+        List<Connection> connections = mockConnections(51);
+        when(dataSource.getConnection()).thenReturn(connections.get(0),
+                connections.subList(1, connections.size()).toArray(new Connection[0]));
+        registerMock(DataSource.class, dataSource);
+
+        for (int i = 0; i < 50; i++) {
+            assertThatCode(LegacyJdbcQuery::getConnection).doesNotThrowAnyException();
+        }
+
+        Connection overflowConnection = connections.get(50);
+        assertThatThrownBy(LegacyJdbcQuery::getConnection)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("resource limit exceeded");
+        verify(overflowConnection).close();
+    }
+
+    @Test
+    @DisplayName("should release acquired connection when procExecute registration fails")
+    void shouldReleaseAcquiredConnection_whenProcExecuteRegistrationFails() throws Exception {
+        DataSource dataSource = mock(DataSource.class);
+        List<Connection> connections = mockConnections(51);
+        when(dataSource.getConnection()).thenReturn(connections.get(0),
+                connections.subList(1, connections.size()).toArray(new Connection[0]));
+        registerMock(DataSource.class, dataSource);
+
+        for (int i = 0; i < 50; i++) {
+            assertThatCode(LegacyJdbcQuery::getConnection).doesNotThrowAnyException();
+        }
+
+        Connection overflowConnection = connections.get(50);
+        assertThatThrownBy(() -> LegacyJdbcQuery.procExecute("test_proc", new String[] {"value"}))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("resource limit exceeded");
+        verify(overflowConnection).close();
+        verify(overflowConnection, never()).prepareCall(anyString());
+    }
+
+    @Test
     @DisplayName("should close CAISI result set and statement together")
     void shouldClose_caisiResultSetAndStatementTogether() throws Exception {
         ResultSet rs = mock(ResultSet.class);
@@ -255,6 +309,14 @@ class LegacyJdbcQueryUnitTest extends CarlosUnitTestBase {
     void shouldNotExpose_caisiStatement() {
         assertThat(LegacyJdbcQuery.CaisiResult.class.getMethods())
                 .noneMatch(method -> "statement".equals(method.getName()));
+    }
+
+    private List<Connection> mockConnections(int count) {
+        List<Connection> connections = new ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            connections.add(mock(Connection.class));
+        }
+        return connections;
     }
 
     private boolean usesDeprecatedDatabaseBoundary(Path path) {

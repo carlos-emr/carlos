@@ -85,13 +85,14 @@ public class SQLDenominator implements Denominator {
                 MiscUtils.getLogger().debug("sql {}", sql);
             }
 
-            ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(exeSql, paramValues.toArray());
             MiscUtils.getLogger().debug("SQL Statement: " + exeSql);
-            while (rs.next()) {
-                String toAdd = Misc.getString(rs, resultString);
-                list.add(toAdd);
+            try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(
+                    LegacyJdbcQuery.trustedReportSelectSql(exeSql), paramValues.toArray())) {
+                while (rs.next()) {
+                    String toAdd = Misc.getString(rs, resultString);
+                    list.add(toAdd);
+                }
             }
-            rs.close();
         } catch (Exception e) {
             MiscUtils.getLogger().error("Clinical report denominator query failed — results may be incomplete", e);
         }

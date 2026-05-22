@@ -106,17 +106,18 @@ public class SQLNumerator implements Numerator {
 
             Object[] params = buildParams(sql, processString, demographicNo);
             String paramSql = sql.replaceAll("\\$\\{" + processString + "\\}", "?");
-            ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(paramSql, params);
             MiscUtils.getLogger().debug("SQL Statement: " + sql);
-            while (rs.next()) {
-                int count = rs.getInt(identifier);
-                if (count > 0) {
+            try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(
+                    LegacyJdbcQuery.trustedReportSelectSql(paramSql), params)) {
+                while (rs.next()) {
+                    int count = rs.getInt(identifier);
+                    if (count > 0) {
 
-                    evalTrue = true;
+                        evalTrue = true;
+                    }
                 }
             }
             MiscUtils.getLogger().debug("demo " + demographicNo + " eval: " + evalTrue);
-            rs.close();
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
         }
@@ -136,22 +137,21 @@ public class SQLNumerator implements Numerator {
 
             Object[] params = buildParams(sql, processString, demographicNo);
             String paramSql = sql.replaceAll("\\$\\{" + processString + "\\}", "?");
-            ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(paramSql, params);
             MiscUtils.getLogger().debug("SQL Statement: " + sql);
-            if (rs.next()) {
-                evalTrue = true;
-                if (outputfields != null) {
-                    outputValues = new Hashtable();
-                    for (int i = 0; i < outputfields.length; i++) {
-                        outputValues.put(outputfields[i], Misc.getString(rs, outputfields[i]));
+            try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(
+                    LegacyJdbcQuery.trustedReportSelectSql(paramSql), params)) {
+                if (rs.next()) {
+                    evalTrue = true;
+                    if (outputfields != null) {
+                        outputValues = new Hashtable();
+                        for (int i = 0; i < outputfields.length; i++) {
+                            outputValues.put(outputfields[i], Misc.getString(rs, outputfields[i]));
+                        }
+                        outputValues.put("_evaluation", Boolean.valueOf(evalTrue));
                     }
-                    outputValues.put("_evaluation", Boolean.valueOf(evalTrue));
                 }
-                //for 
-
             }
             MiscUtils.getLogger().debug("demo " + demographicNo + " eval: " + evalTrue);
-            rs.close();
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
         }
