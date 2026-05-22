@@ -602,7 +602,7 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
         action.withUploadedFiles(List.of(uploadedFile));
     }
 
-    private Path createTempDirectoryOutsideAllowedTemp() {
+    private Path createTempDirectoryOutsideAllowedTemp() throws IOException {
         List<Path> candidateParents = List.of(
                 Path.of(System.getProperty("user.home", ".")),
                 Path.of("/workspace"),
@@ -621,7 +621,7 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
             Files.deleteIfExists(candidate);
         }
 
-        org.junit.jupiter.api.Assumptions.assumeTrue(false, "Unable to create a test upload directory outside allowed temp roots");
+        Assumptions.assumeTrue(false, "Unable to create a test upload directory outside allowed temp roots");
         return null;
     }
 
