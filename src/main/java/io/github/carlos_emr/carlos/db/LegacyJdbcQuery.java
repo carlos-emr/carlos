@@ -162,7 +162,8 @@ public final class LegacyJdbcQuery {
         Connection connection = DataSourceUtils.getConnection(dataSource);
         PreparedStatement ps = null;
         try {
-            ps = connection.prepareStatement(sql.sql, ResultSet.TYPE_SCROLL_SENSITIVE, // codeql[java/sql-injection] -- TrustedSql is constructed only after legacy SELECT validation; values are bound below
+            // codeql[java/sql-injection] -- TrustedSql is constructed only after legacy SELECT validation; values are bound below.
+            ps = connection.prepareStatement(sql.sql, ResultSet.TYPE_SCROLL_SENSITIVE,
                     updatable ? ResultSet.CONCUR_UPDATABLE : ResultSet.CONCUR_READ_ONLY);
             bindParams(ps, params);
             ResultSet rs = ps.executeQuery(); // NOSONAR javasecurity:S3649 -- parameterized query boundary
@@ -179,7 +180,8 @@ public final class LegacyJdbcQuery {
         Connection connection = DataSourceUtils.getConnection(dataSource);
         PreparedStatement ps = null;
         try {
-            ps = connection.prepareStatement(sql, ResultSet.TYPE_SCROLL_SENSITIVE, // codeql[java/sql-injection] -- raw legacy overload is restricted to caller-owned SQL shape; request-driven SQL uses TrustedSql or ParameterizedSql
+            // codeql[java/sql-injection] -- Raw legacy overload is restricted to caller-owned SQL shape; request-driven SQL uses TrustedSql or ParameterizedSql.
+            ps = connection.prepareStatement(sql, ResultSet.TYPE_SCROLL_SENSITIVE,
                     updatable ? ResultSet.CONCUR_UPDATABLE : ResultSet.CONCUR_READ_ONLY);
             bindParams(ps, params);
             ResultSet rs = ps.executeQuery(); // NOSONAR javasecurity:S3649 -- parameterized query boundary
