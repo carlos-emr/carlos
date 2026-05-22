@@ -41,6 +41,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.sql.DataSource;
 
+import org.springframework.jdbc.CannotGetJdbcConnectionException;
 import org.springframework.jdbc.datasource.DataSourceUtils;
 
 import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
@@ -133,10 +134,11 @@ public final class LegacyJdbcQuery {
      * try-with-resources.</p>
      *
      * @return a connection participating in Spring transaction synchronization
+     * @throws SQLException if a Spring-managed JDBC connection cannot be acquired
      */
-    public static Connection getConnection() {
+    public static Connection getConnection() throws SQLException {
         DataSource dataSource = dataSource();
-        Connection connection = DataSourceUtils.getConnection(dataSource);
+        Connection connection = getRequiredConnection(dataSource);
         try {
             return registerThreadResource(releasingConnection(connection, dataSource));
         } catch (RuntimeException e) {
@@ -165,7 +167,7 @@ public final class LegacyJdbcQuery {
 
     private static ResultSet getPreparedResultSetValidated(TrustedSql sql, boolean updatable, Object... params) throws SQLException {
         DataSource dataSource = dataSource();
-        Connection connection = DataSourceUtils.getConnection(dataSource);
+        Connection connection = getRequiredConnection(dataSource);
         PreparedStatement ps = null;
         try {
             // codeql[java/sql-injection] -- TrustedSql is constructed only after legacy SELECT validation; values are bound below.
@@ -183,7 +185,7 @@ public final class LegacyJdbcQuery {
 
     private static ResultSet getPreparedResultSetLegacyRaw(String sql, boolean updatable, Object... params) throws SQLException {
         DataSource dataSource = dataSource();
-        Connection connection = DataSourceUtils.getConnection(dataSource);
+        Connection connection = getRequiredConnection(dataSource);
         PreparedStatement ps = null;
         try {
             // codeql[java/sql-injection] -- Raw legacy overload is restricted to caller-owned SQL shape; request-driven SQL uses TrustedSql or ParameterizedSql.
@@ -212,7 +214,7 @@ public final class LegacyJdbcQuery {
         sql.append("}");
 
         DataSource dataSource = dataSource();
-        Connection connection = DataSourceUtils.getConnection(dataSource);
+        Connection connection = getRequiredConnection(dataSource);
         AutoCloseable connectionResource;
         try {
             connectionResource = registerThreadResource(
@@ -474,7 +476,7 @@ public final class LegacyJdbcQuery {
 
     private static CaisiResult queryResultsCaisi(String preparedSQL, Object[] params) throws SQLException {
         DataSource dataSource = dataSource();
-        Connection connection = DataSourceUtils.getConnection(dataSource);
+        Connection connection = getRequiredConnection(dataSource);
         PreparedStatement ps = null;
         try {
             ps = connection.prepareStatement(preparedSQL);
@@ -513,6 +515,14 @@ public final class LegacyJdbcQuery {
         };
         return (Connection) Proxy.newProxyInstance(delegate.getClass().getClassLoader(),
                 new Class<?>[] { Connection.class }, handler);
+    }
+
+    private static Connection getRequiredConnection(DataSource dataSource) throws SQLException {
+        try {
+            return DataSourceUtils.getConnection(dataSource);
+        } catch (CannotGetJdbcConnectionException e) {
+            throw new SQLException("Unable to acquire legacy JDBC connection", e);
+        }
     }
 
     /**

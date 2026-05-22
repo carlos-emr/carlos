@@ -94,48 +94,48 @@ public class FrmBCINRRecord extends FrmRecord {
 
         if (existingID <= 0) {
 
-            ResultSet rs = LegacyJdbcQuery.getPreparedResultSet("SELECT demographic_no, last_name, first_name, sex, address, city, province, postal, phone, phone2, year_of_birth, month_of_birth, date_of_birth, hin, family_doctor FROM demographic WHERE demographic_no = ?",
-                    demographicNo);
-            if (rs.next()) {
-                java.util.Date date = UtilDateUtilities.calcDate(Misc.getString(rs, "year_of_birth"), rs
-                        .getString("month_of_birth"), Misc.getString(rs, "date_of_birth"));
-                props.setProperty("demographic_no", Misc.getString(rs, "demographic_no"));
-                props
-                        .setProperty("formCreated", UtilDateUtilities.DateToString(new Date(),
-                                _dateFormat));
-                // props.setProperty("formEdited",
-                // UtilDateUtilities.DateToString(new Date(),_dateFormat));
-                props.setProperty("c_surname", Misc.getString(rs, "last_name"));
-                props.setProperty("c_givenName", Misc.getString(rs, "first_name"));
-                props.setProperty("c_address", Misc.getString(rs, "address"));
-                props.setProperty("c_city", Misc.getString(rs, "city"));
-                props.setProperty("c_province", Misc.getString(rs, "province"));
-                props.setProperty("c_postal", Misc.getString(rs, "postal"));
-                props.setProperty("c_phn", Misc.getString(rs, "hin"));
-                props.setProperty("c_dateOfBirth", UtilDateUtilities.DateToString(date, _dateFormat));
-                props.setProperty("c_phone1", Misc.getString(rs, "phone"));
-                props.setProperty("c_phone2", Misc.getString(rs, "phone2"));
+            try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet("SELECT demographic_no, last_name, first_name, sex, address, city, province, postal, phone, phone2, year_of_birth, month_of_birth, date_of_birth, hin, family_doctor FROM demographic WHERE demographic_no = ?",
+                    demographicNo)) {
+                if (rs.next()) {
+                    java.util.Date date = UtilDateUtilities.calcDate(Misc.getString(rs, "year_of_birth"), rs
+                            .getString("month_of_birth"), Misc.getString(rs, "date_of_birth"));
+                    props.setProperty("demographic_no", Misc.getString(rs, "demographic_no"));
+                    props
+                            .setProperty("formCreated", UtilDateUtilities.DateToString(new Date(),
+                                    _dateFormat));
+                    // props.setProperty("formEdited",
+                    // UtilDateUtilities.DateToString(new Date(),_dateFormat));
+                    props.setProperty("c_surname", Misc.getString(rs, "last_name"));
+                    props.setProperty("c_givenName", Misc.getString(rs, "first_name"));
+                    props.setProperty("c_address", Misc.getString(rs, "address"));
+                    props.setProperty("c_city", Misc.getString(rs, "city"));
+                    props.setProperty("c_province", Misc.getString(rs, "province"));
+                    props.setProperty("c_postal", Misc.getString(rs, "postal"));
+                    props.setProperty("c_phn", Misc.getString(rs, "hin"));
+                    props.setProperty("c_dateOfBirth", UtilDateUtilities.DateToString(date, _dateFormat));
+                    props.setProperty("c_phone1", Misc.getString(rs, "phone"));
+                    props.setProperty("c_phone2", Misc.getString(rs, "phone2"));
+                }
             }
-            rs.close();
         } else {
             String sql = "SELECT * FROM formBCINR WHERE demographic_no = ? AND ID = ?";
             FrmRecordHelp frh = new FrmRecordHelp();
             frh.setDateFormat(_dateFormat);
             props = (frh).getFormRecord(sql, demographicNo, existingID);
 
-            DBHelp db = new DBHelp();
-            ResultSet rs = DBHelp.searchDBRecord("SELECT last_name, first_name, address, city, province, postal, phone,phone2, hin FROM demographic WHERE demographic_no = ?",
-                    demographicNo);
-            if (rs.next()) {
-                props.setProperty("c_surname_cur", Misc.getString(rs, "last_name"));
-                props.setProperty("c_givenName_cur", Misc.getString(rs, "first_name"));
-                props.setProperty("c_address_cur", Misc.getString(rs, "address"));
-                props.setProperty("c_city_cur", Misc.getString(rs, "city"));
-                props.setProperty("c_province_cur", Misc.getString(rs, "province"));
-                props.setProperty("c_postal_cur", Misc.getString(rs, "postal"));
-                props.setProperty("c_phn_cur", Misc.getString(rs, "hin"));
-                props.setProperty("c_phone1_cur", Misc.getString(rs, "phone"));
-                props.setProperty("c_phone2_cur", Misc.getString(rs, "phone2"));
+            try (ResultSet rs = DBHelp.searchDBRecord("SELECT last_name, first_name, address, city, province, postal, phone,phone2, hin FROM demographic WHERE demographic_no = ?",
+                    demographicNo)) {
+                if (rs != null && rs.next()) {
+                    props.setProperty("c_surname_cur", Misc.getString(rs, "last_name"));
+                    props.setProperty("c_givenName_cur", Misc.getString(rs, "first_name"));
+                    props.setProperty("c_address_cur", Misc.getString(rs, "address"));
+                    props.setProperty("c_city_cur", Misc.getString(rs, "city"));
+                    props.setProperty("c_province_cur", Misc.getString(rs, "province"));
+                    props.setProperty("c_postal_cur", Misc.getString(rs, "postal"));
+                    props.setProperty("c_phn_cur", Misc.getString(rs, "hin"));
+                    props.setProperty("c_phone1_cur", Misc.getString(rs, "phone"));
+                    props.setProperty("c_phone2_cur", Misc.getString(rs, "phone2"));
+                }
             }
         }
         return props;
@@ -163,10 +163,11 @@ public class FrmBCINRRecord extends FrmRecord {
         Properties props = new Properties();
         int cId = 0;
         if (existingID == 0) {
-            ResultSet rs = DBHelp.searchDBRecord("SELECT ID FROM formBCINR WHERE demographic_no = ? order by ID desc",
-                    demographicNo);
-            if (rs.next()) {
-                cId = rs.getInt("ID");
+            try (ResultSet rs = DBHelp.searchDBRecord("SELECT ID FROM formBCINR WHERE demographic_no = ? order by ID desc",
+                    demographicNo)) {
+                if (rs != null && rs.next()) {
+                    cId = rs.getInt("ID");
+                }
             }
         } else {
             cId = existingID;
@@ -216,33 +217,35 @@ public class FrmBCINRRecord extends FrmRecord {
     public Vector getINRLabData(int demographic_no) throws SQLException {
         Vector ret = new Vector();
 
-        ResultSet rs = LegacyJdbcQuery.getPreparedResultSet("select lab_no from patientLabRouting where lab_type = 'BCP' and demographic_no = ? order by lab_no",
-                demographic_no);
-        while (rs.next()) {
-            int labNo = rs.getInt("lab_no");
-            ResultSet rs1 = LegacyJdbcQuery.getPreparedResultSet("select obr_id from hl7_obr obr, hl7_pid pid where obr.pid_id = pid.pid_id and pid.message_id = ?",
-                    labNo);
-            if (rs1.next()) {
-                int obrId = rs1.getInt("obr_id");
-                ResultSet rs2 = LegacyJdbcQuery.getPreparedResultSet("select observation_identifier, observation_results, observation_date_time from hl7_obx where obr_id = ? and observation_result_status='F'",
-                        obrId);
-                while (rs2.next()) {
-                    String labTestName = rs2.getString("observation_identifier").substring(
-                            rs2.getString("observation_identifier").indexOf("^") + 1);
-                    if ("INR".equals(labTestName)) {
-                        String result = rs2.getString("observation_results");
-                        String lTimeStamp = rs2.getString("observation_date_time");
-                        lTimeStamp = lTimeStamp.length() > 12 ? lTimeStamp.substring(0, 10) : lTimeStamp;
-                        lTimeStamp = lTimeStamp.substring(8, 10) + "/" + lTimeStamp.substring(5, 7) + "/"
-                                + lTimeStamp.substring(0, 4);
-                        ret.add(lTimeStamp);
-                        ret.add(result);
+        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet("select lab_no from patientLabRouting where lab_type = 'BCP' and demographic_no = ? order by lab_no",
+                demographic_no)) {
+            while (rs.next()) {
+                int labNo = rs.getInt("lab_no");
+                try (ResultSet rs1 = LegacyJdbcQuery.getPreparedResultSet("select obr_id from hl7_obr obr, hl7_pid pid where obr.pid_id = pid.pid_id and pid.message_id = ?",
+                        labNo)) {
+                    if (rs1.next()) {
+                        int obrId = rs1.getInt("obr_id");
+                        try (ResultSet rs2 = LegacyJdbcQuery.getPreparedResultSet("select observation_identifier, observation_results, observation_date_time from hl7_obx where obr_id = ? and observation_result_status='F'",
+                                obrId)) {
+                            while (rs2.next()) {
+                                String labTestName = rs2.getString("observation_identifier").substring(
+                                        rs2.getString("observation_identifier").indexOf("^") + 1);
+                                if ("INR".equals(labTestName)) {
+                                    String result = rs2.getString("observation_results");
+                                    String lTimeStamp = rs2.getString("observation_date_time");
+                                    lTimeStamp = lTimeStamp.length() > 12 ? lTimeStamp.substring(0, 10) : lTimeStamp;
+                                    lTimeStamp = lTimeStamp.substring(8, 10) + "/" + lTimeStamp.substring(5, 7) + "/"
+                                            + lTimeStamp.substring(0, 4);
+                                    ret.add(lTimeStamp);
+                                    ret.add(result);
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
 
-        rs.close();
         return ret;
     }
 

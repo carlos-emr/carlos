@@ -43,4 +43,15 @@ class ClinicalReportSqlJdbcUnitTest {
 
         assertThat(denominator.getDenominatorList()).isEmpty();
     }
+
+    @Test
+    @DisplayName("should parameterize numerator placeholders with regex metacharacters")
+    void shouldParameterizeNumeratorPlaceholders_whenKeyContainsRegexMetacharacters() {
+        SQLNumerator numerator = new SQLNumerator();
+        numerator.processString = "demo+no";
+        numerator.setSQL("select count(*) as count from demographic where demographic_no=${demo+no}");
+
+        assertThat(numerator.parameterizedSqlForProcessString())
+                .isEqualTo("select count(*) as count from demographic where demographic_no=?");
+    }
 }

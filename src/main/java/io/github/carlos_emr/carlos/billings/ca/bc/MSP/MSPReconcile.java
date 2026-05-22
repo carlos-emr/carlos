@@ -1429,7 +1429,9 @@ public class MSPReconcile {
             MiscUtils.getLogger().error("Error", e);
         } finally {
             try {
-                rs.close();
+                if (rs != null) {
+                    rs.close();
+                }
             } catch (SQLException ex) {
                 MiscUtils.getLogger().error("Error", ex);
             }
@@ -1506,7 +1508,9 @@ public class MSPReconcile {
             MiscUtils.getLogger().error("Error", e);
         } finally {
             try {
-                rs.close();
+                if (rs != null) {
+                    rs.close();
+                }
             } catch (SQLException ex) {
                 MiscUtils.getLogger().error("Error", ex);
             }
@@ -1576,7 +1580,9 @@ public class MSPReconcile {
             MiscUtils.getLogger().error("Error", e);
         } finally {
             try {
-                rs.close();
+                if (rs != null) {
+                    rs.close();
+                }
             } catch (SQLException ex) {
                 MiscUtils.getLogger().error("Error", ex);
             }

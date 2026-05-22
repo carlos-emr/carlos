@@ -105,7 +105,7 @@ public class SQLNumerator implements Numerator {
         try {
 
             Object[] params = buildParams(sql, processString, demographicNo);
-            String paramSql = sql.replaceAll("\\$\\{" + processString + "\\}", "?");
+            String paramSql = parameterizedSqlForProcessString();
             MiscUtils.getLogger().debug("SQL Statement: " + sql);
             try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(
                     LegacyJdbcQuery.trustedReportSelectSql(paramSql), params)) {
@@ -136,7 +136,7 @@ public class SQLNumerator implements Numerator {
         try {
 
             Object[] params = buildParams(sql, processString, demographicNo);
-            String paramSql = sql.replaceAll("\\$\\{" + processString + "\\}", "?");
+            String paramSql = parameterizedSqlForProcessString();
             MiscUtils.getLogger().debug("SQL Statement: " + sql);
             try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(
                     LegacyJdbcQuery.trustedReportSelectSql(paramSql), params)) {
@@ -225,13 +225,21 @@ public class SQLNumerator implements Numerator {
      * @return Object[] parameter values array with one entry per placeholder occurrence
      */
     private Object[] buildParams(String sqlTemplate, String key, String value) {
-        Pattern p = Pattern.compile("\\$\\{" + Pattern.quote(key) + "\\}");
+        Pattern p = Pattern.compile(placeholderPattern(key));
         Matcher m = p.matcher(sqlTemplate);
         List<Object> params = new ArrayList<>();
         while (m.find()) {
             params.add(value);
         }
         return params.toArray();
+    }
+
+    String parameterizedSqlForProcessString() {
+        return sql.replaceAll(placeholderPattern(processString), "?");
+    }
+
+    private String placeholderPattern(String key) {
+        return "\\$\\{" + Pattern.quote(key) + "\\}";
     }
 
 }
