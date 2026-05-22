@@ -150,15 +150,15 @@ public class ExtractBean extends Object implements Serializable {
             // htmlContentHeader = htmlContentHeader + "<tr><td class='bodytext'>ACCT NO</td><td class='bodytext'>NAME</td><td class='bodytext'>HEALTH #</td><td class='bodytext'>BILLDATE</td><td class='bodytext'>CODE</td><td align='right' class='bodytext'>BILLED</td><td align='right' class='bodytext'>DX</td><td align='right' class='bodytext'>Comment</td></tr>";
             // htmlValue = htmlContentHeader;
             value = batchHeader;
-            dbExtract dbExt = new dbExtract();
-            MiscUtils.getLogger().debug("1st billing query d");
+            try (dbExtract dbExt = new dbExtract()) {
+                MiscUtils.getLogger().debug("1st billing query d");
 
-            dbExt.openConnection();
-            query = "select * from billing where provider_ohip_no=? and (status='O' or status='W') " + dateRange;
-            MiscUtils.getLogger().debug("1st billing query " + query);
-            ResultSet rs = dbExt.executeQuery(query, providerNo);
-            if (rs != null) {
-                while (rs.next()) {
+                dbExt.openConnection();
+                query = "select * from billing where provider_ohip_no=? and (status='O' or status='W') " + dateRange;
+                MiscUtils.getLogger().debug("1st billing query " + query);
+                ResultSet rs = dbExt.executeQuery(query, providerNo);
+                if (rs != null) {
+                    while (rs.next()) {
                     patientCount = patientCount + 1;
                     invNo = rs.getString("billing_no");
                     //  ohipVer = rs.getString("organization_spec_code");
@@ -297,32 +297,33 @@ public class ExtractBean extends Object implements Serializable {
                     if (eFlag.compareTo("1") == 0) {
                         setAsBilled(invNo);
                     }
+                    }
+                    //      hcCount = hcCount + healthcardCount;
+                    pCount = pCount + patientCount;
+                    rCount = rCount + recordCount;
+                    //      flagOrder = 4 - pCount.length();
+                    //      secondFlag = 5 - rCount.length();
+                    //      thirdFlag= 4 - hcCount.length();
+                    //      percent = new BigDecimal(0.01).setScale(2, BigDecimal.ROUND_HALF_UP);
+                    //      BigTotal = BigTotal.multiply(percent);
+                    //      value = value + "\n" + HE + "E" + zero(flagOrder) + pCount + zero(thirdFlag) +hcCount + zero(secondFlag) + rCount + space(63) + "\r";
+                    // htmlContent = htmlContent + "<tr><td colspan='8' class='bodytext'>&nbsp;</td></tr><tr><td colspan='4' class='bodytext'>Billing No: "+ providerNo+": "+ pCount+" RECORDS PROCESSED</td><td colspan='4' class='bodytext'>TOTAL: " + BigTotal.toString().substring(0,BigTotal.toString().length() -2)  +"</td></tr>";
+                    // totalAmount = BigTotal.toString();
+                    //  writeFile(value);
+                    //      htmlValue = htmlValue + htmlContent + "</table>";
+                    //      htmlHeader = "<html><body><style type='text/css'><!-- .bodytext{  font-family: Arial, Helvetica, sans-serif;  font-size: 12px; font-style: normal;  line-height: normal;  font-weight: normal;  font-variant: normal;  text-transform: none;  color: #003366;  text-decoration: none; --></style>";
+
+                    htmlFooter = "<tr>    <td colspan='11' class='bodytext'>&nbsp;</td>  </tr>  <tr>    <td colspan='5' class='bodytext'>Billing No: " + providerNo + ": " + pCount + " RECORDS PROCESSED</td>    <td colspan='6' class='bodytext'>TOTAL: " + BigTotal + "</td>  </tr></table></body></html>";
+                    htmlCode = htmlContentHeader + htmlContent + htmlFooter;
+
+                    if (eFlag.compareTo("1") == 0) {
+                        writeHtml(htmlCode);
+                    }
+
+                    ohipReciprocal = String.valueOf(hcCount);
+                    ohipRecord = String.valueOf(rCount);
+                    ohipClaim = String.valueOf(pCount);
                 }
-                //      hcCount = hcCount + healthcardCount;
-                pCount = pCount + patientCount;
-                rCount = rCount + recordCount;
-                //      flagOrder = 4 - pCount.length();
-                //      secondFlag = 5 - rCount.length();
-                //      thirdFlag= 4 - hcCount.length();
-                //      percent = new BigDecimal(0.01).setScale(2, BigDecimal.ROUND_HALF_UP);
-                //      BigTotal = BigTotal.multiply(percent);
-                //      value = value + "\n" + HE + "E" + zero(flagOrder) + pCount + zero(thirdFlag) +hcCount + zero(secondFlag) + rCount + space(63) + "\r";
-                // htmlContent = htmlContent + "<tr><td colspan='8' class='bodytext'>&nbsp;</td></tr><tr><td colspan='4' class='bodytext'>Billing No: "+ providerNo+": "+ pCount+" RECORDS PROCESSED</td><td colspan='4' class='bodytext'>TOTAL: " + BigTotal.toString().substring(0,BigTotal.toString().length() -2)  +"</td></tr>";
-                // totalAmount = BigTotal.toString();
-                //  writeFile(value);
-                //      htmlValue = htmlValue + htmlContent + "</table>";
-                //      htmlHeader = "<html><body><style type='text/css'><!-- .bodytext{  font-family: Arial, Helvetica, sans-serif;  font-size: 12px; font-style: normal;  line-height: normal;  font-weight: normal;  font-variant: normal;  text-transform: none;  color: #003366;  text-decoration: none; --></style>";
-
-                htmlFooter = "<tr>    <td colspan='11' class='bodytext'>&nbsp;</td>  </tr>  <tr>    <td colspan='5' class='bodytext'>Billing No: " + providerNo + ": " + pCount + " RECORDS PROCESSED</td>    <td colspan='6' class='bodytext'>TOTAL: " + BigTotal + "</td>  </tr></table></body></html>";
-                htmlCode = htmlContentHeader + htmlContent + htmlFooter;
-
-                if (eFlag.compareTo("1") == 0) {
-                    writeHtml(htmlCode);
-                }
-
-                ohipReciprocal = String.valueOf(hcCount);
-                ohipRecord = String.valueOf(rCount);
-                ohipClaim = String.valueOf(pCount);
             }
 
         } catch (SQLException e) {
