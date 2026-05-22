@@ -38,6 +38,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
@@ -61,8 +62,19 @@ public class ClinicNbrManage2Action extends ActionSupport {
     private static final Logger logger = MiscUtils.getLogger();
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
-    private final transient ClinicNbrDao clinicNbrDao = SpringUtils.getBean(ClinicNbrDao.class);
-    private final transient CarlosMethodSecurity methodSecurity = SpringUtils.getBean(CarlosMethodSecurity.class);
+    private final transient ClinicNbrDao clinicNbrDao;
+    private final transient CarlosMethodSecurity methodSecurity;
+
+    public ClinicNbrManage2Action() {
+        this(SpringUtils.getBean(ClinicNbrDao.class),
+                SpringUtils.getBean(CarlosMethodSecurity.class));
+    }
+
+    @Autowired
+    public ClinicNbrManage2Action(ClinicNbrDao clinicNbrDao, CarlosMethodSecurity methodSecurity) {
+        this.clinicNbrDao = clinicNbrDao;
+        this.methodSecurity = methodSecurity;
+    }
 
     @Override
     public String execute() throws Exception {

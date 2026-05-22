@@ -44,6 +44,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
@@ -75,9 +76,24 @@ public class ClientManage2Action extends ActionSupport {
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
-    private final transient ServiceClientDao serviceClientDao = SpringUtils.getBean(ServiceClientDao.class);
-    private final transient ServiceAccessTokenDao serviceAccessTokenDao = SpringUtils.getBean(ServiceAccessTokenDao.class);
-    private final transient CarlosMethodSecurity methodSecurity = SpringUtils.getBean(CarlosMethodSecurity.class);
+    private final transient ServiceClientDao serviceClientDao;
+    private final transient ServiceAccessTokenDao serviceAccessTokenDao;
+    private final transient CarlosMethodSecurity methodSecurity;
+
+    public ClientManage2Action() {
+        this(SpringUtils.getBean(ServiceClientDao.class),
+                SpringUtils.getBean(ServiceAccessTokenDao.class),
+                SpringUtils.getBean(CarlosMethodSecurity.class));
+    }
+
+    @Autowired
+    public ClientManage2Action(ServiceClientDao serviceClientDao,
+            ServiceAccessTokenDao serviceAccessTokenDao,
+            CarlosMethodSecurity methodSecurity) {
+        this.serviceClientDao = serviceClientDao;
+        this.serviceAccessTokenDao = serviceAccessTokenDao;
+        this.methodSecurity = methodSecurity;
+    }
 
     @Override
     public String execute() throws Exception {

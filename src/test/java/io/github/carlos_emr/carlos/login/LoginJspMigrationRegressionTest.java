@@ -211,12 +211,16 @@ class LoginJspMigrationRegressionTest {
                 .doesNotContain("../administration/")
                 .doesNotContain("../administration/index");
         assertThat(mainMenu)
-                .contains("/administration','admin")
+                .contains("String administrationUrl = request.getContextPath() + \"/administration\"")
+                .contains("openScheduleMenuSection")
+                .contains("SafeEncode.forJavaScriptAttribute(administrationUrl)")
                 .doesNotContain("/administration/")
                 .doesNotContain("/administration/index");
         assertThat(appointmentProviderAdminDay)
-                .contains("/administration','admin")
-                .contains("/administration\", \"admin")
+                .contains("String scheduleAdministrationUrl = request.getContextPath() + \"/administration\"")
+                .contains("openScheduleSection")
+                .contains("scheduleAdministrationUrlForJsAttribute")
+                .contains("newWindow(\"<%= request.getContextPath() %>/administration\", \"admin\")")
                 .doesNotContain("/administration/")
                 .doesNotContain("/administration/index");
         assertThat(administrationLeftNav)
@@ -319,9 +323,11 @@ class LoginJspMigrationRegressionTest {
         String csrfGuard = Files.readString(CSRF_GUARD, StandardCharsets.UTF_8);
         String menuConfig = Files.readString(MENU_CONFIG, StandardCharsets.UTF_8);
 
+        assertThat(csrfGuard).contains("CarlosCsrfGuardFilter owns invalid-token responses");
+        assertThat(csrfGuard).doesNotContain("org.owasp.csrfguard.action.Redirect.Page=%servletContext%/errorpage");
+
         assertThat(csrfGuard).contains("%servletContext%/index");
         assertThat(csrfGuard).contains("%servletContext%/logoutPage");
-        assertThat(csrfGuard).contains("%servletContext%/errorpage");
         assertThat(csrfGuard).contains("%servletContext%/login");
         assertThat(csrfGuard).doesNotContain("%servletContext%/forcepasswordresetSubmit");
         assertThat(menuConfig).doesNotContain("location=\"index.jsp\"");

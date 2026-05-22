@@ -134,7 +134,7 @@ public class PendingDocumentsJspRegressionTest {
     void shouldKeepExactPatientNumberValidationRegex_inPendingDocumentsJsp() throws IOException {
         String jsp = Files.readString(PENDING_DOCUMENTS_JSP, StandardCharsets.UTF_8);
 
-        assertThat(jsp).contains("/^-?\\\\d+$/");
+        assertThat(jsp).contains("/^-?\\d+$/");
     }
 
     private static List<String> invalidI18nKeys(Path bundlePath) throws IOException {

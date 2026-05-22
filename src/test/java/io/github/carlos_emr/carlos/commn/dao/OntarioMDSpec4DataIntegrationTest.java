@@ -130,23 +130,18 @@ public class OntarioMDSpec4DataIntegrationTest extends CarlosTestBase {
     }
 
     private Provider createProvider(String firstName, String lastName, String providerNo, String specialty) {
-        entityManager.createNativeQuery("""
-                MERGE INTO provider (
-                    provider_no, first_name, last_name, specialty, provider_type,
-                    sex, signed_confidentiality, status
-                ) KEY(provider_no) VALUES (
-                    :providerNo, :firstName, :lastName, :specialty, 'doctor',
-                    'M', CURRENT_TIMESTAMP, '1'
-                )
-                """)
-                .setParameter("providerNo", providerNo)
-                .setParameter("firstName", firstName)
-                .setParameter("lastName", lastName)
-                .setParameter("specialty", specialty)
-                .executeUpdate();
-        entityManager.flush();
-
-        return providerDao.getProvider(providerNo);
+        Provider provider = new Provider();
+        provider.setProviderNo(providerNo);
+        provider.setFirstName(firstName);
+        provider.setLastName(lastName);
+        provider.setSpecialty(specialty);
+        provider.setProviderType("doctor");
+        provider.setSex("M");
+        provider.setSignedConfidentiality(new Date());
+        provider.setStatus("1");
+        hibernateTemplate.saveOrUpdate(provider);
+        hibernateTemplate.flush();
+        return provider;
     }
 
     private Demographic createDemographic(String lastName, String firstName, String providerNo) {

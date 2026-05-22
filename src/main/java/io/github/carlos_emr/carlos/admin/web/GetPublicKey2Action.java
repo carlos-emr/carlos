@@ -37,6 +37,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
@@ -59,8 +60,19 @@ public class GetPublicKey2Action extends ActionSupport {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
-    private final transient SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private final transient PublicKeyDao publicKeyDao = SpringUtils.getBean(PublicKeyDao.class);
+    private final transient SecurityInfoManager securityInfoManager;
+    private final transient PublicKeyDao publicKeyDao;
+
+    public GetPublicKey2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class),
+                SpringUtils.getBean(PublicKeyDao.class));
+    }
+
+    @Autowired
+    public GetPublicKey2Action(SecurityInfoManager securityInfoManager, PublicKeyDao publicKeyDao) {
+        this.securityInfoManager = securityInfoManager;
+        this.publicKeyDao = publicKeyDao;
+    }
 
     @Override
     public String execute() throws Exception {
