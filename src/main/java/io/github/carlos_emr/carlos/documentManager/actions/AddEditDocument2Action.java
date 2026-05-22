@@ -617,7 +617,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         } catch (Exception e) {
             request.setAttribute("docerrors", errors);
             request.setAttribute("editDocumentNo", this.getMode());
-            MiscUtils.getLogger().error("Failed to edit document");
+            MiscUtils.getLogger().error("Failed to edit document", e);
             return "failEdit";
         }
         return "successEdit";
