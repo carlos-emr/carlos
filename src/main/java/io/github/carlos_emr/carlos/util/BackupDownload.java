@@ -85,7 +85,7 @@ public class BackupDownload extends GenericDownload {
             download(true, res, dir, filename, null);
         } catch (FileValidationException e) {
             log.warn("BackupDownload rejected invalid filename from {}", req.getRemoteAddr());
-            res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid filename parameter.");
+            sendErrorForCaughtException(res, HttpServletResponse.SC_BAD_REQUEST, "Invalid filename parameter.");
         } catch (IOException e) {
             throw e;
         } catch (SecurityException e) {
