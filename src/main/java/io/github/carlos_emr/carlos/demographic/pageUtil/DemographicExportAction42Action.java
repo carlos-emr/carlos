@@ -122,6 +122,7 @@ import io.github.carlos_emr.carlos.commn.model.OscarLog;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -2665,7 +2666,15 @@ public class DemographicExportAction42Action extends ActionSupport {
                     }
 //
 //	if (setName!=null) zipName = "export_"+setName.replace(" ","")+"_"+UtilDateUtilities.getToday("yyyyMMddHHmmss")+".pgp";
-                    zipName = PathValidationUtils.validateUserFilePath(zipName, new File(tmpDir)).getName();
+                    try {
+                        zipName = PathValidationUtils.validateUserFilePath(zipName, new File(tmpDir)).getName();
+                    } catch (FileValidationException e) {
+                        logger.warn("Rejected invalid demographic export zip filename");
+                        exportError.add("Error! Invalid export zip filename.");
+                        setExportStatusHeader(response, "error");
+                        ffwd = "fail";
+                        break;
+                    }
                     if (!Util.zipFiles(files, dirs, zipName, tmpDir)) {
                         logger.debug("Error! Failed to zip export files");
                     }

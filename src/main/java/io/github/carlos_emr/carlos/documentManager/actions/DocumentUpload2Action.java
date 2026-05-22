@@ -151,8 +151,6 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             } catch (FileValidationException e) {
                 logger.warn("Rejected invalid document upload filename");
                 map.put("error", props.getString("dms.error.invalidFilename"));
-                docFile.delete();
-                docFile = null;
                 writeUploadResponse(map);
                 return null;
             }
