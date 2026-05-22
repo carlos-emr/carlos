@@ -2,6 +2,8 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
+<fmt:setBundle basename="oscarResources"/>
 <%-- Row: Allergies and Prescriptions --%>
 <div class="encounter-card card mb-1" id="presTopTable">
     <div class="card-header d-flex align-items-center">

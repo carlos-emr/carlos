@@ -37,6 +37,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
@@ -59,8 +60,35 @@ public class GetPublicKey2Action extends ActionSupport {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
-    private final transient SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private final transient PublicKeyDao publicKeyDao = SpringUtils.getBean(PublicKeyDao.class);
+    private final transient SecurityInfoManager securityInfoManager;
+    private final transient PublicKeyDao publicKeyDao;
+
+    /**
+     * Creates the action for Struts-managed instantiation paths.
+     *
+     * <p>Delegates to the injected constructor after retrieving collaborators
+     * from the Spring context.</p>
+     *
+     * @throws org.springframework.beans.BeansException if a required Spring bean is unavailable
+     * @since 2026-05-19
+     */
+    public GetPublicKey2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class),
+                SpringUtils.getBean(PublicKeyDao.class));
+    }
+
+    /**
+     * Creates the action with explicit collaborators for Spring injection and tests.
+     *
+     * @param securityInfoManager authorization service used for admin privilege checks
+     * @param publicKeyDao DAO used to load public key records
+     * @since 2026-05-19
+     */
+    @Autowired
+    public GetPublicKey2Action(SecurityInfoManager securityInfoManager, PublicKeyDao publicKeyDao) {
+        this.securityInfoManager = securityInfoManager;
+        this.publicKeyDao = publicKeyDao;
+    }
 
     @Override
     public String execute() throws Exception {
