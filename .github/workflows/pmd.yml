@@ -3,7 +3,8 @@
 # Description:
 # Runs PMD static analysis on CARLOS EMR Java source code to detect
 # common programming flaws, potential bugs, and security issues.
-# Results appear in the GitHub Security tab (SARIF upload).
+# Security-only results appear in the GitHub Security tab (SARIF upload).
+# Full quality results are retained as workflow artifacts and summaries.
 #
 # Runs PMD CLI directly (no third-party action) to avoid org action
 # allow-list restrictions. PMD only needs source code, not compilation.
@@ -94,7 +95,7 @@ jobs:
             echo "PMD ${PMD_VERSION} already cached"
           fi
 
-      - name: Run PMD
+      - name: Run PMD quality scan
         run: |
           set -euo pipefail
           PMD_DIR="pmd-bin-${PMD_VERSION}"
@@ -106,15 +107,35 @@ jobs:
             --report-file pmd-report.sarif \
             --no-fail-on-violation
 
-      - name: Upload SARIF to GitHub Security tab
+      - name: Run PMD security scan
+        run: |
+          set -euo pipefail
+          PMD_DIR="pmd-bin-${PMD_VERSION}"
+          "${PMD_DIR}/bin/pmd" check \
+            --dir src/main/java \
+            --dir src/test/java \
+            --rulesets category/java/security.xml \
+            --format sarif \
+            --report-file pmd-security-report.sarif \
+            --no-fail-on-violation
+
+      - name: Upload security SARIF to GitHub Code Scanning
         uses: github/codeql-action/upload-sarif@0daab03d71ff584ef619d027a3fd9146679c5d84
         if: >
           always() &&
-          hashFiles('pmd-report.sarif') != '' &&
+          hashFiles('pmd-security-report.sarif') != '' &&
           (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false)
         with:
-          sarif_file: pmd-report.sarif
+          sarif_file: pmd-security-report.sarif
           category: pmd
+
+      - name: Upload PMD quality artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always() && hashFiles('pmd-report.sarif') != ''
+        with:
+          name: pmd-quality-sarif
+          path: pmd-report.sarif
+          retention-days: 14
 
       - name: Report summary
         if: always()
@@ -123,10 +144,19 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
           if [ -f pmd-report.sarif ]; then
             if total=$(jq '[.runs[].results[]?] | length' pmd-report.sarif 2>/dev/null); then
-              echo "PMD produced ${total} SARIF finding(s)." >> "$GITHUB_STEP_SUMMARY"
+              echo "PMD quality scan produced ${total} SARIF finding(s)." >> "$GITHUB_STEP_SUMMARY"
             else
-              echo "PMD SARIF report was generated, but could not be parsed." >> "$GITHUB_STEP_SUMMARY"
+              echo "PMD quality SARIF report was generated, but could not be parsed." >> "$GITHUB_STEP_SUMMARY"
             fi
           else
-            echo "No PMD SARIF report was generated." >> "$GITHUB_STEP_SUMMARY"
+            echo "No PMD quality SARIF report was generated." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ -f pmd-security-report.sarif ]; then
+            if security_total=$(jq '[.runs[].results[]?] | length' pmd-security-report.sarif 2>/dev/null); then
+              echo "PMD security scan uploaded ${security_total} finding(s) to Code Scanning." >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "PMD security SARIF report was generated, but could not be parsed." >> "$GITHUB_STEP_SUMMARY"
+            fi
+          else
+            echo "No PMD security SARIF report was generated." >> "$GITHUB_STEP_SUMMARY"
           fi

@@ -6,8 +6,8 @@
 # Find Security Bugs adds 150+ security-specific detectors critical for
 # a healthcare application handling PHI.
 #
-# Results appear as PR annotations (GitHub Actions) and in the GitHub
-# Security tab (SARIF upload).
+# Security findings appear in the GitHub Security tab (SARIF upload).
+# Full SpotBugs quality results are retained as workflow artifacts and summaries.
 #
 # Container Images:
 # This workflow uses the same dev container as maven-project.yml to ensure
@@ -176,7 +176,7 @@ jobs:
               -T 1C
           "
 
-      - name: Convert SpotBugs XML to SARIF
+      - name: Convert SpotBugs security XML to SARIF
         if: always()
         run: |
           REPORT="target/spotbugs-result.xml"
@@ -187,10 +187,10 @@ jobs:
 
           python3 << 'PYEOF'
           import xml.etree.ElementTree as ET
-          import json, os, sys
+          import json, sys
 
           report_path = "target/spotbugs-result.xml"
-          sarif_path = "spotbugs-report.sarif"
+          sarif_path = "spotbugs-security-report.sarif"
 
           try:
               tree = ET.parse(report_path)
@@ -199,19 +199,19 @@ jobs:
               sys.exit(0)
 
           root = tree.getroot()
-          src_dirs = []
-          project = root.find("Project")
-          if project is not None:
-              for src in project.findall("SrcDir"):
-                  if src.text:
-                      src_dirs.append(src.text.strip())
-
           results = []
           rules_map = {}
+          total_findings = 0
+          skipped_non_security = 0
 
           for bug in root.findall("BugInstance"):
+              total_findings += 1
               bug_type = bug.get("type", "unknown")
               category = bug.get("category", "")
+              if category != "SECURITY":
+                  skipped_non_security += 1
+                  continue
+
               priority = int(bug.get("priority", "3"))
               message_elem = bug.find("LongMessage")
               short_msg_elem = bug.find("ShortMessage")
@@ -223,14 +223,13 @@ jobs:
               else:
                   message = bug_type
 
-              # Map SpotBugs priority (1=high, 2=medium, 3=low) to SARIF level
               level_map = {1: "error", 2: "warning", 3: "note"}
+              security_severity_map = {1: "8.0", 2: "5.0", 3: "2.0"}
               level = level_map.get(priority, "warning")
+              security_severity = security_severity_map.get(priority, "5.0")
 
-              # Find source location
               source_line = bug.find("SourceLine")
               if source_line is None:
-                  # Try nested in Method or Class
                   for child in bug:
                       sl = child.find("SourceLine")
                       if sl is not None and sl.get("sourcepath"):
@@ -254,12 +253,15 @@ jobs:
               if not uri:
                   continue
 
-              # Register rule
               if bug_type not in rules_map:
                   rules_map[bug_type] = {
                       "id": bug_type,
                       "shortDescription": {"text": bug_type},
-                      "properties": {"category": category}
+                      "properties": {
+                          "category": category,
+                          "tags": ["security"],
+                          "security-severity": security_severity
+                      }
                   }
 
               result = {
@@ -293,15 +295,24 @@ jobs:
           with open(sarif_path, "w") as f:
               json.dump(sarif, f, indent=2)
 
-          print(f"Converted {len(results)} findings to SARIF")
+          print(f"Converted {len(results)} security findings to SARIF")
+          print(f"Skipped {skipped_non_security} non-security findings from {total_findings} total findings")
           PYEOF
 
-      - name: Upload SARIF to GitHub Security tab
+      - name: Upload security SARIF to GitHub Code Scanning
         uses: github/codeql-action/upload-sarif@0daab03d71ff584ef619d027a3fd9146679c5d84
-        if: always() && hashFiles('spotbugs-report.sarif') != ''
+        if: always() && hashFiles('spotbugs-security-report.sarif') != ''
         with:
-          sarif_file: spotbugs-report.sarif
+          sarif_file: spotbugs-security-report.sarif
           category: spotbugs
+
+      - name: Upload SpotBugs quality artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always() && hashFiles('target/spotbugs-result.xml') != ''
+        with:
+          name: spotbugs-quality-xml
+          path: target/spotbugs-result.xml
+          retention-days: 14
 
       - name: Report summary
         if: always()
@@ -323,7 +334,7 @@ jobs:
             echo "| **Security** | **$SECURITY** |" >> "$GITHUB_STEP_SUMMARY"
             echo "| **Total** | **$TOTAL** |" >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
-            echo "See the **Security** tab for details." >> "$GITHUB_STEP_SUMMARY"
+            echo "Only security findings are uploaded to Code Scanning; full SpotBugs results are retained as workflow artifacts." >> "$GITHUB_STEP_SUMMARY"
           else
             echo "No SpotBugs report generated." >> "$GITHUB_STEP_SUMMARY"
           fi
