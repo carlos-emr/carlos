@@ -54,21 +54,21 @@ public class FrmConsultantRecord extends FrmRecord {
 
             String sql = "SELECT demographic_no, CONCAT(last_name, ', ', first_name) AS pName, address, CONCAT(city, ', ', province, ' ', postal) AS address2, phone, year_of_birth, month_of_birth, date_of_birth, CONCAT(hin, ' ', ver) AS hic FROM demographic WHERE demographic_no = ?";
 
-            ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo);
-            if (rs.next()) {
-                java.util.Date date = UtilDateUtilities.calcDate(Misc.getString(rs, "year_of_birth"), Misc.getString(rs, "month_of_birth"), Misc.getString(rs, "date_of_birth"));
-                props.setProperty("demographic_no", Misc.getString(rs, "demographic_no"));
-                props.setProperty("formCreated", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
-                props.setProperty("consultTime", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
-                props.setProperty("formEdited", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
-                props.setProperty("p_name", Misc.getString(rs, "pName"));
-                props.setProperty("p_address1", Misc.getString(rs, "address"));
-                props.setProperty("p_address2", Misc.getString(rs, "address2"));
-                props.setProperty("p_birthdate", UtilDateUtilities.DateToString(date, "yyyy/MM/dd"));
-                props.setProperty("p_phone", Misc.getString(rs, "phone"));
-                props.setProperty("p_healthcard", Misc.getString(rs, "hic"));
+            try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo)) {
+                if (rs.next()) {
+                    java.util.Date date = UtilDateUtilities.calcDate(Misc.getString(rs, "year_of_birth"), Misc.getString(rs, "month_of_birth"), Misc.getString(rs, "date_of_birth"));
+                    props.setProperty("demographic_no", Misc.getString(rs, "demographic_no"));
+                    props.setProperty("formCreated", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
+                    props.setProperty("consultTime", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
+                    props.setProperty("formEdited", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
+                    props.setProperty("p_name", Misc.getString(rs, "pName"));
+                    props.setProperty("p_address1", Misc.getString(rs, "address"));
+                    props.setProperty("p_address2", Misc.getString(rs, "address2"));
+                    props.setProperty("p_birthdate", UtilDateUtilities.DateToString(date, "yyyy/MM/dd"));
+                    props.setProperty("p_phone", Misc.getString(rs, "phone"));
+                    props.setProperty("p_healthcard", Misc.getString(rs, "hic"));
+                }
             }
-            rs.close();
 
             Clinic clinic = clinicDao.getClinic();
             if (clinic != null) {
@@ -105,11 +105,11 @@ public class FrmConsultantRecord extends FrmRecord {
 
         Properties props = new Properties();
         String sql = "SELECT CONCAT('Dr. ', first_name, ' ', last_name) AS doc_Name FROM provider WHERE provider_no = ?";
-        ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, provider_no);
-        if (rs.next()) {
-            props.setProperty("doc_name", Misc.getString(rs, "doc_Name"));
+        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, provider_no)) {
+            if (rs.next()) {
+                props.setProperty("doc_name", Misc.getString(rs, "doc_Name"));
+            }
         }
-        rs.close();
         return props.getProperty("doc_name", "");
     }
 

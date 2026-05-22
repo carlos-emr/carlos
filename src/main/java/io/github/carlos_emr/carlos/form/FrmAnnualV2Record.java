@@ -51,17 +51,17 @@ public class FrmAnnualV2Record extends FrmRecord {
             String sql = "SELECT demographic_no, CONCAT(last_name, ', ', first_name) AS pName, "
                     + "year_of_birth, month_of_birth, date_of_birth "
                     + "FROM demographic WHERE demographic_no = ?";
-            ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo);
-            if (rs.next()) {
-                props.setProperty("demographic_no", Misc.getString(rs, "demographic_no"));
-                props.setProperty("pName", Misc.getString(rs, "pName"));
-                props.setProperty("formDate", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
-                props.setProperty("formCreated", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
-                //props.setProperty("formEdited", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
-                java.util.Date dob = UtilDateUtilities.calcDate(Misc.getString(rs, "year_of_birth"), Misc.getString(rs, "month_of_birth"), Misc.getString(rs, "date_of_birth"));
-                props.setProperty("age", String.valueOf(UtilDateUtilities.calcAge(dob)));
+            try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo)) {
+                if (rs.next()) {
+                    props.setProperty("demographic_no", Misc.getString(rs, "demographic_no"));
+                    props.setProperty("pName", Misc.getString(rs, "pName"));
+                    props.setProperty("formDate", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
+                    props.setProperty("formCreated", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
+                    //props.setProperty("formEdited", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
+                    java.util.Date dob = UtilDateUtilities.calcDate(Misc.getString(rs, "year_of_birth"), Misc.getString(rs, "month_of_birth"), Misc.getString(rs, "date_of_birth"));
+                    props.setProperty("age", String.valueOf(UtilDateUtilities.calcAge(dob)));
+                }
             }
-            rs.close();
         } else {
             String sql = "SELECT * FROM formAnnualV2 WHERE demographic_no = ? AND ID = ?";
             props = (new FrmRecordHelp()).getFormRecord(sql, demographicNo, existingID);
