@@ -324,7 +324,10 @@ jobs:
 
       - name: Upload security SARIF to GitHub Code Scanning
         uses: github/codeql-action/upload-sarif@0daab03d71ff584ef619d027a3fd9146679c5d84
-        if: always() && hashFiles('spotbugs-security-report.sarif') != ''
+        if: >
+          always() &&
+          hashFiles('spotbugs-security-report.sarif') != '' &&
+          (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false)
         with:
           sarif_file: spotbugs-security-report.sarif
           category: spotbugs
@@ -362,7 +365,7 @@ jobs:
               echo "" >> "$GITHUB_STEP_SUMMARY"
               echo "| Code Scanning upload | Count |" >> "$GITHUB_STEP_SUMMARY"
               echo "|----------------------|-------|" >> "$GITHUB_STEP_SUMMARY"
-              echo "| Security findings uploaded | ${SECURITY_FINDINGS_UPLOADED:-0} |" >> "$GITHUB_STEP_SUMMARY"
+              echo "| Security findings selected for upload | ${SECURITY_FINDINGS_UPLOADED:-0} |" >> "$GITHUB_STEP_SUMMARY"
               echo "| Security findings skipped without source | ${SKIPPED_NO_SOURCE:-0} |" >> "$GITHUB_STEP_SUMMARY"
               if [ "${SKIPPED_NO_SOURCE:-0}" != "0" ]; then
                 echo "::warning::Skipped ${SKIPPED_NO_SOURCE} SpotBugs SECURITY finding(s) without usable source locations"

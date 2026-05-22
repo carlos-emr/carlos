@@ -153,7 +153,7 @@ jobs:
           fi
           if [ -f pmd-security-report.sarif ]; then
             if security_total=$(jq '[.runs[].results[]?] | length' pmd-security-report.sarif 2>/dev/null); then
-              echo "PMD security scan uploaded ${security_total} finding(s) to Code Scanning." >> "$GITHUB_STEP_SUMMARY"
+              echo "PMD security scan produced ${security_total} security finding(s)." >> "$GITHUB_STEP_SUMMARY"
             else
               echo "PMD security SARIF report was generated, but could not be parsed." >> "$GITHUB_STEP_SUMMARY"
             fi
