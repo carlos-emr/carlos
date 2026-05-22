@@ -202,7 +202,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             return null;
         }
 
-        if (fileName.endsWith(".PDF") || fileName.endsWith(".pdf")) {
+        if (fileName.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
             newDoc.setContentType("application/pdf");
             // get number of pages when document is pdf;
             numberOfPages = countNumOfPages(fileName);
