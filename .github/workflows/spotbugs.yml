@@ -263,6 +263,10 @@ jobs:
                           "security-severity": security_severity
                       }
                   }
+              else:
+                  properties = rules_map[bug_type]["properties"]
+                  if float(security_severity) > float(properties["security-severity"]):
+                      properties["security-severity"] = security_severity
 
               result = {
                   "ruleId": bug_type,
