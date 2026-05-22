@@ -128,6 +128,7 @@ input {
 }
 
 #inbox_table_wrapper > .row {
+
     --bs-gutter-x: 0;
     margin-left: 0;
     margin-right: 0;
@@ -261,6 +262,7 @@ input {
  */
 /* Top navigation bar — utility links (Forwarding Rules, Upload, etc.) */
 .inbox-topbar {
+
     --inbox-nav-color: #00283c;
     --inbox-nav-hover-bg: #486ebd;
     display: flex;
@@ -291,6 +293,7 @@ input {
 
 /* Action toolbar — Forward, File, Acknowledged, Rapid Review, counts */
 .inbox-toolbar {
+
     --inbox-nav-color: #00283c;
     --inbox-nav-hover-bg: #486ebd;
     display: flex;
