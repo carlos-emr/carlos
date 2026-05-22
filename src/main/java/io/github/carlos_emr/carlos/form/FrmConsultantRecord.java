@@ -116,13 +116,14 @@ public class FrmConsultantRecord extends FrmRecord {
     public Properties getInitRefDoc(Properties props, int demo_no) throws SQLException {
 
         String sql = "SELECT family_doctor FROM demographic WHERE demographic_no = ?";
-        ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demo_no);
         String refdocno, docno;
-        if (rs.next()) {
-            docno = Misc.getString(rs, "family_doctor");
-            refdocno = docno.substring(8, docno.indexOf("</rdohip>"));
-            if (!refdocno.isEmpty()) {
-                props.setProperty("refdocno", refdocno);
+        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demo_no)) {
+            if (rs.next()) {
+                docno = Misc.getString(rs, "family_doctor");
+                refdocno = docno.substring(8, docno.indexOf("</rdohip>"));
+                if (!refdocno.isEmpty()) {
+                    props.setProperty("refdocno", refdocno);
+                }
             }
         }
 

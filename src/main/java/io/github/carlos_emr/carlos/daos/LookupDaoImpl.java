@@ -851,7 +851,7 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
     /**
      * Binds a {@link DBPreparedHandlerParam} typed value to a JPA {@link Query} at a
      * 1-based position, preserving the type-aware dispatch the legacy
-     * legacy prepared-query binding performed (String / int / Date / Timestamp).
+     * prepared-query binding performed (String / int / Date / Timestamp).
      *
      * @param query the JPA query to bind on
      * @param position 1-based positional parameter index

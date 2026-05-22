@@ -33,6 +33,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.springframework.jdbc.CannotGetJdbcConnectionException;
+
 import io.github.carlos_emr.OscarDocumentCreator;
 import io.github.carlos_emr.carlos.PMmodule.utility.Utility;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.PatientEndYearStatementSummary;
@@ -241,7 +243,7 @@ public class PatientEndYearStatementService {
                     throw new Failure(Reason.DATABASE_ERROR);
                 }
                 osc.fillDocumentStream(reportParams, out, "pdf", reportStream, dbConn);
-            } catch (SQLException ex) {
+            } catch (SQLException | CannotGetJdbcConnectionException ex) {
                 throw new Failure(Reason.DATABASE_ERROR, ex);
             }
         } finally {

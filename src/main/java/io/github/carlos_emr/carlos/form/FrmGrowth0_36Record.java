@@ -41,20 +41,20 @@ public class FrmGrowth0_36Record extends FrmRecord {
         if (existingID <= 0) {
 
             String sql = "SELECT demographic_no, last_name, first_name, sex, address, city, province, postal, phone, phone2, year_of_birth, month_of_birth, date_of_birth, hin FROM demographic WHERE demographic_no = ?";
-            ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo);
-            if (rs.next()) {
-                java.util.Date date = UtilDateUtilities.calcDate(Misc.getString(rs, "year_of_birth"), rs
-                        .getString("month_of_birth"), Misc.getString(rs, "date_of_birth"));
-                props.setProperty("demographic_no", Misc.getString(rs, "demographic_no"));
-                props
-                        .setProperty("formCreated", UtilDateUtilities.DateToString(new Date(),
-                                _dateFormat));
-                props.setProperty("formEdited", UtilDateUtilities.DateToString(new Date(), _dateFormat));
-                props.setProperty("patientName", Misc.getString(rs, "first_name") + " " + Misc.getString(rs, "last_name"));
-                props.setProperty("patientSex", Misc.getString(rs, "sex"));
-                props.setProperty("dateOfBirth", UtilDateUtilities.DateToString(date, _dateFormat));
+            try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo)) {
+                if (rs.next()) {
+                    java.util.Date date = UtilDateUtilities.calcDate(Misc.getString(rs, "year_of_birth"), rs
+                            .getString("month_of_birth"), Misc.getString(rs, "date_of_birth"));
+                    props.setProperty("demographic_no", Misc.getString(rs, "demographic_no"));
+                    props
+                            .setProperty("formCreated", UtilDateUtilities.DateToString(new Date(),
+                                    _dateFormat));
+                    props.setProperty("formEdited", UtilDateUtilities.DateToString(new Date(), _dateFormat));
+                    props.setProperty("patientName", Misc.getString(rs, "first_name") + " " + Misc.getString(rs, "last_name"));
+                    props.setProperty("patientSex", Misc.getString(rs, "sex"));
+                    props.setProperty("dateOfBirth", UtilDateUtilities.DateToString(date, _dateFormat));
+                }
             }
-            rs.close();
         } else {
             String sql = "SELECT * FROM formGrowth0_36 WHERE demographic_no = ? AND ID = ?";
             FrmRecordHelp frh = new FrmRecordHelp();
@@ -62,12 +62,13 @@ public class FrmGrowth0_36Record extends FrmRecord {
             props = (frh).getFormRecord(sql, demographicNo, existingID);
 
             sql = "SELECT sex, year_of_birth, month_of_birth, date_of_birth FROM demographic WHERE demographic_no = ?";
-            ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo);
-            if (rs.next()) {
-                java.util.Date date = UtilDateUtilities.calcDate(Misc.getString(rs, "year_of_birth"), rs
-                        .getString("month_of_birth"), Misc.getString(rs, "date_of_birth"));
-                props.setProperty("patientSex", Misc.getString(rs, "sex"));
-                props.setProperty("dateOfBirth", UtilDateUtilities.DateToString(date, _dateFormat));
+            try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo)) {
+                if (rs.next()) {
+                    java.util.Date date = UtilDateUtilities.calcDate(Misc.getString(rs, "year_of_birth"), rs
+                            .getString("month_of_birth"), Misc.getString(rs, "date_of_birth"));
+                    props.setProperty("patientSex", Misc.getString(rs, "sex"));
+                    props.setProperty("dateOfBirth", UtilDateUtilities.DateToString(date, _dateFormat));
+                }
             }
         }
         return props;

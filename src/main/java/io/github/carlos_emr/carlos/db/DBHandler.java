@@ -56,4 +56,24 @@ public final class DBHandler {
         return LegacyJdbcQuery.getPreparedResultSet(sql, updatable, params);
     }
 
+    /**
+     * @deprecated Use {@link #getPreSql(String, Object...)}. Kept only as a
+     * migration compatibility wrapper while production callers move off this
+     * deprecated class.
+     */
+    @Deprecated(forRemoval = true)
+    public static ResultSet GetPreSQL(String sql, Object... params) throws SQLException {
+        return getPreSql(sql, params);
+    }
+
+    /**
+     * @deprecated Use {@link #getPreSql(String, boolean, Object...)}. Kept only
+     * as a migration compatibility wrapper while production callers move off
+     * this deprecated class.
+     */
+    @Deprecated(forRemoval = true)
+    public static ResultSet GetPreSQL(String sql, boolean updatable, Object... params) throws SQLException { // nosemgrep: formatted-sql-string -- compatibility wrapper delegates to parameterized query method
+        return getPreSql(sql, updatable, params);
+    }
+
 }
