@@ -134,6 +134,7 @@ public final class PathValidationUtils {
      * @param sourceFile the uploaded file (from Struts2/Tomcat)
      * @return InputStream for the validated upload content; caller must close it
      * @throws IOException if validation fails or the stream cannot be opened
+     * @since 2026-05-21
      */
     public static InputStream openValidatedUploadInputStream(File sourceFile) throws IOException {
         File validatedFile;

@@ -320,6 +320,10 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
     @DisplayName("should reject Struts 7 uploads outside allowed temp directories")
     void shouldRejectUpload_whenSourceIsOutsideAllowedTempDirectory() throws Exception {
         Path outsideUploadDir = createTempDirectoryOutsideAllowedTemp();
+        org.junit.jupiter.api.Assumptions.assumeTrue(outsideUploadDir != null,
+                "Unable to create an upload directory outside allowed temp directories");
+        org.junit.jupiter.api.Assumptions.assumeTrue(Files.isDirectory(outsideUploadDir) && Files.isWritable(outsideUploadDir),
+                "Outside upload directory is not usable in this environment");
         Path outsideUpload = outsideUploadDir.resolve("document.pdf");
         Files.writeString(outsideUpload, "test");
         try {
@@ -598,7 +602,7 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
         action.withUploadedFiles(List.of(uploadedFile));
     }
 
-    private Path createTempDirectoryOutsideAllowedTemp() throws IOException {
+    private Path createTempDirectoryOutsideAllowedTemp() {
         List<Path> candidateParents = List.of(
                 Path.of(System.getProperty("user.home", ".")),
                 Path.of("/workspace"),
@@ -617,7 +621,8 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
             Files.deleteIfExists(candidate);
         }
 
-        throw new IOException("Unable to create a test upload directory outside allowed temp roots");
+        org.junit.jupiter.api.Assumptions.assumeTrue(false, "Unable to create a test upload directory outside allowed temp roots");
+        return null;
     }
 
     private void writeSimplePdf(Path path) throws Exception {

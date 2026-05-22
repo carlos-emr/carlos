@@ -258,11 +258,8 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             return numOfPage;
         }
 
-        try {
-            PdfReader reader = new PdfReader(filePath.toString());
+        try (PdfReader reader = new PdfReader(filePath.toString())) {
             numOfPage = reader.getNumberOfPages();
-            reader.close();
-
         } catch (IOException e) {
             MiscUtils.getLogger().error("Failed to count document pages");
         }
@@ -830,6 +827,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             }
             return true;
         } catch (IOException e) {
+            MiscUtils.getLogger().warn("Failed to read validated upload for PDF header check", e);
             return false;
         }
     }
@@ -878,6 +876,8 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
     private File writeValidatedUpload(File validatedUpload, String fileName) throws IOException {
         try (InputStream inputStream = openValidatedUploadInputStream(validatedUpload)) {
             return writeLocalFile(inputStream, fileName);
+        } catch (IOException e) {
+            throw e;
         } catch (Exception e) {
             throw new IOException("Failed to write uploaded document", e);
         }
