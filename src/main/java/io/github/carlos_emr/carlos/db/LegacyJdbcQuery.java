@@ -115,8 +115,7 @@ public final class LegacyJdbcQuery {
     }
 
     public static ResultSet getPreparedResultSet(ParameterizedSql sql) throws SQLException {
-        validateReportSelectQuery(sql.getSql());
-        return getPreparedResultSetInternal(sql.getSql(), false, sql.getParamsArray());
+        return getPreparedResultSet(trustedReportSelectSql(sql.getSql()), false, sql.getParamsArray());
     }
 
     public static ResultSet getPreparedResultSet(TrustedSql sql, Object... params) throws SQLException {
@@ -151,19 +150,36 @@ public final class LegacyJdbcQuery {
      * {@link TrustedSql} overload.</p>
      */
     public static ResultSet getPreparedResultSet(String sql, boolean updatable, Object... params) throws SQLException { // nosemgrep: formatted-sql-string -- legacy SQL shape is owned by callers; values are bound below
-        return getPreparedResultSetInternal(sql, updatable, params);
+        return getPreparedResultSetLegacyRaw(sql, updatable, params);
     }
 
     public static ResultSet getPreparedResultSet(TrustedSql sql, boolean updatable, Object... params) throws SQLException {
-        return getPreparedResultSetInternal(sql.sql, updatable, params);
+        return getPreparedResultSetValidated(sql, updatable, params);
     }
 
-    private static ResultSet getPreparedResultSetInternal(String sql, boolean updatable, Object... params) throws SQLException {
+    private static ResultSet getPreparedResultSetValidated(TrustedSql sql, boolean updatable, Object... params) throws SQLException {
         DataSource dataSource = dataSource();
         Connection connection = DataSourceUtils.getConnection(dataSource);
         PreparedStatement ps = null;
         try {
-            ps = connection.prepareStatement(sql, ResultSet.TYPE_SCROLL_SENSITIVE,
+            ps = connection.prepareStatement(sql.sql, ResultSet.TYPE_SCROLL_SENSITIVE, // codeql[java/sql-injection] -- TrustedSql is constructed only after legacy SELECT validation; values are bound below
+                    updatable ? ResultSet.CONCUR_UPDATABLE : ResultSet.CONCUR_READ_ONLY);
+            bindParams(ps, params);
+            ResultSet rs = ps.executeQuery(); // NOSONAR javasecurity:S3649 -- parameterized query boundary
+            return registerThreadResource(StatementClosingResultSet.wrap(rs, ps, connection, dataSource));
+        } catch (SQLException | RuntimeException e) {
+            closeStatement(ps);
+            DataSourceUtils.releaseConnection(connection, dataSource);
+            throw e;
+        }
+    }
+
+    private static ResultSet getPreparedResultSetLegacyRaw(String sql, boolean updatable, Object... params) throws SQLException {
+        DataSource dataSource = dataSource();
+        Connection connection = DataSourceUtils.getConnection(dataSource);
+        PreparedStatement ps = null;
+        try {
+            ps = connection.prepareStatement(sql, ResultSet.TYPE_SCROLL_SENSITIVE, // codeql[java/sql-injection] -- raw legacy overload is restricted to caller-owned SQL shape; request-driven SQL uses TrustedSql or ParameterizedSql
                     updatable ? ResultSet.CONCUR_UPDATABLE : ResultSet.CONCUR_READ_ONLY);
             bindParams(ps, params);
             ResultSet rs = ps.executeQuery(); // NOSONAR javasecurity:S3649 -- parameterized query boundary

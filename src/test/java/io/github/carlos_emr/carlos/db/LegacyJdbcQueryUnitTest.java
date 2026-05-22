@@ -30,6 +30,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
 
+import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
 /**
@@ -77,6 +78,18 @@ class LegacyJdbcQueryUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(() -> LegacyJdbcQuery.trustedReportSelectSql(
                 "select demographic_no from demographic; select provider_no from provider"))
                 .isInstanceOf(SQLException.class);
+    }
+
+    @Test
+    @DisplayName("should reject unsafe parameterized report SQL before JDBC")
+    void shouldRejectUnsafeParameterizedReportSql_beforeJdbcBoundary() {
+        ParameterizedSql query = new ParameterizedSql(
+                "select demographic_no from demographic; drop table provider",
+                List.of());
+
+        assertThatThrownBy(() -> LegacyJdbcQuery.getPreparedResultSet(query))
+                .isInstanceOf(SQLException.class)
+                .hasMessageContaining("Unsafe SQL detected");
     }
 
     @Test
