@@ -621,7 +621,7 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
             Files.deleteIfExists(candidate);
         }
 
-        Assumptions.assumeTrue(false, "Unable to create a test upload directory outside allowed temp roots");
+        org.junit.jupiter.api.Assumptions.assumeTrue(false, "Unable to create a test upload directory outside allowed temp roots");
         return null;
     }
 
