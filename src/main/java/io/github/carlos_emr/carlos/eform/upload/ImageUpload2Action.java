@@ -51,6 +51,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.util.List;
+import java.util.MissingResourceException;
 import java.util.ResourceBundle;
 
 public class ImageUpload2Action extends ActionSupport implements UploadedFilesAware {
@@ -132,8 +133,12 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
     }
 
     private String getInvalidFilenameMessage() {
-        return ResourceBundle.getBundle("oscarResources", request.getLocale())
-                .getString(INVALID_FILENAME_MESSAGE_KEY);
+        try {
+            return ResourceBundle.getBundle("oscarResources", request.getLocale())
+                    .getString(INVALID_FILENAME_MESSAGE_KEY);
+        } catch (MissingResourceException e) {
+            return "Invalid filename";
+        }
     }
 
     private File image;

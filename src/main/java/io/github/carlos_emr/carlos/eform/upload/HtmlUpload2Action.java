@@ -48,6 +48,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.nio.file.Files;
 import java.util.List;
+import java.util.MissingResourceException;
 import java.util.ResourceBundle;
 
 /**
@@ -123,8 +124,12 @@ public class HtmlUpload2Action extends ActionSupport implements UploadedFilesAwa
     }
 
     private String getInvalidFilenameMessage() {
-        return ResourceBundle.getBundle("oscarResources", request.getLocale())
-                .getString(INVALID_FILENAME_MESSAGE_KEY);
+        try {
+            return ResourceBundle.getBundle("oscarResources", request.getLocale())
+                    .getString(INVALID_FILENAME_MESSAGE_KEY);
+        } catch (MissingResourceException e) {
+            return "Invalid filename";
+        }
     }
 
     public File getFormHtml() {

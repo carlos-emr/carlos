@@ -520,8 +520,12 @@ public class AddEForm2Action extends ActionSupport {
     }
 
     private String getInvalidFilenameMessage() {
-        return ResourceBundle.getBundle("oscarResources", request.getLocale())
-                .getString(INVALID_FILENAME_MESSAGE_KEY);
+        try {
+            return ResourceBundle.getBundle("oscarResources", request.getLocale())
+                    .getString(INVALID_FILENAME_MESSAGE_KEY);
+        } catch (MissingResourceException e) {
+            return "Invalid filename";
+        }
     }
 
     /**
