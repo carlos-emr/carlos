@@ -76,10 +76,11 @@ public class HtmlUpload2Action extends ActionSupport implements UploadedFilesAwa
         }
         try {
             File validatedFormHtml = PathValidationUtils.validateUpload(formHtml);
-            formHtmlFileName = PathValidationUtils.validateFileName(formHtmlFileName);
+            String fileName = formHtmlFileName != null ? formHtmlFileName : formHtml.getName();
+            fileName = PathValidationUtils.validateFileName(fileName);
             String formHtmlStr = new String(Files.readAllBytes(validatedFormHtml.toPath()));
             formHtmlStr = formHtmlStr.replaceAll("\\\\n", "\\\\\\\\n");
-            EFormUtil.saveEForm(formName, subject, formHtmlFileName, formHtmlStr, showLatestFormOnly, patientIndependent, roleType);
+            EFormUtil.saveEForm(formName, subject, fileName, formHtmlStr, showLatestFormOnly, patientIndependent, roleType);
             request.setAttribute("status", "success");
             return SUCCESS;
         } catch (FileValidationException e) {
@@ -114,6 +115,10 @@ public class HtmlUpload2Action extends ActionSupport implements UploadedFilesAwa
             this.formHtml = PathValidationUtils.validateUpload(new File(uploaded.getAbsolutePath()));
             this.formHtmlContentType = uploaded.getContentType();
             String rawName = uploaded.getOriginalName();
+            if (rawName == null) {
+                this.formHtmlFileName = null;
+                return;
+            }
             try {
                 this.formHtmlFileName = PathValidationUtils.validateFileName(rawName);
             } catch (FileValidationException e) {
