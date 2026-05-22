@@ -327,6 +327,7 @@
     if (rbu != null) {
         resourcebaseurl = rbu.getValue();
     }
+    pageContext.setAttribute("scheduleResourceBaseUrl", resourcebaseurl);
 
     boolean isWeekView = false;
     String provNum = request.getParameter("provider_no");
@@ -478,6 +479,8 @@
         <%
             }
         %>
+        <link rel="stylesheet" href="${pageContext.servletContext.contextPath}/css/topnav.css?v=${rand}"
+              type="text/css">
 
         <c:if test="${empty sessionScope.archiveView or sessionScope.archiveView != true}">
             <%!String refresh = io.github.carlos_emr.CarlosProperties.getInstance().getProperty("refresh.appointmentprovideradminday.jsp", "-1");%>
@@ -896,10 +899,10 @@
     <table id="firstTable" class="noprint">
         <tr>
 
+            <td class="icon-container">
+                <img alt="CARLOS EMR" src="<%=request.getContextPath()%>/images/oscar_logo_small.png" width="19">
+            </td>
             <td id="firstMenu">
-                <div class="icon-container">
-                    <img alt="CARLOS EMR" src="<%=request.getContextPath()%>/images/oscar_logo_small.png" width="19px">
-                </div>
                 <ul id="navlist">
                     <c:if test="${infirmaryView_isOscar != 'false'}">
                         <% if (request.getParameter("viewall") != null && request.getParameter("viewall").equals("1")) { %>
@@ -1127,6 +1130,11 @@
                                     </li>
                                 </security:oscarSec>
                             </caisi:isModuleLoad>
+
+                            <li id="helpLink">
+                                <a href="javascript:void(0)"
+                                   onClick="popupPage(600,750,'${e:forJavaScriptAttribute(scheduleResourceBaseUrl)}');return false;"><fmt:message key="global.help"/></a>
+                            </li>
 
                             <% if (isMobileOptimized) { %>
                         </ul>

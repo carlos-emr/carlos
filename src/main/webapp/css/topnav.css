@@ -18,6 +18,7 @@ table#firstTable {
 table#firstTable tr {
     display: flex;
     align-items: center;
+    justify-content: space-between;
 }
 
 table#firstTable td {
@@ -34,11 +35,17 @@ table#firstTable tr td.icon-container {
 
 table#firstTable td#firstMenu {
     flex: 1 1 auto;
-    margin-left: 10px;
 }
 
 table#firstTable td#userSettings {
     flex: 0 0 auto;
+}
+
+#firstMenu {
+    margin-left: 10px;
+}
+
+#userSettings {
     margin-right: 15px;
 }
 
@@ -50,15 +57,16 @@ table#firstTable td#userSettings ul#userSettingsMenu:not(.dashboardDropdown) {
     list-style-type: none;
 }
 
-table#firstTable td#userSettings ul#userSettingsMenu li,
-/* Keep top-level menu layout from leaking into dashboard dropdown rows; the
-   dropdown marker is on a nested div, so scope these rules to direct children. */
-table#firstTable td#firstMenu ul#navlist > li {
+table#firstTable td#userSettings ul#userSettingsMenu li {
+    display: inline-block;
+}
+
+table#firstTable td#firstMenu ul#navlist li:not(.dashboardDropdown) {
     line-height: 1;
     display: inline-block;
 }
 
-table#firstTable td#firstMenu ul#navlist > li > a {
+table#firstTable td#firstMenu ul#navlist li a:not(.dashboardDropdown) {
     display: inline-block;
     padding: 5px;
 }
@@ -151,33 +159,24 @@ table.topnav td {
     white-space: nowrap;
 }
 
-#navlist > li {
-    padding-top: 0.5px;
-    padding-bottom: 0.5px;
-    padding-left: 2.5px;
-    padding-right: 2.5px;
-    display: inline;
-}
-
-#navlist > li:hover {
-    color: #fff;
-    background-color: #486ebd;
-}
-
-#navlist > li > a:hover {
-    color: #fff;
-    background-color: #486ebd;
-}
 
 /* Match the schedule bar alert affordance; these links need higher specificity
    than the general topnav anchor color rules above. */
 table#firstTable #unclaimedLabLink.tabalert,
+table#firstTable #oscar_new_msg,
 table#firstTable #oscar_new_tickler {
     color: red !important;
 }
 
 table#firstTable #unclaimedLabLink.tabalert:hover,
-table#firstTable a:hover #oscar_new_tickler {
+table#firstTable a:hover #oscar_new_msg,
+table#firstTable a:hover #oscar_new_tickler,
+table#firstTable a:focus #unclaimedLabLink.tabalert,
+table#firstTable a:focus #oscar_new_msg,
+table#firstTable a:focus #oscar_new_tickler,
+table#firstTable a:focus-visible #unclaimedLabLink.tabalert,
+table#firstTable a:focus-visible #oscar_new_msg,
+table#firstTable a:focus-visible #oscar_new_tickler {
     color: #fff !important;
 }
 
