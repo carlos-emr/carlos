@@ -851,6 +851,13 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
      * @return File the upload content file to validate
      */
     private File resolveUploadedContentFile(UploadedFile uploadedFile) {
+        if (uploadedFile.isFile()) {
+            String absolutePath = uploadedFile.getAbsolutePath();
+            if (filled(absolutePath)) {
+                return new File(absolutePath);
+            }
+        }
+
         Object content = uploadedFile.getContent();
         if (content instanceof File uploadFile) {
             return uploadFile;
