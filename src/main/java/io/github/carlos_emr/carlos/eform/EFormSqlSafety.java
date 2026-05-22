@@ -24,12 +24,9 @@ final class EFormSqlSafety {
 
         String normalized = sql.trim();
 
-        // Block unresolved template markers and obvious stacked/multi-statement patterns.
+        // Block unresolved template markers before validating report-template SQL.
         if (normalized.contains("${")) {
             throw new SecurityException("Unsafe dynamic SQL template detected");
-        }
-        if (LegacyJdbcQuery.containsUnsafeSqlControlToken(sql)) {
-            throw new SecurityException("Unsafe SQL control characters detected");
         }
         try {
             LegacyJdbcQuery.validateReportSelectQuery(sql);
