@@ -65,11 +65,27 @@ public class ClinicNbrManage2Action extends ActionSupport {
     private final transient ClinicNbrDao clinicNbrDao;
     private final transient CarlosMethodSecurity methodSecurity;
 
+    /**
+     * Creates the action for Struts-managed instantiation paths.
+     *
+     * <p>Delegates to the injected constructor after retrieving collaborators
+     * from the Spring context.</p>
+     *
+     * @throws org.springframework.beans.BeansException if a required Spring bean is unavailable
+     * @since 2026-05-19
+     */
     public ClinicNbrManage2Action() {
         this(SpringUtils.getBean(ClinicNbrDao.class),
                 SpringUtils.getBean(CarlosMethodSecurity.class));
     }
 
+    /**
+     * Creates the action with explicit collaborators for Spring injection and tests.
+     *
+     * @param clinicNbrDao DAO used to add and remove clinic number records
+     * @param methodSecurity method-level authorization facade for admin write privileges
+     * @since 2026-05-19
+     */
     @Autowired
     public ClinicNbrManage2Action(ClinicNbrDao clinicNbrDao, CarlosMethodSecurity methodSecurity) {
         this.clinicNbrDao = clinicNbrDao;
