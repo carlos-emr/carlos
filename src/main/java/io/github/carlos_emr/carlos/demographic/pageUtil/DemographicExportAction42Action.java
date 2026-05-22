@@ -2674,6 +2674,8 @@ public class DemographicExportAction42Action extends ActionSupport {
                         exportError.add("Error! Invalid export zip filename.");
                         setExportStatusHeader(response, "error");
                         ffwd = "fail";
+                        Util.cleanFiles(files);
+                        Util.cleanFile(tmpDir);
                         break;
                     }
                     if (!Util.zipFiles(files, dirs, zipName, tmpDir)) {

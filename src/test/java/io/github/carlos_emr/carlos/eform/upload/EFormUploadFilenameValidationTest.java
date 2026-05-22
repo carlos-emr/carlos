@@ -69,7 +69,7 @@ class EFormUploadFilenameValidationTest extends CarlosUnitTestBase {
 
         assertThat(result).isEqualTo("error");
         assertThat(action.getActionErrors())
-                .anySatisfy(error -> assertThat(error).contains("hidden files not allowed"));
+                .anySatisfy(error -> assertThat(error).contains("Invalid filename"));
     }
 
     @Test
@@ -84,6 +84,6 @@ class EFormUploadFilenameValidationTest extends CarlosUnitTestBase {
 
         assertThat(result).isEqualTo("fail");
         assertThat(request.getAttribute("errorMessage").toString())
-                .contains("hidden files not allowed");
+                .contains("Invalid filename");
     }
 }

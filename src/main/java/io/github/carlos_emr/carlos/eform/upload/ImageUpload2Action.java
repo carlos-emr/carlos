@@ -51,11 +51,14 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.util.List;
+import java.util.ResourceBundle;
 
 public class ImageUpload2Action extends ActionSupport implements UploadedFilesAware {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
+
+    private static final String INVALID_FILENAME_MESSAGE_KEY = "dms.error.invalidFilename";
 
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -76,13 +79,6 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
             String originalFileName = imageFileName;
             imageFileName = PathValidationUtils.validateFileName(imageFileName);
             boolean fileNameWasSanitized = !originalFileName.equals(imageFileName);
-
-            // Validate that sanitized filename is not empty
-            if (imageFileName == null || imageFileName.isEmpty()) {
-                MiscUtils.getLogger().warn("Image upload rejected: filename empty after sanitization");
-                addActionError("Invalid filename: filename cannot be empty after sanitization");
-                return ERROR;
-            }
 
             // Ensure upload directory exists (throws IOException if creation fails)
             File imageFolder = getImageFolder();
@@ -115,7 +111,7 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
 
         } catch (FileValidationException e) {
             MiscUtils.getLogger().warn("Rejected invalid image upload filename");
-            addActionError(e.getMessage());
+            addActionError(getInvalidFilenameMessage());
             return ERROR;
         } catch (SecurityException se) {
             MiscUtils.getLogger().warn("SecurityException during image upload: " + se.getMessage(), se);
@@ -133,6 +129,11 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
         if (!imageFolder.exists() && !imageFolder.mkdirs())
             throw new IOException("Could not create directory " + imageFolder.getAbsolutePath() + " check permissions and ensure the correct EFORM_IMAGES_DIR property is set in the properties file");
         return imageFolder;
+    }
+
+    private String getInvalidFilenameMessage() {
+        return ResourceBundle.getBundle("oscarResources", request.getLocale())
+                .getString(INVALID_FILENAME_MESSAGE_KEY);
     }
 
     private File image;

@@ -48,6 +48,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.nio.file.Files;
 import java.util.List;
+import java.util.ResourceBundle;
 
 /**
  * Struts 7.x action for uploading HTML eForm files.
@@ -58,6 +59,8 @@ import java.util.List;
 public class HtmlUpload2Action extends ActionSupport implements UploadedFilesAware {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
+
+    private static final String INVALID_FILENAME_MESSAGE_KEY = "dms.error.invalidFilename";
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -79,7 +82,7 @@ public class HtmlUpload2Action extends ActionSupport implements UploadedFilesAwa
             request.setAttribute("status", "success");
             return SUCCESS;
         } catch (FileValidationException e) {
-            request.setAttribute("errorMessage", e.getMessage());
+            request.setAttribute("errorMessage", getInvalidFilenameMessage());
             MiscUtils.getLogger().warn("Rejected invalid eForm HTML filename");
             return "fail";
         } catch (Exception e) {
@@ -113,10 +116,15 @@ public class HtmlUpload2Action extends ActionSupport implements UploadedFilesAwa
             try {
                 this.formHtmlFileName = PathValidationUtils.validateFileName(rawName);
             } catch (FileValidationException e) {
-                this.uploadValidationError = e.getMessage();
+                this.uploadValidationError = getInvalidFilenameMessage();
                 this.formHtmlFileName = null;
             }
         }
+    }
+
+    private String getInvalidFilenameMessage() {
+        return ResourceBundle.getBundle("oscarResources", request.getLocale())
+                .getString(INVALID_FILENAME_MESSAGE_KEY);
     }
 
     public File getFormHtml() {

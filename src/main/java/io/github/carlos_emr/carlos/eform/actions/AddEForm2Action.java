@@ -77,6 +77,7 @@ public class AddEForm2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private static final Logger logger = MiscUtils.getLogger();
+    private static final String INVALID_FILENAME_MESSAGE_KEY = "dms.error.invalidFilename";
 
     /**
      * Validates the eform_link parameter format to prevent session attribute injection (CWE-501).
@@ -198,7 +199,7 @@ public class AddEForm2Action extends ActionSupport {
         try {
             validatedTemplateFileName = validateTemplateFileName(curForm.getFormFileName());
         } catch (FileValidationException e) {
-            request.setAttribute("errorMessage", e.getMessage());
+            request.setAttribute("errorMessage", getInvalidFilenameMessage());
             logger.warn("Rejected invalid eForm template filename");
             return ERROR;
         }
@@ -516,6 +517,11 @@ public class AddEForm2Action extends ActionSupport {
         String formattedDate = dateFormat.format(currentDate);
 
         return formattedDate + "_" + demographicLastName + ".pdf";
+    }
+
+    private String getInvalidFilenameMessage() {
+        return ResourceBundle.getBundle("oscarResources", request.getLocale())
+                .getString(INVALID_FILENAME_MESSAGE_KEY);
     }
 
     /**
