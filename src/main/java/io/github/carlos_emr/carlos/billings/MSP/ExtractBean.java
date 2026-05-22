@@ -154,9 +154,9 @@ public class ExtractBean extends Object implements Serializable {
             MiscUtils.getLogger().debug("1st billing query d");
 
             dbExt.openConnection();
-            query = "select * from billing where provider_ohip_no='" + providerNo + "' and (status='O' or status='W') " + dateRange;
+            query = "select * from billing where provider_ohip_no=? and (status='O' or status='W') " + dateRange;
             MiscUtils.getLogger().debug("1st billing query " + query);
-            ResultSet rs = dbExt.executeQuery(query);
+            ResultSet rs = dbExt.executeQuery(query, providerNo);
             if (rs != null) {
                 while (rs.next()) {
                     patientCount = patientCount + 1;
@@ -254,18 +254,13 @@ public class ExtractBean extends Object implements Serializable {
 
 
                     invCount = 0;
-                    // Validate numeric: dbExtract only supports Statement (not PreparedStatement),
-                    // so parameterized queries are not possible. Ensure invNo contains only digits
-                    // before concatenation, while preserving the original value to avoid changing
-                    // invoice semantics such as leading zeros.
-                    // TODO: Refactor dbExtract to support PreparedStatement for full parameterization.
                     if (invNo == null || !invNo.matches("^[0-9]+$")) {
                         logger.warn("Skipping billing record due to invalid invoice number: {}", invNo);
                         continue;
                     }
-                    query2 = "select * from billingmaster where billing_no=" + invNo + " and billingstatus='O'";
+                    query2 = "select * from billingmaster where billing_no=? and billingstatus='O'";
 
-                    ResultSet rs2 = dbExt.executeQuery2(query2);
+                    ResultSet rs2 = dbExt.executeQuery2(query2, invNo);
                     while (rs2.next()) {
                         recordCount = recordCount + 1;
 
