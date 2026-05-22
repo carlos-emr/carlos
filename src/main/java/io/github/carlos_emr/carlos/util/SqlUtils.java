@@ -71,7 +71,9 @@ public class SqlUtils {
         try {
             records = new ArrayList<String[]>();
 
-            rs = LegacyJdbcQuery.getPreparedResultSet(qry, params != null ? params : new Object[0]);
+            rs = LegacyJdbcQuery.getPreparedResultSet(
+                    LegacyJdbcQuery.trustedReportSelectSql(qry),
+                    params != null ? params : new Object[0]);
             int cols = rs.getMetaData().getColumnCount();
             while (rs.next()) {
                 String[] record = new String[cols];

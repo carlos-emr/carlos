@@ -65,7 +65,7 @@ public final class DBHelp {
     public static ResultSet searchDBRecord(String sql, Object... params) {
         ResultSet ret = null;
         try {
-            ret = LegacyJdbcQuery.getPreparedResultSet(sql, params);
+            ret = LegacyJdbcQuery.getPreparedResultSet(LegacyJdbcQuery.trustedReportSelectSql(sql), params);
         } catch (SQLException e) {
             logger.error("Error", e);
         }
