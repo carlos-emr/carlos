@@ -184,9 +184,11 @@ public class DocumentManagerImpl implements DocumentManager {
         Date today = new Date();
         // Generates filename and path data and saves the document data to the file system
         String documentPath = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
-        String fileName = dateTimeFormat.format(today) + "_" + document.getDocfilename();
+        String fileName = document.getDocfilename();
         File file;
         try {
+            String normalizedFileName = PathValidationUtils.validateFileName(fileName);
+            fileName = dateTimeFormat.format(today) + "_" + normalizedFileName;
             file = PathValidationUtils.validateUserFilePath(fileName, new File(documentPath));
             fileName = file.getName();
         } catch (SecurityException e) {

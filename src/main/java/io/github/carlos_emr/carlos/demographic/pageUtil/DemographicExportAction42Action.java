@@ -2667,6 +2667,7 @@ public class DemographicExportAction42Action extends ActionSupport {
 //
 //	if (setName!=null) zipName = "export_"+setName.replace(" ","")+"_"+UtilDateUtilities.getToday("yyyyMMddHHmmss")+".pgp";
                     try {
+                        zipName = PathValidationUtils.validateGeneratedFileName(zipName);
                         zipName = PathValidationUtils.validateUserFilePath(zipName, new File(tmpDir)).getName();
                     } catch (FileValidationException e) {
                         logger.warn("Rejected invalid demographic export zip filename");

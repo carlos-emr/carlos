@@ -10,6 +10,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
@@ -29,6 +31,24 @@ class OscarDownloadUnitTest {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/servlet/OscarDownload");
         request.addParameter("filename", ".env");
         request.addParameter("homepath", "homepath");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        RecordingOscarDownload servlet = new RecordingOscarDownload();
+
+        servlet.service(request, response);
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(servlet.transferCalled).isFalse();
+    }
+
+    @ParameterizedTest
+    @DisplayName("should reject GET when filename contains path components")
+    @ValueSource(strings = {"../report.txt", "..\\report.txt", "/tmp/report.txt"})
+    void shouldRejectGet_whenFilenameContainsPathComponents(String filename) throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/servlet/OscarDownload");
+        request.addParameter("filename", filename);
+        request.addParameter("homepath", "homepath");
+        request.getSession().setAttribute("homepath", tempDir.toString());
+        request.getSession().setAttribute("user", "999998");
         MockHttpServletResponse response = new MockHttpServletResponse();
         RecordingOscarDownload servlet = new RecordingOscarDownload();
 

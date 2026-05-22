@@ -22,6 +22,8 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Isolated;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -94,6 +96,22 @@ class BackupDownloadUnitTest extends CarlosUnitTestBase {
     void shouldRejectGet_whenFilenameIsHidden() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/servlet/BackupDownload");
         request.addParameter("filename", ".env");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        RecordingBackupDownload servlet = new RecordingBackupDownload();
+
+        servlet.service(request, response);
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(servlet.downloadCalled).isFalse();
+        verify(securityInfoManager, never()).hasPrivilege(any(), any(), any(), any());
+    }
+
+    @ParameterizedTest
+    @DisplayName("should reject GET when filename contains path components")
+    @ValueSource(strings = {"../backup.sql", "..\\backup.sql", "/tmp/backup.sql", "bad\u0000name.sql"})
+    void shouldRejectGet_whenFilenameContainsPathComponents(String filename) throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/servlet/BackupDownload");
+        request.addParameter("filename", filename);
         MockHttpServletResponse response = new MockHttpServletResponse();
         RecordingBackupDownload servlet = new RecordingBackupDownload();
 
@@ -195,6 +213,24 @@ class BackupDownloadUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should use normalized filename when filename contains spaces")
+    void shouldUseNormalizedFilename_whenFilenameContainsSpaces() throws Exception {
+        MockHttpServletRequest request = requestWithFilenameAndSession("backup final.sql");
+        request.getSession().setAttribute("backupfilepath", tempDir.toString());
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        RecordingBackupDownload servlet = new RecordingBackupDownload();
+        LoggedInInfo loggedInInfo = mockLoggedInInfo(request);
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_admin"), eq("r"), isNull()))
+                .thenReturn(true);
+
+        servlet.service(request, response);
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(servlet.downloadCalled).isTrue();
+        assertThat(servlet.downloadFilename).isEqualTo("backup_final.sql");
+    }
+
+    @Test
     @DisplayName("should download from default directory when backup filepath is missing")
     void shouldDownload_fromDefaultDirectoryWhenBackupFilepathIsMissing() throws Exception {
         MockHttpServletRequest request = requestWithFilenameAndSession();
@@ -242,8 +278,12 @@ class BackupDownloadUnitTest extends CarlosUnitTestBase {
     }
 
     private MockHttpServletRequest requestWithFilenameAndSession() {
+        return requestWithFilenameAndSession("backup.sql");
+    }
+
+    private MockHttpServletRequest requestWithFilenameAndSession(String filename) {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/servlet/BackupDownload");
-        request.addParameter("filename", "backup.sql");
+        request.addParameter("filename", filename);
         request.getSession();
         return request;
     }

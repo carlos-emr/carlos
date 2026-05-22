@@ -53,7 +53,7 @@ public class OscarDownload extends GenericDownload {
         try {
             HttpSession session = req.getSession(true);
             String rawFilename = req.getParameter("filename");
-            String filename = rawFilename == null ? null : PathValidationUtils.validateFileName(rawFilename);
+            String filename = rawFilename == null ? null : PathValidationUtils.validateStrictFileName(rawFilename);
             String homepath = req.getParameter("homepath");
 
             if (filename == null || filename.isBlank()) {

@@ -119,6 +119,28 @@ public final class PathValidationUtils {
         String baseName = sanitizeFileName(userProvidedFileName);
         String normalizedName = normalizeFileNameCharacters(baseName);
 
+        return validateNormalizedFileName(normalizedName);
+    }
+
+    /**
+     * Validates an application-generated filename after applying legacy character normalization
+     * to the complete generated value. Use this when the application adds trusted prefixes or
+     * suffixes around user-provided fragments and those generated parts must be preserved.
+     *
+     * @param generatedFileName the generated filename
+     * @return the validated filename component
+     * @throws FileValidationException if validation fails
+     */
+    public static String validateGeneratedFileName(String generatedFileName) {
+        if (generatedFileName == null || generatedFileName.trim().isEmpty()) {
+            throw new FileValidationException(INVALID_FILENAME_MESSAGE);
+        }
+
+        String normalizedName = normalizeFileNameCharacters(generatedFileName);
+        return validateNormalizedFileName(normalizedName);
+    }
+
+    private static String validateNormalizedFileName(String normalizedName) {
         if (normalizedName.trim().isEmpty()) {
             logger.warn("Filename became empty after normalization");
             throw new FileValidationException(INVALID_FILENAME_MESSAGE);
@@ -128,6 +150,34 @@ public final class PathValidationUtils {
             throw new FileValidationException(HIDDEN_FILENAME_MESSAGE);
         }
         return normalizedName;
+    }
+
+    /**
+     * Validates a filename-only input where path components are not accepted.
+     * Use this for explicit filename request parameters, not upload-origin names.
+     *
+     * @param userProvidedFileName the filename provided by the user
+     * @return the validated filename component
+     * @throws FileValidationException if validation fails
+     */
+    public static String validateStrictFileName(String userProvidedFileName) {
+        if (userProvidedFileName == null || userProvidedFileName.trim().isEmpty()) {
+            throw new FileValidationException(INVALID_FILENAME_MESSAGE);
+        }
+
+        try {
+            if (FilenameUtils.getPrefixLength(userProvidedFileName) > 0
+                    || userProvidedFileName.contains("/")
+                    || userProvidedFileName.contains("\\")) {
+                logger.warn("Path components not allowed in filename");
+                throw new FileValidationException(INVALID_FILENAME_MESSAGE);
+            }
+        } catch (IllegalArgumentException e) {
+            logger.warn("Filename parser rejected invalid filename");
+            throw new FileValidationException(INVALID_FILENAME_MESSAGE, e);
+        }
+
+        return validateFileName(userProvidedFileName);
     }
 
     static String normalizeFileNameCharacters(String fileName) {
@@ -317,7 +367,13 @@ public final class PathValidationUtils {
         }
 
         // Use Apache Commons IO to extract just the filename
-        String baseName = FilenameUtils.getName(fileName);
+        String baseName;
+        try {
+            baseName = FilenameUtils.getName(fileName);
+        } catch (IllegalArgumentException e) {
+            logger.warn("Filename parser rejected invalid filename");
+            throw new FileValidationException(INVALID_FILENAME_MESSAGE, e);
+        }
 
         // Reject hidden files (starting with .)
         if (baseName.startsWith(".")) {

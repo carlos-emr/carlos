@@ -152,6 +152,39 @@ public class PathValidationUtilsTest {
         }
 
         @Test
+        @DisplayName("should reject null byte filename")
+        void shouldRejectNullByteFilename() {
+            assertThatThrownBy(() -> PathValidationUtils.validateFileName("bad\u0000name.pdf"))
+                .isInstanceOf(FileValidationException.class)
+                .hasMessageContaining("Invalid filename");
+        }
+
+        @Test
+        @DisplayName("should normalize strict filename using legacy rules")
+        void shouldNormalizeStrictFilename_usingLegacyRules() {
+            String result = PathValidationUtils.validateStrictFileName("my report.pdf");
+
+            assertThat(result).isEqualTo("my_report.pdf");
+        }
+
+        @Test
+        @DisplayName("should preserve generated prefix while normalizing user fragments")
+        void shouldPreserveGeneratedPrefix_whileNormalizingUserFragments() {
+            String result = PathValidationUtils.validateGeneratedFileName("export_set/name_20260522120000.zip");
+
+            assertThat(result).isEqualTo("export_setname_20260522120000.zip");
+        }
+
+        @ParameterizedTest
+        @DisplayName("should reject strict filename when path components are present")
+        @ValueSource(strings = {"nested/path/report.pdf", "..\\report.pdf", "/tmp/report.pdf", "C:\\temp\\report.pdf"})
+        void shouldRejectStrictFilename_whenPathComponentsArePresent(String filename) {
+            assertThatThrownBy(() -> PathValidationUtils.validateStrictFileName(filename))
+                .isInstanceOf(FileValidationException.class)
+                .hasMessageContaining("Invalid filename");
+        }
+
+        @Test
         @DisplayName("should reject hidden filename")
         void shouldRejectHiddenFilename() {
             assertThatThrownBy(() -> PathValidationUtils.validateFileName(".env"))
