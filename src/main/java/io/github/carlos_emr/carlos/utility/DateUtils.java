@@ -29,9 +29,6 @@
 package io.github.carlos_emr.carlos.utility;
 
 import java.text.ParseException;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
@@ -60,27 +57,15 @@ import io.github.carlos_emr.CarlosProperties;
  *   <li><code>TIME_FORMAT</code> - System-wide time format (e.g., "HH:mm:ss")</li>
  * </ul>
  * 
- * <p><strong>Thread Safety:</strong> This class uses {@link DateTimeFormatter} internally,
- * which is immutable and thread-safe. Caller-provided patterns are still parsed per call
- * but do not share mutable state between threads.</p>
- * 
- * @see java.time For modern, thread-safe date/time handling (Java 8+)
+ * <p><strong>Thread Safety:</strong> Parsing and formatting go through
+ * {@link CachedDateFormats}, which hands each thread its own {@link java.text.SimpleDateFormat}
+ * instance, so no mutable formatter state is shared between threads.</p>
+ *
+ * @see CachedDateFormats For the thread-local SimpleDateFormat cache used internally
  */
 public final class DateUtils {
     /** JavaScript-compatible ISO date format pattern */
     public static final String JS_ISO_DATE_FORMAT = "yy-MM-dd";
-
-    /** Cached, thread-safe formatters for fixed patterns used internally. */
-    private static final DateTimeFormatter ISO_DATE_FORMATTER =
-            DateTimeFormatter.ofPattern(DateFormatUtils.ISO_DATE_FORMAT.getPattern());
-    private static final DateTimeFormatter ISO_DATETIME_FORMATTER =
-            DateTimeFormatter.ofPattern(DateFormatUtils.ISO_DATETIME_FORMAT.getPattern());
-    private static final DateTimeFormatter JS_DATETIME_NO_SEC_FORMATTER =
-            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
-
-    private static ZonedDateTime toZoned(Date date) {
-        return date.toInstant().atZone(ZoneId.systemDefault());
-    }
 
     /**
      * Constructs a new DateUtils instance.
@@ -141,11 +126,9 @@ public final class DateUtils {
             return "";
         }
 
-        DateTimeFormatter dateFormatter = (locale == null)
-                ? DateTimeFormatter.ofPattern(format)
-                : DateTimeFormatter.ofPattern(format, locale);
-
-        return dateFormatter.format(toZoned(date));
+        return (locale == null)
+                ? CachedDateFormats.format(date, format)
+                : CachedDateFormats.format(date, format, locale);
     }
 
     public static String getIsoDateTimeNoTNoSeconds(Calendar cal) {
@@ -174,7 +157,7 @@ public final class DateUtils {
         if (s == null) {
             return null;
         } else {
-            return DateTimeParseUtils.parseToDate(s, ISO_DATE_FORMATTER);
+            return CachedDateFormats.parse(s, DateFormatUtils.ISO_DATE_FORMAT.getPattern());
         }
     }
 
@@ -195,7 +178,7 @@ public final class DateUtils {
         if (s == null) {
             return null;
         } else {
-            return DateTimeParseUtils.parseToDate(s, ISO_DATETIME_FORMATTER);
+            return CachedDateFormats.parse(s, DateFormatUtils.ISO_DATETIME_FORMAT.getPattern());
         }
     }
 
@@ -242,7 +225,7 @@ public final class DateUtils {
         if (s == null) {
             return null;
         } else {
-            return DateTimeParseUtils.parseToDate(s, JS_DATETIME_NO_SEC_FORMATTER);
+            return CachedDateFormats.parse(s, "yyyy-MM-dd HH:mm");
         }
     }
 }

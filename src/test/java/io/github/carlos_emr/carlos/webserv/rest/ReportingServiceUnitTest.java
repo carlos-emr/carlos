@@ -21,6 +21,11 @@ import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Field;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import jakarta.ws.rs.core.Response;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -36,6 +41,8 @@ import org.mockito.quality.Strictness;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.EFormDao;
+import io.github.carlos_emr.carlos.commn.dao.PreventionReportDao;
+import io.github.carlos_emr.carlos.commn.model.PreventionReport;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.EFormReportToolManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -56,6 +63,9 @@ class ReportingServiceUnitTest extends CarlosUnitTestBase {
 
     @Mock
     private EFormDao mockEFormDao;
+
+    @Mock
+    private PreventionReportDao mockPreventionReportDao;
 
     private ReportingService service;
     private LoggedInInfo loggedInInfo;
@@ -88,6 +98,7 @@ class ReportingServiceUnitTest extends CarlosUnitTestBase {
         };
 
         injectDependency(service, "eformReportToolManager", mockEFormReportToolManager);
+        injectDependency(service, "preventionReportDao", mockPreventionReportDao);
     }
 
     @AfterEach
@@ -131,6 +142,49 @@ class ReportingServiceUnitTest extends CarlosUnitTestBase {
 
             assertThat(response.getStatus()).isEqualTo(ResponseStatus.SUCCESS);
             verify(mockEFormReportToolManager).addNew(any(), any());
+        }
+    }
+
+    @Nested
+    @DisplayName("prevention report lookup")
+    class PreventionReportLookup {
+
+        private JsonNode emptyJson() {
+            return new ObjectMapper().createObjectNode();
+        }
+
+        // Stubs use Integer (not an int literal) so they target AbstractDao.find(Object),
+        // which is the overload the production code resolves to for an Integer id.
+        @Test
+        @DisplayName("should return 404 when getPreventionReport finds no report (no NPE)")
+        void shouldReturnNotFound_whenGetPreventionReportMissing() {
+            when(mockPreventionReportDao.find(Integer.valueOf(999))).thenReturn(null);
+
+            Response response = service.getPreventionReport(999, emptyJson());
+
+            assertThat(response.getStatus()).isEqualTo(404);
+        }
+
+        @Test
+        @DisplayName("should return 404 when runPreventionReport finds no report (no NPE)")
+        void shouldReturnNotFound_whenRunPreventionReportMissing() {
+            when(mockPreventionReportDao.find(Integer.valueOf(999))).thenReturn(null);
+
+            Response response = service.runPreventionReport(999, emptyJson());
+
+            assertThat(response.getStatus()).isEqualTo(404);
+        }
+
+        @Test
+        @DisplayName("should return 268 when getPreventionReport JSON is malformed")
+        void shouldReturn268_whenReportJsonInvalid() {
+            PreventionReport pr = mock(PreventionReport.class);
+            when(pr.getJson()).thenReturn("{ not valid json");
+            when(mockPreventionReportDao.find(Integer.valueOf(7))).thenReturn(pr);
+
+            Response response = service.getPreventionReport(7, emptyJson());
+
+            assertThat(response.getStatus()).isEqualTo(268);
         }
     }
 }

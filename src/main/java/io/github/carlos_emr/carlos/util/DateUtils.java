@@ -32,20 +32,14 @@ package io.github.carlos_emr.carlos.util;
 
 import java.text.DateFormat;
 import java.text.ParseException;
-import java.time.LocalDate;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.Locale;
-import java.util.Objects;
 
 import org.apache.commons.lang3.time.DateFormatUtils;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.utility.DateTimeParseUtils;
+import io.github.carlos_emr.carlos.utility.CachedDateFormats;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -60,42 +54,6 @@ public final class DateUtils {
 
     private static String dateFormatString = CarlosProperties.getInstance().getProperty("DATE_FORMAT");
     private static String timeFormatString = CarlosProperties.getInstance().getProperty("TIME_FORMAT");
-    private static final DateTimeFormatter DEFAULT_DATE_FORMATTER =
-            createCachedFormatterIfPresent(dateFormatString);
-    private static final DateTimeFormatter DEFAULT_DATE_TIME_FORMATTER =
-            createCachedFormatterIfPresent(dateFormatString, timeFormatString);
-    private static final ThreadLocal<DateFormat> DEFAULT_DATE_TIME_FORMAT =
-            ThreadLocal.withInitial(() -> DateFormat.getDateTimeInstance(DateFormat.DEFAULT, DateFormat.DEFAULT));
-
-    private static ZonedDateTime toZoned(Date date) {
-        return date.toInstant().atZone(ZoneId.systemDefault());
-    }
-
-    private static DateTimeFormatter getDefaultFormatter(String pattern) {
-        if (Objects.equals(dateFormatString, pattern)) {
-            if (DEFAULT_DATE_FORMATTER != null) {
-                return DEFAULT_DATE_FORMATTER;
-            }
-        }
-        String configuredDateTimePattern = dateFormatString != null && timeFormatString != null
-                ? dateFormatString + " " + timeFormatString
-                : null;
-        if (Objects.equals(configuredDateTimePattern, pattern)) {
-            if (DEFAULT_DATE_TIME_FORMATTER != null) {
-                return DEFAULT_DATE_TIME_FORMATTER;
-            }
-        }
-        return DateTimeFormatter.ofPattern(pattern);
-    }
-
-    private static DateTimeFormatter createCachedFormatterIfPresent(String... patternParts) {
-        for (String patternPart : patternParts) {
-            if (patternPart == null || patternPart.trim().isEmpty()) {
-                return null;
-            }
-        }
-        return DateTimeFormatter.ofPattern(String.join(" ", patternParts));
-    }
 
     /**
      * @param locale can be null
@@ -127,10 +85,9 @@ public final class DateUtils {
             return null;
         }
 
-        DateTimeFormatter formatter = (locale == null)
-                ? getDefaultFormatter(dateFormatString)
-                : DateTimeFormatter.ofPattern(dateFormatString, locale);
-        return DateTimeParseUtils.parseToDate(s, formatter);
+        return (locale == null)
+                ? CachedDateFormats.parse(s, dateFormatString)
+                : CachedDateFormats.parse(s, dateFormatString, locale);
     }
 
     /**
@@ -142,10 +99,9 @@ public final class DateUtils {
         if (s == null) return (null);
 
         String dateTimePattern = dateFormatString + " " + timeFormatString;
-        DateTimeFormatter formatter = (locale == null)
-                ? getDefaultFormatter(dateTimePattern)
-                : DateTimeFormatter.ofPattern(dateTimePattern, locale);
-        return DateTimeParseUtils.parseToDate(s, formatter);
+        return (locale == null)
+                ? CachedDateFormats.parse(s, dateTimePattern)
+                : CachedDateFormats.parse(s, dateTimePattern, locale);
     }
 
     /**
@@ -213,18 +169,10 @@ public final class DateUtils {
     public static String format(String format, Date date, Locale locale) {
         if (date == null) return ("");
 
-        DateTimeFormatter formatter = (locale == null)
-                ? DateTimeFormatter.ofPattern(format)
-                : DateTimeFormatter.ofPattern(format, locale);
-
-        return formatter.format(toZoned(date));
+        return (locale == null)
+                ? CachedDateFormats.format(date, format)
+                : CachedDateFormats.format(date, format, locale);
     }
-
-    /**
-     * @deprecated use formatDate() parseDate() instead
-     */
-    @Deprecated
-    private static String formatDate = "dd/MM/yyyy";
 
     public static String getISODateTimeFormatNoT(Calendar cal) {
         return (DateFormatUtils.ISO_DATETIME_FORMAT.format(cal).replace('T', ' '));
@@ -240,22 +188,20 @@ public final class DateUtils {
 
     public static String getDate(Date date) {
 
-        return DEFAULT_DATE_TIME_FORMAT.get().format(date);
+        return CachedDateFormats.defaultInstance().format(date);
 
     }
 
     public static String getDate(Date date, String format, Locale locale) {
         if (date == null) return "";
 
-        DateTimeFormatter formatter = (locale == null)
-                ? DateTimeFormatter.ofPattern(format)
-                : DateTimeFormatter.ofPattern(format, locale);
-
-        return formatter.format(toZoned(date));
+        return (locale == null)
+                ? CachedDateFormats.format(date, format)
+                : CachedDateFormats.format(date, format, locale);
     }
 
     public static String getDate(Date date, String format) {
-        return DateTimeFormatter.ofPattern(format).format(toZoned(date));
+        return CachedDateFormats.format(date, format);
     }
 
     public static String getDateTime() {
@@ -276,14 +222,14 @@ public final class DateUtils {
 
         try {
 
-            Date data = DateTimeParseUtils.parseToDate(date, getDefaultFormatter(formatAtual));
+            Date data = CachedDateFormats.parse(date, formatAtual);
 
             if (logger.isDebugEnabled()) {
                 logger.debug("[DateUtils] - formatDate: data formatada: {}",
-                        DateTimeFormatter.ofPattern(formatAtual).format(toZoned(data)));
+                        CachedDateFormats.format(data, formatAtual));
             }
 
-            return DateTimeFormatter.ofPattern(format).format(toZoned(data));
+            return CachedDateFormats.format(data, format);
 
         } catch (ParseException e) {
 
@@ -303,16 +249,15 @@ public final class DateUtils {
 
         try {
 
-            // Preserves legacy behaviour of {@code new SimpleDateFormat()} (default date/time style in the default locale).
-            DateFormat sdf = DateFormat.getDateTimeInstance(DateFormat.DEFAULT, DateFormat.DEFAULT);
-
-            Date data = sdf.parse(date);
+            // Legacy behaviour: parse with the no-arg SimpleDateFormat (SHORT date/time, default locale).
+            Date data = CachedDateFormats.defaultInstance().parse(date);
 
             if (logger.isDebugEnabled()) {
-                logger.debug("[DateUtils] - formatDate: data formatada: {}", sdf.format(data));
+                logger.debug("[DateUtils] - formatDate: data formatada: {}",
+                        CachedDateFormats.defaultInstance().format(data));
             }
 
-            return DateTimeFormatter.ofPattern(format).format(toZoned(data));
+            return CachedDateFormats.format(data, format);
 
         } catch (ParseException e) {
 
@@ -352,7 +297,7 @@ public final class DateUtils {
 
         Date data = calendar.getTime();
 
-        return DateTimeFormatter.ofPattern(format).format(toZoned(data));
+        return CachedDateFormats.format(data, format);
 
     }
 
@@ -638,10 +583,6 @@ public final class DateUtils {
         return (timeInMillis / org.apache.commons.lang3.time.DateUtils.MILLIS_PER_DAY);
     }
 
-    /** Static, thread-safe formatters for fixed patterns used internally. */
-    private static final DateTimeFormatter ISO_LOCAL_DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-    private static final DateTimeFormatter BASIC_ISO_DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
-
     /**
      * Converts a String date with the form 'yyyy-MM-dd' to a String date with the form 'yyyyMMdd'
      *
@@ -652,10 +593,10 @@ public final class DateUtils {
         String sdate = "00000000";
         try {
             if (oldDateString != null) {
-                LocalDate tempDate = LocalDate.parse(oldDateString, ISO_LOCAL_DATE_FORMATTER);
-                sdate = BASIC_ISO_DATE_FORMATTER.format(tempDate);
+                Date tempDate = CachedDateFormats.parse(oldDateString, "yyyy-MM-dd");
+                sdate = CachedDateFormats.format(tempDate, "yyyyMMdd");
             }
-        } catch (DateTimeParseException ex) {
+        } catch (ParseException ex) {
             MiscUtils.getLogger().error("Error", ex);
         }
         return sdate;

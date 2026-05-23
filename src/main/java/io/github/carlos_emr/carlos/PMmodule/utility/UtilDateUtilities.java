@@ -27,9 +27,6 @@
 
 package io.github.carlos_emr.carlos.PMmodule.utility;
 
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
 import java.text.ParseException;
 import java.util.Calendar;
 import java.util.Date;
@@ -37,17 +34,13 @@ import java.util.GregorianCalendar;
 import java.util.Locale;
 import java.util.ResourceBundle;
 
-import io.github.carlos_emr.carlos.utility.DateTimeParseUtils;
+import io.github.carlos_emr.carlos.utility.CachedDateFormats;
 
 /**
  * @deprecated 2013-04-28 use io.github.carlos_emr.carlos.util.DateUtils instead
  */
 @Deprecated
 public class UtilDateUtilities {
-
-    private static ZonedDateTime toZoned(Date date) {
-        return date.toInstant().atZone(ZoneId.systemDefault());
-    }
 
     public static Date StringToDate(String s) {
         return StringToDate(s, defaultPattern, defaultLocale);
@@ -63,7 +56,7 @@ public class UtilDateUtilities {
 
     public static Date StringToDate(String s, String spattern, Locale locale) {
         try {
-            return DateTimeParseUtils.parseToDate(s, DateTimeFormatter.ofPattern(spattern, locale));
+            return CachedDateFormats.parse(s, spattern, locale);
         } catch (Exception exception) {
             return null;
         }
@@ -83,7 +76,7 @@ public class UtilDateUtilities {
 
     public static String DateToString(Date date, String spattern, Locale locale) {
         if (date != null) {
-            return DateTimeFormatter.ofPattern(spattern, locale).format(toZoned(date));
+            return CachedDateFormats.format(date, spattern, locale);
         } else {
             return "";
         }
@@ -183,7 +176,7 @@ public class UtilDateUtilities {
     private static Locale defaultLocale = Locale.CANADA;
 
     public static String getToday(String datePattern) {
-        return DateTimeFormatter.ofPattern(datePattern).format(toZoned(new Date()));
+        return CachedDateFormats.format(new Date(), datePattern);
     }
 
     /**
@@ -195,7 +188,7 @@ public class UtilDateUtilities {
      */
     public static Date getDateFromString(String dateStr, String datePattern) {
         try {
-            return DateTimeParseUtils.parseToDate(dateStr, DateTimeFormatter.ofPattern(datePattern, defaultLocale));
+            return CachedDateFormats.parse(dateStr, datePattern);
         } catch (ParseException e) {
             return null;
         }

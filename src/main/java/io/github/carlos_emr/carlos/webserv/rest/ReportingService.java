@@ -40,6 +40,7 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
 
@@ -269,10 +270,15 @@ public class ReportingService extends AbstractServiceImpl {
         }
 
         PreventionReport pr = preventionReportDao.find(id);
+        if (pr == null) {
+            logger.warn("Prevention report not found id={}", id);
+            return jakarta.ws.rs.core.Response.status(404)
+                    .entity("{\"Error\":\"Prevention report not found\"}").build();
+        }
         ObjectMapper mapper = OBJECT_MAPPER;
         try {
             if (logger.isDebugEnabled()) {
-                String reportJson = pr != null ? pr.getJson() : null;
+                String reportJson = pr.getJson();
                 logger.debug("Loaded prevention report id={} jsonLength={}", id,
                         reportJson != null ? reportJson.length() : 0);
             }
@@ -283,12 +289,13 @@ public class ReportingService extends AbstractServiceImpl {
                 report.setActive(false);
             }
         } catch (Exception e) {
-            logger.error("Error parsing ", e);
+            logger.error("Error running prevention report id={}", id, e);
         }
 
-        logger.info("providers was " + providerNo);
         if (report == null) {
-            jakarta.ws.rs.core.Response.status(268).entity("{\"Error\":\"Error building report\"}");
+            logger.warn("Prevention report build returned no result id={}", id);
+            return jakarta.ws.rs.core.Response.status(268)
+                    .entity("{\"Error\":\"Error building report\"}").build();
         }
         return jakarta.ws.rs.core.Response.ok(report).build();
     }
@@ -298,22 +305,23 @@ public class ReportingService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public jakarta.ws.rs.core.Response getPreventionReport(@PathParam("id") Integer id, JsonNode jSONObject) { // will need to change providers to an ojbect
-        //Next thing to do is to save the JSON object to the database
-        String providerNo = jSONObject.has("providerNo") ? jSONObject.get("providerNo").asText() : "";
-
-
         PreventionReport pr = preventionReportDao.find(id);
+        if (pr == null) {
+            logger.warn("Prevention report not found id={}", id);
+            return jakarta.ws.rs.core.Response.status(404)
+                    .entity("{\"Error\":\"Prevention report not found\"}").build();
+        }
         ObjectMapper mapper = OBJECT_MAPPER;
         try {
             if (logger.isDebugEnabled()) {
-                String reportJson = pr != null ? pr.getJson() : null;
+                String reportJson = pr.getJson();
                 logger.debug("Loaded prevention report id={} jsonLength={}", id,
                         reportJson != null ? reportJson.length() : 0);
             }
             PreventionSearchTo1 preventionSearchTo1 = mapper.readValue(pr.getJson(), PreventionSearchTo1.class);
             return jakarta.ws.rs.core.Response.ok(preventionSearchTo1).build();
-        } catch (Exception e) {
-            logger.error("Error parsing ", e);
+        } catch (JsonProcessingException e) {
+            logger.error("Error parsing prevention report JSON id={}", id, e);
         }
 
         return jakarta.ws.rs.core.Response.status(268).entity("{\"Error\":\"Error get Search Config\"}").build();

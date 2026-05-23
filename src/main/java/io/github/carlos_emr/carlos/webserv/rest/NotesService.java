@@ -1313,14 +1313,12 @@ public class NotesService extends AbstractServiceImpl {
         /*
          * do the restore if (restore != null && restore.booleanValue() == true) { String tmpsavenote = this.caseManagementMgr.restoreTmpSave(providerNo, demono, programId); if (tmpsavenote != null) { note.setNote(tmpsavenote); } }
          */
-        // PHI: do not log full note object; log id only
+        // PHI: do not log full note object; log id and encounter type only.
+        // note is non-null here (every branch above assigns it; getEditors below requires it).
         if (logger.isDebugEnabled()) {
-            logger.debug("note id={}", note != null ? note.getId() : null);
-            logger.debug("Set Encounter Type: {}", note != null ? note.getEncounter_type() : null);
-            logger.debug("Fetched Note {}", note != null ? note.getId() : null);
-        }
-
-        if (logger.isDebugEnabled()) {
+            logger.debug("note id={}", note.getId());
+            logger.debug("Set Encounter Type: {}", note.getEncounter_type());
+            logger.debug("Fetched Note {}", note.getId());
             logger.debug("Populate Note with editors");
         }
         this.caseManagementMgr.getEditors(note);

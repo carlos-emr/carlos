@@ -29,15 +29,12 @@ package io.github.carlos_emr.carlos.PMmodule.utility;
 
 import java.text.DateFormat;
 import java.text.ParseException;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
 
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.utility.DateTimeParseUtils;
+import io.github.carlos_emr.carlos.utility.CachedDateFormats;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
@@ -51,12 +48,6 @@ public class DateUtils {
 
     private static String formatDate = "dd/MM/yyyy";
     public final static String intakeADelimiter = "/";
-    private static final ThreadLocal<DateFormat> DEFAULT_DATE_TIME_FORMAT =
-            ThreadLocal.withInitial(() -> DateFormat.getDateTimeInstance(DateFormat.DEFAULT, DateFormat.DEFAULT));
-
-    private static ZonedDateTime toZoned(Date date) {
-        return date.toInstant().atZone(ZoneId.systemDefault());
-    }
 
 //##########################################################################
 
@@ -72,8 +63,8 @@ public class DateUtils {
 
     public static String getDate(Date date) {
 
-        // Preserves legacy behaviour of {@code new SimpleDateFormat()} (default date/time style in the default locale).
-        return DEFAULT_DATE_TIME_FORMAT.get().format(date);
+        // Legacy behaviour: the no-arg SimpleDateFormat (SHORT date/time, default locale).
+        return CachedDateFormats.defaultInstance().format(date);
 
     }
 
@@ -155,14 +146,14 @@ public class DateUtils {
 
         try {
 
-            Date data = DateTimeParseUtils.parseToDate(date, DateTimeFormatter.ofPattern(formatAtual));
+            Date data = CachedDateFormats.parse(date, formatAtual);
 
             if (cat.isDebugEnabled()) {
                 cat.debug("[DateUtils] - formatDate: data formatada: {}",
-                        DateTimeFormatter.ofPattern(formatAtual).format(toZoned(data)));
+                        CachedDateFormats.format(data, formatAtual));
             }
 
-            return DateTimeFormatter.ofPattern(format).format(toZoned(data));
+            return CachedDateFormats.format(data, format);
 
         } catch (ParseException e) {
 
@@ -179,16 +170,15 @@ public class DateUtils {
 
         try {
 
-            // Preserves legacy behaviour of {@code new SimpleDateFormat()} (default date/time style in the default locale).
-            DateFormat sdf = DateFormat.getDateTimeInstance(DateFormat.DEFAULT, DateFormat.DEFAULT);
-
-            Date data = sdf.parse(date);
+            // Legacy behaviour: parse with the no-arg SimpleDateFormat (SHORT date/time, default locale).
+            Date data = CachedDateFormats.defaultInstance().parse(date);
 
             if (cat.isDebugEnabled()) {
-                cat.debug("[DateUtils] - formatDate: data formatada: {}", sdf.format(data));
+                cat.debug("[DateUtils] - formatDate: data formatada: {}",
+                        CachedDateFormats.defaultInstance().format(data));
             }
 
-            return DateTimeFormatter.ofPattern(format).format(toZoned(data));
+            return CachedDateFormats.format(data, format);
 
         } catch (ParseException e) {
 
@@ -217,7 +207,7 @@ public class DateUtils {
 
         Date data = calendar.getTime();
 
-        return DateTimeFormatter.ofPattern(format).format(toZoned(data));
+        return CachedDateFormats.format(data, format);
 
     }
 //##########################################################################
