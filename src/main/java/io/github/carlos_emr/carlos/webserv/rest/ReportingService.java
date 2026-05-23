@@ -311,14 +311,20 @@ public class ReportingService extends AbstractServiceImpl {
             return jakarta.ws.rs.core.Response.status(404)
                     .entity("{\"Error\":\"Prevention report not found\"}").build();
         }
+        // json is a nullable column; readValue((String) null, ...) throws an unchecked
+        // IllegalArgumentException that the narrow catch below would NOT handle, so guard it here.
+        String reportJson = pr.getJson();
+        if (reportJson == null) {
+            logger.warn("Prevention report has no JSON payload id={}", id);
+            return jakarta.ws.rs.core.Response.status(268)
+                    .entity("{\"Error\":\"Error get Search Config\"}").build();
+        }
         ObjectMapper mapper = OBJECT_MAPPER;
         try {
             if (logger.isDebugEnabled()) {
-                String reportJson = pr.getJson();
-                logger.debug("Loaded prevention report id={} jsonLength={}", id,
-                        reportJson != null ? reportJson.length() : 0);
+                logger.debug("Loaded prevention report id={} jsonLength={}", id, reportJson.length());
             }
-            PreventionSearchTo1 preventionSearchTo1 = mapper.readValue(pr.getJson(), PreventionSearchTo1.class);
+            PreventionSearchTo1 preventionSearchTo1 = mapper.readValue(reportJson, PreventionSearchTo1.class);
             return jakarta.ws.rs.core.Response.ok(preventionSearchTo1).build();
         } catch (JsonProcessingException e) {
             logger.error("Error parsing prevention report JSON id={}", id, e);

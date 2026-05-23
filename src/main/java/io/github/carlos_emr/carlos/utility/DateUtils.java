@@ -57,9 +57,10 @@ import io.github.carlos_emr.CarlosProperties;
  *   <li><code>TIME_FORMAT</code> - System-wide time format (e.g., "HH:mm:ss")</li>
  * </ul>
  * 
- * <p><strong>Thread Safety:</strong> Parsing and formatting go through
- * {@link CachedDateFormats}, which hands each thread its own {@link java.text.SimpleDateFormat}
- * instance, so no mutable formatter state is shared between threads.</p>
+ * <p><strong>Thread Safety:</strong> Pattern-based parsing/formatting goes through
+ * {@link CachedDateFormats}, which gives each thread its own {@link java.text.SimpleDateFormat};
+ * the remaining ISO helpers use Apache Commons {@code FastDateFormat}, which is itself immutable
+ * and thread-safe. No mutable formatter state is shared between threads.</p>
  *
  * @see CachedDateFormats For the thread-local SimpleDateFormat cache used internally
  */

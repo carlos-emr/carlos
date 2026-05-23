@@ -14,7 +14,6 @@
 
 package io.github.carlos_emr.carlos.hospitalReportManager;
 
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -353,11 +352,9 @@ public class HRMReport {
                 if (o.getObservationDateTime() != null) {
                     GregorianCalendar calendar = dateFP(o.getObservationDateTime()).toGregorianCalendar();
 
-                    SimpleDateFormat sdf = CachedDateFormats.forPattern(HRM_DATE_PATTERN);
-                    sdf.setTimeZone(calendar.getTimeZone());
-
                     Date date = calendar.getTime();
-                    String formattedDate = sdf.format(calendar.getTime());
+                    String formattedDate =
+                            CachedDateFormats.format(date, HRM_DATE_PATTERN, calendar.getTimeZone());
 
                     obrContentList.add(date);
                     obrContentList.add(formattedDate);
@@ -378,9 +375,7 @@ public class HRMReport {
 
             GregorianCalendar calendar = dateFP(hrmReport.getPatientRecord().getReportsReceived().get(0).getOBRContent().get(0).getObservationDateTime()).toGregorianCalendar();
 
-            SimpleDateFormat sdf = CachedDateFormats.forPattern(HRM_DATE_PATTERN);
-            sdf.setTimeZone(calendar.getTimeZone());
-            return sdf.format(calendar.getTime());
+            return CachedDateFormats.format(calendar.getTime(), HRM_DATE_PATTERN, calendar.getTimeZone());
         }
 
         return "";

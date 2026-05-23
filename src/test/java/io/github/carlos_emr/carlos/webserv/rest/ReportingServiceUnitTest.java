@@ -186,5 +186,41 @@ class ReportingServiceUnitTest extends CarlosUnitTestBase {
 
             assertThat(response.getStatus()).isEqualTo(268);
         }
+
+        @Test
+        @DisplayName("should return 268 when getPreventionReport JSON payload is null")
+        void shouldReturn268_whenReportJsonNull() {
+            PreventionReport pr = mock(PreventionReport.class);
+            when(pr.getJson()).thenReturn(null);
+            when(mockPreventionReportDao.find(Integer.valueOf(8))).thenReturn(pr);
+
+            Response response = service.getPreventionReport(8, emptyJson());
+
+            assertThat(response.getStatus()).isEqualTo(268);
+        }
+
+        @Test
+        @DisplayName("should return 200 when getPreventionReport JSON is valid")
+        void shouldReturnOk_whenReportJsonValid() {
+            PreventionReport pr = mock(PreventionReport.class);
+            when(pr.getJson()).thenReturn("{}");
+            when(mockPreventionReportDao.find(Integer.valueOf(5))).thenReturn(pr);
+
+            Response response = service.getPreventionReport(5, emptyJson());
+
+            assertThat(response.getStatus()).isEqualTo(200);
+        }
+
+        @Test
+        @DisplayName("should return 268 when runPreventionReport JSON is malformed")
+        void shouldReturn268_whenRunReportJsonInvalid() {
+            PreventionReport pr = mock(PreventionReport.class);
+            when(pr.getJson()).thenReturn("{ not valid json");
+            when(mockPreventionReportDao.find(Integer.valueOf(6))).thenReturn(pr);
+
+            Response response = service.runPreventionReport(6, emptyJson());
+
+            assertThat(response.getStatus()).isEqualTo(268);
+        }
     }
 }

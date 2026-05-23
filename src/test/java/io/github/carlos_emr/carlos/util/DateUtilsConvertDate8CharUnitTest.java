@@ -53,6 +53,12 @@ class DateUtilsConvertDate8CharUnitTest {
     }
 
     @Test
+    @DisplayName("should convert leniently when the date has trailing text")
+    void shouldConvertLeniently_forTrailingText() {
+        assertThat(DateUtils.convertDate8Char("2024-03-05xyz")).isEqualTo("20240305");
+    }
+
+    @Test
     @DisplayName("should return the zero sentinel for null input")
     void shouldReturnZeroes_forNullInput() {
         assertThat(DateUtils.convertDate8Char(null)).isEqualTo("00000000");

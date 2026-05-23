@@ -59,7 +59,7 @@ class CachedDateFormatsUnitTest {
 
     @Test
     @DisplayName("should format identically to new SimpleDateFormat(pattern)")
-    void shouldReturnFormatEquivalent_toNewSimpleDateFormat_forPattern() {
+    void shouldFormatEquivalentToSimpleDateFormat_forPattern() {
         for (String pattern : PATTERNS) {
             assertThat(CachedDateFormats.format(FIXED, pattern))
                     .as("pattern %s", pattern)
@@ -69,7 +69,7 @@ class CachedDateFormatsUnitTest {
 
     @Test
     @DisplayName("should format identically to new SimpleDateFormat(pattern, locale)")
-    void shouldReturnFormatEquivalent_toNewSimpleDateFormat_withLocale() {
+    void shouldFormatEquivalentToSimpleDateFormat_withLocale() {
         for (Locale locale : new Locale[]{Locale.ENGLISH, Locale.CANADA}) {
             String formatted = CachedDateFormats.format(FIXED, "dd-MMM-yyyy", locale);
             assertThat(formatted)
@@ -132,6 +132,37 @@ class CachedDateFormatsUnitTest {
     void shouldDefaultMissingFields_forYearOnlyPattern() throws Exception {
         Date expected = new SimpleDateFormat("yyyy").parse("2024");
         assertThat(CachedDateFormats.parse("2024", "yyyy")).isEqualTo(expected);
+    }
+
+    @Test
+    @DisplayName("should parse leniently when the input has trailing text")
+    void shouldParseLeniently_forTrailingText() throws Exception {
+        Date expected = new SimpleDateFormat("yyyy-MM-dd").parse("2024-03-05xyz");
+        assertThat(CachedDateFormats.parse("2024-03-05xyz", "yyyy-MM-dd")).isEqualTo(expected);
+    }
+
+    @Test
+    @DisplayName("should roll over out-of-range fields like SimpleDateFormat")
+    void shouldRollOverOutOfRangeFields_forLenientParse() throws Exception {
+        Date expected = new SimpleDateFormat("yyyy-MM-dd").parse("2024-13-40");
+        assertThat(CachedDateFormats.parse("2024-13-40", "yyyy-MM-dd")).isEqualTo(expected);
+    }
+
+    @Test
+    @DisplayName("should apply the supplied time zone when formatting")
+    void shouldApplyTimeZone_forFormatWithZone() {
+        String utc = CachedDateFormats.format(FIXED, "yyyy-MM-dd HH", TimeZone.getTimeZone("UTC"));
+        String kiri = CachedDateFormats.format(FIXED, "yyyy-MM-dd HH", TimeZone.getTimeZone("Pacific/Kiritimati"));
+        assertThat(utc).isNotEqualTo(kiri);
+    }
+
+    @Test
+    @DisplayName("should restore the cached formatter time zone after a zoned format")
+    void shouldRestoreTimeZone_afterFormatWithZone() {
+        String pattern = "yyyy-MM-dd HH:mm:ss z";
+        TimeZone before = CachedDateFormats.forPattern(pattern).getTimeZone();
+        CachedDateFormats.format(FIXED, pattern, TimeZone.getTimeZone("Pacific/Kiritimati"));
+        assertThat(CachedDateFormats.forPattern(pattern).getTimeZone()).isEqualTo(before);
     }
 
     @Test
