@@ -79,10 +79,49 @@ class CachedDateFormatsUnitTest {
     }
 
     @Test
-    @DisplayName("should reproduce the no-arg SimpleDateFormat() output")
-    void shouldReproduceNoArgInstance_forDefaultInstance() {
-        assertThat(CachedDateFormats.defaultInstance().format(FIXED))
+    @DisplayName("should thread the locale through the cache for a distinct-rendering locale")
+    void shouldApplyLocale_forDistinctRenderingLocale() {
+        // January renders differently in French ("janv.") vs English ("Jan"), so this proves
+        // the locale is part of the cache key and is actually applied — not silently dropped.
+        String french = CachedDateFormats.format(FIXED, "dd-MMM-yyyy", Locale.FRENCH);
+        String english = CachedDateFormats.format(FIXED, "dd-MMM-yyyy", Locale.ENGLISH);
+        assertThat(french).isEqualTo(new SimpleDateFormat("dd-MMM-yyyy", Locale.FRENCH).format(FIXED));
+        assertThat(french).isNotEqualTo(english);
+    }
+
+    @Test
+    @DisplayName("should parse with the supplied locale like SimpleDateFormat(pattern, locale)")
+    void shouldParseWithLocale_forLocaleSpecificMonth() throws Exception {
+        String french = new SimpleDateFormat("dd-MMM-yyyy", Locale.FRENCH).format(FIXED);
+        Date expected = new SimpleDateFormat("dd-MMM-yyyy", Locale.FRENCH).parse(french);
+        assertThat(CachedDateFormats.parse(french, "dd-MMM-yyyy", Locale.FRENCH)).isEqualTo(expected);
+    }
+
+    @Test
+    @DisplayName("should format identically to the no-arg SimpleDateFormat()")
+    void shouldFormatEquivalentToNoArgSimpleDateFormat_forDefaultFormat() {
+        assertThat(CachedDateFormats.formatDefault(FIXED))
                 .isEqualTo(new SimpleDateFormat().format(FIXED));
+    }
+
+    @Test
+    @DisplayName("should parse identically to the no-arg SimpleDateFormat()")
+    void shouldParseEquivalentToNoArgSimpleDateFormat_forDefaultParse() throws Exception {
+        String canonical = new SimpleDateFormat().format(FIXED);
+        assertThat(CachedDateFormats.parseDefault(canonical))
+                .isEqualTo(new SimpleDateFormat().parse(canonical));
+    }
+
+    @Test
+    @DisplayName("should cache distinct instances for a pattern with vs without a locale")
+    void shouldCacheDistinctInstances_forPatternWithAndWithoutLocale() {
+        SimpleDateFormat noLocale = CachedDateFormats.forPattern("dd-MMM-yyyy");
+        SimpleDateFormat french = CachedDateFormats.forPattern("dd-MMM-yyyy", Locale.FRENCH);
+        SimpleDateFormat english = CachedDateFormats.forPattern("dd-MMM-yyyy", Locale.ENGLISH);
+        assertThat(french).isNotSameAs(noLocale);
+        assertThat(french).isNotSameAs(english);
+        // the reserved no-arg key never collides with a real pattern key
+        assertThat(CachedDateFormats.defaultInstance()).isNotSameAs(noLocale);
     }
 
     @Test
@@ -151,9 +190,11 @@ class CachedDateFormatsUnitTest {
     @Test
     @DisplayName("should apply the supplied time zone when formatting")
     void shouldApplyTimeZone_forFormatWithZone() {
+        // FIXED is 2024-01-01T00:00:00Z; Pacific/Kiritimati is UTC+14, so the wall clock is 14:00.
         String utc = CachedDateFormats.format(FIXED, "yyyy-MM-dd HH", TimeZone.getTimeZone("UTC"));
         String kiri = CachedDateFormats.format(FIXED, "yyyy-MM-dd HH", TimeZone.getTimeZone("Pacific/Kiritimati"));
-        assertThat(utc).isNotEqualTo(kiri);
+        assertThat(utc).isEqualTo("2024-01-01 00");
+        assertThat(kiri).isEqualTo("2024-01-01 14");
     }
 
     @Test

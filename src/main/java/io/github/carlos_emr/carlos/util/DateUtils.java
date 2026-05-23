@@ -188,7 +188,7 @@ public final class DateUtils {
 
     public static String getDate(Date date) {
 
-        return CachedDateFormats.defaultInstance().format(date);
+        return CachedDateFormats.formatDefault(date);
 
     }
 
@@ -250,11 +250,11 @@ public final class DateUtils {
         try {
 
             // Legacy behaviour: parse with the no-arg SimpleDateFormat (SHORT date/time, default locale).
-            Date data = CachedDateFormats.defaultInstance().parse(date);
+            Date data = CachedDateFormats.parseDefault(date);
 
             if (logger.isDebugEnabled()) {
                 logger.debug("[DateUtils] - formatDate: data formatada: {}",
-                        CachedDateFormats.defaultInstance().format(data));
+                        CachedDateFormats.formatDefault(data));
             }
 
             return CachedDateFormats.format(data, format);

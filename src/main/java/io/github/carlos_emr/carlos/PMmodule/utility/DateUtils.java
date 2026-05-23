@@ -46,7 +46,6 @@ public class DateUtils {
 
     private static Logger cat = MiscUtils.getLogger();
 
-    private static String formatDate = "dd/MM/yyyy";
     public final static String intakeADelimiter = "/";
 
 //##########################################################################
@@ -64,7 +63,7 @@ public class DateUtils {
     public static String getDate(Date date) {
 
         // Legacy behaviour: the no-arg SimpleDateFormat (SHORT date/time, default locale).
-        return CachedDateFormats.defaultInstance().format(date);
+        return CachedDateFormats.formatDefault(date);
 
     }
 
@@ -171,11 +170,11 @@ public class DateUtils {
         try {
 
             // Legacy behaviour: parse with the no-arg SimpleDateFormat (SHORT date/time, default locale).
-            Date data = CachedDateFormats.defaultInstance().parse(date);
+            Date data = CachedDateFormats.parseDefault(date);
 
             if (cat.isDebugEnabled()) {
                 cat.debug("[DateUtils] - formatDate: data formatada: {}",
-                        CachedDateFormats.defaultInstance().format(data));
+                        CachedDateFormats.formatDefault(data));
             }
 
             return CachedDateFormats.format(data, format);

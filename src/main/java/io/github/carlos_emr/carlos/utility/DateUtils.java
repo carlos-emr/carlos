@@ -57,16 +57,26 @@ import io.github.carlos_emr.CarlosProperties;
  *   <li><code>TIME_FORMAT</code> - System-wide time format (e.g., "HH:mm:ss")</li>
  * </ul>
  * 
- * <p><strong>Thread Safety:</strong> Pattern-based parsing/formatting goes through
- * {@link CachedDateFormats}, which gives each thread its own {@link java.text.SimpleDateFormat};
- * the remaining ISO helpers use Apache Commons {@code FastDateFormat}, which is itself immutable
- * and thread-safe. No mutable formatter state is shared between threads.</p>
+ * <p><strong>Thread Safety:</strong> All pattern-based parsing/formatting — including the ISO
+ * <em>parse</em> helpers ({@link #parseIsoDate}, {@link #parseIsoDateTime},
+ * {@link #parseJsIsoDateTimeNoTNoSeconds}) — goes through {@link CachedDateFormats}, which gives
+ * each thread its own {@link java.text.SimpleDateFormat}. The ISO <em>format</em> helpers
+ * ({@link #getIsoDate}, {@link #getIsoDateTime}, {@link #getIsoDateTimeNoT}) use Apache Commons
+ * {@code FastDateFormat}, which is itself immutable and thread-safe ({@code FastDateFormat} only
+ * formats, so it is not used on the parse paths). No mutable formatter state is shared between
+ * threads.</p>
  *
  * @see CachedDateFormats For the thread-local SimpleDateFormat cache used internally
  */
 public final class DateUtils {
-    /** JavaScript-compatible ISO date format pattern */
-    public static final String JS_ISO_DATE_FORMAT = "yy-MM-dd";
+    /**
+     * jQuery UI datepicker date-format pattern (NOT a {@link java.text.SimpleDateFormat} pattern).
+     * In datepicker syntax {@code yy} = 4-digit year and {@code mm} = month, so this renders
+     * ISO-style dates such as {@code 2026-05-23}. Do not "correct" {@code mm} to {@code MM}:
+     * that is {@code SimpleDateFormat} syntax (where {@code mm} = minutes, {@code MM} = month name)
+     * and is wrong for the JavaScript datepicker this value feeds.
+     */
+    public static final String JS_ISO_DATE_FORMAT = "yy-mm-dd";
 
     /**
      * Constructs a new DateUtils instance.

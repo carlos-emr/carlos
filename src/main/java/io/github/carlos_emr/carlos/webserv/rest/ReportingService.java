@@ -233,7 +233,7 @@ public class ReportingService extends AbstractServiceImpl {
             preventionReportDao.persist(pr);
             return RestResponse.successResponse("" + pr.getId());
         } catch (Exception e) {
-            logger.error("error converting to STring");
+            logger.error("Error saving prevention report", e);
             return RestResponse.errorResponse("Error saving prevention report");
         }
     }
