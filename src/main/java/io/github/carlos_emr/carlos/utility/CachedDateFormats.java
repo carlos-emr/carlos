@@ -101,7 +101,12 @@ public final class CachedDateFormats {
      */
     private static final int MAX_CACHED_PATTERNS_PER_THREAD = 256;
 
-    private static final ThreadLocal<Map<String, SimpleDateFormat>> CACHE =
+    // Intentional process-lifetime cache: entries are deliberately never evicted (see class
+    // Javadoc), are bounded per thread by MAX_CACHED_PATTERNS_PER_THREAD, and hold only
+    // stateless-after-use JDK formatters (no per-request or PHI state, no app-classloader
+    // references). remove()-ing per use would defeat the per-thread reuse this class exists for,
+    // so the S5164 "call remove() on ThreadLocal" finding is suppressed below by design.
+    private static final ThreadLocal<Map<String, SimpleDateFormat>> CACHE = // NOSONAR java:S5164
             ThreadLocal.withInitial(HashMap::new);
 
     /**
