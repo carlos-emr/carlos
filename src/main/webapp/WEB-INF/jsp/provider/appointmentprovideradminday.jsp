@@ -1133,7 +1133,7 @@
 
                             <li id="helpLink">
                                 <a href="javascript:void(0)"
-                                   onClick="popupPage(600,750,'${e:forJavaScriptAttribute(scheduleResourceBaseUrl)}');return false;"><fmt:message key="global.help"/></a>
+                                   onClick="popupPage(600,750,'${carlos:forJavaScriptAttribute(scheduleResourceBaseUrl)}');return false;"><fmt:message key="global.help"/></a>
                             </li>
 
                             <% if (isMobileOptimized) { %>
