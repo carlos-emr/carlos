@@ -41,6 +41,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 /**
@@ -82,7 +83,7 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
                 .thenReturn(mockLoggedInInfo);
 
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
-        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_edoc"), eq("w"), isNull()))
+        lenient().when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_edoc"), eq("w"), isNull()))
                 .thenReturn(true);
 
         action = new AddEditDocument2Action();
@@ -147,9 +148,6 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
         try {
             UploadedFile filedataUpload = mock(UploadedFile.class);
             when(filedataUpload.getInputName()).thenReturn("filedata");
-            when(filedataUpload.getAbsolutePath()).thenReturn(filedataTemp.getAbsolutePath());
-            when(filedataUpload.getOriginalName()).thenReturn("html5-upload.pdf");
-            when(filedataUpload.getContentType()).thenReturn("application/pdf");
 
             UploadedFile docFileUpload = mock(UploadedFile.class);
             when(docFileUpload.getInputName()).thenReturn("docFile");
@@ -182,5 +180,27 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
         assertThat(result).isEqualTo("failAdd");
         Hashtable<String, String> errors = (Hashtable<String, String>) request.getAttribute("docerrors");
         assertThat(errors).containsEntry("uploaderror", "dms.error.uploadError");
+    }
+
+    @Test
+    @DisplayName("should return failAdd when uploaded filename is invalid")
+    @SuppressWarnings("unchecked")
+    void shouldReturnFailAdd_whenUploadedFilenameIsInvalid() throws Exception {
+        tempUploadFile = File.createTempFile("add-edit-document", ".pdf");
+        Files.writeString(tempUploadFile.toPath(), "pdf");
+
+        action.setMode("add");
+        action.setFunction("demographic");
+        action.setFunctionId("123");
+        action.setDocDesc("Consult note");
+        action.setDocType("Consultant Report");
+        action.setDocFile(tempUploadFile);
+        action.setDocFileFileName(".env");
+
+        String result = action.execute2();
+
+        assertThat(result).isEqualTo("failAdd");
+        Hashtable<String, String> errors = (Hashtable<String, String>) request.getAttribute("docerrors");
+        assertThat(errors).containsEntry("filenameinvalid", "dms.error.invalidFilename");
     }
 }

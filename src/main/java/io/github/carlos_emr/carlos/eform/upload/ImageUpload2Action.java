@@ -36,6 +36,7 @@ import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -50,11 +51,15 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.util.List;
+import java.util.MissingResourceException;
+import java.util.ResourceBundle;
 
 public class ImageUpload2Action extends ActionSupport implements UploadedFilesAware {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
+
+    private static final String INVALID_FILENAME_MESSAGE_KEY = "dms.error.invalidFilename";
 
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -73,15 +78,8 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
 
             // Sanitize the filename and track if it changed
             String originalFileName = imageFileName;
-            imageFileName = MiscUtils.sanitizeFileName(imageFileName);
+            imageFileName = PathValidationUtils.validateFileName(imageFileName);
             boolean fileNameWasSanitized = !originalFileName.equals(imageFileName);
-
-            // Validate that sanitized filename is not empty
-            if (imageFileName == null || imageFileName.isEmpty()) {
-                MiscUtils.getLogger().warn("Image upload rejected: filename '{}' empty after sanitization", originalFileName);
-                addActionError("Invalid filename: filename cannot be empty after sanitization");
-                return ERROR;
-            }
 
             // Ensure upload directory exists (throws IOException if creation fails)
             File imageFolder = getImageFolder();
@@ -112,6 +110,10 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
             request.setAttribute("status", "uploaded");
             return SUCCESS;
 
+        } catch (FileValidationException e) {
+            MiscUtils.getLogger().warn("Rejected invalid image upload filename");
+            addActionError(getInvalidFilenameMessage());
+            return ERROR;
         } catch (SecurityException se) {
             MiscUtils.getLogger().warn("SecurityException during image upload: " + se.getMessage(), se);
             addActionError("Upload failed: invalid file or security policy violation");
@@ -128,6 +130,15 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
         if (!imageFolder.exists() && !imageFolder.mkdirs())
             throw new IOException("Could not create directory " + imageFolder.getAbsolutePath() + " check permissions and ensure the correct EFORM_IMAGES_DIR property is set in the properties file");
         return imageFolder;
+    }
+
+    private String getInvalidFilenameMessage() {
+        try {
+            return ResourceBundle.getBundle("oscarResources", request.getLocale())
+                    .getString(INVALID_FILENAME_MESSAGE_KEY);
+        } catch (MissingResourceException e) {
+            return "Invalid filename";
+        }
     }
 
     private File image;

@@ -36,8 +36,10 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.logging.log4j.Logger;
 
@@ -49,9 +51,8 @@ public class BackupDownload extends GenericDownload {
 
     public void doGet(HttpServletRequest req, HttpServletResponse res) throws IOException {
         try {
-            // check the rights - sanitize filename to prevent XSS and path traversal
             String rawFilename = req.getParameter("filename");
-            String filename = rawFilename == null ? null : MiscUtils.sanitizeFileName(rawFilename);
+            String filename = rawFilename == null ? null : PathValidationUtils.validateStrictFileName(rawFilename);
             if (filename == null || filename.isBlank()) {
                 res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing required filename parameter.");
                 return;
@@ -81,6 +82,9 @@ public class BackupDownload extends GenericDownload {
             }
 
             download(true, res, dir, filename, null);
+        } catch (FileValidationException e) {
+            log.warn("BackupDownload rejected invalid filename from {}", req.getRemoteAddr());
+            sendErrorForCaughtException(res, HttpServletResponse.SC_BAD_REQUEST, "Invalid filename parameter.");
         } catch (IOException e) {
             throw e;
         } catch (SecurityException e) {
