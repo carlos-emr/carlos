@@ -145,6 +145,35 @@ class CachedDateFormatsUnitTest {
     }
 
     @Test
+    @DisplayName("should stop caching past the per-thread cap but still format correctly")
+    void shouldCapPerThreadCache_andStillFormatCorrectly() throws Exception {
+        // MAX_CACHED_PATTERNS_PER_THREAD (256) is a defensive backstop against a caller that
+        // violates the "no request-controlled patterns" contract: past the bound the per-thread
+        // map must stop growing, yet callers must still receive a correct, thread-confined formatter.
+        Object[] result = onFreshThread(() -> {
+            // Feed well past the cap with distinct, valid patterns. A quoted literal prefix keeps
+            // each pattern (and therefore each cache key) unique without changing the parse/format
+            // semantics of the trailing yyyy field.
+            for (int i = 0; i < 300; i++) {
+                CachedDateFormats.format(FIXED, "'P" + i + "'yyyy");
+            }
+            int count = CachedDateFormats.cachedFormatterCount();
+            // "P299" was the 300th distinct pattern — first seen well past the cap, so it was never
+            // cached. The formatter returned for it must still be correct all the same.
+            String beyondCap = CachedDateFormats.format(FIXED, "'P299'yyyy");
+            return new Object[]{count, beyondCap};
+        });
+        // Exactly the cap: patterns P0..P255 were cached, P256..P299 were not, and this thread never
+        // triggered the on-demand no-arg sentinel, so nothing else inflates the count.
+        assertThat((int) result[0])
+                .as("per-thread cache stops growing at MAX_CACHED_PATTERNS_PER_THREAD")
+                .isEqualTo(256);
+        assertThat((String) result[1])
+                .as("a beyond-cap (uncached) pattern still formats identically to new SimpleDateFormat(pattern)")
+                .isEqualTo(new SimpleDateFormat("'P299'yyyy").format(FIXED));
+    }
+
+    @Test
     @DisplayName("should round-trip parse then format for representative patterns")
     void shouldRoundTripParseThenFormat_forRepresentativePatterns() throws Exception {
         for (String pattern : PATTERNS) {

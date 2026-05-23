@@ -83,10 +83,12 @@ public final class CachedDateFormats {
 
     /**
      * Cache key reserved for the no-arg {@link SimpleDateFormat} (SHORT/SHORT, default locale).
-     * It is the {@link #KEY_SEPARATOR} space followed by {@code __noarg__}; no real
-     * {@code pattern + separator + tag} key can equal it, since that would require an empty
-     * pattern (invalid for {@code SimpleDateFormat}) and a language tag of {@code __noarg__}
-     * (which {@code toLanguageTag()} never produces).
+     * It is the {@link #KEY_SEPARATOR} space followed by {@code __noarg__}. No real
+     * {@code pattern + separator + tag} key can equal it: the space-free suffix of any real key is
+     * its {@link Locale#toLanguageTag()} value, which is BCP-47 (letters, digits, hyphens) and so
+     * can never be {@code __noarg__} — an underscore is not a BCP-47 character. The pattern itself
+     * is irrelevant to this guarantee (it may even be empty), since the language-tag suffix alone
+     * already rules out a collision.
      */
     private static final String NO_ARG_KEY = KEY_SEPARATOR + "__noarg__";
 
