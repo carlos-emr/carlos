@@ -56,6 +56,7 @@ import io.github.carlos_emr.carlos.managers.DemographicSetsManager;
 import io.github.carlos_emr.carlos.managers.EFormReportToolManager;
 import io.github.carlos_emr.carlos.prev.reports.Report;
 import io.github.carlos_emr.carlos.prev.reports.ReportBuilder;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.web.PatientListApptBean;
 import io.github.carlos_emr.carlos.web.PatientListApptItemBean;
@@ -256,6 +257,15 @@ public class ReportingService extends AbstractServiceImpl {
     }
 
 
+    /**
+     * Runs the prevention report for the given parsed search config. Overridable so unit tests can
+     * exercise the success and empty-result paths without initializing {@link ReportBuilder}, whose
+     * static dependencies (resolved via {@code SpringUtils}) require a running Spring context.
+     */
+    protected Report buildPreventionReport(LoggedInInfo loggedInInfo, String providerNo, PreventionSearchTo1 search) {
+        return new ReportBuilder().runReport(loggedInInfo, providerNo, search);
+    }
+
     @POST
     @Path("/preventionReport/runReport/{id}")
     @Produces("application/json")
@@ -283,8 +293,7 @@ public class ReportingService extends AbstractServiceImpl {
                         reportJson != null ? reportJson.length() : 0);
             }
             PreventionSearchTo1 preventionSearchTo1 = mapper.readValue(pr.getJson(), PreventionSearchTo1.class);
-            ReportBuilder reportBuilder = new ReportBuilder();
-            report = reportBuilder.runReport(getLoggedInInfo(), providerNo, preventionSearchTo1);
+            report = buildPreventionReport(getLoggedInInfo(), providerNo, preventionSearchTo1);
             if (!pr.isActive()) {
                 report.setActive(false);
             }
@@ -327,6 +336,10 @@ public class ReportingService extends AbstractServiceImpl {
             PreventionSearchTo1 preventionSearchTo1 = mapper.readValue(reportJson, PreventionSearchTo1.class);
             return jakarta.ws.rs.core.Response.ok(preventionSearchTo1).build();
         } catch (JsonProcessingException e) {
+            // Intentionally narrower than runPreventionReport's catch(Exception): the only
+            // non-Jackson failure here (null JSON) is guarded above, and readValue(String, Class)
+            // reports parse/mapping problems as JsonProcessingException, so a broad catch would
+            // only mask unrelated runtime bugs.
             logger.error("Error parsing prevention report JSON id={}", id, e);
         }
 

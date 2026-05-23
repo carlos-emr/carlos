@@ -30,7 +30,6 @@ import java.util.TimeZone;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -113,38 +112,36 @@ class CachedDateFormatsUnitTest {
     }
 
     @Test
-    @DisplayName("should cache distinct instances for a pattern with vs without a locale")
-    void shouldCacheDistinctInstances_forPatternWithAndWithoutLocale() {
-        SimpleDateFormat noLocale = CachedDateFormats.forPattern("dd-MMM-yyyy");
-        SimpleDateFormat french = CachedDateFormats.forPattern("dd-MMM-yyyy", Locale.FRENCH);
-        SimpleDateFormat english = CachedDateFormats.forPattern("dd-MMM-yyyy", Locale.ENGLISH);
-        assertThat(french).isNotSameAs(noLocale);
-        assertThat(french).isNotSameAs(english);
-        // the reserved no-arg key never collides with a real pattern key
-        assertThat(CachedDateFormats.defaultInstance()).isNotSameAs(noLocale);
+    @DisplayName("should cache one formatter per distinct (pattern, locale) key including the no-arg key")
+    void shouldCacheOneFormatterPerKey_includingNoArgKey() throws Exception {
+        // Run on a fresh thread so the cache count starts at zero and is independent of any other
+        // test that ran earlier on the shared JUnit thread.
+        int[] sizes = onFreshThread(() -> {
+            int empty = CachedDateFormats.cachedFormatterCount();
+            CachedDateFormats.format(FIXED, "dd-MMM-yyyy");                 // key: pattern, default locale
+            CachedDateFormats.format(FIXED, "dd-MMM-yyyy");                 // same key, must be reused
+            int afterRepeat = CachedDateFormats.cachedFormatterCount();
+            CachedDateFormats.format(FIXED, "dd-MMM-yyyy", Locale.FRENCH);  // key: pattern + fr
+            CachedDateFormats.format(FIXED, "dd-MMM-yyyy", Locale.ENGLISH); // key: pattern + en
+            CachedDateFormats.formatDefault(FIXED);                         // reserved no-arg key
+            return new int[]{empty, afterRepeat, CachedDateFormats.cachedFormatterCount()};
+        });
+        assertThat(sizes[0]).as("a fresh thread starts with an empty cache").isZero();
+        assertThat(sizes[1]).as("a repeated pattern reuses its cached formatter").isEqualTo(1);
+        // pattern, pattern+fr, pattern+en, and the no-arg sentinel are four distinct, non-colliding keys
+        assertThat(sizes[2]).as("each distinct key caches its own formatter").isEqualTo(4);
     }
 
     @Test
-    @DisplayName("should return the same cached instance for repeated pattern on one thread")
-    void shouldReturnSameInstancePerThread_forRepeatedPattern() {
-        SimpleDateFormat first = CachedDateFormats.forPattern("yyyy-MM-dd");
-        SimpleDateFormat second = CachedDateFormats.forPattern("yyyy-MM-dd");
-        assertThat(second).isSameAs(first);
-    }
+    @DisplayName("should give each thread its own formatter cache")
+    void shouldIsolateCache_acrossThreads() throws Exception {
+        // Populate this thread's cache, then prove a different thread sees an independent (empty)
+        // cache — i.e. the formatters are thread-confined and never shared across threads.
+        CachedDateFormats.format(FIXED, "yyyy-MM-dd");
+        assertThat(CachedDateFormats.cachedFormatterCount()).isGreaterThanOrEqualTo(1);
 
-    @Test
-    @DisplayName("should give each thread its own instance for the same pattern")
-    void shouldIsolateInstances_acrossThreads() throws Exception {
-        SimpleDateFormat mainInstance = CachedDateFormats.forPattern("yyyy-MM-dd");
-
-        ExecutorService executor = Executors.newSingleThreadExecutor();
-        try {
-            Future<SimpleDateFormat> other =
-                    executor.submit((Callable<SimpleDateFormat>) () -> CachedDateFormats.forPattern("yyyy-MM-dd"));
-            assertThat(other.get()).isNotSameAs(mainInstance);
-        } finally {
-            executor.shutdownNow();
-        }
+        int otherThreadCount = onFreshThread(CachedDateFormats::cachedFormatterCount);
+        assertThat(otherThreadCount).as("a fresh thread shares none of this thread's formatters").isZero();
     }
 
     @Test
@@ -198,24 +195,35 @@ class CachedDateFormatsUnitTest {
     }
 
     @Test
-    @DisplayName("should restore the cached formatter time zone after a zoned format")
+    @DisplayName("should restore the formatter time zone after a zoned format (no leak to later plain formats)")
     void shouldRestoreTimeZone_afterFormatWithZone() {
-        String pattern = "yyyy-MM-dd HH:mm:ss z";
-        TimeZone before = CachedDateFormats.forPattern(pattern).getTimeZone();
-        CachedDateFormats.format(FIXED, pattern, TimeZone.getTimeZone("Pacific/Kiritimati"));
-        assertThat(CachedDateFormats.forPattern(pattern).getTimeZone()).isEqualTo(before);
+        String pattern = "yyyy-MM-dd HH";
+        String plainBefore = CachedDateFormats.format(FIXED, pattern);
+        // A zoned format must not leave the cached formatter stuck on that zone, so a subsequent
+        // plain format of the same pattern must render exactly as it did before.
+        CachedDateFormats.format(FIXED, pattern, TimeZone.getTimeZone("Pacific/Kiritimati")); // UTC+14
+        String plainAfter = CachedDateFormats.format(FIXED, pattern);
+        assertThat(plainAfter)
+                .as("plain format output is identical before and after a zoned format")
+                .isEqualTo(plainBefore);
     }
 
     @Test
-    @DisplayName("should not contaminate other patterns when one instance mutates its time zone")
-    void shouldNotContaminate_acrossPatternsAfterSetTimeZone() {
-        SimpleDateFormat dateOnly = CachedDateFormats.forPattern("yyyy-MM-dd");
-        TimeZone originalZone = dateOnly.getTimeZone();
+    @DisplayName("should not let a zoned format of one pattern affect another pattern's output")
+    void shouldNotContaminateOtherPatterns_afterZonedFormat() {
+        String otherBefore = CachedDateFormats.format(FIXED, "yyyy-MM-dd");
+        CachedDateFormats.format(FIXED, "yyyy-MM-dd HH:mm:ss z", TimeZone.getTimeZone("Pacific/Kiritimati"));
+        String otherAfter = CachedDateFormats.format(FIXED, "yyyy-MM-dd");
+        assertThat(otherAfter).isEqualTo(otherBefore);
+    }
 
-        SimpleDateFormat zoned = CachedDateFormats.forPattern("EEE MMM dd HH:mm:ss z yyyy");
-        zoned.setTimeZone(TimeZone.getTimeZone("Pacific/Kiritimati")); // UTC+14, unlikely default
-
-        assertThat(dateOnly.getTimeZone()).isEqualTo(originalZone);
-        assertThat(zoned).isNotSameAs(dateOnly);
+    /** Runs {@code task} on a brand-new thread (which therefore sees an empty per-thread cache) and returns its result. */
+    private static <T> T onFreshThread(Callable<T> task) throws Exception {
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            return executor.submit(task).get();
+        } finally {
+            executor.shutdownNow();
+        }
     }
 }

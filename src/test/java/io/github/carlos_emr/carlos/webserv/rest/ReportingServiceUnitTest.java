@@ -45,11 +45,13 @@ import io.github.carlos_emr.carlos.commn.dao.PreventionReportDao;
 import io.github.carlos_emr.carlos.commn.model.PreventionReport;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.EFormReportToolManager;
+import io.github.carlos_emr.carlos.prev.reports.Report;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.GenericRestResponse.ResponseStatus;
 import io.github.carlos_emr.carlos.webserv.rest.to.RestResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.EFormReportToolTo1;
+import io.github.carlos_emr.carlos.webserv.rest.to.model.PreventionSearchTo1;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -70,6 +72,14 @@ class ReportingServiceUnitTest extends CarlosUnitTestBase {
     private ReportingService service;
     private LoggedInInfo loggedInInfo;
     private MockedStatic<CarlosProperties> carlosPropertiesMock;
+
+    /**
+     * Report returned by the {@code buildPreventionReport} seam. Set per test to drive the
+     * success path ({@code new Report()}) or the no-result path ({@code null}); this lets the
+     * tests exercise runPreventionReport without loading {@code ReportBuilder}, whose static
+     * SpringUtils dependencies cannot initialize in a unit context.
+     */
+    private Report stubReport;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -94,6 +104,11 @@ class ReportingServiceUnitTest extends CarlosUnitTestBase {
             @Override
             protected LoggedInInfo getLoggedInInfo() {
                 return capturedInfo;
+            }
+
+            @Override
+            protected Report buildPreventionReport(LoggedInInfo info, String providerNo, PreventionSearchTo1 search) {
+                return stubReport;
             }
         };
 
@@ -219,6 +234,36 @@ class ReportingServiceUnitTest extends CarlosUnitTestBase {
             when(mockPreventionReportDao.find(Integer.valueOf(6))).thenReturn(pr);
 
             Response response = service.runPreventionReport(6, emptyJson());
+
+            assertThat(response.getStatus()).isEqualTo(268);
+        }
+
+        @Test
+        @DisplayName("should return 200 when runPreventionReport builds a report")
+        void shouldReturnOk_whenRunReportSucceeds() {
+            PreventionReport pr = mock(PreventionReport.class);
+            when(pr.getJson()).thenReturn("{}");
+            when(pr.isActive()).thenReturn(true);
+            when(mockPreventionReportDao.find(Integer.valueOf(10))).thenReturn(pr);
+            stubReport = new Report();
+
+            Response response = service.runPreventionReport(10, emptyJson());
+
+            assertThat(response.getStatus()).isEqualTo(200);
+        }
+
+        @Test
+        @DisplayName("should return 268 when runPreventionReport builds no result")
+        void shouldReturn268_whenRunReportBuildsNoResult() {
+            PreventionReport pr = mock(PreventionReport.class);
+            when(pr.getJson()).thenReturn("{}");
+            // isActive() stubbed true so the null build result is not dereferenced by the
+            // inactive-report branch; the assertion isolates "no result built -> 268".
+            when(pr.isActive()).thenReturn(true);
+            when(mockPreventionReportDao.find(Integer.valueOf(11))).thenReturn(pr);
+            stubReport = null;
+
+            Response response = service.runPreventionReport(11, emptyJson());
 
             assertThat(response.getStatus()).isEqualTo(268);
         }
