@@ -88,15 +88,32 @@
         <Bug pattern="RV_RETURN_VALUE_OF_PUTIFABSENT_IGNORED"/>
     </Match>
 
-    <!--
-      LegacyJdbcQuery is the PR 2097 transition boundary from deprecated DBHandler/
-      DBPreparedHandler usage to Spring-managed JDBC. The raw overloads bind values
-      through PreparedStatement and are limited to migrated, server-owned SQL shapes;
-      caller-controlled report/eForm SQL uses TrustedSql or ParameterizedSql validation.
-    -->
+    <!-- TrustedSql is constructed only after legacy SELECT validation; values are bound below. -->
     <Match>
         <Bug pattern="SQL_INJECTION_JDBC"/>
         <Class name="io.github.carlos_emr.carlos.db.LegacyJdbcQuery"/>
+        <Method name="getPreparedResultSetValidated"/>
+    </Match>
+
+    <!-- Raw legacy overload is restricted to caller-owned SQL shape; values are bound below. -->
+    <Match>
+        <Bug pattern="SQL_INJECTION_JDBC"/>
+        <Class name="io.github.carlos_emr.carlos.db.LegacyJdbcQuery"/>
+        <Method name="getPreparedResultSetLegacyRaw"/>
+    </Match>
+
+    <!-- Stored procedure names are validated before the CallableStatement is prepared. -->
+    <Match>
+        <Bug pattern="SQL_INJECTION_JDBC"/>
+        <Class name="io.github.carlos_emr.carlos.db.LegacyJdbcQuery"/>
+        <Method name="procExecute"/>
+    </Match>
+
+    <!-- CaisiResult delegates server-owned legacy templates through the same JDBC value binding. -->
+    <Match>
+        <Bug pattern="SQL_INJECTION_JDBC"/>
+        <Class name="io.github.carlos_emr.carlos.db.LegacyJdbcQuery"/>
+        <Method name="queryResultsCaisi"/>
     </Match>
 
     <!--

@@ -39,11 +39,6 @@ import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 public class dbExtract implements AutoCloseable {
-    private static final String RESULT_SET_RESOURCE = "ResultSet";
-    private static final String PREPARED_STATEMENT_RESOURCE = "PreparedStatement";
-    private static final String STATEMENT_RESOURCE = "Statement";
-    private static final String CONNECTION_RESOURCE = "Connection";
-
     private Connection con = null;
     private PreparedStatement stmt = null;
     private PreparedStatement stmt2 = null;
@@ -70,32 +65,32 @@ public class dbExtract implements AutoCloseable {
     }
 
     public ResultSet executeQuery(String sql, Object... params) throws SQLException {
-        closeQuietly(resultSet, RESULT_SET_RESOURCE);
+        closeQuietly(resultSet);
         resultSet = null;
-        closeQuietly(stmt, PREPARED_STATEMENT_RESOURCE);
+        closeQuietly(stmt);
         stmt = null;
         stmt = prepare(sql, params);
         try {
             resultSet = stmt.executeQuery();
             return resultSet;
         } catch (SQLException e) {
-            closeQuietly(stmt, PREPARED_STATEMENT_RESOURCE);
+            closeQuietly(stmt);
             stmt = null;
             throw e;
         }
     }
 
     public ResultSet executeQuery2(String sql, Object... params) throws SQLException {
-        closeQuietly(resultSet2, RESULT_SET_RESOURCE);
+        closeQuietly(resultSet2);
         resultSet2 = null;
-        closeQuietly(stmt2, PREPARED_STATEMENT_RESOURCE);
+        closeQuietly(stmt2);
         stmt2 = null;
         stmt2 = prepare(sql, params);
         try {
             resultSet2 = stmt2.executeQuery();
             return resultSet2;
         } catch (SQLException e) {
-            closeQuietly(stmt2, PREPARED_STATEMENT_RESOURCE);
+            closeQuietly(stmt2);
             stmt2 = null;
             throw e;
         }
@@ -109,17 +104,17 @@ public class dbExtract implements AutoCloseable {
             }
             return ps;
         } catch (SQLException | RuntimeException e) {
-            closeQuietly(ps, PREPARED_STATEMENT_RESOURCE);
+            closeQuietly(ps);
             throw e;
         }
     }
 
     public void closeConnection() {
-        closeQuietly(resultSet, RESULT_SET_RESOURCE);
-        closeQuietly(resultSet2, RESULT_SET_RESOURCE);
-        closeQuietly(stmt2, STATEMENT_RESOURCE);
-        closeQuietly(stmt, STATEMENT_RESOURCE);
-        closeQuietly(con, CONNECTION_RESOURCE);
+        closeQuietly(resultSet);
+        closeQuietly(resultSet2);
+        closeQuietly(stmt2);
+        closeQuietly(stmt);
+        closeQuietly(con);
         resultSet = null;
         resultSet2 = null;
         stmt2 = null;
@@ -132,7 +127,7 @@ public class dbExtract implements AutoCloseable {
         closeConnection();
     }
 
-    private void closeQuietly(AutoCloseable resource, String resourceName) {
+    private void closeQuietly(AutoCloseable resource) {
         if (resource == null) {
             return;
         }

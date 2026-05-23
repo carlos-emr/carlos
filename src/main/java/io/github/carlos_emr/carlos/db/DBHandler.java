@@ -52,7 +52,7 @@ public final class DBHandler {
         return getPreSql(sql, false, params);
     }
 
-    public static ResultSet getPreSql(String sql, boolean updatable, Object... params) throws SQLException { // nosemgrep: formatted-sql-string -- this IS the parameterized query method; params are bound via PreparedStatement
+    public static ResultSet getPreSql(String sql, boolean updatable, Object... params) throws SQLException {
         return LegacyJdbcQuery.getPreparedResultSet(sql, updatable, params);
     }
 
@@ -72,7 +72,7 @@ public final class DBHandler {
      * this deprecated class.
      */
     @Deprecated(forRemoval = true)
-    public static ResultSet GetPreSQL(String sql, boolean updatable, Object... params) throws SQLException { // nosemgrep: formatted-sql-string -- compatibility wrapper delegates to parameterized query method
+    public static ResultSet GetPreSQL(String sql, boolean updatable, Object... params) throws SQLException {
         return getPreSql(sql, updatable, params);
     }
 

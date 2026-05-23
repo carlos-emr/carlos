@@ -194,7 +194,6 @@ public class CreateBillingReport2Action extends ActionSupport {
                     }
                 } catch (SQLException e) {
                     MiscUtils.getLogger().error("Error", e);
-                    throw new IllegalStateException("Failed to generate MSP remittance summary report", e);
                 }
 
             } else if (repType.equals(MSPReconcile.REP_PAYREF) || repType.equals(MSPReconcile.REP_PAYREF_SUM)) {
