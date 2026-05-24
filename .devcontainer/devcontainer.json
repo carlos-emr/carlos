@@ -41,14 +41,14 @@
         "13579": {
             "label": "Gemini OAuth Callback",
             "onAutoForward": "silent"
+        },
+        // Claude Code (`claude setup-token`, `claude /login`) binds a random
+        // high port for its OAuth callback. Scope silent auto-forwarding to
+        // that range so unrelated low ports still use VS Code's defaults.
+        "30000-65535": {
+            "label": "Claude Code OAuth Callback",
+            "onAutoForward": "silent"
         }
-    },
-    // Claude Code (`claude setup-token`, `claude /login`) binds a random high
-    // port for its OAuth callback. Without silent auto-forward, VS Code's
-    // default `notify` action delays the tunnel and the host browser hits
-    // `connection failed` on the post-sign-in redirect.
-    "otherPortsAttributes": {
-        "onAutoForward": "silent"
     },
     "containerUser": "root",
     "remoteUser": "root"

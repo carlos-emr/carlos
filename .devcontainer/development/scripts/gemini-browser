@@ -9,9 +9,9 @@
 # intercepts those calls.
 #
 # For recognized OAuth providers we print the URL for copy-paste on the host.
-# The host browser then redirects back to http://localhost:PORT/callback after
+# The host browser then redirects back to a localhost callback URL after
 # sign-in; VS Code Remote-Containers auto-forwards that listening port back
-# into the container (see otherPortsAttributes in devcontainer.json).
+# into the container (see portsAttributes in devcontainer.json).
 #
 # For non-OAuth URLs we attempt VS Code's browser helper as a fallback.
 
@@ -24,37 +24,56 @@ fi
 print_oauth_banner() {
     local provider="$1"
     local extra_note="$2"
+    local redirect_note="$3"
+    local provider_file="$4"
 
     echo "" >&2
     echo "==========================================================" >&2
     echo "  ${provider} OAuth - Copy this URL to your desktop browser:" >&2
     echo "==========================================================" >&2
     echo "" >&2
-    echo "$URL" >&2
+    printf "%s\n" "$URL" >&2
     echo "" >&2
     echo "==========================================================" >&2
     if [ -n "$extra_note" ]; then
         echo "  $extra_note" >&2
     fi
-    echo "  After signing in, the browser will redirect to a" >&2
-    echo "  localhost:<port>/callback URL. VS Code Remote-Containers" >&2
+    echo "  After signing in, the browser will redirect to:" >&2
+    echo "  $redirect_note" >&2
     echo "  auto-forwards that port back into the container." >&2
     echo "" >&2
     echo "  URL also saved to: $HOME/oauth_auth_url.txt" >&2
+    if [ -n "$provider_file" ]; then
+        echo "                 and: $provider_file" >&2
+    fi
     echo "==========================================================" >&2
     echo "" >&2
 }
 
-# Persist the URL so it survives terminal scrollback regardless of provider.
-echo "$URL" > "$HOME/oauth_auth_url.txt"
+save_oauth_url() {
+    local provider_file="$1"
+    local old_umask
+
+    old_umask=$(umask)
+    umask 077
+    printf "%s\n" "$URL" > "$HOME/oauth_auth_url.txt"
+    chmod 600 "$HOME/oauth_auth_url.txt"
+    if [ -n "$provider_file" ]; then
+        printf "%s\n" "$URL" > "$provider_file"
+        chmod 600 "$provider_file"
+    fi
+    umask "$old_umask"
+}
 
 case "$URL" in
     *accounts.google.com/o/oauth2*|*accounts.google.com/signin*)
         # Gemini auth uses a fixed callback port via OAUTH_CALLBACK_PORT,
         # which is set in docker-compose.yml and forwarded explicitly.
-        cp "$HOME/oauth_auth_url.txt" "$HOME/gemini_auth_url.txt"
+        save_oauth_url "$HOME/gemini_auth_url.txt"
         print_oauth_banner "GEMINI" \
-            "Callback port pinned to ${OAUTH_CALLBACK_PORT:-13579} (explicit forwardPort)."
+            "Callback port pinned to ${OAUTH_CALLBACK_PORT:-13579} (explicit forwardPort)." \
+            "localhost:${OAUTH_CALLBACK_PORT:-13579} callback URL. VS Code Remote-Containers" \
+            "$HOME/gemini_auth_url.txt"
         exit 0
         ;;
     *console.anthropic.com/*|*claude.ai/oauth*|*claude.ai/login*|*claude.com/oauth*)
@@ -62,9 +81,11 @@ case "$URL" in
         # high port for its OAuth callback. VS Code's port auto-forwarding
         # picks it up once the CLI starts listening; sign-in takes long
         # enough that the forward is established before the redirect.
-        cp "$HOME/oauth_auth_url.txt" "$HOME/claude_auth_url.txt"
+        save_oauth_url "$HOME/claude_auth_url.txt"
         print_oauth_banner "CLAUDE CODE" \
-            "Callback port is chosen dynamically by the CLI."
+            "Callback port is chosen dynamically by the CLI." \
+            "localhost:<port>/callback URL. VS Code Remote-Containers" \
+            "$HOME/claude_auth_url.txt"
         exit 0
         ;;
     *)
@@ -74,7 +95,7 @@ case "$URL" in
             exec "$VSCODE_BROWSER" "$URL"
         fi
         # Fallback: just print it
-        echo "Open in browser: $URL" >&2
+        printf "Open in browser: %s\n" "$URL" >&2
         exit 0
         ;;
 esac
