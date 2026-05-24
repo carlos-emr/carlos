@@ -6,6 +6,9 @@ import jakarta.xml.bind.annotation.XmlAccessType;
 import jakarta.xml.bind.annotation.XmlAccessorType;
 import java.io.Serializable;
 
+/**
+ * Response object for the HelloWorld web service.
+ */
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "helloWorldResponse", propOrder = { "_return" })
 public class HelloWorldResponse implements Serializable

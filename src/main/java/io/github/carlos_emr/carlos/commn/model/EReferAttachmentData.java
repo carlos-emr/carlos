@@ -8,6 +8,9 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
+/**
+ * Model class representing data for an eReferral attachment.
+ */
 @Entity
 @IdClass(EReferAttachmentDataCompositeKey.class)
 @Table(name = "erefer_attachment_data")

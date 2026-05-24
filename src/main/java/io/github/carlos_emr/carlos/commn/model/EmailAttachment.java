@@ -5,6 +5,9 @@ import jakarta.persistence.*;
 
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 
+/**
+ * Model class representing an email attachment.
+ */
 @Entity
 @Table(name = "emailAttachment")
 public class EmailAttachment extends AbstractModel<Integer> {

@@ -3,6 +3,9 @@ package io.github.carlos_emr.carlos.commn.model.converter;
 import io.github.carlos_emr.carlos.commn.model.FaxJob.STATUS;
 import jakarta.persistence.Converter;
 
+/**
+ * JPA attribute converter for FaxJobStatus.
+ */
 @Converter
 public class FaxJobStatusConverter extends NullSafeEnumConverter<STATUS> {
     public FaxJobStatusConverter() {

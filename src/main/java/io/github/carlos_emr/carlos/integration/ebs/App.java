@@ -1,5 +1,8 @@
 package io.github.carlos_emr.carlos.integration.ebs;
 
+/**
+ * Application entry point for EBS integration.
+ */
 public class App
 {
     public static void main(final String[] args) {

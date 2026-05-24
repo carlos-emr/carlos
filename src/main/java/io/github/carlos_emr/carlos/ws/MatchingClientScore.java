@@ -5,6 +5,9 @@ import jakarta.xml.bind.annotation.XmlAccessType;
 import jakarta.xml.bind.annotation.XmlAccessorType;
 import java.io.Serializable;
 
+/**
+ * Score representation for client matching operations.
+ */
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "matchingClientScore", propOrder = { "client", "score" })
 public class MatchingClientScore implements Serializable

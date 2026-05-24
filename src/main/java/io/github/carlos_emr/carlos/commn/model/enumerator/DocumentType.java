@@ -1,5 +1,8 @@
 package io.github.carlos_emr.carlos.commn.model.enumerator;
 
+/**
+ * Enumeration of available document types.
+ */
 public enum DocumentType {
     EFORM("E", "eForm"),
     DOC("D", "doc"),

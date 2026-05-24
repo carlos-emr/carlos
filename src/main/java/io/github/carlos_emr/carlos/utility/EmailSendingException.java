@@ -1,5 +1,8 @@
 package io.github.carlos_emr.carlos.utility;
 
+/**
+ * Exception thrown when an email fails to send.
+ */
 public class EmailSendingException extends Exception {
     public EmailSendingException() {
         super();

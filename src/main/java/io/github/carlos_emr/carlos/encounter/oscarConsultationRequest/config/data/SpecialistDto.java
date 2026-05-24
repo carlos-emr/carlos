@@ -1,5 +1,8 @@
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.data;
 
+/**
+ * Data Transfer Object representing a specialist in consultation requests.
+ */
 public class SpecialistDto {
     private Integer specId;
     private String name;

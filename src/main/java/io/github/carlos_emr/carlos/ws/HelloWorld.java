@@ -5,6 +5,9 @@ import jakarta.xml.bind.annotation.XmlAccessType;
 import jakarta.xml.bind.annotation.XmlAccessorType;
 import java.io.Serializable;
 
+/**
+ * HelloWorld web service interface.
+ */
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "helloWorld")
 public class HelloWorld implements Serializable

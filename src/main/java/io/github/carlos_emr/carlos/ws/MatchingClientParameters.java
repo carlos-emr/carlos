@@ -10,6 +10,9 @@ import jakarta.xml.bind.annotation.XmlAccessType;
 import jakarta.xml.bind.annotation.XmlAccessorType;
 import java.io.Serializable;
 
+/**
+ * Parameters used for matching clients in web services.
+ */
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "matchingClientParameters", propOrder = { "maxEntriesToReturn", "minScore", "firstName", "lastName", "birthDate", "hin" })
 public class MatchingClientParameters implements Serializable
