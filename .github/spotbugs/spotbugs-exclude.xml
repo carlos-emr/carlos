@@ -138,7 +138,7 @@
     <!-- Teleplan explanatory/ICD response files are validated before FileReader opens them. -->
     <Match>
         <Bug pattern="PATH_TRAVERSAL_IN"/>
-        <Class name="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ManageTeleplan2Action"/>
+        <Class name="io.github.carlos_emr.carlos.billing.CA.BC.pageUtil.ManageTeleplan2Action"/>
         <Method name="updateteleplanICDCodesList"/>
     </Match>
     <Match>
