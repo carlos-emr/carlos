@@ -136,7 +136,19 @@
          as informational ("count"/"endpoint") detectors, not defects.
          ================================================================ -->
     <Match>
-        <Bug pattern="SERVLET_PARAMETER,STRUTS2_ENDPOINT,SPRING_ENDPOINT,JAXWS_ENDPOINT,JAXRS_ENDPOINT"/>
+        <Bug pattern="SERVLET_PARAMETER"/>
+    </Match>
+    <Match>
+        <Bug pattern="STRUTS2_ENDPOINT"/>
+    </Match>
+    <Match>
+        <Bug pattern="SPRING_ENDPOINT"/>
+    </Match>
+    <Match>
+        <Bug pattern="JAXWS_ENDPOINT"/>
+    </Match>
+    <Match>
+        <Bug pattern="JAXRS_ENDPOINT"/>
     </Match>
 
 </FindBugsFilter>
