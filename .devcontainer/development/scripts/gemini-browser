@@ -1,12 +1,19 @@
 #!/bin/bash
-# gemini-browser - Captures OAuth URLs for Gemini CLI in devcontainer environments
+# gemini-browser - Captures OAuth URLs for CLI tools in devcontainer environments.
 #
-# Gemini CLI uses the 'open' npm package which calls xdg-open on Linux,
-# ignoring the $BROWSER env var. We install this as both /scripts/gemini-browser
-# AND symlinked as /usr/local/bin/xdg-open to intercept those calls.
+# Despite the historical name, this script handles OAuth flows for multiple
+# CLI tools (Gemini, Claude Code, etc.). CLIs running inside a devcontainer
+# typically call the 'open' npm package or xdg-open to launch a browser, which
+# can't reach the host's desktop browser. We install this script as both
+# /scripts/gemini-browser AND symlinked as /usr/local/bin/xdg-open so it
+# intercepts those calls.
 #
-# When the URL is a Google OAuth URL, it prints it cleanly for copy-paste.
-# For non-OAuth URLs, it attempts VS Code's browser helper as fallback.
+# For recognized OAuth providers we print the URL for copy-paste on the host.
+# The host browser then redirects back to a localhost callback URL after
+# sign-in; VS Code Remote-Containers auto-forwards that listening port back
+# into the container (see portsAttributes in devcontainer.json).
+#
+# For non-OAuth URLs we attempt VS Code's browser helper as a fallback.
 
 URL="$1"
 
@@ -14,27 +21,71 @@ if [ -z "$URL" ]; then
     exit 0
 fi
 
-# Check if this is a Google OAuth URL (Gemini auth flow)
+print_oauth_banner() {
+    local provider="$1"
+    local extra_note="$2"
+    local redirect_note="$3"
+    local provider_file="$4"
+
+    echo "" >&2
+    echo "==========================================================" >&2
+    echo "  ${provider} OAuth - Copy this URL to your desktop browser:" >&2
+    echo "==========================================================" >&2
+    echo "" >&2
+    printf "%s\n" "$URL" >&2
+    echo "" >&2
+    echo "==========================================================" >&2
+    if [ -n "$extra_note" ]; then
+        echo "  $extra_note" >&2
+    fi
+    echo "  After signing in, the browser will redirect to:" >&2
+    echo "  $redirect_note" >&2
+    echo "  auto-forwards that port back into the container." >&2
+    echo "" >&2
+    echo "  URL also saved to: $HOME/oauth_auth_url.txt" >&2
+    if [ -n "$provider_file" ]; then
+        echo "                 and: $provider_file" >&2
+    fi
+    echo "==========================================================" >&2
+    echo "" >&2
+}
+
+save_oauth_url() {
+    local provider_file="$1"
+    local old_umask
+
+    old_umask=$(umask)
+    umask 077
+    printf "%s\n" "$URL" > "$HOME/oauth_auth_url.txt"
+    chmod 600 "$HOME/oauth_auth_url.txt"
+    if [ -n "$provider_file" ]; then
+        printf "%s\n" "$URL" > "$provider_file"
+        chmod 600 "$provider_file"
+    fi
+    umask "$old_umask"
+}
+
 case "$URL" in
     *accounts.google.com/o/oauth2*|*accounts.google.com/signin*)
-        # Log to file for retrieval if terminal scrolls
-        echo "$URL" > "$HOME/gemini_auth_url.txt"
-
-        echo "" >&2
-        echo "==========================================================" >&2
-        echo "  GEMINI OAuth - Copy this URL to your desktop browser:" >&2
-        echo "==========================================================" >&2
-        echo "" >&2
-        echo "$URL" >&2
-        echo "" >&2
-        echo "==========================================================" >&2
-        echo "  After signing in, the browser redirects to" >&2
-        echo "  localhost:${OAUTH_CALLBACK_PORT:-13579} which VS Code" >&2
-        echo "  forwards back to this container automatically." >&2
-        echo "" >&2
-        echo "  URL also saved to: ~/gemini_auth_url.txt" >&2
-        echo "==========================================================" >&2
-        echo "" >&2
+        # Gemini auth uses a fixed callback port via OAUTH_CALLBACK_PORT,
+        # which is set in docker-compose.yml and forwarded explicitly.
+        save_oauth_url "$HOME/gemini_auth_url.txt"
+        print_oauth_banner "GEMINI" \
+            "Callback port pinned to ${OAUTH_CALLBACK_PORT:-13579} (explicit forwardPort)." \
+            "localhost:${OAUTH_CALLBACK_PORT:-13579} callback URL. VS Code Remote-Containers" \
+            "$HOME/gemini_auth_url.txt"
+        exit 0
+        ;;
+    *console.anthropic.com/*|*claude.ai/oauth*|*claude.ai/login*|*claude.com/oauth*)
+        # Claude Code (`claude setup-token`, `claude /login`) binds a random
+        # high port for its OAuth callback. VS Code's port auto-forwarding
+        # picks it up once the CLI starts listening; sign-in takes long
+        # enough that the forward is established before the redirect.
+        save_oauth_url "$HOME/claude_auth_url.txt"
+        print_oauth_banner "CLAUDE CODE" \
+            "Callback port is chosen dynamically by the CLI." \
+            "localhost:<port>/callback URL. VS Code Remote-Containers" \
+            "$HOME/claude_auth_url.txt"
         exit 0
         ;;
     *)
@@ -44,7 +95,7 @@ case "$URL" in
             exec "$VSCODE_BROWSER" "$URL"
         fi
         # Fallback: just print it
-        echo "Open in browser: $URL" >&2
+        printf "Open in browser: %s\n" "$URL" >&2
         exit 0
         ;;
 esac
