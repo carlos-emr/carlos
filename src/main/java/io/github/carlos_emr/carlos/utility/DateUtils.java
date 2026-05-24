@@ -152,15 +152,15 @@ public final class DateUtils {
     }
 
     public static String getIsoDateTimeNoT(Calendar cal) {
-        return cal == null ? "" : DateFormatUtils.ISO_DATETIME_FORMAT.format(cal).replace('T', ' ');
+        return cal == null ? "" : DateFormatUtils.ISO_8601_EXTENDED_DATETIME_FORMAT.format(cal).replace('T', ' ');
     }
 
     public static String getIsoDateTime(Calendar cal) {
-        return cal == null ? "" : DateFormatUtils.ISO_DATETIME_FORMAT.format(cal);
+        return cal == null ? "" : DateFormatUtils.ISO_8601_EXTENDED_DATETIME_FORMAT.format(cal);
     }
 
     public static String getIsoDate(Calendar cal) {
-        return cal == null ? "" : DateFormatUtils.ISO_DATE_FORMAT.format(cal);
+        return cal == null ? "" : DateFormatUtils.ISO_8601_EXTENDED_DATE_FORMAT.format(cal);
     }
 
     public static Date parseIsoDate(String s) throws ParseException {
