@@ -43,6 +43,13 @@
             "onAutoForward": "silent"
         }
     },
+    // Claude Code (`claude setup-token`, `claude /login`) binds a random high
+    // port for its OAuth callback. Without silent auto-forward, VS Code's
+    // default `notify` action delays the tunnel and the host browser hits
+    // `connection failed` on the post-sign-in redirect.
+    "otherPortsAttributes": {
+        "onAutoForward": "silent"
+    },
     "containerUser": "root",
     "remoteUser": "root"
 }
