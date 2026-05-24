@@ -224,9 +224,9 @@ public final class DateUtils {
 
             Date data = CachedDateFormats.parse(date, formatAtual);
 
+            // PHI: do not log the rendered date (may be a DOB); log only the format pattern.
             if (logger.isDebugEnabled()) {
-                logger.debug("[DateUtils] - formatDate: data formatada: {}",
-                        CachedDateFormats.format(data, formatAtual));
+                logger.debug("[DateUtils] - formatDate: formatted with pattern={}", formatAtual);
             }
 
             return CachedDateFormats.format(data, format);
@@ -252,9 +252,9 @@ public final class DateUtils {
             // Legacy behaviour: parse with the no-arg SimpleDateFormat (SHORT date/time, default locale).
             Date data = CachedDateFormats.parseDefault(date);
 
+            // PHI: do not log the rendered date (may be a DOB); log only that the default pattern was used.
             if (logger.isDebugEnabled()) {
-                logger.debug("[DateUtils] - formatDate: data formatada: {}",
-                        CachedDateFormats.formatDefault(data));
+                logger.debug("[DateUtils] - formatDate: formatted with default pattern");
             }
 
             return CachedDateFormats.format(data, format);

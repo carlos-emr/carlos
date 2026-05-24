@@ -104,7 +104,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     /** Fixed date patterns used in this action; formatters are cached per-thread by {@link CachedDateFormats}. */
     private static final String DD_MMM_YYYY_HMM_PATTERN = "dd-MMM-yyyy H:mm";
     private static final String DD_MMM_YYYY_PATTERN = "dd-MMM-yyyy";
-    private static final String HEADER_PATTERN = "yyyy-MM-dd.hh.mm.ss";
+    private static final String HEADER_PATTERN = "yyyy-MM-dd.HH.mm.ss";
     private static final String YYYY_MM_DD_PATTERN = "yyyy-MM-dd";
     private static final String YYYY_MM_DD_HHMM_PATTERN = "yyyy-MM-dd HH:mm";
     private static final int REMOVED_ISSUE_MESSAGE_OVERHEAD = 64;

@@ -168,7 +168,7 @@ public final class DateUtils {
         if (s == null) {
             return null;
         } else {
-            return CachedDateFormats.parse(s, DateFormatUtils.ISO_DATE_FORMAT.getPattern());
+            return CachedDateFormats.parse(s, DateFormatUtils.ISO_8601_EXTENDED_DATE_FORMAT.getPattern());
         }
     }
 
@@ -189,7 +189,7 @@ public final class DateUtils {
         if (s == null) {
             return null;
         } else {
-            return CachedDateFormats.parse(s, DateFormatUtils.ISO_DATETIME_FORMAT.getPattern());
+            return CachedDateFormats.parse(s, DateFormatUtils.ISO_8601_EXTENDED_DATETIME_FORMAT.getPattern());
         }
     }
 

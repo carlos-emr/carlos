@@ -1464,7 +1464,11 @@ public class NotesService extends AbstractServiceImpl {
         noteExt.setNoteId(Long.valueOf(noteId));
 
         for (CaseManagementNoteExt l : lcme) {
-            logger.debug("NOTE EXT key={} value={}", l.getKeyVal(), l.getValue());
+            // PHI: do not log note content; log only the key and value length.
+            if (logger.isDebugEnabled()) {
+                logger.debug("NOTE EXT key={} valueLength={}", l.getKeyVal(),
+                        l.getValue() != null ? l.getValue().length() : 0);
+            }
 
             if (l.getKeyVal().equals(CaseManagementNoteExt.STARTDATE)) {
                 noteExt.setStartDate(l.getDateValueStr());
@@ -1528,7 +1532,11 @@ public class NotesService extends AbstractServiceImpl {
         noteExt.setNoteId(noteId);
 
         for (CaseManagementNoteExt l : lcme) {
-            logger.debug("NOTE EXT key={} value={}", l.getKeyVal(), l.getValue());
+            // PHI: do not log note content; log only the key and value length.
+            if (logger.isDebugEnabled()) {
+                logger.debug("NOTE EXT key={} valueLength={}", l.getKeyVal(),
+                        l.getValue() != null ? l.getValue().length() : 0);
+            }
 
             if (l.getKeyVal().equals(CaseManagementNoteExt.STARTDATE)) {
                 noteExt.setStartDate(l.getValue());
