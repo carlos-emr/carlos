@@ -82,24 +82,25 @@ public class DxReference {
         try (Connection connection = getRequiredLegacyConnection();
                 PreparedStatement pstmt = connection.prepareStatement(nsql)) {
             pstmt.setString(1, demo);
-            ResultSet rs = pstmt.executeQuery();
             Map<String, String> m = new HashMap<String, String>();
-            while (rs.next()) {
-                String sDate = rs.getString("service_date");
-                String[] dx = new String[3];
-                dx[0] = rs.getString("dx_code1");
-                dx[1] = rs.getString("dx_code2");
-                dx[2] = rs.getString("dx_code3");
-                Date sD = UtilDateUtilities.StringToDate(sDate, "yyyyMMdd");
-                _log.debug("THIS IS THE DATE: " + sDate + " DATE PARSED " + sD);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    String sDate = rs.getString("service_date");
+                    String[] dx = new String[3];
+                    dx[0] = rs.getString("dx_code1");
+                    dx[1] = rs.getString("dx_code2");
+                    dx[2] = rs.getString("dx_code3");
+                    Date sD = UtilDateUtilities.StringToDate(sDate, "yyyyMMdd");
+                    _log.debug("THIS IS THE DATE: " + sDate + " DATE PARSED " + sD);
 
-                for (int i = 0; i < dx.length; i++) {
-                    if (dx[i] != null && !dx[i].trim().equals("")) {
-                        DxCode code = new DxCode(sD, dx[i]);
-                        if (!m.containsKey(dx[i])) {
-                            m.put(dx[i], dx[i]);
-                            fillDxCodeDescrition(code);
-                            list.add(code);
+                    for (int i = 0; i < dx.length; i++) {
+                        if (dx[i] != null && !dx[i].trim().equals("")) {
+                            DxCode code = new DxCode(sD, dx[i]);
+                            if (!m.containsKey(dx[i])) {
+                                m.put(dx[i], dx[i]);
+                                fillDxCodeDescrition(code);
+                                list.add(code);
+                            }
                         }
                     }
                 }

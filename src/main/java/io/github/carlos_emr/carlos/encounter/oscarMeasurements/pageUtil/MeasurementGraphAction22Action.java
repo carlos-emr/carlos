@@ -672,20 +672,28 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         org.jfree.data.time.TimeSeriesCollection dataset = new org.jfree.data.time.TimeSeriesCollection();
 
 
-        ArrayList<Map<String, Serializable>> list = null;
+        ArrayList<Map<String, Serializable>> list = new ArrayList<>();
         MiscUtils.getLogger().debug("lab type >{}< >{}< {} {}", labType, labType.equals("loinc"), testName, identifier);
         if (labType.equals("loinc")) {
             try {
 
                 try (Connection conn = LegacyJdbcQuery.getConnection()) {
-                    list = CommonLabTestValues.findValuesByLoinc2(demographicNo.toString(), identifier, conn);
+                    ArrayList<Map<String, Serializable>> loincValues =
+                            CommonLabTestValues.findValuesByLoinc2(demographicNo.toString(), identifier, conn);
+                    if (loincValues != null) {
+                        list = loincValues;
+                    }
                     MiscUtils.getLogger().debug("List ->{}", list.size());
                 }
             } catch (Exception ed) {
                 MiscUtils.getLogger().error("Error", ed);
             }
         } else {
-            list = CommonLabTestValues.findValuesForTest(labType, demographicNo, testName, identifier);
+            ArrayList<Map<String, Serializable>> testValues =
+                    CommonLabTestValues.findValuesForTest(labType, demographicNo, testName, identifier);
+            if (testValues != null) {
+                list = testValues;
+            }
         }
         String typeYAxisName = "";
         ArrayList<OHLCDataItem> dataItems = new ArrayList<OHLCDataItem>();
