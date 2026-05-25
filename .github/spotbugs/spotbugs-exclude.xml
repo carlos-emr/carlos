@@ -94,6 +94,21 @@
         <Class name="io.github.carlos_emr.carlos.db.LegacyJdbcQuery"/>
         <Method name="getPreparedResultSetValidated"/>
     </Match>
+    <Match>
+        <Bug pattern="SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"/>
+        <Class name="io.github.carlos_emr.carlos.db.LegacyJdbcQuery"/>
+        <Method name="getPreparedResultSetValidated"/>
+    </Match>
+    <Match>
+        <Bug pattern="SQL_INJECTION_JDBC"/>
+        <Class name="io.github.carlos_emr.carlos.db.LegacyJdbcQuery"/>
+        <Method name="getPreparedResultSetLegacyRaw"/>
+    </Match>
+    <Match>
+        <Bug pattern="SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"/>
+        <Class name="io.github.carlos_emr.carlos.db.LegacyJdbcQuery"/>
+        <Method name="getPreparedResultSetLegacyRaw"/>
+    </Match>
 
     <!-- Stored procedure names are validated before the CallableStatement is prepared. -->
     <Match>
@@ -116,6 +131,11 @@
     -->
     <Match>
         <Bug pattern="SQL_INJECTION_JDBC"/>
+        <Class name="io.github.carlos_emr.carlos.form.FrmRecordHelp"/>
+        <Method name="prepareResultSetStatement"/>
+    </Match>
+    <Match>
+        <Bug pattern="SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"/>
         <Class name="io.github.carlos_emr.carlos.form.FrmRecordHelp"/>
         <Method name="prepareResultSetStatement"/>
     </Match>

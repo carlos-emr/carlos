@@ -133,7 +133,7 @@ public class FrmData {
         String selectClause = "SELECT ID, demographic_no, formCreated, formEdited FROM ";
         String whereClause = " WHERE demographic_no=? ORDER BY ID DESC";
         String sql = selectClause + table + whereClause;
-        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demoNo)) {
+        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(LegacyJdbcQuery.trustedSelectSql(sql), demoNo)) {
             while (rs.next()) {
                 PatientForm frm = new PatientForm(Misc.getString(rs, "ID"), Misc.getString(rs, "demographic_no"),
                         UtilDateUtilities.DateToString(rs.getDate("formCreated"), "yy/MM/dd"), UtilDateUtilities.DateToString(rs.getDate("formEdited"), "yy/MM/dd"));
@@ -225,7 +225,8 @@ public class FrmData {
                 searchFormName = "ar1_99_12"; // quick hack for ease of migration from old forms to new
             if (searchFormName.equals("AR2")) searchFormName = "ar2_99_08"; // ditto
             String sql = "SELECT form_no FROM " + table + " WHERE demographic_no=? AND form_name=? order by form_no desc limit 0,1";
-            try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demoNo, searchFormName)) {
+            try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(LegacyJdbcQuery.trustedSelectSql(sql), demoNo,
+                    searchFormName)) {
                 while (rs.next()) {
                     ret[1] = Misc.getString(rs, "form_no");
                 }
@@ -281,7 +282,7 @@ public class FrmData {
             ret[1] = "0";
         } else {
             String sql = "SELECT ID FROM " + table + " WHERE demographic_no=? order by formEdited desc limit 0,1";
-            try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demoNo)) {
+            try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(LegacyJdbcQuery.trustedSelectSql(sql), demoNo)) {
                 while (rs.next()) {
                     ret[1] = Misc.getString(rs, "ID");
                 }

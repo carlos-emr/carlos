@@ -748,7 +748,7 @@ public class EFormUtil {
             sql = "SELECT * FROM eform, eform_groups where eform.fid=eform_groups.fid AND eform_groups.group_name=? ORDER BY " + validatedSort;
         }
         ArrayList<HashMap<String, ? extends Object>> results = new ArrayList<HashMap<String, ? extends Object>>();
-        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, group)) {
+        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(LegacyJdbcQuery.trustedSelectSql(sql), group)) {
             while (rs.next()) {
                 HashMap<String, String> curht = new HashMap<String, String>();
                 curht.put("fid", rsGetString(rs, "fid"));
@@ -832,7 +832,8 @@ public class EFormUtil {
             logger.error("Invalid demographic_no: " + demographic_no, nfe);
             return results;
         }
-        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo, groupName)) {
+        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(LegacyJdbcQuery.trustedSelectSql(sql),
+                demographicNo, groupName)) {
             while (rs.next()) {
                 // filter eform by role type
                 if (rsGetString(rs, "roleType") != null && !rsGetString(rs, "roleType").equals("") && !rsGetString(rs, "roleType").equals("null")) {

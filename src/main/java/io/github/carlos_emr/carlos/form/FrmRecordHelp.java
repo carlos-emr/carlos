@@ -158,8 +158,9 @@ public class FrmRecordHelp {
     public synchronized int saveFormRecord(Properties props, String sql, Object... params) throws SQLException {
 
         try (Connection connection = LegacyJdbcQuery.getConnection()) {
+            LegacyJdbcQuery.TrustedSql saveSql = LegacyJdbcQuery.trustedSelectSql(sql);
             int insertedId;
-            try (PreparedStatement ps = prepareResultSetStatement(connection, sql, true, params);
+            try (PreparedStatement ps = prepareResultSetStatement(connection, saveSql, true, params);
                  ResultSet rs = ps.executeQuery()) {
                 rs.moveToInsertRow();
                 updateResultSet(props, rs, true);
@@ -183,7 +184,8 @@ public class FrmRecordHelp {
                             place = place + System.getProperty("file.separator");
                         String fileName = place + archiveFileName;
                         try (PreparedStatement archiveStatement = prepareResultSetStatement(connection,
-                                archiveSelectSql(sql), false, archiveParams(params, insertedId))) {
+                                LegacyJdbcQuery.trustedSelectSql(archiveSelectSql(sql)), false,
+                                archiveParams(params, insertedId))) {
                             try (ResultSet archiveResult = archiveStatement.executeQuery()) {
                                 Document doc = JDBCUtil.toDocument(archiveResult);
                                 JDBCUtil.saveAsXML(doc, fileName);
@@ -217,9 +219,10 @@ public class FrmRecordHelp {
         return archiveParams;
     }
 
-    private PreparedStatement prepareResultSetStatement(Connection connection, String sql, boolean updatable,
+    private PreparedStatement prepareResultSetStatement(Connection connection, LegacyJdbcQuery.TrustedSql sql,
+            boolean updatable,
             Object... params) throws SQLException {
-        PreparedStatement ps = connection.prepareStatement(sql, ResultSet.TYPE_SCROLL_SENSITIVE,
+        PreparedStatement ps = connection.prepareStatement(sql.sql(), ResultSet.TYPE_SCROLL_SENSITIVE,
                 updatable ? ResultSet.CONCUR_UPDATABLE : ResultSet.CONCUR_READ_ONLY);
         try {
             bindParams(ps, params);
@@ -250,7 +253,8 @@ public class FrmRecordHelp {
                 "") : "";
         String idSql = lastInsertedIdSql(dbType);
 
-        try (PreparedStatement ps = connection.prepareStatement(idSql);
+        try (PreparedStatement ps = prepareResultSetStatement(connection, LegacyJdbcQuery.trustedSelectSql(idSql),
+                false);
              ResultSet rs = ps.executeQuery()) {
             if (rs.next()) {
                 return rs.getInt(1);

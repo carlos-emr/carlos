@@ -74,6 +74,10 @@ public final class LegacyJdbcQuery {
         private TrustedSql(String sql) {
             this.sql = sql;
         }
+
+        public String sql() {
+            return sql;
+        }
     }
 
     /**

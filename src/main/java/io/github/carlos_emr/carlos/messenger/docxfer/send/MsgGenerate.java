@@ -134,7 +134,8 @@ public class MsgGenerate {
 
         // Execute the SQL query to retrieve data for this table
         String sql = this.constructSQL(cfgTable);
-        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, this.demographicNo)) {
+        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(LegacyJdbcQuery.trustedReportSelectSql(sql),
+                this.demographicNo)) {
             ResultSetMetaData meta = rs.getMetaData();
 
             // Get the item and field configurations from the config

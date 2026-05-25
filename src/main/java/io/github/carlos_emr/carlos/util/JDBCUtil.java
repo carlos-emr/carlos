@@ -35,6 +35,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -137,15 +138,14 @@ public class JDBCUtil {
             throw new IOException("Form XML archive path must not be null");
         }
 
-        File target = new File(fileName).getCanonicalFile();
-        File archiveDirectory = new File(CarlosProperties.getInstance().getProperty("form_record_path", "/root"))
-                .getCanonicalFile();
+        Path targetPath = Path.of(fileName).toAbsolutePath().normalize();
+        Path archiveDirectory = Path.of(CarlosProperties.getInstance().getProperty("form_record_path", "/root"))
+                .toAbsolutePath().normalize();
         try {
-            PathValidationUtils.validateExistingPath(target, archiveDirectory);
+            return PathValidationUtils.validateExistingPath(targetPath.toFile(), archiveDirectory.toFile());
         } catch (SecurityException e) {
             throw new IOException("Invalid form XML archive path", e);
         }
-        return target;
     }
 
     public static void toDataBase(InputStream inputStream, String fileName) {
