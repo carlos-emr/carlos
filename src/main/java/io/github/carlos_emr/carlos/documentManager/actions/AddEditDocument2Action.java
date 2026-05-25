@@ -751,7 +751,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             // The destination slot is already claimed by Files.createFile() in the caller so
             // concurrent duplicate-name uploads are still blocked; the only remaining risk is
             // that an observer could briefly see a partial file during the non-atomic copy.
-            // Track full mitigation in GitHub issue #<tracked below>.
+            // Track full mitigation in GitHub issue #2274.
             Files.move(tempPath, savePath, StandardCopyOption.REPLACE_EXISTING);
         }
     }
