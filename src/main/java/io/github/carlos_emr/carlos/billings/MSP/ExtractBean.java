@@ -46,11 +46,19 @@ import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 
 public class ExtractBean extends Object implements Serializable {
     private static Logger logger = MiscUtils.getLogger();
+    private static final Pattern DATE_RANGE_CONDITION = Pattern.compile(
+            "(?i)\\band\\s+(billing_date|visitdate)\\s*(=|>=|<=|>|<)\\s*'?(\\d{4}[-/]?\\d{2}[-/]?\\d{2})'?");
+    private static final Pattern SAFE_PARAMETERIZED_DATE_RANGE = Pattern.compile(
+            "(?i)^\\s*(?:and\\s+(?:billing_date|visitdate)\\s*(?:=|>=|<=|>|<)\\s*\\?\\s*)+$");
     private LogTeleplanTxDao logTeleplanTxDao = SpringUtils.getBean(LogTeleplanTxDao.class);
     private BillingDao billingDao = SpringUtils.getBean(BillingDao.class);
     private BillingmasterDAO billingmasterDao = SpringUtils.getBean(BillingmasterDAO.class);
@@ -89,6 +97,7 @@ public class ExtractBean extends Object implements Serializable {
     private BigDecimal BigTotal = new BigDecimal(0).setScale(2, BigDecimal.ROUND_HALF_UP);
     private BigDecimal bdFee = new BigDecimal(0).setScale(2, BigDecimal.ROUND_HALF_UP);
     private String dateRange = "";
+    private Object[] dateRangeParams = new Object[0];
     private String eFlag = "";
     private String oscar_home;
     private int vsFlag = 0;
@@ -156,7 +165,7 @@ public class ExtractBean extends Object implements Serializable {
                 dbExt.openConnection();
                 query = "select * from billing where provider_ohip_no=? and (status='O' or status='W') " + dateRange;
                 MiscUtils.getLogger().debug("1st billing query prepared");
-                ResultSet rs = dbExt.executeQuery(query, providerNo);
+                ResultSet rs = dbExt.executeQuery(query, billingQueryParams());
                 if (rs != null) {
                     while (rs.next()) {
                     patientCount = patientCount + 1;
@@ -567,7 +576,36 @@ public class ExtractBean extends Object implements Serializable {
     }
 
     public synchronized void setDateRange(String newDateRange) {
-        dateRange = newDateRange;
+        if (newDateRange == null || newDateRange.trim().isEmpty()) {
+            dateRange = "";
+            dateRangeParams = new Object[0];
+            return;
+        }
+
+        Matcher matcher = DATE_RANGE_CONDITION.matcher(newDateRange);
+        StringBuffer parameterized = new StringBuffer();
+        List<Object> params = new ArrayList<>();
+        while (matcher.find()) {
+            params.add(matcher.group(3));
+            matcher.appendReplacement(parameterized,
+                    Matcher.quoteReplacement("and " + matcher.group(1) + " " + matcher.group(2) + " ?"));
+        }
+        matcher.appendTail(parameterized);
+
+        String parameterizedDateRange = parameterized.toString();
+        if (params.isEmpty() || !SAFE_PARAMETERIZED_DATE_RANGE.matcher(parameterizedDateRange).matches()) {
+            throw new IllegalArgumentException("Unsupported billing date range filter");
+        }
+
+        dateRange = parameterizedDateRange;
+        dateRangeParams = params.toArray();
+    }
+
+    private Object[] billingQueryParams() {
+        Object[] params = new Object[dateRangeParams.length + 1];
+        params[0] = providerNo;
+        System.arraycopy(dateRangeParams, 0, params, 1, dateRangeParams.length);
+        return params;
     }
 
 

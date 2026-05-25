@@ -308,7 +308,7 @@ public class ReportObjectGeneric implements ReportObject {
         }
 
         parts.add(currentPart.toString());
-        while (parts.size() > 1 && parts.get(parts.size() - 1).isEmpty()) {
+        while (parts.size() > 1 && parts.get(parts.size() - 1).trim().isEmpty()) {
             parts.remove(parts.size() - 1);
         }
         return parts;

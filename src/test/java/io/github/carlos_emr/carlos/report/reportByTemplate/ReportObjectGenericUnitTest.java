@@ -110,4 +110,11 @@ class ReportObjectGenericUnitTest extends CarlosUnitTestBase {
                         "select group_concat(name separator ';') from provider",
                         "select 'it'';works' as value");
     }
+
+    @Test
+    @DisplayName("should ignore whitespace-only trailing sequenced SQL parts")
+    void shouldIgnore_whitespaceOnlyTrailingSequencedSqlParts() {
+        assertThat(ReportObjectGeneric.splitSequencedSql("select * from provider;\n  \t"))
+                .containsExactly("select * from provider");
+    }
 }

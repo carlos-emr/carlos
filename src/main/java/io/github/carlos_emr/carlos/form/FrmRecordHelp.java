@@ -154,11 +154,13 @@ public class FrmRecordHelp {
     public synchronized int saveFormRecord(Properties props, String sql, Object... params) throws SQLException {
 
         try (Connection connection = LegacyJdbcQuery.getConnection()) {
+            int insertedId;
             try (PreparedStatement ps = prepareResultSetStatement(connection, sql, true, params);
                  ResultSet rs = ps.executeQuery()) {
                 rs.moveToInsertRow();
                 updateResultSet(props, rs, true);
                 rs.insertRow();
+                insertedId = getLastInsertedId(connection);
                 String saveAsXml = CarlosProperties.getInstance().getProperty("save_as_xml", "false");
 
                 if (saveAsXml.equalsIgnoreCase("true")) {
@@ -176,8 +178,14 @@ public class FrmRecordHelp {
                         if (!place.endsWith(System.getProperty("file.separator")))
                             place = place + System.getProperty("file.separator");
                         String fileName = place + archiveFileName;
-                        Document doc = JDBCUtil.toDocument(rs);
-                        JDBCUtil.saveAsXML(doc, fileName);
+                        try (PreparedStatement archiveStatement = connection.prepareStatement(
+                                "SELECT * FROM " + formClass + " WHERE ID = ?")) {
+                            archiveStatement.setInt(1, insertedId);
+                            try (ResultSet archiveResult = archiveStatement.executeQuery()) {
+                                Document doc = JDBCUtil.toDocument(archiveResult);
+                                JDBCUtil.saveAsXML(doc, fileName);
+                            }
+                        }
                     } catch (SQLException | ParserConfigurationException | TransformerException | IOException |
                             RuntimeException e) {
                         MiscUtils.getLogger().error(
@@ -187,7 +195,7 @@ public class FrmRecordHelp {
                 }
             }
 
-            return getLastInsertedId(connection);
+            return insertedId;
         }
     }
 

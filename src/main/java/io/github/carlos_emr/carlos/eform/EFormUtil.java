@@ -564,7 +564,7 @@ public class EFormUtil {
      */
     @Deprecated(since = "2026-05-21", forRemoval = true)
     public static ArrayList<String> getValues(List<String> names, String sql) {
-        throw new UnsupportedOperationException("DatabaseAP SQL must be passed as ParameterizedSql");
+        return getValues(names, new ParameterizedSql(sql, List.of()));
     }
 
     public static ArrayList<String> getValues(List<String> names, ParameterizedSql sql) {
@@ -596,7 +596,7 @@ public class EFormUtil {
      */
     @Deprecated(since = "2026-05-21", forRemoval = true)
     public static ArrayNode getJsonValues(List<String> names, String sql) {
-        throw new UnsupportedOperationException("DatabaseAP SQL must be passed as ParameterizedSql");
+        return getJsonValues(names, new ParameterizedSql(sql, List.of()));
     }
 
     public static ArrayNode getJsonValues(List<String> names, ParameterizedSql sql) {
