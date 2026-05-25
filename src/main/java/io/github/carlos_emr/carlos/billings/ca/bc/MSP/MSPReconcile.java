@@ -1130,7 +1130,8 @@ public class MSPReconcile {
         MiscUtils.getLogger().debug("p=" + p);
         try {
 
-            rs = LegacyJdbcQuery.getPreparedResultSet(p, criteriaParams.toArray());
+            rs = LegacyJdbcQuery.getPreparedResultSet(
+                    LegacyJdbcQuery.trustedReportSelectSql(p), criteriaParams.toArray());
 
             while (rs.next()) {
                 MSPBill b = new MSPBill();
@@ -1348,7 +1349,8 @@ public class MSPReconcile {
         ResultSet rs = null;
         try {
 
-            rs = LegacyJdbcQuery.getPreparedResultSet(p, criteriaParams.toArray());
+            rs = LegacyJdbcQuery.getPreparedResultSet(
+                    LegacyJdbcQuery.trustedReportSelectSql(p), criteriaParams.toArray());
             while (rs.next()) {
                 MSPBill b = new MSPBill();
                 b.billingtype = rs.getString("b.billingtype");
@@ -1474,7 +1476,8 @@ public class MSPReconcile {
         ResultSet rs = null;
         try {
 
-            rs = LegacyJdbcQuery.getPreparedResultSet(p, criteriaParams.toArray());
+            rs = LegacyJdbcQuery.getPreparedResultSet(
+                    LegacyJdbcQuery.trustedReportSelectSql(p), criteriaParams.toArray());
             while (rs.next()) {
                 MSPBill b = new MSPBill();
                 b.billMasterNo = rs.getString("bm.billingmaster_no");
@@ -1539,7 +1542,8 @@ public class MSPReconcile {
         ResultSet rs = null;
         try {
 
-            rs = LegacyJdbcQuery.getPreparedResultSet(p, criteriaParams.toArray());
+            rs = LegacyJdbcQuery.getPreparedResultSet(
+                    LegacyJdbcQuery.trustedReportSelectSql(p), criteriaParams.toArray());
             while (rs.next()) {
                 MSPBill b = new MSPBill();
                 b.billMasterNo = rs.getString("bm.billingmaster_no");
