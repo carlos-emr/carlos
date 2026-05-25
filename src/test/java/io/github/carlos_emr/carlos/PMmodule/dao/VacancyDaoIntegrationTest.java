@@ -30,6 +30,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Comparator;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -199,10 +200,13 @@ public class VacancyDaoIntegrationTest extends CarlosTestBase {
         vacancy5.setStatus(status1);
         dao.persist(vacancy5);
 
-        List<Vacancy> result = dao.getVacanciesByWlProgramId(wlProgramId1);
+        List<Vacancy> result = dao.getVacanciesByWlProgramIdAndStatus(wlProgramId1, status1);
 
         assertThat(result).hasSize(3);
-        assertThat(result).containsExactly(vacancy1, vacancy3, vacancy5);
+        assertThat(result).containsExactlyElementsOf(
+                List.of(vacancy1, vacancy3, vacancy5).stream()
+                        .sorted(Comparator.comparing(Vacancy::getName))
+                        .toList());
     }
 
     @Test
