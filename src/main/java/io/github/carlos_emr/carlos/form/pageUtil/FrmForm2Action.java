@@ -295,6 +295,10 @@ public class FrmForm2Action extends ActionSupport {
         EncounterFormDao encounterFormDao = (EncounterFormDao) SpringUtils.getBean(EncounterFormDao.class);
         EncounterForm encounterForm = encounterFormDao
                 .find("../form/SetupForm?formName=" + trustedFormName + "&demographic_no=");
+        if (encounterForm == null) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid form configuration");
+            return NONE;
+        }
         String formNameByFormTable = encounterForm.getFormName();
         logger.debug("formNameByFormTable" + formNameByFormTable);
         String[] formPath = {"", "0"};
@@ -460,11 +464,32 @@ public class FrmForm2Action extends ActionSupport {
         List<EncounterForm> configuredForms = encounterFormDao.findByFormTable(expectedTable);
         for (EncounterForm configuredForm : configuredForms) {
             String formValue = configuredForm.getFormValue();
-            if (formValue != null && formValue.contains("SetupForm") && containsFormNameParameter(formValue, formName)) {
+            if (isSetupFormEndpoint(formValue) && containsFormNameParameter(formValue, formName)) {
                 return formName;
             }
         }
         return null;
+    }
+
+    private boolean isSetupFormEndpoint(String formValue) {
+        if (formValue == null) {
+            return false;
+        }
+
+        int index = formValue.indexOf("SetupForm");
+        while (index >= 0) {
+            boolean hasRoutePrefix = index == 0 || formValue.charAt(index - 1) == '/';
+            int next = index + "SetupForm".length();
+            boolean hasRouteSuffix = next == formValue.length()
+                    || formValue.charAt(next) == '?'
+                    || formValue.charAt(next) == '&'
+                    || formValue.charAt(next) == '#';
+            if (hasRoutePrefix && hasRouteSuffix) {
+                return true;
+            }
+            index = formValue.indexOf("SetupForm", next);
+        }
+        return false;
     }
 
     private boolean containsFormNameParameter(String formValue, String formName) {

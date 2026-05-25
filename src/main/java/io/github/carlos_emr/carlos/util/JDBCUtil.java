@@ -55,6 +55,7 @@ import io.github.carlos_emr.Misc;
 import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
 import org.w3c.dom.Document;
@@ -139,8 +140,10 @@ public class JDBCUtil {
         File target = new File(fileName).getCanonicalFile();
         File archiveDirectory = new File(CarlosProperties.getInstance().getProperty("form_record_path", "/root"))
                 .getCanonicalFile();
-        if (!target.toPath().startsWith(archiveDirectory.toPath())) {
-            throw new IOException("Invalid form XML archive path");
+        try {
+            PathValidationUtils.validateExistingPath(target, archiveDirectory);
+        } catch (SecurityException e) {
+            throw new IOException("Invalid form XML archive path", e);
         }
         return target;
     }

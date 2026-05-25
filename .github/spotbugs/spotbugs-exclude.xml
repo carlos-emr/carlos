@@ -149,6 +149,17 @@
     <Match>
         <Bug pattern="SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"/>
         <Class name="io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile"/>
+        <Method name="getBillsByType"/>
+    </Match>
+    <Match>
+        <Bug pattern="SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"/>
+        <Class name="io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile"/>
+        <Method name="getPayments"/>
+    </Match>
+    <Match>
+        <Bug pattern="SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"/>
+        <Class name="io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile"/>
+        <Method name="getPrivatePayments"/>
     </Match>
 
     <!--
