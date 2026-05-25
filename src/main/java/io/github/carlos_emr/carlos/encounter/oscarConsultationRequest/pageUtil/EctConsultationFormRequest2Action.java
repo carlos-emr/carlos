@@ -253,7 +253,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                     consult.setFollowUpDate(date);
                 }
 
-                Integer specId = null;
+                Integer specId = 0;
 
                 if (!this.getSpecialist().isEmpty()) {
                     specId = Integer.parseInt(this.getSpecialist());
