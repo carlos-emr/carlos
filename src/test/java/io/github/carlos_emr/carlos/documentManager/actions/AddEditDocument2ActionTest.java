@@ -52,20 +52,25 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.ResourceBundle;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
@@ -250,6 +255,26 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should not trust upload content type for PDF fallback extension")
+    void shouldNotPreservePdfExtension_whenOnlyContentTypeClaimsPdf() throws Exception {
+        tempUploadFile = File.createTempFile("add-edit-document", ".tmp");
+        Files.writeString(tempUploadFile.toPath(), "not a pdf");
+
+        UploadedFile uploadedFile = mock(UploadedFile.class);
+        when(uploadedFile.getInputName()).thenReturn("docFile");
+        when(uploadedFile.getContent()).thenReturn(tempUploadFile);
+        when(uploadedFile.getOriginalName()).thenReturn(null);
+        when(uploadedFile.getContentType()).thenReturn("application/pdf");
+
+        action.withUploadedFiles(List.of(uploadedFile));
+
+        assertThat(action.getDocFile()).isNotNull();
+        assertThat(action.getDocFileFileName()).isEqualTo(MiscUtils.sanitizeFileName(tempUploadFile.getName()));
+        assertThat(action.getDocFileFileName()).doesNotEndWith(".pdf");
+        assertThat(action.getDocFileContentType()).isEqualTo("application/pdf");
+    }
+
+    @Test
     @DisplayName("should fall back to temp filename when Struts 7 original name is only a path")
     void shouldFallBackToTempFilename_whenStruts7OriginalNameIsOnlyAPath() throws Exception {
         tempUploadFile = File.createTempFile("add-edit-document", ".pdf");
@@ -373,12 +398,18 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
         action.setAppointmentNo("123");
 
         try (MockedStatic<AddEditDocument2Action> addEditDocumentActionMock = mockStatic(AddEditDocument2Action.class, CALLS_REAL_METHODS)) {
-            addEditDocumentActionMock.when(() -> AddEditDocument2Action.writeLocalFile(any(InputStream.class), eq("echartupload.pdf")))
+            addEditDocumentActionMock.when(() -> AddEditDocument2Action.writeLocalFile(
+                    any(InputStream.class),
+                    argThat(fileName -> isGeneratedStoredName(fileName, "echartupload.pdf")),
+                    eq(false)))
                     .thenReturn(null);
 
             String result = action.html5MultiUpload();
 
-            addEditDocumentActionMock.verify(() -> AddEditDocument2Action.writeLocalFile(any(InputStream.class), eq("echartupload.pdf")));
+            addEditDocumentActionMock.verify(() -> AddEditDocument2Action.writeLocalFile(
+                    any(InputStream.class),
+                    argThat(fileName -> isGeneratedStoredName(fileName, "echartupload.pdf")),
+                    eq(false)));
             assertThat(result).isNull();
             assertThat(response.getStatus()).isEqualTo(500);
             assertThat(response.getHeader("oscar_error")).isEqualTo(ResourceBundle.getBundle("oscarResources")
@@ -401,7 +432,10 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
         action.setAppointmentNo("123");
 
         try (MockedStatic<AddEditDocument2Action> addEditDocumentActionMock = mockStatic(AddEditDocument2Action.class, CALLS_REAL_METHODS)) {
-            addEditDocumentActionMock.when(() -> AddEditDocument2Action.writeLocalFile(any(InputStream.class), eq("echartupload.pdf")))
+            addEditDocumentActionMock.when(() -> AddEditDocument2Action.writeLocalFile(
+                    any(InputStream.class),
+                    argThat(fileName -> isGeneratedStoredName(fileName, "echartupload.pdf")),
+                    eq(false)))
                     .thenReturn(partialFile);
 
             String result = action.html5MultiUpload();
@@ -416,6 +450,54 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
                 CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", originalDocumentDir);
             }
             Files.deleteIfExists(partialFile.toPath());
+            Files.deleteIfExists(documentDir);
+        }
+    }
+
+    @Test
+    @DisplayName("should write html5 upload using stored document filename")
+    void shouldWriteHtml5Upload_usingStoredDocumentFilename() throws Exception {
+        tempUploadFile = File.createTempFile("add-edit-document", ".txt");
+        Files.writeString(tempUploadFile.toPath(), "complete-content");
+        Path documentDir = Files.createTempDirectory("add-edit-document-output");
+        String originalDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", documentDir.toString());
+
+        bindDocFileUpload(tempUploadFile, "echart-upload.txt");
+        action.setAppointmentNo("123");
+        AtomicReference<EDoc> savedDocument = new AtomicReference<>();
+
+        try (MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class, CALLS_REAL_METHODS)) {
+            eDocUtilMock.when(() -> EDocUtil.addDocumentSQL(any(EDoc.class))).thenAnswer(invocation -> {
+                savedDocument.set(invocation.getArgument(0));
+                return "321";
+            });
+
+            String result = action.html5MultiUpload();
+
+            assertThat(result).isNull();
+            assertThat(savedDocument.get()).isNotNull();
+            try (var files = Files.list(documentDir)) {
+                List<String> writtenFileNames = files.map(path -> path.getFileName().toString()).toList();
+                assertThat(writtenFileNames).singleElement()
+                        .satisfies(writtenFileName -> {
+                            assertThat(writtenFileName).endsWith("echartupload.txt");
+                            assertThat(writtenFileName).isNotEqualTo("echartupload.txt");
+                            assertThat(savedDocument.get().getFileName()).isEqualTo(writtenFileName);
+                        });
+            }
+            assertThat(documentDir.resolve("echartupload.txt")).doesNotExist();
+        } finally {
+            if (originalDocumentDir == null) {
+                CarlosProperties.getInstance().remove("DOCUMENT_DIR");
+            } else {
+                CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", originalDocumentDir);
+            }
+            try (var files = Files.list(documentDir)) {
+                for (Path writtenFile : files.toList()) {
+                    Files.deleteIfExists(writtenFile);
+                }
+            }
             Files.deleteIfExists(documentDir);
         }
     }
@@ -451,6 +533,35 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
             assertThatThrownBy(() -> AddEditDocument2Action.writeLocalFile(failingInputStream, "existing.pdf"))
                     .isInstanceOf(IOException.class)
                     .hasMessageContaining("simulated write failure");
+
+            assertThat(Files.readString(existingDocument)).isEqualTo("original");
+            try (var files = Files.list(documentDir)) {
+                assertThat(files.map(path -> path.getFileName().toString()).toList())
+                        .containsExactly("existing.pdf");
+            }
+        } finally {
+            if (originalDocumentDir == null) {
+                CarlosProperties.getInstance().remove("DOCUMENT_DIR");
+            } else {
+                CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", originalDocumentDir);
+            }
+            Files.deleteIfExists(existingDocument);
+            Files.deleteIfExists(documentDir);
+        }
+    }
+
+    @Test
+    @DisplayName("should reject existing document when new upload target already exists")
+    void shouldRejectExistingDocument_whenNewUploadTargetAlreadyExists() throws Exception {
+        Path documentDir = Files.createTempDirectory("add-edit-document-output");
+        Path existingDocument = documentDir.resolve("existing.pdf");
+        Files.writeString(existingDocument, "original");
+        String originalDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", documentDir.toString());
+
+        try (InputStream replacementInputStream = new ByteArrayInputStream("replacement".getBytes(StandardCharsets.UTF_8))) {
+            assertThatThrownBy(() -> AddEditDocument2Action.writeLocalFile(replacementInputStream, "existing.pdf", false))
+                    .isInstanceOf(FileAlreadyExistsException.class);
 
             assertThat(Files.readString(existingDocument)).isEqualTo("original");
             try (var files = Files.list(documentDir)) {
@@ -633,7 +744,6 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
         when(uploadedFile.getInputName()).thenReturn("docFile");
         when(uploadedFile.getContent()).thenReturn(tempUploadFile);
         when(uploadedFile.getOriginalName()).thenReturn(".env");
-        when(uploadedFile.getContentType()).thenReturn("application/pdf");
 
         assertThatThrownBy(() -> action.withUploadedFiles(List.of(uploadedFile)))
                 .isInstanceOf(FileValidationException.class);
@@ -692,6 +802,10 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
     private String expectedPdfFallbackName(File uploadFile) {
         String sanitizedTempName = MiscUtils.sanitizeFileName(uploadFile.getName());
         return FilenameUtils.removeExtension(sanitizedTempName) + ".pdf";
+    }
+
+    private boolean isGeneratedStoredName(String fileName, String sanitizedBaseName) {
+        return fileName != null && fileName.endsWith(sanitizedBaseName) && !fileName.equals(sanitizedBaseName);
     }
 
     private static class FailingUploadInputStream extends InputStream {

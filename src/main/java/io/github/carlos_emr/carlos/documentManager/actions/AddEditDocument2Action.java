@@ -119,7 +119,6 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
 public class AddEditDocument2Action extends ActionSupport implements UploadedFilesAware {
     private static final int MAX_SAFE_EXTENSION_LENGTH = 10;
     private static final String PDF_EXTENSION = "pdf";
-    private static final String PDF_CONTENT_TYPE = "application/pdf";
     private static final byte[] PDF_HEADER = new byte[] {'%', 'P', 'D', 'F', '-'};
     private static final String ERROR_NO_WRITE_KEY = "dms.addDocument.errorNoWrite";
     private static final String ERROR_ZERO_SIZE_KEY = "dms.addDocument.errorZeroSize";
@@ -169,7 +168,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
 
         String fileName;
         try {
-            fileName = resolveSanitizedUploadedFileName(validatedSource, this.docFileFileName, this.docFileContentType);
+            fileName = resolveSanitizedUploadedFileName(validatedSource, this.docFileFileName);
         } catch (FileValidationException e) {
             response.setHeader("oscar_error", props.getString("dms.error.invalidFilename"));
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, props.getString("dms.error.invalidFilename"));
@@ -178,6 +177,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String user = loggedInInfo.getLoggedInProviderNo();
         EDoc newDoc = new EDoc("", "", fileName, "", user, user, this.getSource(), 'A', UtilDateUtilities.getToday("yyyy-MM-dd"), "", "", "demographic", "-1", 0);
+        String storedFileName = newDoc.getFileName();
         newDoc.setDocPublic("0");
         newDoc.setAppointmentNo(Integer.parseInt(this.getAppointmentNo()));
 
@@ -198,7 +198,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         // validated temp file reference and use try-with-resources for explicit stream cleanup.
         File file;
         try {
-            file = writeValidatedUpload(validatedSource, fileName);
+            file = writeValidatedUpload(validatedSource, storedFileName, false);
         } catch (IOException e) {
             MiscUtils.getLogger().error("Failed to write uploaded document file");
             sendHtml5UploadError(props, ERROR_NO_WRITE_KEY);
@@ -211,10 +211,10 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             return null;
         }
 
-        if (fileName.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
+        if (storedFileName.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
             newDoc.setContentType("application/pdf");
             // get number of pages when document is pdf;
-            numberOfPages = countNumOfPages(fileName);
+            numberOfPages = countNumOfPages(storedFileName);
         }
         newDoc.setNumberOfPages(numberOfPages);
         String doc_no = EDocUtil.addDocumentSQL(newDoc);
@@ -378,7 +378,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             // sanitize the original file name first
             String fileName1;
             try {
-                fileName1 = resolveSanitizedUploadedFileName(validatedDocFile, this.docFileFileName, this.docFileContentType);
+                fileName1 = resolveSanitizedUploadedFileName(validatedDocFile, this.docFileFileName);
             } catch (FileValidationException e) {
                 errors.put("filenameinvalid", "dms.error.invalidFilename");
                 throw e;
@@ -396,7 +396,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             // save local file
             File writtenFile;
             try {
-                writtenFile = writeValidatedUpload(validatedDocFile, fileName2);
+                writtenFile = writeValidatedUpload(validatedDocFile, fileName2, false);
             } catch (IOException e) {
                 errors.put("uploaderror", "dms.error.uploadError");
                 addActionError(getText("dms.error.uploadError"));
@@ -544,7 +544,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
                 if (docFile != null && docFile.exists()) {
                     validatedDocFile = PathValidationUtils.validateUpload(docFile);
                     try {
-                        fileName = resolveSanitizedUploadedFileName(validatedDocFile, this.docFileFileName, this.docFileContentType);
+                        fileName = resolveSanitizedUploadedFileName(validatedDocFile, this.docFileFileName);
                     } catch (FileValidationException e) {
                         errors.put("filenameinvalid", "dms.error.invalidFilename");
                         throw e;
@@ -672,6 +672,20 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
      * @throws Exception if validation or writing fails
      */
     public static File writeLocalFile(InputStream is, String fileName) throws Exception {
+        return writeLocalFile(is, fileName, true);
+    }
+
+    /**
+     * Writes an uploaded file to the local document storage directory, optionally
+     * replacing an existing destination file.
+     *
+     * @param is InputStream the input stream of the file content to write
+     * @param fileName String the target filename (relative to DOCUMENT_DIR)
+     * @param replaceExisting boolean true when an existing destination may be replaced
+     * @return File the written file
+     * @throws Exception if validation or writing fails
+     */
+    public static File writeLocalFile(InputStream is, String fileName, boolean replaceExisting) throws Exception {
         String docDir = CarlosProperties.getInstance().getDocumentDirectory();
         File baseDirFile = new File(docDir);
         File validatedFile = PathValidationUtils.validatePath(fileName, baseDirFile);
@@ -682,13 +696,24 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         }
 
         Files.createDirectories(saveParent);
+        boolean reservedDestination = false;
+        if (!replaceExisting) {
+            Files.createFile(savePath);
+            reservedDestination = true;
+        }
 
-        Path tempPath = Files.createTempFile(saveParent, "document-upload-", ".tmp");
+        Path tempPath = null;
         try {
+            tempPath = Files.createTempFile(saveParent, "document-upload-", ".tmp");
             writeUploadContents(is, tempPath);
             moveUploadedFile(tempPath, savePath);
         } catch (Exception e) {
-            deleteTempFile(tempPath, e);
+            if (tempPath != null) {
+                deleteTempFile(tempPath, e);
+            }
+            if (reservedDestination) {
+                deleteReservedDestination(savePath, e);
+            }
             throw e;
         }
 
@@ -716,6 +741,14 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
     private static void deleteTempFile(Path tempPath, Exception originalError) {
         try {
             Files.deleteIfExists(tempPath);
+        } catch (IOException deleteError) {
+            originalError.addSuppressed(deleteError);
+        }
+    }
+
+    private static void deleteReservedDestination(Path savePath, Exception originalError) {
+        try {
+            Files.deleteIfExists(savePath);
         } catch (IOException deleteError) {
             originalError.addSuppressed(deleteError);
         }
@@ -789,7 +822,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             // immediately before file I/O for defense in depth and static-analysis visibility.
             File validatedUpload = PathValidationUtils.validateUpload(resolveUploadedContentFile(selected));
             this.docFile = validatedUpload;
-            this.docFileFileName = resolveSanitizedUploadedFileName(validatedUpload, selected.getOriginalName(), selected.getContentType());
+            this.docFileFileName = resolveSanitizedUploadedFileName(validatedUpload, selected.getOriginalName());
             this.docFileContentType = selected.getContentType();
         }
     }
@@ -804,10 +837,9 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
      *
      * @param uploadedFile File the validated temporary upload file
      * @param originalName String the original client-supplied filename, if any
-     * @param contentType String the upload content type reported by Struts, if any
      * @return String the normalized and sanitized filename to use for storage
      */
-    private String resolveSanitizedUploadedFileName(File uploadedFile, String originalName, String contentType) {
+    private String resolveSanitizedUploadedFileName(File uploadedFile, String originalName) {
         String candidate;
         try {
             candidate = filled(originalName) ? FilenameUtils.getName(originalName) : null;
@@ -818,13 +850,13 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             return PathValidationUtils.validateFileName(candidate);
         }
 
-        return PathValidationUtils.validateFileName(resolveFallbackUploadFileName(uploadedFile, originalName, contentType));
+        return PathValidationUtils.validateFileName(resolveFallbackUploadFileName(uploadedFile, originalName));
     }
 
-    private String resolveFallbackUploadFileName(File uploadedFile, String originalName, String contentType) {
+    private String resolveFallbackUploadFileName(File uploadedFile, String originalName) {
         String fallbackName = MiscUtils.sanitizeFileName(uploadedFile.getName());
         String safeExtension = safeExtension(originalName);
-        if (!filled(safeExtension) && isPdfUpload(uploadedFile, contentType)) {
+        if (!filled(safeExtension) && isPdfUpload(uploadedFile)) {
             safeExtension = PDF_EXTENSION;
         }
         if (!filled(safeExtension)) {
@@ -853,11 +885,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return extension.matches("[A-Za-z0-9]+") ? extension : "";
     }
 
-    private boolean isPdfUpload(File uploadedFile, String contentType) {
-        if (PDF_CONTENT_TYPE.equalsIgnoreCase(safeContentType(contentType))) {
-            return true;
-        }
-
+    private boolean isPdfUpload(File uploadedFile) {
         try (InputStream inputStream = PathValidationUtils.openValidatedUploadInputStream(uploadedFile)) {
             byte[] header = inputStream.readNBytes(PDF_HEADER.length);
             if (header.length != PDF_HEADER.length) {
@@ -873,15 +901,6 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             MiscUtils.getLogger().warn("Failed to read validated upload for PDF header check", e);
             return false;
         }
-    }
-
-    private String safeContentType(String contentType) {
-        if (!filled(contentType)) {
-            return "";
-        }
-        int parameterStart = contentType.indexOf(';');
-        String mediaType = parameterStart >= 0 ? contentType.substring(0, parameterStart) : contentType;
-        return mediaType.trim();
     }
 
     /**
@@ -917,8 +936,12 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
     }
 
     private File writeValidatedUpload(File validatedUpload, String fileName) throws IOException {
+        return writeValidatedUpload(validatedUpload, fileName, true);
+    }
+
+    private File writeValidatedUpload(File validatedUpload, String fileName, boolean replaceExisting) throws IOException {
         try (InputStream inputStream = openValidatedUploadInputStream(validatedUpload)) {
-            return writeLocalFile(inputStream, fileName);
+            return writeLocalFile(inputStream, fileName, replaceExisting);
         } catch (Exception e) {
             throw new IOException("Failed to write uploaded document", e);
         }
