@@ -269,10 +269,10 @@ public class FrmForm2Action extends ActionSupport {
             // Store the the form table for keeping the current record
             logger.debug("current mem 8 " + currentMem());
             try {
-                String sql = "SELECT * FROM form" + formName + " WHERE demographic_no='" + demographicNo + "' AND ID=0";
+                String sql = setupFormSaveSql(formName);
                 FrmRecordHelp frh = new FrmRecordHelp();
                 frh.setDateFormat(_dateFormat);
-                (frh).saveFormRecord(props, sql);
+                (frh).saveFormRecord(props, sql, demographicNo);
             } catch (SQLException e) {
                 logger.error("Error", e);
             }
@@ -448,6 +448,13 @@ public class FrmForm2Action extends ActionSupport {
 
         // Only allow alphanumeric characters and underscores
         return VALID_FORM_NAME_PATTERN.matcher(formName).matches();
+    }
+
+    private String setupFormSaveSql(String trustedFormName) {
+        // Table identifiers cannot be JDBC-bound. trustedFormName has already
+        // passed isValidFormName(); values remain JDBC bind parameters.
+        // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string
+        return "SELECT * FROM form" + trustedFormName + " WHERE demographic_no=? AND ID=0"; // NOSONAR javasecurity:S2077 -- validated form table suffix; values are bound
     }
 
 }
