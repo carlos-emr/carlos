@@ -131,7 +131,7 @@
     <!-- Teleplan response files are bounded by DOCUMENT_DIR or an allowed temp directory before reading. -->
     <Match>
         <Bug pattern="PATH_TRAVERSAL_IN"/>
-        <Class name="io.github.carlos_emr.carlos.billing.CA.BC.Teleplan.TeleplanCodesManager"/>
+        <Class name="io.github.carlos_emr.carlos.billings.ca.bc.Teleplan.TeleplanCodesManager"/>
         <Method name="parse"/>
     </Match>
 
