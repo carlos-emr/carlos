@@ -226,13 +226,13 @@ public class CategoryData {
 
 		hrmViewed = " AND hp.viewed = 1 ";
 		hrmSignedOff = " AND hp.signedOff = 0 ";
-		if (status == null || status.equalsIgnoreCase("N")) {
+		if (matchesAnyStatus()) {
+			hrmViewed = "";
+			hrmSignedOff = "";
+		} else if (status.equalsIgnoreCase("N")) {
 			hrmViewed = "";
 		} else if (status.equalsIgnoreCase("A") || status.equalsIgnoreCase("F")) {
 			hrmSignedOff = " AND hp.signedOff = 1 ";
-		} else if (matchesAnyStatus()) {
-			hrmViewed = "";
-			hrmSignedOff = "";
 		}
 
         totalDocs = 0;

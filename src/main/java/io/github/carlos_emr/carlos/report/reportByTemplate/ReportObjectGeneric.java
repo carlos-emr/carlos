@@ -215,6 +215,13 @@ public class ReportObjectGeneric implements ReportObject {
         return toLegacyArray(buildParameterizedSql(parameters));
     }
 
+    /**
+     * Builds parameterized SQL by converting request parameters to JDBC bind parameters.
+     * Returns {@code new ParameterizedSql("", List.of())} when template SQL is missing.
+     *
+     * @param parameters the HTTP request parameter map
+     * @return parameterized SQL and bind parameters
+     */
     public ParameterizedSql buildParameterizedSql(Map<String, String[]> parameters) {
         String sql = (new ReportManager()).getSQL(this.templateId);
         if (sql == null) {
@@ -238,6 +245,15 @@ public class ReportObjectGeneric implements ReportObject {
         return parameterizedSql == null ? null : toLegacyArray(parameterizedSql);
     }
 
+    /**
+     * Builds parameterized SQL for one sequenced template entry by converting request parameters to JDBC bind parameters.
+     * Returns {@code new ParameterizedSql("", List.of())} when template SQL is missing, or {@code null}
+     * when {@code sequenceNo} is out of range.
+     *
+     * @param sequenceNo zero-based index of the SQL statement within the template
+     * @param parameters the HTTP request parameter map
+     * @return parameterized SQL and bind parameters, or {@code null} when the sequence entry is out of range
+     */
     public ParameterizedSql buildParameterizedSql(int sequenceNo, Map<String, String[]> parameters) {
         String sql = (new ReportManager()).getSQL(this.templateId);
         if (sql == null) {

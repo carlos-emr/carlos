@@ -335,7 +335,9 @@ public class FrmRecordHelp {
 
 
         try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, true, params)) {
-            //rs.relative(0);
+            if (!rs.next()) {
+                throw new SQLException("No form record found for update");
+            }
             updateResultSet(props, rs, false);
             rs.updateRow();
         }

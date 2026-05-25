@@ -56,6 +56,7 @@ public class dbExtract implements AutoCloseable {
         } catch (SQLException e) {
             MiscUtils.getLogger().debug("Cannot get connection", e);
             closeConnection();
+            throw new IllegalStateException("Failed to open database connection", e);
         } catch (RuntimeException e) {
             MiscUtils.getLogger().debug("Cannot get connection", e);
             closeConnection();

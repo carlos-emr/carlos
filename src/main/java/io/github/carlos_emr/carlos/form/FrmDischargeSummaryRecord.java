@@ -54,11 +54,11 @@ public class FrmDischargeSummaryRecord extends FrmRecord {
             String sql0 = "SELECT name AS programName FROM program WHERE id=?";
 
             try {
-                ResultSet rs0 = LegacyJdbcQuery.getPreparedResultSet(sql0, programNo);
-                if (rs0.next()) {
-                    props.setProperty("programName", Misc.getString(rs0, "programName"));
+                try (ResultSet rs0 = LegacyJdbcQuery.getPreparedResultSet(sql0, programNo)) {
+                    if (rs0.next()) {
+                        props.setProperty("programName", Misc.getString(rs0, "programName"));
+                    }
                 }
-                rs0.close();
             } catch (SQLException e) {
                 // TODO Auto-generated catch block
                 logger.error("", e);
@@ -69,21 +69,21 @@ public class FrmDischargeSummaryRecord extends FrmRecord {
 
 
             try {
-                ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo);
-                if (rs.next()) {
-                    Date dob = UtilDateUtilities.calcDate(Misc.getString(rs, "year_of_birth"), Misc.getString(rs, "month_of_birth"),
-                            Misc.getString(rs, "date_of_birth"));
-                    props.setProperty("demographic_no", Misc.getString(rs, "demographic_no"));
-                    props.setProperty("formCreated", UtilDateUtilities.DateToString(new Date(),
-                            "yyyy/MM/dd"));
-                    //props.setProperty("formEdited",
-                    // UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd
-                    // HH:mm:ss"));
-                    props.setProperty("birthDate", UtilDateUtilities.DateToString(dob, "yyyy/MM/dd"));
-                    props.setProperty("clientName", Misc.getString(rs, "clientName"));
-                    props.setProperty("ohip", Misc.getString(rs, "ohip"));
+                try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo)) {
+                    if (rs.next()) {
+                        Date dob = UtilDateUtilities.calcDate(Misc.getString(rs, "year_of_birth"), Misc.getString(rs, "month_of_birth"),
+                                Misc.getString(rs, "date_of_birth"));
+                        props.setProperty("demographic_no", Misc.getString(rs, "demographic_no"));
+                        props.setProperty("formCreated", UtilDateUtilities.DateToString(new Date(),
+                                "yyyy/MM/dd"));
+                        //props.setProperty("formEdited",
+                        // UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd
+                        // HH:mm:ss"));
+                        props.setProperty("birthDate", UtilDateUtilities.DateToString(dob, "yyyy/MM/dd"));
+                        props.setProperty("clientName", Misc.getString(rs, "clientName"));
+                        props.setProperty("ohip", Misc.getString(rs, "ohip"));
+                    }
                 }
-                rs.close();
             } catch (SQLException e) {
                 // TODO Auto-generated catch block
                 logger.error("", e);
@@ -94,11 +94,11 @@ public class FrmDischargeSummaryRecord extends FrmRecord {
 
 
             try {
-                ResultSet rs1 = LegacyJdbcQuery.getPreparedResultSet(sql1, providerNo);
-                if (rs1.next()) {
-                    props.setProperty("providerName", rs1.getString("providerName"));
+                try (ResultSet rs1 = LegacyJdbcQuery.getPreparedResultSet(sql1, providerNo)) {
+                    if (rs1.next()) {
+                        props.setProperty("providerName", rs1.getString("providerName"));
+                    }
                 }
-                rs1.close();
             } catch (SQLException e) {
                 // TODO Auto-generated catch block
                 logger.error("", e);
@@ -109,16 +109,16 @@ public class FrmDischargeSummaryRecord extends FrmRecord {
 
 
             try {
-                ResultSet rs2 = LegacyJdbcQuery.getPreparedResultSet(sql2, demographicNo, programNo);
-                if (rs2.next()) {
-                    if (rs2.isFirst()) {
-                        String admitDate = Misc.getString(rs2, "admission_date").substring(0, 10);
-                        String admitDate_r = admitDate.replace("-", "/");
-                        props.setProperty("admitDate", admitDate_r);
+                try (ResultSet rs2 = LegacyJdbcQuery.getPreparedResultSet(sql2, demographicNo, programNo)) {
+                    if (rs2.next()) {
+                        if (rs2.isFirst()) {
+                            String admitDate = Misc.getString(rs2, "admission_date").substring(0, 10);
+                            String admitDate_r = admitDate.replace("-", "/");
+                            props.setProperty("admitDate", admitDate_r);
 
+                        }
                     }
                 }
-                rs2.close();
             } catch (SQLException e) {
                 // TODO Auto-generated catch block
                 logger.error("", e);
@@ -209,20 +209,20 @@ public class FrmDischargeSummaryRecord extends FrmRecord {
         if (existingID <= 0) {
 
             String sql = "SELECT demographic_no, CONCAT(CONCAT(last_name, ', '), first_name) AS clientName, year_of_birth, month_of_birth, date_of_birth FROM demographic WHERE demographic_no = ?";
-            ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo);
-            if (rs.next()) {
-                Date dob = UtilDateUtilities.calcDate(Misc.getString(rs, "year_of_birth"), Misc.getString(rs, "month_of_birth"),
-                        Misc.getString(rs, "date_of_birth"));
-                props.setProperty("demographic_no", Misc.getString(rs, "demographic_no"));
-                props.setProperty("formCreated", UtilDateUtilities.DateToString(new Date(),
-                        "yyyy/MM/dd"));
-                //props.setProperty("formEdited",
-                // UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd
-                // HH:mm:ss"));
-                props.setProperty("birthDate", UtilDateUtilities.DateToString(dob, "yyyy/MM/dd"));
-                props.setProperty("clientName", Misc.getString(rs, "pName"));
+            try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo)) {
+                if (rs.next()) {
+                    Date dob = UtilDateUtilities.calcDate(Misc.getString(rs, "year_of_birth"), Misc.getString(rs, "month_of_birth"),
+                            Misc.getString(rs, "date_of_birth"));
+                    props.setProperty("demographic_no", Misc.getString(rs, "demographic_no"));
+                    props.setProperty("formCreated", UtilDateUtilities.DateToString(new Date(),
+                            "yyyy/MM/dd"));
+                    //props.setProperty("formEdited",
+                    // UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd
+                    // HH:mm:ss"));
+                    props.setProperty("birthDate", UtilDateUtilities.DateToString(dob, "yyyy/MM/dd"));
+                    props.setProperty("clientName", Misc.getString(rs, "pName"));
+                }
             }
-            rs.close();
         } else {
             String sql = "SELECT * FROM formDischargeSummary WHERE demographic_no = ? AND ID = ?";
             props = (new FrmRecordHelp()).getFormRecord(sql, demographicNo, existingID);
