@@ -152,6 +152,11 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
 
         File uploadedDocFile = this.getDocFile();
         if (uploadedDocFile == null) {
+            if ("filenameinvalid".equals(docFileBindErrorKey)) {
+                response.setHeader("oscar_error", props.getString("dms.error.invalidFilename"));
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, props.getString("dms.error.invalidFilename"));
+                return null;
+            }
             sendHtml5UploadError(props, ERROR_ZERO_SIZE_KEY);
             return null;
         }
@@ -161,7 +166,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         try {
             validatedSource = PathValidationUtils.validateUpload(uploadedDocFile);
         } catch (SecurityException e) {
-            MiscUtils.getLogger().error("Invalid uploaded document file");
+            MiscUtils.getLogger().error("Invalid uploaded document file", e);
             sendHtml5UploadError(props, ERROR_NO_WRITE_KEY);
             return null;
         }
@@ -200,7 +205,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         try {
             file = writeValidatedUpload(validatedSource, storedFileName, false);
         } catch (IOException e) {
-            MiscUtils.getLogger().error("Failed to write uploaded document file");
+            MiscUtils.getLogger().error("Failed to write uploaded document file", e);
             sendHtml5UploadError(props, ERROR_NO_WRITE_KEY);
             return null;
         }
@@ -258,7 +263,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         try {
             validatedFile = PathValidationUtils.validatePath(fileName, documentDir);
         } catch (SecurityException e) {
-            MiscUtils.getLogger().error("Invalid PDF page count file path");
+            MiscUtils.getLogger().error("Invalid PDF page count file path", e);
             return numOfPage;
         }
 
@@ -270,7 +275,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         try (PdfReader reader = new PdfReader(filePath.toString())) {
             numOfPage = reader.getNumberOfPages();
         } catch (IOException e) {
-            MiscUtils.getLogger().error("Failed to count document pages");
+            MiscUtils.getLogger().error("Failed to count document pages", e);
         }
         return numOfPage;
     }
@@ -366,6 +371,10 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             }
             File docFile = this.getDocFile();
             if (docFile == null) {
+                if ("filenameinvalid".equals(docFileBindErrorKey)) {
+                    errors.put("filenameinvalid", "dms.error.invalidFilename");
+                    throw new FileValidationException("dms.error.invalidFilename");
+                }
                 errors.put("uploaderror", "dms.error.uploadError");
                 throw new FileNotFoundException();
             }
@@ -502,7 +511,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             request.setAttribute("docerrors", errors);
             return false;
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Failed to add uploaded document");
+            MiscUtils.getLogger().error("Failed to add uploaded document", e);
             // ActionRedirect redirect = new ActionRedirect(mapping.findForward("failAdd"));
             request.setAttribute("docerrors", errors);
             return false;
@@ -540,6 +549,10 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
 
             if (CarlosProperties.getInstance().getBooleanProperty("ALLOW_UPDATE_DOCUMENT_CONTENT", "true"))
             {
+                if ("filenameinvalid".equals(docFileBindErrorKey)) {
+                    errors.put("filenameinvalid", "dms.error.invalidFilename");
+                    throw new FileValidationException("dms.error.invalidFilename");
+                }
                 File docFile = this.getDocFile();
                 if (docFile != null && docFile.exists()) {
                     validatedDocFile = PathValidationUtils.validateUpload(docFile);
@@ -734,6 +747,11 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         try {
             Files.move(tempPath, savePath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
         } catch (AtomicMoveNotSupportedException e) {
+            // Known limitation: cross-filesystem moves (e.g. /tmp → /data) cannot be atomic.
+            // The destination slot is already claimed by Files.createFile() in the caller so
+            // concurrent duplicate-name uploads are still blocked; the only remaining risk is
+            // that an observer could briefly see a partial file during the non-atomic copy.
+            // Track full mitigation in GitHub issue #<tracked below>.
             Files.move(tempPath, savePath, StandardCopyOption.REPLACE_EXISTING);
         }
     }
@@ -777,7 +795,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             documentStorageDao.persist(docStor);
             ret = docStor.getId();
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Failed to store document file in database");
+            MiscUtils.getLogger().error("Failed to store document file in database", e);
         } finally {
             IOUtils.closeQuietly(fin);
         }
@@ -820,10 +838,21 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             // Validate once when binding the Struts 7 upload so the action only stores
             // temp files from approved locations. Business methods re-validate again
             // immediately before file I/O for defense in depth and static-analysis visibility.
-            File validatedUpload = PathValidationUtils.validateUpload(resolveUploadedContentFile(selected));
-            this.docFile = validatedUpload;
-            this.docFileFileName = resolveSanitizedUploadedFileName(validatedUpload, selected.getOriginalName());
-            this.docFileContentType = selected.getContentType();
+            try {
+                File validatedUpload = PathValidationUtils.validateUpload(resolveUploadedContentFile(selected));
+                String sanitizedFileName = resolveSanitizedUploadedFileName(validatedUpload, selected.getOriginalName());
+                // All validation passed; commit all fields atomically so no partial state is stored.
+                this.docFile = validatedUpload;
+                this.docFileFileName = sanitizedFileName;
+                this.docFileContentType = selected.getContentType();
+            } catch (FileValidationException e) {
+                // Filename rejected at bind time. Store the error key so execute methods can
+                // surface a user-friendly form error rather than leaving docFile null silently.
+                MiscUtils.getLogger().warn("Rejected upload binding: invalid filename", e);
+                this.docFileBindErrorKey = "filenameinvalid";
+            }
+            // SecurityException from validateUpload is intentionally not caught — a source file
+            // outside allowed temp roots is a security violation, not a recoverable user error.
         }
     }
 
@@ -834,6 +863,9 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
      * name when the original value is null, blank, path-only, or sanitizes to
      * blank. The fallback preserves a safe extension where possible so PDF
      * handling is not bypassed solely because Struts omitted the original name.
+     * When the fallback path is taken and no extension can be derived from the
+     * original name, the temp file's first bytes are read to detect a PDF header —
+     * this is a deliberate I/O side effect during bind to avoid misclassifying PDFs.
      *
      * @param uploadedFile File the validated temporary upload file
      * @param originalName String the original client-supplied filename, if any
@@ -921,26 +953,12 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         throw new SecurityException("Selected document upload content must be file-backed");
     }
 
-    /**
-     * Opens a stream for a validated upload file.
-     * The upload is re-validated immediately before opening and must resolve to one
-     * of the allowed upload temp locations enforced by {@link PathValidationUtils}.
-     * Callers must close the returned stream; all current callers use try-with-resources.
-     *
-     * @param validatedUpload File returned by or suitable for {@link PathValidationUtils#validateUpload(File)}
-     * @return InputStream for the upload content
-     * @throws IOException if the stream cannot be opened
-     */
-    private InputStream openValidatedUploadInputStream(File validatedUpload) throws IOException {
-        return PathValidationUtils.openValidatedUploadInputStream(validatedUpload);
-    }
-
     private File writeValidatedUpload(File validatedUpload, String fileName) throws IOException {
         return writeValidatedUpload(validatedUpload, fileName, true);
     }
 
     private File writeValidatedUpload(File validatedUpload, String fileName, boolean replaceExisting) throws IOException {
-        try (InputStream inputStream = openValidatedUploadInputStream(validatedUpload)) {
+        try (InputStream inputStream = PathValidationUtils.openValidatedUploadInputStream(validatedUpload)) {
             return writeLocalFile(inputStream, fileName, replaceExisting);
         } catch (Exception e) {
             throw new IOException("Failed to write uploaded document", e);
@@ -1271,6 +1289,8 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
 
     private String docFileFileName;
     private String docFileContentType;
+    /** Error hashtable key set when filename validation fails during bind; checked by execute methods. */
+    private String docFileBindErrorKey;
 
     public String getDocFileFileName() {
         return docFileFileName;

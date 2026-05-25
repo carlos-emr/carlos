@@ -735,18 +735,32 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should reject Struts 7 uploads when original filename is invalid")
-    void shouldRejectUpload_whenOriginalFilenameIsInvalid() throws Exception {
+    @DisplayName("should return failAdd with filenameinvalid error when uploaded filename is invalid")
+    @SuppressWarnings("unchecked")
+    void shouldReturnFailAdd_whenUploadedFilenameIsInvalid() throws Exception {
         tempUploadFile = File.createTempFile("add-edit-document", ".pdf");
         Files.writeString(tempUploadFile.toPath(), "pdf");
 
+        // withUploadedFiles must not throw — invalid filenames are a user error, not a
+        // security violation, so the error is deferred to execute time for a friendly response.
         UploadedFile uploadedFile = mock(UploadedFile.class);
         when(uploadedFile.getInputName()).thenReturn("docFile");
         when(uploadedFile.getContent()).thenReturn(tempUploadFile);
         when(uploadedFile.getOriginalName()).thenReturn(".env");
+        action.withUploadedFiles(List.of(uploadedFile));
+        assertThat(action.getDocFile()).isNull();
 
-        assertThatThrownBy(() -> action.withUploadedFiles(List.of(uploadedFile)))
-                .isInstanceOf(FileValidationException.class);
+        action.setMode("add");
+        action.setFunction("demographic");
+        action.setFunctionId("123");
+        action.setDocDesc("Consult note");
+        action.setDocType("Consultant Report");
+
+        String result = action.execute2();
+
+        assertThat(result).isEqualTo("failAdd");
+        Hashtable<String, String> errors = (Hashtable<String, String>) request.getAttribute("docerrors");
+        assertThat(errors).containsEntry("filenameinvalid", "dms.error.invalidFilename");
     }
 
     /**
