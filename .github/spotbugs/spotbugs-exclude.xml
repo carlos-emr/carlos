@@ -143,6 +143,80 @@
     </Match>
 
     <!-- ================================================================
+         FIND SECURITY BUGS PATH TRAVERSAL FALSE POSITIVES
+         These are exact method-level suppressions for reviewed file paths
+         where the flagged sink receives a File that has already passed
+         PathValidationUtils or equivalent canonical containment checks.
+         Do not broaden these to package/class-level PATH_TRAVERSAL rules.
+         ================================================================ -->
+
+    <!-- Teleplan response files are bounded by DOCUMENT_DIR or an allowed temp directory before reading. -->
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.billings.ca.bc.Teleplan.TeleplanCodesManager"/>
+        <Method name="parse"/>
+    </Match>
+
+    <!-- Teleplan explanatory/ICD response files are validated before FileReader opens them. -->
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ManageTeleplan2Action"/>
+        <Method name="updateteleplanICDCodesList"/>
+    </Match>
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ManageTeleplan2Action"/>
+        <Method name="updateExplanatoryCodesList"/>
+    </Match>
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ManageTeleplan2Action"/>
+        <Method name="checkElig"/>
+    </Match>
+
+    <!-- Teleplan send files are resolved under HOME_DIR with PathValidationUtils.validatePath(). -->
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ManageTeleplan2Action"/>
+        <Method name="sendFile"/>
+    </Match>
+
+    <!-- Ontario RA imports validate the selected file under DOCUMENT_DIR before parsing. -->
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnRaService"/>
+        <Method name="importRAFile"/>
+    </Match>
+
+    <!-- Generic downloads canonicalize the directory and validate the filename before FileInputStream. -->
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.util.GenericDownload"/>
+        <Method name="transferFile"
+                params="jakarta.servlet.http.HttpServletResponse,jakarta.servlet.ServletOutputStream,java.lang.String,java.lang.String,java.lang.String"
+                returns="void"/>
+    </Match>
+
+    <!-- Document manager file creation/lookup is bounded by DOCUMENT_DIR via PathValidationUtils. -->
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.managers.DocumentManagerImpl"/>
+        <Method name="createDocument"/>
+    </Match>
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.managers.DocumentManagerImpl"/>
+        <Method name="getFullPathToDocument"/>
+    </Match>
+
+    <!-- Uploaded image temp files are accepted only after PathValidationUtils.validateUpload(). -->
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.eform.upload.ImageUpload2Action"/>
+        <Method name="withUploadedFiles"/>
+    </Match>
+
+    <!-- ================================================================
          FIND SECURITY BUGS INFORMATIONAL TAINT-SOURCE / ENDPOINT MARKERS
          These detectors are NOT vulnerabilities. Find Security Bugs emits
          them to map attack surface: SERVLET_PARAMETER flags every point
