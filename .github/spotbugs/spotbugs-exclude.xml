@@ -172,7 +172,7 @@
     <!--
       Form archive XML paths are built from the server configured form_record_path
       plus a generated archive filename. No request-controlled path segment reaches
-      JDBCUtil.saveAsXML in the migrated form save flow.
+      JDBCUtil.saveAsXML through the audited FrmRecordHelp migrated form save flow.
     -->
     <Match>
         <Bug pattern="PATH_TRAVERSAL_IN"/>

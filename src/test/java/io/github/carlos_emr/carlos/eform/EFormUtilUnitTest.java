@@ -37,4 +37,22 @@ class EFormUtilUnitTest extends CarlosUnitTestBase {
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("Unsafe dynamic SQL template");
     }
+
+    @Test
+    @DisplayName("should reject stacked statements")
+    void shouldReject_stackedStatements() {
+        assertThatThrownBy(() -> EFormSqlSafety.validateLegacySqlSafety(
+                "select * from demographic; drop table provider"))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("Unsafe SQL detected");
+    }
+
+    @Test
+    @DisplayName("should reject SQL comments outside literals")
+    void shouldReject_sqlCommentsOutsideLiterals() {
+        assertThatThrownBy(() -> EFormSqlSafety.validateLegacySqlSafety(
+                "select * from demographic -- comment"))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("Unsafe SQL detected");
+    }
 }

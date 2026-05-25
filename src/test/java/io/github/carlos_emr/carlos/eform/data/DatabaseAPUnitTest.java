@@ -67,6 +67,17 @@ class DatabaseAPUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should preserve escaped quote before placeholder inside quoted literal")
+    void shouldPreserve_escapedQuoteBeforePlaceholderInsideQuotedLiteral() {
+        ParameterizedSql sql = DatabaseAP.parameterizeSql(
+                "select * from demographic where note = 'it''s ${value}'",
+                Map.of("value", "ok"));
+
+        assertThat(sql.getSql()).isEqualTo("select * from demographic where note = ?");
+        assertThat(sql.getParams()).containsExactly("it's ok");
+    }
+
+    @Test
     @DisplayName("should preserve legacy null replacement inside quoted literals")
     void shouldPreserve_legacyNullReplacementInsideQuotedLiterals() {
         Map<String, Object> replacements = new LinkedHashMap<>();

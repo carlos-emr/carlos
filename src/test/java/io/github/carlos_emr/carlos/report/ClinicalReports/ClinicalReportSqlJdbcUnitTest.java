@@ -17,7 +17,6 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 @Tag("unit")
-@Tag("database")
 @DisplayName("Clinical report SQL JDBC boundary")
 class ClinicalReportSqlJdbcUnitTest {
 
