@@ -105,9 +105,9 @@ extensions:
       # Guard predicate only; returns boolean with no relevant taint-flow to callers.
       - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", "isInAllowedTempDirectory", "(java.io.File)", "summary", "manual"]
 
-      # Filename-only validators return safe path components and throw on null,
-      # hidden, or path-like inputs. They do not preserve user-controlled path
-      # taint for path traversal analysis.
+      # Filename-only validators return safe path components and reject or strip
+      # unsafe path input. They do not preserve user-controlled path taint for
+      # path traversal analysis.
       - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", "validateFileName", "(java.lang.String)", "summary", "manual"]
       - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", "validateStrictFileName", "(java.lang.String)", "summary", "manual"]
       - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", "validateGeneratedFileName", "(java.lang.String)", "summary", "manual"]
