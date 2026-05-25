@@ -162,7 +162,7 @@
     <!-- Ontario RA imports validate the selected file under DOCUMENT_DIR before parsing. -->
     <Match>
         <Bug pattern="PATH_TRAVERSAL_IN"/>
-        <Class name="io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnRaService"/>
+        <Class name="io.github.carlos_emr.carlos.billing.CA.ON.service.BillingOnRaService"/>
         <Method name="importRAFile"/>
     </Match>
 
