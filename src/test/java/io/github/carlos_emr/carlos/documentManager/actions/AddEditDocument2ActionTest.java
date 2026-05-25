@@ -587,6 +587,43 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should return failEdit when replacement upload is empty")
+    @SuppressWarnings("unchecked")
+    void shouldReturnFailEdit_whenEditReplacementIsEmpty() throws Exception {
+        tempUploadFile = File.createTempFile("add-edit-document", ".txt");
+        String originalAllowUpdate = CarlosProperties.getInstance().getProperty("ALLOW_UPDATE_DOCUMENT_CONTENT");
+        CarlosProperties.getInstance().setProperty("ALLOW_UPDATE_DOCUMENT_CONTENT", "true");
+
+        action.setMode("123");
+        action.setFunction("demographic");
+        action.setFunctionId("456");
+        action.setDocDesc("Consult note");
+        action.setDocType("Consultant Report");
+        action.setDocCreator("999998");
+        action.setResponsibleId("999998");
+        action.setSource("local");
+        action.setDocPublic("0");
+        action.setObservationDate("2026-05-25");
+        action.setAppointmentNo("0");
+        bindDocFileUpload(tempUploadFile, "empty-replacement.txt");
+
+        try {
+            String result = action.execute2();
+
+            assertThat(result).isEqualTo("failEdit");
+            assertThat(request.getAttribute("editDocumentNo")).isEqualTo("123");
+            Hashtable<String, String> errors = (Hashtable<String, String>) request.getAttribute("docerrors");
+            assertThat(errors).containsEntry("uploaderror", "dms.error.uploadError");
+        } finally {
+            if (originalAllowUpdate == null) {
+                CarlosProperties.getInstance().remove("ALLOW_UPDATE_DOCUMENT_CONTENT");
+            } else {
+                CarlosProperties.getInstance().setProperty("ALLOW_UPDATE_DOCUMENT_CONTENT", originalAllowUpdate);
+            }
+        }
+    }
+
+    @Test
     @DisplayName("should reject Struts 7 uploads when original filename is invalid")
     void shouldRejectUpload_whenOriginalFilenameIsInvalid() throws Exception {
         tempUploadFile = File.createTempFile("add-edit-document", ".pdf");

@@ -586,6 +586,10 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             if (updateFileContent) {
                 File uploadForUpdate = Objects.requireNonNull(validatedDocFile, "validatedDocFile");
                 long expectedFileSize = uploadForUpdate.length();
+                if (expectedFileSize == 0) {
+                    errors.put("uploaderror", "dms.error.uploadError");
+                    throw new FileNotFoundException("Uploaded document is empty");
+                }
                 try {
                     fileName = PathValidationUtils.validateGeneratedFileName(newDoc.getFileName());
                 } catch (FileValidationException e) {
@@ -641,6 +645,10 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             }
 
         } catch (FileValidationException e) {
+            request.setAttribute("docerrors", errors);
+            request.setAttribute("editDocumentNo", this.getMode());
+            return "failEdit";
+        } catch (FileNotFoundException e) {
             request.setAttribute("docerrors", errors);
             request.setAttribute("editDocumentNo", this.getMode());
             return "failEdit";
