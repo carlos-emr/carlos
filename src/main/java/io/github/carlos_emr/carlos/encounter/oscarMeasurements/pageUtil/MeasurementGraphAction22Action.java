@@ -673,8 +673,10 @@ public class MeasurementGraphAction22Action extends ActionSupport {
 
 
         ArrayList<Map<String, Serializable>> list = new ArrayList<>();
-        MiscUtils.getLogger().debug("lab type >{}< >{}< {} {}", labType, labType.equals("loinc"), testName, identifier);
-        if (labType.equals("loinc")) {
+        boolean loincLab = "loinc".equals(labType);
+        MiscUtils.getLogger().debug("lab type >{}< >{}< {} {}",
+                LogSafe.sanitize(labType), loincLab, LogSafe.sanitize(testName), LogSafe.sanitize(identifier));
+        if (loincLab) {
             try {
 
                 try (Connection conn = LegacyJdbcQuery.getConnection()) {

@@ -120,7 +120,7 @@ public class FrmConsultantRecord extends FrmRecord {
         try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demo_no)) {
             if (rs.next()) {
                 docno = Misc.getString(rs, "family_doctor");
-                refdocno = docno.substring(8, docno.indexOf("</rdohip>"));
+                refdocno = extractRdohip(docno);
                 if (!refdocno.isEmpty()) {
                     props.setProperty("refdocno", refdocno);
                 }
@@ -149,6 +149,26 @@ public class FrmConsultantRecord extends FrmRecord {
         return ((new FrmRecordHelp()).createActionURL(where, action, demoId, formId));
     }
 
+    private String extractRdohip(String familyDoctor) {
+        if (familyDoctor == null) {
+            return "";
+        }
+
+        String startTag = "<rdohip>";
+        String endTag = "</rdohip>";
+        int start = familyDoctor.indexOf(startTag);
+        if (start < 0) {
+            return "";
+        }
+
+        int valueStart = start + startTag.length();
+        int end = familyDoctor.indexOf(endTag, valueStart);
+        if (end < valueStart) {
+            return "";
+        }
+
+        return familyDoctor.substring(valueStart, end);
+    }
 
 
 }

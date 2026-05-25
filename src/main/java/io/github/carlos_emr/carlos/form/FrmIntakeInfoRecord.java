@@ -38,6 +38,7 @@ import java.util.Properties;
 
 import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
@@ -91,15 +92,16 @@ public class FrmIntakeInfoRecord extends FrmRecord {
                         String name = md.getColumnName(i);
 
                         String value;
-                        MiscUtils.getLogger().debug(" name = " + name + " type = " + md.getColumnTypeName(i) + " scale = " + md.getScale(i));
+                        MiscUtils.getLogger().debug("name = {} type = {} scale = {}",
+                                LogSafe.sanitize(name), md.getColumnTypeName(i), md.getScale(i));
                         if (md.getColumnTypeName(i).equalsIgnoreCase("TINY")) {
 
                             if (rs.getInt(i) == 1) {
                                 value = "checked='checked'";
-                                MiscUtils.getLogger().debug("checking " + name);
+                                MiscUtils.getLogger().debug("checking {}", LogSafe.sanitize(name));
                             } else {
                                 value = "";
-                                MiscUtils.getLogger().debug("not checking " + name);
+                                MiscUtils.getLogger().debug("not checking {}", LogSafe.sanitize(name));
                             }
                         } else {
                             if (md.getColumnTypeName(i).equalsIgnoreCase("date")) {

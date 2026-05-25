@@ -170,17 +170,6 @@
     </Match>
 
     <!--
-      Form archive XML paths are built from the server configured form_record_path
-      plus a generated archive filename. No request-controlled path segment reaches
-      JDBCUtil.saveAsXML through the audited FrmRecordHelp migrated form save flow.
-    -->
-    <Match>
-        <Bug pattern="PATH_TRAVERSAL_IN"/>
-        <Class name="io.github.carlos_emr.carlos.util.JDBCUtil"/>
-        <Method name="saveAsXML"/>
-    </Match>
-
-    <!--
       parseImportDocument uses XmlUtils.createSecureDocumentBuilderFactory(), which
       fails closed if DOCTYPE disabling cannot be applied and disables external
       entities before DocumentBuilder.parse().

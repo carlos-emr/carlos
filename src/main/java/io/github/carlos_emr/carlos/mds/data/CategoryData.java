@@ -577,7 +577,7 @@ public class CategoryData {
 		List<Tuple> results = query.getResultList();
 
 		for (Tuple result : results) {
-			Integer hrmCount = ((Number) result.get(COUNT_COLUMN)).intValue(); // Extracting count as Integer
+				int hrmCount = ((Number) result.get(COUNT_COLUMN)).intValue(); // Extracting count
 			Integer id = result.get("demographic_no", Integer.class); // Extracting demographicNo as Integer
 
 			// Updating patient info if it already exists
@@ -622,7 +622,7 @@ public class CategoryData {
 
 		// Process the results
 		for (Tuple result : results) {
-			Integer hrmCount = ((Number) result.get(COUNT_COLUMN)).intValue(); // Extracting count as Integer
+				int hrmCount = ((Number) result.get(COUNT_COLUMN)).intValue(); // Extracting count
 			count += hrmCount; // Accumulate the total count
         }
 

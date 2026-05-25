@@ -66,7 +66,6 @@ public class FrmRhImmuneGlobulinRecord extends FrmRecord {
                     props.setProperty("phone", Misc.getString(rs, "phone"));
 
                     String lastname = Misc.getString(rs, "last_name");
-                    MiscUtils.getLogger().debug("last name " + lastname);
                     props.setProperty("motherSurname", lastname);
                     props.setProperty("motherFirstname", Misc.getString(rs, "first_name"));
                     props.setProperty("motherHIN", Misc.getString(rs, "hin"));

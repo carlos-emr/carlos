@@ -36,7 +36,6 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 //	 Referenced classes of package io.github.carlos_emr.carlos.form:
@@ -97,7 +96,7 @@ public class FrmBCClientChartChecklistRecord extends FrmRecord {
             frh.setDateFormat(_dateFormat);
             props = frh.getFormRecord(sql, demographicNo, existingID);
             try (ResultSet rs = searchDemographicRecord(demographicNo)) {
-                if (rs != null && rs.next()) {
+                if (rs.next()) {
                     props.setProperty("c_surname_cur", Misc.getString(rs, "last_name"));
                     props
                             .setProperty("c_givenName_cur", rs
@@ -145,15 +144,10 @@ public class FrmBCClientChartChecklistRecord extends FrmRecord {
         return frh.createActionURL(where, action, demoId, formId);
     }
 
-    private static ResultSet searchDemographicRecord(int demographicNo) {
-        try {
-            return LegacyJdbcQuery.getPreparedResultSet(
-                    "SELECT last_name, first_name, address, city, province, postal, phone,phone2, hin FROM demographic WHERE demographic_no = ?",
-                    demographicNo);
-        } catch (SQLException e) {
-            MiscUtils.getLogger().error("Error", e);
-            return null;
-        }
+    private static ResultSet searchDemographicRecord(int demographicNo) throws SQLException {
+        return LegacyJdbcQuery.getPreparedResultSet(
+                "SELECT last_name, first_name, address, city, province, postal, phone,phone2, hin FROM demographic WHERE demographic_no = ?",
+                demographicNo);
     }
 
     private String _dateFormat;

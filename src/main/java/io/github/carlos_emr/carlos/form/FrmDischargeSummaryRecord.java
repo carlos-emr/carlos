@@ -220,7 +220,7 @@ public class FrmDischargeSummaryRecord extends FrmRecord {
                     // UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd
                     // HH:mm:ss"));
                     props.setProperty("birthDate", UtilDateUtilities.DateToString(dob, "yyyy/MM/dd"));
-                    props.setProperty("clientName", Misc.getString(rs, "pName"));
+                    props.setProperty("clientName", Misc.getString(rs, "clientName"));
                 }
             }
         } else {

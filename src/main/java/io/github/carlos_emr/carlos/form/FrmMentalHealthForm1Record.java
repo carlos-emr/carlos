@@ -74,7 +74,7 @@ public class FrmMentalHealthForm1Record extends FrmRecord {
 
         String sql = null;
 
-        if (!demoProvider.equals("")) {
+        if (!demoProvider.isEmpty()) {
 
             if (demoProvider.equals(provNo)) {
                 // from provider table
@@ -105,7 +105,7 @@ public class FrmMentalHealthForm1Record extends FrmRecord {
                 sql = "SELECT CONCAT(last_name, ', ', first_name) AS provName, ohip_no FROM provider WHERE provider_no = ?";
                 try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demoProvider)) {
                     if (rs.next()) {
-                        if (num.equals("")) {
+                        if (num.isEmpty()) {
                             num = Misc.getString(rs, "ohip_no");
                             props.setProperty("practitionerNo", "0000-" + num + "-00");
                         }

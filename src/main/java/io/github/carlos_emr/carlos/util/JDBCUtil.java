@@ -50,6 +50,7 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.Misc;
 import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
@@ -104,7 +105,7 @@ public class JDBCUtil {
     }
 
     public static void saveAsXML(Document doc, String fileName) throws TransformerException, IOException {
-        File newXML = new File(fileName);
+        File newXML = validateFormArchiveFile(fileName);
         try {
             TransformerFactory transFactory = XmlUtils.createSecureTransformerFactory();
             Transformer transformer = transFactory.newTransformer();
@@ -128,6 +129,20 @@ public class JDBCUtil {
             }
             throw e;
         }
+    }
+
+    private static File validateFormArchiveFile(String fileName) throws IOException {
+        if (fileName == null) {
+            throw new IOException("Form XML archive path must not be null");
+        }
+
+        File target = new File(fileName).getCanonicalFile();
+        File archiveDirectory = new File(CarlosProperties.getInstance().getProperty("form_record_path", "/root"))
+                .getCanonicalFile();
+        if (!target.toPath().startsWith(archiveDirectory.toPath())) {
+            throw new IOException("Invalid form XML archive path");
+        }
+        return target;
     }
 
     public static void toDataBase(InputStream inputStream, String fileName) {
