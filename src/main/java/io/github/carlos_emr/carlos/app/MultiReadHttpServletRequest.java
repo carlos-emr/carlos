@@ -70,9 +70,6 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
     /** Maximum request body size (500 MB) to prevent memory exhaustion. Matches struts.multipart.maxSize. */
     static final long MAX_BODY_SIZE = 500L * 1024 * 1024;
 
-    /** Maximum multipart item count to avoid excessive form-field allocation during CSRF extraction. */
-    static final long MAX_MULTIPART_ITEM_COUNT = 256;
-
     /**
      * Wraps the given request to allow multiple reads of the body.
      *
@@ -144,16 +141,7 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
             DiskFileItemFactory factory = new DiskFileItemFactory();
             factory.setSizeThreshold(8192);
             ServletFileUpload upload = new ServletFileUpload(factory);
-            upload.setFileCountMax(MAX_MULTIPART_ITEM_COUNT);
             List<FileItem> items = upload.parseRequest(this);
-            if (items.size() > MAX_MULTIPART_ITEM_COUNT) {
-                LOGGER.warn("Multipart form field parsing exceeded maximum item count of {}", MAX_MULTIPART_ITEM_COUNT);
-                multipartParams = new HashMap<>();
-                for (FileItem item : items) {
-                    item.delete();
-                }
-                return;
-            }
             Map<String, List<String>> temp = new HashMap<>();
             for (FileItem item : items) {
                 if (item.isFormField()) {
