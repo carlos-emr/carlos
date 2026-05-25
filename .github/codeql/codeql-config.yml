@@ -9,21 +9,6 @@
 
 name: "CARLOS EMR CodeQL Configuration"
 
-# Custom CodeQL model packs for CARLOS-specific sanitizers.
-#
-# carlos-java-models registers PathValidationUtils, LogSanitizer callers, and
-# OWASP Encoder methods as explicit summaryModel / neutralModel entries so
-# CodeQL recognises them as sanitizers and does not raise false positives on
-# code paths that pass through them.
-#
-# Pack location: .github/codeql/extensions/carlos-java-models/
-#
-# Note: local pack references may require CodeQL advanced setup. If GitHub's
-# default setup silently ignores this entry, convert to advanced setup with a
-# workflow that passes this config via github/codeql-action/init's config-file.
-packs:
-  - carlos-emr/carlos-java-models
-
 # Exclude bundled third-party JavaScript libraries from JavaScript/TypeScript analysis.
 #
 # These directories contain unmodified copies of external libraries (Bootstrap,

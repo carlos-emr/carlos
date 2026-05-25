@@ -138,31 +138,31 @@
     <!-- Teleplan explanatory/ICD response files are validated before FileReader opens them. -->
     <Match>
         <Bug pattern="PATH_TRAVERSAL_IN"/>
-        <Class name="io.github.carlos_emr.carlos.billing.CA.BC.pageUtil.ManageTeleplan2Action"/>
+        <Class name="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ManageTeleplan2Action"/>
         <Method name="updateteleplanICDCodesList"/>
     </Match>
     <Match>
         <Bug pattern="PATH_TRAVERSAL_IN"/>
-        <Class name="io.github.carlos_emr.carlos.billing.CA.BC.pageUtil.ManageTeleplan2Action"/>
+        <Class name="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ManageTeleplan2Action"/>
         <Method name="updateExplanatoryCodesList"/>
     </Match>
     <Match>
         <Bug pattern="PATH_TRAVERSAL_IN"/>
-        <Class name="io.github.carlos_emr.carlos.billing.CA.BC.pageUtil.ManageTeleplan2Action"/>
+        <Class name="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ManageTeleplan2Action"/>
         <Method name="checkElig"/>
     </Match>
 
     <!-- Teleplan send files are resolved under HOME_DIR with PathValidationUtils.validatePath(). -->
     <Match>
         <Bug pattern="PATH_TRAVERSAL_IN"/>
-        <Class name="io.github.carlos_emr.carlos.billing.CA.BC.pageUtil.ManageTeleplan2Action"/>
+        <Class name="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ManageTeleplan2Action"/>
         <Method name="sendFile"/>
     </Match>
 
     <!-- Ontario RA imports validate the selected file under DOCUMENT_DIR before parsing. -->
     <Match>
         <Bug pattern="PATH_TRAVERSAL_IN"/>
-        <Class name="io.github.carlos_emr.carlos.billing.CA.ON.service.BillingOnRaService"/>
+        <Class name="io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnRaService"/>
         <Method name="importRAFile"/>
     </Match>
 
@@ -170,7 +170,9 @@
     <Match>
         <Bug pattern="PATH_TRAVERSAL_IN"/>
         <Class name="io.github.carlos_emr.carlos.util.GenericDownload"/>
-        <Method name="transferFile"/>
+        <Method name="transferFile"
+                params="jakarta.servlet.http.HttpServletResponse,jakarta.servlet.ServletOutputStream,java.lang.String,java.lang.String,java.lang.String"
+                returns="void"/>
     </Match>
 
     <!-- Document manager file creation/lookup is bounded by DOCUMENT_DIR via PathValidationUtils. -->
