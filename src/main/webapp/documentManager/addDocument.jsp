@@ -426,7 +426,7 @@
             <% if (EDocUtil.isProviderModule(module)) {%>
             <div class="checkbox">
                 <label>
-                    <input type="checkbox" id="docPublic" name="docPublic" <%=formdata.getDocPublic() + " "%>
+                    <input type="checkbox" id="docPublic" name="docPublic" <%="checked".equals(formdata.getDocPublic()) ? "checked" : ""%>
                            value="checked">
                     Public</label>
             </div>
@@ -523,7 +523,7 @@
         <% if (EDocUtil.isProviderModule(module)) {%>
         <div class="checkbox">
             <label>
-                <input type="checkbox" name="docPublic" <%=formdata.getDocPublic() + " "%> value="checked">
+                <input type="checkbox" name="docPublic" <%="checked".equals(formdata.getDocPublic()) ? "checked" : ""%> value="checked">
                 Public</label>
         </div>
         <% } %>

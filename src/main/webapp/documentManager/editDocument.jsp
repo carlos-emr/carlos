@@ -295,7 +295,7 @@
     <% if (EDocUtil.isProviderModule(module)) {%>
     <div class="form-check mb-2">
         <input type="checkbox" class="form-check-input" name="docPublic" id="docPublic"
-            <%=Encode.forHtmlAttribute(formdata.getDocPublic() + " ")%> value="checked">
+            <%="checked".equals(formdata.getDocPublic()) ? "checked" : ""%> value="checked">
         <label class="form-check-label small" for="docPublic"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.msgPublic"/></label>
     </div>
     <%}%>
