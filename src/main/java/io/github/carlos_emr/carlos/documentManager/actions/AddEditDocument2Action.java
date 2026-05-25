@@ -45,6 +45,7 @@ import java.util.Date;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.ResourceBundle;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -75,6 +76,7 @@ import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.SessionConstants;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.web.context.WebApplicationContext;
@@ -93,7 +95,6 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
-import org.owasp.encoder.Encode;
 
 /**
  * Struts2 action for adding and editing documents in the CARLOS EMR document management system.
@@ -583,7 +584,8 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
 
             // if the update behavior is true, get the file name
             if (updateFileContent) {
-                long expectedFileSize = validatedDocFile.length();
+                File uploadForUpdate = Objects.requireNonNull(validatedDocFile, "validatedDocFile");
+                long expectedFileSize = uploadForUpdate.length();
                 try {
                     fileName = PathValidationUtils.validateGeneratedFileName(newDoc.getFileName());
                 } catch (FileValidationException e) {
@@ -593,7 +595,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
                 // save local file
                 File writtenFile;
                 try {
-                    writtenFile = writeValidatedUpload(validatedDocFile, fileName);
+                    writtenFile = writeValidatedUpload(uploadForUpdate, fileName);
                 } catch (IOException e) {
                     errors.put("uploaderror", "dms.error.uploadError");
                     addActionError(getText("dms.error.uploadError"));
@@ -909,8 +911,6 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
     private File writeValidatedUpload(File validatedUpload, String fileName) throws IOException {
         try (InputStream inputStream = openValidatedUploadInputStream(validatedUpload)) {
             return writeLocalFile(inputStream, fileName);
-        } catch (IOException e) {
-            throw e;
         } catch (Exception e) {
             throw new IOException("Failed to write uploaded document", e);
         }
@@ -954,13 +954,13 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         redirect.append('&')
                 .append(name)
                 .append('=')
-                .append(Encode.forUriComponent(value == null ? "" : value));
+                .append(SafeEncode.forUriComponent(value));
     }
 
     private void sendHtml5UploadError(ResourceBundle props, String errorKey) throws IOException {
         String message = props.getString(errorKey);
         response.setHeader("oscar_error", message);
-        response.sendError(500, message);
+        response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, message);
     }
 
     /**
