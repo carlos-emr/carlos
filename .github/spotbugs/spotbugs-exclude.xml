@@ -95,13 +95,6 @@
         <Method name="getPreparedResultSetValidated"/>
     </Match>
 
-    <!-- Raw legacy overload is restricted to caller-owned SQL shape; values are bound below. -->
-    <Match>
-        <Bug pattern="SQL_INJECTION_JDBC"/>
-        <Class name="io.github.carlos_emr.carlos.db.LegacyJdbcQuery"/>
-        <Method name="getPreparedResultSetLegacyRaw"/>
-    </Match>
-
     <!-- Stored procedure names are validated before the CallableStatement is prepared. -->
     <Match>
         <Bug pattern="SQL_INJECTION_JDBC"/>

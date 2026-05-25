@@ -477,7 +477,7 @@ public class FrmForm2Action extends ActionSupport {
             return false;
         }
         int endIndex = index + marker.length();
-        return endIndex == formValue.length() || formValue.charAt(endIndex) == '&';
+        return endIndex == formValue.length() || formValue.charAt(endIndex) == '&' || formValue.charAt(endIndex) == '#';
     }
 
     private String setupFormSaveSql(String trustedFormName) {
