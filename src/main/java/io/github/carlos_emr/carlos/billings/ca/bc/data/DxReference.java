@@ -94,7 +94,7 @@ public class DxReference {
                     _log.debug("THIS IS THE DATE: " + sDate + " DATE PARSED " + sD);
 
                     for (int i = 0; i < dx.length; i++) {
-                        if (dx[i] != null && !dx[i].trim().equals("")) {
+                        if (dx[i] != null && !dx[i].trim().isEmpty()) {
                             DxCode code = new DxCode(sD, dx[i]);
                             if (!m.containsKey(dx[i])) {
                                 m.put(dx[i], dx[i]);
