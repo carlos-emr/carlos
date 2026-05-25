@@ -667,11 +667,7 @@ public class ManageDocument2Action extends ActionSupport {
         String documentDirName = docDir.getName();
         File parentDir = docDir.getParentFile();
 
-        // Sanitize the cache directory name to prevent path traversal
-        String safeCacheDirName = MiscUtils.sanitizeFileName(documentDirName + "_cache");
-
-        // Use validatePath to create a validated cache directory path
-        File cacheDir = PathValidationUtils.validatePath(safeCacheDirName, parentDir);
+        File cacheDir = PathValidationUtils.validateUserFilePath(documentDirName + "_cache", parentDir);
 
         if (!cacheDir.exists()) {
             cacheDir.mkdir();

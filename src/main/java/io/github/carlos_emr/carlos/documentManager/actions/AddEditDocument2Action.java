@@ -66,6 +66,7 @@ import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -140,7 +141,14 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
 
         int numberOfPages = 0;
         String originalFileName = filled(this.docFileFileName) ? this.docFileFileName : uploadedDocFile.getName();
-        String fileName = MiscUtils.sanitizeFileName(originalFileName);
+        String fileName;
+        try {
+            fileName = PathValidationUtils.validateFileName(originalFileName);
+        } catch (FileValidationException e) {
+            response.setHeader("oscar_error", props.getString("dms.error.invalidFilename"));
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, props.getString("dms.error.invalidFilename"));
+            return null;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String user = loggedInInfo.getLoggedInProviderNo();
         EDoc newDoc = new EDoc("", "", fileName, "", user, user, this.getSource(), 'A', UtilDateUtilities.getToday("yyyy-MM-dd"), "", "", "demographic", "-1", 0);
@@ -327,8 +335,13 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
                 errors.put("uploaderror", "dms.error.uploadError");
                 throw new FileNotFoundException();
             }
-            // sanitize the original file name first
-            String fileName1 = MiscUtils.sanitizeFileName(this.docFileFileName);
+            String fileName1;
+            try {
+                fileName1 = PathValidationUtils.validateFileName(this.docFileFileName);
+            } catch (FileValidationException e) {
+                errors.put("filenameinvalid", "dms.error.invalidFilename");
+                throw e;
+            }
 
             EDoc newDoc = new EDoc(this.getDocDesc(), this.getDocType(), fileName1, "", this.getDocCreator(), this.getResponsibleId(), this.getSource(), 'A', this.getObservationDate(), "", "", this.getFunction(), this.getFunctionId());
             newDoc.setDocPublic(this.getDocPublic());
@@ -431,6 +444,9 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
                 EDocUtil.addCaseMgmtNoteLink(cmnl);
             }
 
+        } catch (FileValidationException e) {
+            request.setAttribute("docerrors", errors);
+            return false;
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
             // ActionRedirect redirect = new ActionRedirect(mapping.findForward("failAdd"));
@@ -471,7 +487,12 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             {
                 File docFile = this.getDocFile();
                 if (docFile != null && docFile.exists()) {
-                    fileName = MiscUtils.sanitizeFileName(this.docFileFileName);
+                    try {
+                        fileName = PathValidationUtils.validateFileName(this.docFileFileName);
+                    } catch (FileValidationException e) {
+                        errors.put("filenameinvalid", "dms.error.invalidFilename");
+                        throw e;
+                    }
                     updateFileContent = true; // set update to true
                 }
             }
@@ -507,7 +528,12 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
 
             // if the update behavior is true, get the file name
             if (updateFileContent) {
-                fileName = MiscUtils.sanitizeFileName(newDoc.getFileName());
+                try {
+                    fileName = PathValidationUtils.validateFileName(newDoc.getFileName());
+                } catch (FileValidationException e) {
+                    errors.put("filenameinvalid", "dms.error.invalidFilename");
+                    throw e;
+                }
                 // save local file
                 writeLocalFile(Files.newInputStream(this.getDocFile().toPath()), fileName);
                 if (fileName.toLowerCase().endsWith(".pdf")) {
@@ -543,6 +569,10 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
 
             }
 
+        } catch (FileValidationException e) {
+            request.setAttribute("docerrors", errors);
+            request.setAttribute("editDocumentNo", this.getMode());
+            return "failEdit";
         } catch (Exception e) {
             request.setAttribute("docerrors", errors);
             request.setAttribute("editDocumentNo", this.getMode());

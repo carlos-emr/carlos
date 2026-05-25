@@ -62,6 +62,9 @@ public final class RxSearchDrug2Action extends ActionSupport {
     private RxDrugRef drugref;
     private static Logger logger = MiscUtils.getLogger();
 
+    /** Shared, thread-safe ObjectMapper (safe after configuration). */
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
     public RxSearchDrug2Action() {
         this.drugref = new RxDrugRef();
     }
@@ -224,7 +227,7 @@ public final class RxSearchDrug2Action extends ActionSupport {
         d.put("results", data);
         response.setContentType("application/json");
 
-        ObjectMapper mapper = new ObjectMapper();
+        ObjectMapper mapper = OBJECT_MAPPER;
         ObjectNode jsonArray = (ObjectNode) mapper.valueToTree(d);
         Writer jsonWriter = response.getWriter();
         jsonWriter.write(jsonArray.toString());

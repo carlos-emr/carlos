@@ -38,7 +38,6 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashSet;
@@ -57,6 +56,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.util.JDBCUtil;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+import io.github.carlos_emr.carlos.utility.CachedDateFormats;
 
 public class FrmRecordHelp {
     private String _dateFormat = "yyyy/MM/dd";
@@ -511,11 +511,8 @@ public class FrmRecordHelp {
         Date result = null;
         if (value != null) {
             try {
-                if (value.contains("/")) {
-                    result = new SimpleDateFormat(_dateFormat).parse(value);
-                } else {
-                    result = new SimpleDateFormat(_newDateFormat).parse(value);
-                }
+                String pattern = value.contains("/") ? _dateFormat : _newDateFormat;
+                result = CachedDateFormats.parse(value, pattern);
             } catch (ParseException e) {
                 MiscUtils.getLogger().debug("Unparseable date for field {}: {}", fieldName, value);
             }
@@ -526,7 +523,7 @@ public class FrmRecordHelp {
     public String parseDateFieldOrNull(Date date) {
         String result = null;
         if (date != null) {
-            result = new SimpleDateFormat(_dateFormat).format(date);
+            result = CachedDateFormats.format(date, _dateFormat);
         }
         return result;
     }

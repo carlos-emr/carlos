@@ -36,19 +36,20 @@ import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
-import org.apache.commons.io.FilenameUtils;
-
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.nio.file.Files;
 import java.util.List;
+import java.util.MissingResourceException;
+import java.util.ResourceBundle;
 
 /**
  * Struts 7.x action for uploading HTML eForm files.
@@ -60,6 +61,8 @@ public class HtmlUpload2Action extends ActionSupport implements UploadedFilesAwa
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
+    private static final String INVALID_FILENAME_MESSAGE_KEY = "dms.error.invalidFilename";
+
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     public String execute() {
@@ -67,14 +70,23 @@ public class HtmlUpload2Action extends ActionSupport implements UploadedFilesAwa
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_eform", "w", null)) {
             throw new SecurityException("missing required sec object (_eform)");
         }
+        if (uploadValidationError != null) {
+            request.setAttribute("errorMessage", uploadValidationError);
+            return "fail";
+        }
         try {
             File validatedFormHtml = PathValidationUtils.validateUpload(formHtml);
+            String fileName = formHtmlFileName != null ? formHtmlFileName : formHtml.getName();
+            fileName = PathValidationUtils.validateFileName(fileName);
             String formHtmlStr = new String(Files.readAllBytes(validatedFormHtml.toPath()));
             formHtmlStr = formHtmlStr.replaceAll("\\\\n", "\\\\\\\\n");
-            String fileName = formHtmlFileName != null ? formHtmlFileName : formHtml.getName();
             EFormUtil.saveEForm(formName, subject, fileName, formHtmlStr, showLatestFormOnly, patientIndependent, roleType);
             request.setAttribute("status", "success");
             return SUCCESS;
+        } catch (FileValidationException e) {
+            request.setAttribute("errorMessage", getInvalidFilenameMessage());
+            MiscUtils.getLogger().warn("Rejected invalid eForm HTML filename");
+            return "fail";
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
             return "fail";
@@ -85,6 +97,7 @@ public class HtmlUpload2Action extends ActionSupport implements UploadedFilesAwa
     private File formHtml;
     private String formHtmlContentType;
     private String formHtmlFileName;
+    private String uploadValidationError;
     private String formName;
     private String subject;
     private boolean showLatestFormOnly;
@@ -102,16 +115,25 @@ public class HtmlUpload2Action extends ActionSupport implements UploadedFilesAwa
             this.formHtml = PathValidationUtils.validateUpload(new File(uploaded.getAbsolutePath()));
             this.formHtmlContentType = uploaded.getContentType();
             String rawName = uploaded.getOriginalName();
-            if (rawName != null) {
-                String sanitizedName = MiscUtils.sanitizeFileName(FilenameUtils.getName(rawName));
-                if (sanitizedName == null || sanitizedName.trim().isEmpty()) {
-                    this.formHtmlFileName = null;
-                } else {
-                    this.formHtmlFileName = sanitizedName;
-                }
-            } else {
+            if (rawName == null) {
+                this.formHtmlFileName = null;
+                return;
+            }
+            try {
+                this.formHtmlFileName = PathValidationUtils.validateFileName(rawName);
+            } catch (FileValidationException e) {
+                this.uploadValidationError = getInvalidFilenameMessage();
                 this.formHtmlFileName = null;
             }
+        }
+    }
+
+    private String getInvalidFilenameMessage() {
+        try {
+            return ResourceBundle.getBundle("oscarResources", request.getLocale())
+                    .getString(INVALID_FILENAME_MESSAGE_KEY);
+        } catch (MissingResourceException e) {
+            return "Invalid filename";
         }
     }
 

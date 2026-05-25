@@ -85,8 +85,10 @@ RUN curl -fsSL https://claude.ai/install.sh | bash \
     && which npm && npm install -g @docusaurus/core @docusaurus/preset-classic
 
 # Install Gemini CLI.
-# The gemini-browser script intercepts xdg-open so OAuth URLs display cleanly
-# in the terminal for copy-paste (containers can't open desktop browsers).
+# The gemini-browser script intercepts xdg-open so OAuth URLs from any CLI
+# (Gemini, Claude Code, etc.) display cleanly in the terminal for copy-paste
+# (containers can't open desktop browsers). See the script header for
+# details on OAuth handling and callback port forwarding.
 RUN npm install -g @google/gemini-cli \
     && ln -sf /scripts/gemini-browser /usr/local/bin/xdg-open
 

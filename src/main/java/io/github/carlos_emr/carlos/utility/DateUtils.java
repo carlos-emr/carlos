@@ -29,7 +29,6 @@
 package io.github.carlos_emr.carlos.utility;
 
 import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
@@ -58,13 +57,25 @@ import io.github.carlos_emr.CarlosProperties;
  *   <li><code>TIME_FORMAT</code> - System-wide time format (e.g., "HH:mm:ss")</li>
  * </ul>
  * 
- * <p><strong>Thread Safety:</strong> This class is not thread-safe when using SimpleDateFormat.
- * Consider using java.time package (Java 8+) for thread-safe date/time operations.</p>
- * 
- * @see java.time For modern, thread-safe date/time handling (Java 8+)
+ * <p><strong>Thread Safety:</strong> All pattern-based parsing/formatting — including the ISO
+ * <em>parse</em> helpers ({@link #parseIsoDate}, {@link #parseIsoDateTime},
+ * {@link #parseJsIsoDateTimeNoTNoSeconds}) — goes through {@link CachedDateFormats}, which gives
+ * each thread its own {@link java.text.SimpleDateFormat}. The ISO <em>format</em> helpers
+ * ({@link #getIsoDate}, {@link #getIsoDateTime}, {@link #getIsoDateTimeNoT}) use Apache Commons
+ * {@code FastDateFormat}, which is itself immutable and thread-safe ({@code FastDateFormat} only
+ * formats, so it is not used on the parse paths). No mutable formatter state is shared between
+ * threads.</p>
+ *
+ * @see CachedDateFormats For the thread-local SimpleDateFormat cache used internally
  */
 public final class DateUtils {
-    /** JavaScript-compatible ISO date format pattern */
+    /**
+     * jQuery UI datepicker date-format pattern (NOT a {@link java.text.SimpleDateFormat} pattern).
+     * In datepicker syntax {@code yy} = 4-digit year and {@code mm} = month, so this renders
+     * ISO-style dates such as {@code 2026-05-23}. Do not "correct" {@code mm} to {@code MM}:
+     * that is {@code SimpleDateFormat} syntax (where {@code mm} = minutes, {@code MM} = month name)
+     * and is wrong for the JavaScript datepicker this value feeds.
+     */
     public static final String JS_ISO_DATE_FORMAT = "yy-mm-dd";
 
     /**
@@ -126,14 +137,9 @@ public final class DateUtils {
             return "";
         }
 
-        SimpleDateFormat dateFormatter;
-        if (locale == null) {
-            dateFormatter = new SimpleDateFormat(format);
-        } else {
-            dateFormatter = new SimpleDateFormat(format, locale);
-        }
-
-        return dateFormatter.format(date);
+        return (locale == null)
+                ? CachedDateFormats.format(date, format)
+                : CachedDateFormats.format(date, format, locale);
     }
 
     public static String getIsoDateTimeNoTNoSeconds(Calendar cal) {
@@ -146,15 +152,15 @@ public final class DateUtils {
     }
 
     public static String getIsoDateTimeNoT(Calendar cal) {
-        return cal == null ? "" : DateFormatUtils.ISO_DATETIME_FORMAT.format(cal).replace('T', ' ');
+        return cal == null ? "" : DateFormatUtils.ISO_8601_EXTENDED_DATETIME_FORMAT.format(cal).replace('T', ' ');
     }
 
     public static String getIsoDateTime(Calendar cal) {
-        return cal == null ? "" : DateFormatUtils.ISO_DATETIME_FORMAT.format(cal);
+        return cal == null ? "" : DateFormatUtils.ISO_8601_EXTENDED_DATETIME_FORMAT.format(cal);
     }
 
     public static String getIsoDate(Calendar cal) {
-        return cal == null ? "" : DateFormatUtils.ISO_DATE_FORMAT.format(cal);
+        return cal == null ? "" : DateFormatUtils.ISO_8601_EXTENDED_DATE_FORMAT.format(cal);
     }
 
     public static Date parseIsoDate(String s) throws ParseException {
@@ -162,9 +168,7 @@ public final class DateUtils {
         if (s == null) {
             return null;
         } else {
-            SimpleDateFormat dateFormat = new SimpleDateFormat(DateFormatUtils.ISO_DATE_FORMAT.getPattern());
-            Date date = dateFormat.parse(s);
-            return date;
+            return CachedDateFormats.parse(s, DateFormatUtils.ISO_8601_EXTENDED_DATE_FORMAT.getPattern());
         }
     }
 
@@ -185,9 +189,7 @@ public final class DateUtils {
         if (s == null) {
             return null;
         } else {
-            SimpleDateFormat dateFormat = new SimpleDateFormat(DateFormatUtils.ISO_DATETIME_FORMAT.getPattern());
-            Date date = dateFormat.parse(s);
-            return date;
+            return CachedDateFormats.parse(s, DateFormatUtils.ISO_8601_EXTENDED_DATETIME_FORMAT.getPattern());
         }
     }
 
@@ -234,9 +236,7 @@ public final class DateUtils {
         if (s == null) {
             return null;
         } else {
-            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
-            Date date = dateFormat.parse(s);
-            return date;
+            return CachedDateFormats.parse(s, "yyyy-MM-dd HH:mm");
         }
     }
 }

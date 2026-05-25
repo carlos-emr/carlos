@@ -29,12 +29,12 @@ package io.github.carlos_emr.carlos.PMmodule.utility;
 
 import java.text.DateFormat;
 import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
 
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.utility.CachedDateFormats;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
@@ -46,31 +46,8 @@ public class DateUtils {
 
     private static Logger cat = MiscUtils.getLogger();
 
-    private static SimpleDateFormat sdf;
-
-    private static String formatDate = "dd/MM/yyyy";
     public final static String intakeADelimiter = "/";
 
-//##########################################################################
-
-    public static SimpleDateFormat getDateFormatter() {
-
-        if (sdf == null) {
-
-            sdf = new SimpleDateFormat(formatDate);
-
-        }
-
-        return sdf;
-
-    }
-//##########################################################################
-
-    public static void setDateFormatter(String pattern) {
-
-        sdf = new SimpleDateFormat(pattern);
-
-    }
 //##########################################################################
 
     public static String getDate()//e.g. Sept 23, 2005
@@ -85,9 +62,8 @@ public class DateUtils {
 
     public static String getDate(Date date) {
 
-        SimpleDateFormat sdf = new SimpleDateFormat();
-
-        return sdf.format(date);
+        // Legacy behaviour: the no-arg SimpleDateFormat (SHORT date/time, default locale).
+        return CachedDateFormats.formatDefault(date);
 
     }
 
@@ -169,17 +145,14 @@ public class DateUtils {
 
         try {
 
-            setDateFormatter(formatAtual);
+            Date data = CachedDateFormats.parse(date, formatAtual);
 
-            Date data = getDateFormatter().parse(date);
+            // PHI: do not log the rendered date (may be a DOB); log only the format pattern.
+            if (cat.isDebugEnabled()) {
+                cat.debug("[DateUtils] - formatDate: formatted with pattern={}", formatAtual);
+            }
 
-            cat.debug("[DateUtils] - formatDate: data formatada: " +
-
-                    getDateFormatter().format(data));
-
-            setDateFormatter(format);
-
-            return getDateFormatter().format(data);
+            return CachedDateFormats.format(data, format);
 
         } catch (ParseException e) {
 
@@ -196,17 +169,15 @@ public class DateUtils {
 
         try {
 
-            SimpleDateFormat sdf = new SimpleDateFormat();
+            // Legacy behaviour: parse with the no-arg SimpleDateFormat (SHORT date/time, default locale).
+            Date data = CachedDateFormats.parseDefault(date);
 
-            Date data = sdf.parse(date);
+            // PHI: do not log the rendered date (may be a DOB); log only that the default pattern was used.
+            if (cat.isDebugEnabled()) {
+                cat.debug("[DateUtils] - formatDate: formatted with default pattern");
+            }
 
-            cat.debug("[DateUtils] - formatDate: data formatada: " +
-
-                    sdf.format(data));
-
-            setDateFormatter(format);
-
-            return getDateFormatter().format(data);
+            return CachedDateFormats.format(data, format);
 
         } catch (ParseException e) {
 
@@ -223,7 +194,7 @@ public class DateUtils {
 
         int iSum = Integer.valueOf(pSum).intValue();
 
-        cat.debug("[DateUtils] - sumDate: iSum = " + iSum);
+        cat.debug("[DateUtils] - sumDate: iSum = {}", iSum);
 
         Calendar calendar = new GregorianCalendar();
 
@@ -235,9 +206,7 @@ public class DateUtils {
 
         Date data = calendar.getTime();
 
-        setDateFormatter(format);
-
-        return getDateFormatter().format(data);
+        return CachedDateFormats.format(data, format);
 
     }
 //##########################################################################

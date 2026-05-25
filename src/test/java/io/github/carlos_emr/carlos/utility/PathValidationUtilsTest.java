@@ -131,6 +131,86 @@ public class PathValidationUtilsTest {
         }
     }
 
+    @Nested
+    @DisplayName("Filename Validation Tests")
+    class FilenameValidationTests {
+
+        @Test
+        @DisplayName("should normalize filename using legacy rules")
+        void shouldNormalizeFilename_usingLegacyRules() {
+            String result = PathValidationUtils.validateFileName("my report..<script>-final.pdf");
+
+            assertThat(result).isEqualTo("my_report.scriptfinal.pdf");
+        }
+
+        @Test
+        @DisplayName("should strip path components before normalizing filename")
+        void shouldStripPathComponents_beforeNormalizingFilename() {
+            String result = PathValidationUtils.validateFileName("nested/path/my report.pdf");
+
+            assertThat(result).isEqualTo("my_report.pdf");
+        }
+
+        @Test
+        @DisplayName("should reject null byte filename")
+        void shouldRejectNullByteFilename() {
+            assertThatThrownBy(() -> PathValidationUtils.validateFileName("bad\u0000name.pdf"))
+                .isInstanceOf(FileValidationException.class)
+                .hasMessageContaining("Invalid filename");
+        }
+
+        @Test
+        @DisplayName("should normalize strict filename using legacy rules")
+        void shouldNormalizeStrictFilename_usingLegacyRules() {
+            String result = PathValidationUtils.validateStrictFileName("my report.pdf");
+
+            assertThat(result).isEqualTo("my_report.pdf");
+        }
+
+        @Test
+        @DisplayName("should preserve generated prefix while normalizing user fragments")
+        void shouldPreserveGeneratedPrefix_whileNormalizingUserFragments() {
+            String result = PathValidationUtils.validateGeneratedFileName("export_set/name_20260522120000.zip");
+
+            assertThat(result).isEqualTo("export_setname_20260522120000.zip");
+        }
+
+        @ParameterizedTest
+        @DisplayName("should reject strict filename when path components are present")
+        @ValueSource(strings = {"nested/path/report.pdf", "..\\report.pdf", "/tmp/report.pdf", "C:\\temp\\report.pdf"})
+        void shouldRejectStrictFilename_whenPathComponentsArePresent(String filename) {
+            assertThatThrownBy(() -> PathValidationUtils.validateStrictFileName(filename))
+                .isInstanceOf(FileValidationException.class)
+                .hasMessageContaining("Invalid filename");
+        }
+
+        @Test
+        @DisplayName("should reject hidden filename")
+        void shouldRejectHiddenFilename() {
+            assertThatThrownBy(() -> PathValidationUtils.validateFileName(".env"))
+                .isInstanceOf(FileValidationException.class)
+                .hasMessageContaining("hidden files not allowed");
+        }
+
+        @ParameterizedTest
+        @DisplayName("should reject missing or empty filename")
+        @ValueSource(strings = {"", "   ", "---"})
+        void shouldRejectMissingOrEmptyFilename(String filename) {
+            assertThatThrownBy(() -> PathValidationUtils.validateFileName(filename))
+                .isInstanceOf(FileValidationException.class)
+                .hasMessageContaining("Invalid filename");
+        }
+
+        @Test
+        @DisplayName("should validate normalized user filename within allowed directory")
+        void shouldValidateNormalizedUserFilenameWithinAllowedDirectory() {
+            File result = PathValidationUtils.validateUserFilePath("nested/path/my report.pdf", allowedDir);
+
+            assertThat(result.getParentFile()).isEqualTo(allowedDir);
+            assertThat(result.getName()).isEqualTo("my_report.pdf");
+        }
+    }
+
     // ========================================================================
     // PATH TRAVERSAL PREVENTION
     // ========================================================================
@@ -241,7 +321,7 @@ public class PathValidationUtilsTest {
             // When/Then
             assertThatThrownBy(() -> PathValidationUtils.validatePath(null, allowedDir))
                 .isInstanceOf(SecurityException.class)
-                .hasMessageContaining("null or empty");
+                .hasMessageContaining("Invalid filename");
         }
 
         @Test
@@ -250,7 +330,7 @@ public class PathValidationUtilsTest {
             // When/Then
             assertThatThrownBy(() -> PathValidationUtils.validatePath("", allowedDir))
                 .isInstanceOf(SecurityException.class)
-                .hasMessageContaining("null or empty");
+                .hasMessageContaining("Invalid filename");
         }
 
         @Test
