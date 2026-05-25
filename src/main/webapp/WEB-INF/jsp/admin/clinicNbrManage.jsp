@@ -54,7 +54,7 @@
 
             function removeCode() {
                 toggleButtons(true);
-                jQuery.post("clinicNbrManage.json.jsp",
+                jQuery.post("<%=request.getContextPath()%>/admin/clinicNbrManage",
                     {
                         method: "remove",
                         nbr: jQuery("#xml_p_nbr").val()
@@ -66,7 +66,7 @@
 
             function addCode() {
                 toggleButtons(true);
-                jQuery.post("clinicNbrManage.json.jsp",
+                jQuery.post("<%=request.getContextPath()%>/admin/clinicNbrManage",
                     {
                         method: "add",
                         nbr: jQuery("#nbr_value").val(),

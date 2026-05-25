@@ -27,6 +27,7 @@ import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -583,6 +584,22 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
         assertThat(result).isEqualTo("failAdd");
         Hashtable<String, String> errors = (Hashtable<String, String>) request.getAttribute("docerrors");
         assertThat(errors).containsEntry("uploaderror", "dms.error.uploadError");
+    }
+
+    @Test
+    @DisplayName("should reject Struts 7 uploads when original filename is invalid")
+    void shouldRejectUpload_whenOriginalFilenameIsInvalid() throws Exception {
+        tempUploadFile = File.createTempFile("add-edit-document", ".pdf");
+        Files.writeString(tempUploadFile.toPath(), "pdf");
+
+        UploadedFile uploadedFile = mock(UploadedFile.class);
+        when(uploadedFile.getInputName()).thenReturn("docFile");
+        when(uploadedFile.getContent()).thenReturn(tempUploadFile);
+        when(uploadedFile.getOriginalName()).thenReturn(".env");
+        when(uploadedFile.getContentType()).thenReturn("application/pdf");
+
+        assertThatThrownBy(() -> action.withUploadedFiles(List.of(uploadedFile)))
+                .isInstanceOf(FileValidationException.class);
     }
 
     /**

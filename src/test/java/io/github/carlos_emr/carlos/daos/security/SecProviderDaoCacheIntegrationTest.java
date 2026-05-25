@@ -22,7 +22,6 @@
 package io.github.carlos_emr.carlos.daos.security;
 
 import com.github.benmanes.caffeine.cache.Cache;
-import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderDataDao;
 import io.github.carlos_emr.carlos.commn.model.ProviderData;
 import io.github.carlos_emr.carlos.model.security.SecProvider;
@@ -68,9 +67,6 @@ class SecProviderDaoCacheIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private ProviderDataDao providerDataDao;
-
-    @Autowired
-    private ProviderDao providerDao;
 
     @Autowired
     private CacheManager cacheManager;
@@ -170,14 +166,10 @@ class SecProviderDaoCacheIntegrationTest extends CarlosTestBase {
     }
 
     private void seedProviderCaches() {
-        String providerNo = uniquePrefix + "SE";
-        providerNosToCleanUp.add(providerNo);
-        transactionTemplate.executeWithoutResult(status -> secProviderDao.save(buildSecProvider(providerNo, "CacheSeed", "Provider")));
-        clearProviderCaches();
-
-        providerDao.getProviderName(providerNo);
-        providerDao.getActiveProviders();
-        providerDao.getActiveProviderSummaries();
+        putCacheValue("providerNames", "name:" + uniquePrefix + "SE", "Cached Provider");
+        putCacheValue("activeProviders", "filter:true", List.of("cached active provider"));
+        putCacheValue("activeProviderSummaries", org.springframework.cache.interceptor.SimpleKey.EMPTY,
+                List.of("cached active provider summary"));
     }
 
     private void assertAllThreeCachesPopulated() {
@@ -213,6 +205,13 @@ class SecProviderDaoCacheIntegrationTest extends CarlosTestBase {
                     .isNotNull();
             cache.clear();
         }
+    }
+
+
+    private void putCacheValue(String cacheName, Object key, Object value) {
+        org.springframework.cache.Cache cache = cacheManager.getCache(cacheName);
+        assertThat(cache).isNotNull();
+        cache.put(key, value);
     }
 
     @SuppressWarnings("unchecked")

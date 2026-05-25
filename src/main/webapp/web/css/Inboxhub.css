@@ -120,7 +120,23 @@ input {
     height: calc(100vh - 8em);
     width: 100%;
     overflow-y: auto;
-    overflow-x: hidden;
+    overflow-x: auto;
+}
+
+#inbox_table_wrapper {
+    max-width: 100%;
+}
+
+#inbox_table_wrapper > .row {
+
+    --bs-gutter-x: 0;
+    margin-left: 0;
+    margin-right: 0;
+}
+
+#inbox_table_wrapper > .row > * {
+    padding-left: 0;
+    padding-right: 0;
 }
 
 .inbox-table td {
@@ -239,12 +255,6 @@ input {
     color: #000;
 }
 
-@media (max-width: 1300px) {
-    .inbox-table-responsive {
-        overflow-x: auto;
-    }
-}
-
 /*
  * Inbox toolbar — styled to match the scheduler top nav bar (topnav.css).
  * Uses a light grey background (#f5f5f5), font (Arial 12px bold), and
@@ -252,10 +262,14 @@ input {
  */
 /* Top navigation bar — utility links (Forwarding Rules, Upload, etc.) */
 .inbox-topbar {
+
+    --inbox-nav-color: #00283c;
+    --inbox-nav-hover-bg: #486ebd;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-wrap: wrap;
+    gap: 2px;
     padding: 4px 8px;
     background: #f5f5f5;
     border-bottom: 1px solid #ddd;
@@ -264,23 +278,28 @@ input {
 }
 
 .inbox-topbar .nav-link {
-    display: inline;
-    padding: 2px 6px;
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 6px;
     font-weight: bold;
-    color: black;
+    color: var(--inbox-nav-color);
     text-decoration: none;
 }
 
 .inbox-topbar .nav-link:hover {
     color: #fff;
-    background-color: var(--carlos-primary, #337ab7);
+    background-color: var(--inbox-nav-hover-bg);
 }
 
 /* Action toolbar — Forward, File, Acknowledged, Rapid Review, counts */
 .inbox-toolbar {
+
+    --inbox-nav-color: #00283c;
+    --inbox-nav-hover-bg: #486ebd;
     display: flex;
     align-items: center;
     flex-wrap: wrap;
+    gap: 2px;
     padding: 4px;
     background: #f5f5f5;
     border-bottom: 1px solid #ddd;
@@ -293,7 +312,7 @@ input {
     font-family: Arial, sans-serif;
     font-size: 12px;
     font-weight: bold;
-    color: black;
+    color: var(--inbox-nav-color);
     text-decoration: none;
     cursor: pointer !important;
     border: none;
@@ -309,7 +328,7 @@ input {
 
 .inbox-toolbar-link:hover {
     color: #fff;
-    background-color: var(--carlos-primary, #337ab7);
+    background-color: var(--inbox-nav-hover-bg);
 }
 
 .inbox-toolbar-link input[type="checkbox"] {
@@ -319,7 +338,7 @@ input {
 
 /* Active type filter highlight */
 .inbox-type-filter.active-type-filter {
-    background-color: var(--carlos-primary, #337ab7);
+    background-color: var(--inbox-nav-hover-bg);
     color: #fff;
     border-radius: 3px;
 }

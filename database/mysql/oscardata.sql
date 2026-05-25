@@ -1533,6 +1533,7 @@ INSERT INTO `secObjectName` (`objectName`, `description`, `orgapplicable`) VALUE
 INSERT INTO `secObjectName` (`objectName`, `description`, `orgapplicable`) VALUES ('_admin.fax', 'Configure & Manage Faxes', '0');
 INSERT INTO `secObjectName` (`objectName`, `description`, `orgapplicable`) VALUES ('_admin.email', 'Configure & Manage Emails', '0');
 INSERT INTO `secObjectName` (`objectName`, `description`, `orgapplicable`) VALUES ('_admin.fax.restart', 'Show status and restart fax scheduler', '0');
+INSERT INTO `secObjectName` (`objectName`, `description`, `orgapplicable`) VALUES ('_admin.schedule.groupCreate', 'Create schedule provider groups', 0);
 
 insert into `secObjectName` (`objectName`) values ('_newCasemgmt.preventions');
 insert into `secObjectName` (`objectName`) values ('_newCasemgmt.viewTickler');
@@ -1750,6 +1751,8 @@ insert into `secObjPrivilege` values('admin','_admin.eformreporttool','x',0,'999
 insert into `secObjPrivilege` values('admin','_admin.billing','x',0,'999998');
 insert into `secObjPrivilege` values('admin','_admin.misc','x',0,'999998');
 insert into `secObjPrivilege` values('admin','_admin.schedule','x',0,'999998');
+insert into `secObjPrivilege` values('admin','_admin.schedule.groupCreate','x',0,'999998');
+insert into `secObjPrivilege` values('999998','_admin.schedule.groupCreate','o',1,'999998');
 insert into `secObjPrivilege` values('admin','_appointment','x',0,'999998');
 insert into `secObjPrivilege` values('admin','_appointment.doctorLink','x',0,'999998');
 insert into `secObjPrivilege` values('admin','_pmm.addProgram','x',0,'999998');

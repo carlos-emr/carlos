@@ -40,7 +40,6 @@
  *   <li>Bootstrap 5.3 accordion left navigation with 16 grouped sections</li>
  *   <li>Dynamic content pane that loads sub-pages without a full page reload</li>
  *   <li>Role-based security filtering via the oscarSec tag on each card and nav item</li>
- *   <li>Configurable help panel and about dialog links</li>
  *   <li>Province-specific billing module visibility based on {@code billregion} property</li>
  * </ul>
  *
@@ -59,13 +58,6 @@
  *        for the earliest introduction date.
  */
 --%>
-<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
-<%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="java.net.URLEncoder" %>
-<%@ page import="java.util.*" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -78,33 +70,10 @@
 <%
     if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
 
-    UserPropertyDAO userPropertyDao = SpringUtils.getBean(UserPropertyDAO.class);
-
-    Properties oscarVariables = CarlosProperties.getInstance();
-
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
-    String curUser_no = (String) session.getAttribute("user");
     String userfirstname = (String) session.getAttribute("userfirstname");
     String userlastname = (String) session.getAttribute("userlastname");
-    String prov = (oscarVariables.getProperty("billregion", "")).trim().toUpperCase();
-
-    String resourcebaseurl = oscarVariables.getProperty("resource_base_url");
-
-    UserProperty rbu = userPropertyDao.getProp("resource_baseurl");
-    if (rbu != null) {
-        resourcebaseurl = rbu.getValue();
-    }
-
-    String resourcehelpHtml = "";
-    UserProperty rbuHtml = userPropertyDao.getProp("resource_helpHtml");
-    if (rbuHtml != null) {
-        resourcehelpHtml = rbuHtml.getValue();
-    }
-
-    GregorianCalendar cal = new GregorianCalendar();
-    int curYear = cal.get(Calendar.YEAR);
-    int curMonth = (cal.get(Calendar.MONTH) + 1);
-    int curDay = cal.get(Calendar.DAY_OF_MONTH);
+    boolean showScheduleNav = "1".equals(request.getParameter("scheduleNav"));
 %>
 
 <!doctype html>
@@ -117,6 +86,9 @@
     <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet" type="text/css">
     <link href="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css">
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+    <% if (showScheduleNav) { %>
+    <link rel="stylesheet" href="<%=request.getContextPath()%>/css/topnav.css">
+    <% } %>
 
 
     <style>
@@ -291,39 +263,10 @@
 </head>
 
 <body>
+<% if (showScheduleNav) { %>
+    <jsp:include page="/WEB-INF/jsp/provider/mainMenu.jsp"/>
+<% } %>
 <div class="container-fluid">
-    <div class="d-print-none d-flex justify-content-end align-items-center gap-3">
-        <span class="d-flex align-items-center gap-1">
-            <i class="fa-solid fa-circle-question"></i>
-            <%if (resourcehelpHtml.isEmpty()) { %>
-            <a href="#" ONCLICK="popupPage(600,750,'<carlos:encode value='<%= resourcebaseurl %>' context="javaScriptAttribute"/>');return false;" title=""
-               onmouseover="window.status='';return true"><fmt:message key="global.help"/></a>
-            <%} else {%>
-            <div id="help-link">
-                <a href="javascript:void(0)"
-                   onclick="document.getElementById('helpHtml').style.display='block';document.getElementById('helpHtml').style.right='0px';"><fmt:message key="global.help"/></a>
-
-                <div id="helpHtml">
-                    <div class="help-title"><fmt:message key="global.help"/></div>
-
-                    <div class="help-body">
-
-                        <%=resourcehelpHtml%>
-                    </div>
-                    <a href="javascript:void(0)" class="help-close"
-                       onclick="document.getElementById('helpHtml').style.right='-280px';document.getElementById('helpHtml').style.display='none'"><fmt:message key="global.close"/></a>
-                </div>
-
-            </div>
-            <%}%>
-        </span>
-        <span class="d-flex align-items-center gap-1">
-            <i class="fa-solid fa-circle-info"></i>
-            <a href="javascript:void(0)"
-               onClick="window.open('<%=request.getContextPath()%>/encounter/ViewAbout','About CARLOS EMR','scrollbars=1,resizable=1,width=800,height=600,left=0,top=0')"><fmt:message key="global.about"/></a>
-        </span>
-    </div>
-
     <div class="row">
 
 

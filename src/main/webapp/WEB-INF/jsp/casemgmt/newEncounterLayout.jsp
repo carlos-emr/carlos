@@ -594,7 +594,7 @@
         </script>
     </head>
     <body id="body" class="encounter-layout">
-    <jsp:include page="/images/spinner.jsp" flush="true"/>
+    <jsp:include page="/WEB-INF/jsp/includes/spinner.jspf" flush="true"/>
     <div id="header">
         <jsp:include page="/WEB-INF/jsp/casemgmt/newEncounterHeader.jsp"/>
     </div>

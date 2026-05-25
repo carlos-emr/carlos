@@ -7,6 +7,119 @@ body {
 }
 
 /* top navigation bar */
+table#firstTable {
+    width: 100%;
+    background-color: white;
+    border-bottom: 1px solid #c0c0c0;
+    height: 25px;
+    margin-bottom: 0;
+}
+
+table#firstTable tr {
+    display: flex;
+    align-items: center;
+}
+
+table#firstTable td {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-family: Arial, sans-serif;
+    font-size: 12px;
+}
+
+table#firstTable tr td.icon-container {
+    padding-left: 10px;
+}
+
+table#firstTable td#firstMenu {
+    flex: 1 1 auto;
+    margin-left: 10px;
+}
+
+table#firstTable td#userSettings {
+    flex: 0 0 auto;
+    margin-right: 15px;
+}
+
+table#firstTable td#firstMenu ul#navlist:not(.dashboardDropdown),
+table#firstTable td#userSettings ul#userSettingsMenu:not(.dashboardDropdown) {
+    margin: 0;
+    padding: 0;
+    white-space: nowrap;
+    list-style-type: none;
+}
+
+table#firstTable td#userSettings ul#userSettingsMenu li,
+/* Keep top-level menu layout from leaking into dashboard dropdown rows; the
+   dropdown marker is on a nested div, so scope these rules to direct children. */
+table#firstTable td#firstMenu ul#navlist > li {
+    line-height: 1;
+    display: inline-block;
+}
+
+table#firstTable td#firstMenu ul#navlist > li > a {
+    display: inline-block;
+    padding: 5px;
+}
+
+table#firstTable a,
+table#firstTable a:visited,
+table#firstTable a:active {
+    color: #00283c;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+table#firstTable a:hover,
+table#firstTable a:focus,
+table#firstTable a:focus-visible,
+table#firstTable td#firstMenu #navlist li:hover,
+table#firstTable td#firstMenu #navlist li a:hover {
+    color: #fff;
+    background-color: #486ebd;
+}
+
+table#firstTable #logoutButton span {
+    font-size: 18px;
+}
+
+table#firstTable .dashboardDropdown {
+    display: none;
+    position: absolute;
+    background-color: #f9f9f9;
+    box-shadow: 0 8px 16px 0 rgba(0, 0, 0, 0.2);
+    white-space: initial;
+    overflow-wrap: break-word;
+    z-index: 1000;
+}
+
+table#firstTable .dashboardDropdown a {
+    color: black;
+    text-decoration: none;
+    display: block;
+    text-align: left;
+    padding: 5px;
+    width: 300px;
+}
+
+table#firstTable .dashboardDropdown ul {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+}
+
+table#firstTable .dashboardDropdown ul li {
+    width: 300px;
+    display: block;
+}
+
+table#firstTable .dropdown:hover .dashboardDropdown {
+    display: block;
+}
+
+/* These rules mirror the schedule header's menu shape without requiring
+   destination pages to import the full appointment stylesheet. */
 table.topnav {
     background-color: #EEEEFF;
     border: 0;
@@ -38,7 +151,7 @@ table.topnav td {
     white-space: nowrap;
 }
 
-#navlist li {
+#navlist > li {
     padding-top: 0.5px;
     padding-bottom: 0.5px;
     padding-left: 2.5px;
@@ -46,18 +159,26 @@ table.topnav td {
     display: inline;
 }
 
-#navlist li:hover {
+#navlist > li:hover {
     color: #fff;
     background-color: #486ebd;
 }
 
-#navlist li a:hover {
+#navlist > li > a:hover {
     color: #fff;
     background-color: #486ebd;
 }
 
-.tabalert {
-    color: red;
+/* Match the schedule bar alert affordance; these links need higher specificity
+   than the general topnav anchor color rules above. */
+table#firstTable #unclaimedLabLink.tabalert,
+table#firstTable #oscar_new_tickler {
+    color: red !important;
+}
+
+table#firstTable #unclaimedLabLink.tabalert:hover,
+table#firstTable a:hover #oscar_new_tickler {
+    color: #fff !important;
 }
 
 /*end of top navigation bar */

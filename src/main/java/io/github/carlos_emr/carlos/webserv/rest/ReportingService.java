@@ -40,6 +40,7 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
 
@@ -55,6 +56,7 @@ import io.github.carlos_emr.carlos.managers.DemographicSetsManager;
 import io.github.carlos_emr.carlos.managers.EFormReportToolManager;
 import io.github.carlos_emr.carlos.prev.reports.Report;
 import io.github.carlos_emr.carlos.prev.reports.ReportBuilder;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.web.PatientListApptBean;
 import io.github.carlos_emr.carlos.web.PatientListApptItemBean;
@@ -72,6 +74,9 @@ import org.springframework.stereotype.Component;
 @Consumes(MediaType.APPLICATION_JSON)
 public class ReportingService extends AbstractServiceImpl {
     private static Logger logger = MiscUtils.getLogger();
+
+    /** Shared, thread-safe ObjectMapper (safe after configuration). */
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     //private static final Logger logger = MiscUtils.getLogger();
 
@@ -218,7 +223,7 @@ public class ReportingService extends AbstractServiceImpl {
     @Consumes("application/json")
     public RestResponse<String> saveNewPreventionReport(PreventionSearchTo1 preventionSearch) {
         //Next thing to do is to save the JSON object to the database
-        ObjectMapper mapper = new ObjectMapper();
+        ObjectMapper mapper = OBJECT_MAPPER;
         try {
             String jsonStr = mapper.writeValueAsString(preventionSearch);
             PreventionReport pr = new PreventionReport();
@@ -229,7 +234,7 @@ public class ReportingService extends AbstractServiceImpl {
             preventionReportDao.persist(pr);
             return RestResponse.successResponse("" + pr.getId());
         } catch (Exception e) {
-            logger.error("error converting to STring");
+            logger.error("Error saving prevention report", e);
             return RestResponse.errorResponse("Error saving prevention report");
         }
     }
@@ -252,6 +257,15 @@ public class ReportingService extends AbstractServiceImpl {
     }
 
 
+    /**
+     * Runs the prevention report for the given parsed search config. Overridable so unit tests can
+     * exercise the success and empty-result paths without initializing {@link ReportBuilder}, whose
+     * static dependencies (resolved via {@code SpringUtils}) require a running Spring context.
+     */
+    protected Report buildPreventionReport(LoggedInInfo loggedInInfo, String providerNo, PreventionSearchTo1 search) {
+        return new ReportBuilder().runReport(loggedInInfo, providerNo, search);
+    }
+
     @POST
     @Path("/preventionReport/runReport/{id}")
     @Produces("application/json")
@@ -266,23 +280,31 @@ public class ReportingService extends AbstractServiceImpl {
         }
 
         PreventionReport pr = preventionReportDao.find(id);
-        ObjectMapper mapper = new ObjectMapper();
+        if (pr == null) {
+            logger.warn("Prevention report not found id={}", id);
+            return jakarta.ws.rs.core.Response.status(404)
+                    .entity("{\"Error\":\"Prevention report not found\"}").build();
+        }
+        ObjectMapper mapper = OBJECT_MAPPER;
         try {
-            logger.info("pr: " + pr.getJson());
+            if (logger.isDebugEnabled()) {
+                String reportJson = pr.getJson();
+                logger.debug("Loaded prevention report id={} jsonLength={}", id,
+                        reportJson != null ? reportJson.length() : 0);
+            }
             PreventionSearchTo1 preventionSearchTo1 = mapper.readValue(pr.getJson(), PreventionSearchTo1.class);
-            logger.info("preventionSearchTo1: " + preventionSearchTo1);
-            ReportBuilder reportBuilder = new ReportBuilder();
-            report = reportBuilder.runReport(getLoggedInInfo(), providerNo, preventionSearchTo1);
+            report = buildPreventionReport(getLoggedInInfo(), providerNo, preventionSearchTo1);
             if (!pr.isActive()) {
                 report.setActive(false);
             }
         } catch (Exception e) {
-            logger.error("Error parsing ", e);
+            logger.error("Error running prevention report id={}", id, e);
         }
 
-        logger.info("providers was " + providerNo);
         if (report == null) {
-            jakarta.ws.rs.core.Response.status(268).entity("{\"Error\":\"Error building report\"}");
+            logger.warn("Prevention report build returned no result id={}", id);
+            return jakarta.ws.rs.core.Response.status(268)
+                    .entity("{\"Error\":\"Error building report\"}").build();
         }
         return jakarta.ws.rs.core.Response.ok(report).build();
     }
@@ -292,18 +314,33 @@ public class ReportingService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public jakarta.ws.rs.core.Response getPreventionReport(@PathParam("id") Integer id, JsonNode jSONObject) { // will need to change providers to an ojbect
-        //Next thing to do is to save the JSON object to the database
-        String providerNo = jSONObject.has("providerNo") ? jSONObject.get("providerNo").asText() : "";
-
-
         PreventionReport pr = preventionReportDao.find(id);
-        ObjectMapper mapper = new ObjectMapper();
+        if (pr == null) {
+            logger.warn("Prevention report not found id={}", id);
+            return jakarta.ws.rs.core.Response.status(404)
+                    .entity("{\"Error\":\"Prevention report not found\"}").build();
+        }
+        // json is a nullable column; readValue((String) null, ...) throws an unchecked
+        // IllegalArgumentException that the narrow catch below would NOT handle, so guard it here.
+        String reportJson = pr.getJson();
+        if (reportJson == null) {
+            logger.warn("Prevention report has no JSON payload id={}", id);
+            return jakarta.ws.rs.core.Response.status(268)
+                    .entity("{\"Error\":\"Error get Search Config\"}").build();
+        }
+        ObjectMapper mapper = OBJECT_MAPPER;
         try {
-            logger.info("pr: " + pr.getJson());
-            PreventionSearchTo1 preventionSearchTo1 = mapper.readValue(pr.getJson(), PreventionSearchTo1.class);
+            if (logger.isDebugEnabled()) {
+                logger.debug("Loaded prevention report id={} jsonLength={}", id, reportJson.length());
+            }
+            PreventionSearchTo1 preventionSearchTo1 = mapper.readValue(reportJson, PreventionSearchTo1.class);
             return jakarta.ws.rs.core.Response.ok(preventionSearchTo1).build();
-        } catch (Exception e) {
-            logger.error("Error parsing ", e);
+        } catch (JsonProcessingException e) {
+            // Intentionally narrower than runPreventionReport's catch(Exception): the only
+            // non-Jackson failure here (null JSON) is guarded above, and readValue(String, Class)
+            // reports parse/mapping problems as JsonProcessingException, so a broad catch would
+            // only mask unrelated runtime bugs.
+            logger.error("Error parsing prevention report JSON id={}", id, e);
         }
 
         return jakarta.ws.rs.core.Response.status(268).entity("{\"Error\":\"Error get Search Config\"}").build();

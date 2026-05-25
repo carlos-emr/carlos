@@ -58,11 +58,13 @@ import org.apache.commons.csv.CSVPrinter;
 public class SQLReporter implements Reporter {
 
     /**
-     * Maximum number of characters ({@code String.length()}) of CSV data that may be
-     * stored in the HTTP session. Prevents memory exhaustion when large report results
-     * are generated. Value: 5,242,880 characters (5&nbsp;×&nbsp;1024&nbsp;×&nbsp;1024).
+     * Maximum number of UTF-8 bytes allowed for CSV export payloads transmitted via
+     * POST parameter. Prevents memory exhaustion and excessive request sizes.
      */
-    static final int MAX_CSV_SESSION_LENGTH = 5 * 1024 * 1024;
+    public static final int MAX_CSV_EXPORT_LENGTH = 5 * 1024 * 1024;
+
+    static final String CSV_EXPORT_LIMIT_MESSAGE =
+            "Warning: Report result is too large to download as CSV. Please narrow your search criteria.";
 
     /** Value of {@link ReportTemplates#getActive()} that indicates an active template. */
     private static final int ACTIVE_STATUS = 1;
@@ -132,14 +134,8 @@ public class SQLReporter implements Reporter {
 
         String[] result = executeQuery(sql, sqlParams, false);
 
-        String csv = result[1];
-        if (csv.length() > MAX_CSV_SESSION_LENGTH) {
-            MiscUtils.getLogger().warn("generateReport: CSV result for template '{}' exceeds session size limit ({} chars); not storing in session", LogSafe.sanitize(templateId), csv.length()); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-            request.setAttribute("errormsg", "Warning: Report result is too large to download as CSV. Please narrow your search criteria.");
-            csv = "";
-        }
+        String csv = enforceCsvExportLimit(request, "generateReport", templateId, result[1]);
 
-        request.getSession().setAttribute("csv", csv); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- csv is generated from executeQuery() results for a validated report template, not copied directly from request parameters
         request.setAttribute("csv", csv);
         request.setAttribute("sql", sql);
         request.setAttribute("reportobject", curReport);
@@ -174,7 +170,8 @@ public class SQLReporter implements Reporter {
                 }
                 Object[] sqlParams = extractParams(parameterizedResult);
                 String[] result = executeQuery(sql, sqlParams, true);
-                request.setAttribute("csv-" + x, result[1]);
+                String csv = enforceCsvExportLimit(request, "generateSequencedReport", templateId, result[1]);
+                request.setAttribute("csv-" + x, csv);
                 request.setAttribute("sql-" + x, sql);
                 request.setAttribute("resultsethtml-" + x, result[0]);
                 x++;
@@ -229,6 +226,21 @@ public class SQLReporter implements Reporter {
             MiscUtils.getLogger().error("Error", e);
         }
         return new String[]{rsHtml, csv};
+    }
+
+    private String enforceCsvExportLimit(HttpServletRequest request, String operation, String templateId, String csv) {
+        if (csv == null) {
+            MiscUtils.getLogger().warn("{}: CSV result for template '{}' was null; not exposing CSV download", operation, LogSafe.sanitize(templateId)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            request.setAttribute("errormsg", CSV_EXPORT_LIMIT_MESSAGE);
+            return "";
+        }
+        int csvBytes = csv.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
+        if (csvBytes > MAX_CSV_EXPORT_LENGTH) {
+            MiscUtils.getLogger().warn("{}: CSV result for template '{}' exceeds export size limit ({} bytes); not exposing CSV download", operation, LogSafe.sanitize(templateId), csvBytes); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            request.setAttribute("errormsg", CSV_EXPORT_LIMIT_MESSAGE);
+            return "";
+        }
+        return csv;
     }
 
     /** Extracts parameter values from a parameterized SQL result array (index 1..n). */

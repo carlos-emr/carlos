@@ -373,7 +373,7 @@
 
 
 <body>
-<jsp:include page="/images/spinner.jsp" flush="true"/>
+<jsp:include page="/WEB-INF/jsp/includes/spinner.jspf" flush="true"/>
 <div class="container-fluid fax-page">
     <form id="configFrm" method="post">
         <input type="hidden" name="method" value="configure"/>

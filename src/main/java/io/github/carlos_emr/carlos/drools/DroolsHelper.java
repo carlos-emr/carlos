@@ -40,7 +40,6 @@ import org.kie.api.builder.Message;
 import org.kie.api.builder.ReleaseId;
 import org.kie.api.builder.Results;
 import org.kie.api.runtime.KieContainer;
-import org.drools.model.codegen.ExecutableModelProject;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -58,7 +57,7 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
  * <p>The KIE compilation pipeline uses the standard {@link KieServices} API:</p>
  * <ol>
  *   <li>DRL content is written to a virtual {@link KieFileSystem}</li>
- *   <li>{@link KieBuilder} compiles the DRL using the executable model</li>
+ *   <li>{@link KieBuilder} compiles the DRL using the standard KIE build path</li>
  *   <li>Compilation results are verified for errors</li>
  *   <li>A {@link KieContainer} is created to obtain the {@link KieBase}</li>
  * </ol>
@@ -147,7 +146,7 @@ public final class DroolsHelper {
      * <ol>
      *   <li>Obtains the singleton {@link KieServices} instance</li>
      *   <li>Creates a {@link KieFileSystem} and writes the DRL content to a virtual path</li>
-     *   <li>Builds via {@link KieBuilder} using the executable model</li>
+     *   <li>Builds via {@link KieBuilder}</li>
      *   <li>Verifies compilation results for errors</li>
      *   <li>Returns the {@link KieBase} from a new {@link KieContainer}</li>
      * </ol>
@@ -181,7 +180,7 @@ public final class DroolsHelper {
             kfs.write("src/main/resources/rules/generated.drl", drl);
 
             KieBuilder kb = ks.newKieBuilder(kfs);
-            kb.buildAll(ExecutableModelProject.class);
+            kb.buildAll();
 
             // Check for compilation errors (warnings are acceptable)
             Results results = kb.getResults();

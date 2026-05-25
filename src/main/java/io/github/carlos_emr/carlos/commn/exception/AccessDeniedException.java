@@ -62,6 +62,33 @@ public class AccessDeniedException extends RuntimeException {
         this.subject = subject;
     }
 
+    /**
+     * Returns the security object or permission name that was denied.
+     *
+     * @return denied permission or {@code null} when not supplied
+     */
+    public String getPermission() {
+        return permission;
+    }
+
+    /**
+     * Returns the requested privilege action.
+     *
+     * @return denied action or {@code null} when not supplied
+     */
+    public String getAction() {
+        return action;
+    }
+
+    /**
+     * Returns the subject identifier associated with the denial.
+     *
+     * @return subject identifier or {@code null} when not supplied
+     */
+    public String getSubject() {
+        return subject;
+    }
+
     public AccessDeniedException(String message) {
         super(message);
 

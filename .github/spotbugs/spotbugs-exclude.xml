@@ -142,4 +142,35 @@
         <Method name="writeBody"/>
     </Match>
 
+    <!-- ================================================================
+         FIND SECURITY BUGS INFORMATIONAL TAINT-SOURCE / ENDPOINT MARKERS
+         These detectors are NOT vulnerabilities. Find Security Bugs emits
+         them to map attack surface: SERVLET_PARAMETER flags every point
+         where request data enters, and *_ENDPOINT flags every reachable
+         action/web-service method. On this codebase they account for the
+         large majority of "security" Code Scanning alerts (~1,300
+         SERVLET_PARAMETER, ~270 STRUTS2_ENDPOINT) while flagging zero
+         concrete sinks. They drown out actionable findings (injection,
+         path traversal, XSS, weak crypto), so we suppress the source/
+         endpoint markers and keep every sink detector active.
+
+         Reference: Find Security Bugs bug patterns — these are documented
+         as informational ("count"/"endpoint") detectors, not defects.
+         ================================================================ -->
+    <Match>
+        <Bug pattern="SERVLET_PARAMETER"/>
+    </Match>
+    <Match>
+        <Bug pattern="STRUTS2_ENDPOINT"/>
+    </Match>
+    <Match>
+        <Bug pattern="SPRING_ENDPOINT"/>
+    </Match>
+    <Match>
+        <Bug pattern="JAXWS_ENDPOINT"/>
+    </Match>
+    <Match>
+        <Bug pattern="JAXRS_ENDPOINT"/>
+    </Match>
+
 </FindBugsFilter>

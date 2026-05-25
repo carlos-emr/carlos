@@ -30,15 +30,14 @@
 
 package io.github.carlos_emr.carlos.util;
 
-import java.text.DateFormat;
-import java.text.Format;
 import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.Locale;
 import java.util.ResourceBundle;
+
+import io.github.carlos_emr.carlos.utility.CachedDateFormats;
 
 /**
  * @deprecated 2013-04-28 use io.github.carlos_emr.carlos.util.DateUtils instead
@@ -60,8 +59,7 @@ public class UtilDateUtilities {
 
     public static Date StringToDate(String s, String spattern, Locale locale) {
         try {
-            SimpleDateFormat simpledateformat = new SimpleDateFormat(spattern, locale);
-            return simpledateformat.parse(s);
+            return CachedDateFormats.parse(s, spattern, locale);
         } catch (Exception exception) {
             return null;
         }
@@ -81,8 +79,7 @@ public class UtilDateUtilities {
 
     public static String DateToString(Date date, String spattern, Locale locale) {
         if (date != null) {
-            SimpleDateFormat simpledateformat = new SimpleDateFormat(spattern, locale);
-            return simpledateformat.format(date);
+            return CachedDateFormats.format(date, spattern, locale);
         } else {
             return "";
         }
@@ -90,18 +87,15 @@ public class UtilDateUtilities {
 
     //"yyyy-MM-dd";
     public static String justYear(Date date) {
-        SimpleDateFormat simpledateformat = new SimpleDateFormat("yyyy");
-        return simpledateformat.format(date);
+        return CachedDateFormats.format(date, "yyyy");
     }
 
     public static String justMonth(Date date) {
-        SimpleDateFormat simpledateformat = new SimpleDateFormat("MM");
-        return simpledateformat.format(date);
+        return CachedDateFormats.format(date, "MM");
     }
 
     public static String justDay(Date date) {
-        SimpleDateFormat simpledateformat = new SimpleDateFormat("dd");
-        return simpledateformat.format(date);
+        return CachedDateFormats.format(date, "dd");
     }
 
     public static Date Tomorrow() {
@@ -241,8 +235,7 @@ public class UtilDateUtilities {
     private static Locale defaultLocale = Locale.CANADA;
 
     public static String getToday(String datePattern) {
-        Format formatter = new SimpleDateFormat(datePattern);
-        return formatter.format(new Date());
+        return CachedDateFormats.format(new Date(), datePattern);
     }
 
     /**
@@ -253,16 +246,12 @@ public class UtilDateUtilities {
      * @return Date object. If date was unable to be parsed the object will be null
      */
     public static Date getDateFromString(String dateStr, String datePattern) {
-        Date date = null;
         try {
-            // Some examples
-            DateFormat formatter = new SimpleDateFormat(datePattern);
-            date = formatter.parse(dateStr);
+            return CachedDateFormats.parse(dateStr, datePattern);
         } catch (ParseException e) {
             //no point logging this..returns null
-            //MiscUtils.getLogger().error("Looks bad, too bad original author didn't document how bad", e);
+            return null;
         }
-        return date;
     }
 
 

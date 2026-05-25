@@ -31,6 +31,7 @@
 
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
+<%@ page import="java.util.Properties" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c"%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
@@ -38,6 +39,7 @@
 
 <%
 String curProvider_no = (String)session.getAttribute("user");
+Properties oscarVariables = CarlosProperties.getInstance();
 %>
 
 
@@ -464,8 +466,10 @@ String curProvider_no = (String)session.getAttribute("user");
 		
 					<li><a href="javascript:void(0);" class="xlink" rel='${ctx}/appointment/appointmentTypeAction'><fmt:message key="admin.admin.appointmentTypeList"/></a></li>
 								
-					<li><a href="javascript:void(0);"
-						class="xlink" rel="${ctx}/admin/AdminNewGroup?submit=blank"><fmt:message key="admin.admin.btnAddGroupNoRecord"/></a></li>
+					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.schedule.groupCreate" rights="w" reverse="<%=false%>">
+						<li><a href="javascript:void(0);"
+							class="xlink" rel="${ctx}/admin/AdminNewGroup?submit=blank"><fmt:message key="admin.admin.btnAddGroupNoRecord"/></a></li>
+					</security:oscarSec>
 					<li><a href="javascript:void(0);"
 						class="xlink" rel="${ctx}/admin/ViewAdminDisplayMyGroup"><fmt:message key="admin.admin.btnSearchGroupNoRecords"/></a></li>
 					<li><a href="javascript:void(0);"

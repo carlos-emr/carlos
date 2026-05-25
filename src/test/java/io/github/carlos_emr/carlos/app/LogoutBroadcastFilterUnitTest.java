@@ -25,6 +25,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.utility.ResponseSanitizationFilter;
 import jakarta.servlet.FilterChain;
+import jakarta.servlet.DispatcherType;
 import jakarta.servlet.FilterConfig;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletOutputStream;
@@ -36,6 +37,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Writer;
+import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.AfterEach;
@@ -54,8 +56,6 @@ import static org.mockito.Mockito.when;
 
 /**
  * Regression tests for {@link LogoutBroadcastFilter}.
- *
- * @since 2026-04-20
  */
 @Tag("unit")
 @DisplayName("LogoutBroadcastFilter")
@@ -86,6 +86,40 @@ class LogoutBroadcastFilterUnitTest {
         }
     }
 
+
+    @Test
+    @DisplayName("should not inject twice across request and forward dispatches")
+    void shouldNotInjectTwice_acrossRequestAndForwardDispatches() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/provider/providercontrol");
+        request.setContextPath("/carlos");
+        request.setDispatcherType(DispatcherType.REQUEST);
+        request.getSession(true).setAttribute("user", "123");
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.setContentType("text/html;charset=UTF-8");
+            servletResponse.getWriter().write("<html><body>schedule</body></html>");
+        };
+
+        MockHttpServletResponse requestResponse = new MockHttpServletResponse();
+        filter.doFilter(request, requestResponse, chain);
+
+        assertThat(request.getAttribute(scriptInjectedRequestAttribute())).isEqualTo(Boolean.TRUE);
+        assertThat(requestResponse.getContentAsString()).contains("window.__carlosLogoutActive=true;");
+
+        request.setDispatcherType(DispatcherType.FORWARD);
+        MockHttpServletResponse forwardResponse = new MockHttpServletResponse();
+        filter.doFilter(request, forwardResponse, chain);
+
+        assertThat(forwardResponse.getContentAsString()).contains("<html><body>schedule</body></html>");
+        assertThat(forwardResponse.getContentAsString()).doesNotContain("window.__carlosLogoutActive=true;");
+    }
+
+    private String scriptInjectedRequestAttribute() throws Exception {
+        Field field = LogoutBroadcastFilter.class.getDeclaredField("SCRIPT_INJECTED_REQUEST_ATTRIBUTE");
+        field.setAccessible(true);
+        return (String) field.get(null);
+    }
+
     @Test
     @DisplayName("should append logout script when response is flushed during rendering")
     void shouldAppendLogoutScript_whenResponseIsFlushedDuringRendering() throws Exception {
@@ -114,6 +148,27 @@ class LogoutBroadcastFilterUnitTest {
         assertThat(content).contains("var cp='" + contextPath.replace("/", "\\/") + "';");
         assertThat(content).contains("fetch(cp+'/status/SessionHeartbeat?autoRefresh=true')");
         assertThat(response.getLastRequestedBufferSize()).isEqualTo(HTML_INJECTION_BUFFER_SIZE_BYTES);
+    }
+
+    @Test
+    @DisplayName("should handle logout broadcasts immediately after page load")
+    void shouldHandleLogoutBroadcastsImmediately_afterPageLoad() throws Exception {
+        MockHttpServletRequest request = authenticatedRequest("/provider/providercontrol");
+        TrackingMockHttpServletResponse response = new TrackingMockHttpServletResponse();
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.setContentType("text/html;charset=UTF-8");
+            servletResponse.getWriter().write("<html><body>schedule</body></html>");
+        };
+
+        filter.doFilter(request, response, chain);
+
+        String content = response.getContentAsString();
+        assertThat(content).contains("BroadcastChannel");
+        assertThat(content).contains(".onmessage=");
+        assertThat(content).contains("window.__carlosLogoutActive=true;");
+        assertThat(content).doesNotContain("var ready=");
+        assertThat(content).doesNotContain("setTimeout(function(){ready=true}");
     }
 
     @Test

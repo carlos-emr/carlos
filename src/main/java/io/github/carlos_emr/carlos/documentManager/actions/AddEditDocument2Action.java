@@ -71,6 +71,7 @@ import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -165,7 +166,14 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             return null;
         }
 
-        String fileName = resolveSanitizedUploadedFileName(validatedSource, this.docFileFileName, this.docFileContentType);
+        String fileName;
+        try {
+            fileName = resolveSanitizedUploadedFileName(validatedSource, this.docFileFileName, this.docFileContentType);
+        } catch (FileValidationException e) {
+            response.setHeader("oscar_error", props.getString("dms.error.invalidFilename"));
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, props.getString("dms.error.invalidFilename"));
+            return null;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String user = loggedInInfo.getLoggedInProviderNo();
         EDoc newDoc = new EDoc("", "", fileName, "", user, user, this.getSource(), 'A', UtilDateUtilities.getToday("yyyy-MM-dd"), "", "", "demographic", "-1", 0);
@@ -367,7 +375,13 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
                 throw new FileNotFoundException();
             }
             // sanitize the original file name first
-            String fileName1 = resolveSanitizedUploadedFileName(validatedDocFile, this.docFileFileName, this.docFileContentType);
+            String fileName1;
+            try {
+                fileName1 = resolveSanitizedUploadedFileName(validatedDocFile, this.docFileFileName, this.docFileContentType);
+            } catch (FileValidationException e) {
+                errors.put("filenameinvalid", "dms.error.invalidFilename");
+                throw e;
+            }
 
             EDoc newDoc = new EDoc(this.getDocDesc(), this.getDocType(), fileName1, "", this.getDocCreator(), this.getResponsibleId(), this.getSource(), 'A', this.getObservationDate(), "", "", this.getFunction(), this.getFunctionId());
             newDoc.setDocPublic(this.getDocPublic());
@@ -483,6 +497,9 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
                 EDocUtil.addCaseMgmtNoteLink(cmnl);
             }
 
+        } catch (FileValidationException e) {
+            request.setAttribute("docerrors", errors);
+            return false;
         } catch (Exception e) {
             MiscUtils.getLogger().error("Failed to add uploaded document");
             // ActionRedirect redirect = new ActionRedirect(mapping.findForward("failAdd"));
@@ -525,7 +542,12 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
                 File docFile = this.getDocFile();
                 if (docFile != null && docFile.exists()) {
                     validatedDocFile = PathValidationUtils.validateUpload(docFile);
-                    fileName = resolveSanitizedUploadedFileName(validatedDocFile, this.docFileFileName, this.docFileContentType);
+                    try {
+                        fileName = resolveSanitizedUploadedFileName(validatedDocFile, this.docFileFileName, this.docFileContentType);
+                    } catch (FileValidationException e) {
+                        errors.put("filenameinvalid", "dms.error.invalidFilename");
+                        throw e;
+                    }
                     updateFileContent = true; // set update to true
                 }
             }
@@ -562,7 +584,12 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             // if the update behavior is true, get the file name
             if (updateFileContent) {
                 long expectedFileSize = validatedDocFile.length();
-                fileName = MiscUtils.sanitizeFileName(newDoc.getFileName());
+                try {
+                    fileName = PathValidationUtils.validateGeneratedFileName(newDoc.getFileName());
+                } catch (FileValidationException e) {
+                    errors.put("filenameinvalid", "dms.error.invalidFilename");
+                    throw e;
+                }
                 // save local file
                 File writtenFile;
                 try {
@@ -611,6 +638,10 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
 
             }
 
+        } catch (FileValidationException e) {
+            request.setAttribute("docerrors", errors);
+            request.setAttribute("editDocumentNo", this.getMode());
+            return "failEdit";
         } catch (Exception e) {
             request.setAttribute("docerrors", errors);
             request.setAttribute("editDocumentNo", this.getMode());
@@ -767,15 +798,17 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
      * @return String the normalized and sanitized filename to use for storage
      */
     private String resolveSanitizedUploadedFileName(File uploadedFile, String originalName, String contentType) {
-        String candidate = filled(originalName) ? FilenameUtils.getName(originalName) : null;
+        String candidate;
+        try {
+            candidate = filled(originalName) ? FilenameUtils.getName(originalName) : null;
+        } catch (IllegalArgumentException e) {
+            throw new FileValidationException(PathValidationUtils.INVALID_FILENAME_MESSAGE, e);
+        }
         if (filled(candidate)) {
-            String sanitizedName = MiscUtils.sanitizeFileName(candidate);
-            if (filled(sanitizedName)) {
-                return sanitizedName;
-            }
+            return PathValidationUtils.validateFileName(candidate);
         }
 
-        return resolveFallbackUploadFileName(uploadedFile, originalName, contentType);
+        return PathValidationUtils.validateFileName(resolveFallbackUploadFileName(uploadedFile, originalName, contentType));
     }
 
     private String resolveFallbackUploadFileName(File uploadedFile, String originalName, String contentType) {
