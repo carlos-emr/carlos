@@ -97,7 +97,7 @@ public class ExtractBean extends Object implements Serializable {
     private BigDecimal BigTotal = new BigDecimal(0).setScale(2, BigDecimal.ROUND_HALF_UP);
     private BigDecimal bdFee = new BigDecimal(0).setScale(2, BigDecimal.ROUND_HALF_UP);
     private String dateRange = "";
-    private Object[] dateRangeParams = new Object[0];
+    private String[] dateRangeParams = new String[0];
     private String eFlag = "";
     private String oscar_home;
     private int vsFlag = 0;
@@ -578,13 +578,13 @@ public class ExtractBean extends Object implements Serializable {
     public synchronized void setDateRange(String newDateRange) {
         if (newDateRange == null || newDateRange.trim().isEmpty()) {
             dateRange = "";
-            dateRangeParams = new Object[0];
+            dateRangeParams = new String[0];
             return;
         }
 
         Matcher matcher = DATE_RANGE_CONDITION.matcher(newDateRange);
         StringBuffer parameterized = new StringBuffer();
-        List<Object> params = new ArrayList<>();
+        List<String> params = new ArrayList<>();
         while (matcher.find()) {
             params.add(matcher.group(3));
             matcher.appendReplacement(parameterized,
@@ -598,7 +598,7 @@ public class ExtractBean extends Object implements Serializable {
         }
 
         dateRange = parameterizedDateRange;
-        dateRangeParams = params.toArray();
+        dateRangeParams = params.toArray(new String[0]);
     }
 
     private Object[] billingQueryParams() {

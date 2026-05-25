@@ -43,6 +43,8 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.TransformerException;
@@ -59,6 +61,8 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.carlos.utility.CachedDateFormats;
 
 public class FrmRecordHelp {
+    private static final Pattern INSERT_ROW_ID_FILTER = Pattern.compile("(?i)\\bID\\s*=\\s*0\\b");
+
     private String _dateFormat = "yyyy/MM/dd";
     private String _newDateFormat = "yyyy-MM-dd"; //handles both date formats, but yyyy/MM/dd is displayed to avoid deprecation
 
@@ -178,9 +182,8 @@ public class FrmRecordHelp {
                         if (!place.endsWith(System.getProperty("file.separator")))
                             place = place + System.getProperty("file.separator");
                         String fileName = place + archiveFileName;
-                        try (PreparedStatement archiveStatement = connection.prepareStatement(
-                                "SELECT * FROM " + formClass + " WHERE ID = ?")) {
-                            archiveStatement.setInt(1, insertedId);
+                        try (PreparedStatement archiveStatement = prepareResultSetStatement(connection,
+                                archiveSelectSql(sql), false, archiveParams(params, insertedId))) {
                             try (ResultSet archiveResult = archiveStatement.executeQuery()) {
                                 Document doc = JDBCUtil.toDocument(archiveResult);
                                 JDBCUtil.saveAsXML(doc, fileName);
@@ -197,6 +200,21 @@ public class FrmRecordHelp {
 
             return insertedId;
         }
+    }
+
+    private String archiveSelectSql(String sql) throws SQLException {
+        Matcher matcher = INSERT_ROW_ID_FILTER.matcher(sql);
+        if (!matcher.find()) {
+            throw new SQLException("Form record SQL must include ID=0 for XML archive");
+        }
+        return matcher.replaceFirst("ID = ?");
+    }
+
+    private Object[] archiveParams(Object[] params, int insertedId) {
+        Object[] archiveParams = new Object[params.length + 1];
+        System.arraycopy(params, 0, archiveParams, 0, params.length);
+        archiveParams[params.length] = insertedId;
+        return archiveParams;
     }
 
     private PreparedStatement prepareResultSetStatement(Connection connection, String sql, boolean updatable,
