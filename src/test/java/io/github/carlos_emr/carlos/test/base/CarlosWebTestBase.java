@@ -22,9 +22,11 @@
  */
 package io.github.carlos_emr.carlos.test.base;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.mock.web.MockHttpSession;
@@ -50,6 +52,7 @@ import static org.mockito.Mockito.when;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -76,6 +79,7 @@ public abstract class CarlosWebTestBase extends CarlosTestBase {
 
     // Map to store request parameters
     protected Map<String, String[]> requestParameters;
+    private final Map<String, ReplacedSpringBean> replacedSpringBeans = new LinkedHashMap<>();
 
     @BeforeEach
     public void setUpWeb() {
@@ -165,14 +169,52 @@ public abstract class CarlosWebTestBase extends CarlosTestBase {
             String beanName = beanClass.getSimpleName();
             beanName = Character.toLowerCase(beanName.charAt(0)) + beanName.substring(1);
 
-            if (beanFactory instanceof org.springframework.beans.factory.support.DefaultListableBeanFactory) {
-                var factory = (org.springframework.beans.factory.support.DefaultListableBeanFactory) beanFactory;
+            if (beanFactory instanceof DefaultListableBeanFactory) {
+                var factory = (DefaultListableBeanFactory) beanFactory;
+                rememberReplacedBean(factory, beanName);
                 factory.destroySingleton(beanName);
                 factory.registerSingleton(beanName, mockBean);
             }
         } catch (Exception e) {
             logger.warn("Could not replace SpringUtils bean: {}", beanClass.getName(), e);
         }
+    }
+
+    @AfterEach
+    void restoreSpringUtilsBeans() {
+        try {
+            var beanFactory = applicationContext.getAutowireCapableBeanFactory();
+            if (beanFactory instanceof DefaultListableBeanFactory) {
+                var factory = (DefaultListableBeanFactory) beanFactory;
+                for (Map.Entry<String, ReplacedSpringBean> entry : replacedSpringBeans.entrySet()) {
+                    String beanName = entry.getKey();
+                    ReplacedSpringBean replacedBean = entry.getValue();
+                    factory.destroySingleton(beanName);
+                    if (!replacedBean.hadBeanDefinition() && replacedBean.originalSingleton() != null) {
+                        factory.registerSingleton(beanName, replacedBean.originalSingleton());
+                    }
+                }
+            }
+        } finally {
+            replacedSpringBeans.clear();
+            ActionContext.clear();
+        }
+    }
+
+    private void rememberReplacedBean(DefaultListableBeanFactory factory, String beanName) {
+        if (replacedSpringBeans.containsKey(beanName)) {
+            return;
+        }
+
+        boolean hadBeanDefinition = factory.containsBeanDefinition(beanName);
+        Object originalSingleton = null;
+        if (!hadBeanDefinition && factory.containsSingleton(beanName)) {
+            originalSingleton = factory.getSingleton(beanName);
+        }
+        replacedSpringBeans.put(beanName, new ReplacedSpringBean(hadBeanDefinition, originalSingleton));
+    }
+
+    private record ReplacedSpringBean(boolean hadBeanDefinition, Object originalSingleton) {
     }
 
     /**

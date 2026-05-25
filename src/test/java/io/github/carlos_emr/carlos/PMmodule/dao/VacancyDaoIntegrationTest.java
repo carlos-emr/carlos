@@ -30,6 +30,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Comparator;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -173,36 +174,44 @@ public class VacancyDaoIntegrationTest extends CarlosTestBase {
         EntityDataGenerator.generateTestDataForModelClass(vacancy1);
         vacancy1.setWlProgramId(wlProgramId1);
         vacancy1.setStatus(status1);
+        vacancy1.setName("alpha");
         dao.persist(vacancy1);
 
         Vacancy vacancy2 = new Vacancy();
         EntityDataGenerator.generateTestDataForModelClass(vacancy2);
         vacancy2.setWlProgramId(wlProgramId2);
         vacancy2.setStatus(status2);
+        vacancy2.setName("bravo");
         dao.persist(vacancy2);
 
         Vacancy vacancy3 = new Vacancy();
         EntityDataGenerator.generateTestDataForModelClass(vacancy3);
         vacancy3.setWlProgramId(wlProgramId1);
         vacancy3.setStatus(status1);
+        vacancy3.setName("charlie");
         dao.persist(vacancy3);
 
         Vacancy vacancy4 = new Vacancy();
         EntityDataGenerator.generateTestDataForModelClass(vacancy4);
         vacancy4.setWlProgramId(wlProgramId2);
         vacancy4.setStatus(status1);
+        vacancy4.setName("delta");
         dao.persist(vacancy4);
 
         Vacancy vacancy5 = new Vacancy();
         EntityDataGenerator.generateTestDataForModelClass(vacancy5);
         vacancy5.setWlProgramId(wlProgramId1);
         vacancy5.setStatus(status1);
+        vacancy5.setName("echo");
         dao.persist(vacancy5);
 
-        List<Vacancy> result = dao.getVacanciesByWlProgramId(wlProgramId1);
+        List<Vacancy> result = dao.getVacanciesByWlProgramIdAndStatus(wlProgramId1, status1);
 
         assertThat(result).hasSize(3);
-        assertThat(result).containsExactly(vacancy1, vacancy3, vacancy5);
+        assertThat(result).containsExactlyElementsOf(
+                List.of(vacancy1, vacancy3, vacancy5).stream()
+                        .sorted(Comparator.comparing(Vacancy::getName))
+                        .toList());
     }
 
     @Test

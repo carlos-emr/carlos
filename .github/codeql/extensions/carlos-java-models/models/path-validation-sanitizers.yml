@@ -35,6 +35,12 @@ extensions:
       # flow source so that taint from it is cut off at the sanitizer boundary.
       - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", false, "validatePath", "(java.lang.String,java.io.File)", "", "Argument[1]", "ReturnValue", "taint", "manual"]
 
+      # validateUserFilePath(String userFilename, File allowedDir) -> File
+      # Applies legacy filename normalization and validates the resulting path is
+      # within allowedDir. Like validatePath, the return value is bounded by
+      # allowedDir (Argument[1]); the user-provided filename is sanitized.
+      - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", false, "validateUserFilePath", "(java.lang.String,java.io.File)", "", "Argument[1]", "ReturnValue", "taint", "manual"]
+
       # validateExistingPath(File file, File allowedDir) -> File
       # Validates that file is within allowedDir and returns it. The return value
       # is guaranteed to be within allowedDir (Argument[1]); modelling only that
