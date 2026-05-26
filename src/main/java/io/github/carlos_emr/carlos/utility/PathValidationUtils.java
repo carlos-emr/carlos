@@ -81,7 +81,9 @@ public final class PathValidationUtils {
      * @param userProvidedFileName the filename provided by the user
      * @param allowedDir the directory the file must be within
      * @return the validated File path
-     * @throws SecurityException if validation fails
+     * @throws FileValidationException if the filename is null, empty, hidden, contains a null byte,
+     * or has a blocked final extension
+     * @throws SecurityException if the allowed directory is null or the resulting path is outside it
      */
     public static File validatePath(String userProvidedFileName, File allowedDir) {
         // 1. Sanitize filename
