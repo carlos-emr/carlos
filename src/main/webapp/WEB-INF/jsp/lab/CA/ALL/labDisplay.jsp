@@ -1888,9 +1888,9 @@ input[id^='acklabel_']{
                         + "&group=" + k
                         + embeddedDocumentLegacy;
                 String labValuesHref = "javascript:popupStart('660','900','" + request.getContextPath()
-                        + "/lab/CA/ON/ViewLabValues?testName=" + URLEncoder.encode(obxName, "UTF-8")
-                        + "&demo=" + (demographicID != null ? URLEncoder.encode(demographicID, "UTF-8") : "")
-                        + "&labType=HL7&identifier=" + URLEncoder.encode(handler.getOBXIdentifier(j, k), "UTF-8")
+                        + "/lab/CA/ON/ViewLabValues?testName=" + URLEncoder.encode(obxName, StandardCharsets.UTF_8)
+                        + "&demo=" + (demographicID != null ? URLEncoder.encode(demographicID, StandardCharsets.UTF_8) : "")
+                        + "&labType=HL7&identifier=" + URLEncoder.encode(handler.getOBXIdentifier(j, k), StandardCharsets.UTF_8)
                         + "')";
                 String observationHref = isEmbeddedDocumentResult ? embeddedDocumentHref : labValuesHref;
 
