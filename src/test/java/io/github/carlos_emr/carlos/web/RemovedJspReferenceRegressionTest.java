@@ -138,11 +138,14 @@ class RemovedJspReferenceRegressionTest {
     }
 
     @Test
-    @DisplayName("Admin UI and routes should not expose removed Traceability report")
-    void shouldNotExposeTraceabilityReport_fromAdminRoutesOrMenus() throws IOException {
+    @DisplayName("Admin routes, UI, permissions, and docs should not expose removed Traceability report")
+    void shouldNotExposeTraceabilityReport_fromAdminSurfaces() throws IOException {
         String strutsAdmin = Files.readString(Path.of("src/main/webapp/WEB-INF/classes/struts-admin.xml"));
         String adminJsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/admin/admin.jsp"));
         String adminLeftNav = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/administration/leftNav.jspf"));
+        String oscarData = Files.readString(Path.of("database/mysql/oscardata.sql"));
+        String traceabilityPermissionCleanup = Files.readString(Path.of(
+                "database/mysql/updates/update-2026-05-26-remove-traceability-permission.sql"));
 
         assertThat(strutsAdmin)
                 .doesNotContain("GenerateTraceAction")
@@ -160,6 +163,11 @@ class RemovedJspReferenceRegressionTest {
                 .doesNotContain("traceabilityReport");
         assertThat(Files.exists(Path.of("src/main/webapp/WEB-INF/jsp/admin/traceReport.jsp"))).isFalse();
         assertThat(Files.exists(Path.of("src/main/java/io/github/carlos_emr/carlos/admin/gate/ViewTraceReport2Action.java"))).isFalse();
+        assertThat(oscarData).doesNotContain("_admin.traceability");
+        assertThat(traceabilityPermissionCleanup)
+                .contains("secObjPrivilege")
+                .contains("secObjectName")
+                .contains("_admin.traceability");
 
         Path traceabilitySourceRoot = Path.of("src/main/java/io/github/carlos_emr/carlos/admin/traceability");
         if (Files.exists(traceabilitySourceRoot)) {
@@ -175,7 +183,7 @@ class RemovedJspReferenceRegressionTest {
                     .filter(Files::isRegularFile)
                     .filter(path -> path.getFileName().toString().startsWith("oscarResources_"))
                     .filter(path -> containsAny(path, "admin.admin.traceabilityReport",
-                            "admin.admin.downloadTraceabilityData"))
+                            "admin.admin.downloadTraceabilityData", "admin.admin.downloadEmpty"))
                     .toList();
 
             assertThat(offenders)
@@ -189,7 +197,8 @@ class RemovedJspReferenceRegressionTest {
                     .filter(RemovedJspReferenceRegressionTest::isTextDocumentationFile)
                     .filter(path -> containsAny(path, "GenerateTraceAction",
                             "GenerateTraceabilityReportAction", "ViewTraceReport", "traceReport.jsp",
-                            "admin.traceability", "traceabilityReport", "downloadTraceabilityData"))
+                            "admin.traceability", "traceabilityReport", "downloadTraceabilityData",
+                            "Utilities for traceability", "Build 'traceability report'"))
                     .toList();
 
             assertThat(offenders)
