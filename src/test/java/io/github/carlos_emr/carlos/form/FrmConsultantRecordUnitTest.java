@@ -44,6 +44,8 @@ import static org.mockito.Mockito.when;
 @Tag("form")
 class FrmConsultantRecordUnitTest extends CarlosUnitTestBase {
 
+    private static final int TEST_DEMOGRAPHIC_NO = 123;
+
     @Nested
     @DisplayName("getInitRefDoc")
     class GetInitRefDoc {
@@ -51,7 +53,7 @@ class FrmConsultantRecordUnitTest extends CarlosUnitTestBase {
         @Test
         @DisplayName("should leave refdocno unset when family doctor is null")
         void shouldLeaveRefdocnoUnset_whenFamilyDoctorIsNull() throws Exception {
-            Properties props = loadInitialReferralDoctor(null);
+            Properties props = invokeGetInitRefDoc_withFamilyDoctor(null);
 
             assertThat(props).doesNotContainKey("refdocno");
         }
@@ -59,7 +61,7 @@ class FrmConsultantRecordUnitTest extends CarlosUnitTestBase {
         @Test
         @DisplayName("should leave refdocno unset when family doctor is empty")
         void shouldLeaveRefdocnoUnset_whenFamilyDoctorIsEmpty() throws Exception {
-            Properties props = loadInitialReferralDoctor("");
+            Properties props = invokeGetInitRefDoc_withFamilyDoctor("");
 
             assertThat(props).doesNotContainKey("refdocno");
         }
@@ -67,7 +69,7 @@ class FrmConsultantRecordUnitTest extends CarlosUnitTestBase {
         @Test
         @DisplayName("should leave refdocno unset when rdohip closing tag is missing")
         void shouldLeaveRefdocnoUnset_whenRdohipClosingTagMissing() throws Exception {
-            Properties props = loadInitialReferralDoctor("<rdohip>123456");
+            Properties props = invokeGetInitRefDoc_withFamilyDoctor("<rdohip>123456");
 
             assertThat(props).doesNotContainKey("refdocno");
         }
@@ -75,7 +77,7 @@ class FrmConsultantRecordUnitTest extends CarlosUnitTestBase {
         @Test
         @DisplayName("should leave refdocno unset when family doctor XML is unrelated")
         void shouldLeaveRefdocnoUnset_whenFamilyDoctorXmlIsUnrelated() throws Exception {
-            Properties props = loadInitialReferralDoctor("<family_doc>Dr Smith</family_doc>");
+            Properties props = invokeGetInitRefDoc_withFamilyDoctor("<family_doc>Dr Smith</family_doc>");
 
             assertThat(props).doesNotContainKey("refdocno");
         }
@@ -83,12 +85,12 @@ class FrmConsultantRecordUnitTest extends CarlosUnitTestBase {
         @Test
         @DisplayName("should set refdocno when rdohip tag is present")
         void shouldSetRefdocno_whenRdohipTagIsPresent() throws Exception {
-            Properties props = loadInitialReferralDoctor("<rdohip>123456</rdohip>");
+            Properties props = invokeGetInitRefDoc_withFamilyDoctor("<rdohip>123456</rdohip>");
 
             assertThat(props).containsEntry("refdocno", "123456");
         }
 
-        private Properties loadInitialReferralDoctor(String familyDoctor) throws Exception {
+        private Properties invokeGetInitRefDoc_withFamilyDoctor(String familyDoctor) throws Exception {
             registerMock(ProfessionalSpecialistDao.class, mock(ProfessionalSpecialistDao.class));
             registerMock(ClinicDAO.class, mock(ClinicDAO.class));
 
@@ -97,10 +99,10 @@ class FrmConsultantRecordUnitTest extends CarlosUnitTestBase {
             when(resultSet.getString("family_doctor")).thenReturn(familyDoctor);
 
             try (MockedStatic<DBHandler> dbHandler = mockStatic(DBHandler.class)) {
-                dbHandler.when(() -> DBHandler.GetPreSQL("SELECT family_doctor FROM demographic WHERE demographic_no = ?", 123))
+                dbHandler.when(() -> DBHandler.GetPreSQL("SELECT family_doctor FROM demographic WHERE demographic_no = ?", TEST_DEMOGRAPHIC_NO))
                         .thenReturn(resultSet);
 
-                return new FrmConsultantRecord().getInitRefDoc(new Properties(), 123);
+                return new FrmConsultantRecord().getInitRefDoc(new Properties(), TEST_DEMOGRAPHIC_NO);
             }
         }
     }
