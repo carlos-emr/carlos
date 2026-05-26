@@ -53,7 +53,7 @@ class FrmConsultantRecordUnitTest extends CarlosUnitTestBase {
         @Test
         @DisplayName("should leave refdocno unset when family doctor is null")
         void shouldLeaveRefdocnoUnset_whenFamilyDoctorIsNull() throws Exception {
-            Properties props = invokeGetInitRefDoc_withFamilyDoctor(null);
+            Properties props = invokeGetInitRefDocWithFamilyDoctor(null);
 
             assertThat(props).doesNotContainKey("refdocno");
         }
@@ -61,7 +61,7 @@ class FrmConsultantRecordUnitTest extends CarlosUnitTestBase {
         @Test
         @DisplayName("should leave refdocno unset when family doctor is empty")
         void shouldLeaveRefdocnoUnset_whenFamilyDoctorIsEmpty() throws Exception {
-            Properties props = invokeGetInitRefDoc_withFamilyDoctor("");
+            Properties props = invokeGetInitRefDocWithFamilyDoctor("");
 
             assertThat(props).doesNotContainKey("refdocno");
         }
@@ -69,7 +69,7 @@ class FrmConsultantRecordUnitTest extends CarlosUnitTestBase {
         @Test
         @DisplayName("should leave refdocno unset when rdohip closing tag is missing")
         void shouldLeaveRefdocnoUnset_whenRdohipClosingTagMissing() throws Exception {
-            Properties props = invokeGetInitRefDoc_withFamilyDoctor("<rdohip>123456");
+            Properties props = invokeGetInitRefDocWithFamilyDoctor("<rdohip>123456");
 
             assertThat(props).doesNotContainKey("refdocno");
         }
@@ -77,7 +77,7 @@ class FrmConsultantRecordUnitTest extends CarlosUnitTestBase {
         @Test
         @DisplayName("should leave refdocno unset when family doctor XML is unrelated")
         void shouldLeaveRefdocnoUnset_whenFamilyDoctorXmlIsUnrelated() throws Exception {
-            Properties props = invokeGetInitRefDoc_withFamilyDoctor("<family_doc>Dr Smith</family_doc>");
+            Properties props = invokeGetInitRefDocWithFamilyDoctor("<family_doc>Dr Smith</family_doc>");
 
             assertThat(props).doesNotContainKey("refdocno");
         }
@@ -85,12 +85,12 @@ class FrmConsultantRecordUnitTest extends CarlosUnitTestBase {
         @Test
         @DisplayName("should set refdocno when rdohip tag is present")
         void shouldSetRefdocno_whenRdohipTagIsPresent() throws Exception {
-            Properties props = invokeGetInitRefDoc_withFamilyDoctor("<rdohip>123456</rdohip>");
+            Properties props = invokeGetInitRefDocWithFamilyDoctor("<rdohip>123456</rdohip>");
 
             assertThat(props).containsEntry("refdocno", "123456");
         }
 
-        private Properties invokeGetInitRefDoc_withFamilyDoctor(String familyDoctor) throws Exception {
+        private Properties invokeGetInitRefDocWithFamilyDoctor(String familyDoctor) throws Exception {
             registerMock(ProfessionalSpecialistDao.class, mock(ProfessionalSpecialistDao.class));
             registerMock(ClinicDAO.class, mock(ClinicDAO.class));
 
