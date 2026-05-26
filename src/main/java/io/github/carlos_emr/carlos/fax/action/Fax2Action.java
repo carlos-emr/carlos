@@ -57,6 +57,7 @@ import jakarta.servlet.http.HttpSession;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.Serializable;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -64,7 +65,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import org.apache.commons.io.FilenameUtils;
 
@@ -106,6 +106,7 @@ public class Fax2Action extends ActionSupport {
             faxManager.validateFilePath(resolvedFaxFilePath);
         }
         faxManager.flush(loggedInInfo, resolvedFaxFilePath);
+        removeSubmittedFaxFileToken();
 
 
 
@@ -242,6 +243,7 @@ public class Fax2Action extends ActionSupport {
                 .build();
 
         List<FaxJob> faxJobList = faxManager.createAndSaveFaxJob(loggedInInfo, params.toMap());
+        removeSubmittedFaxFileToken();
 
         boolean success = true;
         for (FaxJob faxJob : faxJobList) {
@@ -441,15 +443,12 @@ public class Fax2Action extends ActionSupport {
 
     private String registerPreviewPath(Path pdfPath) {
         String token = UUID.randomUUID().toString();
-        getOrCreatePreviewPaths().put(token, pdfPath.toString());
+        getOrCreatePreviewPathStore().put(token, pdfPath.toString());
         return token;
     }
 
     private String resolveSubmittedFaxFilePath(boolean required) {
-        String token = faxFileToken;
-        if (token == null || token.isBlank()) {
-            token = request.getParameter("faxFileToken");
-        }
+        String token = request.getParameter("faxFileToken");
         if (token == null || token.isBlank()) {
             if (required) {
                 throw new SecurityException("Access denied");
@@ -458,38 +457,49 @@ public class Fax2Action extends ActionSupport {
         }
 
         HttpSession session = request.getSession(false);
-        Map<String, String> previewPaths = getPreviewPaths(session);
-        String resolvedPath = previewPaths.get(token);
+        PreviewPathStore previewPaths = getPreviewPathStore(session);
+        String resolvedPath = previewPaths != null ? previewPaths.get(token) : null;
         if (resolvedPath == null || resolvedPath.isBlank()) {
             throw new SecurityException("Access denied");
         }
         return resolvedPath;
     }
 
-    private Map<String, String> getOrCreatePreviewPaths() {
+    private void removeSubmittedFaxFileToken() {
+        String token = request.getParameter("faxFileToken");
+        if (token == null || token.isBlank()) {
+            return;
+        }
+
+        PreviewPathStore previewPaths = getPreviewPathStore(request.getSession(false));
+        if (previewPaths != null) {
+            previewPaths.remove(token);
+        }
+    }
+
+    private PreviewPathStore getOrCreatePreviewPathStore() {
         HttpSession session = request.getSession();
-        Map<String, String> existingPreviewPaths = getPreviewPaths(session);
-        if (!existingPreviewPaths.isEmpty()) {
+        PreviewPathStore existingPreviewPaths = getPreviewPathStore(session);
+        if (existingPreviewPaths != null) {
             return existingPreviewPaths;
         }
 
-        Map<String, String> previewPaths = new HashMap<>();
+        PreviewPathStore previewPaths = new PreviewPathStore();
         session.setAttribute(FAX_PREVIEW_PATHS_SESSION_KEY, previewPaths);
         return previewPaths;
     }
 
-    @SuppressWarnings("unchecked")
-    private Map<String, String> getPreviewPaths(HttpSession session) {
+    private PreviewPathStore getPreviewPathStore(HttpSession session) {
         if (session == null) {
-            return Map.of();
+            return null;
         }
 
         Object value = session.getAttribute(FAX_PREVIEW_PATHS_SESSION_KEY);
-        if (value instanceof Map<?, ?>) {
-            return (Map<String, String>) value;
+        if (value instanceof PreviewPathStore previewPaths) {
+            return previewPaths;
         }
 
-        return Map.of();
+        return null;
     }
 
     private void sendAccessDenied(String message, Exception e) {
@@ -501,8 +511,24 @@ public class Fax2Action extends ActionSupport {
         }
     }
 
+    private static final class PreviewPathStore implements Serializable {
+        private static final long serialVersionUID = 1L;
+        private final HashMap<String, String> paths = new HashMap<>();
+
+        private void put(String token, String path) {
+            paths.put(token, path);
+        }
+
+        private String get(String token) {
+            return paths.get(token);
+        }
+
+        private void remove(String token) {
+            paths.remove(token);
+        }
+    }
+
     private String faxFilePath;
-    private String faxFileToken;
     private Integer transactionId;
     private Integer demographicNo;
     private String transactionType;
@@ -521,15 +547,6 @@ public class Fax2Action extends ActionSupport {
     @StrutsParameter
     public void setFaxFilePath(String faxFilePath) {
         this.faxFilePath = faxFilePath;
-    }
-
-    public String getFaxFileToken() {
-        return faxFileToken;
-    }
-
-    @StrutsParameter
-    public void setFaxFileToken(String faxFileToken) {
-        this.faxFileToken = faxFileToken;
     }
 
     public Integer getTransactionId() {

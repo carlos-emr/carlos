@@ -147,7 +147,7 @@ class Fax2ActionPreviewTokenTest extends CarlosUnitTestBase {
         Fax2Action action = prepareEformFax(pdf);
         String token = (String) request.getAttribute("faxFileToken");
         String tamperedPath = "/tmp/tampered.pdf";
-        action.setFaxFileToken(token);
+        request.addParameter("faxFileToken", token);
         action.setFaxFilePath(tamperedPath);
         action.setRecipient("Specialist");
         action.setRecipientFaxNumber("4165551234");
