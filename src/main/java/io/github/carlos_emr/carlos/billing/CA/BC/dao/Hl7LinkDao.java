@@ -45,6 +45,10 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 @Repository
 @SuppressWarnings("unchecked")
 public class Hl7LinkDao extends AbstractDaoImpl<Hl7Link> {
+    /**
+     * ORDER BY fragments are a SQL-injection boundary: every request value must resolve
+     * to one of these literal fragments or fall back to the default.
+     */
     private static final String DEFAULT_REPORTS_ORDER_BY = "hl7_pid.pid_id";
     private static final Map<String, String> REPORTS_ORDER_BY = Map.of(
             "pid_id", "hl7_pid.pid_id",
@@ -152,6 +156,12 @@ public class Hl7LinkDao extends AbstractDaoImpl<Hl7Link> {
         return new ArrayList<Object[]>();
     }
 
+    /**
+     * Resolves a request-supplied report sort key to a safe SQL ORDER BY fragment.
+     *
+     * @param orderby request-supplied sort key
+     * @return allowlisted SQL fragment, or the default fragment when unrecognized
+     */
     private String getReportsOrderBy(String orderby) {
         if (orderby == null) {
             return DEFAULT_REPORTS_ORDER_BY;
