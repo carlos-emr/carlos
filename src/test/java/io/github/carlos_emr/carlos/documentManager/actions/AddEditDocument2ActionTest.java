@@ -80,7 +80,7 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
     private Path tempDocumentDir;
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp() throws java.io.IOException {
         request = new MockHttpServletRequest();
         response = new MockHttpServletResponse();
         tempDocumentDir = Files.createTempDirectory("add-edit-document-storage");
@@ -105,7 +105,7 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
     }
 
     @AfterEach
-    void tearDown() throws Exception {
+    void tearDown() throws java.io.IOException {
         if (tempUploadFile != null) {
             Files.deleteIfExists(tempUploadFile.toPath());
         }
@@ -231,7 +231,7 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should write uploaded file via temp sibling and clean it up")
-    void shouldWriteUploadedFileViaTempSibling_andCleanItUp() throws Exception {
+    void shouldWriteUploadedFileViaTempSibling_whenPublishingCompletes() throws Exception {
         Path relativeTarget = Path.of("nested", "uploaded.pdf");
         Path targetPath = tempDocumentDir.resolve(relativeTarget);
         byte[] payload = "new pdf payload".getBytes(StandardCharsets.UTF_8);

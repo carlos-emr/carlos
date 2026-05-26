@@ -588,12 +588,15 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
      * Writes an uploaded file to the local document storage directory. The destination
      * path is validated using {@link PathValidationUtils} to prevent path traversal, the
      * contents are first flushed to a sibling temporary file, and the completed file is
-     * then atomically moved into place.
+     * then atomically moved into place. If the document directory filesystem cannot
+     * perform the atomic replacement, the temporary file is deleted and the destination
+     * path is left unchanged.
      *
      * @param is InputStream the input stream of the file content to write
      * @param fileName String the target filename (relative to DOCUMENT_DIR)
      * @return File the written file, or null if an error occurred
-     * @throws Exception if the output stream cannot be closed
+     * @throws Exception if the destination path cannot be prepared or the completed file
+     *                   cannot be atomically published
      */
     public static File writeLocalFile(InputStream is, String fileName) throws Exception {
         File file = null;
@@ -612,10 +615,10 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             file = new File(savePathStr);
 
             tempPath = Files.createTempFile(savePath.getParent(), savePath.getFileName().toString(), ".upload");
-            try (InputStream input = is; FileOutputStream fos = new FileOutputStream(tempPath.toFile())) {
+            try (FileOutputStream fos = new FileOutputStream(tempPath.toFile())) {
                 byte[] buf = new byte[128 * 1024];
                 int i = 0;
-                while ((i = input.read(buf)) != -1) {
+                while ((i = is.read(buf)) != -1) {
                     fos.write(buf, 0, i);
                 }
                 fos.getFD().sync();
