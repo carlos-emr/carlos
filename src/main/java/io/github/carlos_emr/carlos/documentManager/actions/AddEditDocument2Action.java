@@ -193,7 +193,14 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             newDoc.setProgramId(pp.getProgramId().intValue());
         }
 
-        long expectedFileSize = validatedSource.length();
+        long expectedFileSize;
+        try {
+            expectedFileSize = validatedUploadSize(validatedSource);
+        } catch (IOException e) {
+            MiscUtils.getLogger().error("Failed to determine uploaded document file size", e);
+            sendHtml5UploadError(props, ERROR_NO_WRITE_KEY);
+            return null;
+        }
         // save local file;
         if (expectedFileSize == 0) {
             sendHtml5UploadError(props, HttpServletResponse.SC_BAD_REQUEST, ERROR_ZERO_SIZE_KEY);
@@ -963,6 +970,16 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         } catch (Exception e) {
             throw new IOException("Failed to write uploaded document", e);
         }
+    }
+
+    private long validatedUploadSize(File validatedUpload) throws IOException {
+        File uploadForSize;
+        try {
+            uploadForSize = PathValidationUtils.validateUpload(validatedUpload);
+        } catch (SecurityException e) {
+            throw new IOException("Invalid upload file", e);
+        }
+        return Files.size(uploadForSize.toPath()); // codeql[java/path-injection] -- validateUpload restricts to allowed temp dirs immediately before this size read.
     }
 
     /**

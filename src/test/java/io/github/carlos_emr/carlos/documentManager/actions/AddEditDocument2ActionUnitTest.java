@@ -549,6 +549,29 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should return write error when html5 upload disappears after validation")
+    void shouldReturnWriteError_whenHtml5UploadDisappearsAfterValidation() throws Exception {
+        tempUploadFile = File.createTempFile("add-edit-document", ".txt");
+        Files.writeString(tempUploadFile.toPath(), "test");
+        bindDocFileUpload(tempUploadFile, "echart-upload.txt");
+        action.setAppointmentNo("123");
+
+        Files.deleteIfExists(tempUploadFile.toPath());
+
+        try (MockedStatic<PathValidationUtils> pathValidationUtilsMock = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS)) {
+            pathValidationUtilsMock.when(() -> PathValidationUtils.validateUpload(any(File.class)))
+                    .thenReturn(tempUploadFile);
+
+            String result = action.html5MultiUpload();
+
+            assertThat(result).isNull();
+            assertThat(response.getStatus()).isEqualTo(500);
+            assertThat(response.getHeader("oscar_error")).isEqualTo(ResourceBundle.getBundle("oscarResources")
+                    .getString("dms.addDocument.errorNoWrite"));
+        }
+    }
+
+    @Test
     @DisplayName("should preserve existing document when upload write fails")
     void shouldPreserveExistingDocument_whenUploadWriteFails() throws Exception {
         Path documentDir = Files.createTempDirectory("add-edit-document-output");
