@@ -89,7 +89,7 @@ import static org.mockito.Mockito.when;
 @DisplayName("AddEditDocument2Action Unit Tests")
 @Tag("unit")
 @Tag("documentManager")
-class AddEditDocument2ActionTest extends CarlosUnitTestBase {
+class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
