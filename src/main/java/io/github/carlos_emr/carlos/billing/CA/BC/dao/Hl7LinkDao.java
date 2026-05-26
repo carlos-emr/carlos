@@ -31,6 +31,7 @@ package io.github.carlos_emr.carlos.billing.CA.BC.dao;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 import jakarta.persistence.Query;
 
@@ -44,6 +45,17 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 @Repository
 @SuppressWarnings("unchecked")
 public class Hl7LinkDao extends AbstractDaoImpl<Hl7Link> {
+    private static final String DEFAULT_REPORTS_ORDER_BY = "hl7_pid.pid_id";
+    private static final Map<String, String> REPORTS_ORDER_BY = Map.of(
+            "pid_id", "hl7_pid.pid_id",
+            "patient_name", "hl7_pid.patient_name",
+            "ordering_provider", "hl7_obr.ordering_provider",
+            "result_copies_to", "hl7_obr.result_copies_to",
+            "status", "hl7_link.status",
+            "signed_on", "hl7_link.signed_on",
+            "last_name", "last_name",
+            "date_time", "hl7_message.date_time"
+    );
 
     public Hl7LinkDao() {
         super(Hl7Link.class);
@@ -97,14 +109,15 @@ public class Hl7LinkDao extends AbstractDaoImpl<Hl7Link> {
 
     @NativeSql({"hl7_pid", "hl7_link", "hl7_obr", "hl7_message"})
     public List<Object[]> findReports(Date start, Date end, String provider_no, String orderby, String command) {
-        String select_reports_by_provider = "SELECT DISTINCT hl7_pid.pid_id, hl7_pid.patient_name, hl7_obr.ordering_provider, hl7_obr.result_copies_to, hl7_link.status, hl7_link.signed_on, provider.last_name, provider.first_name, hl7_message.date_time  FROM hl7_link, demographic, hl7_pid, hl7_obr, hl7_message, provider WHERE demographic.provider_no = provider.provider_no AND hl7_link.pid_id=hl7_obr.pid_id AND hl7_link.pid_id=hl7_pid.pid_id AND demographic.provider_no='@provider_no' AND hl7_message.message_id=hl7_pid.message_id AND demographic.demographic_no=hl7_link.demographic_no AND hl7_link.status!='P'";
+        String select_reports_by_provider = "SELECT DISTINCT hl7_pid.pid_id, hl7_pid.patient_name, hl7_obr.ordering_provider, hl7_obr.result_copies_to, hl7_link.status, hl7_link.signed_on, provider.last_name, provider.first_name, hl7_message.date_time  FROM hl7_link, demographic, hl7_pid, hl7_obr, hl7_message, provider WHERE demographic.provider_no = provider.provider_no AND hl7_link.pid_id=hl7_obr.pid_id AND hl7_link.pid_id=hl7_pid.pid_id AND demographic.provider_no = :providerNo AND hl7_message.message_id=hl7_pid.message_id AND demographic.demographic_no=hl7_link.demographic_no AND hl7_link.status!='P'";
         String select_reports_linked_to_providers = "SELECT DISTINCT hl7_pid.pid_id, hl7_pid.patient_name, hl7_obr.ordering_provider, hl7_obr.result_copies_to, hl7_link.status, hl7_link.signed_on, provider.last_name, provider.first_name, hl7_message.date_time  FROM hl7_link, demographic, hl7_pid, hl7_obr, hl7_message, provider WHERE demographic.provider_no = provider.provider_no AND hl7_link.pid_id=hl7_obr.pid_id AND hl7_link.pid_id=hl7_pid.pid_id AND hl7_message.message_id=hl7_pid.message_id AND demographic.demographic_no=hl7_link.demographic_no AND hl7_link.status!='P'";
         String select_unlinked_labs = "SELECT DISTINCT hl7_pid.pid_id, hl7_pid.patient_name, hl7_obr.ordering_provider, hl7_obr.result_copies_to, hl7_link.status, hl7_link.signed_on, hl7_message.date_time, '' as `last_name`, '' as `first_name` FROM hl7_pid left join hl7_link on hl7_link.pid_id=hl7_pid.pid_id left join hl7_obr on hl7_pid.pid_id=hl7_obr.pid_id left join hl7_message on hl7_message.message_id=hl7_pid.message_id WHERE hl7_link.status='P' OR hl7_link.status is null";
         String sqlWhere = (start != null ? " AND hl7_message.date_time >= '" + ConversionUtils.toDateString(start) + " 00:00:00'" : "") +
                 (end != null ? " AND hl7_message.date_time <= '" + ConversionUtils.toTimeString(end) + " 23:59:59'" : "");
-        String sqlOrderBy = " ORDER BY @orderby";
+        String sqlOrderBy = " ORDER BY " + getReportsOrderBy(orderby);
 
         String sql = null;
+        boolean requiresProviderNo = false;
         if (command != null && !command.equals("")) {
             if ("-ULL".equals(provider_no)) {
                 sql = select_unlinked_labs;
@@ -112,17 +125,28 @@ public class Hl7LinkDao extends AbstractDaoImpl<Hl7Link> {
                 sql = select_reports_linked_to_providers;
             } else if ("-UAP".equals(provider_no)) {
                 sql = select_reports_by_provider;
+                requiresProviderNo = true;
             } else {
                 sql = select_reports_by_provider;
+                requiresProviderNo = true;
             }
             sql += sqlWhere + sqlOrderBy;
-            sql = sql.replaceAll("@provider_no", provider_no.replaceAll("-UAP", "")).replaceAll("@orderby", orderby);
 
             Query query = entityManager.createNativeQuery(sql);
+            if (requiresProviderNo) {
+                query.setParameter("providerNo", "-UAP".equals(provider_no) ? "" : provider_no);
+            }
             return query.getResultList();
         }
 
         return new ArrayList<Object[]>();
+    }
+
+    private String getReportsOrderBy(String orderby) {
+        if (orderby == null) {
+            return DEFAULT_REPORTS_ORDER_BY;
+        }
+        return REPORTS_ORDER_BY.getOrDefault(orderby.trim(), DEFAULT_REPORTS_ORDER_BY);
     }
 
 }
