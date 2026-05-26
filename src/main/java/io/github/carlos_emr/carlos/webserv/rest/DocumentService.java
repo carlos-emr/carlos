@@ -36,6 +36,8 @@ import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.managers.DocumentManager;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import io.github.carlos_emr.carlos.webserv.rest.conversion.DocumentConverter;
@@ -77,7 +79,7 @@ public class DocumentService extends AbstractServiceImpl {
     public Response saveDocumentToDemographic(DocumentTo1 documentT) {
         Response response;
 
-        if (StringUtils.isNotEmpty(documentT.getFileName()) && documentT.getFileContents().length > 0 && documentT.getDemographicNo() != null) {
+        if (StringUtils.isNotEmpty(documentT.getFileName()) && documentT.getFileContents() != null && documentT.getFileContents().length > 0 && documentT.getDemographicNo() != null) {
             try {
                 DocumentConverter documentConverter = new DocumentConverter();
                 LoggedInInfo loggedInInfo = getLoggedInInfo();
@@ -87,6 +89,8 @@ public class DocumentService extends AbstractServiceImpl {
                 Document document = documentConverter.getAsDomainObject(loggedInInfo, documentT);
                 document = documentManager.createDocument(loggedInInfo, document, documentT.getDemographicNo(), documentT.getProviderNo(), documentT.getFileContents());
                 response = Response.ok(documentConverter.getAsTransferObject(loggedInInfo, document)).build();
+            } catch (FileValidationException e) {
+                response = Response.status(Response.Status.BAD_REQUEST).entity(e.getMessage()).build();
             } catch (IOException e) {
                 response = Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("The document could not be saved.").build();
             }
@@ -131,9 +135,11 @@ public class DocumentService extends AbstractServiceImpl {
 
         try {
             document = documentManager.createDocument(loggedInInfo, document, documentTo1.getDemographicNo(), documentTo1.getProviderNo(), documentTo1.getFileContents());
+        } catch (FileValidationException e) {
+            return Response.status(Response.Status.BAD_REQUEST).entity(e.getMessage()).build();
         } catch (IOException e) {
-            logger.error("Document could not be saved: {}", documentTo1.getFileName(), e);
-            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createResponseMap(documentTo1.getFileName(), "Failed", "Internal error: " + e.getMessage())).build();
+            logger.error("Document could not be saved: {}", LogSafe.sanitize(documentTo1.getFileName()), e);
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createResponseMap(documentTo1.getFileName(), "Failed", "The document could not be saved.")).build();
         }
 
         Integer queueId = documentManager.addDocumentToQueue(loggedInInfo, document.getDocumentNo(), documentTo1.getQueue());
