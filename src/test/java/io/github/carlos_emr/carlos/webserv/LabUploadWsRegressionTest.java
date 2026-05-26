@@ -22,6 +22,8 @@
 package io.github.carlos_emr.carlos.webserv;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
@@ -29,6 +31,7 @@ import static org.mockito.Mockito.when;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.model.enumerator.LabType;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.File;
 import java.nio.file.Path;
@@ -56,14 +59,17 @@ class LabUploadWsRegressionTest {
     @Test
     @DisplayName("should omit raw filename when path validation fails")
     void shouldOmitRawFilename_whenPathValidationFails() {
-        String invalidFileName = "bad\u0000name";
+        String invalidFileName = "bad.enc";
         HttpServletRequest request = mock(HttpServletRequest.class);
         when(request.getRemoteAddr()).thenReturn("127.0.0.1");
 
-        try (MockedStatic<CarlosProperties> propertiesMock = mockStatic(CarlosProperties.class)) {
+        try (MockedStatic<CarlosProperties> propertiesMock = mockStatic(CarlosProperties.class);
+                MockedStatic<PathValidationUtils> pathValidationMock = mockStatic(PathValidationUtils.class)) {
             CarlosProperties properties = mock(CarlosProperties.class);
             propertiesMock.when(CarlosProperties::getInstance).thenReturn(properties);
             when(properties.getProperty("DOCUMENT_DIR")).thenReturn(tempDir.toString() + File.separator);
+            pathValidationMock.when(() -> PathValidationUtils.validatePath(anyString(), any(File.class)))
+                    .thenThrow(new FileValidationException("unsafe filename ../secret.pdf"));
 
             LabUploadWs service = new LabUploadWs() {
                 @Override

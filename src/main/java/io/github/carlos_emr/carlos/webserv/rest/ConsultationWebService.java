@@ -746,7 +746,11 @@ public class ConsultationWebService extends AbstractServiceImpl {
                     } catch (FileValidationException e) {
                         MiscUtils.getLogger().warn("saveRequestAttachments: invalid attachment filename");
                     } catch (IOException e) {
-                        MiscUtils.getLogger().warn("saveRequestAttachments: Could not create document for attachment", e);
+                        if (isFileValidationFailure(e)) {
+                            MiscUtils.getLogger().warn("saveRequestAttachments: invalid attachment filename");
+                        } else {
+                            MiscUtils.getLogger().warn("saveRequestAttachments: Could not create document for attachment", e);
+                        }
                     }
                 }
             } else {
@@ -820,5 +824,15 @@ public class ConsultationWebService extends AbstractServiceImpl {
         for (ConsultResponseDoc doc : currentDocs) {
             consultationManager.saveConsultResponseDoc(getLoggedInInfo(), doc);
         }
+    }
+
+    private static boolean isFileValidationFailure(Throwable throwable) {
+        while (throwable != null) {
+            if (throwable instanceof FileValidationException) {
+                return true;
+            }
+            throwable = throwable.getCause();
+        }
+        return false;
     }
 }

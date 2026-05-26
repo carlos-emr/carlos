@@ -103,33 +103,49 @@ class DocumentServiceRegressionTest {
     }
 
     @Test
-    @DisplayName("should return bad request when save document filename validation fails")
-    void shouldReturnBadRequest_whenSaveDocumentFilenameValidationFails() throws Exception {
-        String validationMessage = "Invalid filename";
+    @DisplayName("should return bad request when save payload has empty file contents")
+    void shouldReturnBadRequest_whenSavePayloadHasEmptyFileContents() {
+        DocumentTo1 document = validDocument();
+        document.setFileContents(new byte[0]);
+
+        Response response = service.saveDocumentToDemographic(document);
+
+        assertThat(response.getStatus()).isEqualTo(Response.Status.BAD_REQUEST.getStatusCode());
+        verifyNoInteractions(documentManager);
+    }
+
+    @Test
+    @DisplayName("should return bad request when save document filename validation is wrapped")
+    void shouldReturnBadRequest_whenSaveDocumentFilenameValidationIsWrapped() throws Exception {
+        String validationMessage = "unsafe filename ../secret.pdf";
         when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(DEMOGRAPHIC_NO),
                 eq(PROVIDER_NO), eq(FILE_CONTENTS)))
-                .thenThrow(new FileValidationException(validationMessage));
+                .thenThrow(new IOException("Document filename failed path validation",
+                        new FileValidationException(validationMessage)));
 
         Response response = service.saveDocumentToDemographic(validDocument());
 
         assertThat(response.getStatus()).isEqualTo(Response.Status.BAD_REQUEST.getStatusCode());
-        assertThat(response.getEntity()).isEqualTo(validationMessage);
+        assertThat(response.getEntity()).isEqualTo("Invalid filename.");
+        assertThat(response.getEntity().toString()).doesNotContain("../secret.pdf");
     }
 
     @Test
-    @DisplayName("should return bad request when pending document filename validation fails")
-    void shouldReturnBadRequest_whenPendingDocumentFilenameValidationFails() throws Exception {
-        String validationMessage = "Invalid filename";
+    @DisplayName("should return bad request when pending document filename validation is wrapped")
+    void shouldReturnBadRequest_whenPendingDocumentFilenameValidationIsWrapped() throws Exception {
+        String validationMessage = "unsafe filename ../secret.pdf";
         DocumentTo1 document = validPendingDocument();
         grantPendingDocumentWriteAccess();
         when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(DEMOGRAPHIC_NO),
                 eq(PROVIDER_NO), eq(FILE_CONTENTS)))
-                .thenThrow(new FileValidationException(validationMessage));
+                .thenThrow(new IOException("Document filename failed path validation",
+                        new FileValidationException(validationMessage)));
 
         Response response = service.uploadPendingDocuments(document, null);
 
         assertThat(response.getStatus()).isEqualTo(Response.Status.BAD_REQUEST.getStatusCode());
-        assertThat(response.getEntity()).isEqualTo(validationMessage);
+        assertThat(response.getEntity()).isEqualTo("Invalid filename.");
+        assertThat(response.getEntity().toString()).doesNotContain("../secret.pdf");
     }
 
     @Test

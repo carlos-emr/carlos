@@ -34,6 +34,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsultationAttachmentTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsultationRequestTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DocumentTo1;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -93,7 +94,8 @@ class ConsultationWebServiceRegressionTest {
         request.setAttachments(List.of(newDocumentAttachment()));
         when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(DEMOGRAPHIC_NO),
                 eq(PROVIDER_NO), eq(FILE_CONTENTS)))
-                .thenThrow(new FileValidationException("Invalid filename"));
+                .thenThrow(new IOException("Document filename failed path validation",
+                        new FileValidationException("unsafe filename ../secret.pdf")));
         when(consultationManager.getConsultRequestDocs(loggedInInfo, request.getId())).thenReturn(null);
 
         ReflectionTestUtils.invokeMethod(service, "saveRequestAttachments", request);
