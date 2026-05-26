@@ -57,7 +57,7 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("unit")
 @Tag("fast")
 @Tag("security")
-public class PathValidationUtilsUnitTest {
+class PathValidationUtilsUnitTest {
 
     @TempDir
     Path tempDir;
