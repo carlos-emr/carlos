@@ -154,6 +154,7 @@ public final class PathValidationUtils {
             logger.warn("Hidden filenames not allowed after normalization");
             throw new FileValidationException(HIDDEN_FILENAME_MESSAGE);
         }
+        // Locale.ROOT keeps security checks stable across locale-specific case mappings.
         String extension = FilenameUtils.getExtension(normalizedName).toLowerCase(Locale.ROOT);
         if (BLOCKED_EXTENSIONS.contains(extension)) {
             logger.warn("Blocked dangerous file extension: {}", extension);

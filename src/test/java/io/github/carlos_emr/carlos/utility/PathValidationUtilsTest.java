@@ -194,7 +194,16 @@ public class PathValidationUtilsTest {
 
         @ParameterizedTest
         @DisplayName("should reject dangerous extension when filename ends with blocked extension")
-        @ValueSource(strings = {"shell.jsp", "view.JSPX", "app.War", "payload.CLASS", "library.Jar", "launch.JNLP"})
+        @ValueSource(strings = {
+            "shell.jsp",
+            "view.JSPX",
+            "app.War",
+            "payload.CLASS",
+            "library.Jar",
+            "launch.JNLP",
+            "document.pdf.jsp",
+            "report.txt.class"
+        })
         void shouldRejectDangerousExtension_whenFilenameEndsWithBlockedExtension(String filename) {
             assertThatThrownBy(() -> PathValidationUtils.validateFileName(filename))
                 .isInstanceOf(FileValidationException.class)
