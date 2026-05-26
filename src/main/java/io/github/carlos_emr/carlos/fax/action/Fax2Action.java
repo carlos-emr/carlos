@@ -63,9 +63,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import org.apache.commons.io.FilenameUtils;
 
 public class Fax2Action extends ActionSupport {
@@ -513,7 +513,7 @@ public class Fax2Action extends ActionSupport {
 
     private static final class PreviewPathStore implements Serializable {
         private static final long serialVersionUID = 1L;
-        private final HashMap<String, String> paths = new HashMap<>();
+        private final ConcurrentHashMap<String, String> paths = new ConcurrentHashMap<>();
 
         private void put(String token, String path) {
             paths.put(token, path);

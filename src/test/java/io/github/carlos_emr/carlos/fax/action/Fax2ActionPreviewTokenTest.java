@@ -114,7 +114,7 @@ class Fax2ActionPreviewTokenTest extends CarlosUnitTestBase {
     @DisplayName("should render preview when fax file token is valid")
     void shouldRenderPreview_whenFaxFileTokenIsValid() throws Exception {
         Path pdf = createPreviewPdf();
-        Fax2Action action = prepareEformFax(pdf);
+        Fax2Action action = prepareAndVerifyEformFax(pdf);
         String token = (String) request.getAttribute("faxFileToken");
         request.addParameter("faxFileToken", token);
         when(faxManager.resolveAndValidateFilePath(pdf.toString())).thenReturn(pdf);
@@ -144,7 +144,7 @@ class Fax2ActionPreviewTokenTest extends CarlosUnitTestBase {
     @DisplayName("should ignore raw fax file path tampering when queueing fax")
     void shouldIgnoreRawFaxFilePathTampering_whenQueueingFax() throws Exception {
         Path pdf = createPreviewPdf();
-        Fax2Action action = prepareEformFax(pdf);
+        Fax2Action action = prepareAndVerifyEformFax(pdf);
         String token = (String) request.getAttribute("faxFileToken");
         String tamperedPath = "/tmp/tampered.pdf";
         request.addParameter("faxFileToken", token);
@@ -177,7 +177,7 @@ class Fax2ActionPreviewTokenTest extends CarlosUnitTestBase {
         assertThat(coverPage).doesNotContain("method=getPreview&faxFilePath=");
     }
 
-    private Fax2Action prepareEformFax(Path pdf) throws Exception {
+    private Fax2Action prepareAndVerifyEformFax(Path pdf) throws Exception {
         when(documentAttachmentManager.renderEFormWithAttachments(request, response)).thenReturn(pdf);
         Fax2Action action = new Fax2Action();
         action.setTransactionType(FaxManager.TransactionType.EFORM.name());
