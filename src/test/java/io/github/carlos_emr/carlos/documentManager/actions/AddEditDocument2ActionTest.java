@@ -31,11 +31,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.stream.Stream;
@@ -80,7 +83,7 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
     private Path tempDocumentDir;
 
     @BeforeEach
-    void setUp() throws java.io.IOException {
+    void setUp() throws IOException {
         request = new MockHttpServletRequest();
         response = new MockHttpServletResponse();
         tempDocumentDir = Files.createTempDirectory("add-edit-document-storage");
@@ -105,13 +108,13 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
     }
 
     @AfterEach
-    void tearDown() throws java.io.IOException {
+    void tearDown() throws IOException {
         if (tempUploadFile != null) {
             Files.deleteIfExists(tempUploadFile.toPath());
         }
         if (tempDocumentDir != null) {
             try (Stream<Path> paths = Files.walk(tempDocumentDir)) {
-                for (Path path : paths.sorted(java.util.Comparator.reverseOrder()).toList()) {
+                for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) {
                     Files.deleteIfExists(path);
                 }
             }
@@ -236,7 +239,7 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
         Path targetPath = tempDocumentDir.resolve(relativeTarget);
         byte[] payload = "new pdf payload".getBytes(StandardCharsets.UTF_8);
 
-        try (InputStream input = new java.io.ByteArrayInputStream(payload)) {
+        try (InputStream input = new ByteArrayInputStream(payload)) {
             File writtenFile = AddEditDocument2Action.writeLocalFile(input, relativeTarget.toString());
 
             assertThat(writtenFile.toPath()).isEqualTo(targetPath);
@@ -255,7 +258,7 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
         Files.writeString(targetPath, "old-content", StandardCharsets.UTF_8);
         byte[] replacement = "replacement payload that is longer".getBytes(StandardCharsets.UTF_8);
 
-        try (InputStream input = new java.io.ByteArrayInputStream(replacement)) {
+        try (InputStream input = new ByteArrayInputStream(replacement)) {
             AddEditDocument2Action.writeLocalFile(input, relativeTarget.toString());
         }
 
