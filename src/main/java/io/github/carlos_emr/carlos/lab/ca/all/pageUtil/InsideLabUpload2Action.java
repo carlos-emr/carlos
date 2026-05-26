@@ -55,6 +55,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -85,6 +86,7 @@ public class InsideLabUpload2Action extends ActionSupport implements UploadedFil
     private List<File> importFiles;
     private List<String> importFilesFileName;
     private List<String> importFilesContentType;
+    private String uploadValidationError;
 
     @Override
     public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
@@ -94,7 +96,12 @@ public class InsideLabUpload2Action extends ActionSupport implements UploadedFil
             this.importFilesContentType = new ArrayList<>();
             for (UploadedFile uploaded : uploadedFiles) {
                 this.importFiles.add(PathValidationUtils.validateUpload(new File(uploaded.getAbsolutePath())));
-                this.importFilesFileName.add(uploaded.getOriginalName());
+                try {
+                    this.importFilesFileName.add(PathValidationUtils.validateStrictFileName(uploaded.getOriginalName()));
+                } catch (FileValidationException e) {
+                    this.uploadValidationError = PathValidationUtils.INVALID_FILENAME_MESSAGE;
+                    this.importFilesFileName.add(null);
+                }
                 this.importFilesContentType.add(uploaded.getContentType());
             }
         }
@@ -104,6 +111,10 @@ public class InsideLabUpload2Action extends ActionSupport implements UploadedFil
     public String execute() {
         if (importFiles == null || importFiles.isEmpty()) {
             addActionError("No files were uploaded");
+            return INPUT;
+        }
+        if (uploadValidationError != null) {
+            addActionError(uploadValidationError);
             return INPUT;
         }
 
@@ -181,12 +192,10 @@ public class InsideLabUpload2Action extends ActionSupport implements UploadedFil
         return FileStatus.INVALID;
     }
 
-    @StrutsParameter(depth = 1)
     public List<File> getImportFiles() 
     { 
         return importFiles; 
     }
-    @StrutsParameter
     public void setImportFiles(List<File> importFiles) 
     { 
         this.importFiles = importFiles; 
@@ -196,7 +205,6 @@ public class InsideLabUpload2Action extends ActionSupport implements UploadedFil
     { 
         return importFilesFileName; 
     }
-    @StrutsParameter
     public void setImportFilesFileName(List<String> importFilesFileName) 
     { 
         this.importFilesFileName = importFilesFileName; 
@@ -206,7 +214,6 @@ public class InsideLabUpload2Action extends ActionSupport implements UploadedFil
     { 
         return importFilesContentType; 
     }
-    @StrutsParameter
     public void setImportFilesContentType(List<String> importFilesContentType) 
     { 
         this.importFilesContentType = importFilesContentType; 

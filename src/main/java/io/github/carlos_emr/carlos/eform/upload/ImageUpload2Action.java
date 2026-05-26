@@ -68,6 +68,10 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_eform", "w", null)) {
             throw new SecurityException("missing required sec object (_eform)");
         }
+        if (uploadValidationError != null) {
+            addActionError(uploadValidationError);
+            return ERROR;
+        }
 
         try {
             if (imageFileName == null || imageFileName.isEmpty()) {
@@ -142,6 +146,7 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
     }
 
     private File image;
+    private String uploadValidationError;
 
     /**
      * Receives uploaded files from the Struts 7.x {@code ActionFileUploadInterceptor}.
@@ -152,7 +157,12 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
             UploadedFile uploaded = uploadedFiles.get(0);
             this.image = PathValidationUtils.validateUpload(new File(uploaded.getAbsolutePath()));
             this.imageFileContentType = uploaded.getContentType();
-            this.imageFileName = uploaded.getOriginalName();
+            try {
+                this.imageFileName = PathValidationUtils.validateStrictFileName(uploaded.getOriginalName());
+            } catch (FileValidationException e) {
+                this.uploadValidationError = getInvalidFilenameMessage();
+                this.imageFileName = null;
+            }
         }
     }
 
@@ -160,7 +170,6 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
         return image;
     }
 
-    @StrutsParameter
     public void setImage(File image) {
         this.image = image;
     }
@@ -168,12 +177,10 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
     private String imageFileName;
     private String imageFileContentType;
 
-    @StrutsParameter
     public void setImageFileName(String imageFileName) {
         this.imageFileName = imageFileName;
     }
 
-    @StrutsParameter
     public void setImageFileContentType(String imageFileContentType) {
         this.imageFileContentType = imageFileContentType;
     }

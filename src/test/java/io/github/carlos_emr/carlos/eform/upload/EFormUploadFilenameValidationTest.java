@@ -32,6 +32,7 @@ import java.nio.file.Path;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -141,5 +142,59 @@ class EFormUploadFilenameValidationTest extends CarlosUnitTestBase {
                     eq(false),
                     isNull()));
         }
+    }
+
+    @Test
+    @DisplayName("image upload should capture valid Struts upload source")
+    void shouldCaptureImageUpload_whenStrutsUploadedFileIsValid() throws Exception {
+        Path upload = Files.createTempFile(tempDir, "image-upload", ".png");
+        UploadedFile uploadedFile = mock(UploadedFile.class);
+        when(uploadedFile.getAbsolutePath()).thenReturn(upload.toString());
+        when(uploadedFile.getContentType()).thenReturn("image/png");
+        when(uploadedFile.getOriginalName()).thenReturn("diagram.png");
+
+        ImageUpload2Action action = new ImageUpload2Action();
+        action.withUploadedFiles(List.of(uploadedFile));
+
+        assertThat(action.getImage()).isNotNull();
+        assertThat(action.getImage().getCanonicalPath()).isEqualTo(upload.toFile().getCanonicalPath());
+    }
+
+    @Test
+    @DisplayName("image upload should reject hidden Struts filename with user-facing error")
+    void shouldReturnError_whenStrutsImageFilenameIsHidden() throws Exception {
+        Path upload = Files.createTempFile(tempDir, "image-upload", ".png");
+        UploadedFile uploadedFile = mock(UploadedFile.class);
+        when(uploadedFile.getAbsolutePath()).thenReturn(upload.toString());
+        when(uploadedFile.getContentType()).thenReturn("image/png");
+        when(uploadedFile.getOriginalName()).thenReturn(".hidden.png");
+
+        ImageUpload2Action action = new ImageUpload2Action();
+        action.withUploadedFiles(List.of(uploadedFile));
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo("error");
+        assertThat(action.getActionErrors())
+                .anySatisfy(error -> assertThat(error).contains("Invalid filename"));
+    }
+
+    @Test
+    @DisplayName("image upload should reject source outside allowed temp directories")
+    void shouldRejectImageUpload_whenSourceIsOutsideTempDirectories() {
+        Path outside = Path.of("/etc/hostname");
+        org.junit.jupiter.api.Assumptions.assumeTrue(
+                Files.isRegularFile(outside),
+                "Test requires /etc/hostname to exist");
+        UploadedFile uploadedFile = mock(UploadedFile.class);
+        when(uploadedFile.getAbsolutePath()).thenReturn(outside.toString());
+        when(uploadedFile.getContentType()).thenReturn("image/png");
+        when(uploadedFile.getOriginalName()).thenReturn("diagram.png");
+
+        ImageUpload2Action action = new ImageUpload2Action();
+
+        assertThatThrownBy(() -> action.withUploadedFiles(List.of(uploadedFile)))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("Invalid upload source");
     }
 }

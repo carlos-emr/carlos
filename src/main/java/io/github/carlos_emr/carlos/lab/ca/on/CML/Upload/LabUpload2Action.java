@@ -37,9 +37,9 @@ import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
-import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -76,6 +76,11 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         String keyToMatch = CarlosProperties.getInstance().getProperty("CML_UPLOAD_KEY");
         _logger.debug("upload key present: {}", key != null);
         String outcome = "";
+        if (uploadValidationError != null) {
+            addActionError(uploadValidationError);
+            request.setAttribute("outcome", "accessDenied");
+            return SUCCESS;
+        }
 
         //Checks to verify key is matched and file should be saved locally.
         if (key != null && keyToMatch != null && keyToMatch.equals(key)) {
@@ -231,12 +236,18 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
     }
 
     private File importFile;
+    private String uploadValidationError;
 
     @Override
     public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
         if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
             UploadedFile uploaded = uploadedFiles.get(0);
-            this.importFile = new File(uploaded.getAbsolutePath());
+            this.importFile = PathValidationUtils.validateUpload(new File(uploaded.getAbsolutePath()));
+            try {
+                PathValidationUtils.validateStrictFileName(uploaded.getOriginalName());
+            } catch (FileValidationException e) {
+                this.uploadValidationError = PathValidationUtils.INVALID_FILENAME_MESSAGE;
+            }
         }
     }
 
@@ -244,7 +255,6 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         return importFile;
     }
 
-    @StrutsParameter
     public void setImportFile(File importFile) {
         this.importFile = importFile;
     }

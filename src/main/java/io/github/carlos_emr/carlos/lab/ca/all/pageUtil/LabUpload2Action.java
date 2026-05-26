@@ -46,7 +46,6 @@ import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
-import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.commn.OtherIdManager;
 import io.github.carlos_emr.carlos.commn.dao.OscarKeyDao;
 import io.github.carlos_emr.carlos.commn.dao.PublicKeyDao;
@@ -55,6 +54,7 @@ import io.github.carlos_emr.carlos.commn.model.OtherId;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.lab.FileUploadCheck;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.HHSEmrDownloadHandler;
@@ -93,6 +93,12 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", "w", null)) {
             throw new SecurityException("missing required sec object (_lab)");
+        }
+        if (uploadValidationError != null) {
+            addActionError(uploadValidationError);
+            request.setAttribute("outcome", "exception");
+            request.setAttribute("audit", "");
+            return SUCCESS;
         }
 
         String signature = request.getParameter("signature");
@@ -328,12 +334,18 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
     }
 
     private File importFile;
+    private String uploadValidationError;
 
     @Override
     public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
         if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
             UploadedFile uploaded = uploadedFiles.get(0);
-            this.importFile = new File(uploaded.getAbsolutePath());
+            this.importFile = PathValidationUtils.validateUpload(new File(uploaded.getAbsolutePath()));
+            try {
+                PathValidationUtils.validateStrictFileName(uploaded.getOriginalName());
+            } catch (FileValidationException e) {
+                this.uploadValidationError = PathValidationUtils.INVALID_FILENAME_MESSAGE;
+            }
         }
     }
 
@@ -341,7 +353,6 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         return importFile;
     }
 
-    @StrutsParameter
     public void setImportFile(File importFile) {
         this.importFile = importFile;
     }

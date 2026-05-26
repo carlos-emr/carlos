@@ -23,27 +23,42 @@ package io.github.carlos_emr.carlos.admin.web;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.File;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.util.List;
 
+import io.github.carlos_emr.carlos.commn.dao.FlowsheetDao;
+import io.github.carlos_emr.carlos.commn.model.Flowsheet;
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementFlowSheet;
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementTemplateFlowSheetConfig;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.action.UploadedFilesAware;
+import org.apache.struts2.dispatcher.multipart.UploadedFile;
 
 /**
  * Admin action for uploading a new flowsheet XML definition.
  *
  * <p>Requires any of {@code _admin w}, {@code _admin.misc w}, or {@code _admin.flowsheet w}
- * privilege and POST method. After the security and method checks, forwards to the JSP which
- * handles the multipart file upload. On completion the JSP redirects to the flowsheet list
+ * privilege and POST method. Uploaded XML is supplied by the Struts upload interceptor,
+ * validated as a temporary upload, persisted, then redirected to the flowsheet list
  * (PRG pattern).</p>
  *
  * @since 2026-04-05
  */
-public class ManageFlowsheetsUpload2Action extends ActionSupport {
+public class ManageFlowsheetsUpload2Action extends ActionSupport implements UploadedFilesAware {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private File uploadedFile;
+    private String uploadValidationError;
 
     @Override
     public String execute() throws Exception {
@@ -62,6 +77,48 @@ public class ManageFlowsheetsUpload2Action extends ActionSupport {
             return NONE;
         }
 
-        return SUCCESS;
+        if (uploadValidationError != null) {
+            request.getSession().setAttribute("flashError", uploadValidationError);
+            response.sendRedirect(request.getContextPath() + "/admin/ManageFlowsheets");
+            return NONE;
+        }
+
+        if (uploadedFile != null) {
+            try {
+                String contents = Files.readString(uploadedFile.toPath(), StandardCharsets.UTF_8);
+                MeasurementFlowSheet fs = MeasurementTemplateFlowSheetConfig.getInstance().validateFlowsheet(contents);
+                if (fs != null) {
+                    Flowsheet f = new Flowsheet();
+                    f.setContent(contents);
+                    f.setCreatedDate(new java.util.Date());
+                    f.setEnabled(true);
+                    f.setExternal(false);
+                    f.setName(fs.getName());
+
+                    FlowsheetDao flowsheetDao = SpringUtils.getBean(FlowsheetDao.class);
+                    flowsheetDao.persist(f);
+                    MeasurementTemplateFlowSheetConfig.getInstance().reloadFlowsheets();
+                }
+            } catch (Exception e) {
+                MiscUtils.getLogger().error("Failed to upload flowsheet definition", e);
+                request.getSession().setAttribute("flashError", "Flowsheet upload failed: " + e.getMessage());
+            }
+        }
+
+        response.sendRedirect(request.getContextPath() + "/admin/ManageFlowsheets");
+        return NONE;
+    }
+
+    @Override
+    public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
+        if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
+            UploadedFile uploaded = uploadedFiles.get(0);
+            this.uploadedFile = PathValidationUtils.validateUpload(new File(uploaded.getAbsolutePath()));
+            try {
+                PathValidationUtils.validateStrictFileName(uploaded.getOriginalName());
+            } catch (FileValidationException e) {
+                this.uploadValidationError = PathValidationUtils.INVALID_FILENAME_MESSAGE;
+            }
+        }
     }
 }

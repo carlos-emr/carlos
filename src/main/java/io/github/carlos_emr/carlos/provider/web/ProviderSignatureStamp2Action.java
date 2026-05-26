@@ -32,6 +32,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -39,7 +40,6 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
-import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 import org.owasp.encoder.Encode;
 
@@ -134,6 +134,10 @@ public class ProviderSignatureStamp2Action extends ActionSupport implements Uplo
     }
 
     private String handleUpload(HttpServletRequest request, HttpServletResponse response, String providerNo) {
+        if (uploadValidationError != null) {
+            writeJson(response, "{\"success\":false,\"error\":\"Invalid filename\"}");
+            return NONE;
+        }
         if (image == null || imageFileName == null || imageFileName.isEmpty()) {
             writeJson(response, "{\"success\":false,\"error\":\"No file selected\"}");
             return NONE;
@@ -393,14 +397,20 @@ public class ProviderSignatureStamp2Action extends ActionSupport implements Uplo
     private File image;
     private String imageFileName;
     private String imageFileContentType;
+    private String uploadValidationError;
 
     @Override
     public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
         if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
             UploadedFile uploaded = uploadedFiles.get(0);
-            this.image = new File(uploaded.getAbsolutePath());
+            this.image = PathValidationUtils.validateUpload(new File(uploaded.getAbsolutePath()));
             this.imageFileContentType = uploaded.getContentType();
-            this.imageFileName = uploaded.getOriginalName();
+            try {
+                this.imageFileName = PathValidationUtils.validateStrictFileName(uploaded.getOriginalName());
+            } catch (FileValidationException e) {
+                this.uploadValidationError = PathValidationUtils.INVALID_FILENAME_MESSAGE;
+                this.imageFileName = null;
+            }
         }
     }
 
@@ -410,12 +420,9 @@ public class ProviderSignatureStamp2Action extends ActionSupport implements Uplo
 
     public String getImageFileContentType() { return imageFileContentType; }
 
-    @StrutsParameter
     public void setImage(File image) { this.image = image; }
 
-    @StrutsParameter
     public void setImageFileName(String imageFileName) { this.imageFileName = imageFileName; }
 
-    @StrutsParameter
     public void setImageFileContentType(String imageFileContentType) { this.imageFileContentType = imageFileContentType; }
 }
