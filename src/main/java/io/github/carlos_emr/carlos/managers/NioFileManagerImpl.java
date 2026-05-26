@@ -415,28 +415,34 @@ public class NioFileManagerImpl implements NioFileManager {
                 return false;
             }
 
-            File tempFile = new File(fileName);
-            if (!tempFile.exists()) {
-                if (!PathValidationUtils.isInAllowedTempDirectory(tempFile)) {
-                    log.error("Attempt to delete file outside approved temp directories: {}", LogSafe.sanitize(fileName, 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-                    throw new SecurityException("Invalid temp deletion target");
-                }
-                return false;
-            }
-
-            tempFile = PathValidationUtils.validateUpload(tempFile);
-            if (!tempFile.isFile()) {
-                throw new SecurityException("Temp deletion target must be a regular file");
-            }
-
-            return Files.deleteIfExists(tempFile.toPath());
+            File tempFile = validateTempDeletionTarget(fileName);
+            return tempFile != null && Files.deleteIfExists(tempFile.toPath());
         } catch (SecurityException e) {
-            log.error("Security violation while attempting to delete temp file: {}", LogSafe.sanitize(fileName, 1024), e); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            log.error("Security violation while attempting to delete temp file: {}", LogSafe.sanitize(fileName, 1024), e);
             throw e; // Re-throw security exceptions
         } catch (IOException e) {
-            log.error("Error while deleting temp cache image file {}", LogSafe.sanitize(fileName, 1024), e); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            log.error("Error while deleting temp cache image file {}", LogSafe.sanitize(fileName, 1024), e);
         }
         return false;
+    }
+
+    private File validateTempDeletionTarget(final String fileName) {
+        File tempFile = new File(fileName);
+        if (!PathValidationUtils.isInAllowedTempDirectory(tempFile)) {
+            log.error("Attempt to delete file outside approved temp directories: {}", LogSafe.sanitize(fileName, 1024));
+            throw new SecurityException("Invalid temp deletion target");
+        }
+
+        if (!tempFile.exists()) {
+            return null;
+        }
+
+        tempFile = PathValidationUtils.validateUpload(tempFile);
+        if (!tempFile.isFile()) {
+            throw new SecurityException("Temp deletion target must be a regular file");
+        }
+
+        return tempFile;
     }
 
 
