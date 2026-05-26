@@ -38,6 +38,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.Date;
 import java.util.Hashtable;
 import java.util.List;
@@ -585,7 +586,9 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
 
     /**
      * Writes an uploaded file to the local document storage directory. The destination
-     * path is validated using {@link PathValidationUtils} to prevent path traversal.
+     * path is validated using {@link PathValidationUtils} to prevent path traversal, the
+     * contents are first flushed to a sibling temporary file, and the completed file is
+     * then atomically moved into place.
      *
      * @param is InputStream the input stream of the file content to write
      * @param fileName String the target filename (relative to DOCUMENT_DIR)
@@ -593,8 +596,8 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
      * @throws Exception if the output stream cannot be closed
      */
     public static File writeLocalFile(InputStream is, String fileName) throws Exception {
-        FileOutputStream fos = null;
         File file = null;
+        Path tempPath = null;
         try {
             // Validate file path using PathValidationUtils
             String docDir = CarlosProperties.getInstance().getDocumentDirectory();
@@ -608,18 +611,27 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             String savePathStr = savePath.toString();
             file = new File(savePathStr);
 
-            // Set file output stream to the save path 
-            fos = new FileOutputStream(savePathStr);
-            
-            byte[] buf = new byte[128 * 1024];
-            int i = 0;
-            while ((i = is.read(buf)) != -1) {
-                fos.write(buf, 0, i);
+            tempPath = Files.createTempFile(savePath.getParent(), savePath.getFileName().toString(), ".upload");
+            try (InputStream input = is; FileOutputStream fos = new FileOutputStream(tempPath.toFile())) {
+                byte[] buf = new byte[128 * 1024];
+                int i = 0;
+                while ((i = input.read(buf)) != -1) {
+                    fos.write(buf, 0, i);
+                }
+                fos.getFD().sync();
             }
+
+            Files.move(tempPath, savePath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            tempPath = null;
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
-        } finally {
-            if (fos != null) fos.close();
+            if (tempPath != null) {
+                try {
+                    Files.deleteIfExists(tempPath);
+                } catch (IOException cleanupException) {
+                    MiscUtils.getLogger().warn("Failed to delete temporary uploaded file", cleanupException);
+                }
+            }
         }
         return file;
     }

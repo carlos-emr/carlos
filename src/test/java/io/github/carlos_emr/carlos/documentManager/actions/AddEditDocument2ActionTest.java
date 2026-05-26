@@ -12,6 +12,7 @@
  */
 package io.github.carlos_emr.carlos.documentManager.actions;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -31,9 +32,13 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import java.io.File;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Hashtable;
 import java.util.List;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -57,6 +62,7 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
+    private MockedStatic<CarlosProperties> carlosPropertiesMock;
 
     @Mock
     private SecurityInfoManager mockSecurityInfoManager;
@@ -64,15 +70,20 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
     @Mock
     private LoggedInInfo mockLoggedInInfo;
 
+    @Mock
+    private CarlosProperties mockCarlosProperties;
+
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
     private AddEditDocument2Action action;
     private File tempUploadFile;
+    private Path tempDocumentDir;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
         request = new MockHttpServletRequest();
         response = new MockHttpServletResponse();
+        tempDocumentDir = Files.createTempDirectory("add-edit-document-storage");
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
@@ -81,6 +92,10 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
         loggedInInfoMock = mockStatic(LoggedInInfo.class);
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(mockLoggedInInfo);
+
+        carlosPropertiesMock = mockStatic(CarlosProperties.class);
+        carlosPropertiesMock.when(CarlosProperties::getInstance).thenReturn(mockCarlosProperties);
+        when(mockCarlosProperties.getDocumentDirectory()).thenReturn(tempDocumentDir.toString());
 
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
         lenient().when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_edoc"), eq("w"), isNull()))
@@ -93,6 +108,16 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
     void tearDown() throws Exception {
         if (tempUploadFile != null) {
             Files.deleteIfExists(tempUploadFile.toPath());
+        }
+        if (tempDocumentDir != null) {
+            try (Stream<Path> paths = Files.walk(tempDocumentDir)) {
+                for (Path path : paths.sorted(java.util.Comparator.reverseOrder()).toList()) {
+                    Files.deleteIfExists(path);
+                }
+            }
+        }
+        if (carlosPropertiesMock != null) {
+            carlosPropertiesMock.close();
         }
         if (loggedInInfoMock != null) {
             loggedInInfoMock.close();
@@ -202,5 +227,41 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
         assertThat(result).isEqualTo("failAdd");
         Hashtable<String, String> errors = (Hashtable<String, String>) request.getAttribute("docerrors");
         assertThat(errors).containsEntry("filenameinvalid", "dms.error.invalidFilename");
+    }
+
+    @Test
+    @DisplayName("should write uploaded file via temp sibling and clean it up")
+    void shouldWriteUploadedFileViaTempSibling_andCleanItUp() throws Exception {
+        Path relativeTarget = Path.of("nested", "uploaded.pdf");
+        Path targetPath = tempDocumentDir.resolve(relativeTarget);
+        byte[] payload = "new pdf payload".getBytes(StandardCharsets.UTF_8);
+
+        try (InputStream input = new java.io.ByteArrayInputStream(payload)) {
+            File writtenFile = AddEditDocument2Action.writeLocalFile(input, relativeTarget.toString());
+
+            assertThat(writtenFile.toPath()).isEqualTo(targetPath);
+            assertThat(Files.readAllBytes(targetPath)).isEqualTo(payload);
+            try (Stream<Path> siblings = Files.list(targetPath.getParent())) {
+                assertThat(siblings.toList()).containsExactly(targetPath);
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("should replace existing file only after full temp write completes")
+    void shouldReplaceExistingFile_onlyAfterFullTempWriteCompletes() throws Exception {
+        Path relativeTarget = Path.of("replace.pdf");
+        Path targetPath = tempDocumentDir.resolve(relativeTarget);
+        Files.writeString(targetPath, "old-content", StandardCharsets.UTF_8);
+        byte[] replacement = "replacement payload that is longer".getBytes(StandardCharsets.UTF_8);
+
+        try (InputStream input = new java.io.ByteArrayInputStream(replacement)) {
+            AddEditDocument2Action.writeLocalFile(input, relativeTarget.toString());
+        }
+
+        assertThat(Files.readAllBytes(targetPath)).isEqualTo(replacement);
+        try (Stream<Path> documentDirEntries = Files.list(tempDocumentDir)) {
+            assertThat(documentDirEntries.toList()).containsExactly(targetPath);
+        }
     }
 }
