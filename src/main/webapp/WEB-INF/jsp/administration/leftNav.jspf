@@ -779,14 +779,6 @@ Properties oscarVariables = CarlosProperties.getInstance();
 					<fmt:message key="admin.admin.securityLogReport"/></a></li>
 				</security:oscarSec>
 				
-				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin, _admin.traceability" rights="r">
-					<li><a href="javascript:void(0);" class="xlink"
-						rel="${ctx}/admin/ViewTraceReport?keyword=admin">
-					<fmt:message key="admin.admin.traceabilityReport"/></a></li>
-				</security:oscarSec>				
-				
-
-							
 				</ul>
 				</div>
 				</div>
