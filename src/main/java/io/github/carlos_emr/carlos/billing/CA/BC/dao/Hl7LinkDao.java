@@ -118,6 +118,7 @@ public class Hl7LinkDao extends AbstractDaoImpl<Hl7Link> {
 
         String sql = null;
         boolean requiresProviderNo = false;
+        String providerNoParameter = null;
         if (command != null && !command.equals("")) {
             if ("-ULL".equals(provider_no)) {
                 sql = select_unlinked_labs;
@@ -126,15 +127,17 @@ public class Hl7LinkDao extends AbstractDaoImpl<Hl7Link> {
             } else if ("-UAP".equals(provider_no)) {
                 sql = select_reports_by_provider;
                 requiresProviderNo = true;
+                providerNoParameter = "";
             } else {
                 sql = select_reports_by_provider;
                 requiresProviderNo = true;
+                providerNoParameter = provider_no;
             }
             sql += sqlWhere + sqlOrderBy;
 
             Query query = entityManager.createNativeQuery(sql);
             if (requiresProviderNo) {
-                query.setParameter("providerNo", "-UAP".equals(provider_no) ? "" : provider_no);
+                query.setParameter("providerNo", providerNoParameter);
             }
             return query.getResultList();
         }
