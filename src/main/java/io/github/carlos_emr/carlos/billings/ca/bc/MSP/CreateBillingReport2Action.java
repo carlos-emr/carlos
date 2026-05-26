@@ -30,7 +30,6 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.PayRefSummary;
  * <p>Copyright: Copyright (c) 2005</p>
  * <p>Company: </p>
  *
- * @author Joel Legris
  * @version 1.0
  */
 import org.apache.struts2.ActionSupport;
@@ -40,6 +39,10 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+/**
+ * Implementation of CreateBillingReport2Action.
+ * <p>Provides functionality related to CreateBillingReport2Action.</p>
+ */
 public class CreateBillingReport2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 

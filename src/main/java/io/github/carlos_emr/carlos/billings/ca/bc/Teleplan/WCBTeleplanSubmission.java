@@ -46,7 +46,8 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 
 /**
- * @author jaygallagher
+ * Implementation of WCBTeleplanSubmission.
+ * <p>Provides functionality related to WCBTeleplanSubmission.</p>
  */
 public class WCBTeleplanSubmission {
     private static Logger log = MiscUtils.getLogger();

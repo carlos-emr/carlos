@@ -61,7 +61,8 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.CarlosProperties;
 
 /**
- * @author jay
+ * Implementation of TeleplanAPI.
+ * <p>Provides functionality related to TeleplanAPI.</p>
  */
 public class TeleplanAPI {
     static Logger log = MiscUtils.getLogger();

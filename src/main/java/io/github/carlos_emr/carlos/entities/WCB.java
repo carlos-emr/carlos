@@ -46,7 +46,8 @@ import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
 /**
- * @author jaygallagher
+ * Implementation of WCB.
+ * <p>Provides functionality related to WCB.</p>
  */
 @Entity
 @Table(name = "wcb")

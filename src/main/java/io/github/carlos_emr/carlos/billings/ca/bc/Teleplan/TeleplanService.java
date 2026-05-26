@@ -38,7 +38,8 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
- * @author jay
+ * Implementation of TeleplanService.
+ * <p>Provides functionality related to TeleplanService.</p>
  */
 public class TeleplanService {
     static Logger log = MiscUtils.getLogger();
