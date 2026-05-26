@@ -30,6 +30,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.sql.Timestamp;
 import java.util.Date;
 import java.util.List;
 
@@ -81,19 +82,49 @@ class Hl7LinkDaoUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should skip providerNo binding when unlinked labs sentinel is selected")
+    void shouldSkipProviderNoBinding_whenUnlinkedLabsSentinelIsSelected() {
+        Hl7LinkDao dao = new Hl7LinkDao();
+        Query query = wireNativeQueryMock(dao);
+
+        dao.findReports(null, null, "-ULL", "pid_id", "search");
+
+        String sql = captureNativeSql(dao);
+        assertThat(sql).doesNotContain(":providerNo");
+        verify(query, never()).setParameter(eq("providerNo"), any());
+    }
+
+    @Test
+    @DisplayName("should skip providerNo binding when all provider labs sentinel is selected")
+    void shouldSkipProviderNoBinding_whenAllProviderLabsSentinelIsSelected() {
+        Hl7LinkDao dao = new Hl7LinkDao();
+        Query query = wireNativeQueryMock(dao);
+
+        dao.findReports(null, null, "-APL", "pid_id", "search");
+
+        String sql = captureNativeSql(dao);
+        assertThat(sql).doesNotContain(":providerNo");
+        verify(query, never()).setParameter(eq("providerNo"), any());
+    }
+
+    @Test
     @DisplayName("should bind date range when dates are provided")
     void shouldBindDateRange_whenDatesAreProvided() {
         Hl7LinkDao dao = new Hl7LinkDao();
         Query query = wireNativeQueryMock(dao);
 
-        dao.findReports(new Date(0L), new Date(0L), "-APL", "date_time", "search");
+        Date start = Timestamp.valueOf("2026-05-25 14:30:00");
+        Date end = Timestamp.valueOf("2026-05-26 06:15:00");
+
+        dao.findReports(start, end, "-APL", "date_time", "search");
 
         String sql = captureNativeSql(dao);
         assertThat(sql).contains("hl7_message.date_time >= :startDate");
         assertThat(sql).contains("hl7_message.date_time <= :endDate");
-        assertThat(sql).doesNotContain("1970-01-01");
-        verify(query).setParameter(eq("startDate"), anyString());
-        verify(query).setParameter(eq("endDate"), anyString());
+        assertThat(sql).doesNotContain("2026-05-25");
+        assertThat(sql).doesNotContain("2026-05-26");
+        verify(query).setParameter("startDate", Timestamp.valueOf("2026-05-25 00:00:00"));
+        verify(query).setParameter("endDate", Timestamp.valueOf("2026-05-26 23:59:59"));
     }
 
     @Test

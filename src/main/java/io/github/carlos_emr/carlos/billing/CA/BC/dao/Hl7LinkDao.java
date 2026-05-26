@@ -28,6 +28,7 @@
  */
 package io.github.carlos_emr.carlos.billing.CA.BC.dao;
 
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -45,6 +46,10 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 @Repository
 @SuppressWarnings("unchecked")
 public class Hl7LinkDao extends AbstractDaoImpl<Hl7Link> {
+    private static final String UNLINKED_LABS_PROVIDER = "-ULL";
+    private static final String ALL_PROVIDER_LABS_PROVIDER = "-APL";
+    private static final String UNASSIGNED_PATIENTS_PROVIDER = "-UAP";
+
     /**
      * ORDER BY fragments are a SQL-injection boundary: every request value must resolve
      * to one of these literal fragments or fall back to the default. ORDER BY cannot
@@ -127,11 +132,11 @@ public class Hl7LinkDao extends AbstractDaoImpl<Hl7Link> {
         boolean requiresProviderNo = false;
         String providerNoParameter = null;
         if (command != null && !command.equals("")) {
-            if ("-ULL".equals(provider_no)) {
+            if (UNLINKED_LABS_PROVIDER.equals(provider_no)) {
                 sql = select_unlinked_labs;
-            } else if ("-APL".equals(provider_no)) {
+            } else if (ALL_PROVIDER_LABS_PROVIDER.equals(provider_no)) {
                 sql = select_reports_linked_to_providers;
-            } else if ("-UAP".equals(provider_no)) {
+            } else if (UNASSIGNED_PATIENTS_PROVIDER.equals(provider_no)) {
                 sql = select_reports_by_provider;
                 requiresProviderNo = true;
                 // Legacy unassigned-patient reports are stored with a blank provider_no.
@@ -148,10 +153,10 @@ public class Hl7LinkDao extends AbstractDaoImpl<Hl7Link> {
                 query.setParameter("providerNo", providerNoParameter);
             }
             if (start != null) {
-                query.setParameter("startDate", ConversionUtils.toDateString(start) + " 00:00:00");
+                query.setParameter("startDate", toStartOfDayTimestamp(start));
             }
             if (end != null) {
-                query.setParameter("endDate", ConversionUtils.toTimeString(end) + " 23:59:59");
+                query.setParameter("endDate", toEndOfDayTimestamp(end));
             }
             return query.getResultList();
         }
@@ -173,6 +178,14 @@ public class Hl7LinkDao extends AbstractDaoImpl<Hl7Link> {
             return DEFAULT_REPORTS_ORDER_BY;
         }
         return REPORTS_ORDER_BY.getOrDefault(orderby.trim(), DEFAULT_REPORTS_ORDER_BY);
+    }
+
+    private static Timestamp toStartOfDayTimestamp(Date date) {
+        return Timestamp.valueOf(ConversionUtils.toDateString(date) + " 00:00:00");
+    }
+
+    private static Timestamp toEndOfDayTimestamp(Date date) {
+        return Timestamp.valueOf(ConversionUtils.toDateString(date) + " 23:59:59");
     }
 
 }
