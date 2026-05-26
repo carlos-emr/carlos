@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.utility;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.File;
@@ -193,7 +194,7 @@ public class PathValidationUtilsTest {
         }
 
         @ParameterizedTest
-        @DisplayName("should reject dangerous extension when filename ends with blocked extension")
+        @DisplayName("should reject blocked extension when filename ends with blocked extension")
         @ValueSource(strings = {
             "shell.jsp",
             "view.JSPX",
@@ -226,17 +227,17 @@ public class PathValidationUtilsTest {
 
         @ParameterizedTest
         @DisplayName("should allow safe final extension when blocked extension is non-final")
-        @ValueSource(strings = {
-            "document.pdf",
-            "scan.TXT",
-            "archive.tar.gz",
-            "report.jsp.txt",
-            "file.war.pdf",
-            "data.class.txt",
-            "library.jar.pdf"
+        @CsvSource({
+            "document.pdf, document.pdf",
+            "scan.TXT, scan.TXT",
+            "archive.tar.gz, archive.tar.gz",
+            "report.jsp.txt, report.jsp.txt",
+            "file.war.pdf, file.war.pdf",
+            "data.class.txt, data.class.txt",
+            "library.jar.pdf, library.jar.pdf"
         })
-        void shouldAllowSafeFinalExtension_whenBlockedExtensionIsNonFinal(String filename) {
-            assertThat(PathValidationUtils.validateFileName(filename)).isNotBlank();
+        void shouldAllowSafeFinalExtension_whenBlockedExtensionIsNonFinal(String filename, String expected) {
+            assertThat(PathValidationUtils.validateFileName(filename)).isEqualTo(expected);
         }
 
         @ParameterizedTest
