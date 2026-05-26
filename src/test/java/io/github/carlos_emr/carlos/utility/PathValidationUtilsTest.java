@@ -193,6 +193,22 @@ public class PathValidationUtilsTest {
         }
 
         @ParameterizedTest
+        @DisplayName("should reject dangerous extension when filename ends with blocked extension")
+        @ValueSource(strings = {"shell.jsp", "view.JSPX", "app.War", "payload.CLASS", "library.Jar", "launch.JNLP"})
+        void shouldRejectDangerousExtension_whenFilenameEndsWithBlockedExtension(String filename) {
+            assertThatThrownBy(() -> PathValidationUtils.validateFileName(filename))
+                .isInstanceOf(FileValidationException.class)
+                .hasMessageContaining("file extension not allowed");
+        }
+
+        @ParameterizedTest
+        @DisplayName("should allow safe extension when filename is normalized")
+        @ValueSource(strings = {"document.pdf", "scan.TXT", "archive.tar.gz", "report.jsp.txt"})
+        void shouldAllowSafeExtension_whenFilenameIsNormalized(String filename) {
+            assertThat(PathValidationUtils.validateFileName(filename)).isNotBlank();
+        }
+
+        @ParameterizedTest
         @DisplayName("should reject missing or empty filename")
         @ValueSource(strings = {"", "   ", "---"})
         void shouldRejectMissingOrEmptyFilename(String filename) {

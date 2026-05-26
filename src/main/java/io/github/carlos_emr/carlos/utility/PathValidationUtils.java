@@ -7,6 +7,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.LinkedHashSet;
+import java.util.Locale;
 import java.util.Set;
 
 /**
@@ -45,6 +46,10 @@ public final class PathValidationUtils {
             "Invalid filename. Use letters, numbers, dots, underscores, or spaces; spaces are converted to underscores, and filenames must not start with a dot.";
     public static final String HIDDEN_FILENAME_MESSAGE =
             "Invalid filename: hidden files not allowed. Do not start the filename with a dot.";
+    private static final String BLOCKED_EXTENSION_MESSAGE =
+            "Invalid filename: file extension not allowed.";
+    private static final Set<String> BLOCKED_EXTENSIONS = Set.of(
+            "jsp", "jspx", "war", "class", "jar", "jnlp");
 
     private static final Logger logger = MiscUtils.getLogger();
 
@@ -148,6 +153,11 @@ public final class PathValidationUtils {
         if (normalizedName.startsWith(".")) {
             logger.warn("Hidden filenames not allowed after normalization");
             throw new FileValidationException(HIDDEN_FILENAME_MESSAGE);
+        }
+        String extension = FilenameUtils.getExtension(normalizedName).toLowerCase(Locale.ROOT);
+        if (BLOCKED_EXTENSIONS.contains(extension)) {
+            logger.warn("Blocked dangerous file extension: {}", extension);
+            throw new FileValidationException(BLOCKED_EXTENSION_MESSAGE);
         }
         return normalizedName;
     }
