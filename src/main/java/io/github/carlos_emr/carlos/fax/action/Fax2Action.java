@@ -525,8 +525,9 @@ public class Fax2Action extends ActionSupport {
         }
 
         private void trim() {
-            while (paths.size() > MAX_PREVIEW_TOKENS_PER_SESSION) {
-                paths.keySet().stream().findFirst().ifPresent(paths::remove);
+            var tokens = paths.keySet().iterator();
+            while (paths.size() > MAX_PREVIEW_TOKENS_PER_SESSION && tokens.hasNext()) {
+                paths.remove(tokens.next());
             }
         }
     }

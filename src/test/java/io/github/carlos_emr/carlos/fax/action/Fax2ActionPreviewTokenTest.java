@@ -77,7 +77,7 @@ class Fax2ActionPreviewTokenTest extends CarlosUnitTestBase {
     private LoggedInInfo loggedInInfo;
 
     @TempDir
-    private Path tempDir;
+    Path tempDir;
 
     @BeforeEach
     void setUp() {
