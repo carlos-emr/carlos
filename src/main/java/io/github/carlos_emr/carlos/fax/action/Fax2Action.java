@@ -140,7 +140,7 @@ public class Fax2Action extends ActionSupport {
      * @param loggedInInfo the logged-in user information
      * @throws SecurityException if validation fails or user lacks required privileges
      */
-    private void validateFaxInputs(LoggedInInfo loggedInInfo) {
+    private void validateFaxInputs(LoggedInInfo loggedInInfo, String resolvedFaxFilePath) {
         // Validate fax privilege
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", "w", null)) {
             throw new SecurityException("missing required sec object (_fax)");
@@ -159,7 +159,7 @@ public class Fax2Action extends ActionSupport {
         }
 
         // Validate the server-resolved fax file path to prevent path traversal attacks
-        faxManager.validateFilePath(faxFilePath);
+        faxManager.validateFilePath(resolvedFaxFilePath);
 
         // Validate recipient fax number format (required)
         if (recipientFaxNumber == null || recipientFaxNumber.trim().isEmpty()) {
@@ -217,10 +217,11 @@ public class Fax2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", "w", null)) {
             throw new SecurityException("missing required sec object (_fax)");
         }
-        faxFilePath = resolveSubmittedFaxFilePath(true);
+        String resolvedFaxFilePath = resolveSubmittedFaxFilePath(true);
+        faxFilePath = resolvedFaxFilePath;
 
         // Validate all inputs before processing
-        validateFaxInputs(loggedInInfo);
+        validateFaxInputs(loggedInInfo, resolvedFaxFilePath);
 
         TransactionType transactionType = TransactionType.valueOf(getTransactionType().toUpperCase());
 
@@ -440,7 +441,7 @@ public class Fax2Action extends ActionSupport {
 
     private String registerPreviewPath(Path pdfPath) {
         String token = UUID.randomUUID().toString();
-        getPreviewPaths(request.getSession()).put(token, pdfPath.toString());
+        getOrCreatePreviewPaths().put(token, pdfPath.toString());
         return token;
     }
 
@@ -465,6 +466,18 @@ public class Fax2Action extends ActionSupport {
         return resolvedPath;
     }
 
+    private Map<String, String> getOrCreatePreviewPaths() {
+        HttpSession session = request.getSession();
+        Map<String, String> existingPreviewPaths = getPreviewPaths(session);
+        if (!existingPreviewPaths.isEmpty()) {
+            return existingPreviewPaths;
+        }
+
+        Map<String, String> previewPaths = new HashMap<>();
+        session.setAttribute(FAX_PREVIEW_PATHS_SESSION_KEY, previewPaths);
+        return previewPaths;
+    }
+
     @SuppressWarnings("unchecked")
     private Map<String, String> getPreviewPaths(HttpSession session) {
         if (session == null) {
@@ -476,9 +489,7 @@ public class Fax2Action extends ActionSupport {
             return (Map<String, String>) value;
         }
 
-        Map<String, String> previewPaths = new HashMap<>();
-        session.setAttribute(FAX_PREVIEW_PATHS_SESSION_KEY, previewPaths);
-        return previewPaths;
+        return Map.of();
     }
 
     private void sendAccessDenied(String message, Exception e) {

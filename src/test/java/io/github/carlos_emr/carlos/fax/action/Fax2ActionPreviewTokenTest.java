@@ -173,7 +173,8 @@ class Fax2ActionPreviewTokenTest extends CarlosUnitTestBase {
 
         assertThat(coverPage).contains("name=\"faxFileToken\"");
         assertThat(coverPage).contains("method=getPreview&faxFileToken=");
-        assertThat(coverPage).doesNotContain("faxFilePath");
+        assertThat(coverPage).doesNotContain("name=\"faxFilePath\"");
+        assertThat(coverPage).doesNotContain("method=getPreview&faxFilePath=");
     }
 
     private Fax2Action prepareEformFax(Path pdf) throws Exception {
