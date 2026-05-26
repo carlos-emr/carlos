@@ -588,9 +588,8 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
      * Writes an uploaded file to the local document storage directory. The destination
      * path is validated using {@link PathValidationUtils} to prevent path traversal, the
      * contents are first flushed to a sibling temporary file, and the completed file is
-     * then atomically moved into place. If the document directory filesystem cannot
-     * perform the atomic replacement, the temporary file is deleted and the destination
-     * path is left unchanged.
+     * then atomically moved into place. If publishing fails, the temporary file is
+     * deleted so the staged upload is not left behind beside the destination file.
      *
      * @param is InputStream the input stream of the file content to write
      * @param fileName String the target filename (relative to DOCUMENT_DIR)
@@ -607,14 +606,18 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             File baseDirFile = new File(docDir);
             File validatedFile = PathValidationUtils.validatePath(fileName, baseDirFile);
             Path savePath = validatedFile.toPath();
+            Path parentPath = savePath.getParent();
+            if (parentPath == null) {
+                parentPath = baseDirFile.toPath();
+            }
 
             // Create the parent directory
-            Files.createDirectories(savePath.getParent());
+            Files.createDirectories(parentPath);
 
             String savePathStr = savePath.toString();
             file = new File(savePathStr);
 
-            tempPath = Files.createTempFile(savePath.getParent(), savePath.getFileName().toString(), ".upload");
+            tempPath = Files.createTempFile(parentPath, savePath.getFileName().toString(), ".upload");
             try (FileOutputStream fos = new FileOutputStream(tempPath.toFile())) {
                 byte[] buf = new byte[128 * 1024];
                 int i = 0;

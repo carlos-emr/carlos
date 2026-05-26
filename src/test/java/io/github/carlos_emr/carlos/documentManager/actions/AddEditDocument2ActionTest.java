@@ -35,6 +35,7 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -114,8 +115,10 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
         }
         if (tempDocumentDir != null) {
             try (Stream<Path> paths = Files.walk(tempDocumentDir)) {
-                for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) {
-                    Files.deleteIfExists(path);
+                try {
+                    paths.sorted(Comparator.reverseOrder()).forEach(AddEditDocument2ActionTest::deleteIfExistsUnchecked);
+                } catch (UncheckedIOException e) {
+                    throw e.getCause();
                 }
             }
         }
@@ -265,6 +268,14 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
         assertThat(Files.readAllBytes(targetPath)).isEqualTo(replacement);
         try (Stream<Path> documentDirEntries = Files.list(tempDocumentDir)) {
             assertThat(documentDirEntries.toList()).containsExactly(targetPath);
+        }
+    }
+
+    private static void deleteIfExistsUnchecked(Path path) {
+        try {
+            Files.deleteIfExists(path);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
     }
 }
