@@ -177,6 +177,21 @@ public class PathValidationUtilsTest {
         }
 
         @ParameterizedTest
+        @DisplayName("should reject blocked extension when generated filename ends with blocked extension")
+        @CsvSource({
+            "export_20260522120000.jsp, jsp",
+            "archive/report.WAR, war",
+            "bundle/library.Jar, jar"
+        })
+        void shouldRejectBlockedExtension_whenGeneratedFilenameEndsWithBlockedExtension(
+                String filename, String expectedExtension) {
+            assertThatThrownBy(() -> PathValidationUtils.validateGeneratedFileName(filename))
+                .isInstanceOf(FileValidationException.class)
+                .hasMessageContaining("not allowed")
+                .hasMessageContaining("." + expectedExtension);
+        }
+
+        @ParameterizedTest
         @DisplayName("should reject strict filename when path components are present")
         @ValueSource(strings = {"nested/path/report.pdf", "..\\report.pdf", "/tmp/report.pdf", "C:\\temp\\report.pdf"})
         void shouldRejectStrictFilename_whenPathComponentsArePresent(String filename) {
@@ -241,6 +256,15 @@ public class PathValidationUtilsTest {
                 .isInstanceOf(FileValidationException.class)
                 .hasMessageContaining("not allowed")
                 .hasMessageContaining("." + expectedExtension);
+        }
+
+        @Test
+        @DisplayName("should allow safe final extension when validating path with blocked non-final extension")
+        void shouldAllowSafeFinalExtension_whenValidatingPathWithBlockedNonFinalExtension() {
+            File result = PathValidationUtils.validatePath("report.jsp.txt", allowedDir);
+
+            assertThat(result.getParentFile()).isEqualTo(allowedDir);
+            assertThat(result.getName()).isEqualTo("report.jsp.txt");
         }
 
         @ParameterizedTest
@@ -556,6 +580,21 @@ public class PathValidationUtilsTest {
                 .isInstanceOf(FileValidationException.class)
                 .hasMessageContaining("not allowed")
                 .hasMessageContaining(".jsp");
+        }
+
+        @Test
+        @DisplayName("should allow safe final extension when upload destination has blocked non-final extension")
+        void shouldAllowSafeFinalExtension_whenUploadDestinationHasBlockedNonFinalExtension() throws IOException {
+            // Given
+            File sourceFile = Files.createTempFile("upload_safe_extension_", ".tmp").toFile();
+            sourceFile.deleteOnExit();
+
+            // When
+            File result = PathValidationUtils.validateUpload(sourceFile, "report.jsp.txt", tempDir.toFile());
+
+            // Then
+            assertThat(result.getParentFile()).isEqualTo(tempDir.toFile());
+            assertThat(result.getName()).isEqualTo("report.jsp.txt");
         }
 
         @Test

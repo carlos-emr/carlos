@@ -143,10 +143,7 @@ public final class PathValidationUtils {
         if (generatedFileName == null || generatedFileName.trim().isEmpty()) {
             throw new FileValidationException(INVALID_FILENAME_MESSAGE);
         }
-        if (generatedFileName.indexOf('\0') >= 0) {
-            logger.warn("Filename contains null byte");
-            throw new FileValidationException(INVALID_FILENAME_MESSAGE);
-        }
+        validateAllowedFinalExtension(generatedFileName);
 
         String normalizedName = normalizeFileNameCharacters(generatedFileName);
         return validateNormalizedFileName(normalizedName);
