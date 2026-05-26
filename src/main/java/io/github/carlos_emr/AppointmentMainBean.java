@@ -35,7 +35,7 @@ import java.sql.SQLException;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-import io.github.carlos_emr.carlos.db.DBPreparedHandler;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.db.DBPreparedHandlerParam;
 import io.github.carlos_emr.carlos.util.UtilDict;
 
@@ -50,15 +50,15 @@ import io.github.carlos_emr.carlos.util.UtilDict;
  *   <li>Executing prepared database statements</li>
  * </ul>
  * 
- * <p><strong>Note:</strong> This class uses deprecated {@link DBPreparedHandler}.
- * Consider migrating to JPA or modern database access patterns.</p>
+ * <p><strong>Note:</strong> This class still exposes legacy {@link ResultSet}-based
+ * query methods for JSP compatibility. Prefer typed DAOs/services for new code.</p>
  * 
- * @see DBPreparedHandler
+ * @see LegacyJdbcQuery
  * @see UtilDict
  */
 public class AppointmentMainBean {
+    private static final DBPreparedHandlerParam[] EMPTY_DB_PARAMS = new DBPreparedHandlerParam[0];
 
-    private DBPreparedHandler dbPH = null;
     private UtilDict toFile = null;
     private UtilDict dbSQL = null;
     private UtilDict requestUtilDict = null;
@@ -106,11 +106,8 @@ public class AppointmentMainBean {
      */
     public void doConfigure(String[][] dbOperation) {
         bDoConfigure = true;
-        if (dbPH != null) dbPH = null;
-
         dbSQL = new UtilDict();
         dbSQL.setDef(dbOperation);
-        dbPH = new DBPreparedHandler();
     }
 
     /**
@@ -121,14 +118,11 @@ public class AppointmentMainBean {
      */
     public void doConfigure(String[][] dbOperation, String[][] controlToFile) {
         bDoConfigure = true;
-        if (dbPH != null) dbPH = null;
-
         toFile = new UtilDict();
         toFile.setDef(controlToFile);
         dbSQL = new UtilDict();
         dbSQL.setDef(dbOperation);
 
-        dbPH = new DBPreparedHandler();
     }
 
     public void doCommand(HttpServletRequest request) {
@@ -153,10 +147,11 @@ public class AppointmentMainBean {
         ResultSet rs = null;
         if (aKeyword[0].equals("*")) {
             sqlQuery = dbSQL.getDef("search*", "");
-            rs = dbPH.queryResults(sqlQuery, new DBPreparedHandlerParam[0]);
+            // SQL from UtilDict constants is server-owned; empty parameters are part of an established template path.
+            rs = LegacyJdbcQuery.queryResults(sqlQuery, EMPTY_DB_PARAMS);
         } else {
             sqlQuery = dbSQL.getDef(dboperation, "");
-            rs = dbPH.queryResults(sqlQuery, aKeyword);
+            rs = LegacyJdbcQuery.queryResults(sqlQuery, aKeyword);
         }
 
         return rs;
@@ -168,10 +163,10 @@ public class AppointmentMainBean {
         ResultSet rs = null;
         if (aKeyword[0].equals("*")) {
             sqlQuery = dbSQL.getDef("search*", "");
-            rs = dbPH.queryResults_paged(sqlQuery, new DBPreparedHandlerParam[0], iOffSet);
+            rs = LegacyJdbcQuery.queryResultsPaged(sqlQuery, EMPTY_DB_PARAMS, iOffSet);
         } else {
             sqlQuery = dbSQL.getDef(dboperation, "");
-            rs = dbPH.queryResults_paged(sqlQuery, aKeyword, iOffSet);
+            rs = LegacyJdbcQuery.queryResultsPaged(sqlQuery, aKeyword, iOffSet);
         }
 
         return rs;
@@ -184,49 +179,88 @@ public class AppointmentMainBean {
         if (aKeyword[0].getParamType().equals(DBPreparedHandlerParam.PARAM_STRING) &&
                 aKeyword[0].getStringValue().equals("*")) {
             sqlQuery = dbSQL.getDef("search*", "");
-            rs = dbPH.queryResults_paged(sqlQuery, new DBPreparedHandlerParam[0], iOffSet);
+            rs = LegacyJdbcQuery.queryResultsPaged(sqlQuery, EMPTY_DB_PARAMS, iOffSet);
         } else {
             sqlQuery = dbSQL.getDef(dboperation, "");
-            rs = dbPH.queryResults_paged(sqlQuery, aKeyword, iOffSet);
+            rs = LegacyJdbcQuery.queryResultsPaged(sqlQuery, aKeyword, iOffSet);
         }
         return rs;
     }
 
-    public Object[] queryResultsCaisi(String[] aKeyword, String dboperation) throws Exception {
+    /**
+     * Runs a CAISI query using string parameters.
+     *
+     * <p>When the first keyword is {@code "*"}, the {@code search*} query is used
+     * and no keyword parameters are bound. Otherwise {@code dboperation} selects
+     * the query definition and {@code aKeyword} supplies the bound parameters.</p>
+     *
+     * @param aKeyword keyword parameters, or {@code "*"} as the first entry for the wildcard query
+     * @param dboperation query definition key for non-wildcard lookups
+     * @return a closable result wrapper; callers own it and must close it
+     * @throws Exception if the query definition cannot be resolved or JDBC execution fails
+     */
+    public LegacyJdbcQuery.CaisiResult queryResultsCaisi(String[] aKeyword, String dboperation) throws Exception {
         String sqlQuery = null;
-        Object[] rs = null;
+        LegacyJdbcQuery.CaisiResult rs = null;
         if (aKeyword[0].equals("*")) {
             sqlQuery = dbSQL.getDef("search*", "");
-            rs = dbPH.queryResultsCaisi(sqlQuery, new String[0]);
+            rs = LegacyJdbcQuery.queryResultsCaisi(sqlQuery, new String[0]);
         } else {
             sqlQuery = dbSQL.getDef(dboperation, "");
-            rs = dbPH.queryResultsCaisi(sqlQuery, aKeyword);
+            rs = LegacyJdbcQuery.queryResultsCaisi(sqlQuery, aKeyword);
         }
         return rs;
     }
 
-    public Object[] queryResultsCaisi(String aKeyword, String dboperation) throws Exception {
+    /**
+     * Runs a CAISI query using a single string parameter.
+     *
+     * <p>A keyword of {@code "*"} uses the {@code search*} query and binds no
+     * keyword parameter. Other values use {@code dboperation} and bind
+     * {@code aKeyword} as the query parameter.</p>
+     *
+     * @param aKeyword keyword value, or {@code "*"} for the wildcard query
+     * @param dboperation query definition key for non-wildcard lookups
+     * @return a closable result wrapper; callers own it and must close it
+     * @throws Exception if the query definition cannot be resolved or JDBC execution fails
+     */
+    public LegacyJdbcQuery.CaisiResult queryResultsCaisi(String aKeyword, String dboperation) throws Exception {
         String sqlQuery = null;
-        Object[] rs = null;
+        LegacyJdbcQuery.CaisiResult rs = null;
         if (aKeyword.equals("*")) {
             sqlQuery = dbSQL.getDef("search*", "");
-            rs = dbPH.queryResultsCaisi(sqlQuery, new String[0]);
+            rs = LegacyJdbcQuery.queryResultsCaisi(sqlQuery, new String[0]);
         } else {
             sqlQuery = dbSQL.getDef(dboperation, "");
-            rs = dbPH.queryResultsCaisi(sqlQuery, aKeyword);
+            rs = LegacyJdbcQuery.queryResultsCaisi(sqlQuery, aKeyword);
         }
         return rs;
     }
 
-    public Object[] queryResultsCaisi(int aKeyword, String dboperation) throws Exception {
+    /**
+     * Runs a CAISI query using a single integer parameter.
+     *
+     * @param aKeyword integer keyword value to bind to the query
+     * @param dboperation query definition key
+     * @return a closable result wrapper; callers own it and must close it
+     * @throws Exception if the query definition cannot be resolved or JDBC execution fails
+     */
+    public LegacyJdbcQuery.CaisiResult queryResultsCaisi(int aKeyword, String dboperation) throws Exception {
         String sqlQuery = null;
         sqlQuery = dbSQL.getDef(dboperation, "");
-        return dbPH.queryResultsCaisi(sqlQuery, aKeyword);
+        return LegacyJdbcQuery.queryResultsCaisi(sqlQuery, aKeyword);
     }
 
-    public Object[] queryResultsCaisi(String dboperation) throws Exception {
+    /**
+     * Runs a CAISI query with no keyword parameters.
+     *
+     * @param dboperation query definition key
+     * @return a closable result wrapper; callers own it and must close it
+     * @throws Exception if the query definition cannot be resolved or JDBC execution fails
+     */
+    public LegacyJdbcQuery.CaisiResult queryResultsCaisi(String dboperation) throws Exception {
         String sqlQuery = dbSQL.getDef(dboperation);
-        return dbPH.queryResultsCaisi(sqlQuery, new String[0]);
+        return LegacyJdbcQuery.queryResultsCaisi(sqlQuery, new String[0]);
     }
 
     public ResultSet queryResults(String aKeyword, String dboperation) throws Exception {
@@ -234,10 +268,10 @@ public class AppointmentMainBean {
         ResultSet rs = null;
         if (aKeyword.equals("*")) {
             sqlQuery = dbSQL.getDef("search*", "");
-            rs = dbPH.queryResults(sqlQuery, new DBPreparedHandlerParam[0]);
+            rs = LegacyJdbcQuery.queryResults(sqlQuery, EMPTY_DB_PARAMS);
         } else {
             sqlQuery = dbSQL.getDef(dboperation, "");
-            rs = dbPH.queryResults(sqlQuery, aKeyword);
+            rs = LegacyJdbcQuery.queryResults(sqlQuery, aKeyword);
         }
         return rs;
     }
@@ -247,7 +281,7 @@ public class AppointmentMainBean {
         ResultSet rs = null;
         if (aKeyword.equals("*")) {
             sqlQuery = dbSQL.getDef("search*", "");
-            rs = dbPH.queryResults_paged(sqlQuery, new DBPreparedHandlerParam[0], iOffSet);
+            rs = LegacyJdbcQuery.queryResultsPaged(sqlQuery, EMPTY_DB_PARAMS, iOffSet);
         } else {
             sqlQuery = dbSQL.getDef(dboperation, "");
             //works with only one " like ?"
@@ -261,9 +295,9 @@ public class AppointmentMainBean {
 //            if(str3.indexOf("and")>iIndex2) iIndex2=str3.indexOf("and") + 3;
                     sqlQuery = str2 + " 1=1 " + str3.substring(iIndex2 + 1, str3.length());
                 }
-                rs = dbPH.queryResults_paged(sqlQuery, new DBPreparedHandlerParam[0], iOffSet);
+                rs = LegacyJdbcQuery.queryResultsPaged(sqlQuery, EMPTY_DB_PARAMS, iOffSet);
             } else {
-                rs = dbPH.queryResults_paged(sqlQuery, aKeyword, iOffSet);
+                rs = LegacyJdbcQuery.queryResultsPaged(sqlQuery, aKeyword, iOffSet);
             }
         }
         return rs;
@@ -273,7 +307,7 @@ public class AppointmentMainBean {
         String sqlQuery = null;
         ResultSet rs = null;
         sqlQuery = dbSQL.getDef(dboperation, "");
-        rs = dbPH.queryResults(sqlQuery, aKeyword);
+        rs = LegacyJdbcQuery.queryResults(sqlQuery, aKeyword);
         return rs;
     }
 
@@ -281,19 +315,19 @@ public class AppointmentMainBean {
         String sqlQuery = null;
         ResultSet rs = null;
         sqlQuery = dbSQL.getDef(dboperation, "");
-        rs = dbPH.queryResults(sqlQuery, aKeyword, nKeyword);
+        rs = LegacyJdbcQuery.queryResults(sqlQuery, aKeyword, nKeyword);
         return rs;
     }
 
     public ResultSet queryResults(int[] parameters, String dboperation) throws Exception {
         String sqlQuery = dbSQL.getDef(dboperation);
-        return dbPH.queryResults(sqlQuery, parameters);
+        return LegacyJdbcQuery.queryResults(sqlQuery, parameters);
     }
 
     /* This method is called by querys that dont need to set a PreparedStatement */
     public ResultSet queryResults(String dboperation) throws Exception {
         String sqlQuery = dbSQL.getDef(dboperation);
-        return dbPH.queryResults(sqlQuery, new DBPreparedHandlerParam[0]);
+        return LegacyJdbcQuery.queryResults(sqlQuery, EMPTY_DB_PARAMS);
     }
 
     public String getString(ResultSet rs, java.lang.String columnName) throws SQLException {

@@ -40,7 +40,7 @@ import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 public class FrmRourke2006Record extends FrmRecord {
@@ -53,18 +53,18 @@ public class FrmRourke2006Record extends FrmRecord {
             String sql = "SELECT demographic_no, CONCAT(last_name, ', ', first_name) AS pName, "
                     + "year_of_birth, month_of_birth, date_of_birth, sex "
                     + "FROM demographic WHERE demographic_no = ?";
-            ResultSet rs = DBHandler.GetPreSQL(sql, demographicNo);
-            if (rs.next()) {
-                props.setProperty("demographic_no", Misc.getString(rs, "demographic_no"));
-                props.setProperty("c_pName", Misc.getString(rs, "pName"));
-                //props.setProperty("formDate", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
-                props.setProperty("formCreated", UtilDateUtilities.DateToString(new Date(), "dd/MM/yyyy"));
-                //props.setProperty("formEdited", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
-                java.util.Date dob = UtilDateUtilities.calcDate(Misc.getString(rs, "year_of_birth"), Misc.getString(rs, "month_of_birth"), Misc.getString(rs, "date_of_birth"));
-                props.setProperty("c_birthDate", UtilDateUtilities.DateToString(dob, "dd/MM/yyyy"));
-                //props.setProperty("age", String.valueOf(UtilDateUtilities.calcAge(dob)));
+            try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo)) {
+                if (rs.next()) {
+                    props.setProperty("demographic_no", Misc.getString(rs, "demographic_no"));
+                    props.setProperty("c_pName", Misc.getString(rs, "pName"));
+                    //props.setProperty("formDate", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
+                    props.setProperty("formCreated", UtilDateUtilities.DateToString(new Date(), "dd/MM/yyyy"));
+                    //props.setProperty("formEdited", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
+                    java.util.Date dob = UtilDateUtilities.calcDate(Misc.getString(rs, "year_of_birth"), Misc.getString(rs, "month_of_birth"), Misc.getString(rs, "date_of_birth"));
+                    props.setProperty("c_birthDate", UtilDateUtilities.DateToString(dob, "dd/MM/yyyy"));
+                    //props.setProperty("age", String.valueOf(UtilDateUtilities.calcAge(dob)));
+                }
             }
-            rs.close();
         } else {
             String sql = "SELECT * FROM formRourke2006 WHERE demographic_no = ? AND ID = ?";
             FrmRecordHelp frmRec = new FrmRecordHelp();
@@ -73,24 +73,25 @@ public class FrmRourke2006Record extends FrmRecord {
             sql = "SELECT demographic_no, CONCAT(last_name, ', ', first_name) AS pName, "
                     + "year_of_birth, month_of_birth, date_of_birth, sex "
                     + "FROM demographic WHERE demographic_no = ?";
-            ResultSet rs = DBHandler.GetPreSQL(sql, demographicNo);
+            try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo)) {
 
-            if (rs.next()) {
-                String rourkeVal = props.getProperty("c_pName", "");
-                String demoVal = Misc.getString(rs, "pName");
+                if (rs.next()) {
+                    String rourkeVal = props.getProperty("c_pName", "");
+                    String demoVal = Misc.getString(rs, "pName");
 
-                if (!rourkeVal.equals(demoVal)) {
-                    props.setProperty("c_pName", demoVal);
-                    updated = "true";
-                }
+                    if (!rourkeVal.equals(demoVal)) {
+                        props.setProperty("c_pName", demoVal);
+                        updated = "true";
+                    }
 
-                rourkeVal = props.getProperty("c_birthDate", "");
-                java.util.Date dob = UtilDateUtilities.calcDate(Misc.getString(rs, "year_of_birth"), Misc.getString(rs, "month_of_birth"), Misc.getString(rs, "date_of_birth"));
-                demoVal = UtilDateUtilities.DateToString(dob, "dd/MM/yyyy");
+                    rourkeVal = props.getProperty("c_birthDate", "");
+                    java.util.Date dob = UtilDateUtilities.calcDate(Misc.getString(rs, "year_of_birth"), Misc.getString(rs, "month_of_birth"), Misc.getString(rs, "date_of_birth"));
+                    demoVal = UtilDateUtilities.DateToString(dob, "dd/MM/yyyy");
 
-                if (!rourkeVal.equals(demoVal)) {
-                    props.setProperty("c_birthDate", demoVal);
-                    updated = "true";
+                    if (!rourkeVal.equals(demoVal)) {
+                        props.setProperty("c_birthDate", demoVal);
+                        updated = "true";
+                    }
                 }
             }
         }
@@ -110,17 +111,16 @@ public class FrmRourke2006Record extends FrmRecord {
     //////////////new/ Done By Jay////
     public boolean isFemale(int demo) {
         boolean retval = false;
-        ResultSet rs;
         String str = "M";
         try {
-            rs = DBHandler.GetPreSQL("select sex from demographic where demographic_no = ?", demo);
-            if (rs.next()) {
-                str = Misc.getString(rs, "sex");
-                if (str.equalsIgnoreCase("F")) {
-                    retval = true;
+            try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet("select sex from demographic where demographic_no = ?", demo)) {
+                if (rs.next()) {
+                    str = Misc.getString(rs, "sex");
+                    if (str.equalsIgnoreCase("F")) {
+                        retval = true;
+                    }
                 }
             }
-            rs.close();
         } catch (Exception exc) {
             MiscUtils.getLogger().error("Error", exc);
         }
@@ -131,8 +131,6 @@ public class FrmRourke2006Record extends FrmRecord {
     public Properties getGraph(int demographicNo, int existingID) {
         Properties props = new Properties();
 
-
-        ResultSet rs;
         String sql;
 
         if (existingID == 0) {
@@ -148,28 +146,27 @@ public class FrmRourke2006Record extends FrmRecord {
                     + "WHERE demographic_no = ? AND ID = ?";
 
             try {
-                rs = DBHandler.GetPreSQL(sql, demographicNo, existingID);
+                try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo, existingID)) {
+                    if (rs.next()) {
+                        ResultSetMetaData md = rs.getMetaData();
+                        String value;
 
-                if (rs.next()) {
-                    ResultSetMetaData md = rs.getMetaData();
-                    String value;
+                        for (int i = 1; i <= md.getColumnCount(); i++) {
+                            String name = md.getColumnName(i);
 
-                    for (int i = 1; i <= md.getColumnCount(); i++) {
-                        String name = md.getColumnName(i);
+                            if (md.getColumnTypeName(i).equalsIgnoreCase("date")) {
+                                value = UtilDateUtilities.DateToString(rs.getDate(i), "dd/MM/yyyy");
+                            } else {
+                                value = Misc.getString(rs, i);
+                            }
 
-                        if (md.getColumnTypeName(i).equalsIgnoreCase("date")) {
-                            value = UtilDateUtilities.DateToString(rs.getDate(i), "dd/MM/yyyy");
-                        } else {
-                            value = Misc.getString(rs, i);
-                        }
+                            if (value != null) {
+                                props.setProperty(name, value);
+                            }
+                        }//end for
 
-                        if (value != null) {
-                            props.setProperty(name, value);
-                        }
-                    }//end for
-
-                }//end if
-                rs.close();
+                    }//end if
+                }
             } catch (SQLException e) {
                 MiscUtils.getLogger().error("Error", e);
             }

@@ -1046,6 +1046,23 @@
                     } else if (abnormal != null && (abnormal.equals("A") || abnormal.startsWith("H") || handler.isOBXAbnormal(j, k))) {
                         lineClass = "AbnormalRes";
                     }
+
+                    boolean isEmbeddedDocumentResult = (handler.getMsgType().equals("ExcellerisON") || handler.getMsgType().equals("PATHL7")) && handler.getOBXValueType(j, k).equals("ED");
+                    String embeddedDocumentLegacy = "";
+                    if (isEmbeddedDocumentResult && handler.getMsgType().equals("PATHL7") && ((PATHL7Handler) handler).isLegacy(j, k)) {
+                        embeddedDocumentLegacy = "&legacy=true";
+                    }
+                    String embeddedDocumentHref = request.getContextPath() + "/lab/DownloadEmbeddedDocumentFromLab?labNo="
+                            + URLEncoder.encode(segmentID == null ? "" : segmentID, StandardCharsets.UTF_8)
+                            + "&segment=" + j
+                            + "&group=" + k
+                            + embeddedDocumentLegacy;
+                    String labValuesHref = "javascript:popupStart('660','900','" + request.getContextPath()
+                            + "/lab/CA/ON/ViewLabValues?testName=" + URLEncoder.encode(obxName, StandardCharsets.UTF_8)
+                            + "&demo=" + (demographicID != null ? URLEncoder.encode(demographicID, StandardCharsets.UTF_8) : "")
+                            + "&labType=HL7&identifier=" + URLEncoder.encode(handler.getOBXIdentifier(j, k), StandardCharsets.UTF_8)
+                            + "')";
+                    String observationHref = isEmbeddedDocumentResult ? embeddedDocumentHref : labValuesHref;
                 %>
                 <%
                     if (handler.getMsgType().equals("EPSILON")) {
@@ -1178,7 +1195,7 @@
 	                                   				}
 	                               				else{%>
                     <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                            href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<carlos:encode value='<%= demographicID %>' context="javaScript"/>&labType=HL7&identifier=<%=URLEncoder.encode(handler.getOBXIdentifier(j, k), StandardCharsets.UTF_8)%>')"><carlos:encode value='<%= obxName %>' context="html"/>
+                            href="<%= SafeEncode.forHtmlAttribute(observationHref) %>"><carlos:encode value='<%= obxName %>' context="html"/>
                     </a></td>
                     <%}%>
                     <%
@@ -1189,15 +1206,10 @@
                     <%
                     } else {%>
                     <%
-                        if ((handler.getMsgType().equals("ExcellerisON") || handler.getMsgType().equals("PATHL7")) && handler.getOBXValueType(j, k).equals("ED")) {
-                            String legacy = "";
-                            if (handler.getMsgType().equals("PATHL7") && ((PATHL7Handler) handler).isLegacy(j, k)) {
-                                legacy = "&legacy=true";
-                            }
-
+                        if (isEmbeddedDocumentResult) {
                     %>
                     <td align="right"><a
-                            href="<%=request.getContextPath() %>/lab/DownloadEmbeddedDocumentFromLab?labNo=<carlos:encode value='<%= segmentID %>' context="uriComponent"/>&segment=<%=j%>&group=<%=k%><%=legacy%>">PDF
+                            href="<%= SafeEncode.forHtmlAttribute(embeddedDocumentHref) %>">PDF
                         Report</a></td>
                     <%
                     } else {
