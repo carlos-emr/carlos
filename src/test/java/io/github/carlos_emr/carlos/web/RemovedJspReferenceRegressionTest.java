@@ -133,6 +133,53 @@ class RemovedJspReferenceRegressionTest {
                 .isLessThan(jsp.indexOf("$(\"#providers-selection\")"));
     }
 
+    @Test
+    @DisplayName("Admin UI and routes should not expose removed Traceability report")
+    void shouldNotExposeTraceabilityReport_fromAdminRoutesOrMenus() throws IOException {
+        String strutsAdmin = Files.readString(Path.of("src/main/webapp/WEB-INF/classes/struts-admin.xml"));
+        String adminJsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/admin/admin.jsp"));
+        String adminLeftNav = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/administration/leftNav.jspf"));
+
+        assertThat(strutsAdmin)
+                .doesNotContain("GenerateTraceAction")
+                .doesNotContain("GenerateTraceabilityReportAction")
+                .doesNotContain("ViewTraceReport")
+                .doesNotContain("traceReport.jsp")
+                .doesNotContain("admin.traceability");
+        assertThat(adminJsp)
+                .doesNotContain("ViewTraceReport")
+                .doesNotContain("admin.traceability")
+                .doesNotContain("traceabilityReport");
+        assertThat(adminLeftNav)
+                .doesNotContain("ViewTraceReport")
+                .doesNotContain("admin.traceability")
+                .doesNotContain("traceabilityReport");
+        assertThat(Files.exists(Path.of("src/main/webapp/WEB-INF/jsp/admin/traceReport.jsp"))).isFalse();
+        assertThat(Files.exists(Path.of("src/main/java/io/github/carlos_emr/carlos/admin/gate/ViewTraceReport2Action.java"))).isFalse();
+
+        Path traceabilitySourceRoot = Path.of("src/main/java/io/github/carlos_emr/carlos/admin/traceability");
+        if (Files.exists(traceabilitySourceRoot)) {
+            try (Stream<Path> paths = Files.walk(traceabilitySourceRoot)) {
+                assertThat(paths.filter(Files::isRegularFile).toList())
+                        .as("Traceability report backend source files should be removed")
+                        .isEmpty();
+            }
+        }
+
+        try (Stream<Path> paths = Files.walk(Path.of("src/main/resources"))) {
+            List<Path> offenders = paths
+                    .filter(Files::isRegularFile)
+                    .filter(path -> path.getFileName().toString().startsWith("oscarResources_"))
+                    .filter(path -> containsAny(path, "admin.admin.traceabilityReport",
+                            "admin.admin.downloadTraceabilityData"))
+                    .toList();
+
+            assertThat(offenders)
+                    .as("Removed Traceability report message keys should not remain in resource bundles")
+                    .isEmpty();
+        }
+    }
+
     private static boolean containsAny(Path path, String... needles) {
         try {
             String content = Files.readString(path, StandardCharsets.UTF_8);
