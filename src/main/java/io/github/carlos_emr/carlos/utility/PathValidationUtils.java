@@ -7,7 +7,6 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.LinkedHashSet;
-import java.util.Locale;
 import java.util.Set;
 
 /**
@@ -169,13 +168,47 @@ public final class PathValidationUtils {
             logger.warn("Filename contains null byte");
             throw new FileValidationException(INVALID_FILENAME_MESSAGE);
         }
-        // Locale.ROOT prevents locale-specific case folding from weakening this security check.
-        // FilenameUtils checks the final extension, so report.jsp.txt stays allowed while report.txt.jsp is blocked.
-        String extension = FilenameUtils.getExtension(fileName).toLowerCase(Locale.ROOT);
-        if (BLOCKED_EXTENSIONS.contains(extension)) {
-            logger.warn("Blocked dangerous file extension: {}", extension);
-            throw new FileValidationException(String.format(BLOCKED_EXTENSION_MESSAGE, extension));
+        // Check only the final extension, so report.jsp.txt stays allowed while report.txt.jsp is blocked.
+        String extension = extractFinalExtension(fileName);
+        String blockedExtension = findBlockedExtension(extension);
+        if (blockedExtension != null) {
+            logger.warn("Blocked dangerous file extension: {}", blockedExtension);
+            throw new FileValidationException(String.format(BLOCKED_EXTENSION_MESSAGE, blockedExtension));
         }
+    }
+
+    private static String extractFinalExtension(String fileName) {
+        int lastSeparator = Math.max(fileName.lastIndexOf('/'), fileName.lastIndexOf('\\'));
+        int lastDot = fileName.lastIndexOf('.');
+        if (lastDot <= lastSeparator || lastDot == fileName.length() - 1) {
+            return "";
+        }
+        return fileName.substring(lastDot + 1);
+    }
+
+    private static String findBlockedExtension(String extension) {
+        for (String blockedExtension : BLOCKED_EXTENSIONS) {
+            if (equalsAsciiIgnoreCase(extension, blockedExtension)) {
+                return blockedExtension;
+            }
+        }
+        return null;
+    }
+
+    private static boolean equalsAsciiIgnoreCase(String candidate, String expectedLowerCase) {
+        if (candidate.length() != expectedLowerCase.length()) {
+            return false;
+        }
+        for (int i = 0; i < candidate.length(); i++) {
+            char candidateChar = candidate.charAt(i);
+            if (candidateChar >= 'A' && candidateChar <= 'Z') {
+                candidateChar = (char) (candidateChar + ('a' - 'A'));
+            }
+            if (candidateChar != expectedLowerCase.charAt(i)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
