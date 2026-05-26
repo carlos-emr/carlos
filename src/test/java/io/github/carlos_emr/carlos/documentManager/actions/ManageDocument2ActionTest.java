@@ -1,17 +1,38 @@
 package io.github.carlos_emr.carlos.documentManager.actions;
 
+import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
+import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO;
+import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteLinkDAO;
+import io.github.carlos_emr.carlos.commn.dao.CtlDocTypeDao;
 import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDao;
-import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao;
+import io.github.carlos_emr.carlos.commn.model.CtlDocument;
+import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
+import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.documentManager.EDoc;
+import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
+import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.managers.ProgramManager2;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
+import java.io.IOException;
 import java.io.PrintWriter;
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Stream;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -20,18 +41,28 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @Tag("unit")
 class ManageDocument2ActionTest extends CarlosUnitTestBase {
@@ -46,13 +77,45 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
     private ProviderInboxRoutingDao providerInboxRoutingDao;
 
     @Mock
+    private PatientLabRoutingDao patientLabRoutingDao;
+
+    @Mock
+    private ProgramManager2 programManager;
+
+    @Mock
+    private ProgramManager legacyProgramManager;
+
+    @Mock
+    private CaseManagementNoteLinkDAO caseManagementNoteLinkDao;
+
+    @Mock
+    private CaseManagementNoteDAO caseManagementNoteDao;
+
+    @Mock
+    private TicklerLinkDao ticklerLinkDao;
+
+    @Mock
+    private TicklerManager ticklerManager;
+
+    @Mock
+    private ProviderDao providerDao;
+
+    @Mock
+    private CtlDocTypeDao ctlDocTypeDao;
+
+    @Mock
+    private DemographicManager demographicManager;
+
+    @Mock
     private SecurityInfoManager securityInfoManager;
 
     private AutoCloseable mocks;
     private MockedStatic<ServletActionContext> servletActionContext;
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
-    private ManageDocument2Action action;
+    private TestManageDocument2Action action;
+    private String previousIncomingDocumentDir;
+    private String previousDocumentDir;
 
     @TempDir
     private Path tempDir;
@@ -60,20 +123,34 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
     @BeforeEach
     void setUp() {
         mocks = MockitoAnnotations.openMocks(this);
+        previousIncomingDocumentDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
+        previousDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         registerMock(DocumentDao.class, documentDao);
         registerMock(CtlDocumentDao.class, ctlDocumentDao);
         registerMock(ProviderInboxRoutingDao.class, providerInboxRoutingDao);
+        registerMock(PatientLabRoutingDao.class, patientLabRoutingDao);
+        registerMock(ProgramManager2.class, programManager);
+        registerMock(ProgramManager.class, legacyProgramManager);
+        registerMock(CaseManagementNoteLinkDAO.class, caseManagementNoteLinkDao);
+        registerMock(CaseManagementNoteDAO.class, caseManagementNoteDao);
+        registerMock(TicklerLinkDao.class, ticklerLinkDao);
+        registerMock(TicklerManager.class, ticklerManager);
+        registerMock(ProviderDao.class, providerDao);
+        registerMock(CtlDocTypeDao.class, ctlDocTypeDao);
+        registerMock(DemographicManager.class, demographicManager);
         registerMock(SecurityInfoManager.class, securityInfoManager);
         request = new MockHttpServletRequest();
         response = spy(new MockHttpServletResponse());
         servletActionContext = mockStatic(ServletActionContext.class);
         servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
         servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);
-        action = new ManageDocument2Action();
+        action = new TestManageDocument2Action();
     }
 
     @AfterEach
     void tearDown() throws Exception {
+        restoreProperty("INCOMINGDOCUMENT_DIR", previousIncomingDocumentDir);
+        restoreProperty("DOCUMENT_DIR", previousDocumentDir);
         if (servletActionContext != null) {
             servletActionContext.close();
         }
@@ -98,7 +175,7 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
         request.setParameter("method", "viewDocumentInfo");
         CommittedFailingResponse committedResponse = new CommittedFailingResponse();
         servletActionContext.when(ServletActionContext::getResponse).thenReturn(committedResponse);
-        action = new ManageDocument2Action();
+        action = new TestManageDocument2Action();
 
         String result = action.execute();
 
@@ -165,52 +242,214 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldThrowSecurityException_whenIncomingDocumentFilenameContainsSeparator() {
-        assertThatThrownBy(() -> invokeValidateIncomingDocumentFileName("nested/report.pdf"))
+    void shouldMoveIncomingDocumentUsingExactSourceFilename_whenFilenameContainsQueueSafeSpecialCharacters() throws Exception {
+        Path incomingDir = configureIncomingDocumentDirectories();
+        String sourceName = "Fax (A+B) R\u00e9sum\u00e9.pdf";
+        Path sourceFile = createIncomingSource(incomingDir, sourceName, "original-content");
+        Path sanitizedSibling = createIncomingSource(incomingDir, "FaxABRsum.pdf", "wrong-content");
+        setupSuccessfulAddIncomingRequest(sourceName);
+
+        String result = runAddIncomingDocumentWithEdocMock();
+
+        assertThat(result).isEqualTo("nextIncomingDoc");
+        assertThat(sourceFile).doesNotExist();
+        assertThat(sanitizedSibling).exists();
+        List<Path> storedFiles = listStoredDocuments();
+        assertThat(storedFiles).hasSize(1);
+        assertThat(Files.readString(storedFiles.get(0))).isEqualTo("original-content");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"nested/report.pdf", "nested\\report.pdf", "C:foo.pdf"})
+    void shouldRejectIncomingDocumentSourceFilenameWithPathComponents(String pdfName) throws Exception {
+        configureIncomingDocumentDirectories();
+        setupSuccessfulAddIncomingRequest(pdfName);
+
+        assertThatThrownBy(() -> action.addIncomingDocument())
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("Invalid filename");
     }
 
     @Test
-    void shouldThrowSecurityException_whenIncomingDocumentFilenameSanitizesEmpty() {
-        assertThatThrownBy(() -> invokeValidateIncomingDocumentFileName("^^^^"))
+    void shouldThrowIllegalArgumentException_whenIncomingDocumentSourceFilenameMissing() throws Exception {
+        configureIncomingDocumentDirectories();
+        setupSuccessfulAddIncomingRequest("plain.pdf");
+        request.removeParameter("pdfName");
+
+        assertThatThrownBy(() -> action.addIncomingDocument())
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Invalid parameters");
+    }
+
+    @Test
+    void shouldRejectIncomingDocumentSourceFilenameEmpty() throws Exception {
+        configureIncomingDocumentDirectories();
+        setupSuccessfulAddIncomingRequest(" ");
+
+        assertThatThrownBy(() -> action.addIncomingDocument())
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("Invalid filename");
     }
 
     @Test
-    void shouldReturnCanonicalDirectory_whenConfiguredDocumentDirectoryIsValid() throws Throwable {
-        File validated = invokeValidateConfiguredDocumentDirectory(tempDir.toString(), "DOCUMENT_DIR");
+    void shouldThrowSecurityException_whenIncomingDocumentSourceIsDirectory() throws Exception {
+        Path incomingDir = configureIncomingDocumentDirectories();
+        Files.createDirectories(incomingDir.resolve("directory.pdf"));
+        setupSuccessfulAddIncomingRequest("directory.pdf");
 
-        assertThat(validated).isEqualTo(tempDir.toFile().getCanonicalFile());
+        assertThatThrownBy(() -> action.addIncomingDocument())
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("regular file");
     }
 
     @Test
-    void shouldThrowSecurityException_whenConfiguredDocumentDirectoryIsMissing() {
-        assertThatThrownBy(() -> invokeValidateConfiguredDocumentDirectory(
-                tempDir.resolve("missing").toString(), "DOCUMENT_DIR"))
-                .isInstanceOf(SecurityException.class)
-                .hasMessageContaining("Invalid document directory");
-    }
-
-    private String invokeValidateIncomingDocumentFileName(String fileName) throws Throwable {
-        Method validate = ManageDocument2Action.class.getDeclaredMethod("validateIncomingDocumentFileName", String.class);
-        validate.setAccessible(true);
+    void shouldThrowSecurityException_whenIncomingDocumentSourceEscapesIncomingDirectoryViaSymlink() throws Exception {
+        Path incomingDir = configureIncomingDocumentDirectories();
+        Path outsideDir = Files.createTempDirectory(Path.of(System.getProperty("user.dir")), "incoming-outside-");
+        Path outsideFile = Files.writeString(outsideDir.resolve("victim.pdf"), "victim-content");
+        Path symlink = incomingDir.resolve("link.pdf");
         try {
-            return (String) validate.invoke(action, fileName);
-        } catch (InvocationTargetException e) {
-            throw e.getCause();
+            Files.createSymbolicLink(symlink, outsideFile);
+        } catch (UnsupportedOperationException | IOException e) {
+            assumeTrue(false, "symbolic links are not available in this test environment: " + e.getMessage());
+        }
+        setupSuccessfulAddIncomingRequest("link.pdf");
+
+        assertThatThrownBy(() -> action.addIncomingDocument())
+                .isInstanceOf(SecurityException.class);
+        assertThat(outsideFile).exists();
+        Files.deleteIfExists(symlink);
+        Files.deleteIfExists(outsideFile);
+        Files.deleteIfExists(outsideDir);
+    }
+
+    @Test
+    void shouldReturnErrorAndDeleteSource_whenIncomingDocumentMoveFails() throws Exception {
+        Path incomingDir = configureIncomingDocumentDirectories();
+        Path sourceFile = createIncomingSource(incomingDir, "move-fails.pdf", "source-content");
+        setupSuccessfulAddIncomingRequest("move-fails.pdf");
+        action.failMove = true;
+
+        String result = runAddIncomingDocumentWithEdocMock();
+
+        assertThat(result).isEqualTo("error");
+        assertThat(action.getActionErrors()).contains("Failed to save document file. Please try again or contact your system administrator.");
+        assertThat(sourceFile).doesNotExist();
+        assertThat(listStoredDocuments()).isEmpty();
+    }
+
+    @Test
+    void shouldThrowIllegalStateException_whenIncomingDocumentDirectoryIsMissing() throws Exception {
+        Path documentDir = tempDir.resolve("documents");
+        Files.createDirectories(documentDir);
+        CarlosProperties.getInstance().remove("INCOMINGDOCUMENT_DIR");
+        CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", documentDir.toString());
+        setupSuccessfulAddIncomingRequest("plain.pdf");
+
+        assertThatThrownBy(() -> action.addIncomingDocument())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("INCOMINGDOCUMENT_DIR");
+    }
+
+    @Test
+    void shouldThrowIllegalStateException_whenDocumentDirectoryIsEmpty() throws Exception {
+        Path incomingDir = configureIncomingDocumentDirectories();
+        CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", " ");
+        createIncomingSource(incomingDir, "plain.pdf", "source-content");
+        setupSuccessfulAddIncomingRequest("plain.pdf");
+
+        assertThatThrownBy(() -> action.addIncomingDocument())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("DOCUMENT_DIR not configured");
+    }
+
+    @Test
+    void shouldThrowIllegalStateException_whenConfiguredDocumentDirectoryIsARegularFile() throws Exception {
+        Path incomingDir = configureIncomingDocumentDirectories();
+        Path regularFile = Files.writeString(tempDir.resolve("document-dir-file"), "not-a-directory");
+        CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", regularFile.toString());
+        createIncomingSource(incomingDir, "plain.pdf", "source-content");
+        setupSuccessfulAddIncomingRequest("plain.pdf");
+
+        assertThatThrownBy(() -> action.addIncomingDocument())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("DOCUMENT_DIR is not a directory");
+    }
+
+    private Path configureIncomingDocumentDirectories() throws IOException {
+        Path incomingRoot = tempDir.resolve("incoming");
+        Path documentRoot = tempDir.resolve("documents");
+        Files.createDirectories(incomingRoot);
+        Files.createDirectories(documentRoot);
+        CarlosProperties.getInstance().setProperty("INCOMINGDOCUMENT_DIR", incomingRoot.toString());
+        CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", documentRoot.toString());
+        return Files.createDirectories(incomingRoot.resolve("queue1").resolve("Fax"));
+    }
+
+    private Path createIncomingSource(Path incomingDir, String fileName, String content) throws IOException {
+        return Files.writeString(incomingDir.resolve(fileName), content);
+    }
+
+    private void setupSuccessfulAddIncomingRequest(String pdfName) {
+        request.getSession().setAttribute("user", "999998");
+        Provider provider = new Provider();
+        provider.setProviderNo("999998");
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        loggedInInfo.setLoggedInProvider(provider);
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        request.setParameter("queueId", "queue1");
+        request.setParameter("pdfDir", "Fax");
+        request.setParameter("pdfName", pdfName);
+        request.setParameter("demog", "100");
+        request.setParameter("observationDate", "2026-05-26");
+        request.setParameter("documentDescription", "Incoming document");
+        request.setParameter("docType", "DOC");
+        request.setParameter("docClass", "class");
+        request.setParameter("docSubClass", "subclass");
+        when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq("w"), isNull())).thenReturn(true);
+        when(programManager.getCurrentProgramInDomain(any(), anyString())).thenReturn(null);
+        when(patientLabRoutingDao.findByLabNoAndLabType(anyInt(), anyString())).thenReturn(Collections.emptyList());
+        when(ctlDocumentDao.getCtrlDocument(42)).thenReturn(nonDemographicCtlDocument());
+    }
+
+    private String runAddIncomingDocumentWithEdocMock() throws Exception {
+        try (MockedStatic<EDocUtil> edocUtil = Mockito.mockStatic(EDocUtil.class, Mockito.CALLS_REAL_METHODS)) {
+            edocUtil.when(() -> EDocUtil.addDocumentSQL(Mockito.any(EDoc.class))).thenReturn("42");
+            return action.addIncomingDocument();
         }
     }
 
-    private File invokeValidateConfiguredDocumentDirectory(String directoryPath, String propertyName) throws Throwable {
-        Method validate = ManageDocument2Action.class.getDeclaredMethod(
-                "validateConfiguredDocumentDirectory", String.class, String.class);
-        validate.setAccessible(true);
-        try {
-            return (File) validate.invoke(action, directoryPath, propertyName);
-        } catch (InvocationTargetException e) {
-            throw e.getCause();
+    private CtlDocument nonDemographicCtlDocument() {
+        CtlDocument ctlDocument = new CtlDocument();
+        ctlDocument.setId(new CtlDocumentPK("lab", 100, 42));
+        return ctlDocument;
+    }
+
+    private List<Path> listStoredDocuments() throws IOException {
+        try (Stream<Path> stream = Files.list(Path.of(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR")))) {
+            return stream.toList();
+        }
+    }
+
+    private void restoreProperty(String key, String previousValue) {
+        if (previousValue == null) {
+            CarlosProperties.getInstance().remove(key);
+        } else {
+            CarlosProperties.getInstance().setProperty(key, previousValue);
+        }
+    }
+
+    private static final class TestManageDocument2Action extends ManageDocument2Action {
+        private boolean failMove;
+
+        @Override
+        public int countNumOfPages(String fileName) {
+            return 1;
+        }
+
+        @Override
+        protected boolean moveIncomingDocument(File sourceFile, File destFile) {
+            return !failMove && super.moveIncomingDocument(sourceFile, destFile);
         }
     }
 

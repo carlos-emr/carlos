@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ * Copyright (c) 2026 CARLOS EMR Contributors. All Rights Reserved.
  *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
@@ -24,12 +24,14 @@ package io.github.carlos_emr.carlos.managers;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.UUID;
 
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -42,6 +44,7 @@ class NioFileManagerImplUnitTest {
     private NioFileManagerImpl nioFileManager;
     private Path outsideDir;
     private Path outsideFile;
+    private Path symlink;
 
     @TempDir
     Path tempDir;
@@ -53,6 +56,9 @@ class NioFileManagerImplUnitTest {
 
     @AfterEach
     void tearDown() throws IOException {
+        if (symlink != null) {
+            Files.deleteIfExists(symlink);
+        }
         if (outsideFile != null) {
             Files.deleteIfExists(outsideFile);
         }
@@ -73,9 +79,10 @@ class NioFileManagerImplUnitTest {
 
     @Test
     void shouldThrowSecurityException_whenOutsidePathProvided() throws IOException {
-        outsideDir = Path.of("target", "nio-delete-outside-" + UUID.randomUUID());
-        Files.createDirectories(outsideDir);
+        outsideDir = createOutsideAllowedTempDirectory();
         outsideFile = Files.createFile(outsideDir.resolve("outside.tmp"));
+        assumeTrue(!PathValidationUtils.isInAllowedTempDirectory(outsideFile.toFile()),
+                "outside test directory unexpectedly resolves inside an allowed temp directory");
 
         assertThatThrownBy(() -> nioFileManager.deleteTempFile(outsideFile.toString()))
                 .isInstanceOf(SecurityException.class)
@@ -94,6 +101,25 @@ class NioFileManagerImplUnitTest {
     }
 
     @Test
+    void shouldThrowSecurityException_whenTempSymlinkEscapesAllowedTempDirectory() throws IOException {
+        outsideDir = createOutsideAllowedTempDirectory();
+        outsideFile = Files.createFile(outsideDir.resolve("victim.tmp"));
+        assumeTrue(!PathValidationUtils.isInAllowedTempDirectory(outsideFile.toFile()),
+                "outside test file unexpectedly resolves inside an allowed temp directory");
+        symlink = tempDir.resolve("link.tmp");
+        try {
+            Files.createSymbolicLink(symlink, outsideFile);
+        } catch (UnsupportedOperationException | IOException e) {
+            assumeTrue(false, "symbolic links are not available in this test environment: " + e.getMessage());
+        }
+
+        assertThatThrownBy(() -> nioFileManager.deleteTempFile(symlink.toString()))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("Invalid temp deletion target");
+        assertThat(outsideFile).exists();
+    }
+
+    @Test
     void shouldReturnFalse_whenTempFileMissing() {
         Path missingFile = tempDir.resolve("missing-upload.tmp");
 
@@ -101,5 +127,9 @@ class NioFileManagerImplUnitTest {
 
         assertThat(deleted).isFalse();
         assertThat(missingFile).doesNotExist();
+    }
+
+    private Path createOutsideAllowedTempDirectory() throws IOException {
+        return Files.createTempDirectory(Path.of(System.getProperty("user.dir")), "nio-delete-outside-" + UUID.randomUUID());
     }
 }

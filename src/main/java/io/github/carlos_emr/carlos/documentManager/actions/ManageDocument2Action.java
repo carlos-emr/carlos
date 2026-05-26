@@ -1139,8 +1139,8 @@ public class ManageDocument2Action extends ActionSupport {
             throw new SecurityException("Invalid directory parameters");
         }
         
-        String sanitizedPdfName = validateIncomingDocumentFileName(pdfName);
-        String sourceFilePath = IncomingDocUtil.getIncomingDocumentFilePathName(queueId1, pdfDir, sanitizedPdfName);
+        String sourcePdfName = validateIncomingDocumentSourceFileName(pdfName);
+        String sourceFilePath = IncomingDocUtil.getIncomingDocumentFilePathName(queueId1, pdfDir, sourcePdfName);
 
         String incomingDocDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
         File incomingDir = validateConfiguredDocumentDirectory(incomingDocDir, "INCOMINGDOCUMENT_DIR");
@@ -1159,7 +1159,7 @@ public class ManageDocument2Action extends ActionSupport {
 
 
         int numberOfPages = 0;
-        String fileName = sanitizedPdfName;
+        String fileName = sourcePdfName;
         String user = (String) request.getSession().getAttribute("user");
         EDoc newDoc = new EDoc(documentDescription, docType, fileName, "", user, user, source, 'A', formattedDate, "", "", "demographic", demographic_no, 0);
 
@@ -1175,7 +1175,7 @@ public class ManageDocument2Action extends ActionSupport {
         newDoc.setDocSubClass(docSubClass);
         newDoc.setDocPublic("0");
         fileName = newDoc.getFileName();
-        String sanitizedFileName = validateIncomingDocumentFileName(fileName);
+        String sanitizedFileName = sanitizeIncomingDocumentDestinationFileName(fileName);
 
         // Ensure filename uniqueness. The generated filename includes a timestamp, but
         // collisions can still occur when multiple documents are uploaded in quick succession.
@@ -1197,11 +1197,12 @@ public class ManageDocument2Action extends ActionSupport {
         }
 
         String doc_no = "";
-        newDoc.setFileName(destFile.getName());
+        String storedFileName = destFile.getName();
+        newDoc.setFileName(storedFileName);
 
         newDoc.setContentType(docType);
 
-        boolean success = sourceFile.renameTo(destFile);
+        boolean success = moveIncomingDocument(sourceFile, destFile);
         if (!success) {
             log.error("Not able to move {} to {}", LogSafe.sanitize(sourceFile.getName()), LogSafe.sanitize(destFile.getPath())); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
             // File was not successfully moved - attempt to delete temp file to prevent orphaned files
@@ -1209,16 +1210,18 @@ public class ManageDocument2Action extends ActionSupport {
             if (!deleted) {
                 log.warn("Failed to delete temporary file: {}", LogSafe.sanitize(sourceFile.getAbsolutePath())); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
             }
-            String documentId = request.getParameter("documentId");
-            log.error("Failed to save document file for document ID: {}", LogSafe.sanitize(documentId)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+            log.error("Failed to save incoming document queueId={}, source={}, destination={}",
+                    LogSafe.sanitize(queueId1),
+                    LogSafe.sanitize(sourcePdfName, 1024),
+                    LogSafe.sanitize(destFile.getPath(), 1024));
             addActionError("Failed to save document file. Please try again or contact your system administrator.");
             return "error";
         } else {
 
             newDoc.setContentType("application/pdf");
-            if (fileName.endsWith(".PDF") || fileName.endsWith(".pdf")) {
+            if (storedFileName.endsWith(".PDF") || storedFileName.endsWith(".pdf")) {
                 newDoc.setContentType("application/pdf");
-                numberOfPages = countNumOfPages(fileName);
+                numberOfPages = countNumOfPages(storedFileName);
             }
             newDoc.setNumberOfPages(numberOfPages);
             doc_no = EDocUtil.addDocumentSQL(newDoc);
@@ -1257,12 +1260,39 @@ public class ManageDocument2Action extends ActionSupport {
         return "nextIncomingDoc";
     }
 
-    private String validateIncomingDocumentFileName(String fileName) {
+    /**
+     * Validates a queued incoming filename without changing it. The source lookup must
+     * use the exact queue filename while still rejecting path components and prefixes.
+     */
+    private String validateIncomingDocumentSourceFileName(String fileName) {
         if (fileName == null || fileName.trim().isEmpty()) {
             log.warn("Invalid incoming document filename: null or empty");
             throw new SecurityException("Invalid filename");
         }
+        rejectIncomingDocumentPathComponents(fileName);
+        return fileName;
+    }
 
+    /**
+     * Sanitizes the generated destination filename. If generated metadata leaves no
+     * safe filename characters, keep the legacy timestamp fallback instead of failing.
+     */
+    private String sanitizeIncomingDocumentDestinationFileName(String fileName) {
+        if (fileName == null || fileName.trim().isEmpty()) {
+            return fallbackIncomingDocumentFileName();
+        }
+        rejectIncomingDocumentPathComponents(fileName);
+
+        String sanitizedFileName = fileName.replaceAll("[^a-zA-Z0-9._-]", "");
+        if (sanitizedFileName.trim().isEmpty()) {
+            log.warn("Incoming document destination filename became empty after sanitization: {}", LogSafe.sanitize(fileName, 1024));
+            return fallbackIncomingDocumentFileName();
+        }
+
+        return sanitizedFileName;
+    }
+
+    private void rejectIncomingDocumentPathComponents(String fileName) {
         try {
             if (FilenameUtils.getPrefixLength(fileName) > 0
                     || fileName.contains("/")
@@ -1274,16 +1304,17 @@ public class ManageDocument2Action extends ActionSupport {
             log.warn("Incoming document filename parser rejected invalid filename: {}", LogSafe.sanitize(fileName, 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             throw new SecurityException("Invalid filename", e);
         }
-
-        String sanitizedFileName = fileName.replaceAll("[^a-zA-Z0-9._-]", "");
-        if (sanitizedFileName.trim().isEmpty()) {
-            log.warn("Incoming document filename became empty after sanitization: {}", LogSafe.sanitize(fileName, 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-            throw new SecurityException("Invalid filename");
-        }
-
-        return sanitizedFileName;
     }
 
+    private String fallbackIncomingDocumentFileName() {
+        return "document_" + System.currentTimeMillis() + ".dat";
+    }
+
+    /**
+     * Resolves a configured document directory to its canonical directory.
+     * Misconfiguration is reported as IllegalStateException so startup and
+     * operator errors are distinguishable from request path violations.
+     */
     private File validateConfiguredDocumentDirectory(String directoryPath, String propertyName) throws IOException {
         if (directoryPath == null || directoryPath.trim().isEmpty()) {
             log.error("{} is not configured", LogSafe.sanitize(propertyName));
@@ -1295,10 +1326,18 @@ public class ManageDocument2Action extends ActionSupport {
             log.error("{} is not an approved document directory: {}",
                     LogSafe.sanitize(propertyName),
                     LogSafe.sanitize(directory.getPath(), 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-            throw new SecurityException("Invalid document directory");
+            throw new IllegalStateException(propertyName + " is not a directory");
         }
 
         return directory;
+    }
+
+    /**
+     * Moves a validated incoming source file into the document store. Protected for
+     * tests so rename failure can be exercised without filesystem-specific setup.
+     */
+    protected boolean moveIncomingDocument(File sourceFile, File destFile) {
+        return sourceFile.renameTo(destFile);
     }
 
     private void routeDocumentToProviders(String[] flagproviders, String docNo, String demographicNo) {

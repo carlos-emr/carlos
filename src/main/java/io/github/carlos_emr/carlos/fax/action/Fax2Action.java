@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.fax.dto.FaxJobParams;
 import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.FaxManager.TransactionType;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -98,11 +99,11 @@ public class Fax2Action extends ActionSupport {
 
         if (faxFilePath != null && !faxFilePath.trim().isEmpty()) {
             faxManager.validateFilePath(faxFilePath);
+            if (!faxManager.flush(loggedInInfo, faxFilePath)) {
+                logger.error("Failed to clear fax preview cache or temporary file: {}", LogSafe.sanitize(faxFilePath, 1024));
+                addActionError("Failed to clear fax preview cache. Please try again or contact your system administrator.");
+            }
         }
-        faxManager.flush(loggedInInfo, faxFilePath);
-
-
-
 
         if (TransactionType.CONSULTATION.name().equalsIgnoreCase(transactionType)) {
             try {

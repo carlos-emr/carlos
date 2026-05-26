@@ -404,9 +404,13 @@ public class NioFileManagerImpl implements NioFileManager {
     }
 
     /**
-     * Delete a temp file. Do this often.
+     * Deletes a validated temporary file. Existing targets must resolve to approved temp
+     * directories through {@link PathValidationUtils}; missing approved temp files return
+     * {@code false}, while invalid paths throw {@link SecurityException}.
      *
-     * @param fileName
+     * @param fileName temporary file path to delete
+     * @return {@code true} when a file was deleted, otherwise {@code false}
+     * @throws SecurityException if the path is outside approved temp directories
      */
     public final boolean deleteTempFile(final String fileName) {
         try {
@@ -426,6 +430,10 @@ public class NioFileManagerImpl implements NioFileManager {
         return false;
     }
 
+    /**
+     * Returns a canonical, regular temp file for deletion. The initial temp-directory
+     * check allows missing approved temp files to be a no-op while rejecting escapes.
+     */
     private File validateTempDeletionTarget(final String fileName) {
         File tempFile = new File(fileName);
         if (!PathValidationUtils.isInAllowedTempDirectory(tempFile)) {
@@ -437,12 +445,7 @@ public class NioFileManagerImpl implements NioFileManager {
             return null;
         }
 
-        tempFile = PathValidationUtils.validateUpload(tempFile);
-        if (!tempFile.isFile()) {
-            throw new SecurityException("Temp deletion target must be a regular file");
-        }
-
-        return tempFile;
+        return PathValidationUtils.validateUpload(tempFile);
     }
 
 
@@ -510,8 +513,9 @@ public class NioFileManagerImpl implements NioFileManager {
             Files.copy(sourceFile.toPath(), destinationFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
 
             // Delete source file after successful copy
-            if (destinationFile.exists()) {
-                deleteTempFile(sourceFile.getPath());
+            if (destinationFile.exists() && !deleteTempFile(sourceFile.getPath())) {
+                log.error("Copied document but failed to delete temporary source file {}", LogSafe.sanitize(sourceFile.getPath(), 1024));
+                return null;
             }
 
             return destinationFile.getPath();
