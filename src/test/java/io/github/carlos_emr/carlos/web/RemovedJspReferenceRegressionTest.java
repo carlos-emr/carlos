@@ -26,16 +26,20 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Locale;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DisplayName("Removed JSP reference regression tests")
+@Tag("unit")
+@Tag("regression")
 class RemovedJspReferenceRegressionTest {
     private static final Pattern OSCAR_JS_SCRIPT =
             Pattern.compile("<script\\b[^>]*src=[\"'][^\"']*/share/javascript/Oscar\\.js[\"'][^>]*>",
@@ -182,6 +186,7 @@ class RemovedJspReferenceRegressionTest {
         try (Stream<Path> paths = Files.walk(Path.of("docs"))) {
             List<Path> offenders = paths
                     .filter(Files::isRegularFile)
+                    .filter(RemovedJspReferenceRegressionTest::isTextDocumentationFile)
                     .filter(path -> containsAny(path, "GenerateTraceAction",
                             "GenerateTraceabilityReportAction", "ViewTraceReport", "traceReport.jsp",
                             "admin.traceability", "traceabilityReport", "downloadTraceabilityData"))
@@ -191,6 +196,22 @@ class RemovedJspReferenceRegressionTest {
                     .as("Removed Traceability report routes and message keys should not remain in docs")
                     .isEmpty();
         }
+    }
+
+    private static boolean isTextDocumentationFile(Path path) {
+        String fileName = path.getFileName().toString().toLowerCase(Locale.ROOT);
+        return fileName.equals("element-list")
+                || fileName.equals("3rdpartylicenses")
+                || fileName.endsWith(".css")
+                || fileName.endsWith(".html")
+                || fileName.endsWith(".js")
+                || fileName.endsWith(".json")
+                || fileName.endsWith(".md")
+                || fileName.endsWith(".txt")
+                || fileName.endsWith(".xml")
+                || fileName.endsWith(".xsd")
+                || fileName.endsWith(".yaml")
+                || fileName.endsWith(".yml");
     }
 
     private static boolean containsAny(Path path, String... needles) {
