@@ -42,7 +42,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 public class FrmLabReqRecord extends FrmRecord {
@@ -59,7 +59,7 @@ public class FrmLabReqRecord extends FrmRecord {
                     + "sex, address, city, province, postal, hin, ver, "
                     + "phone, year_of_birth, month_of_birth, date_of_birth, provider_no  "
                     + "FROM demographic WHERE demographic_no = ?";
-            ResultSet rs = DBHandler.GetPreSQL(sql, demographicNo);
+            ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo);
 
             if (rs.next()) {
                 java.util.Date dob = UtilDateUtilities.calcDate(Misc.getString(rs, "year_of_birth"), rs
@@ -117,7 +117,7 @@ public class FrmLabReqRecord extends FrmRecord {
                 // from provider table
                 sql = "SELECT CONCAT(last_name, ', ', first_name) AS provName, ohip_no, comments "
                         + "FROM provider WHERE provider_no = ?";
-                rs = DBHandler.GetPreSQL(sql, provNo);
+                rs = LegacyJdbcQuery.getPreparedResultSet(sql, provNo);
 
                 if (rs.next()) {
                     String num = Misc.getString(rs, "ohip_no");
@@ -141,7 +141,7 @@ public class FrmLabReqRecord extends FrmRecord {
             } else {
                 // from provider table
                 sql = "SELECT CONCAT(last_name, ', ', first_name) AS provName, ohip_no, comments FROM provider WHERE provider_no = ?";
-                rs = DBHandler.GetPreSQL(sql, provNo);
+                rs = LegacyJdbcQuery.getPreparedResultSet(sql, provNo);
 
                 String num = "";
                 if (rs.next()) {
@@ -162,7 +162,7 @@ public class FrmLabReqRecord extends FrmRecord {
 
                 // from provider table
                 sql = "SELECT CONCAT(last_name, ', ', first_name) AS provName, ohip_no, comments FROM provider WHERE provider_no = ?";
-                rs = DBHandler.GetPreSQL(sql, demoProvider);
+                rs = LegacyJdbcQuery.getPreparedResultSet(sql, demoProvider);
 
                 if (rs.next()) {
                     String sp, specialty;

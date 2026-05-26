@@ -44,7 +44,7 @@ import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
-import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.messenger.docxfer.util.MsgCommxml;
 
 /**
@@ -134,78 +134,79 @@ public class MsgGenerate {
 
         // Execute the SQL query to retrieve data for this table
         String sql = this.constructSQL(cfgTable);
-        ResultSet rs = DBHandler.GetPreSQL(sql, this.demographicNo);
-        ResultSetMetaData meta = rs.getMetaData();
+        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(LegacyJdbcQuery.trustedReportSelectSql(sql),
+                this.demographicNo)) {
+            ResultSetMetaData meta = rs.getMetaData();
 
-        // Get the item and field configurations from the config
-        Element cfgItem = (Element) cfgTable.getElementsByTagName("item").item(0);
-        NodeList cfgFlds = cfgItem.getElementsByTagName("fld");
-        
-        // Process each row returned by the query
-        while (rs.next()) {
-            Element item = MsgCommxml.addNode(table, "item");
-            item.setAttribute("itemId", String.valueOf(itemId));
-            itemId++; // Increment the sequential item ID
-            item.setAttribute("name", cfgItem.getAttribute("name"));
-            item.setAttribute("sql", cfgItem.getAttribute("sql"));
-            item.setAttribute("removable", cfgItem.getAttribute("removable"));
+            // Get the item and field configurations from the config
+            Element cfgItem = (Element) cfgTable.getElementsByTagName("item").item(0);
+            NodeList cfgFlds = cfgItem.getElementsByTagName("fld");
 
-            Element content = MsgCommxml.addNode(item, "content");
-            Element data = MsgCommxml.addNode(item, "data");
+            // Process each row returned by the query
+            while (rs.next()) {
+                Element item = MsgCommxml.addNode(table, "item");
+                item.setAttribute("itemId", String.valueOf(itemId));
+                itemId++; // Increment the sequential item ID
+                item.setAttribute("name", cfgItem.getAttribute("name"));
+                item.setAttribute("sql", cfgItem.getAttribute("sql"));
+                item.setAttribute("removable", cfgItem.getAttribute("removable"));
 
-            // Process all database columns except those starting with "fld"
-            for (int i = 1; i <= meta.getColumnCount(); i++) {
-                if (!meta.getColumnName(i).startsWith("fld")) {
-                    String name = meta.getTableName(i) + "." + meta.getColumnName(i);
+                Element content = MsgCommxml.addNode(item, "content");
+                Element data = MsgCommxml.addNode(item, "data");
 
-                    String fldData = "";
-                    try {
-                        fldData = Misc.getString(rs, i);
-                        if (fldData == null) fldData = "";
-                    } catch (Exception ex) {
-                        // Ignore exceptions and use empty string
-                    }
+                // Process all database columns except those starting with "fld"
+                for (int i = 1; i <= meta.getColumnCount(); i++) {
+                    if (!meta.getColumnName(i).startsWith("fld")) {
+                        String name = meta.getTableName(i) + "." + meta.getColumnName(i);
 
-                    Element fld = doc.createElement(name);
-
-                    // Try to parse the field data as XML, fall back to text node
-                    try {
-                        Node tmp = MsgCommxml.parseXML(fldData).getDocumentElement();
-                        Node fldSub = doc.importNode(tmp, true);
-                        fld.appendChild(fldSub);
-                    } catch (Exception ex) {
+                        String fldData = "";
                         try {
-                            Node tmp = doc.createTextNode(fldData);
-                            fld.appendChild(tmp);
-                        } catch (Exception ex2) {
-                            // Ignore exceptions and leave field empty
+                            fldData = Misc.getString(rs, i);
+                            if (fldData == null) fldData = "";
+                        } catch (Exception ex) {
+                            // Ignore exceptions and use empty string
                         }
-                    }
 
-                    data.appendChild(fld);
+                        Element fld = doc.createElement(name);
+
+                        // Try to parse the field data as XML, fall back to text node
+                        try {
+                            Node tmp = MsgCommxml.parseXML(fldData).getDocumentElement();
+                            Node fldSub = doc.importNode(tmp, true);
+                            fld.appendChild(fldSub);
+                        } catch (Exception ex) {
+                            try {
+                                Node tmp = doc.createTextNode(fldData);
+                                fld.appendChild(tmp);
+                            } catch (Exception ex2) {
+                                // Ignore exceptions and leave field empty
+                            }
+                        }
+
+                        data.appendChild(fld);
+                    }
+                }
+
+                // Set the item value from the fldItem column
+                {
+                    String value = Misc.getString(rs, "fldItem");
+                    if (value == null) value = "";
+                    item.setAttribute("value", value);
+                }
+
+                // Process configured fields and add them to the content section
+                for (int i = 0; i < cfgFlds.getLength(); i++) {
+                    Element cfgFld = (Element) cfgFlds.item(i);
+                    Element fld = MsgCommxml.addNode(content, "fld");
+
+                    fld.setAttribute("name", cfgFld.getAttribute("name"));
+                    fld.setAttribute("sql", cfgFld.getAttribute("sql"));
+                    String value = Misc.getString(rs, ("fld" + i));
+                    if (value == null) value = "";
+                    fld.setAttribute("value", value);
                 }
             }
-
-            // Set the item value from the fldItem column
-            {
-                String value = Misc.getString(rs, "fldItem");
-                if (value == null) value = "";
-                item.setAttribute("value", value);
-            }
-
-            // Process configured fields and add them to the content section
-            for (int i = 0; i < cfgFlds.getLength(); i++) {
-                Element cfgFld = (Element) cfgFlds.item(i);
-                Element fld = MsgCommxml.addNode(content, "fld");
-
-                fld.setAttribute("name", cfgFld.getAttribute("name"));
-                fld.setAttribute("sql", cfgFld.getAttribute("sql"));
-                String value = Misc.getString(rs, ("fld" + i));
-                if (value == null) value = "";
-                fld.setAttribute("value", value);
-            }
         }
-        rs.close();
 
         return table;
     }

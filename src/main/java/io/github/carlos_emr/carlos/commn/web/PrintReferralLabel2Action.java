@@ -33,6 +33,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -44,7 +45,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
-import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.OscarDocumentCreator;
@@ -126,7 +127,9 @@ public class PrintReferralLabel2Action extends ActionSupport {
                         fos = new FileOutputStream(f);
                         ins = getInputStream();
                         parameters.put("billingreferral_no", ids[x]);
-                        osc.fillDocumentStream(parameters, fos, "pdf", ins, DbConnectionFilter.getThreadLocalDbConnection());
+                        try (Connection connection = LegacyJdbcQuery.getConnection()) {
+                            osc.fillDocumentStream(parameters, fos, "pdf", ins, connection);
+                        }
                         printList.add(f.getAbsolutePath());
                     } finally {
                         IOUtils.closeQuietly(fos);
@@ -137,7 +140,9 @@ public class PrintReferralLabel2Action extends ActionSupport {
             } else {
                 ins = getInputStream();
                 OscarDocumentCreator osc = new OscarDocumentCreator();
-                osc.fillDocumentStream(parameters, sos, "pdf", ins, DbConnectionFilter.getThreadLocalDbConnection());
+                try (Connection connection = LegacyJdbcQuery.getConnection()) {
+                    osc.fillDocumentStream(parameters, sos, "pdf", ins, connection);
+                }
             }
 
         } catch (Exception e) {

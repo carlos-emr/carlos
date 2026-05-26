@@ -54,14 +54,14 @@ public class DownloadEmbeddedDocumentFromLab2Action extends ActionSupport {
 
     @Override
     public String execute() throws Exception {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_lab", "r", null)) {
+            throw new SecurityException("missing required sec object (_lab)");
+        }
+
         String labNo = request.getParameter("labNo");
         String segment = request.getParameter("segment");
         String group = request.getParameter("group");
         String legacy = request.getParameter("legacy");
-
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_lab", "r", null)) {
-            throw new SecurityException("missing required sec object (_lab)");
-        }
 
         if (labNo == null || !labNo.matches("\\d+")) {
             throw new IllegalArgumentException("Lab number must be a non-null numeric value");
@@ -89,6 +89,6 @@ public class DownloadEmbeddedDocumentFromLab2Action extends ActionSupport {
         output.close();
 
 
-        return null;
+        return NONE;
     }
 }
