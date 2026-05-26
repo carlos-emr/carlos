@@ -88,7 +88,7 @@ class EFormUploadFilenameValidationTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("image upload should reject hidden filename before writing")
-    void imageUploadShouldRejectHiddenFilenameBeforeWriting() throws Exception {
+    void shouldRejectImageUpload_whenFilenameIsHidden() throws Exception {
         Path upload = Files.createTempFile(tempDir, "image-upload", ".png");
         ImageUpload2Action action = new ImageUpload2Action();
         action.setImage(upload.toFile());
@@ -103,7 +103,7 @@ class EFormUploadFilenameValidationTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("HTML upload should reject hidden filename before saving eForm")
-    void htmlUploadShouldRejectHiddenFilenameBeforeSavingEForm() throws Exception {
+    void shouldRejectHtmlUpload_whenFilenameIsHidden() throws Exception {
         Path upload = Files.createTempFile(tempDir, "html-upload", ".html");
         HtmlUpload2Action action = new HtmlUpload2Action();
         action.setFormHtml(upload.toFile());
@@ -118,7 +118,7 @@ class EFormUploadFilenameValidationTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("HTML upload should fall back to temp filename when original name is missing")
-    void htmlUploadShouldFallBackToTempFilename_whenOriginalNameIsMissing() throws Exception {
+    void shouldFallbackToTempFilename_whenHtmlOriginalNameIsMissing() throws Exception {
         Path upload = Files.createTempFile(tempDir, "htmlupload", ".html");
         Files.writeString(upload, "<html></html>");
         UploadedFile uploadedFile = mock(UploadedFile.class);
