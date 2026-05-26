@@ -673,8 +673,15 @@ public class MeasurementGraphAction22Action extends ActionSupport {
 
 
         ArrayList<Map<String, Serializable>> list = null;
-        MiscUtils.getLogger().debug(" lab type >" + labType + "< >" + labType.equals("loinc") + "<" + testName + " " + identifier);
-        if (labType.equals("loinc")) {
+        boolean isLoinc = "loinc".equals(labType);
+        MiscUtils.getLogger().debug(
+                "lab type >{}< >{}< {} {}",
+                LogSafe.sanitize(labType),
+                isLoinc,
+                LogSafe.sanitize(testName),
+                LogSafe.sanitize(identifier)
+        );
+        if (isLoinc) {
             try {
 
                 Connection conn = DbConnectionFilter.getThreadLocalDbConnection();
