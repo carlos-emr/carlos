@@ -56,7 +56,7 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("unit")
 @Tag("fast")
 @Tag("security")
-public class PathValidationUtilsTest {
+public class PathValidationUtilsUnitTest {
 
     @TempDir
     Path tempDir;
@@ -263,8 +263,9 @@ public class PathValidationUtilsTest {
         void shouldAllowSafeFinalExtension_whenValidatingPathWithBlockedNonFinalExtension() {
             File result = PathValidationUtils.validatePath("report.jsp.txt", allowedDir);
 
-            assertThat(result.getParentFile()).isEqualTo(allowedDir);
-            assertThat(result.getName()).isEqualTo("report.jsp.txt");
+            assertThat(result)
+                .hasParent(allowedDir)
+                .hasName("report.jsp.txt");
         }
 
         @ParameterizedTest
@@ -573,10 +574,11 @@ public class PathValidationUtilsTest {
             // Given
             File sourceFile = Files.createTempFile("upload_blocked_extension_", ".tmp").toFile();
             sourceFile.deleteOnExit();
+            File destinationDir = tempDir.toFile();
 
             // When/Then
             assertThatThrownBy(() ->
-                PathValidationUtils.validateUpload(sourceFile, "document.pdf.jsp", tempDir.toFile()))
+                PathValidationUtils.validateUpload(sourceFile, "document.pdf.jsp", destinationDir))
                 .isInstanceOf(FileValidationException.class)
                 .hasMessageContaining("not allowed")
                 .hasMessageContaining(".jsp");
@@ -588,13 +590,15 @@ public class PathValidationUtilsTest {
             // Given
             File sourceFile = Files.createTempFile("upload_safe_extension_", ".tmp").toFile();
             sourceFile.deleteOnExit();
+            File destinationDir = tempDir.toFile();
 
             // When
-            File result = PathValidationUtils.validateUpload(sourceFile, "report.jsp.txt", tempDir.toFile());
+            File result = PathValidationUtils.validateUpload(sourceFile, "report.jsp.txt", destinationDir);
 
             // Then
-            assertThat(result.getParentFile()).isEqualTo(tempDir.toFile());
-            assertThat(result.getName()).isEqualTo("report.jsp.txt");
+            assertThat(result)
+                .hasParent(destinationDir)
+                .hasName("report.jsp.txt");
         }
 
         @Test
