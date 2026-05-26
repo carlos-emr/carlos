@@ -139,7 +139,7 @@ public class DocumentService extends AbstractServiceImpl {
             return Response.status(Response.Status.BAD_REQUEST).entity(e.getMessage()).build();
         } catch (IOException e) {
             logger.error("Document could not be saved: {}", LogSafe.sanitize(documentTo1.getFileName()), e);
-            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createResponseMap(documentTo1.getFileName(), "Failed", "The document could not be saved.")).build();
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createResponseMap(null, "Failed", "The document could not be saved.")).build();
         }
 
         Integer queueId = documentManager.addDocumentToQueue(loggedInInfo, document.getDocumentNo(), documentTo1.getQueue());

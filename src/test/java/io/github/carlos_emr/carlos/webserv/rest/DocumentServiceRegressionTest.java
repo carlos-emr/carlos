@@ -146,6 +146,7 @@ class DocumentServiceRegressionTest {
         assertThat(response.getStatus()).isEqualTo(Response.Status.INTERNAL_SERVER_ERROR.getStatusCode());
         Map<String, String> entity = responseEntity(response);
         assertThat(entity.get("message")).isEqualTo("The document could not be saved.");
+        assertThat(entity).doesNotContainKey("fileName");
     }
 
     private void grantPendingDocumentWriteAccess() {
