@@ -29,6 +29,7 @@ import java.util.Date;
 import java.util.Properties;
 
 import io.github.carlos_emr.Misc;
+import io.github.carlos_emr.SxmlMisc;
 import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
 import io.github.carlos_emr.carlos.commn.model.Clinic;
@@ -120,7 +121,7 @@ public class FrmConsultantRecord extends FrmRecord {
         String refdocno, docno;
         if (rs.next()) {
             docno = Misc.getString(rs, "family_doctor");
-            refdocno = docno.substring(8, docno.indexOf("</rdohip>"));
+            refdocno = SxmlMisc.getXmlContent(docno, "rdohip");
             if (!refdocno.isEmpty()) {
                 props.setProperty("refdocno", refdocno);
             }
