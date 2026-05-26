@@ -127,6 +127,7 @@ public class Hl7LinkDao extends AbstractDaoImpl<Hl7Link> {
             } else if ("-UAP".equals(provider_no)) {
                 sql = select_reports_by_provider;
                 requiresProviderNo = true;
+                // Legacy unassigned-patient reports are stored with a blank provider_no.
                 providerNoParameter = "";
             } else {
                 sql = select_reports_by_provider;

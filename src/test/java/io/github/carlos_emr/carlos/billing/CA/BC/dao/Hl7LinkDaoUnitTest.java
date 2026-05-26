@@ -70,6 +70,17 @@ class Hl7LinkDaoUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should bind blank providerNo when unassigned patients sentinel is selected")
+    void shouldBindBlankProviderNo_whenUnassignedPatientsSentinelIsSelected() {
+        Hl7LinkDao dao = new Hl7LinkDao();
+        Query query = wireNativeQueryMock(dao);
+
+        dao.findReports(null, null, "-UAP", "pid_id", "search");
+
+        verify(query).setParameter("providerNo", "");
+    }
+
+    @Test
     @DisplayName("should bind date range when dates are provided")
     void shouldBindDateRange_whenDatesAreProvided() {
         Hl7LinkDao dao = new Hl7LinkDao();
