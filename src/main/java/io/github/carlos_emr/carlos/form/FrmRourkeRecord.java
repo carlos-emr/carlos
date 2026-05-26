@@ -41,7 +41,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 public class FrmRourkeRecord extends FrmRecord {
@@ -57,7 +57,7 @@ public class FrmRourkeRecord extends FrmRecord {
             String sql = "SELECT demographic_no, CONCAT(last_name, ', ', first_name) AS pName, "
                     + "year_of_birth, month_of_birth, date_of_birth, sex "
                     + "FROM demographic WHERE demographic_no = ?";
-            ResultSet rs = DBHandler.GetPreSQL(sql, demographicNo);
+            ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo);
             if (rs.next()) {
                 props.setProperty("demographic_no", Misc.getString(rs, "demographic_no"));
                 props.setProperty("c_pName", Misc.getString(rs, "pName"));
@@ -90,7 +90,7 @@ public class FrmRourkeRecord extends FrmRecord {
         ResultSet rs;
         String str = "M";
         try {
-            rs = DBHandler.GetPreSQL("select sex from demographic where demographic_no = ?", demo);
+            rs = LegacyJdbcQuery.getPreparedResultSet("select sex from demographic where demographic_no = ?", demo);
             if (rs.next()) {
                 str = Misc.getString(rs, "sex");
                 if (str.equalsIgnoreCase("F")) {
@@ -129,7 +129,7 @@ public class FrmRourkeRecord extends FrmRecord {
 
 
             try {
-                rs = DBHandler.GetPreSQL(sql, demographicNo, existingID);
+                rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo, existingID);
 
                 if (rs.next()) {
                     ResultSetMetaData md = rs.getMetaData();

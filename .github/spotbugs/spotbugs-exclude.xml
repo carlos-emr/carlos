@@ -88,6 +88,117 @@
         <Bug pattern="RV_RETURN_VALUE_OF_PUTIFABSENT_IGNORED"/>
     </Match>
 
+    <!-- TrustedSql is constructed only after legacy SELECT validation; values are bound below. -->
+    <Match>
+        <Bug pattern="SQL_INJECTION_JDBC"/>
+        <Class name="io.github.carlos_emr.carlos.db.LegacyJdbcQuery"/>
+        <Method name="getPreparedResultSetValidated"/>
+    </Match>
+    <Match>
+        <Bug pattern="SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"/>
+        <Class name="io.github.carlos_emr.carlos.db.LegacyJdbcQuery"/>
+        <Method name="getPreparedResultSetValidated"/>
+    </Match>
+    <Match>
+        <Bug pattern="SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"/>
+        <Class name="io.github.carlos_emr.carlos.db.LegacyJdbcQuery"/>
+        <Method name="getPreparedResultSetLegacyRaw"/>
+    </Match>
+
+    <!-- Stored procedure names are validated before the CallableStatement is prepared. -->
+    <Match>
+        <Bug pattern="SQL_INJECTION_JDBC"/>
+        <Class name="io.github.carlos_emr.carlos.db.LegacyJdbcQuery"/>
+        <Method name="procExecute"/>
+    </Match>
+
+    <!-- CaisiResult delegates server-owned legacy templates through the same JDBC value binding. -->
+    <Match>
+        <Bug pattern="SQL_INJECTION_JDBC"/>
+        <Class name="io.github.carlos_emr.carlos.db.LegacyJdbcQuery"/>
+        <Method name="queryResultsCaisi"/>
+    </Match>
+
+    <!--
+      FrmRecordHelp prepares server-owned form table SELECT statements and binds all
+      form values as JDBC parameters. Dynamic table names are resolved by the legacy
+      form classes, not request SQL text.
+    -->
+    <Match>
+        <Bug pattern="SQL_INJECTION_JDBC"/>
+        <Class name="io.github.carlos_emr.carlos.form.FrmRecordHelp"/>
+        <Method name="prepareResultSetStatement"/>
+    </Match>
+    <Match>
+        <Bug pattern="SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"/>
+        <Class name="io.github.carlos_emr.carlos.form.FrmRecordHelp"/>
+        <Method name="prepareResultSetStatement"/>
+    </Match>
+
+    <!--
+      MSP dbExtract is scoped to the legacy MSP extract path migrated in this PR.
+      Callers supply server-owned SQL templates and pass runtime values separately
+      for PreparedStatement binding.
+    -->
+    <Match>
+        <Bug pattern="SQL_INJECTION_JDBC"/>
+        <Class name="io.github.carlos_emr.carlos.billings.MSP.dbExtract"/>
+        <Method name="prepare"/>
+    </Match>
+
+    <!--
+      AppointmentMainBean resolves SQL templates from server-side UtilDict entries
+      and delegates to LegacyJdbcQuery for JDBC value binding. The alert is on the
+      nonconstant template dispatch, not on request-controlled SQL execution.
+    -->
+    <Match>
+        <Bug pattern="SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"/>
+        <Class name="io.github.carlos_emr.AppointmentMainBean"/>
+    </Match>
+
+    <!--
+      MSP reconciliation builds SQL from fixed report clauses and an allowlisted
+      criteria helper; user values are accumulated in criteriaParams and bound by
+      LegacyJdbcQuery.
+    -->
+    <Match>
+        <Bug pattern="SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"/>
+        <Class name="io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile"/>
+        <Method name="getBillsByType"/>
+    </Match>
+    <Match>
+        <Bug pattern="SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"/>
+        <Class name="io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile"/>
+        <Method name="getPayments"/>
+    </Match>
+    <Match>
+        <Bug pattern="SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"/>
+        <Class name="io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile"/>
+        <Method name="getPrivatePayments"/>
+    </Match>
+
+    <!--
+      The MSP extract query is a legacy server-owned billing template. providerNo
+      and invoice values are bound as parameters; the remaining SQL fragment is
+      the established dateRange clause for this extract path.
+    -->
+    <Match>
+        <Bug pattern="SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"/>
+        <Class name="io.github.carlos_emr.carlos.billings.MSP.ExtractBean"/>
+        <Method name="dbQuery"/>
+    </Match>
+
+    <!--
+      parseImportDocument uses XmlUtils.createSecureDocumentBuilderFactory(), which
+      fails closed if DOCTYPE disabling cannot be applied and disables external
+      entities before DocumentBuilder.parse().
+    -->
+    <Match>
+        <Bug pattern="XXE_DOCUMENT"/>
+        <Class name="io.github.carlos_emr.carlos.util.JDBCUtil"/>
+        <Method name="parseImportDocument"/>
+    </Match>
+
     <!--
       HRM report temp files are created under DOCUMENT_DIR only after the configured directory is
       normalized and verified as an existing directory. The temp filename prefix is derived from an
