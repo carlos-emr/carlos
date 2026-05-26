@@ -70,6 +70,20 @@ class LabDisplayJspRegressionTest {
                 Files.readString(LAB_DISPLAY_AJAX_JSP, StandardCharsets.UTF_8));
     }
 
+    @Test
+    @DisplayName("should route embedded document observation links to the download action in lab display")
+    void shouldRouteEmbeddedDocumentObservationLinks_toDownloadActionInLabDisplay() throws IOException {
+        assertEmbeddedDocumentObservationLinksUseDownloadAction(
+                Files.readString(LAB_DISPLAY_JSP, StandardCharsets.UTF_8));
+    }
+
+    @Test
+    @DisplayName("should route embedded document observation links to the download action in ajax lab display")
+    void shouldRouteEmbeddedDocumentObservationLinks_toDownloadActionInAjaxLabDisplay() throws IOException {
+        assertEmbeddedDocumentObservationLinksUseDownloadAction(
+                Files.readString(LAB_DISPLAY_AJAX_JSP, StandardCharsets.UTF_8));
+    }
+
     private void assertAcknowledgementHandlerUsesHtmlAttributeEncoding(String jsp) {
         // ackLabFunc is already executable JavaScript built server-side with dynamic values
         // pre-encoded via SafeEncode.forJavaScriptAttribute. The enclosing onclick attribute
@@ -79,6 +93,14 @@ class LabDisplayJspRegressionTest {
                 .as("every ackLabFunc onclick handler must use htmlAttribute encoding")
                 .isNotEmpty()
                 .containsOnly("htmlAttribute");
+    }
+
+    private void assertEmbeddedDocumentObservationLinksUseDownloadAction(String jsp) {
+        assertThat(jsp)
+                .contains("String embeddedDocumentHref = request.getContextPath() + \"/lab/DownloadEmbeddedDocumentFromLab?labNo=\"")
+                .contains("String observationHref = isEmbeddedDocumentResult ? embeddedDocumentHref : labValuesHref;")
+                .contains("href=\"<%= SafeEncode.forHtmlAttribute(observationHref) %>\"")
+                .contains("href=\"<%= SafeEncode.forHtmlAttribute(embeddedDocumentHref) %>\"");
     }
 
     private static List<String> ackLabFuncEncodeContexts(String jsp) {
