@@ -248,7 +248,9 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
             assertThat(writtenFile.toPath()).isEqualTo(targetPath);
             assertThat(Files.readAllBytes(targetPath)).isEqualTo(payload);
             try (Stream<Path> siblings = Files.list(targetPath.getParent())) {
-                assertThat(siblings.toList()).containsExactly(targetPath);
+                List<Path> siblingFiles = siblings.toList();
+                assertThat(siblingFiles).containsExactly(targetPath);
+                assertThat(siblingFiles).allMatch(path -> !path.getFileName().toString().endsWith(".upload"));
             }
         }
     }
@@ -267,7 +269,9 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
 
         assertThat(Files.readAllBytes(targetPath)).isEqualTo(replacement);
         try (Stream<Path> documentDirEntries = Files.list(tempDocumentDir)) {
-            assertThat(documentDirEntries.toList()).containsExactly(targetPath);
+            List<Path> documentDirFiles = documentDirEntries.toList();
+            assertThat(documentDirFiles).containsExactly(targetPath);
+            assertThat(documentDirFiles).allMatch(path -> !path.getFileName().toString().endsWith(".upload"));
         }
     }
 

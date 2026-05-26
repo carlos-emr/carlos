@@ -69,6 +69,7 @@ import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SessionConstants;
@@ -588,8 +589,10 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
      * Writes an uploaded file to the local document storage directory. The destination
      * path is validated using {@link PathValidationUtils} to prevent path traversal, the
      * contents are first flushed to a sibling temporary file, and the completed file is
-     * then atomically moved into place. If publishing fails, the temporary file is
-     * deleted so the staged upload is not left behind beside the destination file.
+     * then atomically moved into place. Publication relies on the document directory
+     * filesystem supporting atomic renames for files created within that directory. If
+     * publishing fails, the temporary file is deleted so the staged upload is not left
+     * behind beside the destination file.
      *
      * @param is InputStream the input stream of the file content to write
      * @param fileName String the target filename (relative to DOCUMENT_DIR)
@@ -617,7 +620,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             String savePathStr = savePath.toString();
             file = new File(savePathStr);
 
-            tempPath = Files.createTempFile(parentPath, savePath.getFileName().toString(), ".upload");
+            tempPath = Files.createTempFile(parentPath, "doc-upload-", ".upload");
             try (FileOutputStream fos = new FileOutputStream(tempPath.toFile())) {
                 byte[] buf = new byte[128 * 1024];
                 int i = 0;
@@ -630,7 +633,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             Files.move(tempPath, savePath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
             tempPath = null;
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
+            MiscUtils.getLogger().error("Failed to write uploaded document {}", LogSafe.sanitize(fileName), e);
             if (tempPath != null) {
                 try {
                     Files.deleteIfExists(tempPath);
