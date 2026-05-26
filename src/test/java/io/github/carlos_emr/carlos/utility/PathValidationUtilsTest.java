@@ -218,7 +218,7 @@ public class PathValidationUtilsTest {
         }
 
         @ParameterizedTest
-        @DisplayName("should allow safe extension when filename is normalized")
+        @DisplayName("should allow safe final extension when blocked extension is non-final")
         @ValueSource(strings = {
             "document.pdf",
             "scan.TXT",
@@ -228,7 +228,7 @@ public class PathValidationUtilsTest {
             "data.class.txt",
             "library.jar.pdf"
         })
-        void shouldAllowSafeExtension_whenFilenameIsNormalized(String filename) {
+        void shouldAllowSafeFinalExtension_whenBlockedExtensionIsNonFinal(String filename) {
             assertThat(PathValidationUtils.validateFileName(filename)).isNotBlank();
         }
 
