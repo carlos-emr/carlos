@@ -162,22 +162,41 @@ table.topnav td {
 
 /* Match the schedule bar alert affordance; these links need higher specificity
    than the general topnav anchor color rules above. */
+table#firstTable .tabalert,
 table#firstTable #unclaimedLabLink.tabalert,
 table#firstTable #oscar_new_msg,
-table#firstTable #oscar_new_tickler {
+table#firstTable #oscar_new_tickler,
+table#firstTable #demographicMessageCount,
+table#firstTable #totalMessageCount {
     color: red !important;
 }
 
 table#firstTable #unclaimedLabLink.tabalert:hover,
+table#firstTable a:hover .tabalert,
 table#firstTable a:hover #oscar_new_msg,
 table#firstTable a:hover #oscar_new_tickler,
+table#firstTable a:hover #demographicMessageCount,
+table#firstTable a:hover #totalMessageCount,
 table#firstTable a:focus #unclaimedLabLink.tabalert,
+table#firstTable a:focus .tabalert,
 table#firstTable a:focus #oscar_new_msg,
 table#firstTable a:focus #oscar_new_tickler,
+table#firstTable a:focus #demographicMessageCount,
+table#firstTable a:focus #totalMessageCount,
 table#firstTable a:focus-visible #unclaimedLabLink.tabalert,
+table#firstTable a:focus-visible .tabalert,
 table#firstTable a:focus-visible #oscar_new_msg,
-table#firstTable a:focus-visible #oscar_new_tickler {
+table#firstTable a:focus-visible #oscar_new_tickler,
+table#firstTable a:focus-visible #demographicMessageCount,
+table#firstTable a:focus-visible #totalMessageCount {
     color: #fff !important;
 }
 
 /*end of top navigation bar */
+
+.carlos-content-shell {
+    max-width: none;
+    width: 100%;
+    padding-left: 0;
+    padding-right: 0;
+}

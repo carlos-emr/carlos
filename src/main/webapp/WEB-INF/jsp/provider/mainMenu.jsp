@@ -181,7 +181,9 @@
                                 <a HREF="#"
                                    ONCLICK="return openScheduleMenuSection('<%=SafeEncode.forJavaScriptAttribute(ticklerUrl)%>', function(u){ popupPage2(u,'ticklerPage'); }, event);"
                                    TITLE='<fmt:message key="global.tickler"/>'>
-                                    <span id="oscar_new_tickler"><fmt:message key="global.btntickler"/></span></a>
+                                    <oscar:newTickler providerNo="<%=curUser_no%>">
+                                        <span id="oscar_new_tickler"><fmt:message key="global.btntickler"/></span>
+                                    </oscar:newTickler></a>
                             </li>
                         </security:oscarSec>
 
@@ -191,7 +193,9 @@
                                     <a HREF="#"
                                        ONCLICK="return openScheduleMenuSection('<%=SafeEncode.forJavaScriptAttribute(messengerUrl)%>', function(u){ popupOscarRx(600,1024,u); }, event);"
                                        title="<fmt:message key="global.messenger"/>">
-                                        <span id="oscar_new_msg"><fmt:message key="global.msg"/></span></a>
+                                        <oscar:newMessage providerNo="<%=curUser_no%>">
+                                            <span id="oscar_new_msg"><fmt:message key="global.msg"/></span>
+                                        </oscar:newMessage></a>
                                 </li>
                             </security:oscarSec>
                         </caisi:isModuleLoad>

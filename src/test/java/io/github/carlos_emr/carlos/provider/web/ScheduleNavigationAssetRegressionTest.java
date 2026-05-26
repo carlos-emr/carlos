@@ -57,6 +57,10 @@ class ScheduleNavigationAssetRegressionTest {
             Path.of("src", "main", "webapp", "WEB-INF", "jsp", "messenger", "CreateMessage.jsp");
     private static final Path MAIN_MENU_JSP =
             Path.of("src", "main", "webapp", "WEB-INF", "jsp", "provider", "mainMenu.jsp");
+    private static final Path TICKLER_MAIN_JSP =
+            Path.of("src", "main", "webapp", "WEB-INF", "jsp", "tickler", "ticklerMain.jsp");
+    private static final Path REPORT_INDEX_JSP =
+            Path.of("src", "main", "webapp", "WEB-INF", "jsp", "report", "reportindex.jsp");
     private static final Path TOPNAV_CSS =
             Path.of("src", "main", "webapp", "css", "topnav.css");
     /**
@@ -102,6 +106,8 @@ class ScheduleNavigationAssetRegressionTest {
         String viewMessage = Files.readString(VIEW_MESSAGE_JSP, StandardCharsets.UTF_8);
         String createMessage = Files.readString(CREATE_MESSAGE_JSP, StandardCharsets.UTF_8);
         String mainMenu = Files.readString(MAIN_MENU_JSP, StandardCharsets.UTF_8);
+        String ticklerMain = Files.readString(TICKLER_MAIN_JSP, StandardCharsets.UTF_8);
+        String reportIndex = Files.readString(REPORT_INDEX_JSP, StandardCharsets.UTF_8);
         String scheduleScript = Files.readString(SCHEDULE_PAGE_SCRIPT, StandardCharsets.UTF_8);
         String topnavCss = Files.readString(TOPNAV_CSS, StandardCharsets.UTF_8);
 
@@ -128,9 +134,26 @@ class ScheduleNavigationAssetRegressionTest {
                 .contains("ClearMessage<%=scheduleNavFirstQuerySuffix%>")
                 .contains("DisplayMessages<%=scheduleNavFirstQuerySuffix%>");
         assertThat(mainMenu)
+                .contains("<oscar:newTickler providerNo=\"<%=curUser_no%>\">")
+                .contains("</oscar:newTickler>")
+                .contains("<oscar:newMessage providerNo=\"<%=curUser_no%>\">")
+                .contains("</oscar:newMessage>")
                 .contains("!window.popup.scheduleMenuFallback")
                 .contains("fallbackMenuPopup.scheduleMenuFallback = true;")
                 .contains("window.popup = fallbackMenuPopup;");
+        assertThat(documentReport)
+                .contains("<div class=\"container-fluid carlos-content-shell\" style=\"margin-bottom: 25px\">")
+                .doesNotContain("<div class=\"container\" style=\"margin-bottom: 25px\">");
+        assertThat(ticklerMain)
+                .contains("<div class=\"container-fluid carlos-content-shell\">")
+                .doesNotContain("<div class=\"container\">");
+        assertThat(reportIndex)
+                .contains("<div class=\"container-fluid carlos-content-shell\">")
+                .doesNotContain("<div class=\"container\">");
+        assertThat(topnavCss)
+                .contains(".carlos-content-shell")
+                .contains("padding-left: 0;")
+                .contains("padding-right: 0;");
         assertThat(scheduleScript)
                 .contains("var usesScheduleShell = scheduleNavigationMode === 'focused'"
                         + " || scheduleNavigationMode === 'tab';")

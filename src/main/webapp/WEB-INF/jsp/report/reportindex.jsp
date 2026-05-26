@@ -275,7 +275,7 @@
         GregorianCalendar cal = (GregorianCalendar) now.clone();
         String today = now.get(Calendar.YEAR) + "-" + (now.get(Calendar.MONTH) + 1) + "-" + now.get(Calendar.DATE);
     %>
-    <div class="container">
+    <div class="container-fluid carlos-content-shell">
     <div class="searchBox">
     <div class="page-header-bar">
         <h4 class="page-header-title">
