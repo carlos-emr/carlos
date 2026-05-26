@@ -219,7 +219,15 @@ public class PathValidationUtilsTest {
 
         @ParameterizedTest
         @DisplayName("should allow safe extension when filename is normalized")
-        @ValueSource(strings = {"document.pdf", "scan.TXT", "archive.tar.gz", "report.jsp.txt"})
+        @ValueSource(strings = {
+            "document.pdf",
+            "scan.TXT",
+            "archive.tar.gz",
+            "report.jsp.txt",
+            "file.war.pdf",
+            "data.class.txt",
+            "library.jar.pdf"
+        })
         void shouldAllowSafeExtension_whenFilenameIsNormalized(String filename) {
             assertThat(PathValidationUtils.validateFileName(filename)).isNotBlank();
         }
