@@ -178,6 +178,19 @@ class RemovedJspReferenceRegressionTest {
                     .as("Removed Traceability report message keys should not remain in resource bundles")
                     .isEmpty();
         }
+
+        try (Stream<Path> paths = Files.walk(Path.of("docs"))) {
+            List<Path> offenders = paths
+                    .filter(Files::isRegularFile)
+                    .filter(path -> containsAny(path, "GenerateTraceAction",
+                            "GenerateTraceabilityReportAction", "ViewTraceReport", "traceReport.jsp",
+                            "admin.traceability", "traceabilityReport", "downloadTraceabilityData"))
+                    .toList();
+
+            assertThat(offenders)
+                    .as("Removed Traceability report routes and message keys should not remain in docs")
+                    .isEmpty();
+        }
     }
 
     private static boolean containsAny(Path path, String... needles) {
