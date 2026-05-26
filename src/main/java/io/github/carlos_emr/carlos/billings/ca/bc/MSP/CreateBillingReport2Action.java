@@ -3,6 +3,7 @@ package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -16,7 +17,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import io.github.carlos_emr.carlos.entities.Provider;
 import io.github.carlos_emr.carlos.entities.S21;
 import org.apache.commons.io.IOUtils;
-import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.OscarDocumentCreator;
@@ -188,7 +189,9 @@ public class CreateBillingReport2Action extends ActionSupport {
                 }
 
                 try {
-                    osc.fillDocumentStream(reportParams, outputStream, docFmt, reportInstream, DbConnectionFilter.getThreadLocalDbConnection());
+                    try (Connection connection = LegacyJdbcQuery.getConnection()) {
+                        osc.fillDocumentStream(reportParams, outputStream, docFmt, reportInstream, connection);
+                    }
                 } catch (SQLException e) {
                     MiscUtils.getLogger().error("Error", e);
                 }
@@ -236,7 +239,7 @@ public class CreateBillingReport2Action extends ActionSupport {
             IOUtils.closeQuietly(reportInstream);
         }
 
-        return SUCCESS;
+        return NONE;
     }
 
     /**

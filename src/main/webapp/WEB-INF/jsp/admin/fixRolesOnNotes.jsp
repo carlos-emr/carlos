@@ -37,7 +37,6 @@
 <%@page import="java.sql.*" %>
 <%@page import="java.util.*" %>
 <%@page import="org.owasp.encoder.Encode" %>
-<%@page import="io.github.carlos_emr.carlos.utility.DbConnectionFilter" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.log.LogAction" %>
@@ -107,14 +106,10 @@
     }
 
     CaseManagementNoteDAO noteDao = SpringUtils.getBean(CaseManagementNoteDAO.class);
-    PreparedStatement pstmt = null;
-    try {
-        pstmt = DbConnectionFilter.getThreadLocalDbConnection().prepareStatement("update casemgmt_note set reporter_caisi_role = ? where reporter_caisi_role  = 0");
+    try (Connection conn = LegacyJdbcQuery.getConnection();
+         PreparedStatement pstmt = conn.prepareStatement("update casemgmt_note set reporter_caisi_role = ? where reporter_caisi_role  = 0")) {
         pstmt.setInt(1, Integer.parseInt(roleTo));
         pstmt.executeUpdate();
-    } finally {
-        if (pstmt != null)
-            pstmt.close();
     }
 
 
