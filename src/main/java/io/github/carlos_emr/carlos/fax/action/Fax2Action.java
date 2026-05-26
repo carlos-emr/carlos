@@ -63,9 +63,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import org.apache.commons.io.FilenameUtils;
 
 public class Fax2Action extends ActionSupport {
@@ -444,7 +444,7 @@ public class Fax2Action extends ActionSupport {
     }
 
     private String resolveSubmittedFaxFilePath(boolean required) {
-        String token = request.getParameter("faxFileToken");
+        String token = normalizeFaxFileToken(request.getParameter("faxFileToken"));
         if (token == null || token.isBlank()) {
             if (required) {
                 throw new SecurityException("Access denied");
@@ -462,7 +462,7 @@ public class Fax2Action extends ActionSupport {
     }
 
     private void removeSubmittedFaxFileToken() {
-        String token = request.getParameter("faxFileToken");
+        String token = normalizeFaxFileToken(request.getParameter("faxFileToken"));
         if (token == null || token.isBlank()) {
             return;
         }
@@ -498,6 +498,21 @@ public class Fax2Action extends ActionSupport {
         return null;
     }
 
+    private String normalizeFaxFileToken(String token) {
+        if (token == null || token.isBlank()) {
+            return null;
+        }
+        try {
+            UUID uuid = UUID.fromString(token);
+            if (!uuid.toString().equals(token)) {
+                throw new IllegalArgumentException("Non-canonical UUID token");
+            }
+            return token;
+        } catch (IllegalArgumentException e) {
+            throw new SecurityException("Access denied");
+        }
+    }
+
     private void sendAccessDenied(String message, Exception e) {
         logger.warn(message, e);
         try {
@@ -509,25 +524,29 @@ public class Fax2Action extends ActionSupport {
 
     private static final class PreviewPathStore implements Serializable {
         private static final long serialVersionUID = 1L;
-        private final ConcurrentHashMap<String, String> paths = new ConcurrentHashMap<>();
+        private final LinkedHashMap<String, String> paths = new LinkedHashMap<>();
 
-        private void put(String token, String path) {
+        private synchronized void put(String token, String path) {
             paths.put(token, path);
             trim();
         }
 
-        private String get(String token) {
+        private synchronized String get(String token) {
             return paths.get(token);
         }
 
-        private void remove(String token) {
+        private synchronized void remove(String token) {
             paths.remove(token);
         }
 
         private void trim() {
-            var tokens = paths.keySet().iterator();
-            while (paths.size() > MAX_PREVIEW_TOKENS_PER_SESSION && tokens.hasNext()) {
-                paths.remove(tokens.next());
+            while (paths.size() > MAX_PREVIEW_TOKENS_PER_SESSION) {
+                var tokens = paths.keySet().iterator();
+                if (!tokens.hasNext()) {
+                    return;
+                }
+                tokens.next();
+                tokens.remove();
             }
         }
     }
