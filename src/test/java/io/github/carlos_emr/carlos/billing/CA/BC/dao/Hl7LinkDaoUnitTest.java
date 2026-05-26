@@ -113,6 +113,9 @@ class Hl7LinkDaoUnitTest extends CarlosUnitTestBase {
     /**
      * Wires a mocked persistence layer so tests can inspect SQL construction and
      * parameter binding without executing a database query.
+     *
+     * @param dao DAO instance receiving the mocked {@link EntityManager}
+     * @return mocked {@link Query} used for parameter-binding assertions
      */
     private Query wireNativeQueryMock(Hl7LinkDao dao) {
         EntityManager entityManager = mock(EntityManager.class);
@@ -127,6 +130,9 @@ class Hl7LinkDaoUnitTest extends CarlosUnitTestBase {
     /**
      * Captures the SQL string passed to {@link EntityManager#createNativeQuery(String)}
      * so tests can assert that request input is not interpolated into SQL structure.
+     *
+     * @param dao DAO instance whose mocked {@link EntityManager} is inspected
+     * @return generated native SQL string
      */
     private String captureNativeSql(Hl7LinkDao dao) {
         EntityManager entityManager = (EntityManager) ReflectionTestUtils.getField(dao, "entityManager");

@@ -47,7 +47,10 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 public class Hl7LinkDao extends AbstractDaoImpl<Hl7Link> {
     /**
      * ORDER BY fragments are a SQL-injection boundary: every request value must resolve
-     * to one of these literal fragments or fall back to the default.
+     * to one of these literal fragments or fall back to the default. ORDER BY cannot
+     * be bound as a JPA parameter because SQL requires literal column references in
+     * this clause. The last_name key intentionally uses the selected column/alias so
+     * it works for both provider-linked rows and unlinked rows with blank aliases.
      */
     private static final String DEFAULT_REPORTS_ORDER_BY = "hl7_pid.pid_id";
     private static final Map<String, String> REPORTS_ORDER_BY = Map.of(
@@ -158,6 +161,9 @@ public class Hl7LinkDao extends AbstractDaoImpl<Hl7Link> {
 
     /**
      * Resolves a request-supplied report sort key to a safe SQL ORDER BY fragment.
+     * This method is part of the SQL injection defense: input such as
+     * {@code pid_id; DROP TABLE hl7_link} is not returned and instead falls back to
+     * the default sort fragment.
      *
      * @param orderby request-supplied sort key
      * @return allowlisted SQL fragment, or the default fragment when unrecognized
