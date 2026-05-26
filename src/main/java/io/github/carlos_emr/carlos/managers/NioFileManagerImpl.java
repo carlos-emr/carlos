@@ -410,43 +410,31 @@ public class NioFileManagerImpl implements NioFileManager {
      */
     public final boolean deleteTempFile(final String fileName) {
         try {
-            // Get the system temp directory as the base directory
-            Path systemTempDir = Paths.get(System.getProperty("java.io.tmpdir")).toRealPath().normalize();
-            
-            // Parse and normalize the provided file path
-            Path tempfile = Paths.get(fileName).normalize().toAbsolutePath();
-            
-            // Resolve to real path to handle symlinks
-            if (Files.exists(tempfile)) {
-                tempfile = tempfile.toRealPath();
-            }
-            
-            // Validate that the file is within the system temp directory
-            try {
-                tempfile = PathValidationUtils.validateExistingPath(tempfile.toFile(), systemTempDir.toFile()).toPath();
-            } catch (SecurityException e) {
-                log.error("Attempt to delete file outside of temp directory: " + fileName);
-                throw new SecurityException("Path traversal attempt detected");
-            }
-            
-            // Additional check: ensure the file is actually a temporary file created by this system
-            // Check if it's in one of our known temp subdirectories
-            String filePathStr = tempfile.toString();
-            boolean isValidTempFile = filePathStr.contains(TEMP_PDF_DIRECTORY) || 
-                                     filePathStr.contains(DEFAULT_GENERIC_TEMP) ||
-                                     tempfile.getParent().equals(systemTempDir);
-            
-            if (!isValidTempFile) {
-                log.error("Attempt to delete non-temporary file: " + fileName);
+            if (fileName == null || fileName.trim().isEmpty()) {
+                log.warn("Temp deletion target was null or empty");
                 return false;
             }
-            
-            return Files.deleteIfExists(tempfile);
+
+            File tempFile = new File(fileName);
+            if (!tempFile.exists()) {
+                if (!PathValidationUtils.isInAllowedTempDirectory(tempFile)) {
+                    log.error("Attempt to delete file outside approved temp directories: {}", LogSafe.sanitize(fileName, 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                    throw new SecurityException("Invalid temp deletion target");
+                }
+                return false;
+            }
+
+            tempFile = PathValidationUtils.validateUpload(tempFile);
+            if (!tempFile.isFile()) {
+                throw new SecurityException("Temp deletion target must be a regular file");
+            }
+
+            return Files.deleteIfExists(tempFile.toPath());
         } catch (SecurityException e) {
-            log.error("Security violation while attempting to delete file: " + fileName, e);
+            log.error("Security violation while attempting to delete temp file: {}", LogSafe.sanitize(fileName, 1024), e); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             throw e; // Re-throw security exceptions
         } catch (IOException e) {
-            log.error("Error while deleting temp cache image file " + fileName, e);
+            log.error("Error while deleting temp cache image file {}", LogSafe.sanitize(fileName, 1024), e); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
         }
         return false;
     }

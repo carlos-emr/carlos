@@ -7,8 +7,11 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.File;
 import java.io.PrintWriter;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.nio.file.Path;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -16,6 +19,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
@@ -23,6 +27,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.spy;
@@ -48,6 +53,9 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
     private ManageDocument2Action action;
+
+    @TempDir
+    private Path tempDir;
 
     @BeforeEach
     void setUp() {
@@ -154,6 +162,56 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
         route.invoke(action, new String[] { "999998" }, "42", "100");
 
         verify(providerInboxRoutingDao).addToProviderInbox("999998", 42, LabResultData.DOCUMENT);
+    }
+
+    @Test
+    void shouldThrowSecurityException_whenIncomingDocumentFilenameContainsSeparator() {
+        assertThatThrownBy(() -> invokeValidateIncomingDocumentFileName("nested/report.pdf"))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("Invalid filename");
+    }
+
+    @Test
+    void shouldThrowSecurityException_whenIncomingDocumentFilenameSanitizesEmpty() {
+        assertThatThrownBy(() -> invokeValidateIncomingDocumentFileName("^^^^"))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("Invalid filename");
+    }
+
+    @Test
+    void shouldReturnCanonicalDirectory_whenConfiguredDocumentDirectoryIsValid() throws Throwable {
+        File validated = invokeValidateConfiguredDocumentDirectory(tempDir.toString(), "DOCUMENT_DIR");
+
+        assertThat(validated).isEqualTo(tempDir.toFile().getCanonicalFile());
+    }
+
+    @Test
+    void shouldThrowSecurityException_whenConfiguredDocumentDirectoryIsMissing() {
+        assertThatThrownBy(() -> invokeValidateConfiguredDocumentDirectory(
+                tempDir.resolve("missing").toString(), "DOCUMENT_DIR"))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("Invalid document directory");
+    }
+
+    private String invokeValidateIncomingDocumentFileName(String fileName) throws Throwable {
+        Method validate = ManageDocument2Action.class.getDeclaredMethod("validateIncomingDocumentFileName", String.class);
+        validate.setAccessible(true);
+        try {
+            return (String) validate.invoke(action, fileName);
+        } catch (InvocationTargetException e) {
+            throw e.getCause();
+        }
+    }
+
+    private File invokeValidateConfiguredDocumentDirectory(String directoryPath, String propertyName) throws Throwable {
+        Method validate = ManageDocument2Action.class.getDeclaredMethod(
+                "validateConfiguredDocumentDirectory", String.class, String.class);
+        validate.setAccessible(true);
+        try {
+            return (File) validate.invoke(action, directoryPath, propertyName);
+        } catch (InvocationTargetException e) {
+            throw e.getCause();
+        }
     }
 
     private static final class CommittedFailingResponse extends MockHttpServletResponse {

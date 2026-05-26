@@ -1121,8 +1121,6 @@ public class ManageDocument2Action extends ActionSupport {
         String docSubClass = request.getParameter("docSubClass");
         String[] flagproviders = request.getParameterValues("flagproviders");
         String queueId1 = request.getParameter("queueId");
-        String sourceFilePath = IncomingDocUtil.getIncomingDocumentFilePathName(queueId1, pdfDir, pdfName);
-        String destFilePath;
         
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
             throw new SecurityException("missing required sec object (_edoc)");
@@ -1136,19 +1134,24 @@ public class ManageDocument2Action extends ActionSupport {
         // Validate queueId and pdfDir to prevent directory traversal
         if (queueId1.contains("..") || queueId1.contains("/") || queueId1.contains("\\") ||
             pdfDir.contains("..") || pdfDir.contains("/") || pdfDir.contains("\\")) {
+            log.warn("Invalid incoming document directory parameters: queueId={}, pdfDir={}",
+                    LogSafe.sanitize(queueId1), LogSafe.sanitize(pdfDir)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             throw new SecurityException("Invalid directory parameters");
         }
         
-        // Sanitize filename to prevent path traversal
-        String sanitizedPdfName = FilenameUtils.getName(pdfName);
-        if (!sanitizedPdfName.equals(pdfName)) {
-            throw new SecurityException("Invalid filename");
+        String sanitizedPdfName = validateIncomingDocumentFileName(pdfName);
+        String sourceFilePath = IncomingDocUtil.getIncomingDocumentFilePathName(queueId1, pdfDir, sanitizedPdfName);
+
+        String incomingDocDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
+        File incomingDir = validateConfiguredDocumentDirectory(incomingDocDir, "INCOMINGDOCUMENT_DIR");
+        File sourceFile = PathValidationUtils.validateExistingPath(new File(sourceFilePath), incomingDir);
+        if (!sourceFile.isFile()) {
+            log.warn("Incoming document source is not a regular file: {}", LogSafe.sanitize(sourceFile.getPath(), 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            throw new SecurityException("Incoming document source must be a regular file");
         }
 
         String savePath = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
-        if (!savePath.endsWith(File.separator)) {
-            savePath += File.separator;
-        }
+        File saveDir = validateConfiguredDocumentDirectory(savePath, "DOCUMENT_DIR");
 
         Date obDate = UtilDateUtilities.StringToDate(observationDate);
         String formattedDate = UtilDateUtilities.DateToString(obDate, EDocUtil.DMS_DATE_FORMAT);
@@ -1172,20 +1175,12 @@ public class ManageDocument2Action extends ActionSupport {
         newDoc.setDocSubClass(docSubClass);
         newDoc.setDocPublic("0");
         fileName = newDoc.getFileName();
-        // Sanitize the filename to match what the file system will actually create
-        String sanitizedFileName = fileName.replaceAll("[^a-zA-Z0-9._-]", "");
-
-        // Ensure sanitized filename is not empty and has a minimum length
-        if (sanitizedFileName.trim().isEmpty() || sanitizedFileName.length() < 1) {
-            // Generate a fallback filename with timestamp
-            String timestamp = String.valueOf(System.currentTimeMillis());
-            sanitizedFileName = "document_" + timestamp + ".dat";
-        }
+        String sanitizedFileName = validateIncomingDocumentFileName(fileName);
 
         // Ensure filename uniqueness. The generated filename includes a timestamp, but
         // collisions can still occur when multiple documents are uploaded in quick succession.
         // The counter-based suffix (_1, _2, ...) guarantees a unique filename on disk.
-        File destFile = new File(savePath + sanitizedFileName);
+        File destFile = PathValidationUtils.validatePath(sanitizedFileName, saveDir);
         String originalSanitized = sanitizedFileName;
         int counter = 1;
         while (destFile.exists()) {
@@ -1197,36 +1192,22 @@ public class ManageDocument2Action extends ActionSupport {
                 extension = originalSanitized.substring(lastDot);
             }
             sanitizedFileName = nameWithoutExt + "_" + counter + extension;
-            destFile = new File(savePath + sanitizedFileName);
+            destFile = PathValidationUtils.validatePath(sanitizedFileName, saveDir);
             counter++;
         }
 
-        newDoc.setFileName(sanitizedFileName);
-        destFilePath = savePath + sanitizedFileName;
         String doc_no = "";
-
-        // Validate destination path is within allowed directory using PathValidationUtils
-        File saveDir = new File(savePath);
-        File finalDestFile = PathValidationUtils.validatePath(sanitizedFileName, saveDir);
-        destFilePath = finalDestFile.getPath();
+        newDoc.setFileName(destFile.getName());
 
         newDoc.setContentType(docType);
-        File f1 = new File(sourceFilePath);
 
-        // Validate source file is within INCOMINGDOCUMENT_DIR to prevent path traversal
-        String incomingDocDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
-        if (incomingDocDir != null && !incomingDocDir.isEmpty()) {
-            File incomingDir = new File(incomingDocDir);
-            f1 = PathValidationUtils.validateExistingPath(f1, incomingDir);
-        }
-
-        boolean success = f1.renameTo(new File(destFilePath));
+        boolean success = sourceFile.renameTo(destFile);
         if (!success) {
-            log.error("Not able to move {} to {}", LogSafe.sanitize(f1.getName()), LogSafe.sanitize(destFilePath)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+            log.error("Not able to move {} to {}", LogSafe.sanitize(sourceFile.getName()), LogSafe.sanitize(destFile.getPath())); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
             // File was not successfully moved - attempt to delete temp file to prevent orphaned files
-            boolean deleted = f1.delete();
+            boolean deleted = sourceFile.delete();
             if (!deleted) {
-                log.warn("Failed to delete temporary file: {}", LogSafe.sanitize(f1.getAbsolutePath())); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                log.warn("Failed to delete temporary file: {}", LogSafe.sanitize(sourceFile.getAbsolutePath())); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
             }
             String documentId = request.getParameter("documentId");
             log.error("Failed to save document file for document ID: {}", LogSafe.sanitize(documentId)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
@@ -1274,6 +1255,50 @@ public class ManageDocument2Action extends ActionSupport {
         }
 
         return "nextIncomingDoc";
+    }
+
+    private String validateIncomingDocumentFileName(String fileName) {
+        if (fileName == null || fileName.trim().isEmpty()) {
+            log.warn("Invalid incoming document filename: null or empty");
+            throw new SecurityException("Invalid filename");
+        }
+
+        try {
+            if (FilenameUtils.getPrefixLength(fileName) > 0
+                    || fileName.contains("/")
+                    || fileName.contains("\\")) {
+                log.warn("Incoming document filename contains path components: {}", LogSafe.sanitize(fileName, 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                throw new SecurityException("Invalid filename");
+            }
+        } catch (IllegalArgumentException e) {
+            log.warn("Incoming document filename parser rejected invalid filename: {}", LogSafe.sanitize(fileName, 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            throw new SecurityException("Invalid filename", e);
+        }
+
+        String sanitizedFileName = fileName.replaceAll("[^a-zA-Z0-9._-]", "");
+        if (sanitizedFileName.trim().isEmpty()) {
+            log.warn("Incoming document filename became empty after sanitization: {}", LogSafe.sanitize(fileName, 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            throw new SecurityException("Invalid filename");
+        }
+
+        return sanitizedFileName;
+    }
+
+    private File validateConfiguredDocumentDirectory(String directoryPath, String propertyName) throws IOException {
+        if (directoryPath == null || directoryPath.trim().isEmpty()) {
+            log.error("{} is not configured", LogSafe.sanitize(propertyName));
+            throw new IllegalStateException(propertyName + " not configured");
+        }
+
+        File directory = new File(directoryPath).getCanonicalFile();
+        if (!directory.isDirectory()) {
+            log.error("{} is not an approved document directory: {}",
+                    LogSafe.sanitize(propertyName),
+                    LogSafe.sanitize(directory.getPath(), 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            throw new SecurityException("Invalid document directory");
+        }
+
+        return directory;
     }
 
     private void routeDocumentToProviders(String[] flagproviders, String docNo, String demographicNo) {
