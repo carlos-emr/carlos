@@ -59,7 +59,7 @@ public class Hl7LinkDao extends AbstractDaoImpl<Hl7Link> {
      */
     private static final String DEFAULT_REPORTS_ORDER_BY = "hl7_pid.pid_id";
     private static final Map<String, String> REPORTS_ORDER_BY = Map.of(
-            "pid_id", "hl7_pid.pid_id",
+            "pid_id", DEFAULT_REPORTS_ORDER_BY,
             "patient_name", "hl7_pid.patient_name",
             "ordering_provider", "hl7_obr.ordering_provider",
             "result_copies_to", "hl7_obr.result_copies_to",
