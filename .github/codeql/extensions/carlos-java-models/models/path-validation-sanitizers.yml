@@ -51,8 +51,8 @@ extensions:
       # validateUpload(File sourceFile) -> File
       # Validates that the uploaded file (a framework-assigned temp path, not
       # user-controlled) resides in an allowed temp directory and returns the
-      # canonicalized File. Argument[0] flows to ReturnValue because the source
-      # path is system-assigned by Struts2/Tomcat and is not user-controlled.
+      # canonicalized File. Keep the source path flow visible so CodeQL can still
+      # reason about call sites that pass user-influenced File values.
       - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", false, "validateUpload", "(java.io.File)", "", "Argument[0]", "ReturnValue", "taint", "manual"]
 
       # validateUpload(File sourceFile, String userFilename, File destDir) -> File
@@ -104,6 +104,11 @@ extensions:
       # isInAllowedTempDirectory(File file) -> boolean
       # Guard predicate only; returns boolean with no relevant taint-flow to callers.
       - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", "isInAllowedTempDirectory", "(java.io.File)", "summary", "manual"]
+
+      # openValidatedUploadInputStream(File sourceFile) -> InputStream
+      # Opens upload content only after validateUpload(File) canonicalizes and
+      # bounds the source path to an allowed temp directory.
+      - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", "openValidatedUploadInputStream", "(java.io.File)", "summary", "manual"]
 
       # FaxManagerImpl.validateFilePath(String) -> void
       # Guard method that validates and throws on failure. No taint flows through.

@@ -211,6 +211,28 @@
     </Match>
 
     <!--
+      AddEditDocument2Action uses the configured DOCUMENT_DIR as the base directory, then validates
+      dynamic filenames and written files with PathValidationUtils before PDF reads, upload writes,
+      completeness checks, or cleanup. SpotBugs treats CarlosProperties.getDocumentDirectory() as an
+      unknown path source, so keep this suppression scoped to the validated document-upload helpers.
+    -->
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.documentManager.actions.AddEditDocument2Action"/>
+        <Method name="countNumOfPages"/>
+    </Match>
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.documentManager.actions.AddEditDocument2Action"/>
+        <Method name="writeLocalFile"/>
+    </Match>
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.documentManager.actions.AddEditDocument2Action"/>
+        <Method name="resolveWrittenDocumentPath"/>
+    </Match>
+
+    <!--
       BC billing receipt redirects are built as context-relative application paths, URL-encode every
       billing_no value, and are validated with RedirectValidationUtils before sendRedirect().
     -->
