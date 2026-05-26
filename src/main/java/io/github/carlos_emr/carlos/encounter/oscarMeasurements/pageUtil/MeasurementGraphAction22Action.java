@@ -674,7 +674,13 @@ public class MeasurementGraphAction22Action extends ActionSupport {
 
         ArrayList<Map<String, Serializable>> list = null;
         boolean isLoinc = "loinc".equals(labType);
-        MiscUtils.getLogger().debug("lab type >{}< >{}< {} {}", labType, isLoinc, testName, identifier);
+        MiscUtils.getLogger().debug(
+                "lab type >{}< >{}< {} {}",
+                LogSafe.sanitize(labType),
+                isLoinc,
+                LogSafe.sanitize(testName),
+                LogSafe.sanitize(identifier)
+        );
         if (isLoinc) {
             try {
 
