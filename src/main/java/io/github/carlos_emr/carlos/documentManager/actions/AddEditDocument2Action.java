@@ -157,7 +157,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, props.getString("dms.error.invalidFilename"));
                 return null;
             }
-            sendHtml5UploadError(props, ERROR_ZERO_SIZE_KEY);
+            sendHtml5UploadError(props, HttpServletResponse.SC_BAD_REQUEST, ERROR_ZERO_SIZE_KEY);
             return null;
         }
 
@@ -196,7 +196,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         long expectedFileSize = validatedSource.length();
         // save local file;
         if (expectedFileSize == 0) {
-            sendHtml5UploadError(props, ERROR_ZERO_SIZE_KEY);
+            sendHtml5UploadError(props, HttpServletResponse.SC_BAD_REQUEST, ERROR_ZERO_SIZE_KEY);
             return null;
         }
         // The upload source was validated above; keep all subsequent file I/O scoped to the
@@ -1007,9 +1007,13 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
     }
 
     private void sendHtml5UploadError(ResourceBundle props, String errorKey) throws IOException {
+        sendHtml5UploadError(props, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, errorKey);
+    }
+
+    private void sendHtml5UploadError(ResourceBundle props, int statusCode, String errorKey) throws IOException {
         String message = props.getString(errorKey);
         response.setHeader("oscar_error", message);
-        response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, message);
+        response.sendError(statusCode, message);
     }
 
     /**

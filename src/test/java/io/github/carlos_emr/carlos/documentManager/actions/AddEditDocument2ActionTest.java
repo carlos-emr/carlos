@@ -32,6 +32,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -418,6 +419,33 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should return bad request when html5 upload is missing")
+    void shouldReturnBadRequest_whenHtml5UploadMissing() throws Exception {
+        String result = action.html5MultiUpload();
+
+        assertThat(result).isNull();
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        assertThat(response.getHeader("oscar_error")).isEqualTo(ResourceBundle.getBundle("oscarResources")
+                .getString("dms.addDocument.errorZeroSize"));
+    }
+
+    @Test
+    @DisplayName("should return bad request when html5 upload is empty")
+    void shouldReturnBadRequest_whenHtml5UploadIsEmpty() throws Exception {
+        tempUploadFile = File.createTempFile("add-edit-document", ".txt");
+
+        bindDocFileUpload(tempUploadFile, "echart-upload.txt", "text/plain");
+        action.setAppointmentNo("123");
+
+        String result = action.html5MultiUpload();
+
+        assertThat(result).isNull();
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        assertThat(response.getHeader("oscar_error")).isEqualTo(ResourceBundle.getBundle("oscarResources")
+                .getString("dms.addDocument.errorZeroSize"));
+    }
+
+    @Test
     @DisplayName("should delete partial file when html5 upload write is incomplete")
     void shouldDeletePartialFile_whenHtml5UploadWriteIsIncomplete() throws Exception {
         tempUploadFile = File.createTempFile("add-edit-document", ".pdf");
@@ -463,7 +491,7 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
         String originalDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", documentDir.toString());
 
-        bindDocFileUpload(tempUploadFile, "echart-upload.txt");
+        bindDocFileUpload(tempUploadFile, "echart-upload.txt", "text/plain");
         action.setAppointmentNo("123");
         AtomicReference<EDoc> savedDocument = new AtomicReference<>();
 
@@ -507,7 +535,7 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
     void shouldReturnWriteError_whenHtml5UploadDisappearsBeforeExecution() throws Exception {
         tempUploadFile = File.createTempFile("add-edit-document", ".txt");
         Files.writeString(tempUploadFile.toPath(), "test");
-        bindDocFileUpload(tempUploadFile, "echart-upload.txt");
+        bindDocFileUpload(tempUploadFile, "echart-upload.txt", "text/plain");
         action.setAppointmentNo("123");
 
         Files.deleteIfExists(tempUploadFile.toPath());
@@ -627,7 +655,7 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
         action.setDocPublic("0");
         action.setObservationDate("2026-05-21");
         action.setAppointmentNo("45");
-        bindDocFileUpload(tempUploadFile, "consult-note.txt");
+        bindDocFileUpload(tempUploadFile, "consult-note.txt", "text/plain");
 
         request.addParameter("function", "provider&next=bad");
         request.addParameter("functionid", "123 456");
@@ -716,7 +744,7 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
         action.setDocPublic("0");
         action.setObservationDate("2026-05-25");
         action.setAppointmentNo("0");
-        bindDocFileUpload(tempUploadFile, "empty-replacement.txt");
+        bindDocFileUpload(tempUploadFile, "empty-replacement.txt", "text/plain");
 
         try {
             String result = action.execute2();
@@ -771,11 +799,15 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
      * @param originalName String the client filename to expose through the mocked upload
      */
     private void bindDocFileUpload(File uploadFile, String originalName) {
+        bindDocFileUpload(uploadFile, originalName, "application/pdf");
+    }
+
+    private void bindDocFileUpload(File uploadFile, String originalName, String contentType) {
         UploadedFile uploadedFile = mock(UploadedFile.class);
         when(uploadedFile.getInputName()).thenReturn("docFile");
         when(uploadedFile.getContent()).thenReturn(uploadFile);
         when(uploadedFile.getOriginalName()).thenReturn(originalName);
-        when(uploadedFile.getContentType()).thenReturn("application/pdf");
+        when(uploadedFile.getContentType()).thenReturn(contentType);
 
         action.withUploadedFiles(List.of(uploadedFile));
     }
