@@ -47,7 +47,7 @@ public final class PathValidationUtils {
     public static final String HIDDEN_FILENAME_MESSAGE =
             "Invalid filename: hidden files not allowed. Do not start the filename with a dot.";
     private static final String BLOCKED_EXTENSION_MESSAGE =
-            "Invalid filename: file extension not allowed.";
+            "Invalid filename: file extension .%s not allowed.";
     private static final Set<String> BLOCKED_EXTENSIONS = Set.of(
             "jsp", "jspx", "war", "class", "jar", "jnlp");
 
@@ -158,7 +158,7 @@ public final class PathValidationUtils {
         String extension = FilenameUtils.getExtension(normalizedName).toLowerCase(Locale.ROOT);
         if (BLOCKED_EXTENSIONS.contains(extension)) {
             logger.warn("Blocked dangerous file extension: {}", extension);
-            throw new FileValidationException(BLOCKED_EXTENSION_MESSAGE);
+            throw new FileValidationException(String.format(BLOCKED_EXTENSION_MESSAGE, extension));
         }
         return normalizedName;
     }

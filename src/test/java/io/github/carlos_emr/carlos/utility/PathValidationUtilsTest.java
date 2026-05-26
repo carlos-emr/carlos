@@ -205,16 +205,16 @@ public class PathValidationUtilsTest {
         void shouldRejectDangerousExtension_whenFilenameEndsWithBlockedExtension(String filename) {
             assertThatThrownBy(() -> PathValidationUtils.validateFileName(filename))
                 .isInstanceOf(FileValidationException.class)
-                .hasMessageContaining("file extension not allowed");
+                .hasMessageContaining("not allowed");
         }
 
         @ParameterizedTest
         @DisplayName("should reject dangerous final extension when filename has safe prefix")
-        @ValueSource(strings = {"document.pdf.jsp", "report.txt.class"})
+        @ValueSource(strings = {"document.pdf.jsp", "report.txt.class", "report.txt.jsp"})
         void shouldRejectDangerousFinalExtension_whenFilenameHasSafePrefix(String filename) {
             assertThatThrownBy(() -> PathValidationUtils.validateFileName(filename))
                 .isInstanceOf(FileValidationException.class)
-                .hasMessageContaining("file extension not allowed");
+                .hasMessageContaining("not allowed");
         }
 
         @ParameterizedTest
