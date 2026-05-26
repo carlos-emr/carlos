@@ -51,7 +51,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.CarlosProperties;
-import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 public class FrmLabReq07Record extends FrmRecord {
@@ -135,67 +135,46 @@ public class FrmLabReq07Record extends FrmRecord {
         String xmlSpecialtyCode = "<xml_p_specialty_code>";
         String xmlSpecialtyCode2 = "</xml_p_specialty_code>";
 
-        ResultSet rs = null;
-        String sql = null;
-
-
         if (demoProvider.equals(provNo)) {
             // from provider table
-            rs = DBHandler.GetPreSQL("SELECT CONCAT(last_name, ', ', first_name) AS provName, ohip_no, comments "
-                    + "FROM provider WHERE provider_no = ?", provNo);
-
-            if (rs.next()) {
-                String comments = Misc.getString(rs, "comments");
-                String strSpecialtyCode = "00";
-                if (comments.indexOf(xmlSpecialtyCode) != -1) {
-                    strSpecialtyCode = comments.substring(comments.indexOf(xmlSpecialtyCode) + xmlSpecialtyCode.length(), comments.indexOf(xmlSpecialtyCode2));
-                    strSpecialtyCode = strSpecialtyCode.trim();
-                    if (strSpecialtyCode.equals("")) {
-                        strSpecialtyCode = "00";
-                    }
+            try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet("SELECT CONCAT(last_name, ', ', first_name) AS provName, ohip_no, comments "
+                    + "FROM provider WHERE provider_no = ?", provNo)) {
+                if (rs.next()) {
+                    String comments = Misc.getString(rs, "comments");
+                    String strSpecialtyCode = extractSpecialtyCode(comments, xmlSpecialtyCode, xmlSpecialtyCode2);
+                    String num = Misc.getString(rs, "ohip_no");
+                    props.setProperty("reqProvName", Misc.getString(rs, "provName"));
+                    props.setProperty("provName", Misc.getString(rs, "provName"));
+                    props.setProperty("practitionerNo", "0000-" + num + "-" + strSpecialtyCode);
                 }
-                String num = Misc.getString(rs, "ohip_no");
-                props.setProperty("reqProvName", Misc.getString(rs, "provName"));
-                props.setProperty("provName", Misc.getString(rs, "provName"));
-                props.setProperty("practitionerNo", "0000-" + num + "-" + strSpecialtyCode);
             }
-            rs.close();
         } else {
             // from provider table
-            rs = DBHandler.GetPreSQL("SELECT CONCAT(last_name, ', ', first_name) AS provName, ohip_no, comments FROM provider WHERE provider_no = ?",
-                    provNo);
-
             String num = "";
-            if (rs.next()) {
-                String comments = Misc.getString(rs, "comments");
-                String strSpecialtyCode = "00";
-                if (comments.indexOf(xmlSpecialtyCode) != -1) {
-                    strSpecialtyCode = comments.substring(comments.indexOf(xmlSpecialtyCode) + xmlSpecialtyCode.length(), comments.indexOf(xmlSpecialtyCode2));
-                    strSpecialtyCode = strSpecialtyCode.trim();
-                    if (strSpecialtyCode.equals("")) {
-                        strSpecialtyCode = "00";
-                    }
-                }
-                num = Misc.getString(rs, "ohip_no");
-                props.setProperty("reqProvName", Misc.getString(rs, "provName"));
-                props.setProperty("practitionerNo", "0000-" + num + "-" + strSpecialtyCode);
-            }
-            rs.close();
-
-            if (!demoProvider.equals("")) {
-                // from provider table
-                rs = DBHandler.GetPreSQL("SELECT CONCAT(last_name, ', ', first_name) AS provName, ohip_no FROM provider WHERE provider_no = ?",
-                        demoProvider);
-
+            try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet("SELECT CONCAT(last_name, ', ', first_name) AS provName, ohip_no, comments FROM provider WHERE provider_no = ?",
+                    provNo)) {
                 if (rs.next()) {
-                    if (num.equals("")) {
-                        num = Misc.getString(rs, "ohip_no");
-                        props.setProperty("practitionerNo", "0000-" + num + "-00");
-                    }
-                    props.setProperty("provName", Misc.getString(rs, "provName"));
-
+                    String comments = Misc.getString(rs, "comments");
+                    String strSpecialtyCode = extractSpecialtyCode(comments, xmlSpecialtyCode, xmlSpecialtyCode2);
+                    num = Misc.getString(rs, "ohip_no");
+                    props.setProperty("reqProvName", Misc.getString(rs, "provName"));
+                    props.setProperty("practitionerNo", "0000-" + num + "-" + strSpecialtyCode);
                 }
-                rs.close();
+            }
+
+            if (!demoProvider.isEmpty()) {
+                // from provider table
+                try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet("SELECT CONCAT(last_name, ', ', first_name) AS provName, ohip_no FROM provider WHERE provider_no = ?",
+                        demoProvider)) {
+                    if (rs.next()) {
+                        if (num.isEmpty()) {
+                            num = Misc.getString(rs, "ohip_no");
+                            props.setProperty("practitionerNo", "0000-" + num + "-00");
+                        }
+                        props.setProperty("provName", Misc.getString(rs, "provName"));
+
+                    }
+                }
             }
         }
 
@@ -259,5 +238,24 @@ public class FrmLabReq07Record extends FrmRecord {
         return ((new FrmRecordHelp()).createActionURL(where, action, demoId, formId));
     }
 
+    private String extractSpecialtyCode(String comments, String startTag, String endTag) {
+        if (comments == null) {
+            return "00";
+        }
+
+        int start = comments.indexOf(startTag);
+        if (start < 0) {
+            return "00";
+        }
+
+        int valueStart = start + startTag.length();
+        int end = comments.indexOf(endTag, valueStart);
+        if (end < valueStart) {
+            return "00";
+        }
+
+        String specialtyCode = comments.substring(valueStart, end).trim();
+        return specialtyCode.isEmpty() ? "00" : specialtyCode;
+    }
 
 }

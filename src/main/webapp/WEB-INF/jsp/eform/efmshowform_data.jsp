@@ -97,9 +97,8 @@
             eForm.setFdid(fdid);
         }
 
-        // FP for java/Sqli: appointmentNo validated numeric at line 89;
-        // EForm.replaceAllFields additionally sanitizes placeholders at SQL-substitution time.
-        if (appointmentNo != null) eForm.setAppointmentNo(appointmentNo); // lgtm[java/sql-injection]
+        // appointmentNo is validated numeric above and re-validated before binding into DatabaseAP SQL.
+        if (appointmentNo != null) eForm.setAppointmentNo(appointmentNo);
         if (eformLink != null) eForm.setEformLink(eformLink);
 
         String parentAjaxId = request.getParameter("parentAjaxId");
