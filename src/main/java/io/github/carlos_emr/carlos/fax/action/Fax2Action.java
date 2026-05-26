@@ -78,6 +78,7 @@ public class Fax2Action extends ActionSupport {
     private final DocumentAttachmentManager documentAttachmentManager = SpringUtils.getBean(DocumentAttachmentManager.class);
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private static final String FAX_PREVIEW_PATHS_SESSION_KEY = Fax2Action.class.getName() + ".PREVIEW_PATHS";
+    private static final int MAX_PREVIEW_TOKENS_PER_SESSION = 20;
 
 
     public String execute() {
@@ -142,11 +143,6 @@ public class Fax2Action extends ActionSupport {
      * @throws SecurityException if validation fails or user lacks required privileges
      */
     private void validateFaxInputs(LoggedInInfo loggedInInfo, String resolvedFaxFilePath) {
-        // Validate fax privilege
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", "w", null)) {
-            throw new SecurityException("missing required sec object (_fax)");
-        }
-
         // Validate demographic number and access
         if (demographicNo != null) {
             if (demographicNo < 0) {
@@ -328,7 +324,7 @@ public class Fax2Action extends ActionSupport {
                     outfile = faxManager.resolveAndValidateFilePath(faxFilePath);
                     response.setContentType("application/pdf");
                 } catch (SecurityException e) {
-                    logger.error("Security validation failed for fax preview path", e);
+                    logger.error("Security validation failed for fax preview path: {}", e.getClass().getSimpleName());
                     try {
                         response.sendError(HttpServletResponse.SC_FORBIDDEN, "Access denied");
                     } catch (IOException ex) {
@@ -336,7 +332,7 @@ public class Fax2Action extends ActionSupport {
                     }
                     return;
                 } catch (IOException e) {
-                    logger.error("File not found or error processing fax preview path", e);
+                    logger.error("File not found or error processing fax preview path: {}", e.getClass().getSimpleName());
                     try {
                         response.sendError(HttpServletResponse.SC_NOT_FOUND, "File not found");
                     } catch (IOException ex) {
@@ -517,6 +513,7 @@ public class Fax2Action extends ActionSupport {
 
         private void put(String token, String path) {
             paths.put(token, path);
+            trim();
         }
 
         private String get(String token) {
@@ -525,6 +522,12 @@ public class Fax2Action extends ActionSupport {
 
         private void remove(String token) {
             paths.remove(token);
+        }
+
+        private void trim() {
+            while (paths.size() > MAX_PREVIEW_TOKENS_PER_SESSION) {
+                paths.keySet().stream().findFirst().ifPresent(paths::remove);
+            }
         }
     }
 

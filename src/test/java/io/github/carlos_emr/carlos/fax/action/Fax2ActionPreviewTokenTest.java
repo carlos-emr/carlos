@@ -141,8 +141,8 @@ class Fax2ActionPreviewTokenTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should ignore raw fax file path tampering when queueing fax")
-    void shouldIgnoreRawFaxFilePathTampering_whenQueueingFax() throws Exception {
+    @DisplayName("should use token path, not tampered path, when queueing fax")
+    void shouldUseTokenPathNotTamperedPath_whenQueueingFax() throws Exception {
         Path pdf = createPreviewPdf();
         Fax2Action action = prepareAndVerifyEformFax(pdf);
         String token = (String) request.getAttribute("faxFileToken");
