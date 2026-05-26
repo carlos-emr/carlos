@@ -141,6 +141,58 @@ class Hl7LinkDaoUnitTest extends CarlosUnitTestBase {
         verify(query, never()).setParameter(eq("providerNo"), any());
     }
 
+    @Test
+    @DisplayName("should use default order by when order by is null")
+    void shouldUseDefaultOrderBy_whenOrderByIsNull() {
+        Hl7LinkDao dao = new Hl7LinkDao();
+        Query query = wireNativeQueryMock(dao);
+
+        dao.findReports(null, null, "-APL", null, "search");
+
+        String sql = captureNativeSql(dao);
+        assertThat(sql).contains("ORDER BY hl7_pid.pid_id");
+        verify(query, never()).setParameter(eq("providerNo"), any());
+    }
+
+    @Test
+    @DisplayName("should trim order by when order by has whitespace")
+    void shouldTrimOrderBy_whenOrderByHasWhitespace() {
+        Hl7LinkDao dao = new Hl7LinkDao();
+        Query query = wireNativeQueryMock(dao);
+
+        dao.findReports(null, null, "-APL", " signed_on ", "search");
+
+        String sql = captureNativeSql(dao);
+        assertThat(sql).contains("ORDER BY hl7_link.signed_on");
+        verify(query, never()).setParameter(eq("providerNo"), any());
+    }
+
+    @Test
+    @DisplayName("should return empty reports when command is blank")
+    void shouldReturnEmptyReports_whenCommandIsBlank() {
+        Hl7LinkDao dao = new Hl7LinkDao();
+        wireNativeQueryMock(dao);
+
+        List<Object[]> reports = dao.findReports(null, null, "-APL", "pid_id", "");
+
+        EntityManager entityManager = (EntityManager) ReflectionTestUtils.getField(dao, "entityManager");
+        assertThat(reports).isEmpty();
+        verify(entityManager, never()).createNativeQuery(anyString());
+    }
+
+    @Test
+    @DisplayName("should return empty reports when command is null")
+    void shouldReturnEmptyReports_whenCommandIsNull() {
+        Hl7LinkDao dao = new Hl7LinkDao();
+        wireNativeQueryMock(dao);
+
+        List<Object[]> reports = dao.findReports(null, null, "-APL", "pid_id", null);
+
+        EntityManager entityManager = (EntityManager) ReflectionTestUtils.getField(dao, "entityManager");
+        assertThat(reports).isEmpty();
+        verify(entityManager, never()).createNativeQuery(anyString());
+    }
+
     /**
      * Wires a mocked persistence layer so tests can inspect SQL construction and
      * parameter binding without executing a database query.
