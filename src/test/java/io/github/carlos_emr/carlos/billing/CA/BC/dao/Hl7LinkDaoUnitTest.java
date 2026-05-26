@@ -30,6 +30,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.util.Date;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -53,8 +54,8 @@ import static org.mockito.Mockito.when;
 class Hl7LinkDaoUnitTest extends CarlosUnitTestBase {
 
     @Test
-    @DisplayName("should bind providerNo when provider filter is user supplied")
-    void shouldBindProviderNo_whenProviderFilterIsUserSupplied() {
+    @DisplayName("should bind providerNo when provider contains malicious input")
+    void shouldBindProviderNo_whenProviderContainsMaliciousInput() {
         Hl7LinkDao dao = new Hl7LinkDao();
         Query query = wireNativeQueryMock(dao);
         String providerNo = "DOC01' OR '1'='1";
@@ -66,6 +67,22 @@ class Hl7LinkDaoUnitTest extends CarlosUnitTestBase {
         assertThat(sql).doesNotContain(providerNo);
         assertThat(sql).contains("ORDER BY hl7_pid.patient_name");
         verify(query).setParameter("providerNo", providerNo);
+    }
+
+    @Test
+    @DisplayName("should bind date range when dates are provided")
+    void shouldBindDateRange_whenDatesAreProvided() {
+        Hl7LinkDao dao = new Hl7LinkDao();
+        Query query = wireNativeQueryMock(dao);
+
+        dao.findReports(new Date(0L), new Date(0L), "-APL", "date_time", "search");
+
+        String sql = captureNativeSql(dao);
+        assertThat(sql).contains("hl7_message.date_time >= :startDate");
+        assertThat(sql).contains("hl7_message.date_time <= :endDate");
+        assertThat(sql).doesNotContain("1970-01-01");
+        verify(query).setParameter(eq("startDate"), anyString());
+        verify(query).setParameter(eq("endDate"), anyString());
     }
 
     @Test
