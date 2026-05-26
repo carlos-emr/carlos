@@ -422,16 +422,18 @@ table#firstTable .tabalert {
 }
 
 .tabalert:hover,
-a:hover .tabalert {
+a:hover .tabalert,
+a:focus .tabalert,
+a:focus-visible .tabalert {
     color: white !important;
 }
 
-table#firstTable td#firstMenu ul#navlist li:not(.dashboardDropdown) {
+table#firstTable td#firstMenu ul#navlist > li:not(.dashboardDropdown) {
     line-height: 1;
     display: inline-block;
 }
 
-table#firstTable td#firstMenu ul#navlist li a:not(.dashboardDropdown) {
+table#firstTable td#firstMenu ul#navlist > li:not(.dashboardDropdown) > a {
     display: inline-block;
     padding: 5px;
 }

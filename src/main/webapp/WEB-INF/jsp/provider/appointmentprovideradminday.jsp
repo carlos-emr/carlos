@@ -959,7 +959,9 @@
                                     <c:if test="${doctorLinkRights}">
                                         <li>
                                        <a HREF="#" id="inboxLink">
-                                                <span id="oscar_new_lab" title="<fmt:message key="provider.appointmentProviderAdminDay.viewLabReports"/>"><fmt:message key="global.lab"/></span>
+                                                <span id="oscar_new_lab" title="<fmt:message key="provider.appointmentProviderAdminDay.viewLabReports"/>">
+                                                    <oscar:newLab providerNo="<%=loggedInInfo1.getLoggedInProviderNo()%>"><fmt:message key="global.lab"/></oscar:newLab>
+                                                </span>
                                             </a>
                                             <oscar:newUnclaimedLab>
                                                 <a id="unclaimedLabLink" class="tabalert" HREF="javascript:void(0)"
@@ -999,7 +1001,9 @@
                                     <a HREF="#"
                                        ONCLICK="return openScheduleSection('<%=scheduleTicklerUrlForJsAttribute%>', function(u){ popupPage2(u,'${carlos:forJavaScript(ticklerTitle)}'); }, event);"
                                        TITLE='${carlos:forHtmlAttribute(ticklerTitle)}'>
-                                        <span id="oscar_new_tickler"><fmt:message key="global.btntickler"/></span></a>
+                                        <span id="oscar_new_tickler">
+                                            <oscar:newTickler providerNo="<%=loggedInInfo1.getLoggedInProviderNo()%>"><fmt:message key="global.btntickler"/></oscar:newTickler>
+                                        </span></a>
                                 </li>
                             </security:oscarSec>
 
@@ -1009,7 +1013,9 @@
                                         <a HREF="#"
                                            ONCLICK="return openScheduleSection('<%=scheduleMessengerUrlForJsAttribute%>', function(u){ popupOscarRx(600,1024,u); }, event);"
                                            title="<fmt:message key="global.messenger"/>">
-                                              <span id="oscar_new_msg"><fmt:message key="global.msg"/></span></a>
+                                              <span id="oscar_new_msg">
+                                                  <oscar:newMessage providerNo="<%=loggedInInfo1.getLoggedInProviderNo()%>"><fmt:message key="global.msg"/></oscar:newMessage>
+                                              </span></a>
                                     </li>
                                 </security:oscarSec>
                             </caisi:isModuleLoad>

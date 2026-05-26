@@ -165,7 +165,9 @@
                                     <li>
                                         <a HREF="#" id="inboxLink"
                                            TITLE='<fmt:message key="provider.appointmentProviderAdminDay.viewLabReports"/>'>
-                                            <span id="oscar_new_lab"><fmt:message key="global.lab"/></span>
+                                            <span id="oscar_new_lab">
+                                                <oscar:newLab providerNo="<%=curUser_no%>"><fmt:message key="global.lab"/></oscar:newLab>
+                                            </span>
                                         </a>
                                         <oscar:newUnclaimedLab>
                                             <a id="unclaimedLabLink" class="tabalert" HREF="javascript:void(0)"
@@ -181,9 +183,9 @@
                                 <a HREF="#"
                                    ONCLICK="return openScheduleMenuSection('<%=SafeEncode.forJavaScriptAttribute(ticklerUrl)%>', function(u){ popupPage2(u,'ticklerPage'); }, event);"
                                    TITLE='<fmt:message key="global.tickler"/>'>
-                                    <oscar:newTickler providerNo="<%=curUser_no%>">
-                                        <span id="oscar_new_tickler"><fmt:message key="global.btntickler"/></span>
-                                    </oscar:newTickler></a>
+                                    <span id="oscar_new_tickler">
+                                        <oscar:newTickler providerNo="<%=curUser_no%>"><fmt:message key="global.btntickler"/></oscar:newTickler>
+                                    </span></a>
                             </li>
                         </security:oscarSec>
 
@@ -193,9 +195,9 @@
                                     <a HREF="#"
                                        ONCLICK="return openScheduleMenuSection('<%=SafeEncode.forJavaScriptAttribute(messengerUrl)%>', function(u){ popupOscarRx(600,1024,u); }, event);"
                                        title="<fmt:message key="global.messenger"/>">
-                                        <oscar:newMessage providerNo="<%=curUser_no%>">
-                                            <span id="oscar_new_msg"><fmt:message key="global.msg"/></span>
-                                        </oscar:newMessage></a>
+                                        <span id="oscar_new_msg">
+                                            <oscar:newMessage providerNo="<%=curUser_no%>"><fmt:message key="global.msg"/></oscar:newMessage>
+                                        </span></a>
                                 </li>
                             </security:oscarSec>
                         </caisi:isModuleLoad>
