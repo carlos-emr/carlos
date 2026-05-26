@@ -156,6 +156,7 @@ public final class PathValidationUtils {
             throw new FileValidationException(HIDDEN_FILENAME_MESSAGE);
         }
         // Locale.ROOT prevents locale-specific case folding from weakening this security check.
+        // FilenameUtils checks the final extension, so report.jsp.txt stays allowed while report.txt.jsp is blocked.
         String extension = FilenameUtils.getExtension(normalizedName).toLowerCase(Locale.ROOT);
         if (BLOCKED_EXTENSIONS.contains(extension)) {
             logger.warn("Blocked dangerous file extension: {}", extension);

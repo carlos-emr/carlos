@@ -210,7 +210,14 @@ public class PathValidationUtilsTest {
 
         @ParameterizedTest
         @DisplayName("should reject dangerous final extension when filename has safe prefix")
-        @ValueSource(strings = {"document.pdf.jsp", "report.txt.class", "report.txt.jsp"})
+        @ValueSource(strings = {
+            "document.pdf.jsp",
+            "file.pdf.jspx",
+            "file.txt.war",
+            "report.txt.class",
+            "file.pdf.jar",
+            "file.txt.jnlp"
+        })
         void shouldRejectDangerousFinalExtension_whenFilenameHasSafePrefix(String filename) {
             assertThatThrownBy(() -> PathValidationUtils.validateFileName(filename))
                 .isInstanceOf(FileValidationException.class)
