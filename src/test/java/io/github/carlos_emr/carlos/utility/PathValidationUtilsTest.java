@@ -195,34 +195,52 @@ public class PathValidationUtilsTest {
 
         @ParameterizedTest
         @DisplayName("should reject blocked extension when filename ends with blocked extension")
-        @ValueSource(strings = {
-            "shell.jsp",
-            "view.JSPX",
-            "app.War",
-            "payload.CLASS",
-            "library.Jar",
-            "launch.JNLP"
+        @CsvSource({
+            "shell.jsp, jsp",
+            "view.JSPX, jspx",
+            "app.War, war",
+            "payload.CLASS, class",
+            "library.Jar, jar",
+            "launch.JNLP, jnlp"
         })
-        void shouldRejectBlockedExtension_whenFilenameEndsWithBlockedExtension(String filename) {
+        void shouldRejectBlockedExtension_whenFilenameEndsWithBlockedExtension(
+                String filename, String expectedExtension) {
             assertThatThrownBy(() -> PathValidationUtils.validateFileName(filename))
                 .isInstanceOf(FileValidationException.class)
-                .hasMessageContaining("not allowed");
+                .hasMessageContaining("not allowed")
+                .hasMessageContaining("." + expectedExtension);
         }
 
         @ParameterizedTest
         @DisplayName("should reject dangerous final extension when filename has safe prefix")
-        @ValueSource(strings = {
-            "document.pdf.jsp",
-            "file.pdf.jspx",
-            "file.txt.war",
-            "report.txt.class",
-            "file.pdf.jar",
-            "file.txt.jnlp"
+        @CsvSource({
+            "document.pdf.jsp, jsp",
+            "file.pdf.jspx, jspx",
+            "file.txt.war, war",
+            "report.txt.class, class",
+            "file.pdf.jar, jar",
+            "file.txt.jnlp, jnlp"
         })
-        void shouldRejectDangerousFinalExtension_whenFilenameHasSafePrefix(String filename) {
+        void shouldRejectDangerousFinalExtension_whenFilenameHasSafePrefix(
+                String filename, String expectedExtension) {
             assertThatThrownBy(() -> PathValidationUtils.validateFileName(filename))
                 .isInstanceOf(FileValidationException.class)
-                .hasMessageContaining("not allowed");
+                .hasMessageContaining("not allowed")
+                .hasMessageContaining("." + expectedExtension);
+        }
+
+        @ParameterizedTest
+        @DisplayName("should reject blocked extension when validating path")
+        @CsvSource({
+            "shell.jsp, jsp",
+            "nested/path/view.JSPX, jspx",
+            "document.pdf.jar, jar"
+        })
+        void shouldRejectBlockedExtension_whenValidatingPath(String filename, String expectedExtension) {
+            assertThatThrownBy(() -> PathValidationUtils.validatePath(filename, allowedDir))
+                .isInstanceOf(FileValidationException.class)
+                .hasMessageContaining("not allowed")
+                .hasMessageContaining("." + expectedExtension);
         }
 
         @ParameterizedTest
@@ -256,6 +274,14 @@ public class PathValidationUtilsTest {
 
             assertThat(result.getParentFile()).isEqualTo(allowedDir);
             assertThat(result.getName()).isEqualTo("my_report.pdf");
+        }
+
+        @Test
+        @DisplayName("should reject generated filename when null byte is present")
+        void shouldRejectGeneratedFilename_whenNullBytePresent() {
+            assertThatThrownBy(() -> PathValidationUtils.validateGeneratedFileName("report\u0000.pdf"))
+                .isInstanceOf(FileValidationException.class)
+                .hasMessageContaining("Invalid filename");
         }
     }
 
@@ -515,6 +541,21 @@ public class PathValidationUtilsTest {
                 PathValidationUtils.validateUpload(sourceFile, ".htaccess", tempDir.toFile()))
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("hidden files not allowed");
+        }
+
+        @Test
+        @DisplayName("should reject blocked extension when upload destination ends with blocked extension")
+        void shouldRejectBlockedExtension_whenUploadDestinationEndsWithBlockedExtension() throws IOException {
+            // Given
+            File sourceFile = Files.createTempFile("upload_blocked_extension_", ".tmp").toFile();
+            sourceFile.deleteOnExit();
+
+            // When/Then
+            assertThatThrownBy(() ->
+                PathValidationUtils.validateUpload(sourceFile, "document.pdf.jsp", tempDir.toFile()))
+                .isInstanceOf(FileValidationException.class)
+                .hasMessageContaining("not allowed")
+                .hasMessageContaining(".jsp");
         }
 
         @Test

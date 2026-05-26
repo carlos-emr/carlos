@@ -74,6 +74,7 @@ public final class PathValidationUtils {
      * <p>Performs the following validations:</p>
      * <ol>
      *   <li>Sanitizes the user-provided filename (strips path components, rejects hidden files)</li>
+     *   <li>Rejects dangerous final filename extensions</li>
      *   <li>Validates the resulting path is within the allowed directory</li>
      * </ol>
      *
@@ -85,6 +86,7 @@ public final class PathValidationUtils {
     public static File validatePath(String userProvidedFileName, File allowedDir) {
         // 1. Sanitize filename
         String safeName = sanitizeFileName(userProvidedFileName);
+        validateAllowedFinalExtension(safeName);
 
         // 2. Build and validate path
         File path = new File(allowedDir, safeName);
@@ -141,6 +143,10 @@ public final class PathValidationUtils {
         if (generatedFileName == null || generatedFileName.trim().isEmpty()) {
             throw new FileValidationException(INVALID_FILENAME_MESSAGE);
         }
+        if (generatedFileName.indexOf('\0') >= 0) {
+            logger.warn("Filename contains null byte");
+            throw new FileValidationException(INVALID_FILENAME_MESSAGE);
+        }
 
         String normalizedName = normalizeFileNameCharacters(generatedFileName);
         return validateNormalizedFileName(normalizedName);
@@ -155,14 +161,22 @@ public final class PathValidationUtils {
             logger.warn("Hidden filenames not allowed after normalization");
             throw new FileValidationException(HIDDEN_FILENAME_MESSAGE);
         }
+        validateAllowedFinalExtension(normalizedName);
+        return normalizedName;
+    }
+
+    private static void validateAllowedFinalExtension(String fileName) {
+        if (fileName.indexOf('\0') >= 0) {
+            logger.warn("Filename contains null byte");
+            throw new FileValidationException(INVALID_FILENAME_MESSAGE);
+        }
         // Locale.ROOT prevents locale-specific case folding from weakening this security check.
         // FilenameUtils checks the final extension, so report.jsp.txt stays allowed while report.txt.jsp is blocked.
-        String extension = FilenameUtils.getExtension(normalizedName).toLowerCase(Locale.ROOT);
+        String extension = FilenameUtils.getExtension(fileName).toLowerCase(Locale.ROOT);
         if (BLOCKED_EXTENSIONS.contains(extension)) {
             logger.warn("Blocked dangerous file extension: {}", extension);
             throw new FileValidationException(String.format(BLOCKED_EXTENSION_MESSAGE, extension));
         }
-        return normalizedName;
     }
 
     /**
