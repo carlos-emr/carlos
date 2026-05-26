@@ -138,6 +138,31 @@ class JspJavaScriptEncodingRegressionTest {
                 .doesNotContainPattern(">(?:\\s*)<%=\\s*groupName\\s*%>(?:\\s*)<");
     }
 
+    @Test
+    void shouldEncodeDecisionTextareaFileContent_inHtmlBodyContext() throws Exception {
+        String antenatalRiskJsp = readJsp("decision/antenatal/obarriskedit_99_12.jsp");
+        String annualReviewRiskJsp = readJsp("decision/annualreview/riskedit.jsp");
+        String annualReviewChecklistJsp = readJsp("decision/annualreview/checklistedit.jsp");
+        String providerRiskJsp = readJsp("provider/obarriskedit_99_12.jsp");
+
+        assertThat(antenatalRiskJsp)
+                .contains("<%@ page import=\"io.github.carlos_emr.carlos.utility.SafeEncode\" %>")
+                .contains("out.println(SafeEncode.forHtml(aline));")
+                .doesNotContain("out.println(aline);");
+        assertThat(annualReviewRiskJsp)
+                .contains("<%@ page import=\"io.github.carlos_emr.carlos.utility.SafeEncode\" %>")
+                .contains("out.println(SafeEncode.forHtml(aline));")
+                .doesNotContain("out.println(aline);");
+        assertThat(annualReviewChecklistJsp)
+                .contains("<%@ page import=\"io.github.carlos_emr.carlos.utility.SafeEncode\" %>")
+                .contains("out.println(SafeEncode.forHtml(aline));")
+                .doesNotContain("out.println(aline);");
+        assertThat(providerRiskJsp)
+                .contains("<%@ page import=\"io.github.carlos_emr.carlos.utility.SafeEncode\" %>")
+                .contains("out.println(SafeEncode.forHtml(aline));")
+                .doesNotContain("out.println(aline);");
+    }
+
     private static String readJsp(String relativePath) throws Exception {
         return Files.readString(JSP_ROOT.resolve(relativePath));
     }
