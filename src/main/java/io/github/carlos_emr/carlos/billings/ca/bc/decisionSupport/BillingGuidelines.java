@@ -172,12 +172,14 @@ public class BillingGuidelines {
                         try {
                             in.close();
                         } catch (IOException e) {
+                            // ignore
                         }
                     }
                     if (is != null) {
                         try {
                             is.close();
                         } catch (IOException e) {
+                            // ignore
                         }
                     }
                 }
