@@ -118,7 +118,8 @@ public final class PathValidationUtils {
      *
      * @param userProvidedFileName the filename provided by the user
      * @return the validated filename component
-     * @throws FileValidationException if validation fails
+     * @throws FileValidationException if validation fails, including when the normalized final
+     * extension is blocked for server-side execution risk
      */
     public static String validateFileName(String userProvidedFileName) {
         String baseName = sanitizeFileName(userProvidedFileName);

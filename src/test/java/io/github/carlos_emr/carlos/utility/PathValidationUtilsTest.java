@@ -202,7 +202,7 @@ public class PathValidationUtilsTest {
             "library.Jar",
             "launch.JNLP"
         })
-        void shouldRejectDangerousExtension_whenFilenameEndsWithBlockedExtension(String filename) {
+        void shouldRejectBlockedExtension_whenFilenameEndsWithBlockedExtension(String filename) {
             assertThatThrownBy(() -> PathValidationUtils.validateFileName(filename))
                 .isInstanceOf(FileValidationException.class)
                 .hasMessageContaining("not allowed");
