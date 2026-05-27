@@ -139,6 +139,8 @@
             function aSubmit() {
                 parseHINforVC();
                 formatPhoneNum(document.adddemographic.phone);
+                formatPhoneNum(document.adddemographic.phone2);
+                formatPhoneNum(document.adddemographic.demo_cell);
                 syncInputDobParts();
                 if (document.getElementById("eform_iframe") != null) {
                     var eformDocument = document.getElementById("eform_iframe").contentWindow.document;
@@ -249,21 +251,26 @@
             }
 
             function parseHINforVC(){
+              if (!document.adddemographic || !document.adddemographic.hin) return;
               const hin = document.adddemographic.hin.value;
             	if (checkHINforVC(hin)) {
             		const firstTen = hin.substring(0, 10);
             		const lastTwo = hin.substring(10);
             		document.adddemographic.hin.value = firstTen;
-            		document.adddemographic.ver.value = lastTwo;
+                    if (document.adddemographic.ver) {
+                        document.adddemographic.ver.value = lastTwo;
+                    }
             	}
             }
 
             function formatPhoneNum(el) {
-                if (el.value.length == 10) {
-                    el.value = el.value.substring(0, 3) + "-" + el.value.substring(3, 6) + "-" + el.value.substring(6);
-                }
-                if (el.value.length == 11 && el.value.charAt(3) == '-') {
-                    el.value = el.value.substring(0, 3) + "-" + el.value.substring(4, 7) + "-" + el.value.substring(7);
+                if (!el || !el.value) return;
+                if (el.value.substring(0, 1) == "+") return; // do not reformat E.164 and similar + formatted strings
+                const digits = el.value.replace(/\D/g, ''); // strip formatting if any
+                if (digits.length === 10) { // test for Canadian pattern XXX-XXX-XXXX
+                    el.value = digits.substring(0, 3) + "-" + digits.substring(3, 6) + "-" + digits.substring(6);
+                } else if (digits.length === 11 && digits.substring(0, 1) == "1") { // test for Canadian pattern 1-XXX-XXX-XXXX
+                    el.value = digits.substring(0, 1) + "-" + digits.substring(1, 4) + "-" + digits.substring(4, 7) + "-" + digits.substring(7);
                 }
             }
 
