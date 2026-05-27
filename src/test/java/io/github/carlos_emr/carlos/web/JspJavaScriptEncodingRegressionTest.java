@@ -152,7 +152,8 @@ class JspJavaScriptEncodingRegressionTest {
                 "decision/antenatal/obarriskedit_99_12.jsp",
                 "decision/annualreview/riskedit.jsp",
                 "decision/annualreview/checklistedit.jsp",
-                "provider/obarriskedit_99_12.jsp");
+                "provider/obarriskedit_99_12.jsp",
+                "provider/obarchecklistedit_99_12.jsp");
 
         for (String jspPath : decisionTextareaEditors) {
             assertThat(readJsp(jspPath))
