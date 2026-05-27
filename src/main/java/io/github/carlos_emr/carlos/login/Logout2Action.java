@@ -33,6 +33,7 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 
 import java.io.IOException;
+import java.util.Locale;
 
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
@@ -120,7 +121,7 @@ public class Logout2Action extends ActionSupport {
     public String execute() throws IOException {
         // Logout invalidates the session and deletes cookies — reject non-POST to
         // prevent these side effects from firing on a plain GET link or pre-fetch.
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+        if (!"POST".equals(request.getMethod().toUpperCase(Locale.ROOT))) {
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
             return NONE;
         }
