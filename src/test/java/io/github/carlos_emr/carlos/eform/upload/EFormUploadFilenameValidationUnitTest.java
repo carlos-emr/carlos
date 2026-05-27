@@ -44,7 +44,7 @@ import static org.mockito.Mockito.when;
 @DisplayName("eForm upload filename validation")
 @Tag("unit")
 @Tag("security")
-class EFormUploadFilenameValidationTest extends CarlosUnitTestBase {
+class EFormUploadFilenameValidationUnitTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private SecurityInfoManager securityInfoManager;

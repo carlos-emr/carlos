@@ -36,7 +36,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DisplayName("upload action binding security")
 @Tag("unit")
 @Tag("security")
-class UploadActionBindingSecurityTest {
+class UploadActionBindingSecurityUnitTest {
 
     @Test
     @DisplayName("should not expose upload file setters to Struts parameter binding")
