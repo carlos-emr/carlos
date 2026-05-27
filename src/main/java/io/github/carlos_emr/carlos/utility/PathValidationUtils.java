@@ -169,7 +169,7 @@ public final class PathValidationUtils {
             throw new FileValidationException(INVALID_FILENAME_MESSAGE);
         }
         // Check only the final extension, so report.jsp.txt stays allowed while report.txt.jsp is blocked.
-        String extension = extractFinalExtension(fileName);
+        String extension = extractFinalExtension(stripTrailingDotsAndWhitespace(fileName));
         String blockedExtension = findBlockedExtension(extension);
         if (blockedExtension != null) {
             logger.warn("Blocked dangerous file extension: {}", blockedExtension);
@@ -184,6 +184,18 @@ public final class PathValidationUtils {
             return "";
         }
         return fileName.substring(lastDot + 1);
+    }
+
+    private static String stripTrailingDotsAndWhitespace(String fileName) {
+        int end = fileName.length();
+        while (end > 0) {
+            char current = fileName.charAt(end - 1);
+            if (current != '.' && !Character.isWhitespace(current)) {
+                break;
+            }
+            end--;
+        }
+        return fileName.substring(0, end);
     }
 
     private static String findBlockedExtension(String extension) {

@@ -181,7 +181,9 @@ public class PathValidationUtilsUnitTest {
         @CsvSource({
             "export_20260522120000.jsp, jsp",
             "archive/report.WAR, war",
-            "bundle/library.Jar, jar"
+            "bundle/library.Jar, jar",
+            "'export_20260522120000.jsp.', jsp",
+            "'export_20260522120000.jsp ', jsp"
         })
         void shouldRejectBlockedExtension_whenGeneratedFilenameEndsWithBlockedExtension(
                 String filename, String expectedExtension) {
@@ -216,7 +218,8 @@ public class PathValidationUtilsUnitTest {
             "app.War, war",
             "payload.CLASS, class",
             "library.Jar, jar",
-            "launch.JNLP, jnlp"
+            "launch.JNLP, jnlp",
+            "'shell.jsp.', jsp"
         })
         void shouldRejectBlockedExtension_whenFilenameEndsWithBlockedExtension(
                 String filename, String expectedExtension) {
@@ -249,7 +252,9 @@ public class PathValidationUtilsUnitTest {
         @CsvSource({
             "shell.jsp, jsp",
             "nested/path/view.JSPX, jspx",
-            "document.pdf.jar, jar"
+            "document.pdf.jar, jar",
+            "'shell.jsp.', jsp",
+            "'nested/path/view.JSPX ', jspx"
         })
         void shouldRejectBlockedExtension_whenValidatingPath(String filename, String expectedExtension) {
             assertThatThrownBy(() -> PathValidationUtils.validatePath(filename, allowedDir))
