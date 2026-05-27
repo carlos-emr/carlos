@@ -4907,7 +4907,14 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
     public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
         if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
             UploadedFile uploaded = uploadedFiles.get(0);
-            this.importFile = PathValidationUtils.validateUploadContent(uploaded.getContent());
+            try {
+                this.importFile = PathValidationUtils.validateUploadContent(uploaded.getContent());
+            } catch (SecurityException e) {
+                this.uploadValidationError = PathValidationUtils.INVALID_FILENAME_MESSAGE;
+                this.importFile = null;
+                this.importFileFileName = null;
+                return;
+            }
             try {
                 this.importFileFileName = PathValidationUtils.validateStrictFileName(uploaded.getOriginalName());
             } catch (FileValidationException e) {

@@ -57,6 +57,10 @@ import org.apache.struts2.dispatcher.multipart.UploadedFile;
 public class ManageFlowsheetsUpload2Action extends ActionSupport implements UploadedFilesAware {
 
     private static final String MANAGE_FLOWSHEETS_ACTION = "ManageFlowsheets";
+    private static final String FLOWSHEET_UPLOAD_FAILED_MESSAGE =
+            "Flowsheet upload failed. Please contact support.";
+    private static final String INVALID_FLOWSHEET_MESSAGE =
+            "Flowsheet upload failed: invalid flowsheet definition.";
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private File uploadedFile;
@@ -100,10 +104,13 @@ public class ManageFlowsheetsUpload2Action extends ActionSupport implements Uplo
                     FlowsheetDao flowsheetDao = SpringUtils.getBean(FlowsheetDao.class);
                     flowsheetDao.persist(f);
                     MeasurementTemplateFlowSheetConfig.getInstance().reloadFlowsheets();
+                } else {
+                    MiscUtils.getLogger().error("Rejected invalid flowsheet upload definition");
+                    request.getSession().setAttribute("flashError", INVALID_FLOWSHEET_MESSAGE);
                 }
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Failed to upload flowsheet definition", e);
-                request.getSession().setAttribute("flashError", "Flowsheet upload failed: " + e.getMessage());
+                request.getSession().setAttribute("flashError", FLOWSHEET_UPLOAD_FAILED_MESSAGE);
             }
         }
 

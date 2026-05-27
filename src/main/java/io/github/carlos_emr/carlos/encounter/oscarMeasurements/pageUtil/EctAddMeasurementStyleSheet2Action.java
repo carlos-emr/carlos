@@ -100,7 +100,7 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport implements
             }
 
         } else {
-            throw new SecurityException("Access Denied!"); //missing required sec object (_admin)
+            throw new SecurityException("missing required sec object (_admin)");
         }
     }
 
@@ -182,7 +182,14 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport implements
     public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
         if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
             UploadedFile uploaded = uploadedFiles.get(0);
-            this.file = PathValidationUtils.validateUploadContent(uploaded.getContent());
+            try {
+                this.file = PathValidationUtils.validateUploadContent(uploaded.getContent());
+            } catch (SecurityException e) {
+                this.file = null;
+                this.uploadValidationError = PathValidationUtils.INVALID_FILENAME_MESSAGE;
+                this.fileName = null;
+                return;
+            }
             try {
                 this.fileName = PathValidationUtils.validateStrictFileName(uploaded.getOriginalName());
             } catch (FileValidationException e) {

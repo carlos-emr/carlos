@@ -181,21 +181,24 @@ class EFormUploadFilenameValidationUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("image upload should reject source outside allowed temp directories")
-    void shouldRejectImageUpload_whenSourceIsOutsideTempDirectories() {
-        Path outside = Path.of("/etc/hostname");
-        org.junit.jupiter.api.Assumptions.assumeTrue(
-                Files.isRegularFile(outside),
-                "Test requires /etc/hostname to exist");
+    void shouldRejectImageUpload_whenSourceIsOutsideTempDirectories() throws Exception {
+        Path outsideDir = Files.createTempDirectory(Path.of(System.getProperty("user.home")), "disallowed-upload-");
+        Path outside = Files.createFile(outsideDir.resolve("image.png"));
         UploadedFile uploadedFile = mock(UploadedFile.class);
         when(uploadedFile.getContent()).thenReturn(outside.toFile());
         when(uploadedFile.getContentType()).thenReturn("image/png");
         when(uploadedFile.getOriginalName()).thenReturn("diagram.png");
 
-        ImageUpload2Action action = new ImageUpload2Action();
-        List<UploadedFile> uploadedFiles = List.of(uploadedFile);
+        try {
+            ImageUpload2Action action = new ImageUpload2Action();
+            List<UploadedFile> uploadedFiles = List.of(uploadedFile);
 
-        assertThatThrownBy(() -> action.withUploadedFiles(uploadedFiles))
-                .isInstanceOf(SecurityException.class)
-                .hasMessageContaining("Invalid upload source");
+            assertThatThrownBy(() -> action.withUploadedFiles(uploadedFiles))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("Invalid upload source");
+        } finally {
+            Files.deleteIfExists(outside);
+            Files.deleteIfExists(outsideDir);
+        }
     }
 }

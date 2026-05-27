@@ -108,6 +108,9 @@ public class InsideLabUpload2Action extends ActionSupport implements UploadedFil
 
     @Override
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(ServletActionContext.getRequest());
+        checkUserPrivilege(loggedInInfo);
+
         if (importFiles == null || importFiles.isEmpty()) {
             addActionError("No files were uploaded");
             return INPUT;
@@ -116,9 +119,6 @@ public class InsideLabUpload2Action extends ActionSupport implements UploadedFil
             addActionError(uploadValidationError);
             return INPUT;
         }
-
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(ServletActionContext.getRequest());
-        checkUserPrivilege(loggedInInfo);
 
         Map<String, FileStatus> filesStatusMap = new HashMap<>();
         
