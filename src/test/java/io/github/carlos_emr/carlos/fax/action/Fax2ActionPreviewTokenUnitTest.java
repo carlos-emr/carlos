@@ -66,7 +66,7 @@ import static org.mockito.Mockito.when;
 @DisplayName("Fax2Action preview tokens")
 @Tag("unit")
 @Tag("security")
-class Fax2ActionPreviewTokenTest extends CarlosUnitTestBase {
+class Fax2ActionPreviewTokenUnitTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockHttpServletRequest request;
