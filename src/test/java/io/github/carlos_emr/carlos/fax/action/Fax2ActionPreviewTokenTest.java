@@ -129,10 +129,10 @@ class Fax2ActionPreviewTokenTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should deny preview when fax file token is invalid")
-    void shouldDenyPreview_whenFaxFileTokenIsInvalid() {
+    void shouldDenyPreview_whenFaxFileTokenIsInvalid() throws Exception {
         Fax2Action action = new Fax2Action();
-        request.addParameter("faxFileToken", "unknown-token");
-        request.addParameter("faxFilePath", "/tmp/tampered.pdf");
+        request.setParameter("faxFileToken", "unknown-token");
+        request.setParameter("faxFilePath", "/tmp/tampered.pdf");
 
         action.getPreview();
 
@@ -147,7 +147,7 @@ class Fax2ActionPreviewTokenTest extends CarlosUnitTestBase {
         Fax2Action action = prepareAndVerifyEformFax(pdf);
         String token = (String) request.getAttribute("faxFileToken");
         String tamperedPath = "/tmp/tampered.pdf";
-        request.addParameter("faxFileToken", token);
+        request.setParameter("faxFileToken", token);
         action.setFaxFilePath(tamperedPath);
         action.setRecipient("Specialist");
         action.setRecipientFaxNumber("4165551234");
@@ -164,6 +164,58 @@ class Fax2ActionPreviewTokenTest extends CarlosUnitTestBase {
         ArgumentCaptor<Map<String, Object>> captor = ArgumentCaptor.forClass(Map.class);
         verify(faxManager).createAndSaveFaxJob(eq(loggedInInfo), captor.capture());
         assertThat(captor.getValue()).containsEntry("faxFilePath", pdf.toString());
+    }
+
+    @Test
+    @DisplayName("should deny preview when fax file token was consumed by queue")
+    void shouldDenyPreview_whenFaxFileTokenWasConsumedByQueue() throws Exception {
+        Path pdf = createPreviewPdf();
+        Fax2Action action = prepareAndVerifyEformFax(pdf);
+        String token = (String) request.getAttribute("faxFileToken");
+        request.setParameter("faxFileToken", token);
+        action.setRecipient("Specialist");
+        action.setRecipientFaxNumber("4165551234");
+        action.setSenderFaxNumber("4165555678");
+        action.setCoverpage("false");
+        when(faxManager.createAndSaveFaxJob(eq(loggedInInfo), anyMap())).thenReturn(List.of(new FaxJob()));
+
+        assertThat(action.queue()).isEqualTo("preview");
+        action.getPreview();
+
+        assertThat(response.getStatus()).isEqualTo(403);
+    }
+
+    @Test
+    @DisplayName("should deny oldest preview when token store exceeds limit")
+    void shouldDenyOldestPreview_whenTokenStoreExceedsLimit() throws Exception {
+        when(documentAttachmentManager.renderEFormWithAttachments(request, response)).thenReturn(createPreviewPdf());
+        String firstToken = null;
+        String newestToken = null;
+        for (int i = 0; i < 21; i++) {
+            Fax2Action action = new Fax2Action();
+            action.setTransactionType(FaxManager.TransactionType.EFORM.name());
+            action.setTransactionId(456);
+            action.setDemographicNo(123);
+
+            assertThat(action.prepareFax()).isEqualTo("preview");
+            newestToken = (String) request.getAttribute("faxFileToken");
+            if (firstToken == null) {
+                firstToken = newestToken;
+            }
+        }
+
+        request.setParameter("faxFileToken", firstToken);
+        new Fax2Action().getPreview();
+
+        assertThat(response.getStatus()).isEqualTo(403);
+
+        resetResponse();
+        request.setParameter("faxFileToken", newestToken);
+        Path pdf = createPreviewPdf();
+        when(faxManager.resolveAndValidateFilePath(pdf.toString())).thenReturn(pdf);
+        new Fax2Action().getPreview();
+
+        assertThat(response.getStatus()).isEqualTo(200);
     }
 
     @Test
@@ -194,5 +246,10 @@ class Fax2ActionPreviewTokenTest extends CarlosUnitTestBase {
         Path pdf = tempDir.resolve("preview.pdf");
         Files.write(pdf, "%PDF-test".getBytes(StandardCharsets.UTF_8));
         return pdf;
+    }
+
+    private void resetResponse() {
+        response = new MockHttpServletResponse();
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
     }
 }
