@@ -37,6 +37,8 @@ import java.sql.ResultSet;
 import java.util.Properties;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
@@ -85,6 +87,14 @@ class FrmConsultantRecordUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should leave refdocno unset when rdohip closing tag appears first")
+        void shouldLeaveRefdocnoUnset_whenRdohipClosingTagAppearsFirst() throws Exception {
+            Properties props = invokeGetInitRefDocWithFamilyDoctor("</rdohip><rdohip>123456</rdohip>");
+
+            assertThat(props).doesNotContainKey("refdocno");
+        }
+
+        @Test
         @DisplayName("should set refdocno when rdohip tag is present")
         void shouldSetRefdocno_whenRdohipTagIsPresent() throws Exception {
             Properties props = invokeGetInitRefDocWithFamilyDoctor("<rdohip>123456</rdohip>");
@@ -103,7 +113,7 @@ class FrmConsultantRecordUnitTest extends CarlosUnitTestBase {
             when(resultSet.getString("family_doctor")).thenReturn(familyDoctor);
 
             try (MockedStatic<LegacyJdbcQuery> legacyJdbcQuery = mockStatic(LegacyJdbcQuery.class)) {
-                legacyJdbcQuery.when(() -> LegacyJdbcQuery.getPreparedResultSet("SELECT family_doctor FROM demographic WHERE demographic_no = ?", TEST_DEMOGRAPHIC_NO))
+                legacyJdbcQuery.when(() -> LegacyJdbcQuery.getPreparedResultSet(contains("family_doctor"), eq(TEST_DEMOGRAPHIC_NO)))
                         .thenReturn(resultSet);
 
                 return new FrmConsultantRecord().getInitRefDoc(new Properties(), TEST_DEMOGRAPHIC_NO);
