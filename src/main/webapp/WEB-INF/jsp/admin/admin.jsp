@@ -786,14 +786,6 @@
                                onclick='popupPage(500,800, "${pageContext.request.contextPath}/admin/LogReport?keyword=admin");return false;'>
                             <fmt:message key="admin.admin.securityLogReport"/></a></li>
                     </security:oscarSec>
-                    <security:oscarSec roleName="<%=roleName$%>"
-                                       objectName="_admin, _admin.traceability" rights="r">
-                        <li><a href="#"
-                               onclick='popupPage(500,800, "${pageContext.request.contextPath}/admin/ViewTraceReport?keyword=admin");return false;'>
-                            <fmt:message key="admin.admin.traceabilityReport"/></a></li>
-                    </security:oscarSec>
-
-
                 </ul>
             </div>
         </security:oscarSec>

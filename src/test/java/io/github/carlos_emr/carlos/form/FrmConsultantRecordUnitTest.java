@@ -23,7 +23,9 @@ package io.github.carlos_emr.carlos.form;
 
 import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
-import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.carlos.commn.dao.DemographicExtDao;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -91,6 +93,8 @@ class FrmConsultantRecordUnitTest extends CarlosUnitTestBase {
         }
 
         private Properties invokeGetInitRefDocWithFamilyDoctor(String familyDoctor) throws Exception {
+            registerMock(DemographicManager.class, mock(DemographicManager.class));
+            registerMock(DemographicExtDao.class, mock(DemographicExtDao.class));
             registerMock(ProfessionalSpecialistDao.class, mock(ProfessionalSpecialistDao.class));
             registerMock(ClinicDAO.class, mock(ClinicDAO.class));
 
@@ -98,8 +102,8 @@ class FrmConsultantRecordUnitTest extends CarlosUnitTestBase {
             when(resultSet.next()).thenReturn(true);
             when(resultSet.getString("family_doctor")).thenReturn(familyDoctor);
 
-            try (MockedStatic<DBHandler> dbHandler = mockStatic(DBHandler.class)) {
-                dbHandler.when(() -> DBHandler.GetPreSQL("SELECT family_doctor FROM demographic WHERE demographic_no = ?", TEST_DEMOGRAPHIC_NO))
+            try (MockedStatic<LegacyJdbcQuery> legacyJdbcQuery = mockStatic(LegacyJdbcQuery.class)) {
+                legacyJdbcQuery.when(() -> LegacyJdbcQuery.getPreparedResultSet("SELECT family_doctor FROM demographic WHERE demographic_no = ?", TEST_DEMOGRAPHIC_NO))
                         .thenReturn(resultSet);
 
                 return new FrmConsultantRecord().getInitRefDoc(new Properties(), TEST_DEMOGRAPHIC_NO);

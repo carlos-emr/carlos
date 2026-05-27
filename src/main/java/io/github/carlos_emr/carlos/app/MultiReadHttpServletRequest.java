@@ -91,6 +91,9 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
     /** Maximum request body size (50 MB) to match servlet multipart and Struts upload limits. */
     static final long MAX_BODY_SIZE = 50L * 1024 * 1024;
 
+    /** Maximum multipart part count to avoid excessive form-field allocation during CSRF extraction. */
+    static final int MAX_MULTIPART_PART_COUNT = 256;
+
     /** Lazily parsed multipart text form field parameters. {@code null} means not yet parsed. */
     private Map<String, List<String>> multipartParams;
 
@@ -250,6 +253,7 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
             // struts.multipart.maxSize so multipart uploads fail consistently.
             upload.setFileSizeMax(MAX_BODY_SIZE);
             upload.setSizeMax(MAX_BODY_SIZE);
+            upload.setFileCountMax(MAX_MULTIPART_PART_COUNT);
 
             // Use the internal buffer directly (no copy). The buffer contents are stable
             // after cacheInputStream() completes — freeze() blocks all further writes.
@@ -418,6 +422,7 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
             return Collections.emptyMap();
         }
 
+        int partCount = 0;
         while (pos >= 0) {
             pos += boundaryMarker.length;
             if (pos + 2 > bodyLength) {
@@ -427,6 +432,12 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
             // Final boundary ends with "--"
             if (body[pos] == '-' && body[pos + 1] == '-') {
                 break;
+            }
+
+            partCount++;
+            if (partCount > MAX_MULTIPART_PART_COUNT) {
+                throw new IllegalArgumentException("Multipart part count exceeds maximum allowed "
+                        + MAX_MULTIPART_PART_COUNT);
             }
 
             // Skip CRLF after boundary marker

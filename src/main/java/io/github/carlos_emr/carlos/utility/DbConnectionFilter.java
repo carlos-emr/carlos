@@ -44,6 +44,7 @@ import javax.sql.DataSource;
 
 import org.apache.logging.log4j.Logger;
 
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.util.SqlUtils;
 
 public class DbConnectionFilter implements jakarta.servlet.Filter {
@@ -118,8 +119,17 @@ public class DbConnectionFilter implements jakarta.servlet.Filter {
     }
 
     public static void releaseAllThreadDbResources() {
-        releaseThreadLocalDbConnection();
-        OscarTrackingBasicDataSource.releaseThreadConnections();
+        releaseThreadResource("legacy thread-local database connection", DbConnectionFilter::releaseThreadLocalDbConnection);
+        releaseThreadResource("legacy JDBC query resources", LegacyJdbcQuery::releaseThreadResources);
+        releaseThreadResource("tracking data source connections", OscarTrackingBasicDataSource::releaseThreadConnections);
+    }
+
+    private static void releaseThreadResource(String resourceName, Runnable cleanup) {
+        try {
+            cleanup.run();
+        } catch (RuntimeException e) {
+            logger.error("Error releasing {}", resourceName, e);
+        }
     }
 
     /**
