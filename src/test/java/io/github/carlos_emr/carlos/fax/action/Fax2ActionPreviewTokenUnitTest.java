@@ -223,10 +223,11 @@ class Fax2ActionPreviewTokenUnitTest extends CarlosUnitTestBase {
     void shouldKeepRawFaxPathsOutOfCoverPageBrowserRequests() throws Exception {
         String coverPage = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/fax/CoverPage.jsp"));
 
-        assertThat(coverPage).contains("name=\"faxFileToken\"");
-        assertThat(coverPage).contains("method=getPreview&faxFileToken=");
-        assertThat(coverPage).doesNotContain("name=\"faxFilePath\"");
-        assertThat(coverPage).doesNotContain("method=getPreview&faxFilePath=");
+        assertThat(coverPage)
+                .contains("name=\"faxFileToken\"")
+                .contains("method=getPreview&faxFileToken=")
+                .doesNotContain("name=\"faxFilePath\"")
+                .doesNotContain("method=getPreview&faxFilePath=");
     }
 
     private Fax2Action prepareAndVerifyEformFax(Path pdf) throws Exception {

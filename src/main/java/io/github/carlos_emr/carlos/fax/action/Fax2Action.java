@@ -78,6 +78,8 @@ public class Fax2Action extends ActionSupport {
     private final DocumentAttachmentManager documentAttachmentManager = SpringUtils.getBean(DocumentAttachmentManager.class);
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private static final String FAX_PREVIEW_PATHS_SESSION_KEY = Fax2Action.class.getName() + ".PREVIEW_PATHS";
+    private static final String FAX_FILE_TOKEN_PARAMETER = "faxFileToken";
+    private static final String ACCESS_DENIED_MESSAGE = "Access denied";
     private static final int MAX_PREVIEW_TOKENS_PER_SESSION = 20;
 
 
@@ -269,13 +271,13 @@ public class Fax2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", "r", null)) {
             try {
-                response.sendError(HttpServletResponse.SC_FORBIDDEN, "Access denied");
+                response.sendError(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED_MESSAGE);
             } catch (IOException e) {
                 logger.error("Error sending forbidden response in getPreview", e);
             }
             return;
         }
-        String faxFilePath = null;
+        String previewFaxFilePath = null;
         String pageNumber = request.getParameter("pageNumber");
         String showAs = request.getParameter("showAs");
         Path outfile = null;
@@ -288,10 +290,10 @@ public class Fax2Action extends ActionSupport {
         }
 
         if (faxJob != null) {
-            faxFilePath = faxJob.getFile_name();
+            previewFaxFilePath = faxJob.getFile_name();
         } else {
             try {
-                faxFilePath = resolveSubmittedFaxFilePath(true);
+                previewFaxFilePath = resolveSubmittedFaxFilePath(true);
             } catch (SecurityException e) {
                 sendAccessDenied("Invalid fax preview token", e);
                 return;
@@ -306,10 +308,10 @@ public class Fax2Action extends ActionSupport {
          * Displaying the entire PDF using the default browser's view before faxing an EForm (in CoverPage.jsp),
          * and when viewing it in the fax records (Manage Faxes), it is shown as images.
          */
-        if (faxFilePath != null && !faxFilePath.isEmpty()) {
+        if (previewFaxFilePath != null && !previewFaxFilePath.isEmpty()) {
             if (showAs != null && showAs.equals("image")) {
                 // The faxManager.getFaxPreviewImage method already handles path validation
-                outfile = faxManager.getFaxPreviewImage(loggedInInfo, faxFilePath, page);
+                outfile = faxManager.getFaxPreviewImage(loggedInInfo, previewFaxFilePath, page);
                 if (outfile != null && outfile.getFileName() != null) {
                     response.setContentType("image/png");
                     String sanitizedFilename = FilenameUtils.getName(outfile.getFileName().toString());
@@ -321,12 +323,12 @@ public class Fax2Action extends ActionSupport {
             } else {
                 // Validate and resolve the PDF path using FaxManager
                 try {
-                    outfile = faxManager.resolveAndValidateFilePath(faxFilePath);
+                    outfile = faxManager.resolveAndValidateFilePath(previewFaxFilePath);
                     response.setContentType("application/pdf");
                 } catch (SecurityException e) {
                     logger.error("Security validation failed for fax preview path: {}", e.getClass().getSimpleName());
                     try {
-                        response.sendError(HttpServletResponse.SC_FORBIDDEN, "Access denied");
+                        response.sendError(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED_MESSAGE);
                     } catch (IOException ex) {
                         logger.error("Error sending error response", ex);
                     }
@@ -406,7 +408,7 @@ public class Fax2Action extends ActionSupport {
             request.setAttribute("documents", documents);
             request.setAttribute("transactionType", transactionType.name());
             request.setAttribute("transactionId", transactionId);
-            request.setAttribute("faxFileToken", registerPreviewPath(pdfPath));
+            request.setAttribute(FAX_FILE_TOKEN_PARAMETER, registerPreviewPath(pdfPath));
             request.setAttribute("letterheadFax", letterheadFax);
             request.setAttribute("professionalSpecialistName", recipient);
             request.setAttribute("fax", recipientFaxNumber);
@@ -444,10 +446,10 @@ public class Fax2Action extends ActionSupport {
     }
 
     private String resolveSubmittedFaxFilePath(boolean required) {
-        String token = normalizeFaxFileToken(request.getParameter("faxFileToken"));
+        String token = normalizeFaxFileToken(request.getParameter(FAX_FILE_TOKEN_PARAMETER));
         if (token == null || token.isBlank()) {
             if (required) {
-                throw new SecurityException("Access denied");
+                throw new SecurityException(ACCESS_DENIED_MESSAGE);
             }
             return null;
         }
@@ -456,13 +458,13 @@ public class Fax2Action extends ActionSupport {
         PreviewPathStore previewPaths = getPreviewPathStore(session);
         String resolvedPath = previewPaths != null ? previewPaths.get(token) : null;
         if (resolvedPath == null || resolvedPath.isBlank()) {
-            throw new SecurityException("Access denied");
+            throw new SecurityException(ACCESS_DENIED_MESSAGE);
         }
         return resolvedPath;
     }
 
     private void removeSubmittedFaxFileToken() {
-        String token = normalizeFaxFileToken(request.getParameter("faxFileToken"));
+        String token = normalizeFaxFileToken(request.getParameter(FAX_FILE_TOKEN_PARAMETER));
         if (token == null || token.isBlank()) {
             return;
         }
@@ -509,14 +511,14 @@ public class Fax2Action extends ActionSupport {
             }
             return token;
         } catch (IllegalArgumentException e) {
-            throw new SecurityException("Access denied");
+            throw new SecurityException(ACCESS_DENIED_MESSAGE);
         }
     }
 
     private void sendAccessDenied(String message, Exception e) {
         logger.warn(message, e);
         try {
-            response.sendError(HttpServletResponse.SC_FORBIDDEN, "Access denied");
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED_MESSAGE);
         } catch (IOException ex) {
             logger.error("Error sending forbidden response", ex);
         }
