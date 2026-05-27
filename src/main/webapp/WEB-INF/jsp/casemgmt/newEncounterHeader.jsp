@@ -82,24 +82,24 @@ function copyToClip(text, el) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(text)
             .then(function() { showFeedback(true); })
-            .catch(function() { showFeedback(fallbackCopy(text)); });
+            .catch(function() { showFeedback(false); });
     } else {
         showFeedback(fallbackCopy(text));
     }
 }
 function fallbackCopy(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
     try {
-        var ta = document.createElement('textarea');
-        ta.value = text;
-        ta.style.position = 'fixed';
-        ta.style.left = '-9999px';
-        document.body.appendChild(ta);
         ta.select();
-        var ok = document.execCommand('copy');
-        document.body.removeChild(ta);
-        return ok !== false;
+        return !!document.execCommand('copy');
     } catch (e) {
         return false;
+    } finally {
+        document.body.removeChild(ta);
     }
 }
 </script>
