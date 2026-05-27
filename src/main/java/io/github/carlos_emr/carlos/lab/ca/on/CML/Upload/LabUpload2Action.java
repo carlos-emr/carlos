@@ -56,6 +56,9 @@ import java.util.Date;
 import java.util.List;
 
 public class LabUpload2Action extends ActionSupport implements UploadedFilesAware {
+    private static final String REQUEST_ATTRIBUTE_OUTCOME = "outcome";
+    private static final String OUTCOME_ACCESS_DENIED = "accessDenied";
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -78,7 +81,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         String outcome = "";
         if (uploadValidationError != null) {
             addActionError(uploadValidationError);
-            request.setAttribute("outcome", "accessDenied");
+            request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, OUTCOME_ACCESS_DENIED);
             return SUCCESS;
         }
 
@@ -88,8 +91,8 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             try {
                 // Validate the uploaded file using PathValidationUtils
                 if (importFile == null) {
-                    outcome = "accessDenied";
-                    request.setAttribute("outcome", outcome);
+                    outcome = OUTCOME_ACCESS_DENIED;
+                    request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, outcome);
                     return SUCCESS;
                 }
 
@@ -98,8 +101,8 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                     importFile = PathValidationUtils.validateUpload(importFile);
                 } catch (SecurityException e) {
                     _logger.error("Invalid upload source: " + importFile.getPath());
-                    outcome = "accessDenied";
-                    request.setAttribute("outcome", outcome);
+                    outcome = OUTCOME_ACCESS_DENIED;
+                    request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, outcome);
                     return SUCCESS;
                 }
 
@@ -126,8 +129,8 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                             localFile = PathValidationUtils.validateExistingPath(localFile, docDirFile);
                         } catch (SecurityException e) {
                             _logger.error("Invalid file path: " + localFileName);
-                            outcome = "accessDenied";
-                            request.setAttribute("outcome", outcome);
+                            outcome = OUTCOME_ACCESS_DENIED;
+                            request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, outcome);
                             return SUCCESS;
                         }
                     }
@@ -156,7 +159,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                         outcome = "uploaded";
                     }
                 } else {
-                    outcome = "accessDenied";  //file could not save
+                    outcome = OUTCOME_ACCESS_DENIED;  //file could not save
                     MiscUtils.getLogger().debug("Could not save file :" + filename + " to disk");
                 }
 
@@ -166,9 +169,9 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             }
 
         } else {
-            outcome = "accessDenied";
+            outcome = OUTCOME_ACCESS_DENIED;
         }
-        request.setAttribute("outcome", outcome);
+        request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, outcome);
         MiscUtils.getLogger().debug("forwarding outcome " + outcome);
         return SUCCESS;
     }

@@ -192,8 +192,9 @@ class EFormUploadFilenameValidationUnitTest extends CarlosUnitTestBase {
         when(uploadedFile.getOriginalName()).thenReturn("diagram.png");
 
         ImageUpload2Action action = new ImageUpload2Action();
+        List<UploadedFile> uploadedFiles = List.of(uploadedFile);
 
-        assertThatThrownBy(() -> action.withUploadedFiles(List.of(uploadedFile)))
+        assertThatThrownBy(() -> action.withUploadedFiles(uploadedFiles))
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("Invalid upload source");
     }

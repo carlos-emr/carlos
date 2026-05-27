@@ -56,6 +56,9 @@ import java.util.Date;
 import java.util.List;
 
 public class LabUpload2Action extends ActionSupport implements UploadedFilesAware {
+    private static final String REQUEST_ATTRIBUTE_OUTCOME = "outcome";
+    private static final String OUTCOME_EXCEPTION = "exception";
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -68,7 +71,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         }
         if (uploadValidationError != null) {
             addActionError(uploadValidationError);
-            request.setAttribute("outcome", "exception");
+            request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, OUTCOME_EXCEPTION);
             return SUCCESS;
         }
 
@@ -80,8 +83,8 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             // Validate the uploaded file to prevent path traversal attacks
             if (importFile == null) {
                 _logger.error("No file provided for upload");
-                outcome = "exception";
-                request.setAttribute("outcome", outcome);
+                outcome = OUTCOME_EXCEPTION;
+                request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, outcome);
                 return SUCCESS;
             }
 
@@ -90,8 +93,8 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                 importFile = PathValidationUtils.validateUpload(importFile);
             } catch (SecurityException e) {
                 _logger.error("Invalid upload source - potential path traversal: " + importFile.getPath());
-                outcome = "exception";
-                request.setAttribute("outcome", outcome);
+                outcome = OUTCOME_EXCEPTION;
+                request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, outcome);
                 return SUCCESS;
             }
 
@@ -129,7 +132,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                     } catch (Exception ex) {
                         //success = false; //<- for future when transactional
                         _logger.error("Error - oscar.PathNet.Contorller - Message: " + ex.getMessage() + " = " + ex.toString(), ex);
-                        outcome = "exception";
+                        outcome = OUTCOME_EXCEPTION;
                     }
                     //connection.Acknowledge(success);
                 }
@@ -141,9 +144,9 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
-            outcome = "exception";
+            outcome = OUTCOME_EXCEPTION;
         }
-        request.setAttribute("outcome", outcome);
+        request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, outcome);
         return SUCCESS;
     }
 
