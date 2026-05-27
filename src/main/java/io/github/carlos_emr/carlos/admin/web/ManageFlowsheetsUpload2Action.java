@@ -57,6 +57,7 @@ import org.apache.struts2.dispatcher.multipart.UploadedFile;
 public class ManageFlowsheetsUpload2Action extends ActionSupport implements UploadedFilesAware {
 
     private static final String MANAGE_FLOWSHEETS_ACTION = "ManageFlowsheets";
+    private static final String FLASH_ERROR_ATTRIBUTE = "flashError";
     private static final String FLOWSHEET_UPLOAD_FAILED_MESSAGE =
             "Flowsheet upload failed. Please contact support.";
     private static final String INVALID_FLOWSHEET_MESSAGE =
@@ -84,7 +85,7 @@ public class ManageFlowsheetsUpload2Action extends ActionSupport implements Uplo
         }
 
         if (uploadValidationError != null) {
-            request.getSession().setAttribute("flashError", uploadValidationError);
+            request.getSession().setAttribute(FLASH_ERROR_ATTRIBUTE, uploadValidationError);
             response.sendRedirect(MANAGE_FLOWSHEETS_ACTION);
             return NONE;
         }
@@ -106,11 +107,11 @@ public class ManageFlowsheetsUpload2Action extends ActionSupport implements Uplo
                     MeasurementTemplateFlowSheetConfig.getInstance().reloadFlowsheets();
                 } else {
                     MiscUtils.getLogger().error("Rejected invalid flowsheet upload definition");
-                    request.getSession().setAttribute("flashError", INVALID_FLOWSHEET_MESSAGE);
+                    request.getSession().setAttribute(FLASH_ERROR_ATTRIBUTE, INVALID_FLOWSHEET_MESSAGE);
                 }
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Failed to upload flowsheet definition", e);
-                request.getSession().setAttribute("flashError", FLOWSHEET_UPLOAD_FAILED_MESSAGE);
+                request.getSession().setAttribute(FLASH_ERROR_ATTRIBUTE, FLOWSHEET_UPLOAD_FAILED_MESSAGE);
             }
         }
 
