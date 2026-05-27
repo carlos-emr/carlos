@@ -90,8 +90,9 @@ class NioFileManagerImplUnitTest {
         outsideFile = Files.createFile(outsideDir.resolve("outside.tmp"));
         assumeTrue(!PathValidationUtils.isInAllowedTempDirectory(outsideFile.toFile()),
                 "outside test directory unexpectedly resolves inside an allowed temp directory");
+        String outsidePath = outsideFile.toString();
 
-        assertThatThrownBy(() -> nioFileManager.deleteTempFile(outsideFile.toString()))
+        assertThatThrownBy(() -> nioFileManager.deleteTempFile(outsidePath))
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("Invalid temp deletion target");
         assertThat(outsideFile).exists();
@@ -101,8 +102,9 @@ class NioFileManagerImplUnitTest {
     @DisplayName("Rejects directory temp deletion targets")
     void shouldThrowSecurityException_whenDirectoryTargetProvided() throws IOException {
         Path directory = Files.createDirectory(tempDir.resolve("not-a-file"));
+        String directoryPath = directory.toString();
 
-        assertThatThrownBy(() -> nioFileManager.deleteTempFile(directory.toString()))
+        assertThatThrownBy(() -> nioFileManager.deleteTempFile(directoryPath))
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("regular file");
         assertThat(directory).isDirectory();
@@ -121,8 +123,9 @@ class NioFileManagerImplUnitTest {
         } catch (UnsupportedOperationException | IOException e) {
             assumeTrue(false, "symbolic links are not available in this test environment: " + e.getMessage());
         }
+        String symlinkPath = symlink.toString();
 
-        assertThatThrownBy(() -> nioFileManager.deleteTempFile(symlink.toString()))
+        assertThatThrownBy(() -> nioFileManager.deleteTempFile(symlinkPath))
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("Invalid temp deletion target");
         assertThat(outsideFile).exists();

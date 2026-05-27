@@ -100,7 +100,9 @@ public class Fax2Action extends ActionSupport {
         if (faxFilePath != null && !faxFilePath.trim().isEmpty()) {
             faxManager.validateFilePath(faxFilePath);
             if (!faxManager.flush(loggedInInfo, faxFilePath)) {
-                logger.error("Failed to clear fax preview cache or temporary file: {}", LogSafe.sanitize(faxFilePath, 1024));
+                if (logger.isErrorEnabled()) {
+                    logger.error("Failed to clear fax preview cache or temporary file: {}", LogSafe.sanitize(faxFilePath, 1024));
+                }
                 addActionError("Failed to clear fax preview cache. Please try again or contact your system administrator.");
             }
         }

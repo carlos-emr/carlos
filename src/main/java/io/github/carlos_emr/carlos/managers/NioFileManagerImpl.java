@@ -515,7 +515,9 @@ public class NioFileManagerImpl implements NioFileManager {
 
             // Delete source file after successful copy
             if (destinationFile.exists() && !deleteTempFile(sourceFile.getPath())) {
-                log.error("Copied document but failed to delete temporary source file {}", LogSafe.sanitize(sourceFile.getPath(), 1024));
+                if (log.isErrorEnabled()) {
+                    log.error("Copied document but failed to delete temporary source file {}", LogSafe.sanitize(sourceFile.getPath(), 1024));
+                }
                 return null;
             }
 

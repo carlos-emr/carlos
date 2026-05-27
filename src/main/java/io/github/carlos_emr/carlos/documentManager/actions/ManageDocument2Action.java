@@ -1138,15 +1138,16 @@ public class ManageDocument2Action extends ActionSupport {
             throw new SecurityException("Invalid directory parameters");
         }
         
-        String sourcePdfName = validateIncomingDocumentSourceFileName(pdfName);
-        String sourceFilePath = IncomingDocUtil.getIncomingDocumentFilePathName(queueId1, pdfDir, sourcePdfName);
-
         String incomingDocDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
         File incomingDir = validateConfiguredDocumentDirectory(incomingDocDir, "INCOMINGDOCUMENT_DIR");
 
-        // codeql[java/path-injection] sourceFilePath is built from filename-only request
-        // components rejected above and is canonicalized against incomingDir before use.
-        File sourceFile = PathValidationUtils.validateExistingPath(new File(sourceFilePath), incomingDir);
+        String sourcePdfName = validateIncomingDocumentSourceFileName(pdfName);
+        File requestedSourceFile = incomingDir.toPath()
+                .resolve(queueId1)
+                .resolve(pdfDir)
+                .resolve(sourcePdfName)
+                .toFile();
+        File sourceFile = PathValidationUtils.validateExistingPath(requestedSourceFile, incomingDir);
         if (!sourceFile.isFile()) {
             log.warn("Incoming document source is not a regular file");
             throw new SecurityException("Incoming document source must be a regular file");
@@ -1288,6 +1289,10 @@ public class ManageDocument2Action extends ActionSupport {
             log.warn("Incoming document destination filename became empty after sanitization");
             return fallbackIncomingDocumentFileName();
         }
+        if (sanitizedFileName.startsWith(".")) {
+            log.warn("Incoming document destination filename cannot be hidden");
+            throw new SecurityException("Invalid filename");
+        }
 
         return sanitizedFileName;
     }
@@ -1296,7 +1301,8 @@ public class ManageDocument2Action extends ActionSupport {
         try {
             if (FilenameUtils.getPrefixLength(fileName) > 0
                     || fileName.contains("/")
-                    || fileName.contains("\\")) {
+                    || fileName.contains("\\")
+                    || fileName.startsWith(".")) {
                 log.warn("Incoming document filename contains path components: {}", LogSafe.sanitize(fileName, 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 throw new SecurityException("Invalid filename");
             }
@@ -1317,7 +1323,9 @@ public class ManageDocument2Action extends ActionSupport {
      */
     private File validateConfiguredDocumentDirectory(String directoryPath, String propertyName) throws IOException {
         if (directoryPath == null || directoryPath.trim().isEmpty()) {
-            log.error("{} is not configured", LogSafe.sanitize(propertyName));
+            if (log.isErrorEnabled()) {
+                log.error("{} is not configured", LogSafe.sanitize(propertyName));
+            }
             throw new IllegalStateException(propertyName + " not configured");
         }
 

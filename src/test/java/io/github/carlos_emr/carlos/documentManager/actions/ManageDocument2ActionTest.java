@@ -330,6 +330,18 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("Rejects incoming destination filenames that sanitize to hidden files")
+    void shouldRejectIncomingDestinationFilename_whenSanitizedNameIsHidden() throws Exception {
+        Path incomingDir = configureIncomingDocumentDirectories();
+        createIncomingSource(incomingDir, ".hidden.pdf", "source-content");
+        setupSuccessfulAddIncomingRequest(".hidden.pdf");
+
+        assertThatThrownBy(() -> action.addIncomingDocument())
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("Invalid filename");
+    }
+
+    @Test
     @DisplayName("Rejects incoming source symlinks that escape the incoming directory")
     void shouldThrowSecurityException_whenIncomingDocumentSourceEscapesIncomingDirectoryViaSymlink() throws Exception {
         Path incomingDir = configureIncomingDocumentDirectories();
