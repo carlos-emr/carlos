@@ -65,6 +65,7 @@ import io.github.carlos_emr.carlos.webserv.oauth.Client;
 import io.github.carlos_emr.carlos.webserv.oauth.RequestTokenRegistration;
 import io.github.carlos_emr.carlos.webserv.oauth.RequestToken;
 import io.github.carlos_emr.carlos.webserv.oauth.util.OAuth1ParamParser;
+import io.github.carlos_emr.carlos.webserv.oauth.util.OAuthCallbackUrls;
 
 // JAX-RS + Servlet
 import jakarta.ws.rs.*;
@@ -73,7 +74,6 @@ import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class OscarRequestTokenService {
 
@@ -122,10 +122,10 @@ public class OscarRequestTokenService {
         } else if (cbRaw != null && !cbRaw.isEmpty()) {
             // decode once (RFC3986) and normalize to plain canonical URL
             String decoded = pctDecode(cbRaw);
-            cbToStore = normalizeUrl(decoded);
+            cbToStore = OAuthCallbackUrls.normalizeHttpCallback(decoded);
         } else {
             // fallback to app-registered callback if your flow allows it
-            cbToStore = normalizeUrl(client.getCallbackUri());
+            cbToStore = OAuthCallbackUrls.normalizeHttpCallback(client.getCallbackUri());
         }
 
         reg.setCallback(cbToStore);   // <-- store plain URL now (not encoded)
@@ -164,25 +164,6 @@ public class OscarRequestTokenService {
             out.append(c);
         }
         return out.toString();
-    }
-
-    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
-    private static String normalizeUrl(String url) {
-        try {
-            var u = java.net.URI.create(url).normalize();
-            String scheme = u.getScheme() == null ? null : u.getScheme().toLowerCase();
-            String host   = u.getHost()   == null ? null : u.getHost().toLowerCase();
-            int port = u.getPort();
-            if ((port == 80 && "http".equalsIgnoreCase(scheme)) ||
-                (port == 443 && "https".equalsIgnoreCase(scheme))) {
-                port = -1; // drop default ports
-            }
-            String path = (u.getPath() == null || u.getPath().isEmpty()) ? "/" : u.getPath();
-            return new java.net.URI(scheme, u.getUserInfo(), host, port, path, u.getQuery(), u.getFragment()).toString();
-        } catch (Exception ignore) {
-            return url; // fail-safe
-        }
     }
 
 }

@@ -92,6 +92,132 @@ class AuthorizeResourceUnitTest {
     }
 
     @Test
+    @DisplayName("should reject non-http callback before finalizing authorization")
+    void shouldRejectApprove_whenCallbackSchemeInvalid() {
+        OscarOAuthDataProvider provider = mock(OscarOAuthDataProvider.class);
+        RequestToken token = requestToken("request-token");
+        token.setCallback("javascript:alert(1)");
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/ws/oauth/authorize");
+        request.getSession().setAttribute("user", "999");
+        request.getSession().setAttribute("oauth.authorize.nonce.request-token", "nonce-123");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        when(provider.getRequestToken("request-token")).thenReturn(token);
+        AuthorizeResource resource = resource(request, response, provider);
+
+        Response result = resource.approve("request-token", "nonce-123", "allow");
+
+        assertThat(result.getStatus()).isEqualTo(400);
+        assertThat(result.getEntity()).isEqualTo("invalid_callback_scheme");
+        verify(provider, never()).finalizeAuthorization(token, "999");
+    }
+
+    @Test
+    @DisplayName("should reject malformed callback before finalizing authorization")
+    void shouldRejectApprove_whenCallbackMalformed() {
+        OscarOAuthDataProvider provider = mock(OscarOAuthDataProvider.class);
+        RequestToken token = requestToken("request-token");
+        token.setCallback("https://exa mple/callback");
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/ws/oauth/authorize");
+        request.getSession().setAttribute("user", "999");
+        request.getSession().setAttribute("oauth.authorize.nonce.request-token", "nonce-123");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        when(provider.getRequestToken("request-token")).thenReturn(token);
+        AuthorizeResource resource = resource(request, response, provider);
+
+        Response result = resource.approve("request-token", "nonce-123", "allow");
+
+        assertThat(result.getStatus()).isEqualTo(400);
+        assertThat(result.getEntity()).isEqualTo("invalid_callback");
+        verify(provider, never()).finalizeAuthorization(token, "999");
+    }
+
+    @Test
+    @DisplayName("should reject hostless callback before finalizing authorization")
+    void shouldRejectApprove_whenCallbackHostless() {
+        OscarOAuthDataProvider provider = mock(OscarOAuthDataProvider.class);
+        RequestToken token = requestToken("request-token");
+        token.setCallback("https:/callback");
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/ws/oauth/authorize");
+        request.getSession().setAttribute("user", "999");
+        request.getSession().setAttribute("oauth.authorize.nonce.request-token", "nonce-123");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        when(provider.getRequestToken("request-token")).thenReturn(token);
+        AuthorizeResource resource = resource(request, response, provider);
+
+        Response result = resource.approve("request-token", "nonce-123", "allow");
+
+        assertThat(result.getStatus()).isEqualTo(400);
+        assertThat(result.getEntity()).isEqualTo("invalid_callback");
+        verify(provider, never()).finalizeAuthorization(token, "999");
+    }
+
+    @Test
+    @DisplayName("should redirect to an https callback when nonce is valid")
+    void shouldRedirectToHttpsCallback_whenNonceValid() {
+        OscarOAuthDataProvider provider = mock(OscarOAuthDataProvider.class);
+        RequestToken token = requestToken("request-token");
+        token.setCallback("https://app.example/callback");
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/ws/oauth/authorize");
+        request.getSession().setAttribute("user", "999");
+        request.getSession().setAttribute("oauth.authorize.nonce.request-token", "nonce-123");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        when(provider.getRequestToken("request-token")).thenReturn(token);
+        when(provider.finalizeAuthorization(token, "999")).thenReturn("verifier-123");
+        AuthorizeResource resource = resource(request, response, provider);
+
+        Response result = resource.approve("request-token", "nonce-123", "allow");
+
+        assertThat(result.getStatus()).isEqualTo(303);
+        assertThat(result.getLocation().toString())
+                .isEqualTo("https://app.example/callback?oauth_token=request-token&oauth_verifier=verifier-123");
+        verify(provider).finalizeAuthorization(token, "999");
+    }
+
+    @Test
+    @DisplayName("should redirect to an http callback when nonce is valid")
+    void shouldRedirectToHttpCallback_whenNonceValid() {
+        OscarOAuthDataProvider provider = mock(OscarOAuthDataProvider.class);
+        RequestToken token = requestToken("request-token");
+        token.setCallback("http://app.example/callback");
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/ws/oauth/authorize");
+        request.getSession().setAttribute("user", "999");
+        request.getSession().setAttribute("oauth.authorize.nonce.request-token", "nonce-123");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        when(provider.getRequestToken("request-token")).thenReturn(token);
+        when(provider.finalizeAuthorization(token, "999")).thenReturn("verifier-123");
+        AuthorizeResource resource = resource(request, response, provider);
+
+        Response result = resource.approve("request-token", "nonce-123", "allow");
+
+        assertThat(result.getStatus()).isEqualTo(303);
+        assertThat(result.getLocation().toString())
+                .isEqualTo("http://app.example/callback?oauth_token=request-token&oauth_verifier=verifier-123");
+        verify(provider).finalizeAuthorization(token, "999");
+    }
+
+    @Test
+    @DisplayName("should append verifier before callback fragment")
+    void shouldAppendVerifierBeforeCallbackFragment_whenNonceValid() {
+        OscarOAuthDataProvider provider = mock(OscarOAuthDataProvider.class);
+        RequestToken token = requestToken("request-token");
+        token.setCallback("https://app.example/callback?next=1#done");
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/ws/oauth/authorize");
+        request.getSession().setAttribute("user", "999");
+        request.getSession().setAttribute("oauth.authorize.nonce.request-token", "nonce-123");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        when(provider.getRequestToken("request-token")).thenReturn(token);
+        when(provider.finalizeAuthorization(token, "999")).thenReturn("verifier-123");
+        AuthorizeResource resource = resource(request, response, provider);
+
+        Response result = resource.approve("request-token", "nonce-123", "allow");
+
+        assertThat(result.getStatus()).isEqualTo(303);
+        assertThat(result.getLocation().toString())
+                .isEqualTo("https://app.example/callback?next=1&oauth_token=request-token&oauth_verifier=verifier-123#done");
+        verify(provider).finalizeAuthorization(token, "999");
+    }
+
+    @Test
     @DisplayName("should preserve nonce when consent login rotates session")
     void shouldPreserveNonce_whenConsentLoginRotatesSession() throws Exception {
         OscarOAuthDataProvider provider = mock(OscarOAuthDataProvider.class);

@@ -48,7 +48,7 @@ import java.util.stream.Collectors;
 
 import io.github.carlos_emr.carlos.login.OscarOAuthDataProvider;
 import io.github.carlos_emr.carlos.login.OAuthData; // model used by 3rdpartyLogin.jsp
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.github.carlos_emr.carlos.webserv.oauth.util.OAuthCallbackUrls;
 
 @Produces(MediaType.TEXT_HTML)
 public class AuthorizeResource {
@@ -104,8 +104,6 @@ public class AuthorizeResource {
     }
 
     /** POST /ws/oauth/authorize — approve and redirect (or OOB) */
-    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
     @POST
     @Path("/authorize")
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
@@ -132,15 +130,26 @@ public class AuthorizeResource {
             return Response.status(401).entity("login_required").type(MediaType.TEXT_PLAIN).build();
         }
 
-        String verifier = provider.finalizeAuthorization(rt, providerNo);
-
         // nosemgrep: open-redirect -- callback comes from the server-persisted request token
         // (set during /initiate by OscarRequestTokenService), not from user input in this POST.
         String cb = rt.getCallback();
+        URI callbackUri = null;
         if (cb != null && !"oob".equalsIgnoreCase(cb)) {
-            String sep = cb.contains("?") ? "&" : "?";
-            String loc = cb + sep + "oauth_token=" + enc(tokenId) + "&oauth_verifier=" + enc(verifier);
-            return Response.seeOther(URI.create(loc)).build(); // 303 redirect
+            try {
+                callbackUri = OAuthCallbackUrls.requireHttpCallbackUri(cb);
+            } catch (OAuth1Exception e) {
+                return Response.status(e.getHttpCode()).entity(e.getMessage()).type(MediaType.TEXT_PLAIN).build();
+            }
+        }
+
+        String verifier = provider.finalizeAuthorization(rt, providerNo);
+
+        if (callbackUri != null) {
+            URI redirectUri = UriBuilder.fromUri(callbackUri)
+                    .queryParam("oauth_token", tokenId)
+                    .queryParam("oauth_verifier", verifier)
+                    .build();
+            return Response.seeOther(redirectUri).build(); // 303 redirect
         }
 
         // OOB: show verifier
