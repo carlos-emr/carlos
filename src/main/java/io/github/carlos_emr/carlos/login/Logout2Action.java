@@ -116,6 +116,7 @@ public class Logout2Action extends ActionSupport {
      *
      * @return String Struts2 result name (SUCCESS after POST; NONE after 405 for non-POST)
      */
+    @Override
     public String execute() throws IOException {
         // Logout invalidates the session and deletes cookies — reject non-POST to
         // prevent these side effects from firing on a plain GET link or pre-fetch.
