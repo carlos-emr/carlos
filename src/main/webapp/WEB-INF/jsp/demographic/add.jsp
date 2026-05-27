@@ -183,6 +183,9 @@
 
                 return true;
             }
+            if (window.opener && !window.opener.closed) {
+                window.opener.location.reload(true); // update the search now that it has a new demo that you might want to access
+            }
 
             function upCaseCtrl(ctrl) {
                 ctrl.value = ctrl.value.toUpperCase();
