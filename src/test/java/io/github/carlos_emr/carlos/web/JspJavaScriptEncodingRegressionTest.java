@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.web;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -40,6 +41,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 class JspJavaScriptEncodingRegressionTest {
     private static final String BASEDIR_PROPERTY = "basedir";
     private static final Path JSP_ROOT = resolveProjectPath(Path.of("src/main/webapp/WEB-INF/jsp"));
+    private static final String SAFE_ENCODE_IMPORT_PATTERN =
+            "<%@\\s*page\\s+import\\s*=\\s*\"io\\.github\\.carlos_emr\\.carlos\\.utility\\.SafeEncode\"\\s*%>";
+    private static final String SAFE_TEXTAREA_RENDER_PATTERN =
+            "out\\.println\\(\\s*SafeEncode\\.forHtml\\(\\s*aline\\s*\\)\\s*\\);";
+    private static final String RAW_TEXTAREA_RENDER_PATTERN = "out\\.println\\(\\s*aline\\s*\\);";
 
     @Test
     void shouldContainEncodedSessionValues_inJavaScriptStrings() throws Exception {
@@ -139,28 +145,22 @@ class JspJavaScriptEncodingRegressionTest {
     }
 
     @Test
+    @DisplayName("should encode decision textarea file content in HTML body context")
+    @Tag("security")
     void shouldEncodeDecisionTextareaFileContent_inHtmlBodyContext() throws Exception {
-        String antenatalRiskJsp = readJsp("decision/antenatal/obarriskedit_99_12.jsp");
-        String annualReviewRiskJsp = readJsp("decision/annualreview/riskedit.jsp");
-        String annualReviewChecklistJsp = readJsp("decision/annualreview/checklistedit.jsp");
-        String providerRiskJsp = readJsp("provider/obarriskedit_99_12.jsp");
+        List<String> decisionTextareaEditors = List.of(
+                "decision/antenatal/obarriskedit_99_12.jsp",
+                "decision/annualreview/riskedit.jsp",
+                "decision/annualreview/checklistedit.jsp",
+                "provider/obarriskedit_99_12.jsp");
 
-        assertThat(antenatalRiskJsp)
-                .contains("<%@ page import=\"io.github.carlos_emr.carlos.utility.SafeEncode\" %>")
-                .contains("out.println(SafeEncode.forHtml(aline));")
-                .doesNotContain("out.println(aline);");
-        assertThat(annualReviewRiskJsp)
-                .contains("<%@ page import=\"io.github.carlos_emr.carlos.utility.SafeEncode\" %>")
-                .contains("out.println(SafeEncode.forHtml(aline));")
-                .doesNotContain("out.println(aline);");
-        assertThat(annualReviewChecklistJsp)
-                .contains("<%@ page import=\"io.github.carlos_emr.carlos.utility.SafeEncode\" %>")
-                .contains("out.println(SafeEncode.forHtml(aline));")
-                .doesNotContain("out.println(aline);");
-        assertThat(providerRiskJsp)
-                .contains("<%@ page import=\"io.github.carlos_emr.carlos.utility.SafeEncode\" %>")
-                .contains("out.println(SafeEncode.forHtml(aline));")
-                .doesNotContain("out.println(aline);");
+        for (String jspPath : decisionTextareaEditors) {
+            assertThat(readJsp(jspPath))
+                    .as(jspPath)
+                    .containsPattern(SAFE_ENCODE_IMPORT_PATTERN)
+                    .containsPattern(SAFE_TEXTAREA_RENDER_PATTERN)
+                    .doesNotContainPattern(RAW_TEXTAREA_RENDER_PATTERN);
+        }
     }
 
     private static String readJsp(String relativePath) throws Exception {
