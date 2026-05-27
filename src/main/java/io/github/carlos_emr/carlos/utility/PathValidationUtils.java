@@ -4,7 +4,9 @@ import org.apache.commons.io.FilenameUtils;
 import org.apache.logging.log4j.Logger;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -223,6 +225,29 @@ public final class PathValidationUtils {
      */
     public static File validateUpload(File sourceFile) {
         return validateSource(sourceFile, null);
+    }
+
+    /**
+     * Opens a stream for an uploaded temp file after canonicalizing it and
+     * confirming it resolves inside an allowed upload temp directory.
+     *
+     * <p>Use this helper instead of opening upload paths directly from action
+     * classes so the validation and file-open operation stay together.</p>
+     *
+     * @param sourceFile the uploaded file (from Struts2/Tomcat)
+     * @return InputStream for the validated upload content; caller must close it
+     * @throws IOException if validation fails or the stream cannot be opened
+     * @since 2026-05-21
+     */
+    public static InputStream openValidatedUploadInputStream(File sourceFile) throws IOException {
+        File validatedFile;
+        try {
+            validatedFile = validateUpload(sourceFile);
+        } catch (SecurityException e) {
+            throw new IOException("Invalid upload file", e);
+        }
+
+        return new FileInputStream(validatedFile); // codeql[java/path-injection] -- validateUpload restricts to allowed temp dirs.
     }
 
     /**
