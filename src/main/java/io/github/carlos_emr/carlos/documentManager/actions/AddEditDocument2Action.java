@@ -69,7 +69,6 @@ import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SessionConstants;
@@ -587,62 +586,90 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
 
     /**
      * Writes an uploaded file to the local document storage directory. The destination
-     * path is validated using {@link PathValidationUtils} to prevent path traversal, the
-     * contents are first flushed to a sibling temporary file, and the completed file is
-     * then atomically moved into place. Publication relies on the document directory
-     * filesystem supporting atomic renames for files created within that directory. If
-     * publishing fails, the temporary file is deleted so the staged upload is not left
-     * behind beside the destination file.
+     * path is validated using {@link PathValidationUtils} to prevent path traversal.
      *
      * @param is InputStream the input stream of the file content to write
      * @param fileName String the target filename (relative to DOCUMENT_DIR)
-     * @return File the written file, or null if an error occurred
-     * @throws Exception if the destination path cannot be prepared or the completed file
-     *                   cannot be atomically published
+     * @return File the written file
+     * @throws Exception if validation or writing fails
      */
     public static File writeLocalFile(InputStream is, String fileName) throws Exception {
-        File file = null;
+        return writeLocalFile(is, fileName, true);
+    }
+
+    /**
+     * Writes an uploaded file to the local document storage directory, optionally
+     * replacing an existing destination file. Upload contents are staged in a temporary
+     * sibling file and atomically published only after the staged file is fully written
+     * and synced.
+     *
+     * @param is InputStream the input stream of the file content to write
+     * @param fileName String the target filename (relative to DOCUMENT_DIR)
+     * @param replaceExisting boolean true when an existing destination may be replaced
+     * @return File the written file
+     * @throws Exception if validation, staging, syncing, or atomic publication fails
+     */
+    public static File writeLocalFile(InputStream is, String fileName, boolean replaceExisting) throws Exception {
+        String docDir = CarlosProperties.getInstance().getDocumentDirectory();
+        File baseDirFile = new File(docDir);
+        File validatedFile = PathValidationUtils.validatePath(fileName, baseDirFile);
+        Path savePath = validatedFile.toPath().normalize().toAbsolutePath();
+        Path saveParent = savePath.getParent();
+        if (saveParent == null) {
+            throw new IOException("Document destination parent is missing");
+        }
+
+        Files.createDirectories(saveParent);
+        boolean reservedDestination = false;
+        if (!replaceExisting) {
+            Files.createFile(savePath);
+            reservedDestination = true;
+        }
+
         Path tempPath = null;
         try {
-            // Validate file path using PathValidationUtils
-            String docDir = CarlosProperties.getInstance().getDocumentDirectory();
-            File baseDirFile = new File(docDir);
-            File validatedFile = PathValidationUtils.validatePath(fileName, baseDirFile);
-            Path savePath = validatedFile.toPath();
-            Path parentPath = savePath.getParent();
-            if (parentPath == null) {
-                parentPath = baseDirFile.toPath();
-            }
-
-            // Create the parent directory
-            Files.createDirectories(parentPath);
-
-            String savePathStr = savePath.toString();
-            file = new File(savePathStr);
-
-            tempPath = Files.createTempFile(parentPath, "doc-upload-", ".upload");
-            try (FileOutputStream fos = new FileOutputStream(tempPath.toFile())) {
-                byte[] buf = new byte[128 * 1024];
-                int i = 0;
-                while ((i = is.read(buf)) != -1) {
-                    fos.write(buf, 0, i);
-                }
-                fos.getFD().sync();
-            }
-
+            tempPath = Files.createTempFile(saveParent, "document-upload-", ".tmp");
+            writeUploadContents(is, tempPath);
             Files.move(tempPath, savePath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
             tempPath = null;
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Failed to write uploaded document {}", LogSafe.sanitize(fileName), e);
             if (tempPath != null) {
-                try {
-                    Files.deleteIfExists(tempPath);
-                } catch (IOException cleanupException) {
-                    MiscUtils.getLogger().warn("Failed to delete temporary uploaded file", cleanupException);
-                }
+                deleteTempFile(tempPath, e);
             }
+            if (reservedDestination) {
+                deleteReservedDestination(savePath, e);
+            }
+            throw e;
         }
-        return file;
+
+        return savePath.toFile();
+    }
+
+    private static void writeUploadContents(InputStream is, Path tempPath) throws IOException {
+        try (FileOutputStream fos = new FileOutputStream(tempPath.toFile())) {
+            byte[] buf = new byte[128 * 1024];
+            int i = 0;
+            while ((i = is.read(buf)) != -1) {
+                fos.write(buf, 0, i);
+            }
+            fos.getFD().sync();
+        }
+    }
+
+    private static void deleteTempFile(Path tempPath, Exception originalError) {
+        try {
+            Files.deleteIfExists(tempPath);
+        } catch (IOException deleteError) {
+            originalError.addSuppressed(deleteError);
+        }
+    }
+
+    private static void deleteReservedDestination(Path savePath, Exception originalError) {
+        try {
+            Files.deleteIfExists(savePath);
+        } catch (IOException deleteError) {
+            originalError.addSuppressed(deleteError);
+        }
     }
 
     /**
