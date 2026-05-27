@@ -79,7 +79,7 @@
     String prefillCity          = io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("prefill_city"));
     String prefillProvince      = io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("prefill_province"));
     String prefillPostal        = io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("prefill_postal"));
-    String prefillPhone         = io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("prefill_phone")).replaceAll("[^0-9]", "");
+    String prefillPhone         = io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("prefill_phone"));
     String prefillSex           = io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("prefill_sex")).toUpperCase();
     String prefillYearOfBirth   = io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("prefill_year_of_birth"));
     String prefillMonthOfBirth  = io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("prefill_month_of_birth"));
