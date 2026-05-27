@@ -137,6 +137,8 @@
             }
 
             function aSubmit() {
+                parseHINforVC();
+                formatPhoneNum(document.adddemographic.phone);
                 syncInputDobParts();
                 if (document.getElementById("eform_iframe") != null) {
                     var eformDocument = document.getElementById("eform_iframe").contentWindow.document;
@@ -239,19 +241,29 @@
                 }
             }
 
-            function formatPhoneNum() {
-                if (document.adddemographic.phone.value.length == 10) {
-                    document.adddemographic.phone.value = document.adddemographic.phone.value.substring(0, 3) + "-" + document.adddemographic.phone.value.substring(3, 6) + "-" + document.adddemographic.phone.value.substring(6);
-                }
-                if (document.adddemographic.phone.value.length == 11 && document.adddemographic.phone.value.charAt(3) == '-') {
-                    document.adddemographic.phone.value = document.adddemographic.phone.value.substring(0, 3) + "-" + document.adddemographic.phone.value.substring(4, 7) + "-" + document.adddemographic.phone.value.substring(7);
-                }
+            function checkHINforVC(hin){
+              // Check total length is exactly 12
+              // First 10 characters must be digits
+              // Last 2 characters must be letters
+              return /^\d{10}[A-Za-z]{2}$/.test(hin);
+            }
 
-                if (document.adddemographic.phone2.value.length == 10) {
-                    document.adddemographic.phone2.value = document.adddemographic.phone2.value.substring(0, 3) + "-" + document.adddemographic.phone2.value.substring(3, 6) + "-" + document.adddemographic.phone2.value.substring(6);
+            function parseHINforVC(){
+              const hin = document.adddemographic.hin.value;
+            	if (checkHINforVC(hin)) {
+            		const firstTen = hin.substring(0, 10);
+            		const lastTwo = hin.substring(10);
+            		document.adddemographic.hin.value = firstTen;
+            		document.adddemographic.ver.value = lastTwo;
+            	}
+            }
+
+            function formatPhoneNum(el) {
+                if (el.value.length == 10) {
+                    el.value = el.value.substring(0, 3) + "-" + el.value.substring(3, 6) + "-" + el.value.substring(6);
                 }
-                if (document.adddemographic.phone2.value.length == 11 && document.adddemographic.phone2.value.charAt(3) == '-') {
-                    document.adddemographic.phone2.value = document.adddemographic.phone2.value.substring(0, 3) + "-" + document.adddemographic.phone2.value.substring(4, 7) + "-" + document.adddemographic.phone2.value.substring(7);
+                if (el.value.length == 11 && el.value.charAt(3) == '-') {
+                    el.value = el.value.substring(0, 3) + "-" + el.value.substring(4, 7) + "-" + el.value.substring(7);
                 }
             }
 
