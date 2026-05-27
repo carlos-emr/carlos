@@ -55,6 +55,7 @@
 
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title>CARLOS Fax</title>
 
     <c:set var="ctx" value="${ pageContext.request.contextPath }" scope="page"/>
@@ -191,7 +192,7 @@
 
 </head>
 <body>
-<jsp:include page="/images/spinner.jsp" flush="true"/>
+<jsp:include page="/WEB-INF/jsp/includes/spinner.jspf" flush="true"/>
 <div id="bodyrow" class="container-fluid">
 
     <div id="bodycolumn" class="col-sm-12">

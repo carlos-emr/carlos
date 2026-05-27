@@ -100,6 +100,9 @@
     if (!authed) {
         return;
     }
+    boolean showScheduleNav = "1".equals(request.getParameter("scheduleNav"));
+    String scheduleNavQuerySuffix = showScheduleNav ? "&scheduleNav=1" : "";
+    String scheduleNavFirstQuerySuffix = showScheduleNav ? "?scheduleNav=1" : "";
 %>
 
 <%
@@ -118,10 +121,14 @@
     } else {
         pageType = 0;  // Default to inbox for invalid values
     }
+    String boxTypeQuerySuffix = pageType > 0 ? "&boxType=" + pageType : "";
 
     // Handle demographic filtering if specified
     String demographic_no = request.getParameter("demographic_no");
     String demographic_name = "";
+    String demographicQuerySuffix = pageType == 3 && demographic_no != null && !demographic_no.trim().isEmpty()
+            ? "&demographic_no=" + SafeEncode.forUriComponent(demographic_no)
+            : "";
     if (demographic_no != null) {
         // Retrieve patient name for display
         DemographicData demographic_data = new DemographicData();
@@ -174,6 +181,7 @@
 <!DOCTYPE html>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
         <title>
@@ -185,6 +193,9 @@
              primary (#337ab7). Required because messenger pages don't use global-head.jspf. --%>
         <link rel="stylesheet" href="<%=request.getContextPath() %>/share/css/global.css">
         <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+        <% if (showScheduleNav) { %>
+            <link rel="stylesheet" href="<%=request.getContextPath() %>/css/topnav.css">
+        <% } %>
 
         <style>
         tr.newMessage td {
@@ -291,6 +302,9 @@
     </head>
 
     <body class="BodyStyle" onload="window.focus()" onunload="return uload()">
+    <% if (showScheduleNav) { %>
+        <jsp:include page="/WEB-INF/jsp/provider/mainMenu.jsp"/>
+    <% } %>
 <%-- Page header: uses page-header-bar pattern (matching search.jsp and reportindex.jsp)
      with page-header-bar--flex to place the title and search form side-by-side. The
      search form is capped at 450px via page-header-search-form to avoid dominating
@@ -315,6 +329,10 @@
     </h4>
     <form action="${pageContext.request.contextPath}/messenger/DisplayMessages" method="post" class="page-header-search-form">
         <input name="boxType" type="hidden" value="<%=pageType%>">
+        <% if (showScheduleNav) { %>
+            <%-- Preserve schedule shell state after search submits; otherwise the top bar disappears on the next render. --%>
+            <input name="scheduleNav" type="hidden" value="1">
+        <% } %>
         <div class="input-group input-group-sm">
             <input name="searchString" type="text" class="form-control" placeholder="<fmt:message key="messenger.DisplayMessages.btnSearch"/>"
                    value="<carlos:encode value='<%= DisplayMessagesBeanId.getFilter() %>' context="htmlAttribute"/>">
@@ -340,6 +358,10 @@
                     %>
 
                     <form action="<%=strutsAction%>" method="post" id="msgList">
+                    <% if (showScheduleNav) { %>
+                        <%-- Bulk mailbox actions post back through Struts, so carry scheduleNav as form state. --%>
+                        <input name="scheduleNav" type="hidden" value="1">
+                    <% } %>
 
                     <c:if test="${not empty updateFailureCount}">
                         <div class="alert alert-warning alert-dismissible fade show" role="alert">
@@ -357,23 +379,23 @@
                         <td>
                             <ul class="nav nav-tabs">
                                 <li class="nav-item">
-                                         <a class="nav-link" href="${pageContext.request.contextPath}/messenger/ViewCreateMessage">
-                                         <fmt:message key="messenger.DisplayMessages.btnCompose"/></a>
+                                         <a class="nav-link" href="${pageContext.request.contextPath}/messenger/ViewCreateMessage<%=scheduleNavFirstQuerySuffix%>">
+                                     <fmt:message key="messenger.DisplayMessages.btnCompose"/></a>
                                     </li>
                                     <li class="nav-item">
                                         <a class="nav-link <% if (pageType == 0) { %>active<% } %>"
-                                          href="${pageContext.request.contextPath}/messenger/DisplayMessages">
+                                          href="${pageContext.request.contextPath}/messenger/DisplayMessages<%=scheduleNavFirstQuerySuffix%>">
                                          <fmt:message key="messenger.DisplayMessages.btnRefresh"/></a>
                                     </li>
                                     <li class="nav-item">
                                         <a class="nav-link <% if (pageType == 1) { %>active<% } %>"
-                                          href="${pageContext.request.contextPath}/messenger/DisplayMessages?boxType=1">
+                                          href="${pageContext.request.contextPath}/messenger/DisplayMessages?boxType=1<%=scheduleNavQuerySuffix%>">
                                          <fmt:message key="messenger.DisplayMessages.btnSent"/></a><!-- sentMessage link-->
 
                                     </li>
                                     <li class="nav-item">
                                         <a class="nav-link <% if (pageType == 2) { %>active<% } %>"
-                                          href="${pageContext.request.contextPath}/messenger/DisplayMessages?boxType=2">
+                                          href="${pageContext.request.contextPath}/messenger/DisplayMessages?boxType=2<%=scheduleNavQuerySuffix%>">
                                          <fmt:message key="messenger.DisplayMessages.btnDeletedMessage"/></a><!--deletedMessage link-->
 
                                     </li>
@@ -420,7 +442,8 @@
 
 		                    String previous = "";
 		                    String next = "";
-		                    String path = request.getContextPath()+"/messenger/DisplayMessages?boxType=" + pageType + "&page=";
+		                    // Keep pagination inside the schedule shell by appending the same request flag used to render the top bar.
+		                    String path = request.getContextPath()+"/messenger/DisplayMessages?boxType=" + pageType + scheduleNavQuerySuffix + "&page=";
 		                    if (pageType != 3){
 
 		                    int totalMsgs = DisplayMessagesBeanId.getTotalMessages(pageType);
@@ -464,7 +487,7 @@
                                     <%} %>
                                     </th>
                                     <th style="text-align: left; width:120px;">
-                                        <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages?orderby=status"
+                                        <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages?orderby=status<%=boxTypeQuerySuffix%><%=demographicQuerySuffix%><%=scheduleNavQuerySuffix%>"
                                                    >
                                             <fmt:message key="messenger.DisplayMessages.msgStatus"/>
                                             <i class="fa-solid fa-caret-down"></i>
@@ -472,13 +495,13 @@
                                     </th>
                                     <th style="text-align: left;">
                                       <%if( pageType == 1 ) {%>
-                                                 <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages?orderby=sentto"
+                                                 <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages?orderby=sentto<%=boxTypeQuerySuffix%><%=demographicQuerySuffix%><%=scheduleNavQuerySuffix%>"
                                                     >
                                                     <fmt:message key="messenger.DisplayMessages.msgTo"/>
                                                     <i class="fa-solid fa-caret-down"></i>
                                                 </a>
                                        <%} else {%>
-                                                <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages?orderby=from"
+                                                <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages?orderby=from<%=boxTypeQuerySuffix%><%=demographicQuerySuffix%><%=scheduleNavQuerySuffix%>"
                                                    >
                                                     <fmt:message key="messenger.DisplayMessages.msgFrom"/>
                                                     <i class="fa-solid fa-caret-down"></i>
@@ -486,21 +509,21 @@
                                        <% } %>
                                     </th>
                                     <th style="text-align: left;">
-                                            <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages?orderby=subject"
+                                            <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages?orderby=subject<%=boxTypeQuerySuffix%><%=demographicQuerySuffix%><%=scheduleNavQuerySuffix%>"
                                                    >
                                                 <fmt:message key="messenger.DisplayMessages.msgSubject"/>
                                                 <i class="fa-solid fa-caret-down"></i>
                                             </a>
                                     </th>
                                     <th style="text-align: left;">
-                                            <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages?orderby=date"
+                                            <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages?orderby=date<%=boxTypeQuerySuffix%><%=demographicQuerySuffix%><%=scheduleNavQuerySuffix%>"
                                                    >
                                                 <fmt:message key="messenger.DisplayMessages.msgDate"/>
                                                 <i class="fa-solid fa-caret-down"></i>
                                             </a>
                                     </th>
                                     <th style="text-align: left;" >
-                                            <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages?orderby=linked"
+                                            <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages?orderby=linked<%=boxTypeQuerySuffix%><%=demographicQuerySuffix%><%=scheduleNavQuerySuffix%>"
                                                    >
                                                 <fmt:message key="messenger.DisplayMessages.msgLinked"/>
                                                 <i class="fa-solid fa-caret-down"></i>
@@ -567,7 +590,7 @@
 
                                     </td>
                                     <td>
-                                    <a href="<%=request.getContextPath()%>/messenger/ViewMessage?messageID=<carlos:encode value='<%= dm.getMessageId() %>' context="uriComponent"/>&boxType=<%=pageType%>">
+                                    <a href="<%=request.getContextPath()%>/messenger/ViewMessage?messageID=<carlos:encode value='<%= dm.getMessageId() %>' context="uriComponent"/>&boxType=<%=pageType%><%=scheduleNavQuerySuffix%>">
                                         <carlos:encode value='<%= dm.getThesubject() %>' context="html"/>
                                     </a>
                                     <%

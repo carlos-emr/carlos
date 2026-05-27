@@ -525,6 +525,7 @@
     </script>
 
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <title>
             <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.title"/>
@@ -2074,7 +2075,7 @@ if (userAgent != null) {
     <%=WebUtils.popErrorMessagesAsAlert(session)%>
 
     <body onload="window.focus();disableDateFields();disableEditing();showSignatureImage();">
-    <jsp:include page="/images/spinner.jsp" flush="true"/>
+    <jsp:include page="/WEB-INF/jsp/includes/spinner.jspf" flush="true"/>
     <%
     java.util.List<String> actionErrors = (java.util.List<String>) request.getAttribute("actionErrors");
     if (actionErrors != null && !actionErrors.isEmpty()) {

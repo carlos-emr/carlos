@@ -29,6 +29,9 @@ import org.junit.jupiter.api.Test;
 
 import java.util.HashSet;
 import java.util.Set;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNullPointerException;
@@ -132,5 +135,16 @@ class LoginCredentialCacheUnitTest {
         assertThat(LoginCredentialCache.getInstance())
                 .isNotNull()
                 .isSameAs(LoginCredentialCache.getInstance());
+    }
+
+    @Test
+    @DisplayName("should keep token lifetime based on write time rather than access time")
+    void shouldUseExpireAfterWrite_forCredentialLifetime() throws Exception {
+        String source = Files.readString(
+                Path.of("src/main/java/io/github/carlos_emr/carlos/login/LoginCredentialCache.java"),
+                StandardCharsets.UTF_8);
+
+        assertThat(source).contains(".expireAfterWrite(TTL)");
+        assertThat(source).doesNotContain("expireAfterAccess");
     }
 }

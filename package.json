@@ -11,7 +11,14 @@
     "clear": "docusaurus clear",
     "serve": "docusaurus serve",
     "write-translations": "docusaurus write-translations",
-    "write-heading-ids": "docusaurus write-heading-ids"
+    "write-heading-ids": "docusaurus write-heading-ids",
+    "test:login-playwright": "node scripts/login-playwright-checks.js",
+    "test:logout-broadcast-playwright": "node scripts/logout-broadcast-playwright-checks.js",
+    "test:echart-playwright": "node scripts/echart-playwright-checks.js",
+    "test:browser-surfaces-playwright": "node scripts/browser-surface-playwright-checks.js",
+    "test:schedule-links-playwright": "node scripts/schedule-links-playwright-checks.js",
+    "test:tickler-crud-playwright": "node scripts/tickler-crud-playwright-checks.js",
+    "test:logout-session-invalidation-playwright": "node scripts/logout-session-invalidation-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",
@@ -23,7 +30,8 @@
     "react-dom": "^18.0.0"
   },
   "devDependencies": {
-    "@docusaurus/module-type-aliases": "^3.9.2"
+    "@docusaurus/module-type-aliases": "^3.9.2",
+    "playwright": "^1.60.0"
   },
   "browserslist": {
     "production": [
@@ -51,6 +59,11 @@
     "serialize-javascript": "7.0.5",
     "picomatch": "2.3.2",
     "path-to-regexp@<0.1.13": "0.1.13",
-    "brace-expansion": "5.0.5"
+    "brace-expansion": "5.0.6",
+    "@babel/plugin-transform-modules-systemjs": "7.29.4",
+    "fast-uri": "3.1.2",
+    "postcss": "8.5.10",
+    "webpack-dev-server": "5.2.4",
+    "ws": "8.20.1"
   }
 }

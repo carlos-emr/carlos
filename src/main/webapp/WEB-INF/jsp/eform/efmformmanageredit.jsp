@@ -75,6 +75,7 @@
 <!DOCTYPE html>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:message key="eform.edithtml.msgEditEform"/></title>
 
@@ -111,7 +112,7 @@
 
             <% if ((request.getAttribute("success") != null) && (errors.size() == 0)) { %>
             if (elementExists == null) {
-                window.opener.location.href = '<%=request.getContextPath()%>/administration/?show=Forms';
+                window.opener.location.href = '<%=request.getContextPath()%>/administration?show=Forms';
             }
             <%}%>
         </script>

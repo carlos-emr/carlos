@@ -122,7 +122,8 @@ import io.github.carlos_emr.carlos.commn.model.OscarLog;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -1332,7 +1333,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                                                     : ALLOWED_CODE_SYSTEM_DAOS.get(codingSystem.toLowerCase());
                                     AbstractCodeSystemDao dao = (daoClass == null) ? null : SpringUtils.getBean(daoClass);
                                     if (dao == null) {
-                                        logger.warn("Unknown coding system: {}", LogSanitizer.sanitize(codingSystem));
+                                        logger.warn("Unknown coding system: {}", LogSafe.sanitize(codingSystem));
                                     }
                                     if (dao != null) {
                                         AbstractCodeSystemModel result = dao.findByCode(dx.getDxresearchCode());
@@ -2665,8 +2666,18 @@ public class DemographicExportAction42Action extends ActionSupport {
                     }
 //
 //	if (setName!=null) zipName = "export_"+setName.replace(" ","")+"_"+UtilDateUtilities.getToday("yyyyMMddHHmmss")+".pgp";
-                    // Sanitize zipName to prevent path traversal
-                    zipName = MiscUtils.sanitizeFileName(zipName);
+                    try {
+                        zipName = PathValidationUtils.validateGeneratedFileName(zipName);
+                        zipName = PathValidationUtils.validateUserFilePath(zipName, new File(tmpDir)).getName();
+                    } catch (FileValidationException e) {
+                        logger.warn("Rejected invalid demographic export zip filename");
+                        exportError.add("Error! Invalid export zip filename.");
+                        setExportStatusHeader(response, "error");
+                        ffwd = "fail";
+                        Util.cleanFiles(files);
+                        Util.cleanFile(tmpDir);
+                        break;
+                    }
                     if (!Util.zipFiles(files, dirs, zipName, tmpDir)) {
                         logger.debug("Error! Failed to zip export files");
                     }

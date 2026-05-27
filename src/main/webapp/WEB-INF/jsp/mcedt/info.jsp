@@ -40,6 +40,7 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <jsp:include page="/WEB-INF/jsp/mcedt/head-includes.jsp"/>
 
     <script language="javascript">

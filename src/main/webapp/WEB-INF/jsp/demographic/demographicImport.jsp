@@ -65,6 +65,7 @@
 %>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <!--I18n-->
         <title><fmt:message key="admin.admin.DemoImport"/></title>
         <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
@@ -180,7 +181,7 @@
         </script>
 
     </head>
-    <jsp:include page="/images/spinner.jsp" flush="true"/>
+    <jsp:include page="/WEB-INF/jsp/includes/spinner.jspf" flush="true"/>
     <body vlink="#0000FF">
 
     <%

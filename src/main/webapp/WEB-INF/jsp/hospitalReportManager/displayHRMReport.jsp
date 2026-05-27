@@ -64,6 +64,7 @@
 <%@ page import="io.github.carlos_emr.carlos.hospitalReportManager.dao.*" %>
 <%@ page import="io.github.carlos_emr.carlos.hospitalReportManager.model.HRMReportCriteria" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <!DOCTYPE html>
 
 <%
@@ -215,6 +216,7 @@
 
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title>HRM Report</title>
 
     <script type="text/javascript"

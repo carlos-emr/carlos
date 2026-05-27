@@ -29,6 +29,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
@@ -45,7 +46,7 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -54,7 +55,7 @@ import io.github.carlos_emr.OscarDocumentCreator;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 /**
  * Struts2 action for generating and printing patient demographic chart labels in PDF format.
@@ -186,7 +187,7 @@ public class PrintDemoChartLabel2Action extends ActionSupport {
         }
 
         if (labelFile == null) {
-            logger.warn("requested invalid label : {}", LogSanitizer.sanitize(request.getParameter("labelName"))); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            logger.warn("requested invalid label : {}", LogSafe.sanitize(request.getParameter("labelName"))); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             // Mapping in struts-demographic.xml has no <result name="success">; return NONE
             // to suppress result resolution rather than raising ConfigurationException.
             return NONE;
@@ -240,7 +241,9 @@ public class PrintDemoChartLabel2Action extends ActionSupport {
             response.setHeader("Content-disposition", getHeader(response).toString());
             OscarDocumentCreator osc = new OscarDocumentCreator();
 
-            osc.fillDocumentStream(parameters, sos, "pdf", ins, DbConnectionFilter.getThreadLocalDbConnection(), exportPdfJavascript);
+            try (Connection connection = LegacyJdbcQuery.getConnection()) {
+                osc.fillDocumentStream(parameters, sos, "pdf", ins, connection, exportPdfJavascript);
+            }
         } catch (SQLException e) {
             MiscUtils.getLogger().error("Error", e);
         } finally {

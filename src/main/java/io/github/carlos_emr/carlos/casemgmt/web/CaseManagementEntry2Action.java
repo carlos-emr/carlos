@@ -81,7 +81,6 @@ import java.io.PrintWriter;
 import java.io.Serializable;
 import java.lang.reflect.Array;
 import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.*;
 import org.owasp.encoder.Encode;
 
@@ -101,6 +100,27 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
+
+    /** Fixed date patterns used in this action; formatters are cached per-thread by {@link CachedDateFormats}. */
+    private static final String DD_MMM_YYYY_HMM_PATTERN = "dd-MMM-yyyy H:mm";
+    private static final String DD_MMM_YYYY_PATTERN = "dd-MMM-yyyy";
+    private static final String HEADER_PATTERN = "yyyy-MM-dd.HH.mm.ss";
+    private static final String YYYY_MM_DD_PATTERN = "yyyy-MM-dd";
+    private static final String YYYY_MM_DD_HHMM_PATTERN = "yyyy-MM-dd HH:mm";
+    private static final int REMOVED_ISSUE_MESSAGE_OVERHEAD = 64;
+
+    private static String appendRemovedIssueMessage(String noteText, Locale locale, ResourceBundle props, CharSequence issueNames) {
+        String originalNote = StringUtils.defaultString(noteText);
+        return new StringBuilder(originalNote.length() + issueNames.length() + REMOVED_ISSUE_MESSAGE_OVERHEAD)
+                .append(originalNote)
+                .append('\n')
+                .append(CachedDateFormats.format(new Date(), DD_MMM_YYYY_PATTERN, locale))
+                .append(' ')
+                .append(props.getString("encounter.removedIssue.Msg"))
+                .append(":\n")
+                .append(issueNames)
+                .toString();
+    }
 
     static {
         SimpleModule module = new SimpleModule();
@@ -307,7 +327,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String forceNote = request.getParameter("forceNote");
         if (forceNote == null) forceNote = "false";
 
-        logger.debug("NoteId {}", LogSanitizer.sanitize(nId));
+        logger.debug("NoteId {}", LogSafe.sanitize(nId));
 
         String maxTmpSave = CarlosProperties.getInstance().getProperty("maxTmpSave", "off");
         logger.debug("maxTmpSave " + maxTmpSave);
@@ -384,12 +404,14 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             }
 
             note.setNote(tmpsavenote.getNote());
-            logger.debug("Setting note to " + note.getNote());
+            logger.debug("Restored temp note id={} noteLength={}",
+                    LogSafe.sanitize(String.valueOf(note.getId())),
+                    note.getNote() == null ? 0 : note.getNote().length());
 
         }
         // get an existing non-temp note?
         else if (nId != null && !"null".equalsIgnoreCase(nId) && Integer.parseInt(nId) > 0) {
-            logger.debug("Using nId {} to fetch note", LogSanitizer.sanitize(nId));
+            logger.debug("Using nId {} to fetch note", LogSafe.sanitize(nId));
             // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- value is hardcoded literal "false", not user input
             session.setAttribute("newNote", "false");
             note = caseManagementMgr.getNote(nId);
@@ -422,8 +444,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         /*
          * do the restore if(restore != null && restore.booleanValue() == true) { String tmpsavenote = this.caseManagementMgr.restoreTmpSave(providerNo,demono,programId); if(tmpsavenote != null) { note.setNote(tmpsavenote); } }
          */
-        logger.debug("Set Encounter Type: {}", LogSanitizer.sanitize(note.getEncounter_type()));
-        logger.debug("Fetched Note {}", LogSanitizer.sanitize(String.valueOf(note.getId())));
+        logger.debug("Set Encounter Type: {}", LogSafe.sanitize(note.getEncounter_type()));
+        logger.debug("Fetched Note {}", LogSafe.sanitize(String.valueOf(note.getId())));
 
         logger.debug("Populate Note with editors");
         this.caseManagementMgr.getEditors(note);
@@ -433,7 +455,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         // put the new/retrieved not in the form object for rendering on page
         cform.setCaseNote(note);
-        logger.debug("note in cform " + cform.getCaseNote_note());
+        logger.debug("Loaded note into form id={} noteLength={}",
+                LogSafe.sanitize(String.valueOf(note.getId())),
+                cform.getCaseNote_note() == null ? 0 : cform.getCaseNote_note().length());
         /* set issue checked list */
 
         // get issues for current demographic, based on providers rights
@@ -499,7 +523,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         session.setAttribute("casemgmtNoteLock" + demono, casemgmtNoteLock); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
 
         String frmName = "caseManagementEntryForm" + demono;
-        logger.debug("note in cform " + cform.getCaseNote_note());
+        logger.debug("Stored note form id={} noteLength={}",
+                LogSafe.sanitize(String.valueOf(note.getId())),
+                cform.getCaseNote_note() == null ? 0 : cform.getCaseNote_note().length());
         mySessionMap.put(frmName, cform);
 
         String fwd, finalFwd = null;
@@ -739,7 +765,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         casemgmtNoteLock.setIpAddress(request.getRemoteAddr());
         String currentSessionId = request.getSession().getId();
         casemgmtNoteLock.setSessionId(currentSessionId);
-        logger.debug("UPDATING LOCK DEMO {} LOCK IP {}", LogSanitizer.sanitize(demoNo), LogSanitizer.sanitize(casemgmtNoteLock.getIpAddress()));
+        logger.debug("UPDATING LOCK DEMO {} LOCK IP {}", LogSafe.sanitize(demoNo), LogSafe.sanitize(casemgmtNoteLock.getIpAddress()));
         casemgmtNoteLockDao.merge(casemgmtNoteLock);
 
         session.setAttribute("casemgmtNoteLock" + demoNo, casemgmtNoteLock); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
@@ -777,7 +803,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String archived = request.getParameter("archived");
 
         if (!hasNoteLock(demographicNo)) {
-            logger.debug("issueNoteSaveJson rejected: no valid lock for demographic {}", LogSanitizer.sanitize(demographicNo));
+            logger.debug("issueNoteSaveJson rejected: no valid lock for demographic {}", LogSafe.sanitize(demographicNo));
             return null;
         }
 
@@ -841,14 +867,13 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             note.setSigning_provider_no(providerNo);
             note.setSigned(true);
             if (request.getParameter("appendSignText") != null && request.getParameter("appendSignText").equalsIgnoreCase("true")) {
-                SimpleDateFormat dt = new SimpleDateFormat("dd-MMM-yyyy H:mm", Locale.ENGLISH);
                 Date now = new Date();
                 ResourceBundle props = ResourceBundle.getBundle("oscarResources", Locale.ENGLISH);
 
                 ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
                 String providerName = providerDao.getProviderName(providerNo);
 
-                String signature = "[" + props.getString("encounter.class.EctSaveEncounterAction.msgSigned") + " " + dt.format(now) + " " + props.getString("encounter.class.EctSaveEncounterAction.msgSigBy") + " " + providerName + "]";
+                String signature = "[" + props.getString("encounter.class.EctSaveEncounterAction.msgSigned") + " " + CachedDateFormats.format(now, DD_MMM_YYYY_HMM_PATTERN, Locale.ENGLISH) + " " + props.getString("encounter.class.EctSaveEncounterAction.msgSigBy") + " " + providerName + "]";
                 note.setNote(note.getNote() + "\n" + signature);
             }
 
@@ -862,7 +887,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                         appointmentDao.merge(appointment);
                     }
                 } catch (Exception e) {
-                    logger.error("Couldn't parse appointmentNo: {}", LogSanitizer.sanitize(appointmentNo), e);
+                    logger.error("Couldn't parse appointmentNo: {}", LogSafe.sanitize(appointmentNo), e);
                 }
             }
         } else if (!note.isSigned() && (archived == null || !archived.equalsIgnoreCase("true"))) {
@@ -954,7 +979,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
 
         String noteId = request.getParameter("noteId");
-        logger.debug("SAVING NOTE {}", LogSanitizer.sanitize(noteId));
+        logger.debug("SAVING NOTE {}", LogSafe.sanitize(noteId));
         String issueChange = request.getParameter("issueChange");
         String archived = request.getParameter("archived");
 
@@ -1019,7 +1044,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             logAction = LogConst.ARCHIVE;
         }
 
-        logger.debug("Note archived {}", LogSanitizer.sanitize(String.valueOf(note.isArchived())));
+        logger.debug("Note archived {}", LogSafe.sanitize(String.valueOf(note.isArchived())));
         String programId = (String) session.getAttribute("case_program_id");
         note.setProgram_no(programId);
 
@@ -1091,7 +1116,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 issueNames.append(cIssue.getIssue().getDescription() + "\n");
             }
 
-            strNote += "\n" + new SimpleDateFormat("dd-MMM-yyyy", request.getLocale()).format(new Date()) + " " + props.getString("encounter.removedIssue.Msg") + ":\n" + issueNames.toString();
+            strNote = appendRemovedIssueMessage(strNote, request.getLocale(), props, issueNames);
             note.setNote(strNote);
             removed = true;
         } else {
@@ -1116,7 +1141,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
             // if we have removed an issue add it to message body
             if (issueNames.length() > 0) {
-                strNote += "\n" + new SimpleDateFormat("dd-MMM-yyyy", request.getLocale()).format(new Date()) + " " + props.getString("encounter.removedIssue.Msg") + ":\n" + issueNames.toString();
+                strNote = appendRemovedIssueMessage(strNote, request.getLocale(), props, issueNames);
                 note.setNote(strNote);
             }
 
@@ -1479,8 +1504,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String observationDate = this.getObservation_date();
         ResourceBundle props = ResourceBundle.getBundle("oscarResources", request.getLocale());
         if (observationDate != null && !observationDate.equals("")) {
-            SimpleDateFormat formatter = new SimpleDateFormat("dd-MMM-yyyy H:mm", Locale.ENGLISH);
-            Date dateObserve = formatter.parse(observationDate);
+            Date dateObserve = CachedDateFormats.parse(observationDate, DD_MMM_YYYY_HMM_PATTERN, Locale.ENGLISH);
             if (dateObserve.getTime() > now.getTime()) {
                 request.setAttribute("DateError", props.getString("encounter.futureDate.Msg"));
                 note.setObservation_date(now);
@@ -1703,7 +1727,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         noteTxt = StringUtils.trimToNull(noteTxt);
         if (noteTxt == null || noteTxt.equals("")) return null;
 
-        logger.debug("Saving Note {}", LogSanitizer.sanitize(request.getParameter("nId")));
+        logger.debug("Saving Note {}", LogSafe.sanitize(request.getParameter("nId")));
         logger.debug("Note text received");
         String demo = getDemographicNo(request);
 
@@ -1735,8 +1759,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String observationDate = request.getParameter("obsDate");
         ResourceBundle props = ResourceBundle.getBundle("oscarResources");
         if (observationDate != null && !observationDate.equals("")) {
-            SimpleDateFormat formatter = new SimpleDateFormat("dd-MMM-yyyy H:mm", request.getLocale());
-            Date dateObserve = formatter.parse(observationDate);
+            Date dateObserve = CachedDateFormats.parse(observationDate, DD_MMM_YYYY_HMM_PATTERN, request.getLocale());
             if (dateObserve.getTime() > now.getTime()) {
                 request.setAttribute("DateError", props.getString("encounter.futureDate.Msg"));
                 note.setObservation_date(now);
@@ -2040,7 +2063,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             if (isValidInternalRedirect(chain, request)) {
                 response.sendRedirect(chain); // nosemgrep: java.lang.security.audit.servlets.unvalidated-redirect.unvalidated-redirect-java -- gated by isValidInternalRedirect // lgtm[java/unvalidated-url-redirection]
             } else {
-                logger.warn("Attempted redirect to invalid URL: {}", LogSanitizer.sanitize(chain));
+                logger.warn("Attempted redirect to invalid URL: {}", LogSafe.sanitize(chain));
                 // Fall through to return "windowClose" without redirect
             }
         }
@@ -2557,7 +2580,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String majorParam = request.getParameter("issueCheckList[" + ind + "].issue.major");
         String resolvedParam = request.getParameter("issueCheckList[" + ind + "].issue.resolved");
 
-        logger.debug("issueChange for index {}: resolved={}", LogSanitizer.sanitize(String.valueOf(ind)), LogSanitizer.sanitize(resolvedParam));
+        logger.debug("issueChange for index {}: resolved={}", LogSafe.sanitize(String.valueOf(ind)), LogSafe.sanitize(resolvedParam));
 
         // Update the issue with the new values from the form
         if (acuteParam != null) {
@@ -2786,9 +2809,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     }
 
     public String print() throws Exception {
-        SimpleDateFormat headerFormat = new SimpleDateFormat("yyyy-MM-dd.hh.mm.ss");
         Date now = new Date();
-        String headerDate = headerFormat.format(now);
+        String headerDate = CachedDateFormats.format(now, HEADER_PATTERN);
 
         response.setContentType("application/pdf"); // octet-stream
         response.setHeader("Content-Disposition", "attachment; filename=\"Encounter-" + headerDate + ".pdf\"");
@@ -2808,16 +2830,14 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         pEndDate = request.getParameter("pEndDate");
         pType = request.getParameter("pType");
 
-        SimpleDateFormat formatter = new SimpleDateFormat("dd-MMM-yyyy");
-
         if (pStartDate != null && !pStartDate.isEmpty()) {
-            Date startDate = formatter.parse(pStartDate);
+            Date startDate = CachedDateFormats.parse(pStartDate, DD_MMM_YYYY_PATTERN);
             cStartDate = Calendar.getInstance();
             cStartDate.setTime(startDate);
         }
 
         if (pEndDate != null && !pEndDate.isEmpty()) {
-            Date endDate = formatter.parse(pEndDate);
+            Date endDate = CachedDateFormats.parse(pEndDate, DD_MMM_YYYY_PATTERN);
             cEndDate = Calendar.getInstance();
             cEndDate.setTime(endDate);
         }
@@ -2914,11 +2934,10 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     protected String convertDateFmt(String strOldDate, HttpServletRequest request) {
         String strNewDate = new String();
         if (strOldDate != null && strOldDate.length() > 0) {
-            SimpleDateFormat fmt = new SimpleDateFormat("yyyy-MM-dd", request.getLocale());
             try {
 
-                Date tempDate = fmt.parse(strOldDate);
-                strNewDate = new SimpleDateFormat("dd-MMM-yyyy", request.getLocale()).format(tempDate);
+                Date tempDate = CachedDateFormats.parse(strOldDate, YYYY_MM_DD_PATTERN, request.getLocale());
+                strNewDate = CachedDateFormats.format(tempDate, DD_MMM_YYYY_PATTERN, request.getLocale());
 
             } catch (ParseException ex) {
                 MiscUtils.getLogger().error("Error", ex);
@@ -3165,13 +3184,11 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             CaseManagementNote note = this.caseManagementNoteDao.getNote(noteId);
 
             if (note != null) {
-                SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm");
-
                 Map<String, Serializable> hashMap = new HashMap<String, Serializable>();
                 hashMap.put("noteId", note.getId().toString());
                 hashMap.put("note", note.getNote());
                 hashMap.put("revision", note.getRevision());
-                hashMap.put("obsDate", formatter.format(note.getObservation_date()));
+                hashMap.put("obsDate", CachedDateFormats.format(note.getObservation_date(), YYYY_MM_DD_HHMM_PATTERN));
                 hashMap.put("editor", this.providerMgr.getProvider(note.getProviderNo()).getFormattedName());
                 json = objectMapper.valueToTree(hashMap);
             }
@@ -3232,7 +3249,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             demono = (String) request.getAttribute("casemgmt_DemoNo");
         } else if (!demono.matches("\\d+")) {
             // Reject tainted value but fall back to request attribute to avoid crashing callers
-            logger.error("Invalid non-numeric demographicNo rejected, falling back to request attribute: {}", LogSanitizer.sanitize(demono));
+            logger.error("Invalid non-numeric demographicNo rejected, falling back to request attribute: {}", LogSafe.sanitize(demono));
             demono = (String) request.getAttribute("casemgmt_DemoNo");
         } else {
             request.setAttribute("casemgmt_DemoNo", demono);
@@ -3904,7 +3921,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 return false;
             }
         } catch (Exception e) {
-            logger.error("Error validating redirect URL: {}", LogSanitizer.sanitize(url), e);
+            logger.error("Error validating redirect URL: {}", LogSafe.sanitize(url), e);
             return false;
         }
 

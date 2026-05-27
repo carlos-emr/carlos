@@ -33,14 +33,21 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.sql.Connection;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+import javax.sql.DataSource;
+
+import org.springframework.jdbc.datasource.DataSourceUtils;
 
 /**
  * A {@link ResultSet} wrapper that ensures the parent {@link Statement} is closed
  * when {@link ResultSet#close()} is called on the result set.
  *
- * <p>{@link DBHandler} creates a {@code Statement} or {@code PreparedStatement},
+ * <p>{@link LegacyJdbcQuery} creates a {@code Statement} or {@code PreparedStatement},
  * executes it and returns only the {@link ResultSet} to the caller. Because the
  * caller has no reference to the underlying statement it can never close it, which
  * causes a resource (cursor/memory) leak on every call.
@@ -51,7 +58,7 @@ import java.sql.Statement;
  * and then closes the parent statement in a {@code finally} block, guaranteeing
  * that the statement is always released even if closing the result set throws.
  *
- * <p>Usage (inside {@link DBHandler}):
+ * <p>Usage (inside {@link LegacyJdbcQuery}):
  * <pre>
  *     ResultSet rs = stmt.executeQuery(sql);
  *     return StatementClosingResultSet.wrap(rs, stmt);
@@ -62,16 +69,29 @@ import java.sql.Statement;
  * in place.
  *
  * @since 2026-04-07
- * @see DBHandler
+ * @see LegacyJdbcQuery
  */
 final class StatementClosingResultSet implements InvocationHandler {
 
     private final ResultSet delegate;
     private final Statement statement;
+    private final Connection connection;
+    private final DataSource dataSource;
+    private final AtomicBoolean released;
 
     private StatementClosingResultSet(ResultSet delegate, Statement statement) {
+        this(delegate, statement, null, null);
+    }
+
+    private StatementClosingResultSet(ResultSet delegate, Statement statement, Connection connection, DataSource dataSource) {
+        if ((connection == null) != (dataSource == null)) {
+            throw new IllegalArgumentException("Connection and DataSource must both be null or both be non-null");
+        }
         this.delegate = delegate;
         this.statement = statement;
+        this.connection = connection;
+        this.dataSource = dataSource;
+        this.released = new AtomicBoolean(false);
     }
 
     /**
@@ -99,6 +119,26 @@ final class StatementClosingResultSet implements InvocationHandler {
         );
     }
 
+    static ResultSet wrap(ResultSet rs, Statement stmt, Connection connection, DataSource dataSource) {
+        if (rs == null) {
+            throw new IllegalArgumentException("ResultSet must not be null");
+        }
+        if (stmt == null) {
+            throw new IllegalArgumentException("Statement must not be null");
+        }
+        if (connection == null) {
+            throw new IllegalArgumentException("Connection must not be null");
+        }
+        if (dataSource == null) {
+            throw new IllegalArgumentException("DataSource must not be null");
+        }
+        return (ResultSet) Proxy.newProxyInstance(
+            rs.getClass().getClassLoader(),
+            new Class<?>[] { ResultSet.class },
+            new StatementClosingResultSet(rs, stmt, connection, dataSource)
+        );
+    }
+
     /**
      * Intercepts all {@link ResultSet} method calls.
      *
@@ -111,27 +151,7 @@ final class StatementClosingResultSet implements InvocationHandler {
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
         if ("close".equals(method.getName())) {
-            Throwable rsThrowable = null;
-            try {
-                delegate.close();
-            } catch (Throwable t) {
-                rsThrowable = t;
-            }
-            try {
-                statement.close();
-            } catch (Throwable stmtThrowable) {
-                if (rsThrowable != null) {
-                    // rs.close() already failed — attach stmt failure as suppressed
-                    rsThrowable.addSuppressed(stmtThrowable);
-                } else {
-                    // rs.close() succeeded — propagate the stmt failure
-                    throw stmtThrowable;
-                }
-            }
-            if (rsThrowable != null) {
-                throw rsThrowable;
-            }
-            return null;
+            return close(proxy);
         }
         try {
             return method.invoke(delegate, args);
@@ -139,5 +159,61 @@ final class StatementClosingResultSet implements InvocationHandler {
             // Unwrap so callers see the real SQLException, not a reflection wrapper
             throw e.getCause();
         }
+    }
+
+    private Object close(Object proxy) throws SQLException {
+        if (!released.compareAndSet(false, true)) {
+            return null;
+        }
+
+        try {
+            Exception closeFailure = closeDelegate();
+            closeStatement(closeFailure);
+            if (closeFailure != null) {
+                rethrowCloseFailure(closeFailure);
+            }
+        } finally {
+            releaseConnection(proxy);
+        }
+        return null;
+    }
+
+    private Exception closeDelegate() {
+        try {
+            delegate.close();
+            return null;
+        } catch (SQLException | RuntimeException e) {
+            return e;
+        }
+    }
+
+    private void closeStatement(Exception resultSetFailure) throws SQLException {
+        try {
+            statement.close();
+        } catch (SQLException | RuntimeException statementFailure) {
+            if (resultSetFailure == null) {
+                rethrowCloseFailure(statementFailure);
+                return;
+            }
+            resultSetFailure.addSuppressed(statementFailure);
+        }
+    }
+
+    private static void rethrowCloseFailure(Exception failure) throws SQLException {
+        if (failure instanceof SQLException sqlException) {
+            throw sqlException;
+        }
+        if (failure instanceof RuntimeException runtimeException) {
+            throw runtimeException;
+        }
+    }
+
+    private void releaseConnection(Object proxy) {
+        // connection/dataSource are null for the legacy wrap(rs, stmt) factory,
+        // where there is no Spring-managed connection to release.
+        if (connection != null && dataSource != null) {
+            DataSourceUtils.releaseConnection(connection, dataSource);
+        }
+        LegacyJdbcQuery.unregisterThreadResource((AutoCloseable) proxy);
     }
 }

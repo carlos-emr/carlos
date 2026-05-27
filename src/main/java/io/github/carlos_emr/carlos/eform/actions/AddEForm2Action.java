@@ -43,10 +43,12 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.match.IMatchManager;
 import io.github.carlos_emr.carlos.match.MatchManager;
 import io.github.carlos_emr.carlos.match.MatchManagerException;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.eform.data.EForm;
@@ -75,6 +77,7 @@ public class AddEForm2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private static final Logger logger = MiscUtils.getLogger();
+    private static final String INVALID_FILENAME_MESSAGE_KEY = "dms.error.invalidFilename";
 
     /**
      * Validates the eform_link parameter format to prevent session attribute injection (CWE-501).
@@ -98,10 +101,17 @@ public class AddEForm2Action extends ActionSupport {
      */
     static String validateEformLink(String eformLink) {
         if (eformLink != null && !EFORM_LINK_PATTERN.matcher(eformLink).matches()) {
-            logger.warn("Invalid eform_link parameter rejected: {}", LogSanitizer.sanitize(eformLink));
+            logger.warn("Invalid eform_link parameter rejected: {}", LogSafe.sanitize(eformLink));
             return null;
         }
         return eformLink;
+    }
+
+    static String validateTemplateFileName(String rawFileName) {
+        if (rawFileName == null || rawFileName.isEmpty()) {
+            return rawFileName;
+        }
+        return PathValidationUtils.validateFileName(rawFileName);
     }
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -185,6 +195,17 @@ public class AddEForm2Action extends ActionSupport {
         curForm.setContextPath(request.getContextPath());
 		curForm.setRealPath(request.getServletContext().getRealPath(File.separator));
 		curForm.setImagePath(request.getContextPath());
+        String validatedTemplateFileName;
+        try {
+            validatedTemplateFileName = validateTemplateFileName(curForm.getFormFileName());
+        } catch (FileValidationException e) {
+            request.setAttribute("errorMessage", getInvalidFilenameMessage());
+            logger.warn("Rejected invalid eForm template filename");
+            return ERROR;
+        }
+        if (validatedTemplateFileName != null && !validatedTemplateFileName.isEmpty()) {
+            curForm.setFormFileName(validatedTemplateFileName);
+        }
 
         //add eform_link value from session attribute
         ArrayList<String> openerNames = curForm.getOpenerNames();
@@ -256,7 +277,7 @@ public class AddEForm2Action extends ActionSupport {
                 if (eform_link.startsWith(expectedPrefix) && eform_link.length() <= 100) {
                     se.setAttribute(eform_link, fdid); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): fdid is Integer.parseInt-validated queue document ID; key validated by validateEformLink()
                 } else {
-                    logger.warn("Invalid eform_link rejected: {}", LogSanitizer.sanitize(eform_link)); // nosemgrep: crlf-injection-logs-deepsemgrep -- sanitized via LogSanitizer (OWASP Encode.forJava) // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                    logger.warn("Invalid eform_link rejected: {}", LogSafe.sanitize(eform_link)); // nosemgrep: crlf-injection-logs-deepsemgrep -- sanitized via LogSafe (OWASP Encode.forJava) // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 }
             }
 
@@ -353,14 +374,6 @@ public class AddEForm2Action extends ActionSupport {
                 path = path.substring(0, path.indexOf(uri));
                 path += request.getContextPath();
 
-                String rawFileName = curForm.getFormFileName();
-                if (rawFileName != null && !rawFileName.isEmpty()) {
-                    String sanitized = MiscUtils.sanitizeFileName(rawFileName);
-                    if (sanitized.isEmpty() || ".".equals(sanitized) || "..".equals(sanitized)) {
-                        throw new IllegalArgumentException("eForm filename sanitization resulted in unusable filename");
-                    }
-                    curForm.setFormFileName(sanitized);
-                }
                 EFormUtil.writeEformTemplate(LoggedInInfo.getLoggedInInfoFromSession(request), paramNames, paramValues, curForm, fdid, program_no, path);
             }
 
@@ -504,6 +517,15 @@ public class AddEForm2Action extends ActionSupport {
         String formattedDate = dateFormat.format(currentDate);
 
         return formattedDate + "_" + demographicLastName + ".pdf";
+    }
+
+    private String getInvalidFilenameMessage() {
+        try {
+            return ResourceBundle.getBundle("oscarResources", request.getLocale())
+                    .getString(INVALID_FILENAME_MESSAGE_KEY);
+        } catch (MissingResourceException e) {
+            return "Invalid filename";
+        }
     }
 
     /**

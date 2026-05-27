@@ -136,6 +136,7 @@
 
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title><fmt:message key="demographic.demographicsearch2apptresults.title"/></title>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
 

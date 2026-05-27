@@ -121,6 +121,7 @@
 <!DOCTYPE html>
 <html lang="${pageContext.request.locale.language}">
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <meta charset="UTF-8">
     <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
     <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/messenger/encounterStyles.css">

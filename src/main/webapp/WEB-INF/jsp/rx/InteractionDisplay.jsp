@@ -48,6 +48,8 @@
         import="java.util.*,io.github.carlos_emr.carlos.rx.data.*,io.github.carlos_emr.carlos.rx.pageUtil.*" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxDrugData" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     RxSessionBean bean = (RxSessionBean) session.getAttribute("RxSessionBean");
     if (bean == null) {

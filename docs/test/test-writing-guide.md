@@ -253,6 +253,32 @@ public abstract class CarlosUnitTestBase {
 }
 ```
 
+### Capturing Log Output
+
+When a test needs to assert Log4j2 output, use the shared `LogCapture` helper
+instead of defining a local `AbstractAppender` or mutating the root logger:
+
+```java
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
+
+@Test
+void shouldWarn_whenRejectingRequest() {
+    try (LogCapture capture = LogCapture.forLogger(MyAction.class)) {
+        action.execute();
+
+        assertThat(capture.events()).anySatisfy(event -> {
+            assertThat(event.getLevel()).isEqualTo(Level.WARN);
+            assertThat(event.getMessage().getFormattedMessage())
+                    .contains("Rejected request");
+        });
+    }
+}
+```
+
+`LogCapture` attaches to the exact logger under test, stores immutable log
+events, and removes only the logger configuration it created. This keeps log
+assertions stable when Surefire runs test classes in parallel.
+
 ### Domain-Specific Base Classes
 
 For complex domains (like Demographic), create a domain-specific base class:

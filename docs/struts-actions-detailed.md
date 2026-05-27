@@ -27,8 +27,6 @@ Administrative functions for system configuration, user management, and maintena
 | admin/AuditLogPurge | io.github.carlos_emr.carlos.admin.web.AuditLogPurge2Action | Purges old audit log entries from the system |
 | admin/Flowsheet | io.github.carlos_emr.carlos.flowsheet.Flowsheet2Action | Manages flowsheet templates and configurations |
 | admin/ForwardingRules | io.github.carlos_emr.carlos.oscarLab.pageUtil.ForwardingRules2Action | Configures lab result forwarding rules |
-| admin/GenerateTraceabilityReportAction | io.github.carlos_emr.carlos.admin.traceability.GenerateTraceabilityReport2Action | Generates system traceability reports for compliance |
-| admin/GenerateTraceAction | io.github.carlos_emr.carlos.admin.traceability.GenerateTrace2Action | Creates audit trails for data changes |
 | admin/GroupPreference | io.github.carlos_emr.carlos.commn.web.GroupPreference2Action | Manages user group preferences and settings |
 | admin/GstControl | io.github.carlos_emr.carlos.billings.ca.on.web.GstControl2Action | Controls GST/HST billing settings for Ontario |
 | admin/ManageBillingReferral | io.github.carlos_emr.carlos.commn.web.BillingreferralEdit2Action | Manages billing referral configurations |
@@ -331,7 +329,6 @@ Clinical forms and data import functionality.
 | form/AddRHWorkFlow | io.github.carlos_emr.carlos.form.pageUtil.FrmFormAddRHWorkFlow2Action | Adds reproductive health workflows |
 | form/BCAR2020 | io.github.carlos_emr.carlos.form.FrmBCAR20202Action | Processes BC AR 2020 forms |
 | formBPMH | io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.web.BpmhFormRetrieve2Action | Retrieves Best Possible Medication History forms |
-| formeCARES | io.github.carlos_emr.carlos.form.eCARES.EcaresForm2Action | Processes eCARES forms |
 | form/formname | io.github.carlos_emr.carlos.form.Frm2Action | Generic form processor |
 | form/forwardshortcutname | io.github.carlos_emr.carlos.form.pageUtil.FormForward2Action | Forwards form shortcuts |
 | form/importLogDownload | io.github.carlos_emr.carlos.demographic.pageUtil.ImportLogDownload2Action | Downloads import logs |

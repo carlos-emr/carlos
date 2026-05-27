@@ -79,6 +79,7 @@
                  class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConShowAllServicesUtil"/>
 
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <title><fmt:message key="encounter.oscarConsultationRequest.config.ShowAllServices.title"/></title>
     </head>

@@ -37,6 +37,7 @@
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp"%>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title><fmt:message key="oscar.billing.ca.on.billingON.title"/></title>
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -808,6 +809,12 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
            value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"checkFlag\"]}' context='htmlAttribute'/>"/>
     <input type="hidden" name="addToPatientDx"/>
     <input type="hidden" name="codeMatchToPatientDx"/>
+
+    <c:if test="${not empty formModel.display.displayMessage}">
+        <div class="smallFont">
+            <carlos:encode value='${formModel.display.displayMessage}' context='html'/>
+        </div>
+    </c:if>
 
     <table class="xmyDarkGreen"
            style="width: 100%; background-color: silver;">

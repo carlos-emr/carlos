@@ -34,7 +34,7 @@ import io.github.carlos_emr.carlos.commn.dao.BillingPaymentTypeDao;
 import io.github.carlos_emr.carlos.commn.model.BillingPaymentType;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import org.apache.struts2.ActionSupport;
@@ -104,8 +104,8 @@ public class UpdatePaymentType2Action extends ActionSupport {
             }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Failed to update payment type {} -> {}",
-                    LogSanitizer.sanitize(oldPaymentType),
-                    LogSanitizer.sanitize(paymentType), e);
+                    LogSafe.sanitize(oldPaymentType),
+                    LogSafe.sanitize(paymentType), e);
             ret.put("ret", "1");
             ret.put("reason", "Failed to update payment type; see server logs.");
         }

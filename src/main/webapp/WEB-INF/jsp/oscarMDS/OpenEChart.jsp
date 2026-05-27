@@ -33,6 +33,7 @@
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="java.net.URLEncoder" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%
     // Check if demographicNo is present and valid
     String demographicNo = request.getParameter("demographicNo");
@@ -59,6 +60,7 @@
 %>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <title>E-Chart</title>
 

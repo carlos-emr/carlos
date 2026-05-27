@@ -1533,6 +1533,7 @@ INSERT INTO `secObjectName` (`objectName`, `description`, `orgapplicable`) VALUE
 INSERT INTO `secObjectName` (`objectName`, `description`, `orgapplicable`) VALUES ('_admin.fax', 'Configure & Manage Faxes', '0');
 INSERT INTO `secObjectName` (`objectName`, `description`, `orgapplicable`) VALUES ('_admin.email', 'Configure & Manage Emails', '0');
 INSERT INTO `secObjectName` (`objectName`, `description`, `orgapplicable`) VALUES ('_admin.fax.restart', 'Show status and restart fax scheduler', '0');
+INSERT INTO `secObjectName` (`objectName`, `description`, `orgapplicable`) VALUES ('_admin.schedule.groupCreate', 'Create schedule provider groups', 0);
 
 insert into `secObjectName` (`objectName`) values ('_newCasemgmt.preventions');
 insert into `secObjectName` (`objectName`) values ('_newCasemgmt.viewTickler');
@@ -1749,6 +1750,9 @@ insert into `secObjPrivilege` values('admin','_admin.flowsheet','x',0,'999998');
 insert into `secObjPrivilege` values('admin','_admin.eformreporttool','x',0,'999998');
 insert into `secObjPrivilege` values('admin','_admin.billing','x',0,'999998');
 insert into `secObjPrivilege` values('admin','_admin.misc','x',0,'999998');
+insert into `secObjPrivilege` values('admin','_admin.schedule','x',0,'999998');
+insert into `secObjPrivilege` values('admin','_admin.schedule.groupCreate','x',0,'999998');
+insert into `secObjPrivilege` values('999998','_admin.schedule.groupCreate','o',1,'999998');
 insert into `secObjPrivilege` values('admin','_appointment','x',0,'999998');
 insert into `secObjPrivilege` values('admin','_appointment.doctorLink','x',0,'999998');
 insert into `secObjPrivilege` values('admin','_pmm.addProgram','x',0,'999998');
@@ -1802,8 +1806,6 @@ insert into `secObjPrivilege` values('admin','_newCasemgmt.apptHistory','x',0,'9
 insert into `secObjPrivilege` values('admin','_newCasemgmt.doctorName','x',0,'999998');
 
 
-insert into `secObjPrivilege` values('doctor','_admin.traceability','x',0,'999998');
-insert into `secObjPrivilege` values('admin','_admin.traceability','x',0,'999998');
 insert into `secObjPrivilege` values('admin','_appDefinition','x',0,'999998');
 insert into `secObjPrivilege` values('admin','_demographicExport','x',0,'999998');
 insert into `secObjPrivilege` values('admin','_admin.document','x',0,'999998');
@@ -2179,6 +2181,8 @@ insert into `secObjectName`
 	values
 	('_site_access_privacy', 'restrict access to only the assigned sites of a provider', 0);
 
+insert into `secObjPrivilege` values('admin','_site_access_privacy','x',0,'999998');
+
 -- create new roles for multi-office control
 insert into `secRole` 
 	(role_no, role_name, `description`)
@@ -2483,7 +2487,6 @@ INSERT INTO secObjectName VALUES('_caseload.LastEncounterType',NULL,0);
 INSERT INTO secObjectName VALUES('_caseload.CashAdmissionDate',NULL,0);
 INSERT INTO secObjectName VALUES('_caseload.Access1AdmissionDate',NULL,0);
 
-insert into `secObjectName`  (`objectName`,`description`,`orgapplicable`) values ('_admin.traceability', 'Right to generate trace and run traceability report',0);
 
 INSERT INTO secObjPrivilege VALUES('doctor','_caseload.DisplayMode','x',0,'999998');
 INSERT INTO secObjPrivilege VALUES('doctor','_caseload.Age','x',0,'999998');

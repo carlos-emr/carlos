@@ -36,6 +36,8 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.DemographicContact" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     String id = request.getParameter("id");
     StringUtils.trimToEmpty(id);

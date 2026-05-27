@@ -47,7 +47,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.eform.util.EFormPrintPDFUtil;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -78,7 +78,7 @@ public final class PrintPDF2Action extends ActionSupport {
                 props.setProperty(name, request.getParameter(name));
             }
 
-            log.info("SUBMIT {}", LogSanitizer.sanitize(request.getParameter("submit"))); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            log.info("SUBMIT {}", LogSafe.sanitize(request.getParameter("submit"))); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             //if we are graphing, we need to grab info from db and add it to request object
             if (request.getParameter("submit").equals("graph")) {
                 props = EFormPrintPDFUtil.getFrmRourkeGraph(loggedInInfo, props);

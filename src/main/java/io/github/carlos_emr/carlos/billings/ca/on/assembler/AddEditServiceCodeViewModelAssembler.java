@@ -171,7 +171,7 @@ public class AddEditServiceCodeViewModelAssembler {
         } catch (NumberFormatException nfe) {
             MiscUtils.getLogger().warn(
                     "Add/Edit service-code edit requested with invalid billingservice_no [{}]; rendering search state",
-                    io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(billingserviceNo), nfe);
+                    io.github.carlos_emr.carlos.utility.LogSafe.sanitize(billingserviceNo), nfe);
             return;
         }
         BillingService bs = billingServiceDao.find(serviceNo);

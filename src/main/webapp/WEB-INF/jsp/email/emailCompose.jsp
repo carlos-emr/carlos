@@ -11,6 +11,7 @@
 
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <fmt:message key="email.compose.title" var="emailComposeTitle"/>
     <fmt:message key="email.compose.label.sender" var="emailComposeSenderLabel"/>
     <fmt:message key="email.compose.label.patient" var="emailComposePatientLabel"/>
@@ -198,7 +199,7 @@
 
 </head>
 <body>
-<jsp:include page="/images/spinner.jsp" flush="true"/>
+<jsp:include page="/WEB-INF/jsp/includes/spinner.jspf" flush="true"/>
 <div id="bodyrow" class="container-fluid">
 
     <div id="bodycolumn" class="col-sm-12">

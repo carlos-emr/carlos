@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.lab.ca.on.CML.Upload;
 
+import java.sql.Connection;
+
 import org.apache.struts2.ActionSupport;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
@@ -37,7 +39,7 @@ import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -72,7 +74,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         }
         String key = request.getParameter("key");
         String keyToMatch = CarlosProperties.getInstance().getProperty("CML_UPLOAD_KEY");
-        MiscUtils.getLogger().debug("key=" + key);
+        _logger.debug("upload key present: {}", key != null);
         String outcome = "";
 
         //Checks to verify key is matched and file should be saved locally.
@@ -143,7 +145,9 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                         ABCDParser abc = new ABCDParser();
                         abc.parse(in);
 
-                        abc.save(DbConnectionFilter.getThreadLocalDbConnection());
+                        try (Connection connection = LegacyJdbcQuery.getConnection()) {
+                            abc.save(connection);
+                        }
                         outcome = "uploaded";
                     }
                 } else {
@@ -244,4 +248,5 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
     public void setImportFile(File importFile) {
         this.importFile = importFile;
     }
+
 }

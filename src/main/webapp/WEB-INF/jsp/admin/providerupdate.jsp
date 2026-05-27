@@ -71,7 +71,6 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ProviderSiteDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
-<%@ page import="io.github.carlos_emr.carlos.db.DBPreparedHandler" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
@@ -82,6 +81,7 @@
 %>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:message key="admin.providerupdate.title"/></title>
     </head>
@@ -218,7 +218,6 @@
 
                     if (IsPropertiesOn.isMultisitesEnable()) {
                         String[] sites = request.getParameterValues("sites");
-                        DBPreparedHandler dbObj = new DBPreparedHandler();
                         String provider_no = request.getParameter("provider_no");
                         List<ProviderSite> pss = providerSiteDao.findByProviderNo(provider_no);
                         for (ProviderSite ps : pss) {

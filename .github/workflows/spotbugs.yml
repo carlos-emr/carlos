@@ -6,8 +6,8 @@
 # Find Security Bugs adds 150+ security-specific detectors critical for
 # a healthcare application handling PHI.
 #
-# Results appear as PR annotations (GitHub Actions) and in the GitHub
-# Security tab (SARIF upload).
+# Security findings appear in the GitHub Security tab (SARIF upload).
+# Full SpotBugs quality results are retained as workflow artifacts and summaries.
 #
 # Container Images:
 # This workflow uses the same dev container as maven-project.yml to ensure
@@ -163,6 +163,7 @@ jobs:
           "
 
       - name: Build and run SpotBugs
+        id: run_spotbugs
         run: |
           docker exec carlos-tomcat-dev bash -c "
             echo '========================================='
@@ -171,47 +172,53 @@ jobs:
             export MAVEN_OPTS=\"-Xmx4g\"
             mvn -B compile spotbugs:spotbugs \
               -Pspotbugs,skip-dependency-lock \
-              -Dspotbugs.maxHeap=4096 \
+              -Dspotbugs.maxHeapMb=4096 \
               -DskipTests \
               -T 1C
           "
 
-      - name: Convert SpotBugs XML to SARIF
+      - name: Convert SpotBugs security XML to SARIF
         if: always()
         run: |
           REPORT="target/spotbugs-result.xml"
           if [ ! -f "$REPORT" ]; then
-            echo "No SpotBugs report found at $REPORT"
+            echo "::error::No SpotBugs report found at $REPORT"
+            if [ "${{ steps.run_spotbugs.outcome }}" = "success" ]; then
+              exit 1
+            fi
             exit 0
           fi
 
           python3 << 'PYEOF'
           import xml.etree.ElementTree as ET
-          import json, os, sys
+          import json, sys
 
           report_path = "target/spotbugs-result.xml"
-          sarif_path = "spotbugs-report.sarif"
+          sarif_path = "spotbugs-security-report.sarif"
+          metrics_path = "spotbugs-security-metrics.env"
 
           try:
               tree = ET.parse(report_path)
           except ET.ParseError as e:
               print(f"Failed to parse SpotBugs XML: {e}", file=sys.stderr)
-              sys.exit(0)
+              sys.exit(1)
 
           root = tree.getroot()
-          src_dirs = []
-          project = root.find("Project")
-          if project is not None:
-              for src in project.findall("SrcDir"):
-                  if src.text:
-                      src_dirs.append(src.text.strip())
-
           results = []
           rules_map = {}
+          total_findings = 0
+          skipped_non_security = 0
+          skipped_no_source = 0
 
           for bug in root.findall("BugInstance"):
+              total_findings += 1
               bug_type = bug.get("type", "unknown")
               category = bug.get("category", "")
+              category_normalized = category.strip().upper()
+              if category_normalized != "SECURITY":
+                  skipped_non_security += 1
+                  continue
+
               priority = int(bug.get("priority", "3"))
               message_elem = bug.find("LongMessage")
               short_msg_elem = bug.find("ShortMessage")
@@ -223,14 +230,13 @@ jobs:
               else:
                   message = bug_type
 
-              # Map SpotBugs priority (1=high, 2=medium, 3=low) to SARIF level
               level_map = {1: "error", 2: "warning", 3: "note"}
+              security_severity_map = {1: "8.0", 2: "5.0", 3: "2.0"}
               level = level_map.get(priority, "warning")
+              security_severity = security_severity_map.get(priority, "5.0")
 
-              # Find source location
               source_line = bug.find("SourceLine")
               if source_line is None:
-                  # Try nested in Method or Class
                   for child in bug:
                       sl = child.find("SourceLine")
                       if sl is not None and sl.get("sourcepath"):
@@ -252,15 +258,27 @@ jobs:
                       end_line = int(end)
 
               if not uri:
+                  skipped_no_source += 1
+                  print(
+                      f"Skipping SECURITY finding without source location: {bug_type}",
+                      file=sys.stderr
+                  )
                   continue
 
-              # Register rule
               if bug_type not in rules_map:
                   rules_map[bug_type] = {
                       "id": bug_type,
                       "shortDescription": {"text": bug_type},
-                      "properties": {"category": category}
+                      "properties": {
+                          "category": category_normalized,
+                          "tags": ["security"],
+                          "security-severity": security_severity
+                      }
                   }
+              else:
+                  properties = rules_map[bug_type]["properties"]
+                  if float(security_severity) > float(properties["security-severity"]):
+                      properties["security-severity"] = security_severity
 
               result = {
                   "ruleId": bug_type,
@@ -293,37 +311,70 @@ jobs:
           with open(sarif_path, "w") as f:
               json.dump(sarif, f, indent=2)
 
-          print(f"Converted {len(results)} findings to SARIF")
+          with open(metrics_path, "w") as f:
+              f.write(f"TOTAL_FINDINGS={total_findings}\n")
+              f.write(f"SECURITY_FINDINGS_UPLOADED={len(results)}\n")
+              f.write(f"SKIPPED_NON_SECURITY={skipped_non_security}\n")
+              f.write(f"SKIPPED_NO_SOURCE={skipped_no_source}\n")
+
+          print(f"Converted {len(results)} security findings to SARIF")
+          print(f"Skipped {skipped_non_security} non-security findings from {total_findings} total findings")
+          print(f"Skipped {skipped_no_source} security findings without source locations")
           PYEOF
 
-      - name: Upload SARIF to GitHub Security tab
+      - name: Upload security SARIF to GitHub Code Scanning
         uses: github/codeql-action/upload-sarif@0daab03d71ff584ef619d027a3fd9146679c5d84
-        if: always() && hashFiles('spotbugs-report.sarif') != ''
+        if: >
+          always() &&
+          hashFiles('spotbugs-security-report.sarif') != '' &&
+          (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false)
         with:
-          sarif_file: spotbugs-report.sarif
+          sarif_file: spotbugs-security-report.sarif
           category: spotbugs
+
+      - name: Upload SpotBugs quality artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always() && hashFiles('target/spotbugs-result.xml') != ''
+        with:
+          name: spotbugs-quality-xml
+          path: target/spotbugs-result.xml
+          retention-days: 14
 
       - name: Report summary
         if: always()
         run: |
           REPORT="target/spotbugs-result.xml"
+          METRICS="spotbugs-security-metrics.env"
           echo "### SpotBugs + Find Security Bugs Results" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           if [ -f "$REPORT" ]; then
-            TOTAL=$(grep -c '<BugInstance' "$REPORT" 2>/dev/null || echo "0")
-            HIGH=$(grep -c 'priority="1"' "$REPORT" 2>/dev/null || echo "0")
-            MEDIUM=$(grep -c 'priority="2"' "$REPORT" 2>/dev/null || echo "0")
-            LOW=$(grep -c 'priority="3"' "$REPORT" 2>/dev/null || echo "0")
-            SECURITY=$(grep -c 'category="SECURITY"' "$REPORT" 2>/dev/null || echo "0")
+            TOTAL=$(grep -c '<BugInstance' "$REPORT" 2>/dev/null || true)
+            HIGH=$(grep -c 'priority="1"' "$REPORT" 2>/dev/null || true)
+            MEDIUM=$(grep -c 'priority="2"' "$REPORT" 2>/dev/null || true)
+            LOW=$(grep -c 'priority="3"' "$REPORT" 2>/dev/null || true)
+            SECURITY=$(grep -ci 'category="security"' "$REPORT" 2>/dev/null || true)
             echo "| Severity | Count |" >> "$GITHUB_STEP_SUMMARY"
             echo "|----------|-------|" >> "$GITHUB_STEP_SUMMARY"
-            echo "| High | $HIGH |" >> "$GITHUB_STEP_SUMMARY"
-            echo "| Medium | $MEDIUM |" >> "$GITHUB_STEP_SUMMARY"
-            echo "| Low | $LOW |" >> "$GITHUB_STEP_SUMMARY"
-            echo "| **Security** | **$SECURITY** |" >> "$GITHUB_STEP_SUMMARY"
-            echo "| **Total** | **$TOTAL** |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| High | ${HIGH:-0} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| Medium | ${MEDIUM:-0} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| Low | ${LOW:-0} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Security** | **${SECURITY:-0}** |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Total** | **${TOTAL:-0}** |" >> "$GITHUB_STEP_SUMMARY"
+            if [ -f "$METRICS" ]; then
+              . "$METRICS"
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+              echo "| Code Scanning upload | Count |" >> "$GITHUB_STEP_SUMMARY"
+              echo "|----------------------|-------|" >> "$GITHUB_STEP_SUMMARY"
+              echo "| Security findings selected for upload | ${SECURITY_FINDINGS_UPLOADED:-0} |" >> "$GITHUB_STEP_SUMMARY"
+              echo "| Security findings skipped without source | ${SKIPPED_NO_SOURCE:-0} |" >> "$GITHUB_STEP_SUMMARY"
+              if [ "${SKIPPED_NO_SOURCE:-0}" != "0" ]; then
+                echo "::warning::Skipped ${SKIPPED_NO_SOURCE} SpotBugs SECURITY finding(s) without usable source locations"
+                echo "" >> "$GITHUB_STEP_SUMMARY"
+                echo "**Warning:** ${SKIPPED_NO_SOURCE} security finding(s) lacked usable source locations and were not uploaded to Code Scanning." >> "$GITHUB_STEP_SUMMARY"
+              fi
+            fi
             echo "" >> "$GITHUB_STEP_SUMMARY"
-            echo "See the **Security** tab for details." >> "$GITHUB_STEP_SUMMARY"
+            echo "Only security findings are uploaded to Code Scanning; full SpotBugs results are retained as workflow artifacts." >> "$GITHUB_STEP_SUMMARY"
           else
             echo "No SpotBugs report generated." >> "$GITHUB_STEP_SUMMARY"
           fi

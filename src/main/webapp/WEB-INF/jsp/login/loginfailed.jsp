@@ -28,24 +28,26 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
-    String errormsg = request.getParameter("errormsg");
+    // In-action security failures pass a request attribute; legacy redirects still pass errormsg
+    // as a query parameter. Prefer the attribute so direct request state is not dropped.
+    Object errormsgAttr = request.getAttribute("errormsg");
+    String errormsg = errormsgAttr instanceof String
+            ? (String) errormsgAttr
+            : request.getParameter("errormsg");
+    request.setAttribute("errormsg", errormsg);
 %>
 
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <title>Login Failure</title>
     </head>
     <body>
-    <!--h2>OSCAR has encountered the following fatal error:</h2>
-      <hr-->
-    <p><carlos:encode value='<%= errormsg %>' context="html"/>
+    <p><carlos:encode value="${errormsg}" context="html"/>
     <p>Please correct and try again.
     </body>
 </html>

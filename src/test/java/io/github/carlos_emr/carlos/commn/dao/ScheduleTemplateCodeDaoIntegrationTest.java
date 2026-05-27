@@ -146,5 +146,13 @@ public class ScheduleTemplateCodeDaoIntegrationTest extends CarlosTestBase {
             assertThat(result).isNotNull();
             assertThat(result.getId()).isEqualTo(expected.getId());
         }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return null when string code is null or empty")
+        void shouldReturnNull_whenStringCodeIsNullOrEmpty() {
+            assertThat(dao.findByCode(null)).isNull();
+            assertThat(dao.findByCode("")).isNull();
+        }
     }
 }

@@ -26,7 +26,7 @@
     Contains action mappings for document management, medical data system (MDS), and hospital report management.
 -->
 <struts>
-    <package name="document" namespace="/" extends="struts-default">
+    <package name="document" namespace="/" extends="struts-default" strict-method-invocation="true">
 
         <global-results>
             <result name="securityError">/WEB-INF/jsp/error/securityError.jsp</result>
@@ -182,9 +182,7 @@
         </action>
         <action name="hospitalReportManager/HRMDownloadFile" class="io.github.carlos_emr.carlos.hospitalReportManager.HRMDownloadFile2Action"/>
         <action name="hospitalReportManager/hrm" class="io.github.carlos_emr.carlos.hospitalReportManager.v2018.HRM2Action"/>
-        <action name="hospitalReportManager/PrintHRMReport" class="io.github.carlos_emr.carlos.hospitalReportManager.PrintHRMReport2Action">
-            <result name="error">/WEB-INF/jsp/hospitalReportManager/displayHRMReport.jsp</result>
-        </action>
+        <action name="hospitalReportManager/PrintHRMReport" class="io.github.carlos_emr.carlos.hospitalReportManager.PrintHRMReport2Action"/>
         <action name="hospitalReportManager/ViewDocList" class="io.github.carlos_emr.carlos.hospitalReportManager.gate.ViewHRMDocList2Action">
             <result name="success">/WEB-INF/jsp/hospitalReportManager/displayHRMDocList.jsp</result>
         </action>

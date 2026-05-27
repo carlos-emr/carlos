@@ -72,6 +72,7 @@
 <html>
 
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title>Group Note - Select Clients</title>
 </head>
 <body>

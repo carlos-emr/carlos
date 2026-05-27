@@ -78,9 +78,40 @@ gh pr create                 # GitHub pull request creation
 - PHI (Patient Health Information) must NEVER be logged or exposed
 - **Use `PathValidationUtils` for ALL file path operations** (see below)
 
+### Documentation-Only Changes
+
+When asked for a documentation-only pass, change only comments, Javadocs, Markdown, or other
+non-executable documentation text. Do not hide behavior changes in comment sweeps: no route
+mappings, constants, selectors, assertions, imports, SQL, config values, or executable statements.
+Inline comments are expected when they help a future maintainer understand intent, context, or
+risk. Senior-maintainer comments should explain security boundaries, legacy constraints,
+invariants, and why a surprising pattern exists; avoid line-by-line narration that restates the
+code.
+
+For login/password-reset work, keep documentation aligned with these invariants:
+- Server-side validation is authoritative; browser password policy checks are only user feedback.
+- Forced-reset credential material stays out of the HTTP session and is referenced by an opaque,
+  short-lived cache token.
+- Retryable reset validation errors may keep the token live; terminal password changes consume it.
+- `scripts/login-playwright-checks.js` is the reference browser/direct-POST regression check for
+  login, failed login, forced reset, CSRF rejection, and provider schedule rendering. It requires
+  exactly these environment variables: `TEST_PASSWORD`, `TEST_PIN`, `MYSQL_PASSWORD`, and
+  `TEST_PASSWORD_HASH`. The script uses them to seed a known-good dev password before mutating the
+  test user's security row. Run it with
+  `npm run test:login-playwright` against a disposable local/dev database; it is a manual reference
+  check unless the active CI job has already started Tomcat and the dev database.
+  Devcontainer-only defaults are `TEST_USER=carlosdoc`, `TEST_PASSWORD=carlos2026`, and
+  `TEST_PIN=2026`; these are not production defaults. Use the dev database password from
+  `.devcontainer/development/config/shared/local.env` and the seeded `carlosdoc` hash from
+  `database/mysql/oscardata.sql` for `TEST_PASSWORD_HASH`.
+
 **What counts as PHI vs. internal identifiers:**
 - **PHI** (treat as sensitive): HIN/health card number, patient name, DOB, address, phone, diagnosis text, clinical notes, lab values, medication details — anything that identifies a real person or their care.
-- **NOT PHI** (safe in logs and operator-facing error context): `demographic_no` / `demoNo`, appointment IDs, billing IDs, provider numbers, internal surrogate keys. These are internal indexes scoped to this CARLOS instance — they do not identify a person outside the system and have no meaning without DB access (which is already gated by `SecurityInfoManager`). Including them in error context, exception payloads, and log messages is encouraged because they make incidents debuggable.
+- **PHI-correlating operational identifiers**: `demographic_no` / `demoNo`, appointment IDs, billing IDs, provider numbers, claim/WCB IDs, and internal surrogate keys. These are not clinical text, but they can join directly back to patient or billing records inside CARLOS. Log them only when necessary for operations, sanitize them with `LogSafe`, avoid pairing them with clinical context, and never place them in browser-visible exception messages unless the endpoint explicitly requires that identifier for an authorized user workflow.
+
+### Response-Rewriting Filter Safety
+
+Response-rewriting filters are security controls and UI-critical infrastructure. Recent fixes showed that broad buffering, stale `Content-Length` replay, and blanket wrapper changes can silently break login pages, static assets, and first-render post-login screens. Keep fixes targeted by route/status/content type, preserve binary/static passthrough, and add regression coverage before changing buffer limits, dispatcher mappings, `Content-Length` handling, or writer/output-stream fallback behavior. After touching `ResponseSanitizationFilter`, `CsrfGuardScriptInjectionFilter`, `LogoutBroadcastFilter`, or `LoginFilter`, run the focused unit tests and the Playwright login/reset script against Tomcat.
 
 ### OWASP Encoding — XSS Prevention
 
@@ -253,8 +284,11 @@ the top of that file:
   on truly unsupported methods like DELETE/PUT.
 
 **When a new slice is migrated**, extend `IN_SCOPE_PACKAGE_PREFIXES` with
-the slice's package prefix in the same PR that gates the first mutator
-JSP behind a 2Action.
+the slice's package prefix only after the existing guarded actions in that
+slice have been audited and classified in the contract manifest. For a
+legacy-heavy slice where one mutator is migrated first, add that specific
+class to `IN_SCOPE_EXPLICIT_CLASSES` and file/track the broader slice-audit
+work instead of sweeping unreviewed legacy actions into the manifest.
 
 ### Struts 7.1.1 Notes
 
@@ -413,49 +447,10 @@ entityManager.flush();
 hibernateTemplate.flush();
 ```
 
-**2. HBM Property Names Are Case-Sensitive**
-HQL must use the exact `name` attribute from HBM XML mappings. Some entities use PascalCase (e.g., `Provider.hbm.xml`: `LastName`, `FirstName`, `Status`) while others use camelCase (e.g., `SecProvider.hbm.xml`: `lastName`, `firstName`, `status`). Always check the HBM file before writing HQL.
-
-**3. H2 Reserved Words in HBM Mappings**
-Column names that are SQL reserved words (e.g., `value`, `key`, `order`) must use backtick quoting in HBM XML. Hibernate translates backticks to database-appropriate quoting (double-quotes for H2, backticks for MySQL).
-```xml
-<!-- WRONG - breaks in H2: -->
-<property column="value" name="value" />
-
-<!-- CORRECT - works in both H2 and MySQL: -->
-<property column="`value`" name="value" />
-```
-
-**4. FK Constraints from HBM `<one-to-many>` Mappings**
-When `hbm2ddl.auto=create` runs, `<set>` mappings with `<one-to-many>` generate FK constraints. Tests must create parent records before inserting child records. Check HBM files for relationships:
-```xml
-<!-- This in casemgmt_note.hbm.xml creates FK on casemgmt_note_ext.note_id: -->
-<set name="extend" table="casemgmt_note_ext">
-    <key column="note_id"/>
-    <one-to-many class="CaseManagementNoteExt"/>
-</set>
-```
-Test fix: Create parent records in `@BeforeEach` and use their generated IDs.
-
-**5. VARCHAR Length Constraints**
-Check HBM mappings for column length limits. For example, `provider_no` is `VARCHAR(6)` in `SecProvider.hbm.xml`. Test data (like `uniquePrefix + suffix`) must fit within these limits.
-
-**6. Dual Entity Mappings to Same Table**
-`Provider.hbm.xml` and `SecProvider.hbm.xml` both map to the `provider` table. When creating test data for one entity, you must satisfy NOT NULL constraints from BOTH mappings. For example, `specialty` is required by `Provider.hbm.xml` even when testing through `SecProvider`:
-```java
-secProvider.setSpecialty("");  // NOT NULL in Provider.hbm.xml
-```
-
-**7. H2/MySQL BOOLEAN Incompatibility**
+**2. H2/MySQL BOOLEAN Incompatibility**
 H2 uses actual `BOOLEAN` type while MySQL uses `TINYINT(1)`. HQL comparisons like `locked<>'1'` work in MySQL (comparing TINYINT with string) but fail in H2. Fix production HQL to use proper boolean comparisons: `cmn.locked = false` instead of `cmn.locked != '1'`. This is both more correct and cross-database compatible.
 
-**8. Formula Columns Require Reference Tables**
-HBM `<property formula="...">` subselects execute even when not directly queried. If a formula references a table (e.g., `secRole`, `program`), that table must exist in the test database. Add `CREATE TABLE IF NOT EXISTS` statements to `test-lookup-tables.sql`.
-
-**9. `hbm2ddl` Execution Order**
-`EntityManagerFactory` with `hbm2ddl.auto=create` DROPS and recreates all managed entity tables. This runs AFTER `databaseInitializer` SQL scripts. So tables created by `test-lookup-tables.sql` for HBM-managed entities will be dropped and recreated by hbm2ddl. Use `CREATE TABLE IF NOT EXISTS` in SQL scripts as a safety net, but understand that hbm2ddl is the authoritative schema source for mapped entities.
-
-**10. HQL LIKE Queries Need Explicit Wildcards**
+**3. HQL LIKE Queries Need Explicit Wildcards**
 DAO methods using HQL `LIKE` do not auto-add `%` wildcards. Tests must include them:
 ```java
 // WRONG - will only match exact string:
@@ -466,7 +461,7 @@ dao.searchNotes("111", "%diabetes%");
 ```
 Note: This is standard SQL behavior, NOT a production bug. Callers provide wildcards from the UI layer.
 
-**11. DAO Methods May Override Test Data**
+**4. DAO Methods May Override Test Data**
 Some DAO `save*()` methods override fields like `update_date` with `new Date()`. When testing date-based queries, re-set the date after saving:
 ```java
 caseManagementIssueDAO.saveIssue(cmi);  // Overwrites update_date with now()
@@ -475,7 +470,7 @@ hibernateTemplate.flush();               // Persist the corrected date
 ```
 Always check the DAO implementation before assuming test data is persisted as-is.
 
-**12. SpringUtils Identity Across Multiple Contexts**
+**5. SpringUtils Identity Across Multiple Contexts**
 When running the full test suite, classes with `@TestPropertySource` create separate Spring contexts. `SpringUtils.getBean()` may return instances from a different context than `@Autowired` injection. Do NOT assert instance identity (`isSameAs`/`isEqualTo`). Instead assert type:
 ```java
 // WRONG - fails across multiple Spring contexts:
@@ -485,7 +480,7 @@ assertThat(springUtilsDao).isSameAs(autowiredDao);
 assertThat(springUtilsDao).isInstanceOf(autowiredDao.getClass());
 ```
 
-**13. Read DAO Method Semantics Carefully**
+**6. Read DAO Method Semantics Carefully**
 DAO method names can be misleading. For example, `getProviders(boolean active)` returns providers filtered by that status — `getProviders(false)` returns INACTIVE providers, not ALL providers. Always read the DAO implementation before writing test assertions.
 
 ## Code Quality Standards
@@ -1241,6 +1236,11 @@ docs/test/test-writing-guide.md                       # Test writing patterns an
    - Register SpringUtils mocks FIRST, THEN create static mocks
    - Close static mocks in @AfterEach to prevent test pollution
    - Use @Nested classes with JavaDoc to organize large test suites
+8. **For Log4j2 assertions**: use `io.github.carlos_emr.carlos.test.logging.LogCapture`
+   from `src/test/java/io/github/carlos_emr/carlos/test/logging/LogCapture.java`.
+   Do not define local `AbstractAppender`, `CapturingAppender`, or per-test
+   logger-config copies. `LogCapture` scopes capture to the exact logger under
+   test, stores immutable events, and cleans up safely for parallel Surefire.
 
 Example of proper test development workflow:
 ```java

@@ -21,8 +21,11 @@
  */
 package io.github.carlos_emr.carlos.app.contract;
 
+import io.github.carlos_emr.carlos.admin.web.SecurityDelete2Action;
+import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.security.CarlosMethodSecurity;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -37,6 +40,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -89,10 +93,11 @@ import static org.mockito.Mockito.when;
  * </ol>
  *
  * <p><b>Adding a new mutator 2Action.</b> The {@link #discoveryCandidatesMustBeRegistered()}
- * test scans {@code src/main/java} for any {@code *2Action.java} containing
- * both {@code SC_METHOD_NOT_ALLOWED} and an {@code equalsIgnoreCase("POST")}
- * check and fails the build if the class is not listed here. New mutators
- * must be registered in one of:
+ * test scans {@code src/main/java} for any {@code *2Action.java} in an audited
+ * slice, or explicitly registered legacy class, containing both
+ * {@code SC_METHOD_NOT_ALLOWED} and an {@code equalsIgnoreCase("POST")} check
+ * and fails the build if the class is not listed here. New mutators must be
+ * registered in one of:
  *
  * <ul>
  *   <li>{@link #unconditionalMutators()} — actions that reject GET on every
@@ -144,6 +149,21 @@ class MutatorActionGetRejectionContractTest {
                     "_appointment", "d"),
             Arguments.of("io.github.carlos_emr.carlos.appointment.pageUtil.AppointmentUpdateRecord2Action",
                     "_appointment", "w"),
+            // --- billing ---
+            Arguments.of("io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSaveBilling2Action",
+                    "_billing", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingUpdateBilling2Action",
+                    "_billing", "w"),
+            // --- admin ---
+            Arguments.of("io.github.carlos_emr.carlos.admin.web.ClinicNbrManage2Action",
+                    "_admin", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.admin.web.SecurityDelete2Action",
+                    "_admin", "w"),
+            // --- clinical measurements / flowsheets ---
+            Arguments.of("io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action",
+                    "_measurement", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.commn.web.FlowSheetCustom2Action",
+                    "_flowsheet", "w"),
             // --- report ---
             Arguments.of("io.github.carlos_emr.carlos.report.pageUtil.DbManageProvider2Action",
                     "_admin.reporting", "w"),
@@ -193,8 +213,20 @@ class MutatorActionGetRejectionContractTest {
         "io.github.carlos_emr.carlos.decision.gate.ViewDecision2Action",
         // HRM: rejects GET when statement param is present.
         "io.github.carlos_emr.carlos.hospitalReportManager.HRMStatementModify2Action",
+        // Login gate: GET renders the selector, but selectedFacilityId is mutation intent.
+        "io.github.carlos_emr.carlos.login.gate.SelectFacility2Action",
+        // Ontario billing: dual-purpose pages reject GET only when mutation-intent params exist.
+        "io.github.carlos_emr.carlos.billings.ca.on.web.BatchBill2Action",
+        "io.github.carlos_emr.carlos.billings.ca.on.web.BillingDocumentErrorReportUpload2Action",
+        "io.github.carlos_emr.carlos.billings.ca.on.web.MoveMohFiles2Action",
+        // BC Teleplan: default page view permits GET; method dispatches are POST-only.
+        "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ManageTeleplan2Action",
         // Messenger admin: rejects GET on form-save method invocations.
         "io.github.carlos_emr.carlos.messenger.config.pageUtil.MsgMessengerAdmin2Action",
+        // Provider document descriptions: read methods permit GET; write methods are POST-only.
+        "io.github.carlos_emr.carlos.provider.web.DocumentDescriptionTemplate2Action",
+        // Admin API clients: list methods permit GET; add/delete are POST-only.
+        "io.github.carlos_emr.carlos.admin.web.ClientManage2Action",
         // Schedule: all below reject GET on Save/Delete/mutation-intent params.
         "io.github.carlos_emr.carlos.schedule.web.ScheduleCreateDate2Action",
         "io.github.carlos_emr.carlos.schedule.web.ScheduleEditTemplate2Action",
@@ -226,16 +258,19 @@ class MutatorActionGetRejectionContractTest {
     );
 
     /**
-     * Package prefixes for the slices currently in scope for this aggregated
-     * contract test, per the acceptance criteria of the originating issue.
+     * Package prefixes for fully audited slices currently in scope for this
+     * aggregated contract test, per the acceptance criteria of the originating
+     * issue.
      *
-     * <p>Classes outside these prefixes are filtered out by the discovery
-     * scan — they are not (yet) covered by this contract. When a new slice
-     * migration lands, add its package prefix here and register each of its
-     * new {@code *2Action} classes in the appropriate list above.
+     * <p>Classes outside these prefixes are filtered out by the discovery scan
+     * unless they are listed in {@link #IN_SCOPE_EXPLICIT_CLASSES}. When a new
+     * slice migration lands, add its package prefix here only after the slice's
+     * existing guarded actions have been audited and classified. For legacy-heavy
+     * slices with a single migrated mutator, add the specific class to
+     * {@link #IN_SCOPE_EXPLICIT_CLASSES} instead.
      *
-     * <p>Candidate classes elsewhere in the codebase (admin, billing,
-     * billings, dxresearch, prescript, prevention, providers, lab, etc.)
+     * <p>Candidate classes elsewhere in the codebase (admin, billings,
+     * dxresearch, prescript, prevention, providers, lab, etc.)
      * typically have their own per-class unit tests for the POST-only
      * contract; they are expected to be folded into this aggregated test in
      * follow-up waves.
@@ -253,6 +288,30 @@ class MutatorActionGetRejectionContractTest {
         "io.github.carlos_emr.carlos.waitinglist."
     );
 
+    /**
+     * Individual migrated actions from legacy-heavy slices that are covered by
+     * this contract before the entire slice is ready to move under
+     * {@link #IN_SCOPE_PACKAGE_PREFIXES}. Keep this list short and deliberate:
+     * adding a class here means it is registered in one of the contract
+     * manifests above and participates in discovery drift checks.
+     */
+    private static final Set<String> IN_SCOPE_EXPLICIT_CLASSES = Set.of(
+        "io.github.carlos_emr.carlos.admin.web.ClientManage2Action",
+        "io.github.carlos_emr.carlos.admin.web.ClinicNbrManage2Action",
+        "io.github.carlos_emr.carlos.admin.web.SecurityDelete2Action",
+        "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSaveBilling2Action",
+        "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingUpdateBilling2Action",
+        "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ManageTeleplan2Action",
+        "io.github.carlos_emr.carlos.billings.ca.on.web.BatchBill2Action",
+        "io.github.carlos_emr.carlos.billings.ca.on.web.BillingDocumentErrorReportUpload2Action",
+        "io.github.carlos_emr.carlos.billings.ca.on.web.MoveMohFiles2Action",
+        "io.github.carlos_emr.carlos.billings.ca.on.web.ScheduleOfBenefitsUpload2Action",
+        "io.github.carlos_emr.carlos.commn.web.FlowSheetCustom2Action",
+        "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action",
+        "io.github.carlos_emr.carlos.login.gate.SelectFacility2Action",
+        "io.github.carlos_emr.carlos.provider.web.DocumentDescriptionTemplate2Action"
+    );
+
     @ParameterizedTest(name = "{0} rejects GET and HEAD without side-effects")
     @MethodSource("unconditionalMutators")
     @DisplayName("should reject GET/HEAD with 405 (or SecurityException) and fire no mutation dependency")
@@ -266,8 +325,27 @@ class MutatorActionGetRejectionContractTest {
         assertRejectsUnsafeMethod(className, privilegeObject, privilegeLevel, "HEAD");
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"add", "delete"})
+    @DisplayName("ClientManage2Action should reject GET for mutation dispatches")
+    void shouldRejectGet_forClientManageMutationDispatch(String method) throws Exception {
+        assertRejectsUnsafeMethod(
+                "io.github.carlos_emr.carlos.admin.web.ClientManage2Action",
+                "_admin",
+                "w",
+                "GET",
+                Map.of("method", method));
+    }
+
     private static void assertRejectsUnsafeMethod(
             String className, String privilegeObject, String privilegeLevel, String httpMethod)
+            throws Exception {
+        assertRejectsUnsafeMethod(className, privilegeObject, privilegeLevel, httpMethod, Collections.emptyMap());
+    }
+
+    private static void assertRejectsUnsafeMethod(
+            String className, String privilegeObject, String privilegeLevel, String httpMethod,
+            Map<String, String> requestParams)
             throws Exception {
 
         Class<?> actionClass = Class.forName(className);
@@ -291,9 +369,13 @@ class MutatorActionGetRejectionContractTest {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setMethod(httpMethod);
         request.setContextPath("/carlos");
+        requestParams.forEach(request::addParameter);
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         Map<Class<?>, Object> autoMocks = new HashMap<>();
+        CarlosMethodSecurity methodSecurity = mock(CarlosMethodSecurity.class);
+        when(methodSecurity.hasAdminWrite()).thenReturn(true);
+        when(methodSecurity.hasPrivilege(any(String.class), any(String.class))).thenReturn(true);
 
         try (MockedStatic<ServletActionContext> servletCtx = mockStatic(ServletActionContext.class);
              MockedStatic<LoggedInInfo> loggedInInfo = mockStatic(LoggedInInfo.class);
@@ -317,10 +399,13 @@ class MutatorActionGetRejectionContractTest {
                         if (beanType.equals(SecurityInfoManager.class)) {
                             return securityInfoManager;
                         }
+                        if (beanType.equals(CarlosMethodSecurity.class)) {
+                            return methodSecurity;
+                        }
                         return autoMocks.computeIfAbsent(beanType, Mockito::mock);
                     });
 
-            Object action = actionClass.getDeclaredConstructor().newInstance();
+            Object action = instantiateAction(actionClass, autoMocks);
 
             Throwable caught = null;
             Object result = null;
@@ -358,6 +443,17 @@ class MutatorActionGetRejectionContractTest {
             assertDeclaredPrivilegeWasCheckedIfAuthWasReached(
                     securityInfoManager, className, privilegeObject, privilegeLevel, httpMethod);
         }
+    }
+
+    private static Object instantiateAction(Class<?> actionClass, Map<Class<?>, Object> autoMocks)
+            throws Exception {
+        if (actionClass.equals(SecurityDelete2Action.class)) {
+            CarlosMethodSecurity methodSecurity = mock(CarlosMethodSecurity.class);
+            when(methodSecurity.hasAdminWrite()).thenReturn(true);
+            SecurityDao securityDao = (SecurityDao) autoMocks.computeIfAbsent(SecurityDao.class, Mockito::mock);
+            return new SecurityDelete2Action(securityDao, methodSecurity);
+        }
+        return actionClass.getDeclaredConstructor().newInstance();
     }
 
     private static void assertDeclaredPrivilegeWasCheckedIfAuthWasReached(
@@ -465,6 +561,9 @@ class MutatorActionGetRejectionContractTest {
     }
 
     private static boolean isInScope(String fullyQualifiedClassName) {
+        if (IN_SCOPE_EXPLICIT_CLASSES.contains(fullyQualifiedClassName)) {
+            return true;
+        }
         for (String prefix : IN_SCOPE_PACKAGE_PREFIXES) {
             if (fullyQualifiedClassName.startsWith(prefix)) {
                 return true;

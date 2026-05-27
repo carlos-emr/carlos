@@ -143,7 +143,7 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
 
     @Override
     public List<Object[]> findConstultDocsDocsAndProvidersByModule(Module module, Integer moduleId) {
-        Query query = entityManager.createQuery("SELECT d, p, c FROM Document d, Provider p, CtlDocument c WHERE d.doccreator = p.ProviderNo AND d.id = c.id.documentNo AND c.id.module = ?1 AND c.id.moduleId = ?2");
+        Query query = entityManager.createQuery("SELECT d, p, c FROM Document d, Provider p, CtlDocument c WHERE d.doccreator = p.providerNo AND d.id = c.id.documentNo AND c.id.module = ?1 AND c.id.moduleId = ?2");
         query.setParameter(1, module.getName());
         query.setParameter(2, moduleId);
         return query.getResultList();
@@ -189,7 +189,7 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
         }
 
         String q = "select d from Demographic d, CtlDocument c where c.id.module='demographic'"
-                + " and c.id.moduleId != -1 and c.id.moduleId=d.DemographicNo and c.id.documentNo=?1 ";
+                + " and c.id.moduleId != -1 and c.id.moduleId=d.demographicNo and c.id.documentNo=?1 ";
 
         Query query = entityManager.createQuery(q);
         query.setParameter(1, id);

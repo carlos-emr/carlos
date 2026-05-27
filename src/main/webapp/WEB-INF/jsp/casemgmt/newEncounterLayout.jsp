@@ -74,6 +74,7 @@
 <!DOCTYPE html>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title>
             Encounter
         </title>
@@ -593,7 +594,7 @@
         </script>
     </head>
     <body id="body" class="encounter-layout">
-    <jsp:include page="/images/spinner.jsp" flush="true"/>
+    <jsp:include page="/WEB-INF/jsp/includes/spinner.jspf" flush="true"/>
     <div id="header">
         <jsp:include page="/WEB-INF/jsp/casemgmt/newEncounterHeader.jsp"/>
     </div>
@@ -609,6 +610,9 @@
 
         <div id="content">
             <jsp:include page="/WEB-INF/jsp/casemgmt/newCaseManagementView.jsp"/>
+            <%-- Clinical notes are part of the first eChart render; CPP AJAX fragments only fill the summary boxes above. --%>
+            <c:set var="eChartLayoutIncludesDependencies" value="true" scope="request"/>
+            <jsp:include page="/WEB-INF/jsp/casemgmt/ChartNotes.jsp"/>
         </div>
     </div>
     <!-- hovering divs -->

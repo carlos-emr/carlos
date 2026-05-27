@@ -26,7 +26,19 @@
     Contains action mappings for administration, system messages, lookup lists, and issue management.
 -->
 <struts>
-    <package name="admin" namespace="/" extends="struts-default">
+    <package name="admin" namespace="/" extends="struts-default" strict-method-invocation="true">
+
+        <global-results>
+            <result name="securityError">/WEB-INF/jsp/error/securityError.jsp</result>
+        </global-results>
+
+        <global-exception-mappings>
+            <!-- Keep Spring method-security denials on the existing CARLOS security-error page.
+                 Authorization still happens before the action body; this only normalizes
+                 the user-facing error result to match legacy SecurityException handling. -->
+            <exception-mapping exception="org.springframework.security.access.AccessDeniedException" result="securityError"/>
+            <exception-mapping exception="java.lang.SecurityException" result="securityError"/>
+        </global-exception-mappings>
 
         <action name="lookupListManagerAction" class="io.github.carlos_emr.carlos.admin.lookUpLists.LookupListManager2Action">
             <result name="success">/WEB-INF/jsp/admin/lookUpLists/index.jsp</result>
@@ -49,10 +61,6 @@
         <action name="issueAdmin" class="io.github.carlos_emr.carlos.www.IssueAdmin2Action">
             <result name="list">/WEB-INF/jsp/caisicore/issueAdminList.jsp</result>
             <result name="edit">/WEB-INF/jsp/caisicore/issueAdminForm.jsp</result>
-        </action>
-        <action name="admin/GenerateTraceAction" class="io.github.carlos_emr.carlos.admin.traceability.GenerateTrace2Action"/>
-        <action name="admin/GenerateTraceabilityReportAction" class="io.github.carlos_emr.carlos.admin.traceability.GenerateTraceabilityReport2Action">
-            <interceptor-ref name="defaultStack"/>
         </action>
         <action name="admin/AuditLogPurge" class="io.github.carlos_emr.carlos.admin.web.AuditLogPurge2Action">
             <result name="success">/WEB-INF/jsp/admin/auditLogPurge.jsp</result>
@@ -85,7 +93,7 @@
         <action name="admin/SecurityUpdate" class="io.github.carlos_emr.carlos.admin.web.SecurityUpdate2Action">
             <result name="success">/WEB-INF/jsp/admin/securityupdate.jsp</result>
         </action>
-        <action name="admin/SecurityDelete" class="io.github.carlos_emr.carlos.admin.web.SecurityDelete2Action">
+        <action name="admin/SecurityDelete" class="securityDelete2Action">
             <result name="success">/WEB-INF/jsp/admin/securitydelete.jsp</result>
         </action>
         <action name="admin/SecurityAddSecurity" class="io.github.carlos_emr.carlos.admin.web.SecurityAddSecurity2Action">
@@ -166,8 +174,20 @@
         <action name="admin/ViewApiClients" class="io.github.carlos_emr.carlos.admin.gate.ViewApiClients2Action">
             <result name="success">/WEB-INF/jsp/admin/api/clients.jsp</result>
         </action>
+        <!-- Replaces /admin/api/clientManage.json.jsp; enforces _admin read/write by dispatch. -->
+        <action name="admin/api/clientManage" class="clientManage2Action">
+            <result type="httpheader">
+                <param name="status">204</param>
+            </result>
+        </action>
         <action name="admin/ViewClinicNbrManage" class="io.github.carlos_emr.carlos.admin.gate.ViewClinicNbrManage2Action">
             <result name="success">/WEB-INF/jsp/admin/clinicNbrManage.jsp</result>
+        </action>
+        <!-- Replaces /admin/clinicNbrManage.json.jsp; enforces _admin write. -->
+        <action name="admin/clinicNbrManage" class="clinicNbrManage2Action">
+            <result type="httpheader">
+                <param name="status">204</param>
+            </result>
         </action>
         <action name="admin/ViewConfigureEmail" class="io.github.carlos_emr.carlos.admin.gate.ViewConfigureEmail2Action">
             <result name="success">/WEB-INF/jsp/admin/configureEmail.jsp</result>
@@ -193,6 +213,12 @@
         <action name="admin/ViewKeygenKeyManager" class="io.github.carlos_emr.carlos.admin.gate.ViewKeygenKeyManager2Action">
             <result name="success">/WEB-INF/jsp/admin/keygen/keyManager.jsp</result>
         </action>
+        <!-- Replaces /admin/keygen/getPublicKey.json.jsp; enforces _admin read. -->
+        <action name="admin/keygen/getPublicKey" class="getPublicKey2Action">
+            <result type="httpheader">
+                <param name="status">204</param>
+            </result>
+        </action>
         <action name="admin/ViewKeygenUpdateMatchingProfessionalSpecialist" class="io.github.carlos_emr.carlos.admin.gate.ViewKeygenUpdateMatchingProfessionalSpecialist2Action">
             <result name="success">/WEB-INF/jsp/admin/keygen/updateMatchingProfessionalSpecialist.jsp</result>
         </action>
@@ -204,6 +230,9 @@
         </action>
         <action name="admin/ViewLookupListsManageLookupLists" class="io.github.carlos_emr.carlos.admin.gate.ViewLookupListsManageLookupLists2Action">
             <result name="success">/WEB-INF/jsp/admin/lookUpLists/manageLookUpLists.jsp</result>
+        </action>
+        <action name="admin/labForwardingRules" class="io.github.carlos_emr.carlos.admin.gate.ViewLabForwardingRules2Action">
+            <result name="success">/WEB-INF/jsp/admin/labforwardingrules.jsp</result>
         </action>
         <action name="admin/ViewLotNrAddRecordHtm" class="io.github.carlos_emr.carlos.admin.gate.ViewLotNrAddRecordHtm2Action">
             <result name="success">/WEB-INF/jsp/admin/lotnraddrecordhtm.jsp</result>
@@ -240,9 +269,6 @@
         </action>
         <action name="admin/ViewSecurityUpdateSecurity" class="io.github.carlos_emr.carlos.admin.gate.ViewSecurityUpdateSecurity2Action">
             <result name="success">/WEB-INF/jsp/admin/securityupdatesecurity.jsp</result>
-        </action>
-        <action name="admin/ViewTraceReport" class="io.github.carlos_emr.carlos.admin.gate.ViewTraceReport2Action">
-            <result name="success">/WEB-INF/jsp/admin/traceReport.jsp</result>
         </action>
         <action name="admin/ViewUpdateDrugref" class="io.github.carlos_emr.carlos.admin.gate.ViewUpdateDrugref2Action">
             <result name="success">/WEB-INF/jsp/admin/updateDrugref.jsp</result>

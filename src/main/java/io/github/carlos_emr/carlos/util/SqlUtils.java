@@ -39,10 +39,9 @@ import java.util.List;
 
 import io.github.carlos_emr.Misc;
 import org.apache.logging.log4j.Logger;
-import org.hibernate.Session;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 
 public class SqlUtils {
     private static Logger logger = MiscUtils.getLogger();
@@ -72,7 +71,9 @@ public class SqlUtils {
         try {
             records = new ArrayList<String[]>();
 
-            rs = DBHandler.GetPreSQL(qry, params != null ? params : new Object[0]);
+            rs = LegacyJdbcQuery.getPreparedResultSet(
+                    LegacyJdbcQuery.trustedReportSelectSql(qry),
+                    params != null ? params : new Object[0]);
             int cols = rs.getMetaData().getColumnCount();
             while (rs.next()) {
                 String[] record = new String[cols];
@@ -221,14 +222,6 @@ public class SqlUtils {
                     logger.warn("Error closing Connection.", e);
                 }
             }
-        }
-    }
-
-    public static void closeResources(Session session, Statement s, ResultSet rs) {
-        closeResources(s, rs);
-
-        if (session != null) {
-            session.close();
         }
     }
 

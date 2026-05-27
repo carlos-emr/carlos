@@ -78,6 +78,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title>
         <fmt:message key="oscarMDS.index.title"/>
     </title>
@@ -127,7 +128,7 @@
 </head>
 
 <body vlink="#0000FF">
-<jsp:include page="/images/spinner.jsp"/>
+<jsp:include page="/WEB-INF/jsp/includes/spinner.jspf"/>
 <div id="inbox_wrapper">
     <form name="reassignForm" method="post" action="ReportReassign" id="lab_form">
         <table>
