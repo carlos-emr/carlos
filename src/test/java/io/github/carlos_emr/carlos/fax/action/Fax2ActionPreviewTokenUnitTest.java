@@ -141,6 +141,56 @@ class Fax2ActionPreviewTokenUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should deny preview when user lacks fax read privilege")
+    void shouldDenyPreview_whenUserLacksFaxReadPrivilege() throws Exception {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_fax", "r", null)).thenReturn(false);
+        request.setParameter("faxFileToken", "00000000-0000-0000-0000-000000000000");
+
+        new Fax2Action().getPreview();
+
+        assertThat(response.getStatus()).isEqualTo(403);
+        verify(faxManager, never()).resolveAndValidateFilePath(any(String.class));
+    }
+
+    @Test
+    @DisplayName("should render image preview when token is valid")
+    void shouldRenderImagePreview_whenFaxFileTokenIsValid() throws Exception {
+        Path pdf = createPreviewPdf();
+        Path image = tempDir.resolve("preview page.png");
+        Files.write(image, "PNG-test".getBytes(StandardCharsets.UTF_8));
+        Fax2Action action = prepareAndVerifyEformFax(pdf);
+        String token = (String) request.getAttribute("faxFileToken");
+        request.setParameter("faxFileToken", token);
+        request.setParameter("showAs", "image");
+        request.setParameter("pageNumber", "2");
+        when(faxManager.getFaxPreviewImage(loggedInInfo, pdf.toString(), 2)).thenReturn(image);
+
+        action.getPreview();
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getContentType()).isEqualTo("image/png");
+        assertThat(response.getHeader("Content-Disposition")).isEqualTo("attachment; filename=\"preview%20page.png\"");
+        assertThat(response.getContentAsByteArray()).containsExactly(Files.readAllBytes(image));
+    }
+
+    @Test
+    @DisplayName("should render job preview without fax file token")
+    void shouldRenderPreview_whenJobIdIsPresent() throws Exception {
+        Path pdf = createPreviewPdf();
+        FaxJob faxJob = new FaxJob();
+        faxJob.setFile_name(pdf.toString());
+        request.setParameter("jobId", "42");
+        when(faxManager.getFaxJob(loggedInInfo, 42)).thenReturn(faxJob);
+        when(faxManager.resolveAndValidateFilePath(pdf.toString())).thenReturn(pdf);
+
+        new Fax2Action().getPreview();
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getContentType()).isEqualTo("application/pdf");
+        assertThat(response.getContentAsByteArray()).containsExactly(Files.readAllBytes(pdf));
+    }
+
+    @Test
     @DisplayName("should use token path, not tampered path, when queueing fax")
     void shouldUseTokenPathNotTamperedPath_whenQueueingFax() throws Exception {
         Path pdf = createPreviewPdf();
@@ -181,6 +231,25 @@ class Fax2ActionPreviewTokenUnitTest extends CarlosUnitTestBase {
 
         assertThat(action.queue()).isEqualTo("preview");
         action.getPreview();
+
+        assertThat(response.getStatus()).isEqualTo(403);
+    }
+
+    @Test
+    @DisplayName("should remove fax file token when cancelling fax")
+    void shouldRemoveFaxFileToken_whenCancellingFax() throws Exception {
+        Path pdf = createPreviewPdf();
+        Fax2Action action = prepareAndVerifyEformFax(pdf);
+        String token = (String) request.getAttribute("faxFileToken");
+        request.setParameter("faxFileToken", token);
+
+        assertThat(action.cancel()).isEqualTo("none");
+
+        verify(faxManager).validateFilePath(pdf.toString());
+        verify(faxManager).flush(loggedInInfo, pdf.toString());
+
+        resetResponse();
+        new Fax2Action().getPreview();
 
         assertThat(response.getStatus()).isEqualTo(403);
     }
