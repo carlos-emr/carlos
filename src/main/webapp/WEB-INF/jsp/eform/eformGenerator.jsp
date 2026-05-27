@@ -3277,8 +3277,8 @@ and other liscences (MIT, LGPL etc) as indicated
     function save_to_cookie() {
         var exp = new Date();
         exp.setTime(exp.getTime() + (1000 * 60 * 60 * 24 * 30));
-        document.cookie = "drawdata" + "=" + DrawData + "; expires=" + exp.toGMTString() + "; path=/";
-        document.cookie = "inputcounter" + "=" + inputCounter + "; expires=" + exp.toGMTString() + "; path=/";
+        document.cookie = "drawdata" + "=" + DrawData + "; expires=" + exp.toGMTString() + "; path=/; SameSite=Lax";
+        document.cookie = "inputcounter" + "=" + inputCounter + "; expires=" + exp.toGMTString() + "; path=/; SameSite=Lax";
     }
 
     function restoreSaved() {

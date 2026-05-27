@@ -209,7 +209,7 @@
 							<a style="font-size: 10px; font-style: normal;" href="${pageContext.request.contextPath}/encounter/ViewAbout"
                                target="_new">About</a>
 							<a style="font-size: 10px; font-style: normal;" target="_blank"
-                               href="http://www.oscarmanual.org/search?SearchableText=&Title=Chart+Interface&portal_type%3Alist=Document">Help</a>
+                               href="https://www.oscarmanual.org/search?SearchableText=&Title=Chart+Interface&portal_type%3Alist=Document">Help</a>
 						</span>
 					</td>
 				</tr>
