@@ -32,7 +32,7 @@ import java.util.Properties;
 import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
-import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 public class FrmAdfV2Record extends FrmRecord {
@@ -46,48 +46,48 @@ public class FrmAdfV2Record extends FrmRecord {
 
             String sql =
                     "SELECT demographic_no, last_name, first_name, sex, address, city, province, postal, phone, phone2, year_of_birth, month_of_birth, date_of_birth, hin FROM demographic WHERE demographic_no = ?";
-            ResultSet rs = DBHandler.GetPreSQL(sql, demographicNo);
-            if (rs.next()) {
-                java.util.Date date =
-                        UtilDateUtilities.calcDate(
-                                Misc.getString(rs, "year_of_birth"),
-                                Misc.getString(rs, "month_of_birth"),
-                                Misc.getString(rs, "date_of_birth"));
-                props.setProperty(
-                        "demographic_no",
-                        Misc.getString(rs, "demographic_no"));
-                props.setProperty(
-                        "formCreated",
-                        UtilDateUtilities.DateToString(
-                                new Date(),
-                                _dateFormat));
-                //props.setProperty("formEdited",
-                // UtilDateUtilities.DateToString(new Date(),_dateFormat));
-                props.setProperty("c_patientname", Misc.getString(rs, "last_name") + ", " + Misc.getString(rs, "first_name"));
-                props.setProperty(
-                        "c_address",
-                        Misc.getString(rs, "address")
-                                + ", "
-                                + Misc.getString(rs, "city")
-                                + ", "
-                                + Misc.getString(rs, "province")
-                                + " "
-                                + Misc.getString(rs, "postal"));
-                props.setProperty("c_phn", Misc.getString(rs, "hin"));
-                props.setProperty(
-                        "pg1_dateOfBirth",
-                        UtilDateUtilities.DateToString(date, _dateFormat));
-                props.setProperty(
-                        "pg1_age",
-                        String.valueOf(UtilDateUtilities.calcAge(date)));
-                props.setProperty("c_phone", Misc.getString(rs, "phone"));
-                props.setProperty(
-                        "sigDate",
-                        UtilDateUtilities.DateToString(
-                                new Date(),
-                                _dateFormat));
+            try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo)) {
+                if (rs.next()) {
+                    java.util.Date date =
+                            UtilDateUtilities.calcDate(
+                                    Misc.getString(rs, "year_of_birth"),
+                                    Misc.getString(rs, "month_of_birth"),
+                                    Misc.getString(rs, "date_of_birth"));
+                    props.setProperty(
+                            "demographic_no",
+                            Misc.getString(rs, "demographic_no"));
+                    props.setProperty(
+                            "formCreated",
+                            UtilDateUtilities.DateToString(
+                                    new Date(),
+                                    _dateFormat));
+                    //props.setProperty("formEdited",
+                    // UtilDateUtilities.DateToString(new Date(),_dateFormat));
+                    props.setProperty("c_patientname", Misc.getString(rs, "last_name") + ", " + Misc.getString(rs, "first_name"));
+                    props.setProperty(
+                            "c_address",
+                            Misc.getString(rs, "address")
+                                    + ", "
+                                    + Misc.getString(rs, "city")
+                                    + ", "
+                                    + Misc.getString(rs, "province")
+                                    + " "
+                                    + Misc.getString(rs, "postal"));
+                    props.setProperty("c_phn", Misc.getString(rs, "hin"));
+                    props.setProperty(
+                            "pg1_dateOfBirth",
+                            UtilDateUtilities.DateToString(date, _dateFormat));
+                    props.setProperty(
+                            "pg1_age",
+                            String.valueOf(UtilDateUtilities.calcAge(date)));
+                    props.setProperty("c_phone", Misc.getString(rs, "phone"));
+                    props.setProperty(
+                            "sigDate",
+                            UtilDateUtilities.DateToString(
+                                    new Date(),
+                                    _dateFormat));
+                }
             }
-            rs.close();
         } else {
             String sql =
                     "SELECT * FROM formAdfV2 WHERE demographic_no = ? AND ID = ?";
