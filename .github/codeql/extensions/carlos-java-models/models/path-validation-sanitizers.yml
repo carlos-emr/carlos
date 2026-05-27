@@ -94,6 +94,14 @@ extensions:
       # PathValidationUtils.validateExistingPath. Returns validated File.
       - ["io.github.carlos_emr.carlos.managers", "NioFileManagerImpl", false, "getOscarDocument", "(java.lang.String)", "", "Argument[this]", "ReturnValue", "taint", "manual"]
 
+      # NioFileManagerImpl.validateTempDeletionTarget(String) -> File
+      # Validates path-derived delete requests against approved temp directories,
+      # returns null for missing approved temp files, and returns a canonical
+      # regular file from PathValidationUtils.validateUpload for existing files.
+      # The user-provided path (Argument[0]) is intentionally not modelled as a
+      # flow source because the return value is bounded by approved temp roots.
+      - ["io.github.carlos_emr.carlos.managers", "NioFileManagerImpl", false, "validateTempDeletionTarget", "(java.lang.String)", "", "Argument[this]", "ReturnValue", "taint", "manual"]
+
   # neutralModel entries suppress auto-generated/heuristic taint summaries for
   # guard methods and sanitizer wrappers where no relevant taint flow should be
   # inferred, including boolean, void, and reference-returning methods.

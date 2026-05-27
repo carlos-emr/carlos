@@ -421,9 +421,7 @@ public class NioFileManagerImpl implements NioFileManager {
 
             File tempFile = validateTempDeletionTarget(fileName);
 
-            // codeql[java/path-injection] validateTempDeletionTarget returns only canonical
-            // regular files inside approved temp directories, or null for missing temp files.
-            return tempFile != null && Files.deleteIfExists(tempFile.toPath());
+            return tempFile != null && Files.deleteIfExists(tempFile.toPath()); // codeql[java/path-injection] validateTempDeletionTarget returns only canonical regular files inside approved temp directories, or null for missing temp files.
         } catch (SecurityException e) {
             log.error("Security violation while attempting to delete temp file", e);
             throw e; // Re-throw security exceptions
@@ -438,17 +436,13 @@ public class NioFileManagerImpl implements NioFileManager {
      * check allows missing approved temp files to be a no-op while rejecting escapes.
      */
     private File validateTempDeletionTarget(final String fileName) {
-        // codeql[java/path-injection] The resulting File is used only after
-        // canonical approved-temp validation and PathValidationUtils.validateUpload().
-        File tempFile = new File(fileName);
+        File tempFile = new File(fileName); // codeql[java/path-injection] The resulting File is used only after canonical approved-temp validation and PathValidationUtils.validateUpload().
         if (!PathValidationUtils.isInAllowedTempDirectory(tempFile)) {
             log.error("Attempt to delete file outside approved temp directories");
             throw new SecurityException("Invalid temp deletion target");
         }
 
-        // codeql[java/path-injection] tempFile has been canonicalized inside
-        // isInAllowedTempDirectory() and accepted only under approved temp roots.
-        if (!tempFile.exists()) {
+        if (!tempFile.exists()) { // codeql[java/path-injection] tempFile has been canonicalized inside isInAllowedTempDirectory() and accepted only under approved temp roots.
             return null;
         }
 
