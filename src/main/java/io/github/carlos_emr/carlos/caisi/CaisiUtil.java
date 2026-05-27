@@ -26,6 +26,10 @@
  */
 
 package io.github.carlos_emr.carlos.caisi;
+/**
+ * Provides core functionality and data representation for CaisiUtil.
+ * This component is responsible for managing its associated business logic and state.
+ */
 
 public class CaisiUtil {
     public static String removeAttr(String str, String attr) {

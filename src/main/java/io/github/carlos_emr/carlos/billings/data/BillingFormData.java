@@ -41,6 +41,10 @@ import io.github.carlos_emr.carlos.commn.model.CtlBillingService;
 import io.github.carlos_emr.carlos.commn.model.DiagnosticCode;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+/**
+ * Provides core functionality and data representation for BillingFormData.
+ * This component is responsible for managing its associated business logic and state.
+ */
 
 public class BillingFormData {
 

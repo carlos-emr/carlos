@@ -50,6 +50,10 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+/**
+ * Provides core functionality and data representation for ExtractBean.
+ * This component is responsible for managing its associated business logic and state.
+ */
 
 public class ExtractBean extends Object implements Serializable {
 

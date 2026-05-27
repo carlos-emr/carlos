@@ -31,6 +31,10 @@ package io.github.carlos_emr.carlos.entities;
 
 import java.math.BigDecimal;
 import java.util.Date;
+/**
+ * Provides core functionality and data representation for PrivateBillTransaction.
+ * This component is responsible for managing its associated business logic and state.
+ */
 
 public class PrivateBillTransaction {
     private int id;

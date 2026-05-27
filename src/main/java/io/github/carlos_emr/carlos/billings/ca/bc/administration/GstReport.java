@@ -17,6 +17,10 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 import java.util.Properties;
 import java.util.Vector;
+/**
+ * Provides core functionality and data representation for GstReport.
+ * This component is responsible for managing its associated business logic and state.
+ */
 
 public class GstReport {
 

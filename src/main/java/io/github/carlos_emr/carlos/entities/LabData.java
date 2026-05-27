@@ -28,6 +28,10 @@
  */
 
 package io.github.carlos_emr.carlos.entities;
+/**
+ * Provides core functionality and data representation for LabData.
+ * This component is responsible for managing its associated business logic and state.
+ */
 
 public class LabData {
     private String a1c;

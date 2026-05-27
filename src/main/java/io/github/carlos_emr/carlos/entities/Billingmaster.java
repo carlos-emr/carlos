@@ -70,6 +70,10 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 */
         }
 )
+/**
+ * Provides core functionality and data representation for Billingmaster.
+ * This component is responsible for managing its associated business logic and state.
+ */
 
 public class Billingmaster {
 

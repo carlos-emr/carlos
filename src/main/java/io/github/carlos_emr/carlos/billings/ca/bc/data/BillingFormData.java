@@ -42,6 +42,10 @@ import io.github.carlos_emr.carlos.entities.PaymentType;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 import java.util.*;
+/**
+ * Provides core functionality and data representation for BillingFormData.
+ * This component is responsible for managing its associated business logic and state.
+ */
 
 public class BillingFormData {
 

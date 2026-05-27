@@ -36,12 +36,15 @@ import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
 
 import java.util.ArrayList;
 import java.util.List;
+/**
+ * Provides core functionality and data representation for QuickBillingBCFormBean.
+ * This component is responsible for managing its associated business logic and state.
+ */
 
 
 public class QuickBillingBCFormBean {
 
     /**
-     * @author Dennis Warren
      * Company Colcamex Resources
      * Date Jun 4, 2012
      */

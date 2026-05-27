@@ -31,6 +31,10 @@ import jakarta.servlet.jsp.JspException;
 import jakarta.servlet.jsp.tagext.TagSupport;
 
 import io.github.carlos_emr.CarlosProperties;
+/**
+ * Provides core functionality and data representation for IsModuleLoadTag.
+ * This component is responsible for managing its associated business logic and state.
+ */
 
 public class IsModuleLoadTag extends TagSupport {
 

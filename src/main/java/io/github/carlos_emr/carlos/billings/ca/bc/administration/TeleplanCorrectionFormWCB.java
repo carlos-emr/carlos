@@ -42,6 +42,10 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.carlos.demographic.data.DemographicData;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
+/**
+ * Provides core functionality and data representation for TeleplanCorrectionFormWCB.
+ * This component is responsible for managing its associated business logic and state.
+ */
 
 public class TeleplanCorrectionFormWCB {
 
