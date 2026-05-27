@@ -295,7 +295,7 @@ public class Fax2Action extends ActionSupport {
             try {
                 previewFaxFilePath = resolveSubmittedFaxFilePath(true);
             } catch (SecurityException e) {
-                sendAccessDenied("Invalid fax preview token", e);
+                sendAccessDenied(e);
                 return;
             }
         }
@@ -515,8 +515,8 @@ public class Fax2Action extends ActionSupport {
         }
     }
 
-    private void sendAccessDenied(String message, Exception e) {
-        logger.warn(message, e);
+    private void sendAccessDenied(Exception e) {
+        logger.warn("Invalid fax preview token", e);
         try {
             response.sendError(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED_MESSAGE);
         } catch (IOException ex) {
