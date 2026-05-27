@@ -43,6 +43,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
@@ -284,6 +285,25 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
         assertThatThrownBy(() -> action.addIncomingDocument())
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Invalid parameters");
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "queue1/evil,Fax",
+            "queue1,Fax/evil",
+            "../queue1,Fax",
+            "queue1,..\\Fax"
+    })
+    @DisplayName("Rejects incoming document directory parameters with path components")
+    void shouldRejectIncomingDocumentDirectoryParameters_whenPathComponentsProvided(String queueId, String pdfDir) throws Exception {
+        configureIncomingDocumentDirectories();
+        setupSuccessfulAddIncomingRequest("plain.pdf");
+        request.setParameter("queueId", queueId);
+        request.setParameter("pdfDir", pdfDir);
+
+        assertThatThrownBy(() -> action.addIncomingDocument())
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("Invalid directory parameters");
     }
 
     @Test

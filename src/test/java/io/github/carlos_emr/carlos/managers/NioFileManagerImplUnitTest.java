@@ -38,6 +38,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 @Tag("unit")
 @Tag("manager")
@@ -136,10 +139,12 @@ class NioFileManagerImplUnitTest {
         assertThat(missingFile).doesNotExist();
     }
 
-    @Test
-    @DisplayName("Returns false for blank temp deletion targets")
-    void shouldReturnFalse_whenTempFileNameBlank() {
-        boolean deleted = nioFileManager.deleteTempFile(" ");
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" "})
+    @DisplayName("Returns false for null or blank temp deletion targets")
+    void shouldReturnFalse_whenTempFileNameBlankOrNull(String fileName) {
+        boolean deleted = nioFileManager.deleteTempFile(fileName);
 
         assertThat(deleted).isFalse();
     }
