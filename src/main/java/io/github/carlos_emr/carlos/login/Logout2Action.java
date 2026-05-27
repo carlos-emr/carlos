@@ -76,7 +76,7 @@ import org.apache.struts2.ServletActionContext;
  * <p>Struts configuration (struts.xml):
  * <pre>
  * &lt;action name="logout" class="io.github.carlos_emr.carlos.login.Logout2Action"&gt;
- *     &lt;result name="success"&gt;/logoutPage&lt;/result&gt;
+ *     &lt;result name="success" type="redirect"&gt;/index&lt;/result&gt;
  * &lt;/action&gt;
  * </pre>
  *
