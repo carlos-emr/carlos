@@ -31,6 +31,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 
 import java.sql.ResultSet;
@@ -54,42 +57,16 @@ class FrmConsultantRecordUnitTest extends CarlosUnitTestBase {
     @DisplayName("getInitRefDoc")
     class GetInitRefDoc {
 
-        @Test
-        @DisplayName("should leave refdocno unset when family doctor is null")
-        void shouldLeaveRefdocnoUnset_whenFamilyDoctorIsNull() throws Exception {
-            Properties props = invokeGetInitRefDocWithFamilyDoctor(null);
-
-            assertThat(props).doesNotContainKey("refdocno");
-        }
-
-        @Test
-        @DisplayName("should leave refdocno unset when family doctor is empty")
-        void shouldLeaveRefdocnoUnset_whenFamilyDoctorIsEmpty() throws Exception {
-            Properties props = invokeGetInitRefDocWithFamilyDoctor("");
-
-            assertThat(props).doesNotContainKey("refdocno");
-        }
-
-        @Test
-        @DisplayName("should leave refdocno unset when rdohip closing tag is missing")
-        void shouldLeaveRefdocnoUnset_whenRdohipClosingTagMissing() throws Exception {
-            Properties props = invokeGetInitRefDocWithFamilyDoctor("<rdohip>123456");
-
-            assertThat(props).doesNotContainKey("refdocno");
-        }
-
-        @Test
-        @DisplayName("should leave refdocno unset when family doctor XML is unrelated")
-        void shouldLeaveRefdocnoUnset_whenFamilyDoctorXmlIsUnrelated() throws Exception {
-            Properties props = invokeGetInitRefDocWithFamilyDoctor("<family_doc>Dr Smith</family_doc>");
-
-            assertThat(props).doesNotContainKey("refdocno");
-        }
-
-        @Test
-        @DisplayName("should leave refdocno unset when rdohip closing tag appears first")
-        void shouldLeaveRefdocnoUnset_whenRdohipClosingTagAppearsFirst() throws Exception {
-            Properties props = invokeGetInitRefDocWithFamilyDoctor("</rdohip><rdohip>123456</rdohip>");
+        @ParameterizedTest
+        @NullAndEmptySource
+        @ValueSource(strings = {
+                "<rdohip>123456",
+                "<family_doc>Dr Smith</family_doc>",
+                "</rdohip><rdohip>123456</rdohip>"
+        })
+        @DisplayName("should leave refdocno unset when family doctor is invalid")
+        void shouldLeaveRefdocnoUnset_whenFamilyDoctorIsInvalid(String familyDoctor) throws Exception {
+            Properties props = invokeGetInitRefDocWithFamilyDoctor(familyDoctor);
 
             assertThat(props).doesNotContainKey("refdocno");
         }
