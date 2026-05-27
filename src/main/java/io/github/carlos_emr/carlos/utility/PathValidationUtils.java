@@ -85,6 +85,7 @@ public final class PathValidationUtils {
      * @throws FileValidationException if the filename is null, empty, hidden, contains a null byte,
      * or has a blocked final extension
      * @throws SecurityException if the allowed directory is null or the resulting path is outside it
+     * @since 2025-12-09
      */
     public static File validatePath(String userProvidedFileName, File allowedDir) {
         // 1. Sanitize filename
@@ -335,7 +336,10 @@ public final class PathValidationUtils {
      * @param userProvidedFileName the original filename from the upload
      * @param destinationDir the directory where the file should be written
      * @return the validated destination File
-     * @throws SecurityException if any validation fails
+     * @throws FileValidationException if the destination filename is null, empty, hidden,
+     * contains a null byte, or has a blocked final extension
+     * @throws SecurityException if source-file validation fails, the destination directory is null,
+     * or the resulting destination path is outside it
      */
     public static File validateUpload(
             File sourceFile,
