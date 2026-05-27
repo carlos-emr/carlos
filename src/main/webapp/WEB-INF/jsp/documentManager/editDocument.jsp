@@ -386,7 +386,7 @@
         <tr>
             <td>Public?</td>
             <td><input type="checkbox" name="docPublic"
-                    <carlos:encode value='<%= formdata.getDocPublic() + " " %>' context="htmlAttribute"/> value="checked"></td>
+                    <%="checked".equals(formdata.getDocPublic()) ? "checked" : ""%> value="checked"></td>
         </tr>
         <%}%>
         <tr>

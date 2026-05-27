@@ -88,6 +88,117 @@
         <Bug pattern="RV_RETURN_VALUE_OF_PUTIFABSENT_IGNORED"/>
     </Match>
 
+    <!-- TrustedSql is constructed only after legacy SELECT validation; values are bound below. -->
+    <Match>
+        <Bug pattern="SQL_INJECTION_JDBC"/>
+        <Class name="io.github.carlos_emr.carlos.db.LegacyJdbcQuery"/>
+        <Method name="getPreparedResultSetValidated"/>
+    </Match>
+    <Match>
+        <Bug pattern="SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"/>
+        <Class name="io.github.carlos_emr.carlos.db.LegacyJdbcQuery"/>
+        <Method name="getPreparedResultSetValidated"/>
+    </Match>
+    <Match>
+        <Bug pattern="SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"/>
+        <Class name="io.github.carlos_emr.carlos.db.LegacyJdbcQuery"/>
+        <Method name="getPreparedResultSetLegacyRaw"/>
+    </Match>
+
+    <!-- Stored procedure names are validated before the CallableStatement is prepared. -->
+    <Match>
+        <Bug pattern="SQL_INJECTION_JDBC"/>
+        <Class name="io.github.carlos_emr.carlos.db.LegacyJdbcQuery"/>
+        <Method name="procExecute"/>
+    </Match>
+
+    <!-- CaisiResult delegates server-owned legacy templates through the same JDBC value binding. -->
+    <Match>
+        <Bug pattern="SQL_INJECTION_JDBC"/>
+        <Class name="io.github.carlos_emr.carlos.db.LegacyJdbcQuery"/>
+        <Method name="queryResultsCaisi"/>
+    </Match>
+
+    <!--
+      FrmRecordHelp prepares server-owned form table SELECT statements and binds all
+      form values as JDBC parameters. Dynamic table names are resolved by the legacy
+      form classes, not request SQL text.
+    -->
+    <Match>
+        <Bug pattern="SQL_INJECTION_JDBC"/>
+        <Class name="io.github.carlos_emr.carlos.form.FrmRecordHelp"/>
+        <Method name="prepareResultSetStatement"/>
+    </Match>
+    <Match>
+        <Bug pattern="SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"/>
+        <Class name="io.github.carlos_emr.carlos.form.FrmRecordHelp"/>
+        <Method name="prepareResultSetStatement"/>
+    </Match>
+
+    <!--
+      MSP dbExtract is scoped to the legacy MSP extract path migrated in this PR.
+      Callers supply server-owned SQL templates and pass runtime values separately
+      for PreparedStatement binding.
+    -->
+    <Match>
+        <Bug pattern="SQL_INJECTION_JDBC"/>
+        <Class name="io.github.carlos_emr.carlos.billings.MSP.dbExtract"/>
+        <Method name="prepare"/>
+    </Match>
+
+    <!--
+      AppointmentMainBean resolves SQL templates from server-side UtilDict entries
+      and delegates to LegacyJdbcQuery for JDBC value binding. The alert is on the
+      nonconstant template dispatch, not on request-controlled SQL execution.
+    -->
+    <Match>
+        <Bug pattern="SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"/>
+        <Class name="io.github.carlos_emr.AppointmentMainBean"/>
+    </Match>
+
+    <!--
+      MSP reconciliation builds SQL from fixed report clauses and an allowlisted
+      criteria helper; user values are accumulated in criteriaParams and bound by
+      LegacyJdbcQuery.
+    -->
+    <Match>
+        <Bug pattern="SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"/>
+        <Class name="io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile"/>
+        <Method name="getBillsByType"/>
+    </Match>
+    <Match>
+        <Bug pattern="SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"/>
+        <Class name="io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile"/>
+        <Method name="getPayments"/>
+    </Match>
+    <Match>
+        <Bug pattern="SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"/>
+        <Class name="io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile"/>
+        <Method name="getPrivatePayments"/>
+    </Match>
+
+    <!--
+      The MSP extract query is a legacy server-owned billing template. providerNo
+      and invoice values are bound as parameters; the remaining SQL fragment is
+      the established dateRange clause for this extract path.
+    -->
+    <Match>
+        <Bug pattern="SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"/>
+        <Class name="io.github.carlos_emr.carlos.billings.MSP.ExtractBean"/>
+        <Method name="dbQuery"/>
+    </Match>
+
+    <!--
+      parseImportDocument uses XmlUtils.createSecureDocumentBuilderFactory(), which
+      fails closed if DOCTYPE disabling cannot be applied and disables external
+      entities before DocumentBuilder.parse().
+    -->
+    <Match>
+        <Bug pattern="XXE_DOCUMENT"/>
+        <Class name="io.github.carlos_emr.carlos.util.JDBCUtil"/>
+        <Method name="parseImportDocument"/>
+    </Match>
+
     <!--
       HRM report temp files are created under DOCUMENT_DIR only after the configured directory is
       normalized and verified as an existing directory. The temp filename prefix is derived from an
@@ -97,6 +208,28 @@
         <Bug pattern="PATH_TRAVERSAL_IN"/>
         <Class name="io.github.carlos_emr.carlos.hospitalReportManager.PrintHRMReport2Action"/>
         <Method name="execute"/>
+    </Match>
+
+    <!--
+      AddEditDocument2Action uses the configured DOCUMENT_DIR as the base directory, then validates
+      dynamic filenames and written files with PathValidationUtils before PDF reads, upload writes,
+      completeness checks, or cleanup. SpotBugs treats CarlosProperties.getDocumentDirectory() as an
+      unknown path source, so keep this suppression scoped to the validated document-upload helpers.
+    -->
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.documentManager.actions.AddEditDocument2Action"/>
+        <Method name="countNumOfPages"/>
+    </Match>
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.documentManager.actions.AddEditDocument2Action"/>
+        <Method name="writeLocalFile"/>
+    </Match>
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.documentManager.actions.AddEditDocument2Action"/>
+        <Method name="resolveWrittenDocumentPath"/>
     </Match>
 
     <!--
@@ -118,6 +251,111 @@
         <Bug pattern="XSS_SERVLET"/>
         <Class name="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSaveBilling2Action"/>
         <Method name="writeBody"/>
+    </Match>
+
+    <!-- ================================================================
+         FIND SECURITY BUGS PATH TRAVERSAL FALSE POSITIVES
+         These are exact method-level suppressions for reviewed file paths
+         where the flagged sink receives a File that has already passed
+         PathValidationUtils or equivalent canonical containment checks.
+         Do not broaden these to package/class-level PATH_TRAVERSAL rules.
+         ================================================================ -->
+
+    <!-- Teleplan response files are bounded by DOCUMENT_DIR or an allowed temp directory before reading. -->
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.billings.ca.bc.Teleplan.TeleplanCodesManager"/>
+        <Method name="parse"/>
+    </Match>
+
+    <!-- Teleplan explanatory/ICD response files are validated before FileReader opens them. -->
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ManageTeleplan2Action"/>
+        <Method name="updateteleplanICDCodesList"/>
+    </Match>
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ManageTeleplan2Action"/>
+        <Method name="updateExplanatoryCodesList"/>
+    </Match>
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ManageTeleplan2Action"/>
+        <Method name="checkElig"/>
+    </Match>
+
+    <!-- Teleplan send files are resolved under HOME_DIR with PathValidationUtils.validatePath(). -->
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ManageTeleplan2Action"/>
+        <Method name="sendFile"/>
+    </Match>
+
+    <!-- Ontario RA imports validate the selected file under DOCUMENT_DIR before parsing. -->
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnRaService"/>
+        <Method name="importRAFile"/>
+    </Match>
+
+    <!-- Generic downloads canonicalize the directory and validate the filename before FileInputStream. -->
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.util.GenericDownload"/>
+        <Method name="transferFile"
+                params="jakarta.servlet.http.HttpServletResponse,jakarta.servlet.ServletOutputStream,java.lang.String,java.lang.String,java.lang.String"
+                returns="void"/>
+    </Match>
+
+    <!-- Document manager file creation/lookup is bounded by DOCUMENT_DIR via PathValidationUtils. -->
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.managers.DocumentManagerImpl"/>
+        <Method name="createDocument"/>
+    </Match>
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.managers.DocumentManagerImpl"/>
+        <Method name="getFullPathToDocument"/>
+    </Match>
+
+    <!-- Uploaded image temp files are accepted only after PathValidationUtils.validateUpload(). -->
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.eform.upload.ImageUpload2Action"/>
+        <Method name="withUploadedFiles"/>
+    </Match>
+
+    <!-- ================================================================
+         FIND SECURITY BUGS INFORMATIONAL TAINT-SOURCE / ENDPOINT MARKERS
+         These detectors are NOT vulnerabilities. Find Security Bugs emits
+         them to map attack surface: SERVLET_PARAMETER flags every point
+         where request data enters, and *_ENDPOINT flags every reachable
+         action/web-service method. On this codebase they account for the
+         large majority of "security" Code Scanning alerts (~1,300
+         SERVLET_PARAMETER, ~270 STRUTS2_ENDPOINT) while flagging zero
+         concrete sinks. They drown out actionable findings (injection,
+         path traversal, XSS, weak crypto), so we suppress the source/
+         endpoint markers and keep every sink detector active.
+
+         Reference: Find Security Bugs bug patterns — these are documented
+         as informational ("count"/"endpoint") detectors, not defects.
+         ================================================================ -->
+    <Match>
+        <Bug pattern="SERVLET_PARAMETER"/>
+    </Match>
+    <Match>
+        <Bug pattern="STRUTS2_ENDPOINT"/>
+    </Match>
+    <Match>
+        <Bug pattern="SPRING_ENDPOINT"/>
+    </Match>
+    <Match>
+        <Bug pattern="JAXWS_ENDPOINT"/>
+    </Match>
+    <Match>
+        <Bug pattern="JAXRS_ENDPOINT"/>
     </Match>
 
 </FindBugsFilter>

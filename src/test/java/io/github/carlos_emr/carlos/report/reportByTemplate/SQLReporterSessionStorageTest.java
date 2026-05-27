@@ -22,11 +22,13 @@
 package io.github.carlos_emr.carlos.report.reportByTemplate;
 
 import java.sql.ResultSet;
+import java.util.List;
 import java.util.Map;
 
 import io.github.carlos_emr.carlos.commn.dao.ReportTemplatesDao;
 import io.github.carlos_emr.carlos.commn.model.ReportTemplates;
-import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
 import io.github.carlos_emr.carlos.report.data.RptResultStruct;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.util.UtilMisc;
@@ -77,7 +79,7 @@ class SQLReporterSessionStorageTest extends CarlosUnitTestBase {
 
         ReportObjectGeneric report = mock(ReportObjectGeneric.class);
         when(report.isSequence()).thenReturn(false);
-        when(report.getParameterizedSQL(parameters)).thenReturn(new String[]{"select 1"});
+        when(report.buildParameterizedSql(parameters)).thenReturn(new ParameterizedSql("select 1", List.of()));
 
         ResultSet resultSet = mock(ResultSet.class);
         when(resultSet.isBeforeFirst()).thenReturn(false);
@@ -86,8 +88,8 @@ class SQLReporterSessionStorageTest extends CarlosUnitTestBase {
                 (mock, context) -> {
                     when(mock.getReportTemplateNoParam("1")).thenReturn(report);
                 });
-             MockedStatic<DBHandler> dbHandler = mockStatic(DBHandler.class)) {
-            dbHandler.when(() -> DBHandler.GetPreSQL(eq("select 1"), any(Object[].class))).thenReturn(resultSet);
+             MockedStatic<LegacyJdbcQuery> legacyJdbcQuery = mockStatic(LegacyJdbcQuery.class)) {
+            legacyJdbcQuery.when(() -> LegacyJdbcQuery.getPreparedResultSet(any(ParameterizedSql.class))).thenReturn(resultSet);
 
             boolean generated = new SQLReporter().generateReport(request);
 
@@ -114,8 +116,8 @@ class SQLReporterSessionStorageTest extends CarlosUnitTestBase {
 
         ReportObjectGeneric report = mock(ReportObjectGeneric.class);
         when(report.isSequence()).thenReturn(true);
-        when(report.getParameterizedSQL(0, parameters)).thenReturn(new String[]{"select 1"});
-        when(report.getParameterizedSQL(1, parameters)).thenReturn(null);
+        when(report.buildParameterizedSql(0, parameters)).thenReturn(new ParameterizedSql("select 1", List.of()));
+        when(report.buildParameterizedSql(1, parameters)).thenReturn(null);
 
         ResultSet resultSet = mock(ResultSet.class);
         when(resultSet.isBeforeFirst()).thenReturn(true);
@@ -126,10 +128,10 @@ class SQLReporterSessionStorageTest extends CarlosUnitTestBase {
                 (mock, context) -> {
                     when(mock.getReportTemplateNoParam("1")).thenReturn(report);
                 });
-             MockedStatic<DBHandler> dbHandler = mockStatic(DBHandler.class);
+             MockedStatic<LegacyJdbcQuery> legacyJdbcQuery = mockStatic(LegacyJdbcQuery.class);
              MockedStatic<RptResultStruct> resultStruct = mockStatic(RptResultStruct.class);
              MockedStatic<UtilMisc> utilMisc = mockStatic(UtilMisc.class)) {
-            dbHandler.when(() -> DBHandler.GetPreSQL(eq("select 1"), any(Object[].class))).thenReturn(resultSet);
+            legacyJdbcQuery.when(() -> LegacyJdbcQuery.getPreparedResultSet(any(ParameterizedSql.class))).thenReturn(resultSet);
             resultStruct.when(() -> RptResultStruct.getStructure2(resultSet)).thenReturn("<table></table>");
             utilMisc.when(() -> UtilMisc.getArrayFromResultSet(resultSet)).thenReturn(new String[][]{{oversizedCell}});
 
