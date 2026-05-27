@@ -748,10 +748,8 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
     }
 
     private static void moveUploadedFile(Path tempPath, Path savePath, boolean replaceExisting) throws IOException {
-        if (!replaceExisting) {
-            if (Files.exists(savePath)) {
-                throw new FileAlreadyExistsException(savePath.toString());
-            }
+        if (!replaceExisting && Files.exists(savePath)) {
+            throw new FileAlreadyExistsException(savePath.toString());
         }
         Files.move(tempPath, savePath, StandardCopyOption.ATOMIC_MOVE);
     }
