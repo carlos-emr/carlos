@@ -94,7 +94,7 @@ public class InsideLabUpload2Action extends ActionSupport implements UploadedFil
             this.importFilesFileName = new ArrayList<>();
             this.importFilesContentType = new ArrayList<>();
             for (UploadedFile uploaded : uploadedFiles) {
-                this.importFiles.add(PathValidationUtils.validateUpload(new File(uploaded.getAbsolutePath())));
+                this.importFiles.add(PathValidationUtils.validateUploadContent(uploaded.getContent()));
                 try {
                     this.importFilesFileName.add(PathValidationUtils.validateStrictFileName(uploaded.getOriginalName()));
                 } catch (FileValidationException e) {

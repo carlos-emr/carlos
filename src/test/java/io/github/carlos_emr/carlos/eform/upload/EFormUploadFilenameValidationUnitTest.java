@@ -122,7 +122,7 @@ class EFormUploadFilenameValidationUnitTest extends CarlosUnitTestBase {
         Path upload = Files.createTempFile(tempDir, "htmlupload", ".html");
         Files.writeString(upload, "<html></html>");
         UploadedFile uploadedFile = mock(UploadedFile.class);
-        when(uploadedFile.getAbsolutePath()).thenReturn(upload.toString());
+        when(uploadedFile.getContent()).thenReturn(upload.toFile());
         when(uploadedFile.getContentType()).thenReturn("text/html");
         when(uploadedFile.getOriginalName()).thenReturn(null);
 
@@ -149,7 +149,7 @@ class EFormUploadFilenameValidationUnitTest extends CarlosUnitTestBase {
     void shouldCaptureImageUpload_whenStrutsUploadedFileIsValid() throws Exception {
         Path upload = Files.createTempFile(tempDir, "image-upload", ".png");
         UploadedFile uploadedFile = mock(UploadedFile.class);
-        when(uploadedFile.getAbsolutePath()).thenReturn(upload.toString());
+        when(uploadedFile.getContent()).thenReturn(upload.toFile());
         when(uploadedFile.getContentType()).thenReturn("image/png");
         when(uploadedFile.getOriginalName()).thenReturn("diagram.png");
 
@@ -165,7 +165,7 @@ class EFormUploadFilenameValidationUnitTest extends CarlosUnitTestBase {
     void shouldReturnError_whenStrutsImageFilenameIsHidden() throws Exception {
         Path upload = Files.createTempFile(tempDir, "image-upload", ".png");
         UploadedFile uploadedFile = mock(UploadedFile.class);
-        when(uploadedFile.getAbsolutePath()).thenReturn(upload.toString());
+        when(uploadedFile.getContent()).thenReturn(upload.toFile());
         when(uploadedFile.getContentType()).thenReturn("image/png");
         when(uploadedFile.getOriginalName()).thenReturn(".hidden.png");
 
@@ -187,7 +187,7 @@ class EFormUploadFilenameValidationUnitTest extends CarlosUnitTestBase {
                 Files.isRegularFile(outside),
                 "Test requires /etc/hostname to exist");
         UploadedFile uploadedFile = mock(UploadedFile.class);
-        when(uploadedFile.getAbsolutePath()).thenReturn(outside.toString());
+        when(uploadedFile.getContent()).thenReturn(outside.toFile());
         when(uploadedFile.getContentType()).thenReturn("image/png");
         when(uploadedFile.getOriginalName()).thenReturn("diagram.png");
 

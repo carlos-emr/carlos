@@ -113,7 +113,7 @@ public class UploadTemplates2Action extends ActionSupport implements UploadedFil
     public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
         if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
             UploadedFile uploaded = uploadedFiles.get(0);
-            this.templateFile = PathValidationUtils.validateUpload(new File(uploaded.getAbsolutePath()));
+            this.templateFile = PathValidationUtils.validateUploadContent(uploaded.getContent());
         }
     }
 

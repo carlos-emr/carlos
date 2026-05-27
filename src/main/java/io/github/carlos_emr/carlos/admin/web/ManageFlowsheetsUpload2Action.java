@@ -56,6 +56,8 @@ import org.apache.struts2.dispatcher.multipart.UploadedFile;
  */
 public class ManageFlowsheetsUpload2Action extends ActionSupport implements UploadedFilesAware {
 
+    private static final String MANAGE_FLOWSHEETS_ACTION = "ManageFlowsheets";
+
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private File uploadedFile;
     private String uploadValidationError;
@@ -79,7 +81,7 @@ public class ManageFlowsheetsUpload2Action extends ActionSupport implements Uplo
 
         if (uploadValidationError != null) {
             request.getSession().setAttribute("flashError", uploadValidationError);
-            response.sendRedirect(request.getContextPath() + "/admin/ManageFlowsheets");
+            response.sendRedirect(MANAGE_FLOWSHEETS_ACTION);
             return NONE;
         }
 
@@ -105,7 +107,7 @@ public class ManageFlowsheetsUpload2Action extends ActionSupport implements Uplo
             }
         }
 
-        response.sendRedirect(request.getContextPath() + "/admin/ManageFlowsheets");
+        response.sendRedirect(MANAGE_FLOWSHEETS_ACTION);
         return NONE;
     }
 
@@ -113,7 +115,7 @@ public class ManageFlowsheetsUpload2Action extends ActionSupport implements Uplo
     public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
         if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
             UploadedFile uploaded = uploadedFiles.get(0);
-            this.uploadedFile = PathValidationUtils.validateUpload(new File(uploaded.getAbsolutePath()));
+            this.uploadedFile = PathValidationUtils.validateUploadContent(uploaded.getContent());
             try {
                 PathValidationUtils.validateStrictFileName(uploaded.getOriginalName());
             } catch (FileValidationException e) {

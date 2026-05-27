@@ -228,6 +228,20 @@ public final class PathValidationUtils {
     }
 
     /**
+     * Validates file content supplied by the Struts upload interceptor.
+     *
+     * @param uploadedContent the content returned from {@code UploadedFile#getContent()}
+     * @return the canonicalized validated File - use this return value for all subsequent file operations
+     * @throws SecurityException if the upload content is not a file or validation fails
+     */
+    public static File validateUploadContent(Object uploadedContent) {
+        if (!(uploadedContent instanceof File sourceFile)) {
+            throw new SecurityException("Uploaded content is not a file");
+        }
+        return validateUpload(sourceFile);
+    }
+
+    /**
      * Opens a stream for an uploaded temp file after canonicalizing it and
      * confirming it resolves inside an allowed upload temp directory.
      *

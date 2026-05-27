@@ -182,7 +182,7 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport implements
     public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
         if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
             UploadedFile uploaded = uploadedFiles.get(0);
-            this.file = PathValidationUtils.validateUpload(new File(uploaded.getAbsolutePath()));
+            this.file = PathValidationUtils.validateUploadContent(uploaded.getContent());
             try {
                 this.fileName = PathValidationUtils.validateStrictFileName(uploaded.getOriginalName());
             } catch (FileValidationException e) {

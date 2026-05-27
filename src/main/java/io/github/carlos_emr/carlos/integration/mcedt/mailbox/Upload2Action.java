@@ -445,7 +445,7 @@ public class Upload2Action extends ActionSupport implements UploadedFilesAware {
     public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
         if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
             UploadedFile uploaded = uploadedFiles.get(0);
-            this.addUploadFile = PathValidationUtils.validateUpload(new File(uploaded.getAbsolutePath()));
+            this.addUploadFile = PathValidationUtils.validateUploadContent(uploaded.getContent());
             this.addUploadFileContentType = uploaded.getContentType();
             try {
                 this.addUploadFileFileName = PathValidationUtils.validateStrictFileName(uploaded.getOriginalName());

@@ -126,7 +126,7 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
     public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
         if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
             UploadedFile uploaded = uploadedFiles.get(0);
-            this.file1 = PathValidationUtils.validateUpload(new File(uploaded.getAbsolutePath()));
+            this.file1 = PathValidationUtils.validateUploadContent(uploaded.getContent());
             this.file1ContentType = uploaded.getContentType();
             try {
                 this.file1FileName = PathValidationUtils.validateStrictFileName(uploaded.getOriginalName());

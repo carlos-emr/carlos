@@ -210,7 +210,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
     public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
         if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
             UploadedFile uploaded = uploadedFiles.get(0);
-            this.importFile = PathValidationUtils.validateUpload(new File(uploaded.getAbsolutePath()));
+            this.importFile = PathValidationUtils.validateUploadContent(uploaded.getContent());
             try {
                 PathValidationUtils.validateStrictFileName(uploaded.getOriginalName());
             } catch (FileValidationException e) {
