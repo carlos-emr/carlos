@@ -34,11 +34,13 @@ import java.util.UUID;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 @Tag("unit")
+@Tag("manager")
 class NioFileManagerImplUnitTest {
 
     private NioFileManagerImpl nioFileManager;
@@ -68,6 +70,7 @@ class NioFileManagerImplUnitTest {
     }
 
     @Test
+    @DisplayName("Deletes a valid temp file")
     void shouldDeleteTempFile_whenValidTempFileProvided() throws IOException {
         Path tempFile = Files.createFile(tempDir.resolve("valid-upload.tmp"));
 
@@ -78,6 +81,7 @@ class NioFileManagerImplUnitTest {
     }
 
     @Test
+    @DisplayName("Rejects delete targets outside approved temp directories")
     void shouldThrowSecurityException_whenOutsidePathProvided() throws IOException {
         outsideDir = createOutsideAllowedTempDirectory();
         outsideFile = Files.createFile(outsideDir.resolve("outside.tmp"));
@@ -91,6 +95,7 @@ class NioFileManagerImplUnitTest {
     }
 
     @Test
+    @DisplayName("Rejects directory temp deletion targets")
     void shouldThrowSecurityException_whenDirectoryTargetProvided() throws IOException {
         Path directory = Files.createDirectory(tempDir.resolve("not-a-file"));
 
@@ -101,6 +106,7 @@ class NioFileManagerImplUnitTest {
     }
 
     @Test
+    @DisplayName("Rejects temp symlinks that escape approved temp directories")
     void shouldThrowSecurityException_whenTempSymlinkEscapesAllowedTempDirectory() throws IOException {
         outsideDir = createOutsideAllowedTempDirectory();
         outsideFile = Files.createFile(outsideDir.resolve("victim.tmp"));
@@ -120,6 +126,7 @@ class NioFileManagerImplUnitTest {
     }
 
     @Test
+    @DisplayName("Returns false for missing approved temp files")
     void shouldReturnFalse_whenTempFileMissing() {
         Path missingFile = tempDir.resolve("missing-upload.tmp");
 
@@ -127,6 +134,14 @@ class NioFileManagerImplUnitTest {
 
         assertThat(deleted).isFalse();
         assertThat(missingFile).doesNotExist();
+    }
+
+    @Test
+    @DisplayName("Returns false for blank temp deletion targets")
+    void shouldReturnFalse_whenTempFileNameBlank() {
+        boolean deleted = nioFileManager.deleteTempFile(" ");
+
+        assertThat(deleted).isFalse();
     }
 
     private Path createOutsideAllowedTempDirectory() throws IOException {

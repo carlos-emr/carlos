@@ -38,6 +38,7 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -65,6 +66,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @Tag("unit")
+@Tag("action")
 class ManageDocument2ActionTest extends CarlosUnitTestBase {
 
     @Mock
@@ -242,6 +244,7 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("Moves the exact incoming source file when the queue filename has safe special characters")
     void shouldMoveIncomingDocumentUsingExactSourceFilename_whenFilenameContainsQueueSafeSpecialCharacters() throws Exception {
         Path incomingDir = configureIncomingDocumentDirectories();
         String sourceName = "Fax (A+B) R\u00e9sum\u00e9.pdf";
@@ -261,6 +264,7 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
 
     @ParameterizedTest
     @ValueSource(strings = {"nested/report.pdf", "nested\\report.pdf", "C:foo.pdf"})
+    @DisplayName("Rejects incoming source filenames with path components")
     void shouldRejectIncomingDocumentSourceFilenameWithPathComponents(String pdfName) throws Exception {
         configureIncomingDocumentDirectories();
         setupSuccessfulAddIncomingRequest(pdfName);
@@ -271,6 +275,7 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("Rejects missing incoming source filename parameters")
     void shouldThrowIllegalArgumentException_whenIncomingDocumentSourceFilenameMissing() throws Exception {
         configureIncomingDocumentDirectories();
         setupSuccessfulAddIncomingRequest("plain.pdf");
@@ -282,6 +287,7 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("Rejects empty incoming source filenames")
     void shouldRejectIncomingDocumentSourceFilenameEmpty() throws Exception {
         configureIncomingDocumentDirectories();
         setupSuccessfulAddIncomingRequest(" ");
@@ -292,6 +298,7 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("Rejects incoming source directories")
     void shouldThrowSecurityException_whenIncomingDocumentSourceIsDirectory() throws Exception {
         Path incomingDir = configureIncomingDocumentDirectories();
         Files.createDirectories(incomingDir.resolve("directory.pdf"));
@@ -303,6 +310,7 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("Rejects incoming source symlinks that escape the incoming directory")
     void shouldThrowSecurityException_whenIncomingDocumentSourceEscapesIncomingDirectoryViaSymlink() throws Exception {
         Path incomingDir = configureIncomingDocumentDirectories();
         Path outsideDir = Files.createTempDirectory(Path.of(System.getProperty("user.dir")), "incoming-outside-");
@@ -324,6 +332,7 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("Returns an action error and deletes the source when the incoming move fails")
     void shouldReturnErrorAndDeleteSource_whenIncomingDocumentMoveFails() throws Exception {
         Path incomingDir = configureIncomingDocumentDirectories();
         Path sourceFile = createIncomingSource(incomingDir, "move-fails.pdf", "source-content");
@@ -339,6 +348,7 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("Rejects missing incoming document directory configuration")
     void shouldThrowIllegalStateException_whenIncomingDocumentDirectoryIsMissing() throws Exception {
         Path documentDir = tempDir.resolve("documents");
         Files.createDirectories(documentDir);
@@ -352,6 +362,7 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("Rejects empty document directory configuration")
     void shouldThrowIllegalStateException_whenDocumentDirectoryIsEmpty() throws Exception {
         Path incomingDir = configureIncomingDocumentDirectories();
         CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", " ");
@@ -364,6 +375,7 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("Rejects document directory configuration that points to a regular file")
     void shouldThrowIllegalStateException_whenConfiguredDocumentDirectoryIsARegularFile() throws Exception {
         Path incomingDir = configureIncomingDocumentDirectories();
         Path regularFile = Files.writeString(tempDir.resolve("document-dir-file"), "not-a-directory");

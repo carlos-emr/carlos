@@ -1134,8 +1134,7 @@ public class ManageDocument2Action extends ActionSupport {
         // Validate queueId and pdfDir to prevent directory traversal
         if (queueId1.contains("..") || queueId1.contains("/") || queueId1.contains("\\") ||
             pdfDir.contains("..") || pdfDir.contains("/") || pdfDir.contains("\\")) {
-            log.warn("Invalid incoming document directory parameters: queueId={}, pdfDir={}",
-                    LogSafe.sanitize(queueId1), LogSafe.sanitize(pdfDir)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            log.warn("Invalid incoming document directory parameters rejected");
             throw new SecurityException("Invalid directory parameters");
         }
         
@@ -1144,9 +1143,12 @@ public class ManageDocument2Action extends ActionSupport {
 
         String incomingDocDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
         File incomingDir = validateConfiguredDocumentDirectory(incomingDocDir, "INCOMINGDOCUMENT_DIR");
+
+        // codeql[java/path-injection] sourceFilePath is built from filename-only request
+        // components rejected above and is canonicalized against incomingDir before use.
         File sourceFile = PathValidationUtils.validateExistingPath(new File(sourceFilePath), incomingDir);
         if (!sourceFile.isFile()) {
-            log.warn("Incoming document source is not a regular file: {}", LogSafe.sanitize(sourceFile.getPath(), 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            log.warn("Incoming document source is not a regular file");
             throw new SecurityException("Incoming document source must be a regular file");
         }
 
@@ -1204,16 +1206,14 @@ public class ManageDocument2Action extends ActionSupport {
 
         boolean success = moveIncomingDocument(sourceFile, destFile);
         if (!success) {
-            log.error("Not able to move {} to {}", LogSafe.sanitize(sourceFile.getName()), LogSafe.sanitize(destFile.getPath())); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+            log.error("Not able to move incoming document into document store");
             // File was not successfully moved - attempt to delete temp file to prevent orphaned files
-            boolean deleted = sourceFile.delete();
-            if (!deleted) {
-                log.warn("Failed to delete temporary file: {}", LogSafe.sanitize(sourceFile.getAbsolutePath())); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+            try {
+                Files.delete(sourceFile.toPath());
+            } catch (IOException e) {
+                log.warn("Failed to delete incoming document source after move failure", e);
             }
-            log.error("Failed to save incoming document queueId={}, source={}, destination={}",
-                    LogSafe.sanitize(queueId1),
-                    LogSafe.sanitize(sourcePdfName, 1024),
-                    LogSafe.sanitize(destFile.getPath(), 1024));
+            log.error("Failed to save incoming document");
             addActionError("Failed to save document file. Please try again or contact your system administrator.");
             return "error";
         } else {
@@ -1285,7 +1285,7 @@ public class ManageDocument2Action extends ActionSupport {
 
         String sanitizedFileName = fileName.replaceAll("[^a-zA-Z0-9._-]", "");
         if (sanitizedFileName.trim().isEmpty()) {
-            log.warn("Incoming document destination filename became empty after sanitization: {}", LogSafe.sanitize(fileName, 1024));
+            log.warn("Incoming document destination filename became empty after sanitization");
             return fallbackIncomingDocumentFileName();
         }
 
@@ -1323,9 +1323,7 @@ public class ManageDocument2Action extends ActionSupport {
 
         File directory = new File(directoryPath).getCanonicalFile();
         if (!directory.isDirectory()) {
-            log.error("{} is not an approved document directory: {}",
-                    LogSafe.sanitize(propertyName),
-                    LogSafe.sanitize(directory.getPath(), 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            log.error("{} is not an approved document directory", LogSafe.sanitize(propertyName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             throw new IllegalStateException(propertyName + " is not a directory");
         }
 
