@@ -748,14 +748,12 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
     }
 
     private static void moveUploadedFile(Path tempPath, Path savePath, boolean replaceExisting) throws IOException {
-        if (replaceExisting) {
-            Files.move(tempPath, savePath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-        } else {
+        if (!replaceExisting) {
             if (Files.exists(savePath)) {
                 throw new FileAlreadyExistsException(savePath.toString());
             }
-            Files.move(tempPath, savePath, StandardCopyOption.ATOMIC_MOVE);
         }
+        Files.move(tempPath, savePath, StandardCopyOption.ATOMIC_MOVE);
     }
 
     private static void deleteTempFile(Path tempPath, Exception originalError) {
