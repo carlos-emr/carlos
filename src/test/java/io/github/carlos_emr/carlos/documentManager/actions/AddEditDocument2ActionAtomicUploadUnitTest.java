@@ -109,6 +109,21 @@ class AddEditDocument2ActionAtomicUploadUnitTest extends CarlosUnitTestBase {
         assertDirectoryContainsOnly(tempDocumentDir, "existing.pdf");
     }
 
+    @Test
+    @DisplayName("should not expose new destination while staging upload")
+    void shouldNotExposeNewDestination_whenStagingUpload() throws Exception {
+        String fileName = "new-upload.pdf";
+        Path targetPath = tempDocumentDir.resolve(fileName).toAbsolutePath().normalize();
+
+        try (InputStream input = new DestinationCheckingInputStream(targetPath)) {
+            File writtenFile = AddEditDocument2Action.writeLocalFile(input, fileName, false);
+
+            assertThat(writtenFile.toPath()).isEqualTo(targetPath);
+            assertThat(Files.readString(targetPath, StandardCharsets.UTF_8)).isEqualTo("payload");
+            assertDirectoryContainsOnly(tempDocumentDir, fileName);
+        }
+    }
+
     private static void assertDirectoryContainsOnly(Path directory, String fileName) throws IOException {
         try (Stream<Path> paths = Files.list(directory)) {
             List<String> fileNames = paths.map(path -> path.getFileName().toString()).toList();
@@ -122,6 +137,26 @@ class AddEditDocument2ActionAtomicUploadUnitTest extends CarlosUnitTestBase {
         @Override
         public int read() throws IOException {
             throw new IOException("simulated write failure");
+        }
+    }
+
+    private static final class DestinationCheckingInputStream extends InputStream {
+
+        private final Path destinationPath;
+        private final byte[] payload = "payload".getBytes(StandardCharsets.UTF_8);
+        private int offset;
+
+        private DestinationCheckingInputStream(Path destinationPath) {
+            this.destinationPath = destinationPath;
+        }
+
+        @Override
+        public int read() throws IOException {
+            assertThat(destinationPath).doesNotExist();
+            if (offset >= payload.length) {
+                return -1;
+            }
+            return payload[offset++];
         }
     }
 }

@@ -36,6 +36,7 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -716,23 +717,18 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         }
 
         Files.createDirectories(saveParent);
-        boolean reservedDestination = false;
-        if (!replaceExisting) {
-            Files.createFile(savePath);
-            reservedDestination = true;
+        if (!replaceExisting && Files.exists(savePath)) {
+            throw new FileAlreadyExistsException(savePath.toString());
         }
 
         Path tempPath = null;
         try {
             tempPath = Files.createTempFile(saveParent, "document-upload-", ".tmp");
             writeUploadContents(is, tempPath);
-            moveUploadedFile(tempPath, savePath);
+            moveUploadedFile(tempPath, savePath, replaceExisting);
         } catch (Exception e) {
             if (tempPath != null) {
                 deleteTempFile(tempPath, e);
-            }
-            if (reservedDestination) {
-                deleteReservedDestination(savePath, e);
             }
             throw e;
         }
@@ -751,21 +747,20 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         }
     }
 
-    private static void moveUploadedFile(Path tempPath, Path savePath) throws IOException {
-        Files.move(tempPath, savePath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+    private static void moveUploadedFile(Path tempPath, Path savePath, boolean replaceExisting) throws IOException {
+        if (replaceExisting) {
+            Files.move(tempPath, savePath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+        } else {
+            if (Files.exists(savePath)) {
+                throw new FileAlreadyExistsException(savePath.toString());
+            }
+            Files.move(tempPath, savePath, StandardCopyOption.ATOMIC_MOVE);
+        }
     }
 
     private static void deleteTempFile(Path tempPath, Exception originalError) {
         try {
             Files.deleteIfExists(tempPath);
-        } catch (IOException deleteError) {
-            originalError.addSuppressed(deleteError);
-        }
-    }
-
-    private static void deleteReservedDestination(Path savePath, Exception originalError) {
-        try {
-            Files.deleteIfExists(savePath);
         } catch (IOException deleteError) {
             originalError.addSuppressed(deleteError);
         }
