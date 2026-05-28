@@ -40,11 +40,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 class JspJavaScriptEncodingRegressionTest {
     private static final String BASEDIR_PROPERTY = "basedir";
     private static final Path JSP_ROOT = resolveProjectPath(Path.of("src/main/webapp/WEB-INF/jsp"));
+    private static final Path WEBAPP_ROOT = resolveProjectPath(Path.of("src/main/webapp"));
 
     @Test
     void shouldContainEncodedSessionValues_inJavaScriptStrings() throws Exception {
         String sentJsp = readJsp("mcedt/mailbox/sent.jsp");
         String autoDownloadJsp = readJsp("mcedt/mailbox/autoDownload.jsp");
+        String forcePasswordResetJsp = readJsp("login/forcepasswordreset.jsp");
+        String checkPasswordJsJsp = readWebAsset("js/checkPassword.js.jsp");
 
         assertThat(sentJsp)
                 .doesNotContain("'<%= session.getAttribute(\"info\") %>'")
@@ -53,6 +56,18 @@ class JspJavaScriptEncodingRegressionTest {
                 .doesNotContain("'<%= session.getAttribute(\"resourceID\") %>'")
                 .contains("SafeEncode.forJavaScript(")
                 .contains("session.getAttribute(\"resourceID\")");
+        assertThat(forcePasswordResetJsp)
+                .doesNotContain("JavaScriptUtils.javaScriptEscape(")
+                .contains("SafeEncode.forJavaScript(op.getProperty(\"password_group_lower_chars\"))")
+                .contains("SafeEncode.forJavaScript(op.getProperty(\"password_group_upper_chars\"))")
+                .contains("SafeEncode.forJavaScript(op.getProperty(\"password_group_digits\"))")
+                .contains("SafeEncode.forJavaScript(op.getProperty(\"password_group_special\"))");
+        assertThat(checkPasswordJsJsp)
+                .doesNotContain("JavaScriptUtils.javaScriptEscape(")
+                .contains("SafeEncode.forJavaScript(op.getProperty(\"password_group_lower_chars\"))")
+                .contains("SafeEncode.forJavaScript(op.getProperty(\"password_group_upper_chars\"))")
+                .contains("SafeEncode.forJavaScript(op.getProperty(\"password_group_digits\"))")
+                .contains("SafeEncode.forJavaScript(op.getProperty(\"password_group_special\"))");
     }
 
     @Test
@@ -140,6 +155,10 @@ class JspJavaScriptEncodingRegressionTest {
 
     private static String readJsp(String relativePath) throws Exception {
         return Files.readString(JSP_ROOT.resolve(relativePath));
+    }
+
+    private static String readWebAsset(String relativePath) throws Exception {
+        return Files.readString(WEBAPP_ROOT.resolve(relativePath));
     }
 
     private static Path resolveProjectPath(Path relativePath) {

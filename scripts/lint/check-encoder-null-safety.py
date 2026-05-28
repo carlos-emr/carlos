@@ -21,7 +21,8 @@ Fails the build if any non-commented JSP/JSPF content contains:
      directive.
   2. Any <e:forXxx> or ${e:forXxx(...)} usage anywhere — use the CARLOS
      null-safe wrappers (<carlos:encode>, ${carlos:forXxx}).
-  3. Any <%= Encode.forXxx(...) %> scriptlet — use SafeEncode.forXxx.
+  3. Any <%= Encode.forXxx(...) %> or
+     <%= JavaScriptUtils.javaScriptEscape(...) %> scriptlet — use SafeEncode.
 
 Comments (<%-- ... --%>) are stripped before pattern matching, because they
 don't execute. Intentional runtime exceptions live in
@@ -43,7 +44,9 @@ JSP_ROOT = REPO_ROOT / "src" / "main" / "webapp"
 JSP_COMMENT_RE = re.compile(r"<%--.*?--%>", re.DOTALL)
 TAG_RE = re.compile(r"<e:for[A-Za-z]+(?:\s|/>)")
 EL_FN_RE = re.compile(r"\$\{\s*e:for[A-Za-z]+\s*\(")
-ENCODE_SCRIPTLET_RE = re.compile(r"<%=\s*Encode\.for[A-Za-z]+\s*\(")
+UNSAFE_SCRIPTLET_RE = re.compile(
+    r"<%=\s*(?:Encode\.for[A-Za-z]+|JavaScriptUtils\.javaScriptEscape)\s*\("
+)
 # Class C — context misuse: forHtmlContent inside an HTML attribute value.
 # `forHtmlContent` does NOT escape `"` or `'`, so a value containing a quote
 # breaks the markup. Several sites were fixed by hand in
@@ -149,13 +152,13 @@ def main() -> int:
             classB_el_sites += el_hits
             violations += 1
 
-        # Class B: Encode.forXxx scriptlet leftover (use SafeEncode.forXxx).
-        scriptlet_hits = len(ENCODE_SCRIPTLET_RE.findall(text))
+        # Class B: unsafe scriptlet encoder leftover (use SafeEncode).
+        scriptlet_hits = len(UNSAFE_SCRIPTLET_RE.findall(text))
         if scriptlet_hits:
             print(
-                f"ERROR [Class B — Encode.forXxx scriptlet]: {rel} ({scriptlet_hits} site(s))"
+                f"ERROR [Class B — unsafe encoder scriptlet]: {rel} ({scriptlet_hits} site(s))"
             )
-            print("       Use SafeEncode.forXxx(...).")
+            print("       Use SafeEncode.forXxx(...) or SafeEncode.forJavaScript(...).")
             classB_scriptlet_sites += scriptlet_hits
             violations += 1
 
@@ -180,7 +183,7 @@ def main() -> int:
     print(f"Class A (missing taglib)                   : {classA_files} file(s)")
     print(f"Class B (<e:forXxx> tag leftover)          : {classB_tag_sites} site(s)")
     print(f"Class B (${{e:forXxx}} EL leftover)          : {classB_el_sites} site(s)")
-    print(f"Class B (Encode.forXxx scriptlet leftover) : {classB_scriptlet_sites} site(s)")
+    print(f"Class B (unsafe encoder scriptlet)         : {classB_scriptlet_sites} site(s)")
     print(f"Class C (forHtmlContent in attr context)   : {classC_attr_sites} site(s)")
     print(f"Total violating files                      : {violations}")
     if violations == 0:
