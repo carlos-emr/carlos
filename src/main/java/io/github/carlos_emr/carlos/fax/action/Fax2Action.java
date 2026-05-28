@@ -152,7 +152,7 @@ public class Fax2Action extends ActionSupport {
             }
             // Verify user has access to this patient's record
             if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
-                logger.warn("Unauthorized access attempt to demographic " + demographicNo + " by provider " + loggedInInfo.getLoggedInProviderNo());
+                logger.warn("Unauthorized access attempt to fax patient record");
                 throw new SecurityException("Unauthorized access to patient record");
             }
         }
@@ -174,7 +174,7 @@ public class Fax2Action extends ActionSupport {
         if (recipient != null && !recipient.trim().isEmpty()) {
             // Check for potential injection patterns
             if (recipient.contains("<script") || recipient.contains("javascript:") || recipient.contains("onerror=")) {
-                logger.error("Potential XSS attempt in recipient name: " + recipient);
+                logger.error("Potential XSS attempt in fax recipient name");
                 throw new SecurityException("Invalid characters in recipient name");
             }
         }
@@ -194,7 +194,7 @@ public class Fax2Action extends ActionSupport {
                             faxManager.validateFaxNumber(faxNumber, "copy-to recipient fax number [" + i + "]");
                         }
                     } catch (Exception e) {
-                        logger.error("Failed to parse copy-to recipient JSON at index " + i + ": " + copyRecipient, e);
+                        logger.error("Failed to parse copy-to recipient JSON", e);
                         throw new SecurityException("Invalid copy-to recipient format at index " + i);
                     }
                 }
