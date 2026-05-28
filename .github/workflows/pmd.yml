@@ -94,18 +94,18 @@ jobs:
           else
             echo "PMD ${PMD_VERSION} already cached"
           fi
-
-      - name: Run PMD quality scan
-        run: |
-          set -euo pipefail
-          PMD_DIR="pmd-bin-${PMD_VERSION}"
-          "${PMD_DIR}/bin/pmd" check \
-            --dir src/main/java \
-            --dir src/test/java \
-            --rulesets .github/pmd/carlos-ruleset.xml \
-            --format sarif \
-            --report-file pmd-report.sarif \
-            --no-fail-on-violation
+#Disabling quality scan temporarily so we get security-focused alerts
+     # - name: Run PMD quality scan
+    #    run: |
+    #      set -euo pipefail
+     #     PMD_DIR="pmd-bin-${PMD_VERSION}"
+      #    "${PMD_DIR}/bin/pmd" check \
+       #     --dir src/main/java \
+        #    --dir src/test/java \
+         #   --rulesets .github/pmd/carlos-ruleset.xml \
+          #  --format sarif \
+           # --report-file pmd-report.sarif \
+            #--no-fail-on-violation
 
       - name: Run PMD security scan
         run: |
