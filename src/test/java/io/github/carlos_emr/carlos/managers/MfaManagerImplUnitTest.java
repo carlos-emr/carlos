@@ -104,9 +104,11 @@ class MfaManagerImplUnitTest extends CarlosUnitTestBase {
             doReturn("qr".getBytes(StandardCharsets.UTF_8))
                     .when(manager).getQRCodeImageData("Clinic MFA", "alice", "secret");
 
-            manager.getQRCodeImageData(42, "secret");
+            String result = manager.getQRCodeImageData(42, "secret");
 
             verify(manager).getQRCodeImageData("Clinic MFA", "alice", "secret");
+            assertThat(result).isEqualTo("data:image/png;base64,"
+                    + Base64.getEncoder().encodeToString("qr".getBytes(StandardCharsets.UTF_8)));
         }
     }
 }
