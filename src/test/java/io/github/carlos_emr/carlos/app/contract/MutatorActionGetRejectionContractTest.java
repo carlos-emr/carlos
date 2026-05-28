@@ -150,6 +150,9 @@ class MutatorActionGetRejectionContractTest {
                     "_admin", "w"),
             Arguments.of("io.github.carlos_emr.carlos.admin.web.SecurityDelete2Action",
                     "_admin", "w"),
+            // --- login ---
+            Arguments.of("io.github.carlos_emr.carlos.login.UploadLoginText2Action",
+                    "_admin", "w"),
             // --- clinical measurements / flowsheets ---
             Arguments.of("io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action",
                     "_measurement", "w"),
@@ -299,6 +302,7 @@ class MutatorActionGetRejectionContractTest {
         "io.github.carlos_emr.carlos.billings.ca.on.web.ScheduleOfBenefitsUpload2Action",
         "io.github.carlos_emr.carlos.commn.web.FlowSheetCustom2Action",
         "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action",
+        "io.github.carlos_emr.carlos.login.UploadLoginText2Action",
         "io.github.carlos_emr.carlos.login.gate.SelectFacility2Action",
         "io.github.carlos_emr.carlos.provider.web.DocumentDescriptionTemplate2Action"
     );
