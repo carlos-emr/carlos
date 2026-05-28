@@ -70,7 +70,7 @@ class RxPrintFlowRegressionTest {
     }
 
     @Test
-    void shouldEncodeFavoriteNamesInSideLinksEditFavorites2Jsp() throws Exception {
+    void shouldEncodeFavoriteNames_inSideLinksEditFavorites2Jsp() throws Exception {
         String sideLinksEditFavorites2Jsp = Files.readString(SIDE_LINKS_EDIT_FAVORITES_2_JSP, StandardCharsets.UTF_8);
 
         assertThat(sideLinksEditFavorites2Jsp)
