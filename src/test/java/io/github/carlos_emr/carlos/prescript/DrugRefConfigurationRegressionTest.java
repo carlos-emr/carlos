@@ -26,6 +26,9 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * Verifies the default DrugRef configuration points to the XML-RPC servlet endpoint.
+ */
 @DisplayName("DrugRef configuration regressions")
 @Tag("unit")
 @Tag("regression")
@@ -37,7 +40,7 @@ class DrugRefConfigurationRegressionTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should include DrugrefService path in default DrugRef URL")
-    void shouldIncludeDrugrefServicePath_inDefaultUrl() throws IOException {
+    void shouldIncludeDrugrefServicePath_inDefaultDrugRefUrl() throws IOException {
         String carlosProperties = Files.readString(CARLOS_PROPERTIES);
         Properties properties = new Properties();
         properties.load(new StringReader(carlosProperties));
