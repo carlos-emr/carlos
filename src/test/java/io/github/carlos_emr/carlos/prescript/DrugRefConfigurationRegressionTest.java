@@ -36,13 +36,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("regression")
 class DrugRefConfigurationRegressionTest extends CarlosUnitTestBase {
     private static final Path CARLOS_PROPERTIES = Path.of("src/main/resources/carlos.properties");
-    private static final String DRUGREF_ENDPOINT = "http://localhost:8080/drugref2/DrugrefService";
-    private static final String DRUGREF_TEMPLATE =
-            "drugref_url = http://yourDrugRefServerIP:portNumber/drugref2/DrugrefService";
+    private static final String DRUGREF_SERVICE_PATH = "/drugref2/DrugrefService";
+    private static final String DRUGREF_ENDPOINT = "http://localhost:8080" + DRUGREF_SERVICE_PATH;
 
     @Test
     @DisplayName("should include DrugrefService path in default DrugRef URL")
-    void shouldContainServletPath_inDefaultDrugRefUrl() throws IOException {
+    void shouldUseCorrectServletPath_inDefaultDrugRefUrl() throws IOException {
         String carlosProperties = Files.readString(CARLOS_PROPERTIES);
         Properties properties = new Properties();
         properties.load(new StringReader(carlosProperties));
@@ -52,6 +51,6 @@ class DrugRefConfigurationRegressionTest extends CarlosUnitTestBase {
                 .isEqualTo(DRUGREF_ENDPOINT);
         assertThat(carlosProperties)
                 .as("operator template should show the required servlet path")
-                .contains(DRUGREF_TEMPLATE);
+                .contains("yourDrugRefServerIP:portNumber" + DRUGREF_SERVICE_PATH);
     }
 }
