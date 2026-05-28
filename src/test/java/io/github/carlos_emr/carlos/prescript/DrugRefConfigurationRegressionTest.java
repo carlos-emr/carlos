@@ -40,8 +40,8 @@ class DrugRefConfigurationRegressionTest extends CarlosUnitTestBase {
     private static final String DRUGREF_ENDPOINT = "http://localhost:8080" + DRUGREF_SERVICE_PATH;
 
     @Test
-    @DisplayName("should include DrugrefService path in default DrugRef URL")
-    void shouldUseCorrectServletPath_inDefaultDrugRefUrl() throws IOException {
+    @DisplayName("should include XML-RPC servlet path in default DrugRef URL")
+    void shouldIncludeDrugrefServicePath_inDefaultDrugRefUrl() throws IOException {
         String carlosProperties = Files.readString(CARLOS_PROPERTIES);
         Properties properties = new Properties();
         properties.load(new StringReader(carlosProperties));
