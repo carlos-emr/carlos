@@ -126,7 +126,8 @@ public final class IncomingDocUtil {
     }
 
     private static Set<String> getAllowedIncomingDocFolders() {
-        String configuredFolders = CarlosProperties.getInstance().getProperty(ALLOWED_INCOMING_DOC_FOLDERS, "");
+        String configuredFolders = CarlosProperties.getInstance()
+                .getProperty(ALLOWED_INCOMING_DOC_FOLDERS, "");
         if (configuredFolders.trim().isEmpty()) {
             return DEFAULT_INCOMING_DOC_FOLDERS;
         }
@@ -134,14 +135,18 @@ public final class IncomingDocUtil {
         return Arrays.stream(configuredFolders.split(","))
                 .map(String::trim)
                 .filter(folder -> !folder.isEmpty())
+                .filter(folder -> !hasPathSeparator(folder))
                 .collect(Collectors.toUnmodifiableSet());
     }
 
     private static boolean isAllowedIncomingDocFolder(String pdfDir) {
         return pdfDir != null
-                && !pdfDir.contains("/")
-                && !pdfDir.contains("\\")
+                && !hasPathSeparator(pdfDir)
                 && getAllowedIncomingDocFolders().contains(pdfDir);
+    }
+
+    private static boolean hasPathSeparator(String value) {
+        return value.contains("/") || value.contains("\\");
     }
 
     /** List of formatted modification dates corresponding to PDF files returned by {@link #getDocList(String)}. */
