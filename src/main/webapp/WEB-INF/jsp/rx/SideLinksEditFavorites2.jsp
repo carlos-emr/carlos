@@ -150,13 +150,14 @@
         RxPrescriptionData.Favorite[] favorites
             = new RxPrescriptionData().getFavorites(bean2.getProviderNo());
 
-        for (int j=0; j<favorites.length; j++){%>
+        for (int j=0; j<favorites.length; j++){
+            String favoriteName = StringUtils.noNull(favorites[j].getFavoriteName());%>
 
     <p class="PropSheetMenuItemLevel1"><a
             href="javascript:void(0);" onclick="useFav2('<%= favorites[j].getFavoriteId() %>');"
-            title="<%= favorites[j].getFavoriteName() %>"><%if (favorites[j].getFavoriteName().length() > 13) {%>
-        <%= favorites[j].getFavoriteName().substring(0, 10) + "..." %> <%} else {%>
-        <%= favorites[j].getFavoriteName() %> <%}%></a></p>
+            title="<carlos:encode value='<%= favoriteName %>' context="htmlAttribute"/>"><%if (favoriteName.length() > 13) {%>
+        <carlos:encode value='<%= favoriteName.substring(0, 10) + "..." %>' context="html"/> <%} else {%>
+        <carlos:encode value='<%= favoriteName %>' context="html"/> <%}%></a></p>
     <%}%>
 
 </div>

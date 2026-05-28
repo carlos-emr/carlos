@@ -36,6 +36,8 @@ class RxPrintFlowRegressionTest {
             Path.of("src/main/webapp/WEB-INF/jsp/rx/Print.jsp");
     private static final Path CHOOSE_DRUG_JSP =
             Path.of("src/main/webapp/WEB-INF/jsp/rx/ChooseDrug.jsp");
+    private static final Path SIDE_LINKS_EDIT_FAVORITES_2_JSP =
+            Path.of("src/main/webapp/WEB-INF/jsp/rx/SideLinksEditFavorites2.jsp");
 
     @Test
     void shouldRoutePrintSearchAgainThroughRxSearchPatient() throws Exception {
@@ -65,5 +67,19 @@ class RxPrintFlowRegressionTest {
         assertThat(showDrugInfo.group(1))
                 .contains("ShowDrugInfoBN(drug);")
                 .doesNotContain("drugInfo?GN=");
+    }
+
+    @Test
+    void shouldEncodeFavoriteNamesInSideLinksEditFavorites2Jsp() throws Exception {
+        String sideLinksEditFavorites2Jsp = Files.readString(SIDE_LINKS_EDIT_FAVORITES_2_JSP, StandardCharsets.UTF_8);
+
+        assertThat(sideLinksEditFavorites2Jsp)
+                .contains("String favoriteName = StringUtils.noNull(favorites[j].getFavoriteName());")
+                .contains("title=\"<carlos:encode value='<%= favoriteName %>' context=\"htmlAttribute\"/>\"")
+                .contains("<carlos:encode value='<%= favoriteName.substring(0, 10) + \"...\" %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= favoriteName %>' context=\"html\"/>")
+                .doesNotContain("title=\"<%= favorites[j].getFavoriteName() %>\"")
+                .doesNotContain("<%= favorites[j].getFavoriteName().substring(0, 10) + \"...\" %>")
+                .doesNotContain("<%= favorites[j].getFavoriteName() %> <%");
     }
 }
