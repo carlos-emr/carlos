@@ -25,14 +25,19 @@ import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.SecUserRoleDao;
 import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
 import io.github.carlos_emr.carlos.commn.model.Security;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
+import java.util.Date;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -89,6 +94,24 @@ class LoginCheckLoginBeanUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should sanitize missing username for failed login audit log")
+    void shouldSanitizeMissingUsernameForFailedLoginAuditLog() {
+        String username = "missing\r\n<script>";
+        String password = "WRONGPASS";
+        String ip = "127.0.0.1";
+        when(securityDao.findByUserName(username)).thenReturn(Collections.emptyList());
+
+        LoginCheckLoginBean bean = new LoginCheckLoginBean();
+        bean.ini(username, password, "", ip);
+
+        String[] result = bean.authenticate();
+
+        assertThat(result).isNull();
+        logActionMock.verify(() -> LogAction.addLogSynchronous(
+                "", "failed", LogConst.CON_LOGIN, LogSafe.sanitize(username), ip));
+    }
+
+    @Test
     @DisplayName("should validate dummy password hash when missing user has null password")
     void shouldValidateDummyPasswordHash_whenMissingUserHasNullPassword() {
         String username = "nonexistentUser";
@@ -130,5 +153,31 @@ class LoginCheckLoginBeanUnitTest extends CarlosUnitTestBase {
                 eq("wrongPassword"),
                 argThat(dummySecurity -> dummySecurity != null
                         && EXPECTED_MISSING_USER_DUMMY_PASSWORD_HASH.equals(dummySecurity.getPassword())));
+    }
+
+    @Test
+    @DisplayName("should sanitize username for expired credential audit log")
+    void shouldSanitizeUsernameForExpiredCredentialAuditLog() {
+        String username = "expired\r\n<script>";
+        String providerNo = "999997";
+        String ip = "127.0.0.1";
+        Security security = new Security();
+        security.setProviderNo(providerNo);
+        security.setPassword("legacyPassword");
+        security.setBLocallockset(0);
+        security.setBRemotelockset(0);
+        security.setBExpireset(1);
+        security.setDateExpiredate(new Date(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(1)));
+        when(securityDao.findByUserName(username)).thenReturn(Collections.singletonList(security));
+        when(secUserRoleDao.getUserRoles(providerNo)).thenReturn(Collections.emptyList());
+
+        LoginCheckLoginBean bean = new LoginCheckLoginBean();
+        bean.ini(username, "legacyPassword", "", ip);
+
+        String[] result = bean.authenticate();
+
+        assertThat(result).containsExactly("expired");
+        logActionMock.verify(() -> LogAction.addLogSynchronous(
+                "", "expired", LogConst.CON_LOGIN, LogSafe.sanitize(username), ip));
     }
 }
