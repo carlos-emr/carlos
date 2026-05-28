@@ -263,6 +263,23 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
         assertThat(Files.readString(storedFiles.get(0))).isEqualTo("original-content");
     }
 
+    @Test
+    @DisplayName("Moves non-PDF incoming documents without page counting")
+    void shouldMoveIncomingDocumentWithoutCountingPages_whenSourceIsNotPdf() throws Exception {
+        Path incomingDir = configureIncomingDocumentDirectories();
+        Path sourceFile = createIncomingSource(incomingDir, "note.txt", "plain-text-content");
+        setupSuccessfulAddIncomingRequest("note.txt");
+
+        String result = runAddIncomingDocumentWithEdocMock();
+
+        assertThat(result).isEqualTo("nextIncomingDoc");
+        assertThat(sourceFile).doesNotExist();
+        assertThat(action.pageCountRequests).isZero();
+        List<Path> storedFiles = listStoredDocuments();
+        assertThat(storedFiles).hasSize(1);
+        assertThat(Files.readString(storedFiles.get(0))).isEqualTo("plain-text-content");
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"nested/report.pdf", "nested\\report.pdf", "C:foo.pdf"})
     @DisplayName("Rejects incoming source filenames with path components")
@@ -315,6 +332,17 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
         assertThatThrownBy(() -> action.addIncomingDocument())
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("Invalid filename");
+    }
+
+    @Test
+    @DisplayName("Rejects missing incoming source files")
+    void shouldThrowSecurityException_whenIncomingDocumentSourceFileIsMissing() throws Exception {
+        configureIncomingDocumentDirectories();
+        setupSuccessfulAddIncomingRequest("missing.pdf");
+
+        assertThatThrownBy(() -> action.addIncomingDocument())
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("regular file");
     }
 
     @Test
@@ -485,9 +513,11 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
 
     private static final class TestManageDocument2Action extends ManageDocument2Action {
         private boolean failMove;
+        private int pageCountRequests;
 
         @Override
         public int countNumOfPages(String fileName) {
+            pageCountRequests++;
             return 1;
         }
 
