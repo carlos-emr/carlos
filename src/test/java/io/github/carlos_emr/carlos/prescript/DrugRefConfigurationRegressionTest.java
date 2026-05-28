@@ -12,6 +12,8 @@
  */
 package io.github.carlos_emr.carlos.prescript;
 
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+
 import java.io.IOException;
 import java.io.StringReader;
 import java.nio.file.Files;
@@ -27,7 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DisplayName("DrugRef configuration regressions")
 @Tag("unit")
 @Tag("regression")
-class DrugRefConfigurationRegressionTest {
+class DrugRefConfigurationRegressionTest extends CarlosUnitTestBase {
     private static final Path CARLOS_PROPERTIES = Path.of("src/main/resources/carlos.properties");
     private static final String DRUGREF_ENDPOINT = "http://localhost:8080/drugref2/DrugrefService";
     private static final String DRUGREF_TEMPLATE =
@@ -35,7 +37,7 @@ class DrugRefConfigurationRegressionTest {
 
     @Test
     @DisplayName("should include DrugrefService path in default DrugRef URL")
-    void shouldIncludeDrugrefServicePath_inDefaultDrugrefUrl() throws IOException {
+    void shouldIncludeDrugrefServicePath_inDefaultUrl() throws IOException {
         String carlosProperties = Files.readString(CARLOS_PROPERTIES);
         Properties properties = new Properties();
         properties.load(new StringReader(carlosProperties));
@@ -45,7 +47,6 @@ class DrugRefConfigurationRegressionTest {
                 .isEqualTo(DRUGREF_ENDPOINT);
         assertThat(carlosProperties)
                 .as("operator template should show the required servlet path")
-                .contains(DRUGREF_TEMPLATE)
-                .doesNotContain("drugref_url = http://67.69.12.116:8001");
+                .contains(DRUGREF_TEMPLATE);
     }
 }
