@@ -138,6 +138,40 @@ class JspJavaScriptEncodingRegressionTest {
                 .doesNotContainPattern(">(?:\\s*)<%=\\s*groupName\\s*%>(?:\\s*)<");
     }
 
+    @Test
+    void shouldContainEncodedEncounterPrintFields_inHtmlBodyContext() throws Exception {
+        String encounterPrintJsp = readJsp("encounter/encounterPrint.jsp");
+        String echartHistoryPrintJsp = readJsp("encounter/echarthistoryprint.jsp");
+
+        assertThat(encounterPrintJsp)
+                .contains("<carlos:encode value='<%= bean.patientLastName %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.patientFirstName %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.patientSex %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.patientAge %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= providerBean.getProperty(bean.familyDoctorNo, \"\") %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.socialHistory %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.familyHistory %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.medicalHistory %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.ongoingConcerns %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.reminders %>' context=\"html\"/>")
+                .doesNotContainPattern("<pre[^>]*>\\s*<%=\\s*bean\\.(socialHistory|familyHistory|medicalHistory|ongoingConcerns|reminders)\\s*%>");
+
+        assertThat(echartHistoryPrintJsp)
+                .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
+                .contains("<carlos:encode value='<%= bean.patientLastName %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.patientFirstName %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.patientSex %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.patientAge %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= providerBean.getProperty(bean.familyDoctorNo) %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.socialHistory %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.familyHistory %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.medicalHistory %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.ongoingConcerns %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.reminders %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.encounter %>' context=\"html\"/>")
+                .doesNotContainPattern("<pre[^>]*>\\s*<%=\\s*bean\\.(socialHistory|familyHistory|medicalHistory|ongoingConcerns|reminders|encounter)\\s*%>");
+    }
+
     private static String readJsp(String relativePath) throws Exception {
         return Files.readString(JSP_ROOT.resolve(relativePath));
     }

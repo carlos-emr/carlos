@@ -116,11 +116,11 @@
         <tr>
             <td
                     style="text-align: left; height: 34px; border-left: 2px solid #A9A9A9; border-bottom: 2px solid #A9A9A9; border-top: 2px solid #A9A9A9;">
-		<span style="font-weight: bold;"><%=bean.patientLastName %>, <%=bean.patientFirstName%>
-		<%=bean.patientSex%> <%=bean.patientAge%></span></td>
+		<span style="font-weight: bold;"><carlos:encode value='<%= bean.patientLastName %>' context="html"/>, <carlos:encode value='<%= bean.patientFirstName %>' context="html"/>
+		<carlos:encode value='<%= bean.patientSex %>' context="html"/> <carlos:encode value='<%= bean.patientAge %>' context="html"/></span></td>
             <td
                     style="text-align: right; height: 34px; border-bottom: 2px solid #A9A9A9; border-right: 2px solid #A9A9A9; border-top: 2px solid #A9A9A9;">
-		<span style="font-weight: bold;"><fmt:message key="encounter.encounterPrint.msgDr"/>. <%=providerBean.getProperty(bean.familyDoctorNo, "")%></span>
+		<span style="font-weight: bold;"><fmt:message key="encounter.encounterPrint.msgDr"/>. <carlos:encode value='<%= providerBean.getProperty(bean.familyDoctorNo, "") %>' context="html"/></span>
             </td>
         </tr>
         <tr>
@@ -154,15 +154,15 @@
                                 <tr>
                                     <td valign="top" align="left" class="TableWithBorder"><pre
                                             name='shTextarea'
-                                            style="font-size: 8pt;"><%=bean.socialHistory%>&nbsp;</pre>
+                                            style="font-size: 8pt;"><carlos:encode value='<%= bean.socialHistory %>' context="html"/>&nbsp;</pre>
                                     </td>
                                     <td valign="top" class="TableWithBorder"><pre
                                             name='fhTextarea'
-                                            style="font-size: 8pt;"><%=bean.familyHistory%>&nbsp;</pre>
+                                            style="font-size: 8pt;"><carlos:encode value='<%= bean.familyHistory %>' context="html"/>&nbsp;</pre>
                                     </td>
                                     <td valign="top" class="TableWithBorder"><pre
                                             name='mhTextarea'
-                                            style="font-size: 8pt;"><%=bean.medicalHistory%>&nbsp;</pre>
+                                            style="font-size: 8pt;"><carlos:encode value='<%= bean.medicalHistory %>' context="html"/>&nbsp;</pre>
                                     </td>
                                 </tr>
                             </table>
@@ -189,10 +189,10 @@
                                 <tr width="100%">
                                     <td valign="top" class="TableWithBorder"><pre
                                             name='ocTextarea'
-                                            style="font-size: 8pt;"><%=bean.ongoingConcerns%>&nbsp;</pre>
+                                            style="font-size: 8pt;"><carlos:encode value='<%= bean.ongoingConcerns %>' context="html"/>&nbsp;</pre>
                                     </td>
                                     <td valign="top" class="TableWithBorder"><pre
-                                            name='reTextarea' style="font-size: 8pt;"><%=bean.reminders%>&nbsp;</pre>
+                                            name='reTextarea' style="font-size: 8pt;"><carlos:encode value='<%= bean.reminders %>' context="html"/>&nbsp;</pre>
                                     </td>
                                 </tr>
                             </table>
