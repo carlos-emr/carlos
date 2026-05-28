@@ -39,12 +39,11 @@
     POST keeps the HTTP method semantics correct and matches the
     POST-only guard in Logout2Action.execute().
 
-    There is no meta-refresh fallback for no-JS environments: meta refresh
-    can only issue a GET, which would be rejected by the POST-only guard.
-    Without JavaScript the broadcast still fires via BroadcastChannel (if
-    supported), but the session will expire naturally rather than being
-    explicitly invalidated. This is an acceptable trade-off given that
-    non-JS browsers are effectively unsupported in CARLOS EMR.
+    There is no fallback for no-JS environments: without JavaScript neither
+    the BroadcastChannel broadcast nor the form POST occurs. The session
+    will expire naturally rather than being explicitly invalidated. This is
+    an acceptable trade-off given that non-JS browsers are effectively
+    unsupported in CARLOS EMR.
 
     session="false" prevents creating a new session when accessed
     without an active session (e.g., after timeout).
@@ -58,7 +57,6 @@
 <!DOCTYPE html>
 <html><head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
-<meta http-equiv="refresh" content="1;url=logout">
 <style>
 body{margin:0;display:flex;align-items:center;justify-content:center;
 height:100vh;font-family:sans-serif;font-size:1.5em;color:#333;background:#fff;}
@@ -68,7 +66,7 @@ height:100vh;font-family:sans-serif;font-size:1.5em;color:#333;background:#fff;}
 <%-- Hidden form used by JavaScript to POST to /logout.
      A GET redirect (window.location.href or meta refresh) cannot be used because
      Logout2Action.execute() rejects non-POST requests with 405. --%>
-<form id="logoutForm" action="logout" method="post" style="display:none"></form>
+<form id="logoutForm" action="${pageContext.request.contextPath}/logout" method="post" style="display:none"></form>
 <script>
 (function(){
     try { var bc = new BroadcastChannel('carlos_logout'); bc.postMessage('logout'); bc.close(); } catch(e) {}

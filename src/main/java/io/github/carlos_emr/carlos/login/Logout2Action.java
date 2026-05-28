@@ -122,6 +122,7 @@ public class Logout2Action extends ActionSupport {
         // Logout invalidates the session and deletes cookies — reject non-POST to
         // prevent these side effects from firing on a plain GET link or pre-fetch.
         if (!"POST".equals(request.getMethod().toUpperCase(Locale.ROOT))) {
+            response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
             return NONE;
         }
