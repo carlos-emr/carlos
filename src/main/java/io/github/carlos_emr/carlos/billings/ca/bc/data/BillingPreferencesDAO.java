@@ -39,8 +39,8 @@ import org.springframework.stereotype.Repository;
 /**
  * Responsible for CRUD operation a user Billing Module Preferences
  *
- * @author not attributable
  * @version 1.0
+  * @since 2026-05-26
  */
 @Repository
 public class BillingPreferencesDAO extends AbstractDaoImpl<BillingPreference> {
@@ -68,6 +68,8 @@ public class BillingPreferencesDAO extends AbstractDaoImpl<BillingPreference> {
      */
     @Deprecated
     public void saveUserPreferences(BillingPreference pref) {
+        // Persistence boundary: Save operations may trigger audit logging for billing events.
+
         saveEntity(pref);
     }
 

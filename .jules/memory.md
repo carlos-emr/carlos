@@ -1,0 +1,3 @@
+## 2026-05-28 - Javadoc updates for healthcare billing module
+**Learning:** When adding class-level and inline Javadocs to files, always adhere to the project constraints such as omitting `@author` tags, calculating accurate `@since` tags from Git history, and generating context-aware inline documentation that conveys domain rules (e.g., MSP, Teleplan constraints) rather than generic boilerplate. Automated regex-based injection must be strictly checked to avoid cluttering or inappropriately matching setter/getter methods.
+**Action:** Updated 40 Java files across the codebase avoiding boilerplate injection by identifying contextual logic points (like `execute` in Actions or `save` in DAOs) for meaningful comments.

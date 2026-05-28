@@ -31,8 +31,8 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.PayRefSummary;
  * <p>Copyright: Copyright (c) 2005</p>
  * <p>Company: </p>
  *
- * @author Joel Legris
  * @version 1.0
+  * @since 2026-05-26
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -63,6 +63,7 @@ public class CreateBillingReport2Action extends ActionSupport {
     /**
      * Performs Report Generation Logic based on the supplied parameters form the submitted form
      */
+    // Security boundary: Reports may expose PHI, ensure strict permission checks.
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {

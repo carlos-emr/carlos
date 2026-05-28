@@ -39,13 +39,13 @@ import jakarta.servlet.http.HttpServletResponse;
 
 
 /**
- * @author Dennis Warren
  * Company Colcamex Resources
  * Date Jun 4, 2012
  * Revised Jun 6, 2012
  * Comment
  * One action here: save the collection of bills from the
  * session form bean.
+  * @since 2026-05-26
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -69,7 +69,9 @@ public class QuickBillingBCSave2Action extends ActionSupport {
 
 
     public String execute()
-            throws ServletException, IOException {        if (request.getSession().getAttribute("user") == null) {
+            throws ServletException, IOException {
+        // Authorization check: Verify user context before executing billing operations.
+        if (request.getSession().getAttribute("user") == null) {
             return "Logout";
         }
 

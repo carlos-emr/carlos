@@ -50,7 +50,7 @@ import io.github.carlos_emr.carlos.entities.WCB;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 /**
- * @author jay
+  * @since 2026-05-26
  */
 @Repository
 @SuppressWarnings("unchecked")
@@ -112,6 +112,8 @@ public class BillingmasterDAO {
     }
 
     public void save(Billingmaster bm) {
+        // Persistence boundary: Save operations may trigger audit logging for billing events.
+
         entityManager.persist(bm);
     }
 

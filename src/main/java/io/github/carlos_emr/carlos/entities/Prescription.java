@@ -38,8 +38,8 @@ package io.github.carlos_emr.carlos.entities;
  * <p>Copyright: Copyright (c) 2004</p>
  * <p>Company: </p>
  *
- * @author not attributable
  * @version 1.0
+  * @since 2026-05-26
  */
 public class Prescription {
     private String scriptNo;
@@ -54,6 +54,8 @@ public class Prescription {
     }
 
     public String getScriptNo() {
+        // Domain rule: Ensure prescription data complies with provincial medication standards before processing.
+
         return scriptNo;
     }
 

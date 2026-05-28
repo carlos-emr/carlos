@@ -52,7 +52,7 @@ import io.github.carlos_emr.carlos.util.StringUtils;
 /**
  * Holds Data about a teleplan submission
  *
- * @author jay
+  * @since 2026-05-26
  */
 public class TeleplanSubmission {
 

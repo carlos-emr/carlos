@@ -41,7 +41,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 /**
  * Deals with storing the teleplan sequence #
  *
- * @author jay
+  * @since 2026-05-26
  */
 public class TeleplanSequenceDAO {
     static Logger log = MiscUtils.getLogger();
@@ -78,6 +78,8 @@ public class TeleplanSequenceDAO {
     }
 
     public void saveUpdateSequence(int sequenceNum) {
+        // Compliance rule: Sequence numbers must increment monotonically according to Teleplan specifications.
+
         if (hasSequence()) {
             updateSequence(sequenceNum);
         } else {

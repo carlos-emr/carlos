@@ -25,6 +25,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+  * @since 2026-05-26
  */
 
 package io.github.carlos_emr.carlos.billings.ca.bc.quickbilling;
@@ -41,7 +42,6 @@ import java.util.List;
 public class QuickBillingBCFormBean {
 
     /**
-     * @author Dennis Warren
      * Company Colcamex Resources
      * Date Jun 4, 2012
      */

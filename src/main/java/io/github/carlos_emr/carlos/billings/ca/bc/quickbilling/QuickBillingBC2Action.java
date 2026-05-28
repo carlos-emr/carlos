@@ -47,7 +47,6 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData.BillingVisit;
 
 /**
- * @author Dennis Warren
  * Company Colcamex Resources
  * Date Jun 4, 2012
  * Revised Jun 6, 2012
@@ -56,6 +55,7 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData.BillingVi
  * 1. get display
  * 2. add entry to bean
  * 3. remove entry from bean
+  * @since 2026-05-26
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -80,6 +80,7 @@ public class QuickBillingBC2Action extends ActionSupport {
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    // Security context: Quick billing actions require active provider session and appropriate billing rights.
     public String execute() throws ServletException, IOException {
         String creator = (String) request.getSession().getAttribute("user");
         if (creator == null) {

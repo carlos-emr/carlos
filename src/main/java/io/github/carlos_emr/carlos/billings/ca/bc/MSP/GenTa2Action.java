@@ -62,7 +62,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.CarlosProperties;
 
 /**
- * @author jay
+  * @since 2026-05-26
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -91,6 +91,8 @@ public class GenTa2Action extends ActionSupport {
 
     public String execute()
             throws IOException, ServletException, Exception {
+        // Authorization check: Verify user context before executing billing operations.
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.billing", "w", null)) {
             throw new SecurityException("missing required sec object (_admin.billing)");

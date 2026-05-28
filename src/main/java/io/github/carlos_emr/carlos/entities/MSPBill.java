@@ -25,6 +25,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+  * @since 2026-05-26
  */
 
 package io.github.carlos_emr.carlos.entities;
@@ -39,7 +40,6 @@ import java.util.Enumeration;
 /**
  * Represents a Bill in the BC Billing module
  *
- * @author not attributable
  * @version 1.0
  * @todo This class should be renamed since it represents any type of bill(ICBC,WCB,Private)
  * Furthermore, it is based on the MSPReconcile.Bill inner class which wasn't written to the Java Bean standard

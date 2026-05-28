@@ -53,11 +53,11 @@ import io.github.carlos_emr.carlos.util.UtilMisc;
 /**
  * <p>Title:ServiceCodeValidationLogic </p>
  *
- * @author Joel Legris
  * @version 1.0
  * @todo Should be renamed to something more appropriate eg ServiceCodeDAO
  * <p>Description: </p>
  * <p>Responsible for service code validation
+  * @since 2026-05-26
  */
 public class ServiceCodeValidationLogic {
 

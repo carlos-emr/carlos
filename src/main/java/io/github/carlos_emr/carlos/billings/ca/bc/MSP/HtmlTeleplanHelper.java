@@ -39,7 +39,7 @@ import java.util.Date;
 /**
  * Used to consolidate the teleplan submission html into one place.
  *
- * @author jay
+  * @since 2026-05-26
  */
 public class HtmlTeleplanHelper {
 

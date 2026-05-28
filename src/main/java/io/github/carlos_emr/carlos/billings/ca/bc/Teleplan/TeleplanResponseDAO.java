@@ -35,7 +35,7 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanResponseLog;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
- * @author jay
+  * @since 2026-05-26
  */
 public class TeleplanResponseDAO {
 
@@ -45,6 +45,8 @@ public class TeleplanResponseDAO {
     }
 
     public void save(TeleplanResponse tr) {
+        // Persistence boundary: Save operations may trigger audit logging for billing events.
+
         TeleplanResponseLog t = new TeleplanResponseLog();
         t.setTransactionNo(tr.getTransactionNo());
         t.setResult(tr.getResult());

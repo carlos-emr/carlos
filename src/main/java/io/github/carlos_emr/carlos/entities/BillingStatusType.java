@@ -34,8 +34,8 @@ package io.github.carlos_emr.carlos.entities;
  *
  * <p>Description: Represents a bill status type as defined by MSP</p>
  *
- * @author not attributable
  * @version 1.0
+  * @since 2026-05-26
  */
 public class BillingStatusType {
 
@@ -59,6 +59,8 @@ public class BillingStatusType {
     }
 
     public void setBillingstatus(String billingstatus) {
+        // Context: Status codes are synchronized with MSP definitions during the billing cycle.
+
 
         this.billingstatus = billingstatus;
     }

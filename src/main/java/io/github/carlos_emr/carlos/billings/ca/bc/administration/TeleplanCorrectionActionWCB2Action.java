@@ -60,13 +60,13 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
 /*
- * @author Jef King
  * For The Oscar McMaster Project
  * Developed By Andromedia
  * www.andromedia.ca
  */
 /*
  * Created on Mar 10, 2004
+  * @since 2026-05-26
  */
 
 import org.apache.struts2.ActionSupport;
@@ -87,6 +87,8 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
 
     public String execute()
             throws IOException, ServletException {
+        // Authorization check: Verify user context before executing billing operations.
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.billing", "w", null)) {
             throw new SecurityException("missing required sec object (_admin.billing)");

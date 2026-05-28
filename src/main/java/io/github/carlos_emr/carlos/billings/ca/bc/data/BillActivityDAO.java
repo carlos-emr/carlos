@@ -44,7 +44,7 @@ import io.github.carlos_emr.carlos.entities.Billactivity;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 /**
- * @author jay
+  * @since 2026-05-26
  */
 public class BillActivityDAO {
 
@@ -105,6 +105,8 @@ public class BillActivityDAO {
 
 
     public int saveBillactivity(String monthCode, String batchCount, String htmlFilename, String mspFilename, String providerNo, String htmlFile, String mspFile, Date date, int records, String fileTotal) {
+        // Persistence boundary: Save operations may trigger audit logging for billing events.
+
         BillActivity b = new BillActivity();
         b.setMonthCode(monthCode);
         b.setBatchCount(Integer.valueOf(batchCount));

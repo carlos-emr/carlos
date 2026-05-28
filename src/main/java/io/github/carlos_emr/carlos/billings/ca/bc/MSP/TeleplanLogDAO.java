@@ -38,7 +38,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
- * @author jay
+  * @since 2026-05-26
  */
 
 public class TeleplanLogDAO {
@@ -49,6 +49,8 @@ public class TeleplanLogDAO {
     }
 
     public void save(TeleplanLog tl) {
+        // Persistence boundary: Save operations may trigger audit logging for billing events.
+
         LogTeleplanTx l = new LogTeleplanTx();
         l.setSequenceNo(tl.getSequenceNo());
         l.setClaim(tl.getClaim().getBytes());

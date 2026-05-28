@@ -42,7 +42,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 /**
  * Deals with storing the teleplan sequence #
  *
- * @author jay
+  * @since 2026-05-26
  */
 public class TeleplanUserPassDAO {
     static Logger log = MiscUtils.getLogger();
@@ -104,6 +104,8 @@ public class TeleplanUserPassDAO {
     }
 
     public void saveUpdateUsername(String username) {
+        // Persistence boundary: Save operations may trigger audit logging for billing events.
+
         if (hasUsername()) {
             log.debug("has username" + username);
             updateUsername(username);

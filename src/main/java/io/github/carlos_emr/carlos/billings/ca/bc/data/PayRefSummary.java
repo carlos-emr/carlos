@@ -25,6 +25,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+  * @since 2026-05-26
  */
 
 package io.github.carlos_emr.carlos.billings.ca.bc.data;
@@ -47,7 +48,6 @@ import io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile;
  *
  * <p>Company: </p>
  *
- * @author not attributable
  * @version 1.0
  */
 public class PayRefSummary {

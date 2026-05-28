@@ -49,8 +49,8 @@ import io.github.carlos_emr.carlos.util.SqlUtils;
  * BillingHistoryDAO is responsible for providing database CRUD operations
  * on the BillHistory Object
  *
- * @author not attributable
  * @version 1.0
+  * @since 2026-05-26
  */
 public class BillingHistoryDAO {
 

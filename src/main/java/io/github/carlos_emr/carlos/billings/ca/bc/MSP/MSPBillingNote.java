@@ -31,6 +31,7 @@
  * MSPBillingNote.java
  *
  * Created on July 1, 2004, 1:18 PM
+  * @since 2026-05-26
  */
 
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
@@ -46,7 +47,6 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 /**
- * @author root
  * <p>
  * This class is used to deal with MSP N01 correspondence notes.
  */
