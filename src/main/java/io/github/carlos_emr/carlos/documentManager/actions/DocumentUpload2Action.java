@@ -117,18 +117,23 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                 String queueId = request.getParameter("queue");
                 String destFolder = request.getParameter("destFolder");
 
-                File f = new File(IncomingDocUtil.getAndCreateIncomingDocumentFilePathName(queueId, destFolder, sanitizedFileName));
-                if (f.exists()) {
-                    map.put("error", sanitizedFileName + " " + props.getString("dms.documentUpload.alreadyExists"));
-                } else {
-                    boolean success = writeToIncomingDocs(docFile, queueId, destFolder, sanitizedFileName);
-                    if (!success) {
-                        map.put("error", "Failed to write file. Please contact administrator");
-                        MiscUtils.getLogger().error("Failed to write file to {}", LogSafe.sanitize(destFolder)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                try {
+                    File f = new File(IncomingDocUtil.getAndCreateIncomingDocumentFilePathName(queueId, destFolder, sanitizedFileName));
+                    if (f.exists()) {
+                        map.put("error", sanitizedFileName + " " + props.getString("dms.documentUpload.alreadyExists"));
                     } else {
-                        map.put("name", docFile.getName());
-                        map.put("size", docFile.length());
+                        boolean success = writeToIncomingDocs(docFile, queueId, destFolder, sanitizedFileName);
+                        if (!success) {
+                            map.put("error", "Failed to write file. Please contact administrator");
+                            MiscUtils.getLogger().error("Failed to write file to {}", LogSafe.sanitize(destFolder)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                        } else {
+                            map.put("name", docFile.getName());
+                            map.put("size", docFile.length());
+                        }
                     }
+                } catch (IllegalArgumentException | SecurityException e) {
+                    map.put("error", "Invalid incoming document destination");
+                    logger.warn("Rejected incoming document destination folder: {}", LogSafe.sanitize(destFolder));
                 }
 
                 if (queueId != null) {
