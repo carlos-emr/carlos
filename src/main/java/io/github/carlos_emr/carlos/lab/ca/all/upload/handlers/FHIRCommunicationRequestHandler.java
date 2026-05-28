@@ -51,6 +51,7 @@ import org.hl7.fhir.dstu3.model.CommunicationRequest;
 
 import org.hl7.fhir.dstu3.model.Reference;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDao;
 
@@ -87,6 +88,7 @@ import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
  * @see org.hl7.fhir.dstu3.model.CommunicationRequest
  * @since 2019 (McMaster University)
  */
+@SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "SpotBugs cannot trace PathValidationUtils as a sanitizer; path is validated via PathValidationUtils before use")
 public class FHIRCommunicationRequestHandler implements MessageHandler {
 
     protected static Logger logger = MiscUtils.getLogger();

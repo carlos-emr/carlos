@@ -1172,6 +1172,14 @@
             <scope>compile</scope>
         </dependency>
 
+        <!-- SpotBugs annotations for @SuppressFBWarnings; provided scope — compile-time only -->
+        <dependency>
+            <groupId>com.github.spotbugs</groupId>
+            <artifactId>spotbugs-annotations</artifactId>
+            <version>4.9.3</version>
+            <scope>provided</scope>
+        </dependency>
+
         <!-- ==================== Testing ==================== -->
 
         <!-- Mockito for Java 21 -->

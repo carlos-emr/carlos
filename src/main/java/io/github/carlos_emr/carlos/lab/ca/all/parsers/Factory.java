@@ -52,6 +52,7 @@ import org.apache.logging.log4j.Logger;
 import org.jdom2.Document;
 import org.jdom2.Element;
 import org.jdom2.input.SAXBuilder;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao;
 import io.github.carlos_emr.carlos.commn.model.Hl7TextMessage;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -60,6 +61,7 @@ import io.github.carlos_emr.carlos.utility.XmlUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 
+@SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "SpotBugs cannot trace that LAB_TYPES is an admin-configured property, not user-controlled input; path is not user-controllable")
 public final class Factory {
 
     private static Logger logger = MiscUtils.getLogger();

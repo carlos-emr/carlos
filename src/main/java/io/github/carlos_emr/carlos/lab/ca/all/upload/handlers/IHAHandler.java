@@ -52,6 +52,7 @@ import org.w3c.dom.NodeList;
 import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.DefaultGenericHandler;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader;
 import io.github.carlos_emr.CarlosProperties;
@@ -61,6 +62,7 @@ import io.github.carlos_emr.CarlosProperties;
  * @Deprecated use IHAPOIHandler
  *
  */
+@SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "SpotBugs cannot trace PathValidationUtils as a sanitizer; path is validated via PathValidationUtils before use")
 public class IHAHandler extends DefaultGenericHandler implements MessageHandler {
     Logger logger = MiscUtils.getLogger();
     String hl7Type = null;

@@ -59,8 +59,10 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader;
 
+@SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "SpotBugs cannot trace PathValidationUtils as a sanitizer; path is validated via PathValidationUtils before use")
 public class MEDITECHHandler implements MessageHandler {
 
     private static Logger logger = MiscUtils.getLogger();

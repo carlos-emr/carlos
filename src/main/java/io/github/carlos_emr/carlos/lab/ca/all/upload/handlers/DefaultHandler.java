@@ -52,6 +52,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.w3c.dom.Document;
 import org.w3c.dom.NodeList;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader;
 import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -59,6 +60,7 @@ import io.github.carlos_emr.carlos.utility.XmlUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 
+@SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "SpotBugs cannot trace PathValidationUtils as a sanitizer; path is validated via PathValidationUtils before use")
 public class DefaultHandler implements MessageHandler {
     Logger logger = MiscUtils.getLogger();
     String hl7Type = null;

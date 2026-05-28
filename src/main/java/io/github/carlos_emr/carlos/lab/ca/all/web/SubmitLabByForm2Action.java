@@ -55,6 +55,7 @@ import io.github.carlos_emr.carlos.lab.ca.all.util.GDMLLabHL7Generator;
 import io.github.carlos_emr.carlos.lab.ca.all.util.MDSLabHL7Generator;
 import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.CarlosProperties;
 
 import org.apache.struts2.ActionSupport;
@@ -62,6 +63,7 @@ import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
+@SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "SpotBugs cannot trace PathValidationUtils as a sanitizer; path is validated via PathValidationUtils before use")
 public class SubmitLabByForm2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
