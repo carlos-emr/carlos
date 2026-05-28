@@ -131,7 +131,6 @@ public class SpireLabTest {
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
         }
-        log.debug("going out " + this.demographicNo);
     }
 
     public void populateLab(String labid) {
@@ -402,4 +401,3 @@ public class SpireLabTest {
         return !(s == null || s.trim().equals(""));
     }
 }//end
-
