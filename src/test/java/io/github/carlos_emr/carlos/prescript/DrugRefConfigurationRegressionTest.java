@@ -41,7 +41,7 @@ class DrugRefConfigurationRegressionTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should include XML-RPC servlet path in default DrugRef URL")
-    void shouldIncludeDrugrefServicePath_inDefaultDrugRefUrl() throws IOException {
+    void shouldIncludeXmlRpcServletPath_inDefaultDrugRefUrl() throws IOException {
         String carlosProperties = Files.readString(CARLOS_PROPERTIES);
         Properties properties = new Properties();
         properties.load(new StringReader(carlosProperties));
