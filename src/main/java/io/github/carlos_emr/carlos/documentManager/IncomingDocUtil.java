@@ -47,6 +47,8 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.Locale;
 import java.util.ResourceBundle;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
@@ -78,6 +80,9 @@ import io.github.carlos_emr.carlos.utility.LogSafe;
  * @since 2013-05-12
  */
 public final class IncomingDocUtil {
+    private static final String ALLOWED_INCOMING_DOC_FOLDERS = "ALLOWED_INCOMING_DOC_FOLDERS";
+    private static final Set<String> DEFAULT_INCOMING_DOC_FOLDERS =
+            Set.of("Fax", "Mail", "File", "Refile");
     private static final Logger logger = MiscUtils.getLogger();
     
     /**
@@ -118,6 +123,30 @@ public final class IncomingDocUtil {
             logger.error("Error validating path bounds", e);
             return false;
         }
+    }
+
+    private static Set<String> getAllowedIncomingDocFolders() {
+        String configuredFolders = CarlosProperties.getInstance()
+                .getProperty(ALLOWED_INCOMING_DOC_FOLDERS, "");
+        if (configuredFolders.trim().isEmpty()) {
+            return DEFAULT_INCOMING_DOC_FOLDERS;
+        }
+
+        return Arrays.stream(configuredFolders.split(","))
+                .map(String::trim)
+                .filter(folder -> !folder.isEmpty())
+                .filter(folder -> !hasPathSeparator(folder))
+                .collect(Collectors.toUnmodifiableSet());
+    }
+
+    private static boolean isAllowedIncomingDocFolder(String pdfDir) {
+        return pdfDir != null
+                && !hasPathSeparator(pdfDir)
+                && getAllowedIncomingDocFolders().contains(pdfDir);
+    }
+
+    private static boolean hasPathSeparator(String value) {
+        return value.contains("/") || value.contains("\\");
     }
 
     /** List of formatted modification dates corresponding to PDF files returned by {@link #getDocList(String)}. */
@@ -302,10 +331,7 @@ public final class IncomingDocUtil {
         filePath += queueId + File.separator;
         
         // Validate pdfDir and restrict to allowed values
-        if (pdfDir != null && (pdfDir.equals("Fax")
-                || pdfDir.equals("Mail")
-                || pdfDir.equals("File")
-                || pdfDir.equals("Refile"))) {
+        if (isAllowedIncomingDocFolder(pdfDir)) {
             
             try {
                 File baseDir = new File(CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR"));
@@ -325,7 +351,7 @@ public final class IncomingDocUtil {
                 throw new SecurityException("Failed to validate deleted directory path", e);
             }
         } else if (pdfDir != null && !pdfDir.isEmpty()) {
-            throw new IllegalArgumentException("Invalid pdfDir: must be one of Fax, Mail, File, or Refile");
+            throw new IllegalArgumentException("Invalid pdfDir: folder is not allowed");
         }
         
         return filePath;
@@ -362,14 +388,11 @@ public final class IncomingDocUtil {
         filePath += queueId + File.separator;
 
         // Validate pdfDir and restrict to allowed values
-        if (pdfDir != null && (pdfDir.equals("Fax")
-                || pdfDir.equals("Mail")
-                || pdfDir.equals("File")
-                || pdfDir.equals("Refile"))) {
+        if (isAllowedIncomingDocFolder(pdfDir)) {
             filePath = filePath + pdfDir;
         } else if (pdfDir != null && !pdfDir.isEmpty()) {
             // If pdfDir is provided but not in allowed list, throw exception
-            throw new IllegalArgumentException("Invalid pdfDir: must be one of Fax, Mail, File, or Refile");
+            throw new IllegalArgumentException("Invalid pdfDir: folder is not allowed");
         }
 
         return filePath;
