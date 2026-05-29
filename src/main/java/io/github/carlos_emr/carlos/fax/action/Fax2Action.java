@@ -80,7 +80,7 @@ public class Fax2Action extends ActionSupport {
     private static final String FAX_PREVIEW_PATHS_SESSION_KEY = Fax2Action.class.getName() + ".PREVIEW_PATHS";
     private static final String FAX_FILE_TOKEN_PARAMETER = "faxFileToken";
     private static final String ACCESS_DENIED_MESSAGE = "Access denied";
-    private static final int MAX_PREVIEW_TOKENS_PER_SESSION = 20;
+    static final int MAX_PREVIEW_TOKENS_PER_SESSION = 20;
 
 
     public String execute() {
@@ -104,6 +104,9 @@ public class Fax2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String faxForward = transactionType;
 
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", "w", null)) {
+            throw new SecurityException("missing required sec object (_fax)");
+        }
         String resolvedFaxFilePath = resolveSubmittedFaxFilePath(false);
         if (resolvedFaxFilePath != null && !resolvedFaxFilePath.trim().isEmpty()) {
             faxManager.validateFilePath(resolvedFaxFilePath);
@@ -446,7 +449,15 @@ public class Fax2Action extends ActionSupport {
     }
 
     private String resolveSubmittedFaxFilePath(boolean required) {
-        String token = normalizeFaxFileToken(request.getParameter(FAX_FILE_TOKEN_PARAMETER));
+        String token;
+        try {
+            token = normalizeFaxFileToken(request.getParameter(FAX_FILE_TOKEN_PARAMETER));
+        } catch (SecurityException e) {
+            if (required) {
+                throw e;
+            }
+            return null;
+        }
         if (token == null || token.isBlank()) {
             if (required) {
                 throw new SecurityException(ACCESS_DENIED_MESSAGE);
@@ -458,13 +469,21 @@ public class Fax2Action extends ActionSupport {
         PreviewPathStore previewPaths = getPreviewPathStore(session);
         String resolvedPath = previewPaths != null ? previewPaths.get(token) : null;
         if (resolvedPath == null || resolvedPath.isBlank()) {
-            throw new SecurityException(ACCESS_DENIED_MESSAGE);
+            if (required) {
+                throw new SecurityException(ACCESS_DENIED_MESSAGE);
+            }
+            return null;
         }
         return resolvedPath;
     }
 
     private void removeSubmittedFaxFileToken() {
-        String token = normalizeFaxFileToken(request.getParameter(FAX_FILE_TOKEN_PARAMETER));
+        String token;
+        try {
+            token = normalizeFaxFileToken(request.getParameter(FAX_FILE_TOKEN_PARAMETER));
+        } catch (SecurityException e) {
+            return;
+        }
         if (token == null || token.isBlank()) {
             return;
         }
@@ -477,14 +496,16 @@ public class Fax2Action extends ActionSupport {
 
     private PreviewPathStore getOrCreatePreviewPathStore() {
         HttpSession session = request.getSession();
-        PreviewPathStore existingPreviewPaths = getPreviewPathStore(session);
-        if (existingPreviewPaths != null) {
-            return existingPreviewPaths;
-        }
+        synchronized (session) {
+            PreviewPathStore existingPreviewPaths = getPreviewPathStore(session);
+            if (existingPreviewPaths != null) {
+                return existingPreviewPaths;
+            }
 
-        PreviewPathStore previewPaths = new PreviewPathStore();
-        session.setAttribute(FAX_PREVIEW_PATHS_SESSION_KEY, previewPaths);
-        return previewPaths;
+            PreviewPathStore previewPaths = new PreviewPathStore();
+            session.setAttribute(FAX_PREVIEW_PATHS_SESSION_KEY, previewPaths);
+            return previewPaths;
+        }
     }
 
     private PreviewPathStore getPreviewPathStore(HttpSession session) {

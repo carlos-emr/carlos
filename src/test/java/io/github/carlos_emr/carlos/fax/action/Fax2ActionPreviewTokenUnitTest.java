@@ -47,6 +47,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.eq;
@@ -255,12 +256,53 @@ class Fax2ActionPreviewTokenUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should deny cancel when user lacks fax write privilege")
+    void shouldDenyCancel_whenUserLacksFaxWritePrivilege() throws Exception {
+        Path pdf = createPreviewPdf();
+        Fax2Action action = prepareAndVerifyEformFax(pdf);
+        String token = (String) request.getAttribute("faxFileToken");
+        request.setParameter("faxFileToken", token);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_fax", "w", null)).thenReturn(false);
+
+        assertThatThrownBy(action::cancel)
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_fax)");
+
+        verify(faxManager, never()).validateFilePath(any(String.class));
+        verify(faxManager, never()).flush(any(LoggedInInfo.class), any(String.class));
+    }
+
+    @Test
+    @DisplayName("should flush without preview path when cancel token is malformed")
+    void shouldFlushWithoutPreviewPath_whenCancelTokenIsMalformed() {
+        Fax2Action action = newEformCancelAction();
+        request.setParameter("faxFileToken", "not-a-uuid");
+
+        assertThat(action.cancel()).isEqualTo("none");
+
+        verify(faxManager, never()).validateFilePath(any(String.class));
+        verify(faxManager).flush(eq(loggedInInfo), isNull());
+    }
+
+    @Test
+    @DisplayName("should flush without preview path when cancel token is unknown")
+    void shouldFlushWithoutPreviewPath_whenCancelTokenIsUnknown() {
+        Fax2Action action = newEformCancelAction();
+        request.setParameter("faxFileToken", "00000000-0000-0000-0000-000000000000");
+
+        assertThat(action.cancel()).isEqualTo("none");
+
+        verify(faxManager, never()).validateFilePath(any(String.class));
+        verify(faxManager).flush(eq(loggedInInfo), isNull());
+    }
+
+    @Test
     @DisplayName("should deny oldest preview when token store exceeds limit")
     void shouldDenyOldestPreview_whenTokenStoreExceedsLimit() throws Exception {
         when(documentAttachmentManager.renderEFormWithAttachments(request, response)).thenReturn(createPreviewPdf());
         String firstToken = null;
         String newestToken = null;
-        for (int i = 0; i < 21; i++) {
+        for (int i = 0; i < Fax2Action.MAX_PREVIEW_TOKENS_PER_SESSION + 1; i++) {
             Fax2Action action = new Fax2Action();
             action.setTransactionType(FaxManager.TransactionType.EFORM.name());
             action.setTransactionId(456);
@@ -290,7 +332,8 @@ class Fax2ActionPreviewTokenUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should keep raw fax paths out of cover page browser requests")
     void shouldKeepRawFaxPathsOutOfCoverPageBrowserRequests() throws Exception {
-        String coverPage = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/fax/CoverPage.jsp"));
+        String coverPage = Files.readString(projectFile("src/main/webapp/WEB-INF/jsp/fax/CoverPage.jsp"),
+                StandardCharsets.UTF_8);
 
         assertThat(coverPage)
                 .contains("name=\"faxFileToken\"")
@@ -310,6 +353,29 @@ class Fax2ActionPreviewTokenUnitTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("faxFileToken")).isNotNull();
         assertThat(request.getAttribute("faxFilePath")).isNull();
         return action;
+    }
+
+    private Fax2Action newEformCancelAction() {
+        Fax2Action action = new Fax2Action();
+        action.setTransactionType(FaxManager.TransactionType.EFORM.name());
+        action.setTransactionId(456);
+        action.setDemographicNo(123);
+        return action;
+    }
+
+    private Path projectFile(String relativePath) throws Exception {
+        Path location = Path.of(Fax2ActionPreviewTokenUnitTest.class.getProtectionDomain()
+                .getCodeSource()
+                .getLocation()
+                .toURI());
+        Path directory = Files.isRegularFile(location) ? location.getParent() : location;
+        for (Path current = directory; current != null; current = current.getParent()) {
+            Path candidate = current.resolve(relativePath);
+            if (Files.isRegularFile(candidate)) {
+                return candidate;
+            }
+        }
+        throw new IllegalStateException("Unable to locate " + relativePath);
     }
 
     private Path createPreviewPdf() throws Exception {
