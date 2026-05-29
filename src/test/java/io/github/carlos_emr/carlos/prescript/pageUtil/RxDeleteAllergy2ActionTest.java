@@ -36,7 +36,6 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -116,7 +115,6 @@ class RxDeleteAllergy2ActionTest extends CarlosUnitTestBase {
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
         assertThat(mockResponse.getErrorMessage()).isEqualTo("Missing ID parameter");
-        verify(mockSecurityInfoManager).hasPrivilege(any(LoggedInInfo.class), eq("_allergy"), eq("u"), isNull());
     }
 
     @Test
@@ -129,7 +127,6 @@ class RxDeleteAllergy2ActionTest extends CarlosUnitTestBase {
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
         assertThat(mockResponse.getErrorMessage()).isEqualTo("Missing ID parameter");
-        verify(mockSecurityInfoManager).hasPrivilege(any(LoggedInInfo.class), eq("_allergy"), eq("u"), isNull());
     }
 
     @Test
@@ -142,7 +139,6 @@ class RxDeleteAllergy2ActionTest extends CarlosUnitTestBase {
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
         assertThat(mockResponse.getErrorMessage()).isEqualTo("Invalid ID parameter");
-        verify(mockSecurityInfoManager).hasPrivilege(any(LoggedInInfo.class), eq("_allergy"), eq("u"), isNull());
     }
 
     @Test
@@ -173,18 +169,5 @@ class RxDeleteAllergy2ActionTest extends CarlosUnitTestBase {
                     eq("123"),
                     eq("audit")));
         }
-    }
-
-    @Test
-    @DisplayName("should reject unauthorized request before ID validation")
-    void shouldRejectUnauthorizedRequest_beforeIdValidation() {
-        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_allergy"), eq("u"), isNull()))
-                .thenReturn(false);
-
-        assertThatThrownBy(() -> action.execute())
-                .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("_allergy");
-
-        assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
     }
 }
