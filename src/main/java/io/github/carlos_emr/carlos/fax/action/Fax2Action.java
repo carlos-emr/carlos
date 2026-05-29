@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.fax.dto.FaxJobParams;
 import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.FaxManager.TransactionType;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -70,6 +71,7 @@ public class Fax2Action extends ActionSupport {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private static final Logger logger = MiscUtils.getLogger();
+    private static final String HTTP_METHOD_POST = "POST";
     private final FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
     private final DocumentAttachmentManager documentAttachmentManager = SpringUtils.getBean(DocumentAttachmentManager.class);
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -350,6 +352,13 @@ public class Fax2Action extends ActionSupport {
     public String prepareFax() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", "w", null)) {
+            throw new SecurityException("missing required sec object (_fax)");
+        }
+
+        if (!isPostOrReject()) {
+            return NONE;
+        }
 
         /*
          * Fax recipient info carried forward.
@@ -397,6 +406,26 @@ public class Fax2Action extends ActionSupport {
         }
 
         return actionForward;
+    }
+
+    /**
+     * Enforces the POST-only contract for preview preparation.
+     *
+     * @return true for POST requests; false after sending HTTP 405 and {@code Allow: POST}
+     */
+    private boolean isPostOrReject() {
+        if (HTTP_METHOD_POST.equalsIgnoreCase(request.getMethod())) {
+            return true;
+        }
+
+        response.setHeader("Allow", HTTP_METHOD_POST);
+        try {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        } catch (IOException e) {
+            logger.error("Error sending method-not-allowed response for prepareFax (attempted: {})",
+                    LogSafe.sanitize(request.getMethod()), e);
+        }
+        return false;
     }
 
     /**
