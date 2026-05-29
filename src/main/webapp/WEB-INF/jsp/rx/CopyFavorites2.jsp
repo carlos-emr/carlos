@@ -30,6 +30,7 @@
 --%>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -97,8 +98,8 @@
     <body topmargin="0" leftmargin="0" vlink="#0000FF">
         <form action="<%= request.getContextPath()%>/rx/copyFavorite2" method="post">
             <input type="hidden" name="dispatch" value="refresh"/>
-            <input type="hidden" name="userProviderNo" value="<%=providerNo%>"/>
-            <input type="hidden" name="copyProviderNo" value="<%=copyProviderNo%>"/>
+            <input type="hidden" name="userProviderNo" value="<carlos:encode value='<%=providerNo%>' context="htmlAttribute"/>"/>
+            <input type="hidden" name="copyProviderNo" value="<carlos:encode value='<%=copyProviderNo%>' context="htmlAttribute"/>"/>
 
             <table border="0" cellpadding="0" cellspacing="0" style="border-collapse: collapse" width="100%">
                 <%@ include file="TopLinks.jsp"%>
@@ -148,9 +149,9 @@
                                                                     continue;
                                                                 }
                                                         %>
-                                                            <option value="<%=((String) allProviders.get(p))%>"
+                                                            <option value="<carlos:encode value='<%=((String) allProviders.get(p))%>' context="htmlAttribute"/>"
                                                                 <%=((String) allProviders.get(p)).equalsIgnoreCase(copyProviderNo) ? "SELECTED" : ""%>>
-                                                                <%=providerDao.getProvider((String) allProviders.get(p)).getFormattedName()%>
+                                                                <carlos:encode value='<%=providerDao.getProvider((String) allProviders.get(p)).getFormattedName()%>' context="html"/>
                                                             </option>
                                                         <% } %>
                                                     </select>

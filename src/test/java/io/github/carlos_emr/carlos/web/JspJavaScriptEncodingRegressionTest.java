@@ -145,6 +145,32 @@ class JspJavaScriptEncodingRegressionTest {
     }
 
     @Test
+    @DisplayName("should encode Rx favorites fields in HTML and HTML attribute contexts")
+    @Tag("security")
+    void shouldEncodeRxFavoritesFields_inHtmlAndHtmlAttributeContexts() throws Exception {
+        String editFavoritesJsp = readJsp("rx/EditFavorites2.jsp");
+        String copyFavoritesJsp = readJsp("rx/CopyFavorites2.jsp");
+
+        assertThat(editFavoritesJsp)
+                .contains("<carlos:encode value='<%= f.getFavoriteName() %>' context=\"htmlAttribute\"/>")
+                .contains("<carlos:encode value='<%= f.getCustomName() %>' context=\"htmlAttribute\"/>")
+                .contains("<carlos:encode value='<%=s.trim()%>' context=\"html\"/>")
+                .doesNotContain("value=\"<%= f.getFavoriteName() %>\"")
+                .doesNotContain("value=\"<%= f.getCustomName() %>\"")
+                .doesNotContainPattern("<textarea[^>]*>\\s*<%=\\s*s\\.trim\\(\\)\\s*%>\\s*</textarea>");
+        assertThat(copyFavoritesJsp)
+                .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
+                .contains("value=\"<carlos:encode value='<%=providerNo%>' context=\"htmlAttribute\"/>\"")
+                .contains("value=\"<carlos:encode value='<%=copyProviderNo%>' context=\"htmlAttribute\"/>\"")
+                .contains("value=\"<carlos:encode value='<%=((String) allProviders.get(p))%>' context=\"htmlAttribute\"/>\"")
+                .contains("<carlos:encode value='<%=providerDao.getProvider((String) allProviders.get(p)).getFormattedName()%>' context=\"html\"/>")
+                .doesNotContain("value=\"<%=providerNo%>\"")
+                .doesNotContain("value=\"<%=copyProviderNo%>\"")
+                .doesNotContainPattern("value=\"<%=\\s*\\(\\(String\\)\\s*allProviders\\.get\\(p\\)\\)\\s*%>\"")
+                .doesNotContain("<%=providerDao.getProvider((String) allProviders.get(p)).getFormattedName()%>");
+    }
+
+    @Test
     @DisplayName("should encode decision textarea file content in HTML body context")
     @Tag("security")
     void shouldEncodeDecisionTextareaFileContent_inHtmlBodyContext() throws Exception {
