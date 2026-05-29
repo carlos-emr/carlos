@@ -52,7 +52,7 @@ import static org.mockito.Mockito.when;
  * @since 2026-05-29
  */
 @DisplayName("Fax2Action Tests")
-@Tag("integration")
+@Tag("unit")
 @Tag("fax")
 class Fax2ActionTest extends CarlosWebTestBase {
 

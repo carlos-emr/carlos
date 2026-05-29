@@ -351,13 +351,13 @@ public class Fax2Action extends ActionSupport {
     @SuppressWarnings("unused")
     public String prepareFax() {
 
+        if (!isPostOrReject()) {
+            return NONE;
+        }
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", "w", null)) {
             throw new SecurityException("missing required sec object (_fax)");
-        }
-
-        if (!isPostOrReject()) {
-            return NONE;
         }
 
         /*

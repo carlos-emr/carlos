@@ -489,6 +489,9 @@ public class AddEForm2Action extends ActionSupport {
 
     /**
      * Builds the internal Struts forward path that preserves the eForm save POST for fax preview preparation.
+     * Returning the {@code fax} result dispatches to this path server-side, rather than issuing the previous
+     * browser redirect. That keeps the original eForm save POST request method in place when Struts invokes
+     * {@link io.github.carlos_emr.carlos.fax.action.Fax2Action#prepareFax()}.
      *
      * @param fdid saved eForm data id used as the fax transaction id
      * @param demographicNo patient demographic number
