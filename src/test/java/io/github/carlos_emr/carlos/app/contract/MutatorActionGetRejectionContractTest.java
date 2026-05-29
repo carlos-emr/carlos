@@ -193,7 +193,48 @@ class MutatorActionGetRejectionContractTest {
             Arguments.of("io.github.carlos_emr.carlos.waitinglist.pageUtil.WLAdd2WaitingList2Action",
                     "_demographic", "w"),
             Arguments.of("io.github.carlos_emr.carlos.waitinglist.pageUtil.WLRemoveFromWaitingList2Action",
-                    "_demographic", "w")
+                    "_demographic", "w"),
+            // --- prescript ---
+            Arguments.of("io.github.carlos_emr.carlos.prescript.gate.ViewAddRxComment2Action",
+                    "_rx", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.prescript.gate.ViewCompleteMedRec2Action",
+                    "_measurement", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.prescript.gate.ViewSetDefaultAddr2Action",
+                    "_rx", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.prescript.gate.ViewUpdateHiddenResources2Action",
+                    "_rx", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.prescript.pageUtil.RxAddAllergy2Action",
+                    "_allergy", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.prescript.pageUtil.RxAddFavorite2Action",
+                    "_rx", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.prescript.pageUtil.RxClearPending2Action",
+                    "_rx", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.prescript.pageUtil.RxDeleteAllergy2Action",
+                    "_allergy", "u"),
+            Arguments.of("io.github.carlos_emr.carlos.prescript.pageUtil.RxDeleteFavorite2Action",
+                    "_rx", "u"),
+            Arguments.of("io.github.carlos_emr.carlos.prescript.pageUtil.RxDeleteRx2Action",
+                    "_rx", "u"),
+            Arguments.of("io.github.carlos_emr.carlos.prescript.pageUtil.RxRePrescribe2Action",
+                    "_rx", "r"),
+            Arguments.of("io.github.carlos_emr.carlos.prescript.pageUtil.RxReason2Action",
+                    "_rx", "r"),
+            Arguments.of("io.github.carlos_emr.carlos.prescript.pageUtil.RxStash2Action",
+                    "_rx", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.prescript.pageUtil.RxUpdateFavorite2Action",
+                    "_rx", "u"),
+            Arguments.of("io.github.carlos_emr.carlos.prescript.pageUtil.RxUseFavorite2Action",
+                    "_rx", "r"),
+            Arguments.of("io.github.carlos_emr.carlos.prescript.pageUtil.RxViewScript2Action",
+                    "_rx", "r"),
+            Arguments.of("io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScript2Action",
+                    "_rx", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteToEncounter2Action",
+                    "_rx", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.prescript.web.RxHideCpp2Action",
+                    "_rx", "u"),
+            Arguments.of("io.github.carlos_emr.carlos.prescript.web.RxReorder2Action",
+                    "_rx", "u")
         );
     }
 
@@ -235,7 +276,11 @@ class MutatorActionGetRejectionContractTest {
         "io.github.carlos_emr.carlos.schedule.web.ScheduleTemplateCodeSetting2Action",
         // Waitinglist: reject GET on Save/Delete submit values.
         "io.github.carlos_emr.carlos.waitinglist.pageUtil.WLEditWaitingListName2Action",
-        "io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayWaitingList2Action"
+        "io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayWaitingList2Action",
+        // Prescript: dual-purpose pages reject GET only when mutation-intent params exist.
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxManagePharmacy2Action",
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxShowAllergy2Action",
+        "io.github.carlos_emr.carlos.prescript.web.CopyFavorites2Action"
     );
 
     /**
@@ -270,7 +315,7 @@ class MutatorActionGetRejectionContractTest {
      * {@link #IN_SCOPE_EXPLICIT_CLASSES} instead.
      *
      * <p>Candidate classes elsewhere in the codebase (admin, billings,
-     * dxresearch, prescript, prevention, providers, lab, etc.)
+     * dxresearch, prevention, providers, lab, etc.)
      * typically have their own per-class unit tests for the POST-only
      * contract; they are expected to be folded into this aggregated test in
      * follow-up waves.
@@ -281,6 +326,7 @@ class MutatorActionGetRejectionContractTest {
         "io.github.carlos_emr.carlos.documentManager.",
         "io.github.carlos_emr.carlos.hospitalReportManager.",
         "io.github.carlos_emr.carlos.messenger.",
+        "io.github.carlos_emr.carlos.prescript.",
         "io.github.carlos_emr.carlos.report.",
         "io.github.carlos_emr.carlos.schedule.",
         "io.github.carlos_emr.carlos.signature.",
@@ -335,6 +381,28 @@ class MutatorActionGetRejectionContractTest {
                 "w",
                 "GET",
                 Map.of("method", method));
+    }
+
+    static Stream<Arguments> prescriptConditionalMutators() {
+        return Stream.of(
+            Arguments.of("io.github.carlos_emr.carlos.prescript.pageUtil.RxManagePharmacy2Action",
+                    "_rx", "w", Map.of("method", "delete")),
+            Arguments.of("io.github.carlos_emr.carlos.prescript.pageUtil.RxManagePharmacy2Action",
+                    "_rx", "w", Map.of("pharmacyAction", "Add")),
+            Arguments.of("io.github.carlos_emr.carlos.prescript.pageUtil.RxShowAllergy2Action",
+                    "_allergy", "r", Map.of("method", "reorder")),
+            Arguments.of("io.github.carlos_emr.carlos.prescript.web.CopyFavorites2Action",
+                    "_rx", "w", Map.of("dispatch", "copy"))
+        );
+    }
+
+    @ParameterizedTest(name = "{0} rejects GET when prescript mutation intent is present")
+    @MethodSource("prescriptConditionalMutators")
+    @DisplayName("prescript conditional mutators should reject GET for mutation intent")
+    void shouldRejectGet_forPrescriptConditionalMutationIntent(
+            String className, String privilegeObject, String privilegeLevel, Map<String, String> requestParams)
+            throws Exception {
+        assertRejectsUnsafeMethod(className, privilegeObject, privilegeLevel, "GET", requestParams);
     }
 
     private static void assertRejectsUnsafeMethod(

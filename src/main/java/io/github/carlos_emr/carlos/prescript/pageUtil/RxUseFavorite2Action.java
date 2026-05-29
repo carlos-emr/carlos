@@ -59,6 +59,10 @@ public final class RxUseFavorite2Action extends ActionSupport {
 
     public String execute()
             throws IOException, ServletException {
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
 
         if ("useFav2".equals(request.getParameter("parameterValue"))) {
             return useFav2();

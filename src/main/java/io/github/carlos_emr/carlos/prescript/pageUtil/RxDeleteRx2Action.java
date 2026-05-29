@@ -120,6 +120,10 @@ public final class RxDeleteRx2Action extends ActionSupport {
     @Override
     public String execute()
             throws IOException, ServletException {
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
         String method = request.getParameter("parameterValue");
         if ("Delete2".equals(method)) {
             return Delete2();

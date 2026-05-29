@@ -76,13 +76,22 @@ public final class RxManagePharmacy2Action extends ActionSupport {
 
 
     public String execute() throws IOException, ServletException {
+        String method = request.getParameter("method");
+        String actionType = this.getPharmacyAction();
+        if (StringUtils.isNullOrEmpty(actionType)) {
+            actionType = request.getParameter("pharmacyAction");
+        }
+        if (isMutationRequest(method, actionType) && !"POST".equalsIgnoreCase(request.getMethod())) {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         // The pharmacy management view can add/edit clinic pharmacy records, so opening it requires write access.
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", null)) {
             throw new SecurityException("missing required sec object (_rx)");
         }
 
-        String method = request.getParameter("method");
         if ("delete".equals(method)) {
             return delete();
         } else if ("unlink".equals(method)) {
@@ -105,7 +114,6 @@ public final class RxManagePharmacy2Action extends ActionSupport {
             return getTotalDemographicsPreferedToPharmacy();
         }
 
-        String actionType = this.getPharmacyAction();
         if (StringUtils.isNullOrEmpty(actionType)) {
             return SUCCESS;
         }
@@ -121,6 +129,17 @@ public final class RxManagePharmacy2Action extends ActionSupport {
         }
 
         return SUCCESS;
+    }
+
+    private boolean isMutationRequest(String method, String actionType) {
+        return "delete".equals(method)
+                || "unlink".equals(method)
+                || "setPreferred".equals(method)
+                || "add".equals(method)
+                || "save".equals(method)
+                || "Add".equals(actionType)
+                || "Edit".equals(actionType)
+                || "Delete".equals(actionType);
     }
 
     public String delete() throws IOException {

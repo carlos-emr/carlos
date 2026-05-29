@@ -140,13 +140,16 @@ public final class RxShowAllergy2Action extends ActionSupport {
      */
     public String execute()
             throws IOException, ServletException {
+        String method = request.getParameter("method");
+        if ("reorder".equals(method) && !"POST".equalsIgnoreCase(request.getMethod())) {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_allergy", "r", null)) {
             throw new RuntimeException("missing required sec object (_allergy)");
         }
-
-        String method = request.getParameter("method");
 
         String dispatchResult = switch (method != null ? method : "") {
             case "reorder" -> reorder();
