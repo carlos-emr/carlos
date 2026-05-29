@@ -813,7 +813,7 @@ fetch(parts[0], {
     }
 }).catch(function(e){
     document.body.style.cursor = previousCursor;
-    console.log(e);
+    console.error(e);
     alert('${carlos:forJavaScript(apptStatusUpdateErrorMessage)}');
 });
 }
