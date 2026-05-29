@@ -197,7 +197,9 @@ def already_suppressed(decl, src: bytes) -> bool:
 
 
 def find_targets(src: bytes, security_file: bool):
-    tree = Parser(JAVA).parse(src)
+    parser = Parser()
+    parser.language = JAVA
+    tree = parser.parse(src)
     root = tree.root_node
     decls = {}  # decl.id -> Target  (dedupe per declaration)
     for n in walk(root):
@@ -270,7 +272,9 @@ def apply_file(path: str, issue: str, dry: bool):
     if dry:
         return len(targets), sec_sites
 
-    lines = raw.decode("utf8").split("\n")
+    content = raw.decode("utf8")
+    newline = "\r\n" if "\r\n" in content else "\n"
+    lines = content.replace("\r\n", "\n").split("\n")
     # Insert annotations bottom-up so earlier row indices stay valid.
     for t in sorted(targets, key=lambda x: x.insert_row, reverse=True):
         reason = reason_for(t, issue)
@@ -282,7 +286,7 @@ def apply_file(path: str, issue: str, dry: bool):
     if not has_import(lines):
         r = import_insert_row(lines)
         lines[r:r] = [IMPORT_LINE]
-    with open(path, "w", encoding="utf8") as fh:
+    with open(path, "w", encoding="utf8", newline=newline) as fh:
         fh.write("\n".join(lines))
     return len(targets), sec_sites
 
@@ -326,4 +330,4 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()
