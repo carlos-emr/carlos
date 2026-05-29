@@ -41,7 +41,7 @@ import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 
 /**
  * The class should evaluate a query that has a count returned.  If the count is = 0 then false is returned if >0 is returned true
@@ -105,18 +105,19 @@ public class SQLNumerator implements Numerator {
         try {
 
             Object[] params = buildParams(sql, processString, demographicNo);
-            String paramSql = sql.replaceAll("\\$\\{" + processString + "\\}", "?");
-            ResultSet rs = DBHandler.GetPreSQL(paramSql, params);
+            String paramSql = parameterizedSqlForProcessString();
             MiscUtils.getLogger().debug("SQL Statement: " + sql);
-            while (rs.next()) {
-                int count = rs.getInt(identifier);
-                if (count > 0) {
+            try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(
+                    LegacyJdbcQuery.trustedReportSelectSql(paramSql), params)) {
+                while (rs.next()) {
+                    int count = rs.getInt(identifier);
+                    if (count > 0) {
 
-                    evalTrue = true;
+                        evalTrue = true;
+                    }
                 }
             }
             MiscUtils.getLogger().debug("demo " + demographicNo + " eval: " + evalTrue);
-            rs.close();
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
         }
@@ -135,23 +136,22 @@ public class SQLNumerator implements Numerator {
         try {
 
             Object[] params = buildParams(sql, processString, demographicNo);
-            String paramSql = sql.replaceAll("\\$\\{" + processString + "\\}", "?");
-            ResultSet rs = DBHandler.GetPreSQL(paramSql, params);
+            String paramSql = parameterizedSqlForProcessString();
             MiscUtils.getLogger().debug("SQL Statement: " + sql);
-            if (rs.next()) {
-                evalTrue = true;
-                if (outputfields != null) {
-                    outputValues = new Hashtable();
-                    for (int i = 0; i < outputfields.length; i++) {
-                        outputValues.put(outputfields[i], Misc.getString(rs, outputfields[i]));
+            try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(
+                    LegacyJdbcQuery.trustedReportSelectSql(paramSql), params)) {
+                if (rs.next()) {
+                    evalTrue = true;
+                    if (outputfields != null) {
+                        outputValues = new Hashtable();
+                        for (int i = 0; i < outputfields.length; i++) {
+                            outputValues.put(outputfields[i], Misc.getString(rs, outputfields[i]));
+                        }
+                        outputValues.put("_evaluation", Boolean.valueOf(evalTrue));
                     }
-                    outputValues.put("_evaluation", Boolean.valueOf(evalTrue));
                 }
-                //for 
-
             }
             MiscUtils.getLogger().debug("demo " + demographicNo + " eval: " + evalTrue);
-            rs.close();
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
         }
@@ -225,13 +225,21 @@ public class SQLNumerator implements Numerator {
      * @return Object[] parameter values array with one entry per placeholder occurrence
      */
     private Object[] buildParams(String sqlTemplate, String key, String value) {
-        Pattern p = Pattern.compile("\\$\\{" + Pattern.quote(key) + "\\}");
+        Pattern p = Pattern.compile(placeholderPattern(key));
         Matcher m = p.matcher(sqlTemplate);
         List<Object> params = new ArrayList<>();
         while (m.find()) {
             params.add(value);
         }
         return params.toArray();
+    }
+
+    String parameterizedSqlForProcessString() {
+        return sql.replaceAll(placeholderPattern(processString), "?");
+    }
+
+    private String placeholderPattern(String key) {
+        return "\\$\\{" + Pattern.quote(key) + "\\}";
     }
 
 }

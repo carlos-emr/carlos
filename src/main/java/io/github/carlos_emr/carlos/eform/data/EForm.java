@@ -53,6 +53,7 @@ import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.eform.EFormLoader;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
+import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementsDataBeanHandler;
 import io.github.carlos_emr.carlos.util.StringBuilderUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
@@ -677,28 +678,20 @@ public class EForm extends EFormBase {
         String sql = ap.getApSQL();
         String output = ap.getApOutput();
         if (!StringUtils.isBlank(sql)) {
+            ParameterizedSql query;
             try {
-                sql = replaceAllFields(sql);
+                query = parameterizeAllFields(sql);
             } catch (IllegalArgumentException e) {
                 log.error("Invalid placeholder value in eForm AP query, skipping: {}", e.getMessage());
                 return html;
             }
             log.debug("SQL---- [eform AP query executed]");
             ArrayList<String> names = DatabaseAP.parserGetNames(output); // a list of ${apName} --> apName
-            sql = DatabaseAP.parserClean(sql); // replaces all other ${apName} expressions with 'apName'
             if (ap.isJsonOutput()) {
-                // FP for SQLi scanners (CodeQL java/Sqli, Snyk SqlInjection): placeholder values
-                // are sanitized by replaceAllFields above — numeric IDs gated via requireDigitsOnly
-                // (throws on non-numeric) and string fields escaped via escapeSqlValue. The SQL
-                // template itself is admin-authored (EFormLoader). All JSP entry points also
-                // validate appointment_no as \d+ as defense in depth.
-                // deepcode ignore SqlInjection: sanitized via replaceAllFields + JSP numeric validation
-                ArrayNode values = EFormUtil.getJsonValues(names, sql); // nosemgrep: java.lang.security.audit.sqli.tainted-sql-from-http-request.tainted-sql-from-http-request // lgtm[java/sql-injection]
+                ArrayNode values = EFormUtil.getJsonValues(names, query);
                 output = values.toString(); //in case of JsonOutput, return the whole JSONArray and let the javascript deal with it
             } else {
-                // FP — same rationale as isJsonOutput branch above (replaceAllFields sanitization).
-                // deepcode ignore SqlInjection: sanitized via replaceAllFields + JSP numeric validation
-                ArrayList<String> values = EFormUtil.getValues(names, sql); // nosemgrep: java.lang.security.audit.sqli.tainted-sql-from-http-request.tainted-sql-from-http-request // lgtm[java/sql-injection]
+                ArrayList<String> values = EFormUtil.getValues(names, query);
                 if (values.size() != names.size()) {
                     output = "";
                 } else {
@@ -727,36 +720,29 @@ public class EForm extends EFormBase {
         return (html);
     }
 
-    public String replaceAllFields(String sql) {
-        // Numeric ID fields: validate digits-only to prevent injection in unquoted SQL contexts
-        sql = DatabaseAP.parserReplace("demographic", requireDigitsOnly("demographic", demographicNo), sql);
-        sql = DatabaseAP.parserReplace("appt_no", requireDigitsOnly("appt_no", appointment_no), sql);
-        sql = DatabaseAP.parserReplace(EFORM_DEMOGRAPHIC, requireDigitsOnly(EFORM_DEMOGRAPHIC, getSqlParams(EFORM_DEMOGRAPHIC)), sql);
-        sql = DatabaseAP.parserReplace(REF_FID, requireDigitsOnly(REF_FID, getSqlParams(REF_FID)), sql);
-        sql = DatabaseAP.parserReplace(TABLE_ID, requireDigitsOnly(TABLE_ID, getSqlParams(TABLE_ID)), sql);
-
-        // String fields: escape backslashes and single quotes for use in quoted SQL literals
-        sql = DatabaseAP.parserReplace("provider", escapeSqlValue(providerNo), sql);
-        sql = DatabaseAP.parserReplace("providers", escapeSqlValue(providerNo), sql);
-        sql = DatabaseAP.parserReplace(VAR_NAME, escapeSqlValue(getSqlParams(VAR_NAME)), sql);
-        sql = DatabaseAP.parserReplace(VAR_VALUE, escapeSqlValue(getSqlParams(VAR_VALUE)), sql);
-        sql = DatabaseAP.parserReplace(REF_VAR_NAME, escapeSqlValue(getSqlParams(REF_VAR_NAME)), sql);
-        sql = DatabaseAP.parserReplace(REF_VAR_VALUE, escapeSqlValue(getSqlParams(REF_VAR_VALUE)), sql);
-        sql = DatabaseAP.parserReplace(TABLE_NAME, escapeSqlValue(getSqlParams(TABLE_NAME)), sql);
-        sql = DatabaseAP.parserReplace(OTHER_KEY, escapeSqlValue(getSqlParams(OTHER_KEY)), sql);
-        return sql;
-    }
-
     /**
-     * Escapes backslashes and single quotes in a value for safe substitution into a
-     * single-quoted SQL string literal in a DatabaseAP template.
-     * Backslashes are escaped first to prevent MySQL's backslash-escape bypass
-     * (e.g., a backslash followed by a quote would otherwise consume the doubled quote).
+     * Converts legacy DatabaseAP placeholders that can contain request or form
+     * state into JDBC bind parameters. This keeps the admin-authored SQL shape
+     * intact while preventing values from being concatenated into the query text.
      */
-    private static String escapeSqlValue(String value) {
-        if (value == null) return null;
-        // Escape backslashes before single quotes to prevent MySQL backslash-escape bypass
-        return value.replace("\\", "\\\\").replace("'", "''");
+    public ParameterizedSql parameterizeAllFields(String sql) {
+        Map<String, Object> replacements = new LinkedHashMap<>();
+        replacements.put("demographic", requireDigitsOnly("demographic", demographicNo));
+        replacements.put("appt_no", requireDigitsOnly("appt_no", appointment_no));
+        String eformDemographic = getSqlParams(EFORM_DEMOGRAPHIC);
+        validateDigitsOrWildcard(EFORM_DEMOGRAPHIC, eformDemographic);
+        replacements.put(EFORM_DEMOGRAPHIC, eformDemographic);
+        replacements.put(REF_FID, requireDigitsOnly(REF_FID, getSqlParams(REF_FID)));
+        replacements.put(TABLE_ID, requireDigitsOnly(TABLE_ID, getSqlParams(TABLE_ID)));
+        replacements.put("provider", stringParam(providerNo));
+        replacements.put("providers", stringParam(providerNo));
+        replacements.put(VAR_NAME, stringParam(getSqlParams(VAR_NAME)));
+        replacements.put(VAR_VALUE, stringParam(getSqlParams(VAR_VALUE)));
+        replacements.put(REF_VAR_NAME, stringParam(getSqlParams(REF_VAR_NAME)));
+        replacements.put(REF_VAR_VALUE, stringParam(getSqlParams(REF_VAR_VALUE)));
+        replacements.put(TABLE_NAME, stringParam(getSqlParams(TABLE_NAME)));
+        replacements.put(OTHER_KEY, stringParam(getSqlParams(OTHER_KEY)));
+        return DatabaseAP.parameterizeSql(sql, replacements);
     }
 
     /**
@@ -776,6 +762,16 @@ public class EForm extends EFormBase {
             throw new IllegalArgumentException("Non-numeric value for placeholder: " + placeholderName);
         }
         return value;
+    }
+
+    private static void validateDigitsOrWildcard(String placeholderName, String value) {
+        if (!"%".equals(value)) {
+            requireDigitsOnly(placeholderName, value);
+        }
+    }
+
+    private static String stringParam(String value) {
+        return value == null ? "" : value;
     }
 
     private String getSqlParams(String key) {

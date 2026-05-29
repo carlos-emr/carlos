@@ -13,7 +13,7 @@ class of defect:
 |------|----------|-------|----------|
 | **PMD** | Source code (`.java`) | Code patterns, complexity, dead code, style | `pmd.yml` |
 | **SpotBugs** | Compiled bytecode (`.class`) | Null deref, resource leaks, concurrency bugs | `spotbugs.yml` |
-| **Find Security Bugs** | Compiled bytecode (`.class`) | SQL injection, XSS, XXE, crypto, deserialization | `spotbugs.yml` |
+| **Find Security Bugs** | Compiled bytecode (`.class`) | SQLi, XSS, XXE, crypto, deserialization | `spotbugs.yml` |
 
 All findings are uploaded as SARIF to the **GitHub Security tab** under **Code scanning alerts**
 and appear as inline PR annotations.
@@ -106,7 +106,7 @@ Suppresses known false positives:
 | Exclusion | Reason |
 |-----------|--------|
 | Test classes | Not production code |
-| `SE_BAD_FIELD` / `SE_NO_SERIALVERSIONID` on `*Action` classes | Struts actions extend `ActionSupport` (Serializable) but are never serialized |
+| `SE_BAD_FIELD` / `SE_NO_SERIALVERSIONID` on `*Action` classes | Struts actions are not serialized |
 | `ST_WRITE_TO_STATIC_FROM_INSTANCE_METHOD` on `*2Action` | Intentional `SpringUtils.getBean()` pattern |
 | `URF_UNREAD_FIELD` on model classes | Fields set by Hibernate reflection |
 | HL7 / WS-Security vendor packages | Third-party code, not actionable |
@@ -130,7 +130,8 @@ Suppresses known false positives:
   `edu.umd.cs.findbugs.annotations.SuppressFBWarnings` for per-site suppression
 - Effort: `Max` (deepest analysis)
 - Threshold: `Low` (report everything, filter via exclude file)
-- Analyzer heap: `2048` MB via `spotbugs.maxHeapMb` in the Maven profile (override per-run with `-Dspotbugs.maxHeapMb=<MB>`)
+- Analyzer heap: `2048` MB via `spotbugs.maxHeapMb` in the Maven profile
+  (override per-run with `-Dspotbugs.maxHeapMb=<MB>`)
 
 ### Triggers
 
@@ -248,7 +249,8 @@ maintainers, not only in the annotation metadata. Example:
 // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value
 // (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
 @SuppressFBWarnings(value = "IMPROPER_UNICODE",
-    justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    justification = "case-insensitive comparison of an internal/domain value " +
+            "(status/flag/enum/MIME/code); not a security or authorization decision")
 public String resolveStatus(String code) { ... }
 ```
 

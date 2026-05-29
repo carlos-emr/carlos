@@ -36,6 +36,8 @@ import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.managers.DocumentManager;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import io.github.carlos_emr.carlos.webserv.rest.conversion.DocumentConverter;
@@ -61,6 +63,7 @@ import java.util.Map;
 @Component("documentService")
 @Consumes(MediaType.APPLICATION_JSON)
 public class DocumentService extends AbstractServiceImpl {
+    private static final String INVALID_FILENAME_RESPONSE = "Invalid filename.";
     private static Logger logger = MiscUtils.getLogger();
 
     @Autowired
@@ -77,7 +80,7 @@ public class DocumentService extends AbstractServiceImpl {
     public Response saveDocumentToDemographic(DocumentTo1 documentT) {
         Response response;
 
-        if (StringUtils.isNotEmpty(documentT.getFileName()) && documentT.getFileContents().length > 0 && documentT.getDemographicNo() != null) {
+        if (StringUtils.isNotEmpty(documentT.getFileName()) && documentT.getFileContents() != null && documentT.getFileContents().length > 0 && documentT.getDemographicNo() != null) {
             try {
                 DocumentConverter documentConverter = new DocumentConverter();
                 LoggedInInfo loggedInInfo = getLoggedInInfo();
@@ -87,8 +90,14 @@ public class DocumentService extends AbstractServiceImpl {
                 Document document = documentConverter.getAsDomainObject(loggedInInfo, documentT);
                 document = documentManager.createDocument(loggedInInfo, document, documentT.getDemographicNo(), documentT.getProviderNo(), documentT.getFileContents());
                 response = Response.ok(documentConverter.getAsTransferObject(loggedInInfo, document)).build();
+            } catch (FileValidationException e) {
+                response = responseForFileValidation();
             } catch (IOException e) {
-                response = Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("The document could not be saved.").build();
+                if (isFileValidationFailure(e)) {
+                    response = responseForFileValidation();
+                } else {
+                    response = Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("The document could not be saved.").build();
+                }
             }
         } else {
             response = Response.status(Response.Status.BAD_REQUEST).entity("The request body must contain a title, encoded documentData, a fileType (png, jpg, pdf, etc.), and a demographicNo").build();
@@ -131,9 +140,14 @@ public class DocumentService extends AbstractServiceImpl {
 
         try {
             document = documentManager.createDocument(loggedInInfo, document, documentTo1.getDemographicNo(), documentTo1.getProviderNo(), documentTo1.getFileContents());
+        } catch (FileValidationException e) {
+            return responseForFileValidation();
         } catch (IOException e) {
-            logger.error("Document could not be saved: {}", documentTo1.getFileName(), e);
-            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createResponseMap(documentTo1.getFileName(), "Failed", "Internal error: " + e.getMessage())).build();
+            if (isFileValidationFailure(e)) {
+                return responseForFileValidation();
+            }
+            logger.error("Document could not be saved: {}", LogSafe.sanitize(documentTo1.getFileName()), e);
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createResponseMap(null, "Failed", "The document could not be saved.")).build();
         }
 
         Integer queueId = documentManager.addDocumentToQueue(loggedInInfo, document.getDocumentNo(), documentTo1.getQueue());
@@ -173,5 +187,19 @@ public class DocumentService extends AbstractServiceImpl {
             responseMap.put("fileName", fileName);
         }
         return responseMap;
+    }
+
+    private static Response responseForFileValidation() {
+        return Response.status(Response.Status.BAD_REQUEST).entity(INVALID_FILENAME_RESPONSE).build();
+    }
+
+    private static boolean isFileValidationFailure(Throwable throwable) {
+        while (throwable != null) {
+            if (throwable instanceof FileValidationException) {
+                return true;
+            }
+            throwable = throwable.getCause();
+        }
+        return false;
     }
 }

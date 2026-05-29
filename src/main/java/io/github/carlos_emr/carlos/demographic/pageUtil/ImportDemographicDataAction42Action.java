@@ -74,6 +74,8 @@ import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.commons.lang3.time.DateFormatUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.action.UploadedFilesAware;
+import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import org.apache.xmlbeans.XmlException;
 import org.apache.xmlbeans.XmlOptions;
@@ -93,6 +95,7 @@ import io.github.carlos_emr.carlos.hospitalReportManager.HRMReport;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMReportParser;
 import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -143,7 +146,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
-public class ImportDemographicDataAction42Action extends ActionSupport {
+public class ImportDemographicDataAction42Action extends ActionSupport implements UploadedFilesAware {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -233,6 +236,11 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         admProviderNo = normalizedAdmProviderNo;
         programId = new EctProgram(request.getSession()).getProgram(admProviderNo);
         matchProviderNames = this.isMatchProviderNames();
+
+        if (uploadValidationError != null) {
+            addActionError(uploadValidationError);
+            return SUCCESS;
+        }
 
         if (!hasUploadedImportFile(importFile, importFileFileName)) {
             return SUCCESS;
@@ -4893,6 +4901,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
 
     private File importFile = null;
     private String importFileFileName;
+    private String uploadValidationError;
     private boolean matchProviderNames = true;
     private int timeshiftInDays;
     private String courseId;
@@ -4905,7 +4914,6 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         return importFile;
     }
 
-    @StrutsParameter
     public void setImportFile(File importFile) {
         this.importFile = importFile;
     }
@@ -4914,9 +4922,29 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         return importFileFileName;
     }
 
-    @StrutsParameter
     public void setImportFileFileName(String importFileFileName) {
         this.importFileFileName = importFileFileName;
+    }
+
+    @Override
+    public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
+        if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
+            UploadedFile uploaded = uploadedFiles.get(0);
+            try {
+                this.importFile = PathValidationUtils.validateUploadContent(uploaded.getContent());
+            } catch (SecurityException e) {
+                this.uploadValidationError = PathValidationUtils.INVALID_FILENAME_MESSAGE;
+                this.importFile = null;
+                this.importFileFileName = null;
+                return;
+            }
+            try {
+                this.importFileFileName = PathValidationUtils.validateStrictFileName(uploaded.getOriginalName());
+            } catch (FileValidationException e) {
+                this.uploadValidationError = PathValidationUtils.INVALID_FILENAME_MESSAGE;
+                this.importFileFileName = null;
+            }
+        }
     }
 
     public boolean isMatchProviderNames() {

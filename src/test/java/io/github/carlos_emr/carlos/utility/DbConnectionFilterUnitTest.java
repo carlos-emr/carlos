@@ -7,12 +7,16 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import javax.sql.DataSource;
 
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -78,6 +82,32 @@ class DbConnectionFilterUnitTest extends CarlosUnitTestBase {
         assertThat(holder.get()).isNull();
         assertThat(trackedConnectionHolders()).isEmpty();
         assertThat(trackedConnections()).isEmpty();
+    }
+
+    @Test
+    @Tag("delete")
+    void shouldReleaseLegacyJdbcQueryResources_whenReleasingThreadResources() {
+        try (MockedStatic<LegacyJdbcQuery> legacyJdbcQuery = mockStatic(LegacyJdbcQuery.class)) {
+            DbConnectionFilter.releaseAllThreadDbResources();
+
+            legacyJdbcQuery.verify(LegacyJdbcQuery::releaseThreadResources);
+        }
+    }
+
+    @Test
+    @Tag("delete")
+    void shouldContinueThreadCleanup_whenLegacyJdbcQueryCleanupFails() {
+        try (MockedStatic<LegacyJdbcQuery> legacyJdbcQuery = mockStatic(LegacyJdbcQuery.class);
+             MockedStatic<OscarTrackingBasicDataSource> trackingDataSource =
+                     mockStatic(OscarTrackingBasicDataSource.class)) {
+            legacyJdbcQuery.when(LegacyJdbcQuery::releaseThreadResources)
+                    .thenThrow(new IllegalStateException("cleanup failure"));
+
+            DbConnectionFilter.releaseAllThreadDbResources();
+
+            legacyJdbcQuery.verify(LegacyJdbcQuery::releaseThreadResources);
+            trackingDataSource.verify(OscarTrackingBasicDataSource::releaseThreadConnections);
+        }
     }
 
     @SuppressWarnings("unchecked")

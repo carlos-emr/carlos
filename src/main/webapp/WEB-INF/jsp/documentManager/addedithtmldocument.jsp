@@ -418,7 +418,7 @@
         <tr>
             <td>Public?</td>
             <td><input type="checkbox" name="docPublic"
-                    <%=formdata.getDocPublic() + " "%> value="checked"></td>
+                    <%="checked".equals(formdata.getDocPublic()) ? "checked" : ""%> value="checked"></td>
         </tr>
         <% }
             if (oldDoc) { %>

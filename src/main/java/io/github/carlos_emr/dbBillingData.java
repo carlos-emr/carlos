@@ -36,8 +36,6 @@ import io.github.carlos_emr.carlos.commn.model.BillingService;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.carlos.db.DBPreparedHandler;
-
 /**
  * Database access class for billing service code information.
  * 
@@ -50,8 +48,8 @@ import io.github.carlos_emr.carlos.db.DBPreparedHandler;
  *   <li>Percentage information</li>
  * </ul>
  * 
- * <p><strong>Note:</strong> This class uses the deprecated {@link DBPreparedHandler}
- * alongside modern DAO access. Consider fully migrating to the DAO pattern.</p>
+ * <p><strong>Note:</strong> This class delegates to modern DAO access. Consider
+ * using the DAO pattern directly in new code.</p>
  * 
  * @see BillingServiceDao
  * @deprecated Consider using BillingServiceDao directly for new code
@@ -62,7 +60,6 @@ public class dbBillingData {
     private BillingServiceDao billingServiceDao = SpringUtils.getBean(BillingServiceDao.class);
 
 
-    DBPreparedHandler accessDB = null;
     private String db_service_code = null;
     private String service_code = null;
     private String description = null;
