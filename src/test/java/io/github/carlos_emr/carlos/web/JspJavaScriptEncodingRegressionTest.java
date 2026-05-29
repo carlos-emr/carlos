@@ -66,6 +66,7 @@ class JspJavaScriptEncodingRegressionTest {
         String chartNotesJsp = readJsp("casemgmt/ChartNotesAjax.jsp");
         String multiPageJsp = readJsp("documentManager/MultiPageDocDisplay.jsp");
         String documentReportJsp = readJsp("documentManager/documentReport.jsp");
+        String demographicSwipeJsp = readJsp("demographic/demographicswipe.jsp");
 
         assertThat(chartNotesJsp)
                 .doesNotContain("SafeEncode.forHtml(((NoteDisplayNonNote) note).getLinkInfo())")
@@ -80,6 +81,16 @@ class JspJavaScriptEncodingRegressionTest {
         assertThat(documentReportJsp)
                 .doesNotContain("'<%=url%>'")
                 .contains("context='javaScriptAttribute'");
+        assertThat(demographicSwipeJsp)
+                .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
+                .doesNotContain("<td><font size=\"-1\"><%=responseDescription%>")
+                .doesNotContain("value=\"<%=lastName%>\"")
+                .doesNotContain("onclick=\"javascript:Attach('<%=lastName%>'")
+                .doesNotContain("onclick=\"javascript:Attach('<%=firstName%>'")
+                .doesNotContain("onclick=\"javascript:Attach('<%=hcMagneticStripe.getHealthNumber()%>'")
+                .contains("context=\\\"javaScriptAttribute\\\"")
+                .contains("context=\\\"htmlAttribute\\\"")
+                .contains("context=\"html\"/>");
     }
 
     @Test
