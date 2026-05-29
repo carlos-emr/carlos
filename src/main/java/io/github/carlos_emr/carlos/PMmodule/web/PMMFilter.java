@@ -45,6 +45,7 @@ import io.github.carlos_emr.carlos.PMmodule.service.AgencyManager;
 import io.github.carlos_emr.carlos.PMmodule.service.OscarSecurityManager;
 import io.github.carlos_emr.carlos.PMmodule.service.ProviderManager;
 import io.github.carlos_emr.carlos.sec.UnauthenticatedRejectionResolver;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
@@ -81,7 +82,10 @@ public class PMMFilter implements Filter {
 
         String oscarUser = (String) session.getAttribute("user");
         if (oscarUser == null || oscarUser.trim().isEmpty()) {
-            logger.warn("Unauthenticated access attempt to PMmodule blocked");
+            logger.warn("Unauthenticated access attempt to PMmodule blocked: method={}, uri={}, remote={}",
+                    LogSafe.sanitize(request.getMethod()),
+                    LogSafe.sanitizeUri(request.getRequestURI()),
+                    LogSafe.sanitize(request.getRemoteAddr()));
             UnauthenticatedRejectionResolver.rejectUnauthenticatedRequest(request, response);
             return;
         }

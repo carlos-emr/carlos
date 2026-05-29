@@ -53,7 +53,7 @@ class PMMFilterUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should redirect to logout page and stop chain when user missing")
-    void shouldRedirectToLogoutPageAndStopChain_whenUserMissing()
+    void shouldRedirectToLogoutPage_whenUserMissing()
             throws ServletException, IOException {
         MockHttpServletRequest request = request();
         MockHttpServletResponse response = new MockHttpServletResponse();
@@ -68,7 +68,7 @@ class PMMFilterUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest
     @ValueSource(strings = {"", "   ", "\t\n"})
     @DisplayName("should redirect to logout page and stop chain when user blank")
-    void shouldRedirectToLogoutPageAndStopChain_whenUserBlank(String oscarUser)
+    void shouldRedirectToLogoutPage_whenUserBlank(String oscarUser)
             throws ServletException, IOException {
         MockHttpServletRequest request = request();
         request.getSession().setAttribute("user", oscarUser);
