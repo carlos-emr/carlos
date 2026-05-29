@@ -44,7 +44,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Unit tests for {@link RxDeleteAllergy2Action}.
+ * Unit tests for {@link RxDeleteAllergy2Action} ID parameter validation and deletion flow.
+ * Covers missing, blank, and invalid IDs returning bad request, plus successful deletion
+ * with audit logging verification when the ID is valid.
  *
  * @since 2026-05-29
  */
@@ -64,7 +66,7 @@ class RxDeleteAllergy2ActionTest extends CarlosUnitTestBase {
     private LoggedInInfo mockLoggedInInfo;
 
     @Mock
-    private RxPatientData.Patient mockPatient;
+    private RxPatientData.Patient mockRxPatient;
 
     @Mock
     private Allergy mockAllergy;
@@ -146,10 +148,10 @@ class RxDeleteAllergy2ActionTest extends CarlosUnitTestBase {
     void shouldDeleteAllergy_whenIdParameterIsValid() throws Exception {
         mockRequest.setParameter("ID", "42");
         mockRequest.setParameter("demographicNo", "123");
-        mockRequest.getSession().setAttribute("Patient", mockPatient);
-        when(mockPatient.getAllergy(42)).thenReturn(mockAllergy);
-        when(mockPatient.deleteAllergy(42)).thenReturn(true);
-        when(mockPatient.getDemographicNo()).thenReturn(123);
+        mockRequest.getSession().setAttribute("Patient", mockRxPatient);
+        when(mockRxPatient.getAllergy(42)).thenReturn(mockAllergy);
+        when(mockRxPatient.deleteAllergy(42)).thenReturn(true);
+        when(mockRxPatient.getDemographicNo()).thenReturn(123);
         when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("provider1");
         when(mockAllergy.getAuditString()).thenReturn("audit");
 
@@ -159,7 +161,7 @@ class RxDeleteAllergy2ActionTest extends CarlosUnitTestBase {
             assertThat(result).isEqualTo(ActionSupport.SUCCESS);
             assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
             assertThat(mockRequest.getAttribute("demographicNo")).isEqualTo("123");
-            verify(mockPatient).deleteAllergy(42);
+            verify(mockRxPatient).deleteAllergy(42);
             logActionMock.verify(() -> LogAction.addLog(
                     eq("provider1"),
                     eq("delete"),
