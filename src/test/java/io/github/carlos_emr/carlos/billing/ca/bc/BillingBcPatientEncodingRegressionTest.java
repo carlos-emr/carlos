@@ -35,6 +35,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("unit")
 @Tag("billing")
 class BillingBcPatientEncodingRegressionTest {
+    private static final List<String> BILLING_CORRECTION_REVIEW_PATIENT_FIELDS = List.of(
+            "_p0_10", // patient name
+            "_p0_2", // health number
+            "_p0_15", // sex
+            "_p0_6", // date of birth
+            "_p0_11", // address
+            "_p0_13", // city
+            "_p0_12", // province
+            "_p0_14"); // postal code
+    private static final String HTML_ENCODE_SCRIPTLET_PATTERN =
+            "<carlos:encode\\s+value\\s*=\\s*(['\"])<%=\\s*%s\\s*%%>\\1\\s+context\\s*=\\s*(['\"])html\\2\\s*/\\s*>";
 
     @Test
     void shouldEncodePatientFields_inBillingCorrectionReviewJsp() throws Exception {
@@ -43,7 +54,7 @@ class BillingBcPatientEncodingRegressionTest {
         assertThat(jsp)
                 .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>");
 
-        for (String patientField : List.of("_p0_10", "_p0_2", "_p0_15", "_p0_6", "_p0_11", "_p0_13", "_p0_12", "_p0_14")) {
+        for (String patientField : BILLING_CORRECTION_REVIEW_PATIENT_FIELDS) {
             assertUsesHtmlEncodingForScriptlet(jsp, patientField);
             assertThat(jsp).doesNotContainPattern("<%=\\s*" + patientField + "\\s*%>");
         }
@@ -64,8 +75,6 @@ class BillingBcPatientEncodingRegressionTest {
     }
 
     private void assertUsesHtmlEncodingForScriptlet(String jsp, String scriptletExpressionPattern) {
-        assertThat(jsp).containsPattern(
-                "<carlos:encode\\s+value\\s*=\\s*(['\"])<%=\\s*" + scriptletExpressionPattern
-                        + "\\s*%>\\1\\s+context\\s*=\\s*(['\"])html\\2\\s*/\\s*>");
+        assertThat(jsp).containsPattern(HTML_ENCODE_SCRIPTLET_PATTERN.formatted(scriptletExpressionPattern));
     }
 }
