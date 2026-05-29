@@ -62,6 +62,33 @@ class JspJavaScriptEncodingRegressionTest {
     }
 
     @Test
+    void shouldEncodeProfessionalContactValues_inJavaScriptAndHtmlAttributeContexts() throws Exception {
+        String professionalContactJsp = readJsp("demographic/addEditProfessionalContact.jsp");
+
+        assertThat(professionalContactJsp)
+                .doesNotContain("var keyword = '${ param.keyword }';")
+                .doesNotContain("var firstName = '${ pcontact.firstName }';")
+                .doesNotContain("var lastName = '${ pcontact.lastName }';")
+                .doesNotContain("var contactId = '${ requestScope.contactId }';")
+                .doesNotContain("var demographicContactId = '${ requestScope.demographicContactId }';")
+                .doesNotContain("var contactRole = '${ requestScope.contactRole }';")
+                .doesNotContain("var contactName = '${ requestScope.contactName }';")
+                .doesNotContain("var contactType = '${ requestScope.contactType }';")
+                .contains("var keyword = '${carlos:forJavaScript(param.keyword)}';")
+                .contains("var firstName = '${carlos:forJavaScript(pcontact.firstName)}';")
+                .contains("var lastName = '${carlos:forJavaScript(pcontact.lastName)}';")
+                .contains("var contactId = '${carlos:forJavaScript(requestScope.contactId)}';")
+                .contains("var demographicContactId = '${carlos:forJavaScript(requestScope.demographicContactId)}';")
+                .contains("var contactRole = '${carlos:forJavaScript(requestScope.contactRole)}';")
+                .contains("var contactName = '${carlos:forJavaScript(requestScope.contactName)}';")
+                .contains("var contactType = '${carlos:forJavaScript(requestScope.contactType)}';")
+                .contains("value=\"${carlos:forHtmlAttribute(param.contactType)}\"")
+                .contains("value=\"${carlos:forHtmlAttribute(pcontact.lastName)}\"")
+                .doesNotContain("value=\"${ param.contactType }\"")
+                .doesNotContain("value=\"${ pcontact.lastName }\"");
+    }
+
+    @Test
     void shouldContainEncodedInlineHandlers_inJavaScriptAttributeContext() throws Exception {
         String chartNotesJsp = readJsp("casemgmt/ChartNotesAjax.jsp");
         String multiPageJsp = readJsp("documentManager/MultiPageDocDisplay.jsp");
