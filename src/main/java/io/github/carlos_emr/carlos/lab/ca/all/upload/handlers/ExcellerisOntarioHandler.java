@@ -45,13 +45,11 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.RouteReportResults;
 import io.github.carlos_emr.CarlosProperties;
 
 
-@SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "SpotBugs cannot trace PathValidationUtils as a sanitizer; path is validated via PathValidationUtils before use")
 public class ExcellerisOntarioHandler implements MessageHandler {
 
     Logger logger = MiscUtils.getLogger();
@@ -88,10 +86,9 @@ public class ExcellerisOntarioHandler implements MessageHandler {
                 return null;
             }
 
-            // Create file object and validate using PathValidationUtils
-            File file = new File(fileName);
+            File file;
             try {
-                file = PathValidationUtils.validateExistingPath(file, docDir);
+                file = PathValidationUtils.validateExistingPath(fileName, docDir);
             } catch (SecurityException e) {
                 logger.error("Attempted path traversal detected - file outside document directory: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 return null;

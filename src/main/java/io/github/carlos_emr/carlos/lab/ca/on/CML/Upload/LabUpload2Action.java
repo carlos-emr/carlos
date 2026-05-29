@@ -43,7 +43,6 @@ import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.lab.FileUploadCheck;
 import io.github.carlos_emr.carlos.lab.ca.on.CML.ABCDParser;
@@ -56,7 +55,6 @@ import java.nio.file.Files;
 import java.util.Date;
 import java.util.List;
 
-@SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "SpotBugs cannot trace PathValidationUtils as a sanitizer; path is validated via PathValidationUtils before use")
 public class LabUpload2Action extends ActionSupport implements UploadedFilesAware {
     private static final String REQUEST_ATTRIBUTE_OUTCOME = "outcome";
     private static final String OUTCOME_ACCESS_DENIED = "accessDenied";
@@ -121,20 +119,22 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
 
                 boolean fileUploadedSuccessfully = false;
                 if (localFileName != null) {
-                    // Validate the localFileName path using PathValidationUtils
-                    File localFile = new File(localFileName);
                     CarlosProperties props = CarlosProperties.getInstance();
                     String documentDir = props.getProperty("DOCUMENT_DIR");
-                    if (documentDir != null) {
-                        try {
-                            File docDirFile = new File(documentDir);
-                            localFile = PathValidationUtils.validateExistingPath(localFile, docDirFile);
-                        } catch (SecurityException e) {
-                            _logger.error("Invalid file path: " + localFileName);
-                            outcome = OUTCOME_ACCESS_DENIED;
-                            request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, outcome);
-                            return SUCCESS;
-                        }
+                    if (documentDir == null || documentDir.isEmpty()) {
+                        _logger.error("DOCUMENT_DIR not configured; rejecting file access");
+                        outcome = OUTCOME_ACCESS_DENIED;
+                        request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, outcome);
+                        return SUCCESS;
+                    }
+                    File localFile;
+                    try {
+                        localFile = PathValidationUtils.validateExistingPath(localFileName, new File(documentDir));
+                    } catch (SecurityException e) {
+                        _logger.error("Invalid file path: " + localFileName);
+                        outcome = OUTCOME_ACCESS_DENIED;
+                        request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, outcome);
+                        return SUCCESS;
                     }
 
                     InputStream fis = new FileInputStream(localFile);

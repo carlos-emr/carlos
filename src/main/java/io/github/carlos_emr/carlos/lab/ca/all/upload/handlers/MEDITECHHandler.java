@@ -59,10 +59,9 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 import io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader;
 
-@SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "SpotBugs cannot trace PathValidationUtils as a sanitizer; path is validated via PathValidationUtils before use")
 public class MEDITECHHandler implements MessageHandler {
 
     private static Logger logger = MiscUtils.getLogger();
@@ -213,25 +212,19 @@ public class MEDITECHHandler implements MessageHandler {
             documentDir = System.getProperty("java.io.tmpdir");
         }
         
-        // Normalize the base directory path
-        Path basePath = Paths.get(documentDir).toAbsolutePath().normalize();
-        
-        // Create File object and get its canonical path
-        File file = new File(fileName);
-        Path filePath = file.toPath().toAbsolutePath().normalize();
-        
-        // Check if the file is within the allowed base directory or temp directory
-        boolean isValidPath = false;
+        File baseDirFile = Paths.get(documentDir).toAbsolutePath().normalize().toFile();
+
+        File file;
         try {
-            file = PathValidationUtils.validateExistingPath(file, basePath.toFile());
-            isValidPath = true;
+            file = PathValidationUtils.validateExistingPath(fileName, baseDirFile);
         } catch (SecurityException e) {
             // Try allowed temp directories as fallback
-            isValidPath = PathValidationUtils.isInAllowedTempDirectory(file);
-        }
-        if (!isValidPath) {
-            logger.error("Path traversal attempt detected: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-            throw new IllegalArgumentException("Invalid file path - access denied");
+            File rawFile = new File(fileName);
+            if (!PathValidationUtils.isInAllowedTempDirectory(rawFile)) {
+                logger.error("Path traversal attempt detected: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                throw new IllegalArgumentException("Invalid file path - access denied");
+            }
+            file = rawFile;
         }
         
         // Ensure the file exists and is readable

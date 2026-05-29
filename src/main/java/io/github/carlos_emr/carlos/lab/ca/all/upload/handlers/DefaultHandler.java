@@ -52,7 +52,6 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.w3c.dom.Document;
 import org.w3c.dom.NodeList;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader;
 import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -60,7 +59,6 @@ import io.github.carlos_emr.carlos.utility.XmlUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 
-@SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "SpotBugs cannot trace PathValidationUtils as a sanitizer; path is validated via PathValidationUtils before use")
 public class DefaultHandler implements MessageHandler {
     Logger logger = MiscUtils.getLogger();
     String hl7Type = null;
@@ -131,25 +129,21 @@ public class DefaultHandler implements MessageHandler {
      */
     private Document getXML(String fileName) {
         try {
-            // Validate the file path using PathValidationUtils
-            File file = new File(fileName);
-
-            // Validate the file is within the expected document directory
             CarlosProperties props = CarlosProperties.getInstance();
             String documentDir = props.getProperty("DOCUMENT_DIR");
-            if (documentDir != null && !documentDir.isEmpty()) {
-                File docDir = new File(documentDir).getCanonicalFile();
-                file = PathValidationUtils.validateExistingPath(file, docDir);
+            if (documentDir == null || documentDir.isEmpty()) {
+                logger.error("DOCUMENT_DIR not configured; rejecting file access");
+                return null;
             }
+            File docDir = new File(documentDir).getCanonicalFile();
+            File file = PathValidationUtils.validateExistingPath(fileName, docDir);
 
-            // Ensure the file exists and is a regular file
             if (!file.exists() || !file.isFile()) {
                 logger.error("File does not exist or is not a regular file: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 return null;
             }
 
             DocumentBuilderFactory factory = XmlUtils.createSecureDocumentBuilderFactory();
-            // Use the validated file object instead of creating a new FileInputStream with the raw path
             Document doc = factory.newDocumentBuilder().parse(file);
             return (doc);
 
@@ -165,24 +159,24 @@ public class DefaultHandler implements MessageHandler {
 
     //TODO: Dont think this needs to be in this class.  Better as a util method
     public String readTextFile(String fullPathFilename) throws IOException {
-        // Validate the file path using PathValidationUtils
-        File file = new File(fullPathFilename);
+        CarlosProperties props = CarlosProperties.getInstance();
+        String documentDir = props.getProperty("DOCUMENT_DIR");
+        if (documentDir == null || documentDir.isEmpty()) {
+            throw new IOException("DOCUMENT_DIR not configured; rejecting file access");
+        }
+        File docDir = new File(documentDir).getCanonicalFile();
+        File file;
+        try {
+            file = PathValidationUtils.validateExistingPath(fullPathFilename, docDir);
+        } catch (SecurityException e) {
+            throw new IOException("Path traversal attempt detected: " + fullPathFilename, e);
+        }
 
-        // Ensure the file exists and is a regular file
         if (!file.exists() || !file.isFile()) {
             throw new IOException("File does not exist or is not a regular file: " + fullPathFilename);
         }
 
-        // Validate the file is within the expected document directory
-        CarlosProperties props = CarlosProperties.getInstance();
-        String documentDir = props.getProperty("DOCUMENT_DIR");
-        if (documentDir != null && !documentDir.isEmpty()) {
-            File docDir = new File(documentDir).getCanonicalFile();
-            file = PathValidationUtils.validateExistingPath(file, docDir);
-        }
-
         StringBuilder sb = new StringBuilder(1024);
-        // Use the validated file object instead of the raw path
         BufferedReader reader = new BufferedReader(new FileReader(file));
 
         char[] chars = new char[1024];

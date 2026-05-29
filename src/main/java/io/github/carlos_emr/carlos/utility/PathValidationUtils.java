@@ -211,6 +211,24 @@ public final class PathValidationUtils {
         return file;
     }
 
+    /**
+     * Validates that the path string resolves to a file within the allowed directory.
+     * Convenience overload that constructs the {@link File} internally, avoiding a
+     * bare {@code new File(taintedPath)} at the call site and keeping the taint sink
+     * inside this utility where SpotBugs can track containment.
+     *
+     * @param path the file path to validate; must be non-null and non-empty
+     * @param allowedDir the directory the resolved file must be within
+     * @return the validated File
+     * @throws SecurityException if the path is null/empty or resolves outside allowedDir
+     */
+    public static File validateExistingPath(String path, File allowedDir) {
+        if (path == null || path.isEmpty()) {
+            throw new SecurityException("File path is null or empty");
+        }
+        return validateExistingPath(new File(path), allowedDir);
+    }
+
     // ========================================================================
     // UPLOAD VALIDATION - For validating uploaded files
     // ========================================================================

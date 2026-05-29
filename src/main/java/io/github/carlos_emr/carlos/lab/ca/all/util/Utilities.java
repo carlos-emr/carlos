@@ -55,14 +55,12 @@ import java.util.ArrayList;
 import java.util.Date;
 
 import org.apache.logging.log4j.Logger;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 
-@SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "SpotBugs cannot trace PathValidationUtils as a sanitizer; path is validated via PathValidationUtils before use")
 public class Utilities {
 
     private static final Logger logger = MiscUtils.getLogger();
@@ -76,7 +74,7 @@ public class Utilities {
         // Validate the file path is within DOCUMENT_DIR to prevent path traversal
         CarlosProperties props = CarlosProperties.getInstance();
         String place = props.getProperty("DOCUMENT_DIR");
-        File validatedFile = PathValidationUtils.validateExistingPath(new File(fileName), new File(place));
+        File validatedFile = PathValidationUtils.validateExistingPath(fileName, new File(place));
 
         ArrayList<String> messages = new ArrayList<String>();
         try (InputStream is = new FileInputStream(validatedFile);

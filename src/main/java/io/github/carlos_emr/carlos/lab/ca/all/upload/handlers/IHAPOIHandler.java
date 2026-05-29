@@ -59,10 +59,9 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 import io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader;
 
-@SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "SpotBugs cannot trace PathValidationUtils as a sanitizer; path is validated via PathValidationUtils before use")
 public class IHAPOIHandler implements MessageHandler {
 
     public final String HL7_FORMAT = "IHAPOI";
@@ -259,22 +258,18 @@ public class IHAPOIHandler implements MessageHandler {
             documentDir = System.getProperty("java.io.tmpdir");
         }
         
-        // Create File object
-        File file = new File(fileName);
         File baseDirFile = new File(documentDir);
-
-        // Check if the file is within the allowed base directory or temp directory
-        boolean isValidPath = false;
+        File file;
         try {
-            file = PathValidationUtils.validateExistingPath(file, baseDirFile);
-            isValidPath = true;
+            file = PathValidationUtils.validateExistingPath(fileName, baseDirFile);
         } catch (SecurityException e) {
             // Try allowed temp directories as fallback
-            isValidPath = PathValidationUtils.isInAllowedTempDirectory(file);
-        }
-        if (!isValidPath) {
-            logger.error("Path traversal attempt detected: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-            throw new IllegalArgumentException("Invalid file path - access denied");
+            File rawFile = new File(fileName);
+            if (!PathValidationUtils.isInAllowedTempDirectory(rawFile)) {
+                logger.error("Path traversal attempt detected: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                throw new IllegalArgumentException("Invalid file path - access denied");
+            }
+            file = rawFile;
         }
         
         // Ensure the file exists and is readable

@@ -45,7 +45,7 @@ import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
@@ -72,7 +72,6 @@ import io.github.carlos_emr.carlos.log.LogConst;
  * @see EDocUtil
  * @since 2012 (McMaster University)
  */
-@SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "SpotBugs cannot trace PathValidationUtils as a sanitizer; path is validated via PathValidationUtils before use")
 public class PDFHandler implements MessageHandler {
     protected static Logger logger = MiscUtils.getLogger();
 
@@ -114,8 +113,7 @@ public class PDFHandler implements MessageHandler {
 
             // Validate the file path using PathValidationUtils
             File baseDir = new File(baseDocDir);
-            File targetFile = new File(filePath);
-            targetFile = PathValidationUtils.validateExistingPath(targetFile, baseDir);
+            File targetFile = PathValidationUtils.validateExistingPath(filePath, baseDir);
 
             // Verify the file exists and is a regular file
             if (!targetFile.exists() || !targetFile.isFile()) {

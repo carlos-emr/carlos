@@ -51,7 +51,7 @@ import org.hl7.fhir.dstu3.model.CommunicationRequest;
 
 import org.hl7.fhir.dstu3.model.Reference;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDao;
 
@@ -88,7 +88,6 @@ import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
  * @see org.hl7.fhir.dstu3.model.CommunicationRequest
  * @since 2019 (McMaster University)
  */
-@SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "SpotBugs cannot trace PathValidationUtils as a sanitizer; path is validated via PathValidationUtils before use")
 public class FHIRCommunicationRequestHandler implements MessageHandler {
 
     protected static Logger logger = MiscUtils.getLogger();
@@ -125,9 +124,9 @@ public class FHIRCommunicationRequestHandler implements MessageHandler {
             
             // Validate the file path using PathValidationUtils
             File baseDir = new File(baseDocDir);
-            File targetFile = new File(fileName);
+            File targetFile;
             try {
-                targetFile = PathValidationUtils.validateExistingPath(targetFile, baseDir);
+                targetFile = PathValidationUtils.validateExistingPath(fileName, baseDir);
             } catch (SecurityException e) {
                 logger.error("Path traversal attempt detected: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 return null;

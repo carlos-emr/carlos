@@ -40,7 +40,7 @@
 package io.github.carlos_emr.carlos.lab.ca.all.pageUtil;
 
 import java.io.File;
-import java.io.FileInputStream;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -54,7 +54,7 @@ import java.util.Map;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -72,7 +72,6 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
 
-@SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "SpotBugs cannot trace PathValidationUtils as a sanitizer; path is validated via PathValidationUtils before use")
 public class InsideLabUpload2Action extends ActionSupport implements UploadedFilesAware {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -147,7 +146,7 @@ public class InsideLabUpload2Action extends ActionSupport implements UploadedFil
 
     private FileStatus processUploadedFile(LoggedInInfo loggedInInfo, File file, String fileName, String contentType) {
         // Convert File to InputStream and process
-        try (InputStream inputStream = new FileInputStream(file)) {
+        try (InputStream inputStream = PathValidationUtils.openValidatedUploadInputStream(file)) {
             String filePath = Utilities.saveFile(inputStream, fileName);
             // Continue with your existing processing logic
             return processFile(loggedInInfo, ServletActionContext.getRequest(), filePath, getFileType(ServletActionContext.getRequest()));

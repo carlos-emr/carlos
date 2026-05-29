@@ -52,7 +52,6 @@ import org.w3c.dom.NodeList;
 import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.DefaultGenericHandler;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader;
 import io.github.carlos_emr.CarlosProperties;
@@ -62,7 +61,6 @@ import io.github.carlos_emr.CarlosProperties;
  * @Deprecated use IHAPOIHandler
  *
  */
-@SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "SpotBugs cannot trace PathValidationUtils as a sanitizer; path is validated via PathValidationUtils before use")
 public class IHAHandler extends DefaultGenericHandler implements MessageHandler {
     Logger logger = MiscUtils.getLogger();
     String hl7Type = null;
@@ -190,26 +188,21 @@ public class IHAHandler extends DefaultGenericHandler implements MessageHandler 
      */
     private Document getXML(String fileName) {
         try {
-            // Validate the file path using PathValidationUtils
-            File file = new File(fileName);
-
-            // Validate the file is within the expected document directory
             CarlosProperties props = CarlosProperties.getInstance();
             String documentDir = props.getProperty("DOCUMENT_DIR");
-            if (documentDir != null && !documentDir.isEmpty()) {
-                File docDir = new File(documentDir).getCanonicalFile();
-                file = PathValidationUtils.validateExistingPath(file, docDir);
+            if (documentDir == null || documentDir.isEmpty()) {
+                logger.error("DOCUMENT_DIR not configured; rejecting file access");
+                return null;
             }
+            File docDir = new File(documentDir).getCanonicalFile();
+            File file = PathValidationUtils.validateExistingPath(fileName, docDir);
 
-            // Ensure the file exists and is a regular file
             if (!file.exists() || !file.isFile()) {
                 logger.error("File does not exist or is not a regular file: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 return null;
             }
 
             DocumentBuilderFactory factory = XmlUtils.createSecureDocumentBuilderFactory();
-            
-            // Use the validated file object instead of creating a new FileInputStream with the raw path
             Document doc = factory.newDocumentBuilder().parse(file);
             return (doc);
 

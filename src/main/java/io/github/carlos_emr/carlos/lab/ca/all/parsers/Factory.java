@@ -61,7 +61,6 @@ import io.github.carlos_emr.carlos.utility.XmlUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 
-@SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "SpotBugs cannot trace that LAB_TYPES is an admin-configured property, not user-controlled input; path is not user-controllable")
 public final class Factory {
 
     private static Logger logger = MiscUtils.getLogger();
@@ -117,6 +116,7 @@ public final class Factory {
     /*
      * Create and return the message handler corresponding to the message type
      */
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "LAB_TYPES is an admin-only server.properties entry; no user-supplied path reaches Paths.get() or Files.newInputStream()")
     public static MessageHandler getHandler(String type, String hl7Body) {
         Document doc = null;
         String msgType;

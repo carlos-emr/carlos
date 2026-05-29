@@ -52,7 +52,6 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.RouteReportResults;
@@ -61,7 +60,6 @@ import io.github.carlos_emr.carlos.utility.LogSafe;
 /**
  * @author wrighd
  */
-@SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "SpotBugs cannot trace PathValidationUtils as a sanitizer; path is validated via PathValidationUtils before use")
 public class PATHL7Handler implements MessageHandler {
 
     Logger logger = MiscUtils.getLogger();
@@ -83,10 +81,7 @@ public class PATHL7Handler implements MessageHandler {
             // Base directory - validate using PathValidationUtils
             String baseDir = CarlosProperties.getInstance().getDocumentDirectory();
             java.io.File baseDirFile = new java.io.File(baseDir);
-            java.io.File targetFile = new java.io.File(fileName);
-
-            // Validate the existing file is within the allowed directory
-            targetFile = PathValidationUtils.validateExistingPath(targetFile, baseDirFile);
+            java.io.File targetFile = PathValidationUtils.validateExistingPath(fileName, baseDirFile);
 
             if (!targetFile.exists() || !targetFile.isFile()) {
                 logger.error("File does not exist or is not a regular file: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
