@@ -62,6 +62,16 @@ class JspJavaScriptEncodingRegressionTest {
     }
 
     @Test
+    void shouldEncodeCurrentProgram_inDemographicPaperArchiveJavaScriptString() throws Exception {
+        String editJsp = readJsp("demographic/edit.jsp");
+
+        assertThat(editJsp)
+                .containsPattern(SAFE_ENCODE_IMPORT_PATTERN)
+                .contains("jQuery(\"#paper_chart_archived_program\").val('<%=SafeEncode.forJavaScript(currentProgram)%>');")
+                .doesNotContain("jQuery(\"#paper_chart_archived_program\").val('<%=currentProgram%>');");
+    }
+
+    @Test
     void shouldContainEncodedInlineHandlers_inJavaScriptAttributeContext() throws Exception {
         String chartNotesJsp = readJsp("casemgmt/ChartNotesAjax.jsp");
         String multiPageJsp = readJsp("documentManager/MultiPageDocDisplay.jsp");
