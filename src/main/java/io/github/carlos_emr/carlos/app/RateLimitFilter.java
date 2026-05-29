@@ -65,7 +65,7 @@ import java.util.function.LongSupplier;
  *
  * <p><strong>Configuration</strong> (via {@code carlos.properties}):</p>
  * <ul>
- *   <li>{@code WAF_RATE_LIMIT_ENABLED} — master toggle (default: false)</li>
+ *   <li>{@code WAF_RATE_LIMIT_ENABLED} — master toggle (default: true; set to {@code false}, {@code no}, or {@code off} to opt out)</li>
  *   <li>{@code WAF_RATE_LIMIT_MODE} — {@code enforce} (block with 429) or {@code detect}
  *       (log only, default: detect)</li>
  *   <li>{@code WAF_RATE_LIMIT_DEFAULT_REQUESTS} — global requests per window (default: 100)</li>
@@ -166,9 +166,11 @@ public final class RateLimitFilter implements Filter {
     public void init(FilterConfig filterConfig) throws ServletException {
         CarlosProperties props = CarlosProperties.getInstance();
 
-        enabled = props.isPropertyActive("WAF_RATE_LIMIT_ENABLED");
+        // Default to enabled; only disable when explicitly set to false/no/off
+        String rawEnabled = props.getProperty("WAF_RATE_LIMIT_ENABLED");
+        enabled = rawEnabled == null || rawEnabled.isBlank() || props.isPropertyActive("WAF_RATE_LIMIT_ENABLED");
         if (!enabled) {
-            logger.info("Rate limit filter: disabled (WAF_RATE_LIMIT_ENABLED is not set to true/yes/on)");
+            logger.info("Rate limit filter: disabled (WAF_RATE_LIMIT_ENABLED explicitly set to '{}')", rawEnabled.trim());
             return;
         }
 
