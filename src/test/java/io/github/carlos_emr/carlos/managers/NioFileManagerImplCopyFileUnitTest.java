@@ -57,7 +57,7 @@ class NioFileManagerImplCopyFileUnitTest {
 
     @Test
     @DisplayName("should copy approved temp source into Oscar documents")
-    void shouldCopyApprovedTempSource_whenCopyingToOscarDocuments() throws IOException {
+    void shouldCopyApprovedTempSource_whenSourceIsInAllowedTempDirectory() throws IOException {
         Path source = Files.createTempFile("copy-approved-", ".pdf");
         Files.writeString(source, "approved temp source", StandardCharsets.UTF_8);
 
@@ -89,12 +89,15 @@ class NioFileManagerImplCopyFileUnitTest {
     @Test
     @DisplayName("should return destination path when cleanup rejects source after successful copy")
     void shouldReturnDestinationPath_whenCleanupRejectsSourceAfterSuccessfulCopy() throws IOException {
-        Path sourceDir = Files.createTempDirectory("copy-source-");
+        Path sourceDir = Files.createTempDirectory("tempDirectory-cleanup-");
         Path source = sourceDir.resolve("cleanup-fails.pdf");
         Files.writeString(source, "cleanup failure still persists copy", StandardCharsets.UTF_8);
         Assumptions.assumeTrue(PathValidationUtils.isInAllowedTempDirectory(source.toFile()));
 
         try {
+            Assumptions.assumeTrue(sourceDir.toFile().setWritable(false, false));
+            Assumptions.assumeFalse(Files.isWritable(sourceDir));
+
             String result = fileManager.copyFileToOscarDocuments(source.toString());
 
             Path destination = documentDir.resolve(source.getFileName().toString());
@@ -102,6 +105,7 @@ class NioFileManagerImplCopyFileUnitTest {
             assertThat(Files.readString(destination)).isEqualTo("cleanup failure still persists copy");
             assertThat(Files.exists(source)).isTrue();
         } finally {
+            sourceDir.toFile().setWritable(true, false);
             Files.deleteIfExists(source);
             Files.deleteIfExists(sourceDir);
         }
