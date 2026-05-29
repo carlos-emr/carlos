@@ -95,7 +95,7 @@ import static org.mockito.Mockito.when;
  * <p><b>Adding a new mutator 2Action.</b> The {@link #discoveryCandidatesMustBeRegistered()}
  * test scans {@code src/main/java} for any {@code *2Action.java} in an audited
  * slice, or explicitly registered legacy class, containing both
- * {@code SC_METHOD_NOT_ALLOWED} and an {@code equalsIgnoreCase("POST")} check
+ * {@code SC_METHOD_NOT_ALLOWED} and a {@code "POST"} method check
  * and fails the build if the class is not listed here. New mutators must be
  * registered in one of:
  *
@@ -312,8 +312,8 @@ class MutatorActionGetRejectionContractTest {
     void shouldRejectGetAndHead_withoutAnyMutationSideEffect(
             String className, String privilegeObject, String privilegeLevel) throws Exception {
         // Drive both GET and HEAD against every registered unconditional
-        // mutator. All known gates guard with "POST".equalsIgnoreCase(method),
-        // so both non-POST verbs take the same reject path — but the issue's
+        // mutator. All known gates guard with a "POST" method check, so both
+        // non-POST verbs take the same reject path — but the issue's
         // acceptance criteria calls out both verbs explicitly.
         assertRejectsUnsafeMethod(className, privilegeObject, privilegeLevel, "GET");
         assertRejectsUnsafeMethod(className, privilegeObject, privilegeLevel, "HEAD");
@@ -477,7 +477,7 @@ class MutatorActionGetRejectionContractTest {
     /**
      * Walks {@code src/main/java} and fails if any {@code *2Action.java}
      * containing both a {@code SC_METHOD_NOT_ALLOWED} reference and a
-     * {@code "POST".equalsIgnoreCase(...)} (or {@code equalsIgnoreCase("POST")})
+     * {@code "POST".equals(...)} / {@code "POST".equalsIgnoreCase(...)}
      * check is not registered in one of
      * {@link #unconditionalMutators()}, {@link #CONDITIONAL_MUTATORS}, or
      * {@link #NON_MUTATOR_GATES}.
@@ -545,7 +545,9 @@ class MutatorActionGetRejectionContractTest {
                         + actionSource, e);
             }
             if (source.contains("SC_METHOD_NOT_ALLOWED")
-                    && (source.contains("\"POST\".equalsIgnoreCase(")
+                    && (source.contains("\"POST\".equals(")
+                        || source.contains(".equals(\"POST\")")
+                        || source.contains("\"POST\".equalsIgnoreCase(")
                         || source.contains(".equalsIgnoreCase(\"POST\")"))) {
                 out.add(className);
             }
