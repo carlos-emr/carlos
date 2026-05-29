@@ -164,6 +164,30 @@ class JspJavaScriptEncodingRegressionTest {
         }
     }
 
+    @Test
+    @DisplayName("should encode demographic personal form PHI in HTML attribute context")
+    @Tag("security")
+    void shouldEncodeDemographicPersonalFormPhi_inHtmlAttributeContext() throws Exception {
+        String jsp = readJsp("demographic/edit-form-personal.jsp");
+
+        assertThat(jsp)
+                .contains(
+                        "value=\"<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getPostal()) %>' context=\"htmlAttribute\"/>\"")
+                .contains(
+                        "value=\"<carlos:encode value='<%= StringUtils.trimToEmpty(StringUtils.trimToEmpty(demographic.getPhone())) %>' context=\"htmlAttribute\"/>\"")
+                .contains(
+                        "value=\"<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getPhone2()) %>' context=\"htmlAttribute\"/>\"")
+                .contains(
+                        "value=\"<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getHin()) %>' context=\"htmlAttribute\"/>\"")
+                .contains(
+                        "value=\"<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getVer()) %>' context=\"htmlAttribute\"/>\"")
+                .doesNotContain("value=\"<%=StringUtils.trimToEmpty(demographic.getPostal())%>\"")
+                .doesNotContain("value=\"<%=StringUtils.trimToEmpty(StringUtils.trimToEmpty(demographic.getPhone()))%>\"")
+                .doesNotContain("value=\"<%=StringUtils.trimToEmpty(demographic.getPhone2())%>\"")
+                .doesNotContain("value=\"<%=StringUtils.trimToEmpty(demographic.getHin())%>\"")
+                .doesNotContain("value=\"<%=StringUtils.trimToEmpty(demographic.getVer())%>\"");
+    }
+
     private static String readJsp(String relativePath) throws Exception {
         return Files.readString(JSP_ROOT.resolve(relativePath));
     }
