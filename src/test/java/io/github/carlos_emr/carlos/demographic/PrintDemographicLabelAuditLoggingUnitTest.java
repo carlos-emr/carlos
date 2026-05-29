@@ -76,7 +76,6 @@ class PrintDemographicLabelAuditLoggingUnitTest extends CarlosUnitTestBase {
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
     private MockedStatic<LegacyJdbcQuery> legacyJdbcQueryMock;
-    private MockedStatic<LogAction> actionLogMock;
 
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
@@ -121,15 +120,10 @@ class PrintDemographicLabelAuditLoggingUnitTest extends CarlosUnitTestBase {
 
         legacyJdbcQueryMock = mockStatic(LegacyJdbcQuery.class);
         legacyJdbcQueryMock.when(LegacyJdbcQuery::getConnection).thenReturn(connection);
-
-        actionLogMock = mockStatic(LogAction.class);
     }
 
     @AfterEach
     void tearDown() {
-        if (actionLogMock != null) {
-            actionLogMock.close();
-        }
         if (legacyJdbcQueryMock != null) {
             legacyJdbcQueryMock.close();
         }
@@ -171,7 +165,7 @@ class PrintDemographicLabelAuditLoggingUnitTest extends CarlosUnitTestBase {
                         eq(connection),
                         nullable(String.class)))) {
             String result = action.execute();
-            actionLogMock.verify(() -> LogAction.addLog(
+            logActionMock.verify(() -> LogAction.addLog(
                     PROVIDER_NO,
                     LogConst.READ,
                     LogConst.CON_DEMOGRAPHIC,
