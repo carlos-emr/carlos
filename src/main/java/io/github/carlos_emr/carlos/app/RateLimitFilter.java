@@ -166,9 +166,15 @@ public final class RateLimitFilter implements Filter {
     public void init(FilterConfig filterConfig) throws ServletException {
         CarlosProperties props = CarlosProperties.getInstance();
 
-        // Default to enabled; only disable when explicitly set to false/no/off
+        // Default to enabled; only disable when explicitly set to false/no/off.
+        // Any other value (including typos) defaults to enabled for fail-secure behaviour.
         String rawEnabled = props.getProperty("WAF_RATE_LIMIT_ENABLED");
-        enabled = rawEnabled == null || rawEnabled.isBlank() || props.isPropertyActive("WAF_RATE_LIMIT_ENABLED");
+        if (rawEnabled == null || rawEnabled.isBlank()) {
+            enabled = true;
+        } else {
+            String trimmedEnabled = rawEnabled.trim().toLowerCase();
+            enabled = !("false".equals(trimmedEnabled) || "no".equals(trimmedEnabled) || "off".equals(trimmedEnabled));
+        }
         if (!enabled) {
             logger.info("Rate limit filter: disabled (WAF_RATE_LIMIT_ENABLED explicitly set to '{}')", rawEnabled.trim());
             return;

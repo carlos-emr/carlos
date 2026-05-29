@@ -201,6 +201,23 @@ class RateLimitFilterTest extends CarlosUnitTestBase {
 
             assertThat(filter.isEnabled()).isTrue();
         }
+
+        @Test
+        @DisplayName("should be enabled when WAF_RATE_LIMIT_ENABLED contains an unrecognized value")
+        void shouldBeEnabled_whenPropertyIsUnrecognizedValue() throws Exception {
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_ENABLED")).thenReturn("ture");
+            when(mockProperties.isPropertyActive("WAF_RATE_LIMIT_ENABLED")).thenReturn(false);
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_MODE")).thenReturn("detect");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_DEFAULT_REQUESTS")).thenReturn("100");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_DEFAULT_WINDOW_SECONDS")).thenReturn("60");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_PATHS")).thenReturn("");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_EXEMPT_IPS")).thenReturn("127.0.0.1,::1,0:0:0:0:0:0:0:1");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_CLEANUP_INTERVAL_SECONDS")).thenReturn("300");
+            FilterConfig fc = mock(FilterConfig.class);
+            filter.init(fc);
+
+            assertThat(filter.isEnabled()).isTrue();
+        }
     }
 
     // -------------------------------------------------------------------------
