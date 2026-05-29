@@ -37,7 +37,7 @@
 
 <core:set var="ctx" value="${ pageContext.servletContext.contextPath }"/>
 <core:set var="url"
-       value="${ ctx }/demographic/DemographicEdit?demographic_no=${ param.demographicNo }&appointment="/>
+       value="${ ctx }/demographic/DemographicEdit?demographic_no=${ carlos:forUriComponent(param.demographicNo) }&appointment="/>
 
 <table id="${ not empty param.tableId ? carlos:forHtmlAttribute(param.tableId) : 'topLink' }">
     <tr>

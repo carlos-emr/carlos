@@ -151,6 +151,7 @@ class JspJavaScriptEncodingRegressionTest {
         assertThat(topLinksJsp)
                 .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
                 .contains("id=\"${ not empty param.tableId ? carlos:forHtmlAttribute(param.tableId) : 'topLink' }\"")
+                .contains("value=\"${ ctx }/demographic/DemographicEdit?demographic_no=${ carlos:forUriComponent(param.demographicNo) }&appointment=\"")
                 .contains("${carlos:forHtmlContent(param.title)}")
                 .contains("${carlos:forHtmlContent(param.patientName)}")
                 .contains("${carlos:forHtmlContent(param.sex)}")
@@ -163,6 +164,7 @@ class JspJavaScriptEncodingRegressionTest {
                 .doesNotContain("${ param.age }")
                 .doesNotContain("${ param.phone }")
                 .doesNotContain("id=\"${ not empty param.tableId ? param.tableId : 'topLink' }\"")
+                .doesNotContain("value=\"${ ctx }/demographic/DemographicEdit?demographic_no=${ param.demographicNo }&appointment=\"")
                 .doesNotContain("'${ url }'");
     }
 
