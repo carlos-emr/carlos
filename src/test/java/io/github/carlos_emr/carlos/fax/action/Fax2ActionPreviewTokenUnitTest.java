@@ -241,6 +241,46 @@ class Fax2ActionPreviewTokenUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should validate copy-to recipient fax when queueing fax")
+    void shouldValidateCopyToRecipientFax_whenQueueingFax() throws Exception {
+        Path pdf = createPreviewPdf();
+        Fax2Action action = prepareAndVerifyEformFax(pdf);
+        String token = (String) request.getAttribute("faxFileToken");
+        request.setParameter("faxFileToken", token);
+        action.setRecipient("Specialist");
+        action.setRecipientFaxNumber("4165551234");
+        action.setSenderFaxNumber("4165555678");
+        action.setCoverpage("false");
+        action.setCopyToRecipients(new String[]{"\"name\":\"Copy Clinic\",\"fax\":\"4165559999\""});
+        when(faxManager.createAndSaveFaxJob(eq(loggedInInfo), anyMap())).thenReturn(List.of(new FaxJob()));
+
+        assertThat(action.queue()).isEqualTo("preview");
+
+        verify(faxManager).validateFaxNumber("4165559999", "copy-to recipient fax number [0]");
+        verify(faxManager).createAndSaveFaxJob(eq(loggedInInfo), anyMap());
+    }
+
+    @Test
+    @DisplayName("should reject malformed copy-to recipient when queueing fax")
+    void shouldRejectMalformedCopyToRecipient_whenQueueingFax() throws Exception {
+        Path pdf = createPreviewPdf();
+        Fax2Action action = prepareAndVerifyEformFax(pdf);
+        String token = (String) request.getAttribute("faxFileToken");
+        request.setParameter("faxFileToken", token);
+        action.setRecipient("Specialist");
+        action.setRecipientFaxNumber("4165551234");
+        action.setSenderFaxNumber("4165555678");
+        action.setCoverpage("false");
+        action.setCopyToRecipients(new String[]{"not-json"});
+
+        assertThatThrownBy(action::queue)
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("Invalid copy-to recipient format at index 0");
+
+        verify(faxManager, never()).createAndSaveFaxJob(any(LoggedInInfo.class), anyMap());
+    }
+
+    @Test
     @DisplayName("should dispatch queue when request method is POST")
     void shouldDispatchQueue_whenRequestMethodIsPost() throws Exception {
         Path pdf = createPreviewPdf();
