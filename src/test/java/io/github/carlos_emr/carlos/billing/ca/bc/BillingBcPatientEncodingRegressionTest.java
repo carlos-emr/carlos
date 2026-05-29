@@ -48,7 +48,7 @@ class BillingBcPatientEncodingRegressionTest {
     private static final String ENCODE_TAG_SUFFIX = "\\s*%>\\1\\s+context\\s*=\\s*(['\"])html\\2\\s*/\\s*>";
 
     @Test
-    void shouldEncodePatientFields_inBillingCorrectionReviewJsp() throws Exception {
+    void shouldEncodeDemographicFields_inBillingCorrectionReviewJsp() throws Exception {
         String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/BC/billingCorrectionReview.jsp"));
 
         assertThat(jsp)
@@ -61,7 +61,7 @@ class BillingBcPatientEncodingRegressionTest {
     }
 
     @Test
-    void shouldEncodePatientFields_inBillReceiptJsp() throws Exception {
+    void shouldEncodeDemographicFields_inBillReceiptJsp() throws Exception {
         String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/BC/billReceipt.jsp"));
 
         assertUsesHtmlEncodingForScriptlet(jsp, "demo\\.getProvince\\(\\)");

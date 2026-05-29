@@ -427,7 +427,7 @@
                                                             <carlos:encode value='<%= demo.getPostal() %>' context="html"/>
                                                         </div>
                                                         <strong>Gender:</strong>
-                                                        <carlos:encode value='<%= demo.getSex() %>' context="html"/>                              <br>
+                                                        <carlos:encode value='<%= demo.getSex() %>' context="html"/><br>
                                                         <strong>Birth Date :</strong>
                                                         <carlos:encode value='<%= DemographicData.getDob(demo, "-") %>' context="html"/>
                                                     </td>
