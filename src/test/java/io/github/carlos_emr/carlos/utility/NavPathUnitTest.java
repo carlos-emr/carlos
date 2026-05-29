@@ -132,6 +132,17 @@ class NavPathUnitTest {
         }
 
         @Test
+        void shouldReturnTrue_whenForwardRequestUriMatchesPattern() {
+            when(request.getRequestURI()).thenReturn("/carlos/some/dispatcher");
+            when(request.getServletPath()).thenReturn("/some/dispatcher");
+            when(request.getAttribute("jakarta.servlet.forward.request_uri"))
+                    .thenReturn("/carlos/report/ViewReportindex");
+            when(request.getAttribute("jakarta.servlet.forward.servlet_path")).thenReturn(null);
+
+            assertThat(NavPath.requestPathMatches(request, "/report/")).isTrue();
+        }
+
+        @Test
         void shouldReturnTrue_whenAnyOfMultiplePatternsMatches() {
             when(request.getRequestURI()).thenReturn("/carlos/provider/providercontrol");
             when(request.getServletPath()).thenReturn("/provider/providercontrol");
