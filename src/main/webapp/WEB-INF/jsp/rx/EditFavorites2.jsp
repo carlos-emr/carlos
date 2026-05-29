@@ -258,7 +258,7 @@
                                                                                       name="fldFavoriteId<%= i%>"
                                                                                       value="<%= f.getFavoriteId() %>"/>
                                                 <input type=text size="50" name="fldFavoriteName<%= i%>"
-                                                       class=tblRow size=80 value="<%= f.getFavoriteName() %>"/>&nbsp;&nbsp;&nbsp;
+                                                       class="tblRow" size="80" value="<carlos:encode value='<%= f.getFavoriteName() %>' context="htmlAttribute"/>"/>&nbsp;&nbsp;&nbsp;
                                             </td>
                                             <td>
                                                 <a id="saveSuccess_<%=i%>" style="display:none;color:red">Changes
@@ -283,8 +283,8 @@
                                             <td colspan=7><b>Custom Drug Name:</b> <input type=text
                                                                                           size="50"
                                                                                           name="fldCustomName<%= i%>"
-                                                                                          class=tblRow size=80
-                                                                                          value="<%= f.getCustomName() %>"/>
+                                                                                          class="tblRow" size="80"
+                                                                                          value="<carlos:encode value='<%= f.getCustomName() %>' context="htmlAttribute"/>"/>
                                             </td>
                                         </tr>
                                         <% } %>
@@ -379,7 +379,7 @@
                                                                     s = "";
                                                             %>
                                                             <textarea name="fldSpecial<%= i%>" style="width: 100%"
-                                                                      rows=5><%=s.trim()%></textarea></td>
+                                                                      rows="5"><carlos:encode value='<%=s.trim()%>' context="html"/></textarea></td>
                                                     </tr>
                                                 </table>
                                             </td>
