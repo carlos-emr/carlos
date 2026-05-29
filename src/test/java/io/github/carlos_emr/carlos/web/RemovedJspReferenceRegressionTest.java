@@ -116,6 +116,24 @@ class RemovedJspReferenceRegressionTest {
     }
 
     @Test
+    @DisplayName("Print-label JSPs should HTML-encode stored default printer names")
+    void shouldEncodeDefaultPrinterName_inPrintLabelJsps() throws IOException {
+        String printDemoLabel = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/demographic/printDemoLabel.jsp"));
+        String printClientLabLabel = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/demographic/printClientLabLabel.jsp"));
+        String printEnvelope = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/demographic/printEnvelope.jsp"));
+
+        assertThat(printDemoLabel)
+                .contains("<carlos:encode value='<%= defaultPrinterName %>' context=\"html\"/>")
+                .doesNotContain("<%=defaultPrinterName%>");
+        assertThat(printClientLabLabel)
+                .contains("<carlos:encode value='<%= defaultPrinterName %>' context=\"html\"/>")
+                .doesNotContain("<%=defaultPrinterName%>");
+        assertThat(printEnvelope)
+                .contains("<carlos:encode value='<%= defaultPrinterName %>' context=\"html\"/>")
+                .doesNotContain("<%=defaultPrinterName%>");
+    }
+
+    @Test
     @DisplayName("Standalone admin JSPs should guard admin-chrome helper calls")
     void shouldGuardAdminChromeHelpers_inStandaloneAdminJsps() throws IOException {
         String myGroup = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/admin/admindisplaymygroup.jsp"));
