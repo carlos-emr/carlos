@@ -80,6 +80,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.*;
 
@@ -131,6 +132,10 @@ public class ManageDocument2Action extends ActionSupport {
 
     private static final String DOCUMENT_DIR = CarlosProperties.getInstance().getDocumentDirectory();
     private static final String DOCUMENT_CACHE_DIR = CarlosProperties.getInstance().getDocumentCacheDirectory();
+
+    // Canonical incoming-document queue subdirectories. Kept in sync with the allowlist
+    // enforced by IncomingDocUtil.getIncomingDocumentFilePath.
+    private static final Set<String> ALLOWED_INCOMING_QUEUE_DIRS = Set.of("Fax", "Mail", "File", "Refile");
 
     private static final Map<String, ActionHandler> ACTIONS = new HashMap<>();
 
@@ -1133,14 +1138,22 @@ public class ManageDocument2Action extends ActionSupport {
         }
         
         // Validate queueId and pdfDir to prevent directory traversal
-        // Validate queueId and pdfDir to prevent directory traversal
-        if (queueId1 == null || pdfDir == null ||
-            queueId1.contains("..") || queueId1.contains("/") || queueId1.contains("\\") ||
+        if (queueId1.contains("..") || queueId1.contains("/") || queueId1.contains("\\") ||
             pdfDir.contains("..") || pdfDir.contains("/") || pdfDir.contains("\\")) {
             log.warn("Invalid incoming document directory parameters rejected");
             throw new SecurityException("Invalid directory parameters");
         }
-        
+
+        // Restrict pdfDir to the canonical incoming queue subdirectories. Canonical-path
+        // containment alone only bounds the move to the incoming root; without this
+        // allowlist an _edoc writer could file documents out of any other single-segment
+        // subdirectory under the queue (e.g. *_deleted/archive dirs). This mirrors the
+        // restriction enforced by IncomingDocUtil.getIncomingDocumentFilePath.
+        if (!ALLOWED_INCOMING_QUEUE_DIRS.contains(pdfDir)) {
+            log.warn("Invalid incoming document directory parameters rejected");
+            throw new SecurityException("Invalid directory parameters");
+        }
+
         String incomingDocDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
         File incomingDir = validateConfiguredDocumentDirectory(incomingDocDir, "INCOMINGDOCUMENT_DIR");
 
@@ -1342,11 +1355,22 @@ public class ManageDocument2Action extends ActionSupport {
     }
 
     /**
-     * Moves a validated incoming source file into the document store. Protected for
-     * tests so rename failure can be exercised without filesystem-specific setup.
+     * Moves a validated incoming source file into the document store. Uses
+     * {@link Files#move} rather than {@link File#renameTo} so the move succeeds across
+     * filesystem/volume boundaries (incoming-fax storage and the document store are
+     * commonly separate mounts in production). {@code renameTo} silently returns
+     * {@code false} across volumes, and the caller deletes the source on failure — that
+     * combination would permanently lose the incoming document. Protected for tests so
+     * move failure can be exercised without filesystem-specific setup.
      */
     protected boolean moveIncomingDocument(File sourceFile, File destFile) {
-        return sourceFile.renameTo(destFile);
+        try {
+            Files.move(sourceFile.toPath(), destFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            return true;
+        } catch (IOException e) {
+            log.error("Failed to move incoming document into document store", e);
+            return false;
+        }
     }
 
     private void routeDocumentToProviders(String[] flagproviders, String docNo, String demographicNo) {
