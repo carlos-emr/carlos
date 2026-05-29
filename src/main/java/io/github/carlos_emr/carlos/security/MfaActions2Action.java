@@ -32,7 +32,6 @@ import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.managers.MfaManager;
 import io.github.carlos_emr.carlos.managers.SecurityManager;
-import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
@@ -125,8 +124,7 @@ public final class MfaActions2Action extends ActionSupport {
         try {
             id = Integer.parseInt(securityId.trim());
         } catch (NumberFormatException e) {
-            logger.warn("Rejected MFA reset request with non-numeric securityId {}",
-                    LogSafe.sanitize(securityId));
+            logger.warn("Rejected MFA reset request with non-numeric securityId");
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "securityId must be numeric");
             return NONE;
         }
