@@ -38,10 +38,14 @@ class WebUtilsUnitTest {
     void shouldEncodeSessionMessages_whenRenderingHtmlList() {
         MockHttpSession session = new MockHttpSession();
         String message = "<script>alert('xss')</script>";
+        // This assertion only cares about encoded list item output, not optional wrapper attributes.
+        String inlineStyle = null;
+        String elementId = null;
+        String elementName = null;
         WebUtils.addErrorMessage(session, message);
 
         String rendered = WebUtils.renderMessagesAsHtml(session, WebUtils.ERROR_MESSAGE_SESSION_KEY,
-                "error", null, null, null);
+                "error", inlineStyle, elementId, elementName);
 
         assertThat(rendered)
                 .contains("<ul class=\"error\">")
