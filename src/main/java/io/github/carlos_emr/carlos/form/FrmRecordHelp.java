@@ -59,6 +59,7 @@ import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.util.JDBCUtil;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.carlos.utility.CachedDateFormats;
+import java.util.Locale;
 
 public class FrmRecordHelp {
     private static final Pattern INSERT_ROW_ID_FILTER = Pattern.compile("(?i)\\bID\\s*=\\s*0\\b");
@@ -118,7 +119,7 @@ public class FrmRecordHelp {
                     String name = md.getColumnName(i);
                     String value;
 
-                    if (md.getColumnTypeName(i).toUpperCase().startsWith("TINYINT") || md.getColumnTypeName(i).equalsIgnoreCase("bit")) {
+                    if (md.getColumnTypeName(i).toUpperCase(Locale.ROOT).startsWith("TINYINT") || md.getColumnTypeName(i).equalsIgnoreCase("bit")) {
                         if (rs.getInt(i) == 1)
                             value = "checked='checked'";
                         else
@@ -290,7 +291,7 @@ public class FrmRecordHelp {
 
             String value = props.getProperty(name, null);
 
-            if (md.getColumnTypeName(i).toUpperCase().startsWith("TINYINT") || md.getColumnTypeName(i).equalsIgnoreCase("bit")) {
+            if (md.getColumnTypeName(i).toUpperCase(Locale.ROOT).startsWith("TINYINT") || md.getColumnTypeName(i).equalsIgnoreCase("bit")) {
                 if (value != null) {
                     if (value.equalsIgnoreCase("on") || value.equalsIgnoreCase("checked='checked'")) {
                         rs.updateInt(name, 1);
@@ -436,7 +437,7 @@ public class FrmRecordHelp {
             String name = md.getColumnName(i);
             String value;
 
-            if ((md.getColumnTypeName(i).toUpperCase().startsWith("TINYINT") || md.getColumnTypeName(i).equalsIgnoreCase("bit")) && md.getScale(i) == 1) {
+            if ((md.getColumnTypeName(i).toUpperCase(Locale.ROOT).startsWith("TINYINT") || md.getColumnTypeName(i).equalsIgnoreCase("bit")) && md.getScale(i) == 1) {
                 if (rs.getInt(i) == 1)
                     value = "on";
                 else

@@ -36,6 +36,7 @@ import java.util.GregorianCalendar;
 import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.carlos.PMmodule.model.FieldDefinition;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import java.util.Locale;
 
 public class Utility {
     public static boolean IsEmpty(String pStr) {
@@ -105,7 +106,7 @@ public class Utility {
 
         String delim = "/";
 
-        if ("TODAY".equals(pDate.toUpperCase())) {
+        if ("TODAY".equals(pDate.toUpperCase(Locale.ROOT))) {
             return new Date();
         } else {
             try {
@@ -144,7 +145,7 @@ public class Utility {
             return c1.getTime();
         }
 
-        if ("TODAY".equals(pDate.toUpperCase())) return new Date();
+        if ("TODAY".equals(pDate.toUpperCase(Locale.ROOT))) return new Date();
 
         try {
             int day = Integer.parseInt(pDate.substring(0, 2));
@@ -164,7 +165,7 @@ public class Utility {
             return SetDate(2999, 12, 31);
         }
 
-        if ("TODAY".equals(pDate.toUpperCase())) return new Date();
+        if ("TODAY".equals(pDate.toUpperCase(Locale.ROOT))) return new Date();
 
         try {
             int day = Integer.parseInt(pDate.substring(0, 2));

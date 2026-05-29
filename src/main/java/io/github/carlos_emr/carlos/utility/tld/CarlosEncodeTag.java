@@ -24,6 +24,7 @@ import jakarta.servlet.jsp.JspWriter;
 import jakarta.servlet.jsp.tagext.TagSupport;
 
 import io.github.carlos_emr.carlos.utility.SafeEncode;
+import java.util.Locale;
 
 /**
  * Null-safe OWASP-backed encoder tag. Registered as {@code <carlos:encode>} via
@@ -112,7 +113,7 @@ public class CarlosEncodeTag extends TagSupport {
      */
     private static void encode(JspWriter out, String ctx, String val) throws IOException, JspException {
         // Lowercase compare makes "html", "Html", "HTML", "hTML" equivalent.
-        switch (ctx.toLowerCase()) {
+        switch (ctx.toLowerCase(Locale.ROOT)) {
             case "html":
             case "htmlcontent":
                 SafeEncode.forHtmlContent(out, val);

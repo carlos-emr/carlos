@@ -42,6 +42,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * this class contains the utility methods for creating generic Contact objects and adds these
@@ -348,8 +349,8 @@ public class DemographicContactCreator {
      */
     public static Comparator<Contact> byLastName = new Comparator<Contact>() {
         public int compare(Contact contact1, Contact contact2) {
-            String lastname1 = contact1.getLastName().toUpperCase();
-            String lastname2 = contact2.getLastName().toUpperCase();
+            String lastname1 = contact1.getLastName().toUpperCase(Locale.ROOT);
+            String lastname2 = contact2.getLastName().toUpperCase(Locale.ROOT);
             return lastname1.compareTo(lastname2);
         }
     };

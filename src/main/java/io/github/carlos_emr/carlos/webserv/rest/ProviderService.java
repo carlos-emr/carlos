@@ -72,6 +72,7 @@ import io.github.carlos_emr.carlos.webserv.transfer_objects.ProviderTransfer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import io.github.carlos_emr.carlos.utility.LogSafe;
+import java.util.Locale;
 
 
 /**
@@ -290,7 +291,7 @@ public class ProviderService extends AbstractServiceImpl {
                 if (activeNode.isBoolean()) {
                     active = activeNode.asBoolean();
                 } else if (activeNode.isTextual()) {
-                    String s = activeNode.asText().trim().toLowerCase();
+                    String s = activeNode.asText().trim().toLowerCase(Locale.ROOT);
                     if ("true".equals(s))      active = true;
                     else if ("false".equals(s)) active = false;
                     else throw new WebApplicationException(
