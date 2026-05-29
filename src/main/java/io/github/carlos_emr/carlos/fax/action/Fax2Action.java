@@ -105,7 +105,7 @@ public class Fax2Action extends ActionSupport {
     }
 
     private boolean rejectNonPostMutationRequest() {
-        if ("POST".equalsIgnoreCase(request.getMethod())) {
+        if ("POST".equals(request.getMethod())) {
             return false;
         }
         try {

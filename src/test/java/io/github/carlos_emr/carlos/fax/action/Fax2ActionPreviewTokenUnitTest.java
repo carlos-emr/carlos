@@ -241,6 +241,29 @@ class Fax2ActionPreviewTokenUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should dispatch queue when request method is POST")
+    void shouldDispatchQueue_whenRequestMethodIsPost() throws Exception {
+        Path pdf = createPreviewPdf();
+        Fax2Action action = prepareAndVerifyEformFax(pdf);
+        String token = (String) request.getAttribute("faxFileToken");
+        request.setMethod("POST");
+        request.setParameter("method", "queue");
+        request.setParameter("faxFileToken", token);
+        action.setRecipient("Specialist");
+        action.setRecipientFaxNumber("4165551234");
+        action.setSenderFaxNumber("4165555678");
+        action.setCoverpage("false");
+        when(faxManager.createAndSaveFaxJob(eq(loggedInInfo), anyMap())).thenReturn(List.of(new FaxJob()));
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo("preview");
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        verify(faxManager).validateFilePath(pdf.toString());
+        verify(faxManager).createAndSaveFaxJob(eq(loggedInInfo), anyMap());
+    }
+
+    @Test
     @DisplayName("should deny preview when fax file token was consumed by queue")
     void shouldDenyPreview_whenFaxFileTokenWasConsumedByQueue() throws Exception {
         Path pdf = createPreviewPdf();
