@@ -119,6 +119,7 @@ public class AddEForm2Action extends ActionSupport {
     private EformDataManager eformDataManager = SpringUtils.getBean(EformDataManager.class);
     private DocumentAttachmentManager documentAttachmentManager = SpringUtils.getBean(DocumentAttachmentManager.class);
     private EmailManager emailManager = SpringUtils.getBean(EmailManager.class);
+    /** Dynamic Struts forward path for POST-preserving fax preview preparation. */
     private String faxForwardPath;
 
     public String execute() {
@@ -483,6 +484,9 @@ public class AddEForm2Action extends ActionSupport {
         }
     }
 
+    /**
+     * Returns the dynamic Struts forward path for fax preview preparation.
+     */
     public String getFaxForwardPath() {
         return faxForwardPath;
     }
