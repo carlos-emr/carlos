@@ -78,6 +78,7 @@ public class AddEForm2Action extends ActionSupport {
 
     private static final Logger logger = MiscUtils.getLogger();
     private static final String INVALID_FILENAME_MESSAGE_KEY = "dms.error.invalidFilename";
+    private static final String FAX_PREPARE_METHOD = "prepareFax";
 
     /**
      * Validates the eform_link parameter format to prevent session attribute injection (CWE-501).
@@ -488,7 +489,7 @@ public class AddEForm2Action extends ActionSupport {
 
     private void prepareFaxForward(String fdid, String demographicNo, String recipient, String recipientFaxNumber, String letterheadFax) {
         StringBuilder forward = new StringBuilder("/fax/faxAction");
-        forward.append("?method=").append(URLEncoder.encode("prepareFax", StandardCharsets.UTF_8));
+        forward.append("?method=").append(URLEncoder.encode(FAX_PREPARE_METHOD, StandardCharsets.UTF_8));
         forward.append("&transactionId=").append(URLEncoder.encode(fdid, StandardCharsets.UTF_8));
         forward.append("&transactionType=").append(URLEncoder.encode(TransactionType.EFORM.name(), StandardCharsets.UTF_8));
         forward.append("&demographicNo=").append(URLEncoder.encode(demographicNo, StandardCharsets.UTF_8));

@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.fax.dto.FaxJobParams;
 import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.FaxManager.TransactionType;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -416,7 +417,8 @@ public class Fax2Action extends ActionSupport {
         try {
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         } catch (IOException e) {
-            logger.error("Error sending method-not-allowed response", e);
+            logger.error("Error sending method-not-allowed response for prepareFax (attempted: {})",
+                    LogSafe.sanitize(request.getMethod()), e);
         }
         return false;
     }
