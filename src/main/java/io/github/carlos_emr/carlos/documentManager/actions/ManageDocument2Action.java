@@ -1133,7 +1133,9 @@ public class ManageDocument2Action extends ActionSupport {
         }
         
         // Validate queueId and pdfDir to prevent directory traversal
-        if (queueId1.contains("..") || queueId1.contains("/") || queueId1.contains("\\") ||
+        // Validate queueId and pdfDir to prevent directory traversal
+        if (queueId1 == null || pdfDir == null ||
+            queueId1.contains("..") || queueId1.contains("/") || queueId1.contains("\\") ||
             pdfDir.contains("..") || pdfDir.contains("/") || pdfDir.contains("\\")) {
             log.warn("Invalid incoming document directory parameters rejected");
             throw new SecurityException("Invalid directory parameters");
