@@ -66,7 +66,7 @@ class OscarSessionListenerLoggingUnitTest extends CarlosUnitTestBase {
 
         verify(logger).info("Creating new OSCAR session.");
         verify(logger).info("Session id: {}", REDACTED_SESSION_ID);
-        verify(logger, never()).info("Session id: " + RAW_SESSION_ID);
+        verify(logger, never()).info("Session id: {}", RAW_SESSION_ID);
     }
 
     @Test
@@ -79,6 +79,6 @@ class OscarSessionListenerLoggingUnitTest extends CarlosUnitTestBase {
         new OscarSessionListener().sessionDestroyed(new HttpSessionEvent(session));
 
         verify(logger).info("session is being destroyed - {}", REDACTED_SESSION_ID);
-        verify(logger, never()).info("session is being destroyed - " + RAW_SESSION_ID);
+        verify(logger, never()).info("session is being destroyed - {}", RAW_SESSION_ID);
     }
 }
