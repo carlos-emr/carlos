@@ -21,6 +21,9 @@ import org.mockito.MockedStatic;
 
 import java.util.Collections;
 
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -66,7 +69,8 @@ class OscarSessionListenerLoggingUnitTest extends CarlosUnitTestBase {
 
         verify(logger).info("Creating new OSCAR session.");
         verify(logger).info("Session id: {}", EXPECTED_SESSION_LOG_REFERENCE);
-        verify(logger, never()).info("Session id: {}", RAW_SESSION_ID);
+        verify(logger, never()).info(contains(RAW_SESSION_ID));
+        verify(logger, never()).info(anyString(), eq(RAW_SESSION_ID));
     }
 
     @Test
@@ -79,6 +83,7 @@ class OscarSessionListenerLoggingUnitTest extends CarlosUnitTestBase {
         new OscarSessionListener().sessionDestroyed(new HttpSessionEvent(session));
 
         verify(logger).info("session is being destroyed - {}", EXPECTED_SESSION_LOG_REFERENCE);
-        verify(logger, never()).info("session is being destroyed - {}", RAW_SESSION_ID);
+        verify(logger, never()).info(contains(RAW_SESSION_ID));
+        verify(logger, never()).info(anyString(), eq(RAW_SESSION_ID));
     }
 }
