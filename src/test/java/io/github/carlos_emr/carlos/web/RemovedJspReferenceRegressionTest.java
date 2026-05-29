@@ -138,6 +138,27 @@ class RemovedJspReferenceRegressionTest {
     }
 
     @Test
+    @DisplayName("BC billing report fragments should HTML-encode demoName")
+    void shouldHtmlEncodeDemoName_inBcBillingReportFragments() throws IOException {
+        List<Path> fragments = List.of(
+                Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/BC/billingReport_flu.jspf"),
+                Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/BC/billingReport_billed.jspf"),
+                Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/BC/billingReport_unsettled.jspf"),
+                Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/BC/billingReport_billob.jspf"),
+                Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/BC/billingReport_unbilled.jspf"));
+
+        for (Path fragment : fragments) {
+            String jspf = Files.readString(fragment);
+
+            assertThat(jspf)
+                    .as("BC billing report fragments must encode demoName in HTML output: %s", fragment)
+                    .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
+                    .contains("<carlos:encode value='<%= demoName %>' context=\"html\"/>")
+                    .doesNotContain("<%=demoName%>");
+        }
+    }
+
+    @Test
     @DisplayName("Admin routes, UI, permissions, and docs should not expose removed Traceability report")
     void shouldNotExposeTraceabilityReport_fromAdminSurfaces() throws IOException {
         String strutsAdmin = Files.readString(Path.of("src/main/webapp/WEB-INF/classes/struts-admin.xml"));
