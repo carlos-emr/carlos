@@ -33,7 +33,7 @@ import static org.mockito.Mockito.when;
 class OscarSessionListenerLoggingUnitTest extends CarlosUnitTestBase {
 
     private static final String RAW_SESSION_ID = "abcdefgh1234567890";
-    private static final String REDACTED_SESSION_ID = "abcdefgh...";
+    private static final String EXPECTED_SESSION_LOG_REFERENCE = "abcdefgh...";
 
     private CasemgmtNoteLockDao casemgmtNoteLockDao;
     private Logger logger;
@@ -65,7 +65,7 @@ class OscarSessionListenerLoggingUnitTest extends CarlosUnitTestBase {
         new OscarSessionListener().sessionCreated(new HttpSessionEvent(session));
 
         verify(logger).info("Creating new OSCAR session.");
-        verify(logger).info("Session id: {}", REDACTED_SESSION_ID);
+        verify(logger).info("Session id: {}", EXPECTED_SESSION_LOG_REFERENCE);
         verify(logger, never()).info("Session id: {}", RAW_SESSION_ID);
     }
 
@@ -78,7 +78,7 @@ class OscarSessionListenerLoggingUnitTest extends CarlosUnitTestBase {
 
         new OscarSessionListener().sessionDestroyed(new HttpSessionEvent(session));
 
-        verify(logger).info("session is being destroyed - {}", REDACTED_SESSION_ID);
+        verify(logger).info("session is being destroyed - {}", EXPECTED_SESSION_LOG_REFERENCE);
         verify(logger, never()).info("session is being destroyed - {}", RAW_SESSION_ID);
     }
 }

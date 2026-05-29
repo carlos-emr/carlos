@@ -76,6 +76,13 @@ public class OscarSessionListener implements HttpSessionListener {
 		}
     }
 
+    /**
+     * Produces a shortened, log-safe session reference for diagnostic correlation
+     * without exposing the full bearer token in application logs.
+     *
+     * @param sessionId raw servlet session id; may be {@code null}
+     * @return an at-most 8-character sanitized reference, with {@code "..."} appended when truncated
+     */
     static String getSessionLogReference(String sessionId) {
         return LogSafe.sanitize(sessionId, 8);
     }
