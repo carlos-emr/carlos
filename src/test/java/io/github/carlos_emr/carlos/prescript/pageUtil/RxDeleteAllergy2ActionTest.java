@@ -12,7 +12,10 @@
  */
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
+import io.github.carlos_emr.carlos.commn.model.Allergy;
+import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
@@ -33,6 +36,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -59,6 +63,12 @@ class RxDeleteAllergy2ActionTest extends CarlosUnitTestBase {
 
     @Mock
     private LoggedInInfo mockLoggedInInfo;
+
+    @Mock
+    private RxPatientData.Patient mockPatient;
+
+    @Mock
+    private Allergy mockAllergy;
 
     private MockHttpServletRequest mockRequest;
     private MockHttpServletResponse mockResponse;
@@ -133,5 +143,48 @@ class RxDeleteAllergy2ActionTest extends CarlosUnitTestBase {
         assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
         assertThat(mockResponse.getErrorMessage()).isEqualTo("Invalid ID parameter");
         verify(mockSecurityInfoManager).hasPrivilege(any(LoggedInInfo.class), eq("_allergy"), eq("u"), isNull());
+    }
+
+    @Test
+    @DisplayName("should delete allergy when ID parameter is valid")
+    void shouldDeleteAllergy_whenIdParameterIsValid() throws Exception {
+        mockRequest.setParameter("ID", "42");
+        mockRequest.setParameter("demographicNo", "123");
+        mockRequest.getSession().setAttribute("Patient", mockPatient);
+        when(mockPatient.getAllergy(42)).thenReturn(mockAllergy);
+        when(mockPatient.deleteAllergy(42)).thenReturn(true);
+        when(mockPatient.getDemographicNo()).thenReturn(123);
+        when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("provider1");
+        when(mockAllergy.getAuditString()).thenReturn("audit");
+
+        try (MockedStatic<LogAction> logActionMock = mockStatic(LogAction.class)) {
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+            assertThat(mockRequest.getAttribute("demographicNo")).isEqualTo("123");
+            verify(mockPatient).deleteAllergy(42);
+            logActionMock.verify(() -> LogAction.addLog(
+                    eq("provider1"),
+                    eq("delete"),
+                    eq("allergy"),
+                    eq("42"),
+                    any(String.class),
+                    eq("123"),
+                    eq("audit")));
+        }
+    }
+
+    @Test
+    @DisplayName("should reject unauthorized request before ID validation")
+    void shouldRejectUnauthorizedRequest_beforeIdValidation() {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_allergy"), eq("u"), isNull()))
+                .thenReturn(false);
+
+        assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("_allergy");
+
+        assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
     }
 }
