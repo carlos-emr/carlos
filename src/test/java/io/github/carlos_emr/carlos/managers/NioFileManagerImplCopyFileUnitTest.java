@@ -40,6 +40,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DisplayName("NioFileManagerImpl copyFileToOscarDocuments")
 @Tag("unit")
 @Tag("fast")
+@Tag("manager")
 @Tag("security")
 class NioFileManagerImplCopyFileUnitTest {
 
@@ -55,7 +56,7 @@ class NioFileManagerImplCopyFileUnitTest {
 
     @Test
     @DisplayName("should copy approved temp source into Oscar documents")
-    void shouldCopyApprovedTempSource_intoOscarDocuments() throws IOException {
+    void shouldCopyFile_whenSourceIsInApprovedTempDirectory() throws IOException {
         Path source = Files.createTempFile("copy-approved-", ".pdf");
         Files.writeString(source, "approved temp source", StandardCharsets.UTF_8);
 
