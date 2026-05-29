@@ -42,7 +42,8 @@ class DemographicXmlTest {
     @Test
     @DisplayName("should use empty XML text when inputs are null")
     void shouldUseEmptyXmlText_whenInputsAreNull() {
-        assertThat(DemographicXml.familyDoctor(null, null, null)).isEqualTo("<rdohip></rdohip><rd></rd>");
+        assertThat(DemographicXml.familyDoctor(null, null, "Dr. Smith"))
+                .isEqualTo("<rdohip></rdohip><rd></rd><family_doc>Dr. Smith</family_doc>");
         assertThat(DemographicXml.userNotes(null)).isEqualTo("<unotes></unotes>");
     }
 
