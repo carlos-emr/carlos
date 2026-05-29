@@ -86,6 +86,7 @@ import java.util.*;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.utility.LogSafe;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts2 action for document viewing, updating, routing, and incoming document processing
@@ -1640,6 +1641,8 @@ public class ManageDocument2Action extends ActionSupport {
      * @throws Exception if parameter validation fails
      * @throws SecurityException if path traversal is detected or file type is not PDF
      */
+    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
     public File createIncomingCacheVersion(String queueId, String pdfDir, String pdfName, Integer pageNum) throws Exception {
         
         // Validate input parameters to prevent path traversal

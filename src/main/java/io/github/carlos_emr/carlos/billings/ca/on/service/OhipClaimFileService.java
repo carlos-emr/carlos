@@ -68,6 +68,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.providers.data.ProviderBillCenter;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * OHIP claim-file generator for the ON billing module. Writes the
@@ -393,6 +394,8 @@ public class OhipClaimFileService {
         return ret;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String buildHeader2() {
         healthcardCount++;
         String str1Hin = leftJustify(" ", 12, currentClaimHeader.getHin());
@@ -821,6 +824,8 @@ public class OhipClaimFileService {
      * this prototype instance, marking included claim headers as billed when
      * {@code eFlag} is {@code "1"}.
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public void createSiteBillingFileStr(LoggedInInfo loggedInInfo, String bid, String[] statuses) {
         resetGeneratedDiskFinalization();
 

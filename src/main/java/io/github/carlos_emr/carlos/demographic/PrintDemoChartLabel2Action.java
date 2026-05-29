@@ -55,6 +55,7 @@ import io.github.carlos_emr.OscarDocumentCreator;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.utility.LogSafe;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts2 action for generating and printing patient demographic chart labels in PDF format.
@@ -141,6 +142,8 @@ public class PrintDemoChartLabel2Action extends ActionSupport {
      * @return String ActionSupport result constant, always returns NONE for direct PDF responses
      * @throws SecurityException if user lacks "_demographic" read privilege
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 

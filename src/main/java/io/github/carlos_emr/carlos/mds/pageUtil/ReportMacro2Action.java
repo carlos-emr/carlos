@@ -59,6 +59,7 @@ import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class ReportMacro2Action extends ActionSupport {
     private static final String JSON_CONTENT_TYPE = "application/json; charset=UTF-8";
@@ -234,6 +235,8 @@ public class ReportMacro2Action extends ActionSupport {
         return true;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private boolean skipComment(String providerNo) {
         UserPropertyDAO userPropertyDAO = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
         UserProperty uProp = userPropertyDAO.getProp(providerNo, UserProperty.LAB_ACK_COMMENT);

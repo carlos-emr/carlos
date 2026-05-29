@@ -45,6 +45,7 @@ import io.github.carlos_emr.carlos.consultations.ConsultationRequestSearchFilter
 import io.github.carlos_emr.carlos.consultations.ConsultationRequestSearchFilter.SORTMODE;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.stereotype.Repository;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Repository
 public class ConsultRequestDaoImpl extends AbstractDaoImpl<ConsultationRequest> implements ConsultRequestDao {
@@ -75,6 +76,8 @@ public class ConsultRequestDaoImpl extends AbstractDaoImpl<ConsultationRequest> 
         return query.getResultList();
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Deprecated
     private QueryWithParams generateQueryWithParams(PaginationQuery paginationQuery, boolean selectCountOnly) {
         ConsultationQuery consultationQuery = (ConsultationQuery) paginationQuery;
@@ -218,6 +221,8 @@ public class ConsultRequestDaoImpl extends AbstractDaoImpl<ConsultationRequest> 
         }
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private QueryWithParams buildSearchQuery(ConsultationRequestSearchFilter filter, boolean selectCountOnly) {
         QueryWithParams queryWithParams = new QueryWithParams();
         

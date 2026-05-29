@@ -41,6 +41,7 @@ import io.github.carlos_emr.carlos.commn.model.CssStyle;
 import io.github.carlos_emr.carlos.util.StringUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Assembles {@link AddEditServiceCodeViewModel} for
@@ -86,6 +87,8 @@ public class AddEditServiceCodeViewModelAssembler {
      * Build the admin-page view model, optionally projecting the mutation result
      * already produced by {@link ServiceCodePersister}.
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public AddEditServiceCodeViewModel assemble(HttpServletRequest request, LoggedInInfo loggedInInfo,
                                                 ServiceCodePersister.AddEditServiceCodeResult mutationResult) {
         State state = new State();

@@ -55,6 +55,7 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.LogSafe;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Utility class for managing incoming documents in the CARLOS EMR document management system.
@@ -638,6 +639,8 @@ public final class IncomingDocUtil {
      * @param pageNumbersToExtract String comma-separated page numbers and/or ranges (e.g., "1,3-5")
      * @throws Exception if the page specification is invalid or file operations fail
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static void extractPage(String queueId, String myPdfDir, String myPdfName, String pageNumbersToExtract) throws Exception {
         long lastModified;
         String filePathName, tempFilePathName;

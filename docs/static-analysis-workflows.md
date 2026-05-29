@@ -112,11 +112,22 @@ Suppresses known false positives:
 | HL7 / WS-Security vendor packages | Third-party code, not actionable |
 | `RV_RETURN_VALUE_OF_PUTIFABSENT_IGNORED` | Common in cache patterns, not a bug |
 
+> **`IMPROPER_UNICODE` is suppressed differently — per-site, not via this filter.** It is an
+> *informational* case-folding detector (`equalsIgnoreCase` / `toLowerCase` / `toUpperCase` /
+> `Normalizer.normalize` / `toASCIIString` / `IDN.toASCII`) that fires on the **call itself,
+> regardless of `Locale`** — so it cannot be cleared by editing code (adding `Locale.ROOT` does
+> not help). Across this legacy EMR the overwhelming majority are intended case-insensitive
+> domain comparisons (status/flag/enum/MIME codes). They are dispositioned with per-site
+> `@SuppressFBWarnings` annotations carrying a justification, **plus an adjacent `//` comment** —
+> see [SpotBugs exclusions](#spotbugs) below.
+
 **Maven profile**: `spotbugs` (defined in `pom.xml`)
 
 - SpotBugs Maven Plugin: 4.9.3.0
 - SpotBugs Engine: 4.9.3
-- Find Security Bugs: 1.13.0
+- Find Security Bugs: 1.14.0
+- `spotbugs-annotations` 4.9.3 (`provided` scope, in `pom.xml`) — supplies
+  `edu.umd.cs.findbugs.annotations.SuppressFBWarnings` for per-site suppression
 - Effort: `Max` (deepest analysis)
 - Threshold: `Low` (report everything, filter via exclude file)
 - Analyzer heap: `2048` MB via `spotbugs.maxHeapMb` in the Maven profile (override per-run with `-Dspotbugs.maxHeapMb=<MB>`)
@@ -221,8 +232,43 @@ Edit `.github/spotbugs/spotbugs-exclude.xml`. Use `<Match>` elements with `<Bug>
 `<Package>`, or `<Source>` matchers. See the
 [SpotBugs filter documentation](https://spotbugs.readthedocs.io/en/stable/filter.html).
 
-To suppress a finding on a single method, add `@SuppressFBWarnings(value = "BUG_PATTERN",
-justification = "reason")` to the method. Use this sparingly and always include a justification.
+#### Per-site suppression with `@SuppressFBWarnings`
+
+To suppress a finding on a single declaration, add
+`@SuppressFBWarnings(value = "BUG_PATTERN", justification = "reason")` to the method/constructor/
+field/type (`edu.umd.cs.findbugs.annotations.SuppressFBWarnings`, from the `spotbugs-annotations`
+`provided` dependency). Use it sparingly and **always** include a justification.
+
+**Convention (required):** every `@SuppressFBWarnings` site must also carry an adjacent `//`
+comment stating the same reason in human-readable form — the annotation attribute and the comment
+must agree. This keeps the rationale visible at the call site for reviewers and future
+maintainers, not only in the annotation metadata. Example:
+
+```java
+// FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value
+// (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+@SuppressFBWarnings(value = "IMPROPER_UNICODE",
+    justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+public String resolveStatus(String code) { ... }
+```
+
+##### `IMPROPER_UNICODE` (case folding)
+
+`IMPROPER_UNICODE` fires on `equalsIgnoreCase` / `toLowerCase` / `toUpperCase` (when the method
+also does a string comparison or `switch`) / `Normalizer.normalize` / `toASCIIString` /
+`IDN.toASCII`, **regardless of any `Locale` argument** — it is an audit marker, not a defect, and
+cannot be cleared by editing. The codebase suppresses it per-site with two justification flavors:
+
+- **Benign** (the overwhelming majority): *"case-insensitive comparison of an internal/domain
+  value (status/flag/enum/MIME/code); not a security or authorization decision."*
+- **Trust-path** (case folding that guards a security decision — OAuth scheme/host/Content-Type,
+  file-extension allowlists, host/scheme checks): *"case-fold in a trust path; locale-safe
+  hardening tracked in #2496."* These few sites are tracked for real `Locale.ROOT` /
+  `Normalizer`-based hardening in **issue #2496** (CVE-2024-38827 class).
+
+These annotations were applied in bulk by `scripts/lint/annotate-improper-unicode.py`, which
+re-derives the flagged sites from source (tree-sitter) and is idempotent — re-run it after large
+merges to annotate any new drift.
 
 ---
 

@@ -53,6 +53,7 @@ import io.github.carlos_emr.carlos.PMmodule.model.Vacancy;
 import io.github.carlos_emr.carlos.PMmodule.model.VacancyTemplate;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public interface VacancyTemplateManager {
     static VacancyTemplateDao vacancyTemplateDAO = SpringUtils.getBean(VacancyTemplateDao.class);
@@ -162,6 +163,8 @@ public interface VacancyTemplateManager {
      * This method is meant to return a bunch of html <option> tags for each list element.
      */
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static String renderAllSelectOptions(Integer templateId, Integer vacancyId, Integer typeId) {
         Criteria criteria = new Criteria();
         criteria = getSelectedCriteria(templateId, vacancyId, typeId);
@@ -448,6 +451,8 @@ public interface VacancyTemplateManager {
         return (sb.toString());
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static VacancyTemplate createVacancyTemplate(String templateId) {
         if (StringUtils.isBlank(String.valueOf(templateId)) || "0".equals(templateId) || templateId.equalsIgnoreCase("null")) {
             VacancyTemplate vt = new VacancyTemplate();

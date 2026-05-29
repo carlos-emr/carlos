@@ -59,6 +59,7 @@ import org.springframework.mail.MailSender;
 import org.springframework.mail.SimpleMailMessage;
 
 import io.github.carlos_emr.carlos.service.MessageMailer;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * @author mweston4
@@ -104,6 +105,8 @@ public class AppointmentMailer implements MessageMailer {
         this.demographic = demographic;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private void setMessageHeader() {
         if (this.message == null) {
             Properties op = CarlosProperties.getInstance();

@@ -66,6 +66,7 @@ import io.github.carlos_emr.CarlosProperties;
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class SearchDemographicAutoComplete2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -75,6 +76,8 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
 
 
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {

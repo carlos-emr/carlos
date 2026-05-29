@@ -57,6 +57,7 @@ import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.stream.Stream;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Utility for converting HTML content into PDF documents and wrapping them as EDoc objects
@@ -497,6 +498,8 @@ public final class ConvertToEdoc {
      * given by the input tag. This method will build the filepath.
      * - Adds a head element to the document if one does not exist.
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private static void addCss(Document document) {
         Element styleSheetElement = document.getElementById(CUSTOM_STYLESHEET_ID);
         if (styleSheetElement != null && "hidden".equalsIgnoreCase(styleSheetElement.attributes().getIgnoreCase("type"))) {
@@ -800,6 +803,8 @@ public final class ConvertToEdoc {
      * will be removed.
      * See Enum: ConvertToEdoc FileType for complete list.
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private static String filterFileType(String path) {
         String pathFileType = FilenameUtils.getExtension(path);
         for (FileType legalFileType : FileType.values()) {

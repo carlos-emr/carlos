@@ -66,6 +66,7 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 import java.util.List;
 import io.github.carlos_emr.carlos.utility.LogSafe;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class DocumentUpload2Action extends ActionSupport implements UploadedFilesAware {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -81,6 +82,8 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
         return executeUpload();
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
     public String executeUpload() throws Exception {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
             throw new SecurityException("missing required sec object (_edoc)");

@@ -53,6 +53,7 @@ import java.net.URLEncoder;
 import java.util.List;
 import java.util.ArrayList;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 /**
  * Routes operator-uploaded MOH return files to the right parser based on
  * the leading filename character: {@code B*} → batch acknowledgement, {@code
@@ -155,6 +156,8 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
         }
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private static boolean isPost(HttpServletRequest request) {
         return "POST".equalsIgnoreCase(request.getMethod());
     }

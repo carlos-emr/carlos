@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.support.BillingServiceLine;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 /**
  * Orchestrates the save side of OHIP claim entry: turns a request payload into
  * a {@code BillingONCHeader1} + {@code BillingONItem} graph, persists it via
@@ -302,6 +303,8 @@ public class BillingClaimSubmissionService {
     }
 
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private BillingClaimHeaderDto getClaimHeader1Obj(HttpServletRequest val) {
         String billtype = requiredParam(val, "xml_billtype");
 

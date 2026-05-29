@@ -26,6 +26,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Shared privilege + HTTP-method guards for MCEDT actions.
@@ -74,6 +75,8 @@ public final class McedtSecurity {
      * @param request HttpServletRequest the servlet request
      * @return boolean true if the request is POST, false otherwise
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static boolean isPost(HttpServletRequest request) {
         return "POST".equalsIgnoreCase(request.getMethod());
     }

@@ -15,6 +15,7 @@
 package io.github.carlos_emr.carlos.billing.CA.ON.util;
 
 import io.github.carlos_emr.CarlosProperties;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public enum EDTFolder {
     INBOX, OUTBOX, SENT, ARCHIVE;
@@ -28,6 +29,8 @@ public enum EDTFolder {
         return path;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static EDTFolder getFolder(String name) {
         for (EDTFolder f : EDTFolder.values()) {
             if (f.name().equalsIgnoreCase(name)) {

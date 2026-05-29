@@ -37,6 +37,7 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.SummaryItemTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.SummaryTo1;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Component
 public class AllergiesSummary implements Summary {
@@ -47,6 +48,8 @@ public class AllergiesSummary implements Summary {
     private AllergyManager allergyManager = null;
 
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public SummaryTo1 getSummary(LoggedInInfo loggedInInfo, Integer demographicNo, String summaryCode) {
 
         SummaryTo1 summary = new SummaryTo1("Allergies", 0, SummaryTo1.ALLERGIES);

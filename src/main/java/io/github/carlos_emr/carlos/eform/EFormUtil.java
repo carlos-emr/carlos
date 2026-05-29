@@ -78,6 +78,7 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import io.github.carlos_emr.carlos.utility.LogSafe;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class EFormUtil {
     private static final Logger logger = MiscUtils.getLogger();
@@ -508,6 +509,8 @@ public class EFormUtil {
      * +--------------+--------------+------+-----+---------+----------------+
      */
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static String getEFormParameter(String fid, String fieldName) {
 
         io.github.carlos_emr.carlos.commn.model.EForm eform = eformDao.find(ConversionUtils.fromIntString(fid));
@@ -846,6 +849,8 @@ public class EFormUtil {
         return (results);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static void writeEformTemplate(LoggedInInfo loggedInInfo, ArrayList<String> paramNames, ArrayList<String> paramValues, EForm eForm, String fdid, String programNo, String context_path) {
         String text = eForm != null ? eForm.getTemplate() : null;
         if (StringUtils.isBlank(text)) return;
@@ -1133,6 +1138,8 @@ public class EFormUtil {
 
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static int findIgnoreCase(String phrase, String text, int start) {
         if (StringUtils.isBlank(phrase) || StringUtils.isBlank(text)) return -1;
 
@@ -1337,6 +1344,8 @@ public class EFormUtil {
         return thisStr;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private static Matcher getAttributeMatcher(String key, String htmlTag, boolean startsWith) {
         Matcher m_return = null;
         if (StringUtils.isBlank(key) || StringUtils.isBlank(htmlTag)) return m_return;
@@ -1384,6 +1393,8 @@ public class EFormUtil {
         return nwTemplate;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private static String putTemplateEformValues(EForm eForm, String fdid, String path, String template) {
         if (eForm == null || StringUtils.isBlank(template)) return template;
 
@@ -1510,6 +1521,8 @@ public class EFormUtil {
         return sCmIssu;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private static ArrayList<Integer> getFieldIndices(String fieldtag, String s) {
         ArrayList<Integer> fieldIndexList = new ArrayList<Integer>();
         if (StringUtils.isBlank(fieldtag) || StringUtils.isBlank(s)) return fieldIndexList;
@@ -1632,6 +1645,8 @@ public class EFormUtil {
         }
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private static String getEqualIgnoreCase(ArrayList<String> lst, String str) {
         if (lst == null || lst.isEmpty() || StringUtils.isBlank(str)) return null;
 

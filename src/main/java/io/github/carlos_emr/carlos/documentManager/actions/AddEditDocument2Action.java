@@ -88,6 +88,7 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts2 action for adding and editing documents in the CARLOS EMR document management system.
@@ -314,6 +315,8 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
      * @param request HttpServletRequest the current request for session and parameter access
      * @return boolean true if the document was added successfully, false on validation or I/O error
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private boolean addDocument(HttpServletRequest request) {
 
         Hashtable errors = new Hashtable();
@@ -464,6 +467,8 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
      * @param request HttpServletRequest the current request for session and parameter access
      * @return String the Struts2 result name ("successEdit" or "failEdit")
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String editDocument(HttpServletRequest request) {
         Hashtable errors = new Hashtable();
 

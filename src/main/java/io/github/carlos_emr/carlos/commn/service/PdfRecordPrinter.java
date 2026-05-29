@@ -94,6 +94,7 @@ import java.io.IOException;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileInputStream;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Generic clinical record PDF printer for patient encounter summaries.
@@ -931,6 +932,8 @@ public class PdfRecordPrinter {
 
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String getRefName(Demographic d) {
         String referral = d.getFamilyDoctor();
 

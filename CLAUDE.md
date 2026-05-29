@@ -491,6 +491,17 @@ DAO method names can be misleading. For example, `getProviders(boolean active)` 
 - File upload filename validation
 - CodeQL security scanning must pass
 
+**Static analysis (SpotBugs + Find Security Bugs)**: a second scanner runs alongside CodeQL/PMD
+and uploads to the Security tab (see `docs/static-analysis-workflows.md`). Real-defect detectors
+stay on; known false positives are filtered in `.github/spotbugs/spotbugs-exclude.xml`. The
+`IMPROPER_UNICODE` detector is *informational* — it flags `equalsIgnoreCase`/`toLowerCase`/
+`Normalizer` case folding **regardless of `Locale`** (so it cannot be cleared by adding
+`Locale.ROOT`), and almost all hits are intended case-insensitive domain comparisons. It is
+suppressed **per-site** with `@SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = ...)`
+**plus a mandatory adjacent `//` comment** stating the same reason. New `@SuppressFBWarnings` of
+any pattern must follow this annotation-plus-inline-comment convention. Genuinely trust-path case
+folds are tracked for locale-safe hardening in issue #2496 (CVE-2024-38827 class).
+
 **Spring Integration Pattern**:
 ```java
 private final SomeManager someManager;

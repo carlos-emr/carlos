@@ -55,6 +55,7 @@ import org.w3c.dom.Node;
 import org.xml.sax.InputSource;
 
 import io.github.carlos_emr.carlos.db.DBHandler;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class JDBCUtil {
     public static Document toDocument(ResultSet rs)
@@ -153,6 +154,8 @@ public class JDBCUtil {
 
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private static ResultSet toResultSet(Node node, ResultSet rs) throws SQLException {
         int type = node.getNodeType();
 

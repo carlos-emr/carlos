@@ -73,6 +73,7 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public final class FrmSetupForm2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -85,6 +86,8 @@ public final class FrmSetupForm2Action extends ActionSupport {
     // Pattern to validate form names - only alphanumeric characters and underscores allowed
     private static final Pattern VALID_FORM_NAME_PATTERN = Pattern.compile("^[a-zA-Z0-9_]+$");
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 

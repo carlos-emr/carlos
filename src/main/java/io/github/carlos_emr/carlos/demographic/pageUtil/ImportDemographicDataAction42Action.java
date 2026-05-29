@@ -141,6 +141,7 @@ import java.util.List;
 import java.util.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class ImportDemographicDataAction42Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -200,6 +201,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
 
     private LabUploadWs labUpload = new LabUploadWs();
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public String execute() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -681,6 +684,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         return tmp;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String[] importContacts(LoggedInInfo loggedInInfo, String xmlFile, ArrayList<String> warnings, HttpServletRequest request, int timeShiftInDays, Provider student, Program admitTo, int courseId) throws SQLException, Exception {
         DemographicData dd = new DemographicData();
 
@@ -882,6 +887,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
     }
 
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String[] importXML(LoggedInInfo loggedInInfo, String xmlFile, ArrayList<String> warnings, HttpServletRequest request, int timeShiftInDays, Provider student, Program admitTo, int courseId, boolean cleanFile) throws SQLException, Exception {
         ArrayList<String> err_demo = new ArrayList<String>(); //errors: duplicate demographics
         ArrayList<String> err_data = new ArrayList<String>(); //errors: discrete data
@@ -3541,6 +3548,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
     }
 
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     boolean matchFileExt(String filename, String ext) {
         if (StringUtils.empty(filename) || StringUtils.empty(ext)) return false;
         if (filename.length() < ext.length() + 2) return false;
@@ -3812,6 +3821,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         return writeProviderData("doctor", "oscardoc", "");
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     boolean isICD9(cdsDt.StandardCoding diagCode) {
         if (diagCode == null) return false;
 
@@ -3821,6 +3832,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         //	return (codingSystem.contains("icd") && codingSystem.contains("9"));
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     boolean isICD9(cdsDt.Code diagCode) {
         if (diagCode == null) return false;
 
@@ -3830,6 +3843,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
     }
 
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     boolean isICD10(cdsDt.StandardCoding diagCode) {
         if (diagCode == null) return false;
 
@@ -3838,6 +3853,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         return codingSystem.equals("icd-10");
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     boolean isICD10(cdsDt.Code diagCode) {
         if (diagCode == null) return false;
 
@@ -3846,6 +3863,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         return codingSystem.equals("icd-10");
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     boolean isICD9CM(cdsDt.StandardCoding diagCode) {
         if (diagCode == null) return false;
 
@@ -3854,6 +3873,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         return codingSystem.equals("icd-9-cm");
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     boolean isICD9CM(cdsDt.Code diagCode) {
         if (diagCode == null) return false;
 
@@ -4120,6 +4141,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         return null;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     String mapPreventionTypeByCode(cdsDt.Code imCode) {
         if (imCode == null) return null;
         if (!imCode.getCodingSystem().equalsIgnoreCase("DIN")) return null;

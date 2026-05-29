@@ -50,6 +50,7 @@ import java.util.HashMap;
 import java.util.Set;
 import java.util.regex.Pattern;
 import io.github.carlos_emr.carlos.utility.LogSafe;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 
 /**
@@ -114,6 +115,8 @@ public class EctDisplayAction extends ActionSupport {
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() throws IOException, ServletException {
         EctSessionBean bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
         String forward = "error";

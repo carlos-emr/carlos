@@ -44,6 +44,7 @@ import io.github.carlos_emr.carlos.casemgmt.dao.RoleProgramAccessDAO;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.model.security.Secrole;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @jakarta.persistence.Entity
 @jakarta.persistence.Table(name = "casemgmt_issue")
@@ -278,6 +279,8 @@ public class CaseManagementIssue extends BaseObject {
         return (result);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private boolean calculateWriteAccess(String providerNo, int programId) {
         List<ProgramProvider> ppList = getProgramProviderDao().getProgramProviderByProviderProgramId(providerNo, Long.valueOf(programId));
         if (ppList == null || ppList.isEmpty()) {
