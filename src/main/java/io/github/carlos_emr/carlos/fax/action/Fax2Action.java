@@ -86,6 +86,9 @@ public class Fax2Action extends ActionSupport {
     public String execute() {
         String method = request.getParameter("method");
         if ("queue".equals(method)) {
+            if (rejectNonPostMutationRequest()) {
+                return NONE;
+            }
             return queue();
         } else if ("prepareFax".equals(method)) {
             return prepareFax();
@@ -96,7 +99,23 @@ public class Fax2Action extends ActionSupport {
             getPageCount();
             return null;
         }
+        if (rejectNonPostMutationRequest()) {
+            return NONE;
+        }
         return cancel();
+    }
+
+    private boolean rejectNonPostMutationRequest() {
+        if ("POST".equalsIgnoreCase(request.getMethod())) {
+            return false;
+        }
+        try {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        } catch (IOException e) {
+            logger.error("Error sending method-not-allowed response", e);
+        }
+        return true;
     }
 
     @SuppressWarnings("unused")

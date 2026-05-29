@@ -224,6 +224,8 @@ class MutatorActionGetRejectionContractTest {
         "io.github.carlos_emr.carlos.schedule.web.ScheduleHolidaySetting2Action",
         "io.github.carlos_emr.carlos.schedule.web.ScheduleTemplateApplying2Action",
         "io.github.carlos_emr.carlos.schedule.web.ScheduleTemplateCodeSetting2Action",
+        // Fax: preview/page-count methods permit GET; queue/cancel dispatches are POST-only.
+        "io.github.carlos_emr.carlos.fax.action.Fax2Action",
         // Waitinglist: reject GET on Save/Delete submit values.
         "io.github.carlos_emr.carlos.waitinglist.pageUtil.WLEditWaitingListName2Action",
         "io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayWaitingList2Action"
@@ -299,6 +301,7 @@ class MutatorActionGetRejectionContractTest {
         "io.github.carlos_emr.carlos.billings.ca.on.web.ScheduleOfBenefitsUpload2Action",
         "io.github.carlos_emr.carlos.commn.web.FlowSheetCustom2Action",
         "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action",
+        "io.github.carlos_emr.carlos.fax.action.Fax2Action",
         "io.github.carlos_emr.carlos.login.gate.SelectFacility2Action",
         "io.github.carlos_emr.carlos.provider.web.DocumentDescriptionTemplate2Action"
     );

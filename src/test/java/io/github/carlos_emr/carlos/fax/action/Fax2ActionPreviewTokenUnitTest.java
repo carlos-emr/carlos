@@ -28,6 +28,7 @@ import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import jakarta.servlet.http.HttpServletResponse;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,6 +36,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -45,6 +49,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -236,6 +241,25 @@ class Fax2ActionPreviewTokenUnitTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(403);
     }
 
+    @ParameterizedTest
+    @MethodSource("unsafeMutationRequests")
+    @DisplayName("should reject unsafe HTTP methods before fax mutation dispatch")
+    void shouldRejectMutation_whenRequestMethodIsUnsafe(String httpMethod, String dispatchMethod) {
+        request.setMethod(httpMethod);
+        if (dispatchMethod != null) {
+            request.setParameter("method", dispatchMethod);
+        }
+
+        String result = new Fax2Action().execute();
+
+        assertThat(result).isEqualTo("none");
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        assertThat(response.getHeader("Allow")).isEqualTo("POST");
+        verify(faxManager, never()).flush(any(LoggedInInfo.class), nullable(String.class));
+        verify(faxManager, never()).createAndSaveFaxJob(any(LoggedInInfo.class), anyMap());
+        verify(faxManager, never()).validateFilePath(any(String.class));
+    }
+
     @Test
     @DisplayName("should remove fax file token when cancelling fax")
     void shouldRemoveFaxFileToken_whenCancellingFax() throws Exception {
@@ -361,6 +385,17 @@ class Fax2ActionPreviewTokenUnitTest extends CarlosUnitTestBase {
         action.setTransactionId(456);
         action.setDemographicNo(123);
         return action;
+    }
+
+    private static Stream<Arguments> unsafeMutationRequests() {
+        return Stream.of(
+                Arguments.of("GET", "queue"),
+                Arguments.of("HEAD", "queue"),
+                Arguments.of("GET", "cancel"),
+                Arguments.of("HEAD", "cancel"),
+                Arguments.of("GET", null),
+                Arguments.of("HEAD", null)
+        );
     }
 
     private Path projectFile(String relativePath) throws Exception {
