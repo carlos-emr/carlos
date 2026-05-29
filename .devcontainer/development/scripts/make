@@ -15,6 +15,25 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # Sets _clean_reason to a human-readable explanation when a clean is needed.
 # Returns 0 if clean is needed, 1 if safe to skip.
 _clean_reason=""
+enable_devcontainer_javamelody_system_actions() {
+  web_xml="$1"
+
+  if [ ! -f "$web_xml" ]; then
+    echo "WARN: JavaMelody web.xml not found at $web_xml; system actions not enabled for devcontainer"
+    return 0
+  fi
+
+  tmp_file="${web_xml}.tmp"
+  awk '
+    /<param-name>[[:space:]]*system-actions-enabled[[:space:]]*<\/param-name>/ { in_system_actions = 1 }
+    in_system_actions && /<param-value>/ {
+      sub(/<param-value>[[:space:]]*[^<]*[[:space:]]*<\/param-value>/, "<param-value>true</param-value>")
+      in_system_actions = 0
+    }
+    { print }
+  ' "$web_xml" > "$tmp_file" && mv "$tmp_file" "$web_xml"
+}
+
 needs_clean_build() {
   _clean_reason=""
 
@@ -205,6 +224,7 @@ build_and_deploy() {
   if [ -d "target/$snapshot_src_dir" ]; then
     rm -rf "/usr/local/tomcat/webapps/$snapshot_dest_dir"
     cp -a "target/$snapshot_src_dir" "/usr/local/tomcat/webapps/$snapshot_dest_dir"
+    enable_devcontainer_javamelody_system_actions "/usr/local/tomcat/webapps/$snapshot_dest_dir/WEB-INF/web.xml"
   fi
 
   # Setup hot reload for fast JSP/HTML/CSS updates when refreshing the browser.
