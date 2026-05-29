@@ -30,6 +30,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -56,7 +57,7 @@ class NioFileManagerImplCopyFileUnitTest {
 
     @Test
     @DisplayName("should copy approved temp source into Oscar documents")
-    void shouldCopyApprovedTempSource_whenSourceIsInApprovedTempDirectory() throws IOException {
+    void shouldCopyApprovedTempSource_whenCopyingToOscarDocuments() throws IOException {
         Path source = Files.createTempFile("copy-approved-", ".pdf");
         Files.writeString(source, "approved temp source", StandardCharsets.UTF_8);
 
@@ -74,21 +75,15 @@ class NioFileManagerImplCopyFileUnitTest {
 
     @Test
     @DisplayName("should reject copy when source is outside approved temp directories")
-    void shouldRejectCopy_whenSourceIsOutsideApprovedTempDirectories() throws IOException {
-        Path outsideDir = createDirectoryOutsideAllowedTempPaths();
-        Path source = outsideDir.resolve("outside.pdf");
+    void shouldRejectCopy_whenSourceIsOutsideApprovedTempDirectories() {
+        File source = new File("/etc/hostname");
+        Assumptions.assumeTrue(source.exists() && source.isFile());
+        Assumptions.assumeFalse(PathValidationUtils.isInAllowedTempDirectory(source));
 
-        try {
-            Files.writeString(source, "outside source", StandardCharsets.UTF_8);
+        String result = fileManager.copyFileToOscarDocuments(source.toString());
 
-            String result = fileManager.copyFileToOscarDocuments(source.toString());
-
-            assertThat(result).isNull();
-            assertThat(Files.exists(documentDir.resolve(source.getFileName().toString()))).isFalse();
-        } finally {
-            Files.deleteIfExists(source);
-            Files.deleteIfExists(outsideDir);
-        }
+        assertThat(result).isNull();
+        assertThat(Files.exists(documentDir.resolve(source.getName()))).isFalse();
     }
 
     @Test
@@ -109,26 +104,6 @@ class NioFileManagerImplCopyFileUnitTest {
         } finally {
             Files.deleteIfExists(source);
             Files.deleteIfExists(sourceDir);
-        }
-    }
-
-    private Path createDirectoryOutsideAllowedTempPaths() {
-        String userHome = System.getProperty("user.home");
-        Assumptions.assumeTrue(userHome != null && !userHome.isBlank());
-
-        Path home = Path.of(userHome);
-        Assumptions.assumeTrue(Files.isDirectory(home) && Files.isWritable(home));
-
-        try {
-            Path outsideDir = Files.createTempDirectory(home, "copy-outside-");
-            if (PathValidationUtils.isInAllowedTempDirectory(outsideDir.toFile())) {
-                Files.deleteIfExists(outsideDir);
-                Assumptions.abort("user.home is inside an allowed temp directory");
-            }
-            return outsideDir;
-        } catch (IOException e) {
-            Assumptions.abort("Could not create a directory outside allowed temp paths: " + e.getMessage());
-            return home;
         }
     }
 
