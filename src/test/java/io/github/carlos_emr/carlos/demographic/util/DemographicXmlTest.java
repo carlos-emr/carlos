@@ -21,12 +21,12 @@ class DemographicXmlTest {
     void shouldEscapeFamilyDoctorText_whenInputsContainXmlMarkup() {
         String familyDoctor = DemographicXml.familyDoctor(
                 "</rdohip><injected>EVIL</injected><rdohip>",
-                "Smith & Sons <Clinic>",
+                "O'Brien \"Smith\" & Sons <Clinic>",
                 "A ]]> B");
 
         assertThat(familyDoctor).isEqualTo(
                 "<rdohip>&lt;/rdohip&gt;&lt;injected&gt;EVIL&lt;/injected&gt;&lt;rdohip&gt;</rdohip>" +
-                        "<rd>Smith &amp; Sons &lt;Clinic&gt;</rd>" +
+                        "<rd>O&apos;Brien &quot;Smith&quot; &amp; Sons &lt;Clinic&gt;</rd>" +
                         "<family_doc>A ]]&gt; B</family_doc>");
     }
 
@@ -44,5 +44,13 @@ class DemographicXmlTest {
     void shouldUseEmptyXmlText_whenInputsAreNull() {
         assertThat(DemographicXml.familyDoctor(null, null, null)).isEqualTo("<rdohip></rdohip><rd></rd>");
         assertThat(DemographicXml.userNotes(null)).isEqualTo("<unotes></unotes>");
+    }
+
+    @Test
+    @DisplayName("should omit optional family doctor element when value is null")
+    void shouldOmitOptionalFamilyDoctorElement_whenValueIsNull() {
+        String familyDoctor = DemographicXml.familyDoctor("1234", "Dr. O'Brien & Co.", null);
+
+        assertThat(familyDoctor).isEqualTo("<rdohip>1234</rdohip><rd>Dr. O&apos;Brien &amp; Co.</rd>");
     }
 }
