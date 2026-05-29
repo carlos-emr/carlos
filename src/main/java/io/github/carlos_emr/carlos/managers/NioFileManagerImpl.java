@@ -513,12 +513,14 @@ public class NioFileManagerImpl implements NioFileManager {
             // Perform the copy operation
             Files.copy(sourceFile.toPath(), destinationFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
 
-            // Delete source file after successful copy
-            if (destinationFile.exists() && !deleteTempFile(sourceFile.getPath())) {
-                if (log.isErrorEnabled()) {
-                    log.error("Copied document but failed to delete temporary source file {}", LogSafe.sanitize(sourceFile.getPath(), 1024));
+            if (destinationFile.exists()) {
+                try {
+                    if (!deleteTempFile(sourceFile.getPath()) && log.isWarnEnabled()) {
+                        log.warn("Copied document but failed to delete temporary source file {}", LogSafe.sanitize(sourceFile.getPath(), 1024));
+                    }
+                } catch (SecurityException e) {
+                    log.warn("Copied document but rejected temporary source cleanup for {}", LogSafe.sanitize(sourceFile.getPath(), 1024), e);
                 }
-                return null;
             }
 
             return destinationFile.getPath();

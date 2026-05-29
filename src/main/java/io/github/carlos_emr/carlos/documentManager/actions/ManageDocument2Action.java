@@ -1275,8 +1275,8 @@ public class ManageDocument2Action extends ActionSupport {
     }
 
     /**
-     * Sanitizes the generated destination filename. If generated metadata leaves no
-     * safe filename characters, keep the legacy timestamp fallback instead of failing.
+     * Sanitizes the generated destination filename. Missing generated metadata keeps
+     * the legacy timestamp fallback, but unsafe provided names are rejected.
      */
     private String sanitizeIncomingDocumentDestinationFileName(String fileName) {
         if (fileName == null || fileName.trim().isEmpty()) {
@@ -1287,7 +1287,7 @@ public class ManageDocument2Action extends ActionSupport {
         String sanitizedFileName = fileName.replaceAll("[^a-zA-Z0-9._-]", "");
         if (sanitizedFileName.trim().isEmpty()) {
             log.warn("Incoming document destination filename became empty after sanitization");
-            return fallbackIncomingDocumentFileName();
+            throw new SecurityException("Invalid filename");
         }
         if (sanitizedFileName.startsWith(".")) {
             log.warn("Incoming document destination filename cannot be hidden");

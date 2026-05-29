@@ -27,6 +27,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -370,6 +371,14 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("Rejects incoming destination filenames that sanitize to empty")
+    void shouldRejectIncomingDestinationFilename_whenSanitizedNameIsEmpty() {
+        assertThatThrownBy(() -> sanitizeIncomingDocumentDestinationFileName("!!!"))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("Invalid filename");
+    }
+
+    @Test
     @DisplayName("Rejects incoming source symlinks that escape the incoming directory")
     void shouldThrowSecurityException_whenIncomingDocumentSourceEscapesIncomingDirectoryViaSymlink() throws Exception {
         Path incomingDir = configureIncomingDocumentDirectories();
@@ -500,6 +509,20 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
     private List<Path> listStoredDocuments() throws IOException {
         try (Stream<Path> stream = Files.list(Path.of(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR")))) {
             return stream.toList();
+        }
+    }
+
+    private String sanitizeIncomingDocumentDestinationFileName(String fileName) throws Exception {
+        Method sanitize = ManageDocument2Action.class.getDeclaredMethod("sanitizeIncomingDocumentDestinationFileName", String.class);
+        sanitize.setAccessible(true);
+        try {
+            return (String) sanitize.invoke(action, fileName);
+        } catch (InvocationTargetException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof Exception exception) {
+                throw exception;
+            }
+            throw e;
         }
     }
 
