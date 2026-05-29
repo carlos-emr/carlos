@@ -118,19 +118,19 @@ class RxAddAllergy2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldReturnBadRequest_whenTypeParameterIsMissing() throws Exception {
+    void shouldReturnBadRequest_whenTypeParameterMissing() throws Exception {
         when(mockRequest.getParameter("ID")).thenReturn("");
         when(mockRequest.getParameter("type")).thenReturn(null);
 
         String result = action.execute();
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
-        verify(mockResponse).sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing type parameter");
+        verify(mockResponse).sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing or empty type parameter");
         verify(mockSession, never()).getAttribute("Patient");
     }
 
     @Test
-    void shouldReturnBadRequest_whenTypeParameterIsNotNumeric() throws Exception {
+    void shouldReturnBadRequest_whenTypeParameterNonNumeric() throws Exception {
         when(mockRequest.getParameter("ID")).thenReturn("");
         when(mockRequest.getParameter("type")).thenReturn("abc");
 

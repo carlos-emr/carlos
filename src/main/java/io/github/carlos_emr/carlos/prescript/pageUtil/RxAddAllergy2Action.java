@@ -73,7 +73,7 @@ public final class RxAddAllergy2Action extends ActionSupport {
         String name = request.getParameter("name");
         String type = request.getParameter("type");
         if (type == null || type.isBlank()) {
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing type parameter");
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing or empty type parameter");
             return NONE;
         }
         String normalizedType = type.trim();
