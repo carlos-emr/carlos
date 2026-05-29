@@ -65,7 +65,6 @@ import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.UUID;
-import org.apache.commons.io.FilenameUtils;
 
 public class Fax2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -296,7 +295,7 @@ public class Fax2Action extends ActionSupport {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", "r", null)) {
-            sendForbidden("Error sending forbidden response in getPreview");
+            sendForbidden();
             return;
         }
 
@@ -359,7 +358,7 @@ public class Fax2Action extends ActionSupport {
         Path outfile = faxManager.getFaxPreviewImage(loggedInInfo, previewFaxFilePath, page);
         if (outfile != null && outfile.getFileName() != null) {
             response.setContentType("image/png");
-            String sanitizedFilename = FilenameUtils.getName(outfile.getFileName().toString());
+            String sanitizedFilename = outfile.getFileName().toString().replace('\0', '_');
             String encodedFilename = URLEncoder.encode(sanitizedFilename, StandardCharsets.UTF_8)
                     .replaceAll("\\+", "%20");
             response.setHeader("Content-Disposition", "attachment; filename=\"" + encodedFilename + "\"");
@@ -374,7 +373,7 @@ public class Fax2Action extends ActionSupport {
             return outfile;
         } catch (SecurityException e) {
             logger.error("Security validation failed for fax preview path: {}", e.getClass().getSimpleName());
-            sendForbidden("Error sending error response");
+            sendForbidden();
             return null;
         } catch (IOException e) {
             logger.error("File not found or error processing fax preview path: {}", e.getClass().getSimpleName());
@@ -579,14 +578,14 @@ public class Fax2Action extends ActionSupport {
 
     private void sendAccessDenied(Exception e) {
         logger.warn("Invalid fax preview token", e);
-        sendForbidden("Error sending forbidden response");
+        sendForbidden();
     }
 
-    private void sendForbidden(String logMessage) {
+    private void sendForbidden() {
         try {
             response.sendError(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED_MESSAGE);
         } catch (IOException ex) {
-            logger.error(logMessage, ex);
+            logger.error("Error sending forbidden response", ex);
         }
     }
 
