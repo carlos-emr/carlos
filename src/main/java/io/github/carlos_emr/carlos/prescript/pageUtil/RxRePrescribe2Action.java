@@ -70,6 +70,10 @@ public final class RxRePrescribe2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     public String execute() throws IOException {
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
         String method = request.getParameter("method");
         if ("reprint2".equals(method)) {
             return reprint2();
@@ -248,6 +252,10 @@ public final class RxRePrescribe2Action extends ActionSupport {
  * - scriptId: String ID of the prescription script (required)
  */
 public String saveDigitalSignature() throws IOException {
+    if (!"POST".equalsIgnoreCase(request.getMethod())) {
+        response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        return NONE;
+    }
     
     // Validate user session and privileges
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

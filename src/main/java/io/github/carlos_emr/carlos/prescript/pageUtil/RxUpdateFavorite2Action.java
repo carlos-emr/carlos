@@ -57,6 +57,10 @@ public final class RxUpdateFavorite2Action extends ActionSupport {
 
     public String execute()
             throws IOException, ServletException {
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_rx", "u", null)) {
             throw new RuntimeException("missing required sec object (_rx)");

@@ -23,6 +23,7 @@
 
 package io.github.carlos_emr.carlos.prescript.web;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -57,13 +58,19 @@ public class CopyFavorites2Action extends ActionSupport {
     FavoritesPrivilegeDao favoritesPrivilegeDao = SpringUtils.getBean(FavoritesPrivilegeDao.class);
     FavoritesDao favoritesDao = SpringUtils.getBean(FavoritesDao.class);
     
-    public String execute() {
+    public String execute() throws IOException {
+        String method = request.getParameter("dispatch");
+        if (("update".equals(method) || "copy".equals(method))
+                && !"POST".equalsIgnoreCase(request.getMethod())) {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", null)) {
             throw new SecurityException("missing required sec object (_rx)");
         }
 
-        String method = request.getParameter("dispatch");
         if ("update".equals(method)) {
             return update();
         } else if ("copy".equals(method)) {

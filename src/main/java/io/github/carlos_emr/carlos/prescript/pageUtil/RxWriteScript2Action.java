@@ -104,6 +104,10 @@ public final class RxWriteScript2Action extends ActionSupport {
 
 
     public String execute() throws IOException, ServletException, Exception {
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
         String method = request.getParameter("parameterValue");
 
         String dispatchResult = switch (method != null ? method : "") {
