@@ -505,7 +505,7 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
         </div>
         <div>
             <fmt:message key="WriteScript.msgComment"/>:
-           <input type="text" id="comment_<%=rand%>" name="comment_<%=rand%>" value="<%=comment%>" size="60"/>
+           <input type="text" id="comment_<%=rand%>" name="comment_<%=rand%>" value="<carlos:encode value='<%= comment %>' context="htmlAttribute"/>" size="60"/>
            </div><div>  
             <fmt:message key="WriteScript.msgETreatmentType"/>:
            <select name="eTreatmentType_<%=rand%>">
@@ -758,12 +758,12 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
             var isDiscontinuedLatest=<%=isDiscontinuedLatest%>;
             //oscarLog("isDiscon "+isDiscontinuedLatest);
             //pause(1000);
-            var archR='<%=archivedReason%>';
+            var archR='<carlos:encode value='<%= archivedReason %>' context="javaScript"/>';
             if(isDiscontinuedLatest && archR!="represcribed"){
-               var archD='<%=archivedDate%>';
+               var archD='<carlos:encode value='<%= archivedDate %>' context="javaScript"/>';
                //oscarLog("in js discon "+archR+"--"+archD);
 
-                    if(confirm('This drug was discontinued on <%=archivedDate%> because of <%=archivedReason%> are you sure you want to continue it?')==true){
+                    if(confirm('This drug was discontinued on <carlos:encode value='<%= archivedDate %>' context="javaScript"/> because of <carlos:encode value='<%= archivedReason %>' context="javaScript"/> are you sure you want to continue it?')==true){
                         //do nothing
                     }
                     else{
@@ -835,4 +835,3 @@ jQuery(document).ready(function() {
 });
 </script>
 <% } %>
-
