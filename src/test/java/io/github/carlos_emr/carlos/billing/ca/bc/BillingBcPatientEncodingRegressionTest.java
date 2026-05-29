@@ -44,8 +44,8 @@ class BillingBcPatientEncodingRegressionTest {
             "_p0_13", // city
             "_p0_12", // province
             "_p0_14"); // postal code
-    private static final String HTML_ENCODE_SCRIPTLET_PATTERN =
-            "<carlos:encode\\s+value\\s*=\\s*(['\"])<%=\\s*%s\\s*%%>\\1\\s+context\\s*=\\s*(['\"])html\\2\\s*/\\s*>";
+    private static final String ENCODE_TAG_PREFIX = "<carlos:encode\\s+value\\s*=\\s*(['\"])<%=\\s*";
+    private static final String ENCODE_TAG_SUFFIX = "\\s*%>\\1\\s+context\\s*=\\s*(['\"])html\\2\\s*/\\s*>";
 
     @Test
     void shouldEncodePatientFields_inBillingCorrectionReviewJsp() throws Exception {
@@ -75,6 +75,6 @@ class BillingBcPatientEncodingRegressionTest {
     }
 
     private void assertUsesHtmlEncodingForScriptlet(String jsp, String scriptletExpressionPattern) {
-        assertThat(jsp).containsPattern(HTML_ENCODE_SCRIPTLET_PATTERN.formatted(scriptletExpressionPattern));
+        assertThat(jsp).containsPattern(ENCODE_TAG_PREFIX + scriptletExpressionPattern + ENCODE_TAG_SUFFIX);
     }
 }
