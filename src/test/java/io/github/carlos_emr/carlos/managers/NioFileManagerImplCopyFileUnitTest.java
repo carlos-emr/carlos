@@ -56,7 +56,7 @@ class NioFileManagerImplCopyFileUnitTest {
 
     @Test
     @DisplayName("should copy approved temp source into Oscar documents")
-    void shouldCopyFile_whenSourceIsInApprovedTempDirectory() throws IOException {
+    void shouldCopyApprovedTempSource_whenSourceIsInApprovedTempDirectory() throws IOException {
         Path source = Files.createTempFile("copy-approved-", ".pdf");
         Files.writeString(source, "approved temp source", StandardCharsets.UTF_8);
 
@@ -75,7 +75,7 @@ class NioFileManagerImplCopyFileUnitTest {
     @Test
     @DisplayName("should reject copy when source is outside approved temp directories")
     void shouldRejectCopy_whenSourceIsOutsideApprovedTempDirectories() throws IOException {
-        Path outsideDir = createOutsideAllowedTempDirectory();
+        Path outsideDir = createDirectoryOutsideAllowedTempPaths();
         Path source = outsideDir.resolve("outside.pdf");
 
         try {
@@ -112,7 +112,7 @@ class NioFileManagerImplCopyFileUnitTest {
         }
     }
 
-    private Path createOutsideAllowedTempDirectory() {
+    private Path createDirectoryOutsideAllowedTempPaths() {
         String userHome = System.getProperty("user.home");
         Assumptions.assumeTrue(userHome != null && !userHome.isBlank());
 

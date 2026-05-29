@@ -518,8 +518,8 @@ public class NioFileManagerImpl implements NioFileManager {
             log.error("An error occurred while moving the PDF file", e);
             return null;
         } catch (SecurityException e) {
-            log.error("Invalid source file path for Oscar document copy: {}",
-                    LogSafe.sanitize(tempFilePath, 1024));
+            log.error("Invalid source file path for Oscar document copy: {}; reason: {}",
+                    LogSafe.sanitize(tempFilePath, 1024), LogSafe.sanitize(e.getMessage()));
             log.debug("Rejected Oscar document copy source", e);
             return null;
         }
