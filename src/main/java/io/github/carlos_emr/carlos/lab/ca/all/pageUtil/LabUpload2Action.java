@@ -46,7 +46,6 @@ import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
-import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.commn.OtherIdManager;
 import io.github.carlos_emr.carlos.commn.dao.OscarKeyDao;
 import io.github.carlos_emr.carlos.commn.dao.PublicKeyDao;
@@ -55,6 +54,7 @@ import io.github.carlos_emr.carlos.commn.model.OtherId;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.lab.FileUploadCheck;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.HHSEmrDownloadHandler;
@@ -81,6 +81,10 @@ import java.util.List;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class LabUpload2Action extends ActionSupport implements UploadedFilesAware {
+    private static final String REQUEST_ATTRIBUTE_AUDIT = "audit";
+    private static final String REQUEST_ATTRIBUTE_OUTCOME = "outcome";
+    private static final String OUTCOME_EXCEPTION = "exception";
+
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -93,6 +97,12 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", "w", null)) {
             throw new SecurityException("missing required sec object (_lab)");
+        }
+        if (uploadValidationError != null) {
+            addActionError(uploadValidationError);
+            request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, OUTCOME_EXCEPTION);
+            request.setAttribute(REQUEST_ATTRIBUTE_AUDIT, "");
+            return SUCCESS;
         }
 
         String signature = request.getParameter("signature");
@@ -110,10 +120,10 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             // Validate the uploaded file to prevent path traversal attacks
             if (importFile == null) {
                 logger.error("No file provided for upload");
-                outcome = "exception";
+                outcome = OUTCOME_EXCEPTION;
                 httpCode = HttpServletResponse.SC_BAD_REQUEST;
-                request.setAttribute("outcome", outcome);
-                request.setAttribute("audit", audit);
+                request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, outcome);
+                request.setAttribute(REQUEST_ATTRIBUTE_AUDIT, audit);
                 return SUCCESS;
             }
 
@@ -122,10 +132,10 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                 importFile = PathValidationUtils.validateUpload(importFile);
             } catch (SecurityException e) {
                 logger.error("Invalid upload source - potential path traversal: " + importFile.getPath());
-                outcome = "exception";
+                outcome = OUTCOME_EXCEPTION;
                 httpCode = HttpServletResponse.SC_FORBIDDEN;
-                request.setAttribute("outcome", outcome);
-                request.setAttribute("audit", audit);
+                request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, outcome);
+                request.setAttribute(REQUEST_ATTRIBUTE_AUDIT, audit);
                 return SUCCESS;
             }
 
@@ -183,11 +193,11 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
-            outcome = "exception";
+            outcome = OUTCOME_EXCEPTION;
             httpCode = HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
         }
-        request.setAttribute("outcome", outcome);
-        request.setAttribute("audit", audit);
+        request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, outcome);
+        request.setAttribute(REQUEST_ATTRIBUTE_AUDIT, audit);
 
         if (request.getParameter("use_http_response_code") != null) {
             try {
@@ -328,12 +338,18 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
     }
 
     private File importFile;
+    private String uploadValidationError;
 
     @Override
     public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
         if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
             UploadedFile uploaded = uploadedFiles.get(0);
-            this.importFile = new File(uploaded.getAbsolutePath());
+            this.importFile = PathValidationUtils.validateUploadContent(uploaded.getContent());
+            try {
+                PathValidationUtils.validateStrictFileName(uploaded.getOriginalName());
+            } catch (FileValidationException e) {
+                this.uploadValidationError = PathValidationUtils.INVALID_FILENAME_MESSAGE;
+            }
         }
     }
 
@@ -341,7 +357,6 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         return importFile;
     }
 
-    @StrutsParameter
     public void setImportFile(File importFile) {
         this.importFile = importFile;
     }

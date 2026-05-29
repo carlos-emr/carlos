@@ -33,6 +33,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.cxf.annotations.GZIP;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.enumerator.LabType;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -290,8 +291,8 @@ public class LabUploadWs extends AbstractWs {
         File labFile;
         try {
             labFile = PathValidationUtils.validatePath(sanitizedFileName, labFolder);
-        } catch (SecurityException e) {
-            throw new SecurityException("Invalid file path: " + fileName, e);
+        } catch (FileValidationException e) {
+            throw new SecurityException("Invalid file path", e);
         }
 
         // Save a copy of the lab locally. This is done to mimic the manual lab
