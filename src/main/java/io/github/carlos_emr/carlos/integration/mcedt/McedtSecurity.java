@@ -32,7 +32,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  *
  * MCEDT endpoints access the Ontario MOH EDT service (file upload, download,
  * update, resubmit) and change passwords on behalf of the clinic. Preserve the
- * legacy {@code _admin.billing} write gate across all MCEDT entry points, and
+ * legacy {@code _admin.billing} access gate across all MCEDT entry points, and
  * require POST for state-changing methods to prevent CSRF-style triggering of
  * MOH transactions.
  *
@@ -53,7 +53,7 @@ public final class McedtSecurity {
      * @throws SecurityException if the privilege is missing
      */
     public static void requireRead(HttpServletRequest request) {
-        assertPrivilege(request, "w");
+        assertPrivilege(request, "r");
     }
 
     /**
