@@ -56,8 +56,7 @@ class DemographicLoggedInInfoSessionGuard2ActionTest extends CarlosWebTestBase {
     @DisplayName("should throw SecurityException when loggedInInfo session attribute is missing")
     @ParameterizedTest(name = "{0}")
     @MethodSource("affectedActionClasses")
-    void shouldThrowSecurityException_whenLoggedInInfoSessionAttributeIsMissing(String actionName,
-                                                                                String actionClassName) throws Exception {
+    void shouldThrowSecurityException_whenLoggedInInfoSessionAttributeIsMissing(String actionClassName) throws Exception {
         setSessionAttribute(LOGGED_IN_INFO_SESSION_KEY, null);
 
         ActionSupport action = instantiateAction(actionClassName);
