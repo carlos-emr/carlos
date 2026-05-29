@@ -166,60 +166,65 @@ public class Fax2Action extends ActionSupport {
      * @throws SecurityException if validation fails or user lacks required privileges
      */
     private void validateFaxInputs(LoggedInInfo loggedInInfo, String resolvedFaxFilePath) {
-        // Validate demographic number and access
+        validateDemographicAccess(loggedInInfo);
+        faxManager.validateFilePath(resolvedFaxFilePath);
+        validateFaxNumbers();
+        validateRecipientName();
+        validateCopyToRecipients();
+    }
+
+    private void validateDemographicAccess(LoggedInInfo loggedInInfo) {
         if (demographicNo != null) {
             if (demographicNo < 0) {
                 throw new SecurityException("Invalid demographic number: must be non-negative");
             }
-            // Verify user has access to this patient's record
             if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
                 logger.warn("Unauthorized access attempt to fax patient record");
                 throw new SecurityException("Unauthorized access to patient record");
             }
         }
+    }
 
-        // Validate the server-resolved fax file path to prevent path traversal attacks
-        faxManager.validateFilePath(resolvedFaxFilePath);
-
-        // Validate recipient fax number format (required)
+    private void validateFaxNumbers() {
         if (recipientFaxNumber == null || recipientFaxNumber.trim().isEmpty()) {
             addActionError("Recipient fax number is required");
             throw new SecurityException("Recipient fax number is required");
         }
         faxManager.validateFaxNumber(recipientFaxNumber, "recipient fax number");
-
-        // Validate sender fax number format (optional)
         faxManager.validateFaxNumber(senderFaxNumber, "sender fax number");
+    }
 
-        // Sanitize recipient name to prevent injection attacks
+    private void validateRecipientName() {
         if (recipient != null && !recipient.trim().isEmpty()) {
-            // Check for potential injection patterns
             if (recipient.contains("<script") || recipient.contains("javascript:") || recipient.contains("onerror=")) {
                 logger.error("Potential XSS attempt in fax recipient name");
                 throw new SecurityException("Invalid characters in recipient name");
             }
         }
+    }
 
-        // Validate copyToRecipients array if present
-        // Note: copyToRecipients contains JSON strings like: "name":"Test","fax":"1234567890"
+    private void validateCopyToRecipients() {
         if (copyToRecipients != null && copyToRecipients.length > 0) {
             for (int i = 0; i < copyToRecipients.length; i++) {
                 String copyRecipient = copyToRecipients[i];
                 if (copyRecipient != null && !copyRecipient.trim().isEmpty()) {
-                    // Parse JSON to extract fax number for validation
-                    try {
-                        String jsonString = "{" + copyRecipient + "}";
-                        ObjectNode json = (ObjectNode) objectMapper.readTree(jsonString);
-                        String faxNumber = json.has("fax") ? json.get("fax").asText() : null;
-                        if (faxNumber != null && !faxNumber.trim().isEmpty()) {
-                            faxManager.validateFaxNumber(faxNumber, "copy-to recipient fax number [" + i + "]");
-                        }
-                    } catch (Exception e) {
-                        logger.error("Failed to parse copy-to recipient JSON", e);
-                        throw new SecurityException("Invalid copy-to recipient format at index " + i);
-                    }
+                    validateCopyToRecipientFaxNumber(copyRecipient, i);
                 }
             }
+        }
+    }
+
+    private void validateCopyToRecipientFaxNumber(String copyRecipient, int index) {
+        try {
+            String jsonString = "{" + copyRecipient + "}";
+            ObjectNode json = (ObjectNode) objectMapper.readTree(jsonString);
+            String faxNumber = json.has("fax") ? json.get("fax").asText() : null;
+            if (faxNumber != null && !faxNumber.trim().isEmpty()) {
+                faxManager.validateFaxNumber(faxNumber, "copy-to recipient fax number [" + index + "]");
+            }
+        } catch (Exception e) {
+            logger.error("Failed to parse copy-to recipient JSON", e);
+            throw new SecurityException("Invalid copy-to recipient format at index " + index);
         }
     }
 
@@ -291,81 +296,88 @@ public class Fax2Action extends ActionSupport {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", "r", null)) {
-            try {
-                response.sendError(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED_MESSAGE);
-            } catch (IOException e) {
-                logger.error("Error sending forbidden response in getPreview", e);
-            }
+            sendForbidden("Error sending forbidden response in getPreview");
             return;
         }
-        String previewFaxFilePath = null;
-        String pageNumber = request.getParameter("pageNumber");
+
+        String previewFaxFilePath = resolvePreviewFaxFilePath(loggedInInfo);
+        if (previewFaxFilePath == null) {
+            return;
+        }
+
         String showAs = request.getParameter("showAs");
-        Path outfile = null;
-        int page = 1;
+        int page = parsePreviewPageNumber();
+        Path outfile = resolvePreviewOutput(loggedInInfo, previewFaxFilePath, showAs, page);
+        streamPreviewOutput(outfile);
+    }
+
+    private String resolvePreviewFaxFilePath(LoggedInInfo loggedInInfo) {
         String jobId = request.getParameter("jobId");
-        FaxJob faxJob = null;
-
         if (jobId != null && !jobId.isEmpty()) {
-            faxJob = faxManager.getFaxJob(loggedInInfo, Integer.parseInt(jobId));
-        }
-
-        if (faxJob != null) {
-            previewFaxFilePath = faxJob.getFile_name();
-        } else {
-            try {
-                previewFaxFilePath = resolveSubmittedFaxFilePath(true);
-            } catch (SecurityException e) {
-                sendAccessDenied(e);
-                return;
+            FaxJob faxJob = faxManager.getFaxJob(loggedInInfo, Integer.parseInt(jobId));
+            if (faxJob != null) {
+                return faxJob.getFile_name();
             }
         }
+        try {
+            return resolveSubmittedFaxFilePath(true);
+        } catch (SecurityException e) {
+            sendAccessDenied(e);
+            return null;
+        }
+    }
 
+    private int parsePreviewPageNumber() {
+        String pageNumber = request.getParameter("pageNumber");
         if (pageNumber != null && !pageNumber.isEmpty()) {
-            page = Integer.parseInt(pageNumber);
+            return Integer.parseInt(pageNumber);
         }
+        return 1;
+    }
 
-        /*
-         * Displaying the entire PDF using the default browser's view before faxing an EForm (in CoverPage.jsp),
-         * and when viewing it in the fax records (Manage Faxes), it is shown as images.
-         */
-        if (previewFaxFilePath != null && !previewFaxFilePath.isEmpty()) {
-            if (showAs != null && showAs.equals("image")) {
-                // The faxManager.getFaxPreviewImage method already handles path validation
-                outfile = faxManager.getFaxPreviewImage(loggedInInfo, previewFaxFilePath, page);
-                if (outfile != null && outfile.getFileName() != null) {
-                    response.setContentType("image/png");
-                    String sanitizedFilename = FilenameUtils.getName(outfile.getFileName().toString());
-                    // Encode filename to prevent HTTP response splitting by removing any control characters
-                    String encodedFilename = URLEncoder.encode(sanitizedFilename, StandardCharsets.UTF_8)
-                            .replaceAll("\\+", "%20"); // Replace + with %20 for spaces in filenames
-                    response.setHeader("Content-Disposition", "attachment; filename=\"" + encodedFilename + "\"");
-                }
-            } else {
-                // Validate and resolve the PDF path using FaxManager
-                try {
-                    outfile = faxManager.resolveAndValidateFilePath(previewFaxFilePath);
-                    response.setContentType("application/pdf");
-                } catch (SecurityException e) {
-                    logger.error("Security validation failed for fax preview path: {}", e.getClass().getSimpleName());
-                    try {
-                        response.sendError(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED_MESSAGE);
-                    } catch (IOException ex) {
-                        logger.error("Error sending error response", ex);
-                    }
-                    return;
-                } catch (IOException e) {
-                    logger.error("File not found or error processing fax preview path: {}", e.getClass().getSimpleName());
-                    try {
-                        response.sendError(HttpServletResponse.SC_NOT_FOUND, "File not found");
-                    } catch (IOException ex) {
-                        logger.error("Error sending error response", ex);
-                    }
-                    return;
-                }
+    private Path resolvePreviewOutput(LoggedInInfo loggedInInfo, String previewFaxFilePath, String showAs, int page) {
+        if (previewFaxFilePath == null || previewFaxFilePath.isEmpty()) {
+            return null;
+        }
+        if ("image".equals(showAs)) {
+            return resolveImagePreviewOutput(loggedInInfo, previewFaxFilePath, page);
+        }
+        return resolvePdfPreviewOutput(previewFaxFilePath);
+    }
+
+    private Path resolveImagePreviewOutput(LoggedInInfo loggedInInfo, String previewFaxFilePath, int page) {
+        Path outfile = faxManager.getFaxPreviewImage(loggedInInfo, previewFaxFilePath, page);
+        if (outfile != null && outfile.getFileName() != null) {
+            response.setContentType("image/png");
+            String sanitizedFilename = FilenameUtils.getName(outfile.getFileName().toString());
+            String encodedFilename = URLEncoder.encode(sanitizedFilename, StandardCharsets.UTF_8)
+                    .replaceAll("\\+", "%20");
+            response.setHeader("Content-Disposition", "attachment; filename=\"" + encodedFilename + "\"");
+        }
+        return outfile;
+    }
+
+    private Path resolvePdfPreviewOutput(String previewFaxFilePath) {
+        try {
+            Path outfile = faxManager.resolveAndValidateFilePath(previewFaxFilePath);
+            response.setContentType("application/pdf");
+            return outfile;
+        } catch (SecurityException e) {
+            logger.error("Security validation failed for fax preview path: {}", e.getClass().getSimpleName());
+            sendForbidden("Error sending error response");
+            return null;
+        } catch (IOException e) {
+            logger.error("File not found or error processing fax preview path: {}", e.getClass().getSimpleName());
+            try {
+                response.sendError(HttpServletResponse.SC_NOT_FOUND, "File not found");
+            } catch (IOException ex) {
+                logger.error("Error sending error response", ex);
             }
+            return null;
         }
+    }
 
+    private void streamPreviewOutput(Path outfile) {
         if (outfile != null) {
             try (InputStream inputStream = Files.newInputStream(outfile);
                  BufferedInputStream bfis = new BufferedInputStream(inputStream);
@@ -557,10 +569,14 @@ public class Fax2Action extends ActionSupport {
 
     private void sendAccessDenied(Exception e) {
         logger.warn("Invalid fax preview token", e);
+        sendForbidden("Error sending forbidden response");
+    }
+
+    private void sendForbidden(String logMessage) {
         try {
             response.sendError(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED_MESSAGE);
         } catch (IOException ex) {
-            logger.error("Error sending forbidden response", ex);
+            logger.error(logMessage, ex);
         }
     }
 
