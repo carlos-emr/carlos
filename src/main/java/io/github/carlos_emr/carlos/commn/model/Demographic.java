@@ -34,6 +34,7 @@ import org.apache.commons.lang3.time.DateFormatUtils;
 import io.github.carlos_emr.carlos.PMmodule.utility.DateTimeFormatUtils;
 import io.github.carlos_emr.carlos.PMmodule.utility.Utility;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import org.owasp.encoder.Encode;
 
 import jakarta.persistence.Entity;
@@ -1765,7 +1766,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         sb.append("' target='_blank'>");
 
         if (getTitle() != null && getTitle().length() > 0) {
-            sb.append(getTitle() + " ");
+            sb.append(SafeEncode.forHtmlContent(getTitle())).append(" ");
         }
 
         sb.append(Encode.forHtmlContent(getFormattedName()));
@@ -1779,7 +1780,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
             String pronouns = getRes(carlosRes, "demographic.demographicaddrecordhtm.formPronouns", "Pronouns");
             sb.append(pronouns);
             sb.append("</div>");
-            sb.append(Encode.forHtml(getPronoun()));
+            sb.append(SafeEncode.forHtmlContent(getPronoun()));
             sb.append("</div>");
         }
 
@@ -1789,7 +1790,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         String sexLabel = getRes(carlosRes, "demographic.demographicaddrecordhtm.formSex", "Sex");
         sb.append(sexLabel);
         sb.append("</div>");
-        sb.append(getSex());
+        sb.append(SafeEncode.forHtmlContent(getSex()));
         sb.append("</div>");
 
         //--> gender
@@ -1799,7 +1800,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
             String genderLabel = getRes(carlosRes, "demographic.demographicaddrecordhtm.formGender", "Gender");
             sb.append(genderLabel);
             sb.append("</div>");
-            sb.append(getGender());
+            sb.append(SafeEncode.forHtmlContent(getGender()));
             sb.append("</div>");
         }
 
@@ -1830,11 +1831,11 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
             String hinLabel = getRes(carlosRes, "demographic.patient.context.hin", "HIN");
             sb.append(hinLabel);
 			sb.append(" (");
-            sb.append(Encode.forHtml(getHcType()));
+            sb.append(SafeEncode.forHtmlContent(getHcType()));
 			sb.append(")</div>");
-			sb.append(Encode.forHtml(getHin()));
+			sb.append(SafeEncode.forHtmlContent(getHin()));
 			sb.append("&nbsp;");
-			sb.append(Encode.forHtml(getVer()));
+			sb.append(SafeEncode.forHtmlContent(getVer()));
             sb.append("</div>");
         }
 
