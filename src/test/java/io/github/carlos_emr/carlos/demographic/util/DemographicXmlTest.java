@@ -38,4 +38,11 @@ class DemographicXmlTest {
         assertThat(notes).isEqualTo(
                 "<unotes>&lt;/unotes&gt;&lt;injected&gt;EVIL&lt;/injected&gt;&lt;unotes&gt;</unotes>");
     }
+
+    @Test
+    @DisplayName("should use empty XML text when inputs are null")
+    void shouldUseEmptyXmlText_whenInputsAreNull() {
+        assertThat(DemographicXml.familyDoctor(null, null, null)).isEqualTo("<rdohip></rdohip><rd></rd>");
+        assertThat(DemographicXml.userNotes(null)).isEqualTo("<unotes></unotes>");
+    }
 }
