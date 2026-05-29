@@ -38,6 +38,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.provider.web.CppPreferencesUIBean;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import org.owasp.encoder.Encode;
 
 import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
@@ -114,8 +115,8 @@ public class EctDisplayAllergy2Action extends EctDisplayAction {
         if (prefsBean != null && "on".equals(prefsBean.getAllergySeverity())) {
             customDescription = customDescription + " Severity:" + severityDescription;
         }
-        item.setTitle(Encode.forHtml(customDescription));
-        item.setLinkTitle(Encode.forHtml(customDescription));
+        item.setTitle(SafeEncode.forHtmlContent(customDescription));
+        item.setLinkTitle(SafeEncode.forHtmlContent(customDescription));
         item.setURL("return false;");
 
         return (item);
