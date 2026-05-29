@@ -1770,7 +1770,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
             sb.append(" ");
         }
 
-        sb.append(Encode.forHtmlContent(getFormattedName()));
+        sb.append(SafeEncode.forHtmlContent(getFormattedName()));
         sb.append("</a></h1>");
         sb.append("</div>");
 
