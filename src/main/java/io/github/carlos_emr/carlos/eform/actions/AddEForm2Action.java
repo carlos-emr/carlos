@@ -494,7 +494,7 @@ public class AddEForm2Action extends ActionSupport {
         forward.append("&demographicNo=").append(URLEncoder.encode(demographicNo, StandardCharsets.UTF_8));
 
         /*
-         * Added incase the eForm developer adds these elements to the
+         * Added in case the eForm developer adds these elements to the
          * eform.
          */
         if (recipient != null && !recipient.isEmpty()) {

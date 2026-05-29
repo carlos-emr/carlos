@@ -350,11 +350,14 @@ public class Fax2Action extends ActionSupport {
     @SuppressWarnings("unused")
     public String prepareFax() {
 
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", "w", null)) {
+            throw new SecurityException("missing required sec object (_fax)");
+        }
+
         if (!requirePost()) {
             return NONE;
         }
-
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         /*
          * Fax recipient info carried forward.

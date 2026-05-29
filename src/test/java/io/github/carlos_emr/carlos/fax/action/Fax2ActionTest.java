@@ -72,6 +72,7 @@ class Fax2ActionTest extends CarlosWebTestBase {
     @Test
     @DisplayName("should reject GET prepareFax with 405 before preview side effects")
     void shouldRejectPrepareFax_whenRequestIsGet() throws Exception {
+        allowPrivilege("_fax", "w");
         getMockRequest().setMethod("GET");
         addRequestParameter("method", "prepareFax");
 
@@ -87,6 +88,7 @@ class Fax2ActionTest extends CarlosWebTestBase {
     @DisplayName("should allow POST prepareFax to create preview attributes")
     void shouldPrepareFaxPreview_whenRequestIsPost() throws Exception {
         Path pdfPath = Path.of("preview.pdf");
+        allowPrivilege("_fax", "w");
         getMockRequest().setMethod("POST");
         addRequestParameter("method", "prepareFax");
         action.setTransactionType(TransactionType.EFORM.name());
