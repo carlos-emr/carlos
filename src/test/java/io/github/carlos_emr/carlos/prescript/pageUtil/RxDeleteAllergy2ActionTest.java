@@ -57,6 +57,7 @@ class RxDeleteAllergy2ActionTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
+    private MockedStatic<LogAction> logActionMock;
     private AutoCloseable mocks;
 
     @Mock
@@ -93,11 +94,16 @@ class RxDeleteAllergy2ActionTest extends CarlosUnitTestBase {
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(mockRequest);
         servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(mockResponse);
 
+        logActionMock = mockStatic(LogAction.class);
+
         action = new RxDeleteAllergy2Action();
     }
 
     @AfterEach
     void tearDown() throws Exception {
+        if (logActionMock != null) {
+            logActionMock.close();
+        }
         if (servletActionContextMock != null) {
             servletActionContextMock.close();
         }
@@ -111,7 +117,7 @@ class RxDeleteAllergy2ActionTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should return bad request when ID parameter is missing")
-    void shouldReturnBadRequest_whenIdParameterIsMissing() throws Exception {
+    void shouldReturn400BadRequest_whenIdParameterIsMissing() throws Exception {
         String result = action.execute();
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
@@ -121,7 +127,7 @@ class RxDeleteAllergy2ActionTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should return bad request when ID parameter is blank")
-    void shouldReturnBadRequest_whenIdParameterIsBlank() throws Exception {
+    void shouldReturn400BadRequest_whenIdParameterIsBlank() throws Exception {
         mockRequest.setParameter("ID", " ");
 
         String result = action.execute();
@@ -133,7 +139,7 @@ class RxDeleteAllergy2ActionTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should return bad request when ID parameter is invalid")
-    void shouldReturnBadRequest_whenIdParameterIsInvalid() throws Exception {
+    void shouldReturn400BadRequest_whenIdParameterIsInvalid() throws Exception {
         mockRequest.setParameter("ID", "abc");
 
         String result = action.execute();
@@ -155,21 +161,19 @@ class RxDeleteAllergy2ActionTest extends CarlosUnitTestBase {
         when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("provider1");
         when(mockAllergy.getAuditString()).thenReturn("audit");
 
-        try (MockedStatic<LogAction> logActionMock = mockStatic(LogAction.class)) {
-            String result = action.execute();
+        String result = action.execute();
 
-            assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-            assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
-            assertThat(mockRequest.getAttribute("demographicNo")).isEqualTo("123");
-            verify(mockRxPatient).deleteAllergy(42);
-            logActionMock.verify(() -> LogAction.addLog(
-                    eq("provider1"),
-                    eq("delete"),
-                    eq("allergy"),
-                    eq("42"),
-                    any(String.class),
-                    eq("123"),
-                    eq("audit")));
-        }
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        assertThat(mockRequest.getAttribute("demographicNo")).isEqualTo("123");
+        verify(mockRxPatient).deleteAllergy(42);
+        logActionMock.verify(() -> LogAction.addLog(
+                eq("provider1"),
+                eq("delete"),
+                eq("allergy"),
+                eq("42"),
+                any(String.class),
+                eq("123"),
+                eq("audit")));
     }
 }
