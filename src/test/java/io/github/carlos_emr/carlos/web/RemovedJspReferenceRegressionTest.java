@@ -44,6 +44,16 @@ class RemovedJspReferenceRegressionTest {
     private static final Pattern OSCAR_JS_SCRIPT =
             Pattern.compile("<script\\b[^>]*src=[\"'][^\"']*/share/javascript/Oscar\\.js[\"'][^>]*>",
                     Pattern.CASE_INSENSITIVE);
+    private static final List<Path> BC_BILLING_REPORT_FRAGMENTS = List.of(
+            Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/BC/billingReport_flu.jspf"),
+            Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/BC/billingReport_billed.jspf"),
+            Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/BC/billingReport_unsettled.jspf"),
+            Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/BC/billingReport_billob.jspf"),
+            Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/BC/billingReport_unbilled.jspf"));
+    private static final Pattern CARLOS_TAGLIB = Pattern.compile(
+            "<%@\\s*taglib\\s+uri=\"carlos\"\\s+prefix=\"carlos\"\\s*%>");
+    private static final Pattern HTML_ENCODED_DEMO_NAME = Pattern.compile(
+            "<carlos:encode\\s+value='<%=\\s*demoName\\s*%>'\\s+context=\"html\"\\s*/>");
 
     @Test
     @DisplayName("Appointment admin day should not link to removed PMmodule popup JSPs")
@@ -140,21 +150,18 @@ class RemovedJspReferenceRegressionTest {
     @Test
     @DisplayName("BC billing report fragments should HTML-encode demoName")
     void shouldHtmlEncodeDemoName_inBcBillingReportFragments() throws IOException {
-        List<Path> fragments = List.of(
-                Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/BC/billingReport_flu.jspf"),
-                Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/BC/billingReport_billed.jspf"),
-                Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/BC/billingReport_unsettled.jspf"),
-                Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/BC/billingReport_billob.jspf"),
-                Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/BC/billingReport_unbilled.jspf"));
-
-        for (Path fragment : fragments) {
+        for (Path fragment : BC_BILLING_REPORT_FRAGMENTS) {
             String jspf = Files.readString(fragment);
 
             assertThat(jspf)
                     .as("BC billing report fragments must encode demoName in HTML output: %s", fragment)
-                    .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
-                    .contains("<carlos:encode value='<%= demoName %>' context=\"html\"/>")
                     .doesNotContain("<%=demoName%>");
+            assertThat(CARLOS_TAGLIB.matcher(jspf).find())
+                    .as("BC billing report fragments must declare the carlos taglib: %s", fragment)
+                    .isTrue();
+            assertThat(HTML_ENCODED_DEMO_NAME.matcher(jspf).find())
+                    .as("BC billing report fragments must HTML-encode demoName: %s", fragment)
+                    .isTrue();
         }
     }
 
