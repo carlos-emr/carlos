@@ -10,6 +10,10 @@ import org.apache.commons.text.StringEscapeUtils;
 /**
  * Builds legacy demographic XML fragments with escaped text nodes so
  * demographic form and import values cannot alter the stored XML structure.
+ * The fragments are stored in VARCHAR columns rather than XML columns, so
+ * callers must escape each text node before insertion. Escaping is performed
+ * with Apache Commons Text {@link StringEscapeUtils#escapeXml11(String)} to
+ * prevent XML injection.
  *
  * @since 2026-05-29
  */
@@ -20,6 +24,8 @@ public final class DemographicXml {
 
     /**
      * Builds the stored family doctor fragment for the demographic table.
+     * The returned fragment is stored in {@code demographic.family_doctor};
+     * all text content is XML-escaped before it is inserted into the fragment.
      *
      * @param referralDoctorOhip the referring doctor's OHIP number; null becomes empty text
      * @param referralDoctor the referring doctor's display name; null becomes empty text
@@ -37,6 +43,8 @@ public final class DemographicXml {
 
     /**
      * Wraps demographic notes in the legacy unotes element.
+     * The returned fragment is stored in {@code demographiccust.notes};
+     * the note text is XML-escaped before it is inserted into the fragment.
      *
      * @param notes the demographic note text; null becomes empty text
      * @return a {@code <unotes>} XML fragment
