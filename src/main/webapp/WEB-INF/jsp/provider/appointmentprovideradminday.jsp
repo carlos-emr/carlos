@@ -55,6 +55,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.NavPath" %>
 
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/special_tag.tld" prefix="special" %>
@@ -902,15 +903,18 @@
                 </div>
                 <ul id="navlist">
                     <c:if test="${infirmaryView_isOscar != 'false'}">
+                        <% String scheduleNavActiveClass = NavPath.requestPathMatches(request,
+                                "/provider/providercontrol", "/provider/appointmentprovideradmin",
+                                "/provider/appointmentprovideradminday") ? "nav-active" : ""; %>
                         <% if (request.getParameter("viewall") != null && request.getParameter("viewall").equals("1")) { %>
-                        <li>
+                        <li class="<%= scheduleNavActiveClass %>">
                             <a href=# onClick="review('0')"
                                title="<fmt:message key="provider.appointmentProviderAdminDay.viewProvAval"/>">
                                 <fmt:message key="provider.appointmentProviderAdminDay.schedView"/>
                             </a>
                         </li>
                         <% } else { %>
-                        <li>
+                        <li class="<%= scheduleNavActiveClass %>">
                             <a href='<%= request.getContextPath() %>/provider/providercontrol?year=<%=curYear%>&month=<%=curMonth%>&day=<%=curDay%>&view=0&displaymode=day&dboperation=searchappointmentday&viewall=1'>
                                 <fmt:message key="provider.appointmentProviderAdminDay.schedView"/>
                             </a>
@@ -955,11 +959,11 @@
                                 <oscar:oscarPropertiesCheck property="NOT_FOR_CAISI" value="no" defaultVal="true">
                                     <c:if test="${doctorLinkRights}">
                                         <li>
-                                       <a HREF="#" id="inboxLink">
+                                       <a HREF="<%= "1".equals(request.getParameter("scheduleNav")) ? request.getContextPath() + "/web/inboxhub/Inboxhub?method=displayInboxForm&scheduleNav=1" : "#" %>" id="inboxLink">
                                                 <span id="oscar_new_lab" title="<fmt:message key="provider.appointmentProviderAdminDay.viewLabReports"/>"><fmt:message key="global.lab"/></span>
                                             </a>
                                             <oscar:newUnclaimedLab>
-                                                <a id="unclaimedLabLink" class="tabalert" HREF="javascript:void(0)"
+                                                <a id="unclaimedLabLink" class="tabalert" HREF="<%= "1".equals(request.getParameter("scheduleNav")) ? request.getContextPath() + "/web/inboxhub/Inboxhub?method=displayInboxForm&unclaimed=1&scheduleNav=1" : "javascript:void(0)" %>"
                                                    title='<fmt:message key="inbox.inboxmanager.msgUnmatched"/>'>U</a>
                                             </oscar:newUnclaimedLab>
                                         </li>
@@ -1118,15 +1122,6 @@
                                 </li>
 
                             </security:oscarSec>
-
-                            <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
-                                <security:oscarSec roleName="<%=roleName$%>" objectName="_resource" rights="r">
-                                    <li>
-                                        <a href="https://www.oscargalaxy.org" target="_blank" rel="noopener noreferrer"
-                                           title="<fmt:message key="provider.appointmentProviderAdminDay.viewResources"/>"><fmt:message key="encounter.Index.clinicalResources"/></a>
-                                    </li>
-                                </security:oscarSec>
-                            </caisi:isModuleLoad>
 
                             <% if (isMobileOptimized) { %>
                         </ul>
@@ -3058,8 +3053,10 @@
 
 <script>
     const contextPath = document.getElementById("contextPath").value;
-    const inboxLinkClickEvent = "popupInboxManager('" + contextPath + "/web/inboxhub/Inboxhub?method=displayInboxForm', 800);return false;";
-    const unclaimedLabLinkClickEvent = "popupInboxManager('" + contextPath + "/web/inboxhub/Inboxhub?method=displayInboxForm&unclaimed=1', 800);return false;";
+    const inboxUrl = contextPath + "/web/inboxhub/Inboxhub?method=displayInboxForm";
+    const unclaimedLabUrl = contextPath + "/web/inboxhub/Inboxhub?method=displayInboxForm&unclaimed=1";
+    const inboxLinkClickEvent = "return openScheduleSection('" + inboxUrl + "', function(u){ popupInboxManager(u, 800); }, event);";
+    const unclaimedLabLinkClickEvent = "return openScheduleSection('" + unclaimedLabUrl + "', function(u){ popupInboxManager(u, 800); }, event);";
 
     const inboxLink = document.getElementById("inboxLink");
     if (inboxLink) {
