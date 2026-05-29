@@ -74,12 +74,12 @@ class NioFileManagerImplCopyFileUnitTest {
     @Test
     @DisplayName("should reject copy when source is outside approved temp directories")
     void shouldRejectCopy_whenSourceIsOutsideApprovedTempDirectories() throws IOException {
-        Path outsideDir = Files.createTempDirectory(Path.of(System.getProperty("user.home")), "copy-outside-");
+        Path outsideDir = createOutsideAllowedTempDirectory();
         Path source = outsideDir.resolve("outside.pdf");
-        Files.writeString(source, "outside source", StandardCharsets.UTF_8);
-        Assumptions.assumeFalse(PathValidationUtils.isInAllowedTempDirectory(source.toFile()));
 
         try {
+            Files.writeString(source, "outside source", StandardCharsets.UTF_8);
+
             String result = fileManager.copyFileToOscarDocuments(source.toString());
 
             assertThat(result).isNull();
@@ -91,8 +91,8 @@ class NioFileManagerImplCopyFileUnitTest {
     }
 
     @Test
-    @DisplayName("should return destination path when cleanup fails after successful copy")
-    void shouldReturnDestinationPath_whenCleanupFailsAfterSuccessfulCopy() throws IOException {
+    @DisplayName("should return destination path when cleanup rejects source after successful copy")
+    void shouldReturnDestinationPath_whenCleanupRejectsSourceAfterSuccessfulCopy() throws IOException {
         Path sourceDir = Files.createTempDirectory("copy-source-");
         Path source = sourceDir.resolve("cleanup-fails.pdf");
         Files.writeString(source, "cleanup failure still persists copy", StandardCharsets.UTF_8);
@@ -108,6 +108,26 @@ class NioFileManagerImplCopyFileUnitTest {
         } finally {
             Files.deleteIfExists(source);
             Files.deleteIfExists(sourceDir);
+        }
+    }
+
+    private Path createOutsideAllowedTempDirectory() {
+        String userHome = System.getProperty("user.home");
+        Assumptions.assumeTrue(userHome != null && !userHome.isBlank());
+
+        Path home = Path.of(userHome);
+        Assumptions.assumeTrue(Files.isDirectory(home) && Files.isWritable(home));
+
+        try {
+            Path outsideDir = Files.createTempDirectory(home, "copy-outside-");
+            if (PathValidationUtils.isInAllowedTempDirectory(outsideDir.toFile())) {
+                Files.deleteIfExists(outsideDir);
+                Assumptions.abort("user.home is inside an allowed temp directory");
+            }
+            return outsideDir;
+        } catch (IOException e) {
+            Assumptions.abort("Could not create a directory outside allowed temp paths: " + e.getMessage());
+            return home;
         }
     }
 

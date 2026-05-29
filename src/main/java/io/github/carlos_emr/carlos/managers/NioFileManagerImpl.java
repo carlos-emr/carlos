@@ -519,7 +519,8 @@ public class NioFileManagerImpl implements NioFileManager {
             return null;
         } catch (SecurityException e) {
             log.error("Invalid source file path for Oscar document copy: {}",
-                    LogSafe.sanitize(tempFilePath, 1024), e);
+                    LogSafe.sanitize(tempFilePath, 1024));
+            log.debug("Rejected Oscar document copy source", e);
             return null;
         }
     }
