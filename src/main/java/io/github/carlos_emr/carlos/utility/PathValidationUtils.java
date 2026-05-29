@@ -1,5 +1,8 @@
 package io.github.carlos_emr.carlos.utility;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.github.carlos_emr.CarlosProperties;
+
 import org.apache.commons.io.FilenameUtils;
 import org.apache.logging.log4j.Logger;
 
@@ -222,11 +225,42 @@ public final class PathValidationUtils {
      * @return the validated File
      * @throws SecurityException if the path is null/empty or resolves outside allowedDir
      */
+    @SuppressFBWarnings(
+            value = "PATH_TRAVERSAL_IN",
+            justification = "This sanitizer overload immediately canonicalizes and enforces containment before returning the File.")
     public static File validateExistingPath(String path, File allowedDir) {
         if (path == null || path.isEmpty()) {
             throw new SecurityException("File path is null or empty");
         }
         return validateExistingPath(new File(path), allowedDir);
+    }
+
+    /**
+     * Returns DOCUMENT_DIR as a canonical directory, failing closed when it is not configured.
+     *
+     * @return the canonical DOCUMENT_DIR directory
+     * @throws IOException if DOCUMENT_DIR is unavailable or cannot be canonicalized
+     */
+    public static File getRequiredDocumentDirectory() throws IOException {
+        String documentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        if (documentDir == null || documentDir.isEmpty()) {
+            throw new IOException("DOCUMENT_DIR not configured; rejecting file access");
+        }
+        return new File(documentDir).getCanonicalFile();
+    }
+
+    /**
+     * Validates that the path string resolves to an existing file under DOCUMENT_DIR.
+     * Use this for application-created lab file paths that must fail closed when
+     * DOCUMENT_DIR is unavailable.
+     *
+     * @param path the file path to validate; must be non-null and non-empty
+     * @return the validated File
+     * @throws IOException if DOCUMENT_DIR is unavailable or cannot be canonicalized
+     * @throws SecurityException if the path is null/empty or resolves outside DOCUMENT_DIR
+     */
+    public static File validateExistingDocumentPath(String path) throws IOException {
+        return validateExistingPath(path, getRequiredDocumentDirectory());
     }
 
     // ========================================================================

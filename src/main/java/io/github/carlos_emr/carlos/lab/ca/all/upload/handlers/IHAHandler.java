@@ -54,7 +54,6 @@ import org.w3c.dom.Node;
 
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.DefaultGenericHandler;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader;
-import io.github.carlos_emr.CarlosProperties;
 
 @Deprecated
 /**
@@ -188,14 +187,7 @@ public class IHAHandler extends DefaultGenericHandler implements MessageHandler 
      */
     private Document getXML(String fileName) {
         try {
-            CarlosProperties props = CarlosProperties.getInstance();
-            String documentDir = props.getProperty("DOCUMENT_DIR");
-            if (documentDir == null || documentDir.isEmpty()) {
-                logger.error("DOCUMENT_DIR not configured; rejecting file access");
-                return null;
-            }
-            File docDir = new File(documentDir).getCanonicalFile();
-            File file = PathValidationUtils.validateExistingPath(fileName, docDir);
+            File file = PathValidationUtils.validateExistingDocumentPath(fileName);
 
             if (!file.exists() || !file.isFile()) {
                 logger.error("File does not exist or is not a regular file: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe

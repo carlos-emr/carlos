@@ -71,10 +71,7 @@ public class Utilities {
 
     public static ArrayList<String> separateMessages(String fileName) throws Exception {
 
-        // Validate the file path is within DOCUMENT_DIR to prevent path traversal
-        CarlosProperties props = CarlosProperties.getInstance();
-        String place = props.getProperty("DOCUMENT_DIR");
-        File validatedFile = PathValidationUtils.validateExistingPath(fileName, new File(place));
+        File validatedFile = PathValidationUtils.validateExistingDocumentPath(fileName);
 
         ArrayList<String> messages = new ArrayList<String>();
         try (InputStream is = new FileInputStream(validatedFile);
@@ -130,18 +127,14 @@ public class Utilities {
         String retVal = null;
 
         try {
-            CarlosProperties props = CarlosProperties.getInstance();
-            String place = props.getProperty("DOCUMENT_DIR");
-
-            // Validate filename and construct path using PathValidationUtils
-            File safeDir = new File(place);
+            File safeDir = PathValidationUtils.getRequiredDocumentDirectory();
             File targetFile = PathValidationUtils.validatePath(filename, safeDir);
 
             // Construct retVal using the validated targetFile path
             retVal = targetFile.getParent() + File.separator + "LabUpload." + targetFile.getName().replaceAll(".enc", "") + "." + (new Date()).getTime();
 
             logger.debug("saveFile place={}, retVal={}",
-                    LogSafe.sanitize(place, 1024),
+                    LogSafe.sanitize(safeDir.getPath(), 1024),
                     LogSafe.sanitize(retVal, 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
 
             try (OutputStream os = Files.newOutputStream(Paths.get(retVal));
@@ -199,15 +192,7 @@ public class Utilities {
                 throw new IllegalArgumentException("Filename cannot be null or empty");
             }
 
-            CarlosProperties props = CarlosProperties.getInstance();
-            String place = props.getProperty("DOCUMENT_DIR");
-
-            if (!place.endsWith("/")) {
-                place = place + "/";
-            }
-
-            // Validate filename using PathValidationUtils
-            File baseDir = new File(place);
+            File baseDir = PathValidationUtils.getRequiredDocumentDirectory();
             File targetFile = PathValidationUtils.validatePath(filename, baseDir);
 
             // Derive the safe output name from the validated file (not the raw input)

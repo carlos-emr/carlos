@@ -41,6 +41,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
@@ -119,19 +120,11 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
 
                 boolean fileUploadedSuccessfully = false;
                 if (localFileName != null) {
-                    CarlosProperties props = CarlosProperties.getInstance();
-                    String documentDir = props.getProperty("DOCUMENT_DIR");
-                    if (documentDir == null || documentDir.isEmpty()) {
-                        _logger.error("DOCUMENT_DIR not configured; rejecting file access");
-                        outcome = OUTCOME_ACCESS_DENIED;
-                        request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, outcome);
-                        return SUCCESS;
-                    }
                     File localFile;
                     try {
-                        localFile = PathValidationUtils.validateExistingPath(localFileName, new File(documentDir));
-                    } catch (SecurityException e) {
-                        _logger.error("Invalid file path: " + localFileName);
+                        localFile = PathValidationUtils.validateExistingDocumentPath(localFileName);
+                    } catch (IOException | SecurityException e) {
+                        _logger.error("Invalid file path: {}", LogSafe.sanitize(localFileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                         outcome = OUTCOME_ACCESS_DENIED;
                         request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, outcome);
                         return SUCCESS;
@@ -194,23 +187,14 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         String retVal = null;
 
         try {
-            CarlosProperties props = CarlosProperties.getInstance();
-            //properties must exist
-            String place = props.getProperty("DOCUMENT_DIR");
-
-            if (!place.endsWith("/"))
-                place = new StringBuilder(place).insert(place.length(), "/").toString();
-
             // Construct the target filename with timestamp
             String targetFileName = "LabUpload." + filename + "." + (new Date()).getTime();
 
-            // Use PathValidationUtils to validate and get safe path
-            File docDir = new File(place);
             File targetFile;
             try {
-                targetFile = PathValidationUtils.validatePath(targetFileName, docDir);
-            } catch (SecurityException e) {
-                MiscUtils.getLogger().error("Invalid filename: " + targetFileName);
+                targetFile = PathValidationUtils.validatePath(targetFileName, PathValidationUtils.getRequiredDocumentDirectory());
+            } catch (IOException | SecurityException e) {
+                MiscUtils.getLogger().error("Invalid filename: {}", LogSafe.sanitize(targetFileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 return null;
             }
 

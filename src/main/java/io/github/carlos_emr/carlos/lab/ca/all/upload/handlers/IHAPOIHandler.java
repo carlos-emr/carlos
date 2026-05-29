@@ -46,7 +46,6 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -249,27 +248,12 @@ public class IHAPOIHandler implements MessageHandler {
             throw new IllegalArgumentException("File name cannot be null or empty");
         }
         
-        // Get the base directory for documents
-        CarlosProperties props = CarlosProperties.getInstance();
-        String documentDir = props.getProperty("DOCUMENT_DIR");
-        
-        if (documentDir == null || documentDir.isEmpty()) {
-            // If DOCUMENT_DIR is not configured, use system temp directory as fallback
-            documentDir = System.getProperty("java.io.tmpdir");
-        }
-        
-        File baseDirFile = new File(documentDir);
         File file;
         try {
-            file = PathValidationUtils.validateExistingPath(fileName, baseDirFile);
+            file = PathValidationUtils.validateExistingDocumentPath(fileName);
         } catch (SecurityException e) {
-            // Try allowed temp directories as fallback
-            File rawFile = new File(fileName);
-            if (!PathValidationUtils.isInAllowedTempDirectory(rawFile)) {
-                logger.error("Path traversal attempt detected: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-                throw new IllegalArgumentException("Invalid file path - access denied");
-            }
-            file = rawFile;
+            logger.error("Path traversal attempt detected: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            throw new IllegalArgumentException("Invalid file path - access denied");
         }
         
         // Ensure the file exists and is readable

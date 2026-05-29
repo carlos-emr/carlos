@@ -56,7 +56,6 @@ import io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader;
 import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
-import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 
 public class DefaultHandler implements MessageHandler {
@@ -129,14 +128,7 @@ public class DefaultHandler implements MessageHandler {
      */
     private Document getXML(String fileName) {
         try {
-            CarlosProperties props = CarlosProperties.getInstance();
-            String documentDir = props.getProperty("DOCUMENT_DIR");
-            if (documentDir == null || documentDir.isEmpty()) {
-                logger.error("DOCUMENT_DIR not configured; rejecting file access");
-                return null;
-            }
-            File docDir = new File(documentDir).getCanonicalFile();
-            File file = PathValidationUtils.validateExistingPath(fileName, docDir);
+            File file = PathValidationUtils.validateExistingDocumentPath(fileName);
 
             if (!file.exists() || !file.isFile()) {
                 logger.error("File does not exist or is not a regular file: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
@@ -159,15 +151,9 @@ public class DefaultHandler implements MessageHandler {
 
     //TODO: Dont think this needs to be in this class.  Better as a util method
     public String readTextFile(String fullPathFilename) throws IOException {
-        CarlosProperties props = CarlosProperties.getInstance();
-        String documentDir = props.getProperty("DOCUMENT_DIR");
-        if (documentDir == null || documentDir.isEmpty()) {
-            throw new IOException("DOCUMENT_DIR not configured; rejecting file access");
-        }
-        File docDir = new File(documentDir).getCanonicalFile();
         File file;
         try {
-            file = PathValidationUtils.validateExistingPath(fullPathFilename, docDir);
+            file = PathValidationUtils.validateExistingDocumentPath(fullPathFilename);
         } catch (SecurityException e) {
             throw new IOException("Path traversal attempt detected: " + fullPathFilename, e);
         }
