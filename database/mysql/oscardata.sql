@@ -2158,6 +2158,10 @@ INSERT INTO `appointment_status` VALUES
 (5,'E','Empty Room','#FFFF33','empty.gif',1,1,0,'EmpRm'),
 (6,'a','Customized 1','#897DF8','1.gif',1,1,0,'CUST1'),
 (7,'b','Customized 2','#897DF8','2.gif',1,1,0,'CUST2'),
+-- Customized 3 is intentionally seeded inactive (active=0). The schedule
+-- status cycle (ApptStatusData.getNextStatus) walks only active statuses, so
+-- this slot is skipped by design. Activate it via the Schedule status admin if
+-- a clinic wants it in the rotation.
 (8,'c','Customized 3','#897DF8','3.gif',0,1,0,'CUST3'),
 (9,'d','Customized 4','#897DF8','4.gif',1,1,0,'CUST4'),
 (10,'e','Customized 5','#897DF8','5.gif',1,1,0,'CUST5'),
