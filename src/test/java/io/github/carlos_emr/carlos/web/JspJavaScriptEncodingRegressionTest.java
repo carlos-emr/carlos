@@ -145,6 +145,28 @@ class JspJavaScriptEncodingRegressionTest {
     }
 
     @Test
+    void shouldEncodeTopLinksRequestParameters_inHtmlAndJavaScriptContexts() throws Exception {
+        String topLinksJsp = readJsp("rx/TopLinks.jsp");
+
+        assertThat(topLinksJsp)
+                .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
+                .contains("id=\"${ not empty param.tableId ? carlos:forHtmlAttribute(param.tableId) : 'topLink' }\"")
+                .contains("${carlos:forHtmlContent(param.title)}")
+                .contains("${carlos:forHtmlContent(param.patientName)}")
+                .contains("${carlos:forHtmlContent(param.sex)}")
+                .contains("${carlos:forHtmlContent(param.age)}")
+                .contains("${carlos:forHtmlContent(param.phone)}")
+                .contains("'${carlos:forJavaScript(url)}'")
+                .doesNotContain("<core:out value=\"${ param.title }\"/>")
+                .doesNotContain("<core:out value=\"${ param.patientName }\"/>")
+                .doesNotContain("${ param.sex }")
+                .doesNotContain("${ param.age }")
+                .doesNotContain("${ param.phone }")
+                .doesNotContain("id=\"${ not empty param.tableId ? param.tableId : 'topLink' }\"")
+                .doesNotContain("'${ url }'");
+    }
+
+    @Test
     @DisplayName("should encode decision textarea file content in HTML body context")
     @Tag("security")
     void shouldEncodeDecisionTextareaFileContent_inHtmlBodyContext() throws Exception {

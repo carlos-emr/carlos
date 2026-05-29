@@ -30,6 +30,7 @@
 --%>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.core" prefix="core" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -38,18 +39,18 @@
 <core:set var="url"
        value="${ ctx }/demographic/DemographicEdit?demographic_no=${ param.demographicNo }&appointment="/>
 
-<table id="${ not empty param.tableId ? param.tableId : 'topLink' }">
+<table id="${ not empty param.tableId ? carlos:forHtmlAttribute(param.tableId) : 'topLink' }">
     <tr>
         <td id="topLinkLeftColumn">
-            <h1><core:out value="${ param.title }"/></h1>
+            <h1>${carlos:forHtmlContent(param.title)}</h1>
         </td>
 
         <td id="topLinkCenterColumn">
 
             <core:if test="${ not empty param.patientName }">
-                <a href="javascript:void(0)" onClick="popupPage(700,1000,'${ url }'); return false;"
+                <a href="javascript:void(0)" onClick="popupPage(700,1000,'${carlos:forJavaScript(url)}'); return false;"
                    title="<fmt:message key="provider.appointmentProviderAdminDay.msgMasterFile"/>">
-                    <core:out value="${ param.patientName }"/>
+                    ${carlos:forHtmlContent(param.patientName)}
                 </a>
             </core:if>
 
@@ -58,7 +59,7 @@
 	        	sex
 	        </span>
                 <span>
-                        ${ param.sex }
+                        ${carlos:forHtmlContent(param.sex)}
                 </span>
             </core:if>
 
@@ -67,7 +68,7 @@
 	        	age
 	        </span>
                 <span>
-                        ${ param.age }
+                        ${carlos:forHtmlContent(param.age)}
                 </span>
             </core:if>
 
@@ -76,7 +77,7 @@
 	        	home
 	        </span>
                 <span>
-                        ${ param.phone }
+                        ${carlos:forHtmlContent(param.phone)}
                 </span>
             </core:if>
 
