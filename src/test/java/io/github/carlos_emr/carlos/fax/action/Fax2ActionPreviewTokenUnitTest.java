@@ -159,6 +159,24 @@ class Fax2ActionPreviewTokenUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should deny prepare fax when user lacks fax read privilege")
+    void shouldDenyPrepareFax_whenUserLacksFaxReadPrivilege() throws Exception {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_fax", "r", null)).thenReturn(false);
+        Fax2Action action = new Fax2Action();
+        action.setTransactionType(FaxManager.TransactionType.EFORM.name());
+        action.setTransactionId(456);
+        action.setDemographicNo(123);
+
+        assertThatThrownBy(action::prepareFax)
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_fax)");
+
+        verify(faxManager, never()).getFaxGatewayAccounts(any(LoggedInInfo.class));
+        verify(documentAttachmentManager, never()).renderEFormWithAttachments(request, response);
+        assertThat(request.getAttribute("faxFileToken")).isNull();
+    }
+
+    @Test
     @DisplayName("should render image preview when token is valid")
     void shouldRenderImagePreview_whenFaxFileTokenIsValid() throws Exception {
         Path pdf = createPreviewPdf();
@@ -363,7 +381,8 @@ class Fax2ActionPreviewTokenUnitTest extends CarlosUnitTestBase {
                 .contains("name=\"faxFileToken\"")
                 .contains("method=getPreview&faxFileToken=")
                 .doesNotContain("name=\"faxFilePath\"")
-                .doesNotContain("method=getPreview&faxFilePath=");
+                .doesNotContain("method=getPreview&faxFilePath=")
+                .doesNotContain("value=\"<carlos:encode value='${ documents }'");
     }
 
     private Fax2Action prepareAndVerifyEformFax(Path pdf) throws Exception {
@@ -376,6 +395,7 @@ class Fax2ActionPreviewTokenUnitTest extends CarlosUnitTestBase {
         assertThat(action.prepareFax()).isEqualTo("preview");
         assertThat(request.getAttribute("faxFileToken")).isNotNull();
         assertThat(request.getAttribute("faxFilePath")).isNull();
+        assertThat(request.getAttribute("documents")).isNull();
         return action;
     }
 

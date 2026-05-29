@@ -232,8 +232,6 @@
 				<input type="hidden" name="demographicNo" value="<carlos:encode value='${ not empty demographicNo ? demographicNo : param.demographicNo }' context="htmlAttribute"/>" />
 				<input type="hidden" name="faxFileToken" value="<carlos:encode value='${ faxFileToken }' context="htmlAttribute"/>" />
 		  		
-		  		<%-- to be removed soon below --%>
-		  		<input type="hidden" name="documents" value="<carlos:encode value='${ documents }' context="htmlAttribute"/>" />
 		  		<input type="hidden" name="transType" value="<carlos:encode value='${ transType }' context="htmlAttribute"/>" />
 							
 				<div class="card">

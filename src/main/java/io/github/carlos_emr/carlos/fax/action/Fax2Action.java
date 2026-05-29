@@ -62,7 +62,6 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.UUID;
@@ -392,6 +391,10 @@ public class Fax2Action extends ActionSupport {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", "r", null)) {
+            throw new SecurityException("missing required sec object (_fax)");
+        }
+
         /*
          * Fax recipient info carried forward.
          */
@@ -423,11 +426,8 @@ public class Fax2Action extends ActionSupport {
         }
 
         if (pdfPath != null) {
-            List<Path> documents = new ArrayList<>();
-            documents.add(pdfPath);
             request.setAttribute("accounts", accounts);
             request.setAttribute("demographicNo", demographicNo);
-            request.setAttribute("documents", documents);
             request.setAttribute("transactionType", transactionType.name());
             request.setAttribute("transactionId", transactionId);
             request.setAttribute(FAX_FILE_TOKEN_PARAMETER, registerPreviewPath(pdfPath));
@@ -609,7 +609,6 @@ public class Fax2Action extends ActionSupport {
         return faxFilePath;
     }
 
-    @StrutsParameter
     public void setFaxFilePath(String faxFilePath) {
         this.faxFilePath = faxFilePath;
     }
