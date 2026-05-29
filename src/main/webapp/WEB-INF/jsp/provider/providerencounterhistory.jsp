@@ -37,7 +37,6 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.EncounterDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Encounter" %>
 <%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     EncounterDao encounterDao = SpringUtils.getBean(EncounterDao.class);

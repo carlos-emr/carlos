@@ -32,7 +32,6 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ include file="/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="java.util.Map" %>
 <%@ page import="io.github.carlos_emr.carlos.provider.web.UserPreference2Action" %>

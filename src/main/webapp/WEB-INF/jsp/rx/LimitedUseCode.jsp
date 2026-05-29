@@ -42,7 +42,6 @@
 <%@ page import="io.github.carlos_emr.carlos.prescript.util.LimitedUseCode" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.util.LimitedUseLookup" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>

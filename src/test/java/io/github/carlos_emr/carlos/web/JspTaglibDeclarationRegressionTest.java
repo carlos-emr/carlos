@@ -76,6 +76,7 @@ class JspTaglibDeclarationRegressionTest {
             "fn", standardJstlUriPattern("functions"),
             "sql", standardJstlUriPattern("sql"),
             "x", standardJstlUriPattern("xml"));
+    private static final Pattern LEGACY_OWASP_ENCODER_URI = Pattern.compile("^owasp\\.encoder\\.jakarta\\.advanced$");
     /*
      * Precompile one usage regex per standard prefix. The scanner evaluates
      * every JSP asset, so building these once avoids per-file pattern churn
@@ -87,6 +88,7 @@ class JspTaglibDeclarationRegressionTest {
             "fn", taglibUsagePattern("fn"),
             "sql", taglibUsagePattern("sql"),
             "x", taglibUsagePattern("x"));
+    private static final Pattern LEGACY_OWASP_ENCODER_USAGE = taglibUsagePattern("e");
     private static final Path WEBAPP_ROOT = resolveProjectPath(Path.of("src/main/webapp"));
     private static final Path JSP_ROOT = resolveProjectPath(Path.of("src/main/webapp/WEB-INF/jsp"));
 
@@ -140,6 +142,20 @@ class JspTaglibDeclarationRegressionTest {
         assertThat(missingDeclarations).isEmpty();
     }
 
+    @Test
+    @DisplayName("should not declare legacy OWASP encoder taglib when the page does not use prefix e")
+    void shouldNotDeclareUnusedLegacyOwaspEncoderTaglib_forRepositoryReport() throws Exception {
+        List<String> unusedDeclarations = new ArrayList<>();
+
+        try (Stream<Path> files = Files.walk(WEBAPP_ROOT)) {
+            files.filter(Files::isRegularFile)
+                    .filter(JspTaglibDeclarationRegressionTest::isJspAsset)
+                    .forEach(path -> collectUnusedLegacyOwaspEncoderDeclarations(path, unusedDeclarations));
+        }
+
+        assertThat(unusedDeclarations).isEmpty();
+    }
+
     private static String readJsp(String relativePath) throws Exception {
         return Files.readString(JSP_ROOT.resolve(relativePath));
     }
@@ -164,6 +180,18 @@ class JspTaglibDeclarationRegressionTest {
                 if (usesPrefix(jsp, prefix) && !declaresPrefix(jsp, prefix, taglib.getValue())) {
                     missingDeclarations.add(WEBAPP_ROOT.relativize(path) + " missing " + prefix);
                 }
+            }
+        } catch (Exception e) {
+            throw new IllegalStateException("Unable to inspect " + path, e);
+        }
+    }
+
+    private static void collectUnusedLegacyOwaspEncoderDeclarations(Path path, List<String> unusedDeclarations) {
+        try {
+            String jsp = stripTemplateComments(Files.readString(path));
+            if (declaresPrefix(jsp, "e", LEGACY_OWASP_ENCODER_URI)
+                    && !LEGACY_OWASP_ENCODER_USAGE.matcher(jsp).find()) {
+                unusedDeclarations.add(WEBAPP_ROOT.relativize(path).toString());
             }
         } catch (Exception e) {
             throw new IllegalStateException("Unable to inspect " + path, e);

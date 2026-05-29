@@ -11,7 +11,6 @@
 <%@page import="org.owasp.encoder.Encode"%>
 <%@page import="java.net.URLEncoder"%>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <%

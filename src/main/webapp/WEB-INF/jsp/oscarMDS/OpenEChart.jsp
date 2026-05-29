@@ -30,7 +30,6 @@
 --%>
 <%@ page import="java.util.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="java.net.URLEncoder" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>

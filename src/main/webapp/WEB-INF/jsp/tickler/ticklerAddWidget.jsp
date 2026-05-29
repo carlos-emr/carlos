@@ -29,8 +29,6 @@
 
 --%>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <script class="include" type="text/javascript"
         src="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.js"></script>
