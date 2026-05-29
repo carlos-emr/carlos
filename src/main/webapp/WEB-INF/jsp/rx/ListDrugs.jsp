@@ -317,7 +317,7 @@
 			}
 			
 			%>
-            <td ><a id="prescrip_<%=prescriptIdInt%>" <%=styleColor%> href="<%= request.getContextPath() %>/rx/ViewStaticScript2?regionalIdentifier=<carlos:encode value='<%= prescriptDrug.getRegionalIdentifier() %>' context="uriComponent"/>&amp;cn=<carlos:encode value='<%= prescriptDrug.getCustomName() %>' context="uriComponent"/>&amp;bn=<carlos:encode value='<%= bn %>' context="uriComponent"/>&amp;atc=<carlos:encode value='<%= prescriptDrug.getAtc() %>' context="uriComponent"/>"   <%=tComment%>   ><%=RxPrescriptionData.getFullOutLine(prescriptDrug.getSpecial()).replaceAll(";", " ")%></a></td>
+            <td ><a id="prescrip_<%=prescriptIdInt%>" <%=styleColor%> href="<%= request.getContextPath() %>/rx/ViewStaticScript2?regionalIdentifier=<carlos:encode value='<%= prescriptDrug.getRegionalIdentifier() %>' context="uriComponent"/>&amp;cn=<carlos:encode value='<%= prescriptDrug.getCustomName() %>' context="uriComponent"/>&amp;bn=<carlos:encode value='<%= bn %>' context="uriComponent"/>&amp;atc=<carlos:encode value='<%= prescriptDrug.getAtc() %>' context="uriComponent"/>"   <%=tComment%>   ><carlos:encode value='<%= RxPrescriptionData.getFullOutLine(prescriptDrug.getSpecial()).replaceAll(";", " ") %>' context="html"/></a></td>
 			<%            			
 	           	if(securityManager.hasWriteAccess("_rx",roleName$,true)) {            		
            	%>
@@ -351,7 +351,7 @@
                 	<a id="discont_<%=prescriptIdInt%>" href="javascript:void(0);" onclick="Discontinue(event,this);" <%=styleColor%> >Discon</a>
                 <% }
                 }else{%>
-                  <%=prescriptDrug.getArchivedReason()%>
+                  <carlos:encode value='<%= prescriptDrug.getArchivedReason() %>' context="html"/>
                 <%}%>
             </td>
   <%-- DRUG REASON --%>          
@@ -393,7 +393,7 @@
 
             <td width="10px" align="center">
                 <%if (prescriptDrug.getOutsideProviderName() != null && !prescriptDrug.getOutsideProviderName().equals("")) {%>
-                <span class="external"><%=prescriptDrug.getOutsideProviderName()%></span>
+                <span class="external"><carlos:encode value='<%= prescriptDrug.getOutsideProviderName() %>' context="html"/></span>
                 <%} else {%>
                 local
                 <%}%>
@@ -523,9 +523,9 @@
                 codeDescr = codingSystemManager.getCodeDescription(drugReason.getCodingSystem(), drugReason.getCode());
             }
             if (codeDescr != null) {
-                sb.append(SafeEncode.forHtml(codeDescr));
+                sb.append(title ? SafeEncode.forHtmlAttribute(codeDescr) : SafeEncode.forHtml(codeDescr));
             } else {
-                sb.append(drugReason.getCode());
+                sb.append(title ? SafeEncode.forHtmlAttribute(drugReason.getCode()) : SafeEncode.forHtml(drugReason.getCode()));
             }
             multiLoop = true;
         }
