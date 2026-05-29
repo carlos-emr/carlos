@@ -119,7 +119,7 @@ public class AddEForm2Action extends ActionSupport {
     private EformDataManager eformDataManager = SpringUtils.getBean(EformDataManager.class);
     private DocumentAttachmentManager documentAttachmentManager = SpringUtils.getBean(DocumentAttachmentManager.class);
     private EmailManager emailManager = SpringUtils.getBean(EmailManager.class);
-    private String faxForward;
+    private String faxForwardPath;
 
     public String execute() {
 
@@ -483,10 +483,19 @@ public class AddEForm2Action extends ActionSupport {
         }
     }
 
-    public String getFaxForward() {
-        return faxForward;
+    public String getFaxForwardPath() {
+        return faxForwardPath;
     }
 
+    /**
+     * Builds the internal Struts forward path that preserves the eForm save POST for fax preview preparation.
+     *
+     * @param fdid saved eForm data id used as the fax transaction id
+     * @param demographicNo patient demographic number
+     * @param recipient optional recipient display name
+     * @param recipientFaxNumber optional recipient fax number
+     * @param letterheadFax optional sender letterhead fax value
+     */
     private void prepareFaxForward(String fdid, String demographicNo, String recipient, String recipientFaxNumber, String letterheadFax) {
         StringBuilder forward = new StringBuilder("/fax/faxAction");
         forward.append("?method=").append(URLEncoder.encode(FAX_PREPARE_METHOD, StandardCharsets.UTF_8));
@@ -507,7 +516,7 @@ public class AddEForm2Action extends ActionSupport {
         if (letterheadFax != null && !letterheadFax.isEmpty()) {
             forward.append("&letterheadFax=").append(URLEncoder.encode(letterheadFax, StandardCharsets.UTF_8));
         }
-        faxForward = forward.toString();
+        faxForwardPath = forward.toString();
     }
 
     /**

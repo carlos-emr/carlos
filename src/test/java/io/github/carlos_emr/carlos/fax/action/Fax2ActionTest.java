@@ -34,6 +34,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 
 import java.nio.file.Path;
@@ -69,11 +71,12 @@ class Fax2ActionTest extends CarlosWebTestBase {
         action = new Fax2Action();
     }
 
-    @Test
-    @DisplayName("should reject GET prepareFax with 405 before preview side effects")
-    void shouldRejectPrepareFax_whenRequestIsGet() throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD", "PUT", "DELETE", "PATCH"})
+    @DisplayName("should reject non-POST prepareFax with 405 before preview side effects")
+    void shouldRejectPrepareFax_whenRequestMethodIsNotPost(String requestMethod) throws Exception {
         allowPrivilege("_fax", "w");
-        getMockRequest().setMethod("GET");
+        getMockRequest().setMethod(requestMethod);
         addRequestParameter("method", "prepareFax");
 
         String result = executeAction(action);

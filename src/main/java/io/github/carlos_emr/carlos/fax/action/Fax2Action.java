@@ -356,7 +356,7 @@ public class Fax2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_fax)");
         }
 
-        if (!requirePost()) {
+        if (!isPostOrReject()) {
             return NONE;
         }
 
@@ -408,7 +408,12 @@ public class Fax2Action extends ActionSupport {
         return actionForward;
     }
 
-    private boolean requirePost() {
+    /**
+     * Enforces the POST-only contract for preview preparation.
+     *
+     * @return true for POST requests; false after sending HTTP 405 and {@code Allow: POST}
+     */
+    private boolean isPostOrReject() {
         if (HTTP_METHOD_POST.equalsIgnoreCase(request.getMethod())) {
             return true;
         }
