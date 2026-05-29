@@ -374,6 +374,7 @@
                                                                             String masterLink = "<a target=\"demographic" + dNo + "\" href=\"" + request.getContextPath() + "/demographic/DemographicEdit?demographic_no=" + dNo + "\">M</a>";
                                                                             String encounterLink = "<a target=\"encounter" + dNo + "\" href=\"javascript: function myFunction() {return false; }\" onClick=\"popupEChart(710,1024,'" + request.getContextPath() + "/encounter/IncomingEncounter?demographicNo=" + dNo + "&providerNo=" + loggedInInfo.getLoggedInProviderNo() + "&appointmentNo=&curProviderNo=&reason=&appointmentDate=&startTime=&status=&userName=" + URLEncoder.encode(userfirstname + " " + userlastname, StandardCharsets.UTF_8) + "&curDate=" + dateString + "');return false;\">E</a>";
                                                                     %>
+                                                                    <%-- SDM/EC and link fragments are server-generated markup; encode only patient-controlled text fields here. --%>
                                                                     <li><span
                                                                             class="label"><carlos:encode value='<%= StringUtils.trimToEmpty((String) relHash.get("relation")) %>' context="html"/><%=sdb%><%=ec%>:</span>
                                                                         <span class="info"><carlos:encode value='<%= StringUtils.trimToEmpty((String) relHash.get("lastName")) %>' context="html"/>, <carlos:encode value='<%= StringUtils.trimToEmpty((String) relHash.get("firstName")) %>' context="html"/>, H:<carlos:encode value='<%= relHash.get("phone") == null ? "" : relHash.get("phone").toString() %>' context="html"/><carlos:encode value='<%= formattedWorkPhone %>' context="html"/><carlos:encode value='<%= formattedCellPhone %>' context="html"/> <%=masterLink%> <%=encounterLink %></span>
@@ -410,6 +411,7 @@
                                                                             }
                                                                     %>
 
+                                                                    <%-- SDM/EC badges and masterLink are server-generated markup; encode only contact text fields here. --%>
                                                                     <li><span
                                                                             class="label"><carlos:encode value='<%= dContact.getRole() %>' context="html"/>:</span>
                                                                         <span class="info"><carlos:encode value='<%= dContact.getContactName() %>' context="html"/><%=sdm%><%=ec%> <%=masterLink != null ? masterLink : "" %></span>
