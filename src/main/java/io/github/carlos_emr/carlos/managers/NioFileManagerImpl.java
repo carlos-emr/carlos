@@ -504,7 +504,7 @@ public class NioFileManagerImpl implements NioFileManager {
             try {
                 sourceFile = PathValidationUtils.validateUpload(new File(tempFilePath));
             } catch (SecurityException e) {
-                log.error("Invalid source file path for Oscar document copy: {}; reason: {}",
+                log.error("Invalid source file path for Oscar document copy (upload validation failed): {}; reason: {}",
                         LogSafe.sanitize(tempFilePath, 1024), e.getMessage());
                 log.debug("Rejected Oscar document copy source", e);
                 return null;
@@ -526,7 +526,7 @@ public class NioFileManagerImpl implements NioFileManager {
             log.error("An error occurred while moving the PDF file", e);
             return null;
         } catch (SecurityException e) {
-            log.error("Invalid destination file path for Oscar document copy: {}; reason: {}",
+            log.error("Invalid destination file path for Oscar document copy (destination validation failed): {}; reason: {}",
                     LogSafe.sanitize(tempFilePath, 1024), e.getMessage());
             log.debug("Rejected Oscar document copy destination", e);
             return null;

@@ -38,7 +38,7 @@ import java.nio.file.Path;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@DisplayName("NioFileManagerImpl copyFileToOscarDocuments")
+@DisplayName("NioFileManagerImpl copyFileToOscarDocuments path validation")
 @Tag("unit")
 @Tag("fast")
 @Tag("manager")
@@ -57,7 +57,7 @@ class NioFileManagerImplCopyFileUnitTest {
 
     @Test
     @DisplayName("should copy approved temp source into CARLOS documents")
-    void shouldCopyApprovedTempSource_whenSourceIsInAllowedTempDirectory() throws IOException {
+    void shouldCopyApprovedSource_whenSourceIsInAllowedTempDirectory() throws IOException {
         Path source = Files.createTempFile("copy-approved-", ".pdf");
         Files.writeString(source, "approved temp source", StandardCharsets.UTF_8);
 
