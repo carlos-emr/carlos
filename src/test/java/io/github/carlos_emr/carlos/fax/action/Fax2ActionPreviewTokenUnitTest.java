@@ -215,6 +215,43 @@ class Fax2ActionPreviewTokenUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should render token preview when job id is invalid")
+    void shouldRenderPreview_whenJobIdIsInvalidAndTokenIsValid() throws Exception {
+        Path pdf = createPreviewPdf();
+        Fax2Action action = prepareAndVerifyEformFax(pdf);
+        String token = (String) request.getAttribute("faxFileToken");
+        request.setParameter("jobId", "not-a-number");
+        request.setParameter("faxFileToken", token);
+        when(faxManager.resolveAndValidateFilePath(pdf.toString())).thenReturn(pdf);
+
+        action.getPreview();
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getContentType()).isEqualTo("application/pdf");
+        assertThat(response.getContentAsByteArray()).containsExactly(Files.readAllBytes(pdf));
+        verify(faxManager, never()).getFaxJob(eq(loggedInInfo), any(Integer.class));
+    }
+
+    @Test
+    @DisplayName("should default preview page when page number is invalid")
+    void shouldDefaultPreviewPage_whenPageNumberIsInvalid() throws Exception {
+        Path pdf = createPreviewPdf();
+        Path image = tempDir.resolve("preview page.png");
+        Files.write(image, "PNG-test".getBytes(StandardCharsets.UTF_8));
+        Fax2Action action = prepareAndVerifyEformFax(pdf);
+        String token = (String) request.getAttribute("faxFileToken");
+        request.setParameter("faxFileToken", token);
+        request.setParameter("showAs", "image");
+        request.setParameter("pageNumber", "bad-page");
+        when(faxManager.getFaxPreviewImage(loggedInInfo, pdf.toString(), 1)).thenReturn(image);
+
+        action.getPreview();
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        verify(faxManager).getFaxPreviewImage(loggedInInfo, pdf.toString(), 1);
+    }
+
+    @Test
     @DisplayName("should use token path, not tampered path, when queueing fax")
     void shouldUseTokenPathNotTamperedPath_whenQueueingFax() throws Exception {
         Path pdf = createPreviewPdf();

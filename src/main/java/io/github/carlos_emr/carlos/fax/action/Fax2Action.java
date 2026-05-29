@@ -313,8 +313,9 @@ public class Fax2Action extends ActionSupport {
 
     private String resolvePreviewFaxFilePath(LoggedInInfo loggedInInfo) {
         String jobId = request.getParameter("jobId");
-        if (jobId != null && !jobId.isEmpty()) {
-            FaxJob faxJob = faxManager.getFaxJob(loggedInInfo, Integer.parseInt(jobId));
+        Integer parsedJobId = parseOptionalInteger(jobId, "jobId");
+        if (parsedJobId != null) {
+            FaxJob faxJob = faxManager.getFaxJob(loggedInInfo, parsedJobId);
             if (faxJob != null) {
                 return faxJob.getFile_name();
             }
@@ -328,11 +329,20 @@ public class Fax2Action extends ActionSupport {
     }
 
     private int parsePreviewPageNumber() {
-        String pageNumber = request.getParameter("pageNumber");
-        if (pageNumber != null && !pageNumber.isEmpty()) {
-            return Integer.parseInt(pageNumber);
+        Integer pageNumber = parseOptionalInteger(request.getParameter("pageNumber"), "pageNumber");
+        return pageNumber != null ? pageNumber : 1;
+    }
+
+    private Integer parseOptionalInteger(String value, String parameterName) {
+        if (value == null || value.isEmpty()) {
+            return null;
         }
-        return 1;
+        try {
+            return Integer.valueOf(value);
+        } catch (NumberFormatException e) {
+            logger.warn("Invalid fax preview numeric request parameter: {}", parameterName);
+            return null;
+        }
     }
 
     private Path resolvePreviewOutput(LoggedInInfo loggedInInfo, String previewFaxFilePath, String showAs, int page) {
