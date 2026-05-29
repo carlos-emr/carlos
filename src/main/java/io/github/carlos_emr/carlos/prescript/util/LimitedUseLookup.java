@@ -31,6 +31,7 @@ package io.github.carlos_emr.carlos.prescript.util;
 
 import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -46,7 +47,9 @@ import org.jdom2.filter.ElementFilter;
 import org.jdom2.input.SAXBuilder;
 import io.github.carlos_emr.carlos.commn.dao.ResourceStorageDao;
 import io.github.carlos_emr.carlos.commn.model.ResourceStorage;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
 
@@ -63,7 +66,7 @@ public class LimitedUseLookup {
     private static Logger log = MiscUtils.getLogger();
 
     static Hashtable<String, ArrayList<LimitedUseCode>> luLookup = new Hashtable<String, ArrayList<LimitedUseCode>>();
-    static boolean loaded = false;
+    static volatile boolean loaded = false;
 
     /**
      * Creates a new instance of RenalDosingFactory
@@ -95,7 +98,7 @@ public class LimitedUseLookup {
         return "";
     }
 
-    static public void reLoadLookupInformation() {
+    static public synchronized void reLoadLookupInformation() {
         loaded = false;
         loadLULookupInformation();
     }
@@ -103,65 +106,79 @@ public class LimitedUseLookup {
     static private void loadLULookupInformation() {
         log.debug("current LU lookup size " + luLookup.size());
         if (!loaded) {
-            LimitedUseLookup rdf = new LimitedUseLookup();
-            InputStream is = null;
-            ResourceStorageDao resourceStorageDao = SpringUtils.getBean(ResourceStorageDao.class);
-            try {
-
-                String fileName = CarlosProperties.getInstance().getProperty("odb_formulary_file");
-                if (fileName != null && !fileName.isEmpty()) {
-                    is = new BufferedInputStream(new FileInputStream(fileName));
-                    log.info("loading odb file from property " + fileName);
-
-                } else {
-                    ResourceStorage resourceStorage = resourceStorageDao.findActive(ResourceStorage.LU_CODES);
-                    if (resourceStorage != null) {
-                        is = new ByteArrayInputStream(resourceStorage.getFileContents());
-                        log.info("loading odb file from resource storage id" + resourceStorage.getId());
-                    } else {
-                        String dosing = "oscar/oscarRx/data_extract_20250730.xml";
-                        log.info("loading odb file from internal resource " + dosing);
-                        is = rdf.getClass().getClassLoader().getResourceAsStream(dosing);
-                    }
-                }
-
-                SAXBuilder parser = XmlUtils.createSecureSAXBuilder();
-                Document doc = parser.build(is);
-                Element root = doc.getRootElement();
-                Element formulary = root.getChild("formulary");
-                @SuppressWarnings("unchecked")
-                Iterator<Element> items = formulary.getDescendants(new ElementFilter("pcgGroup"));
-
-                while (items.hasNext()) {
-                    Element pcgGroup = items.next();
-                    @SuppressWarnings("unchecked")
-                    List<Element> lccNoteList = pcgGroup.getChildren("lccNote");
-
-                    if (lccNoteList.size() > 0) {
-                        ArrayList<LimitedUseCode> luList = new ArrayList<LimitedUseCode>();
-                        for (Element lccNo : lccNoteList) {
-                            luList.add(makeLUNote(lccNo));
-                        }
-
-                        @SuppressWarnings("unchecked")
-                        Iterator<Element> drugs = pcgGroup.getDescendants(new ElementFilter("drug"));
-                        while (drugs.hasNext()) {
-                            Element drug = drugs.next();
-                            String din = drug.getAttribute("id").getValue();
-                            luLookup.put(din, luList);
-                        }
-                    }
-                }
-
-                loaded = true;
-            } catch (Exception e) {
-                MiscUtils.getLogger().error("Error", e);
-            } finally {
-                if (is != null) {
+            synchronized (LimitedUseLookup.class) {
+                if (!loaded) {
+                    LimitedUseLookup rdf = new LimitedUseLookup();
+                    InputStream is = null;
+                    ResourceStorageDao resourceStorageDao = SpringUtils.getBean(ResourceStorageDao.class);
                     try {
-                        is.close();
-                    } catch (IOException e) {
+
+                        String fileName = CarlosProperties.getInstance().getProperty("odb_formulary_file");
+                        if (fileName != null && !fileName.isEmpty()) {
+                            File formularyFile = new File(fileName);
+                            try {
+                                formularyFile = PathValidationUtils.validateExistingPath(formularyFile,
+                                        formularyFile.getParentFile());
+                                is = new BufferedInputStream(new FileInputStream(formularyFile));
+                                log.info("loading odb file from property " + LogSafe.sanitize(fileName, 1024));
+                            } catch (SecurityException e) {
+                                log.error("Formulary file path validation failed, skipping property source: {}",
+                                        LogSafe.sanitize(fileName, 1024), e);
+                            }
+
+                        }
+
+                        if (is == null) {
+                            ResourceStorage resourceStorage = resourceStorageDao.findActive(ResourceStorage.LU_CODES);
+                            if (resourceStorage != null) {
+                                is = new ByteArrayInputStream(resourceStorage.getFileContents());
+                                log.info("loading odb file from resource storage id" + resourceStorage.getId());
+                            } else {
+                                String dosing = "oscar/oscarRx/data_extract_20250730.xml";
+                                log.info("loading odb file from internal resource " + dosing);
+                                is = rdf.getClass().getClassLoader().getResourceAsStream(dosing);
+                            }
+                        }
+
+                        SAXBuilder parser = XmlUtils.createSecureSAXBuilder();
+                        Document doc = parser.build(is);
+                        Element root = doc.getRootElement();
+                        Element formulary = root.getChild("formulary");
+                        @SuppressWarnings("unchecked")
+                        Iterator<Element> items = formulary.getDescendants(new ElementFilter("pcgGroup"));
+
+                        while (items.hasNext()) {
+                            Element pcgGroup = items.next();
+                            @SuppressWarnings("unchecked")
+                            List<Element> lccNoteList = pcgGroup.getChildren("lccNote");
+
+                            if (lccNoteList.size() > 0) {
+                                ArrayList<LimitedUseCode> luList = new ArrayList<LimitedUseCode>();
+                                for (Element lccNo : lccNoteList) {
+                                    luList.add(makeLUNote(lccNo));
+                                }
+
+                                @SuppressWarnings("unchecked")
+                                Iterator<Element> drugs = pcgGroup.getDescendants(new ElementFilter("drug"));
+                                while (drugs.hasNext()) {
+                                    Element drug = drugs.next();
+                                    String din = drug.getAttribute("id").getValue();
+                                    luLookup.put(din, luList);
+                                }
+                            }
+                        }
+
+                        loaded = true;
+                    } catch (Exception e) {
                         MiscUtils.getLogger().error("Error", e);
+                    } finally {
+                        if (is != null) {
+                            try {
+                                is.close();
+                            } catch (IOException e) {
+                                MiscUtils.getLogger().error("Error", e);
+                            }
+                        }
                     }
                 }
             }
