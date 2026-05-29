@@ -120,6 +120,7 @@
 			s.setUsingMfa(Boolean.TRUE);
 		} else {
 			s.setUsingMfa(Boolean.FALSE);
+			s.setMfaSecret(null);
 		}
 
                 s.setLastUpdateDate(new java.util.Date());
