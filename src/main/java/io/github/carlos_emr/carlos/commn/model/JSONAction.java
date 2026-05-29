@@ -13,6 +13,9 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
 
+/**
+ * Struts action class handling incoming web requests for JSON operations and directing application flow.
+ */
 public class JSONAction extends ActionSupport {
 
     private final String ENCODING = "UTF-8";

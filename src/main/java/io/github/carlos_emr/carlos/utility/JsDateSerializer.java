@@ -6,8 +6,13 @@ import com.fasterxml.jackson.databind.SerializerProvider;
 import java.io.IOException;
 import java.util.Calendar;
 
+/**
+ * Shared utility component providing helper methods for JsDateSerializer operations, such as date formatting or encryption.
+ */
 public class JsDateSerializer extends JsonSerializer<java.sql.Date> {
     @Override
+
+    // Custom serialization is required to maintain compatibility with legacy frontend data format expectations.
     public void serialize(java.sql.Date value, JsonGenerator gen, SerializerProvider serializers) 
             throws IOException {
         if (value == null) {

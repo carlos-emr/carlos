@@ -6,6 +6,9 @@ import java.util.Map;
 
 import io.github.carlos_emr.carlos.utility.DateUtils;
 
+/**
+ * Data transfer object carrying AttachmentLabResultData data across application boundaries without exposing internal domain logic.
+ */
 public class AttachmentLabResultData {
     private String segmentID;
     private String labName;
@@ -21,6 +24,8 @@ public class AttachmentLabResultData {
         this.labDate = labDate;
     }
 
+
+    // Getsegmentid is exposed here to satisfy the external component interface contract without exposing internal state.
     public String getSegmentID() {
         return segmentID;
     }

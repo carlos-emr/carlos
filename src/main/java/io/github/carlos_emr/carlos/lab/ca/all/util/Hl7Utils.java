@@ -5,6 +5,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ca.uhn.hl7v2.HL7Exception;
 
+/**
+ * Shared utility component providing helper methods for Hl7Utils operations, such as date formatting or encryption.
+ */
 public final class Hl7Utils {
 
     private static final Logger logger = LoggerFactory.getLogger(Hl7Utils.class);

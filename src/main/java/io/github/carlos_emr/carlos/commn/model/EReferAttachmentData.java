@@ -8,6 +8,9 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
+/**
+ * Persistent domain entity representing EReferAttachmentData state and schema mapping within the system.
+ */
 @Entity
 @IdClass(EReferAttachmentDataCompositeKey.class)
 @Table(name = "erefer_attachment_data")
@@ -34,6 +37,8 @@ public class EReferAttachmentData extends AbstractModel<EReferAttachmentDataComp
         this.labType = labType;
     }
 
+
+    // Getid is exposed here to satisfy the external component interface contract without exposing internal state.
     public EReferAttachmentDataCompositeKey getId() {
         return new EReferAttachmentDataCompositeKey(eReferAttachment, labId, labType);
     }

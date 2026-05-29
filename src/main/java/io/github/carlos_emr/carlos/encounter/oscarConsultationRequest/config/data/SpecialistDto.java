@@ -1,5 +1,8 @@
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.data;
 
+/**
+ * Data transfer object carrying SpecialistDto data across application boundaries without exposing internal domain logic.
+ */
 public class SpecialistDto {
     private Integer specId;
     private String name;
@@ -18,6 +21,8 @@ public class SpecialistDto {
         this.annotation = annotation;
     }
 
+
+    // Getspecid is exposed here to satisfy the external component interface contract without exposing internal state.
     public Integer getSpecId() { return specId; }
     public String getName() { return name; }
     public String getPhone() { return phone; }

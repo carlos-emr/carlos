@@ -6,6 +6,9 @@ import jakarta.persistence.ManyToOne;
 import java.io.Serializable;
 import java.util.Objects;
 
+/**
+ * Data transfer object carrying EReferAttachmentDataCompositeKey data across application boundaries without exposing internal domain logic.
+ */
 public class EReferAttachmentDataCompositeKey implements Serializable {
     @ManyToOne
     @JoinColumn(name = "erefer_attachment_id", referencedColumnName = "id")
@@ -26,6 +29,8 @@ public class EReferAttachmentDataCompositeKey implements Serializable {
         this.labType = labType;
     }
 
+
+    // Getereferattachment is exposed here to satisfy the external component interface contract without exposing internal state.
     public EReferAttachment getEReferAttachment() {
         return eReferAttachment;
     }

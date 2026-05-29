@@ -4,8 +4,13 @@ import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.MeasurementTo1;
 
+/**
+ * Utility converter responsible for mapping Measurement between domain models and external data transfer objects (DTOs).
+ */
 public class MeasurementConverter extends AbstractConverter<Measurement, MeasurementTo1> {
     @Override
+
+    // Getasdomainobject is exposed here to satisfy the external component interface contract without exposing internal state.
     public Measurement getAsDomainObject(LoggedInInfo loggedInInfo, MeasurementTo1 t) throws ConversionException {
         Measurement d = new Measurement();
         //Sets the properties

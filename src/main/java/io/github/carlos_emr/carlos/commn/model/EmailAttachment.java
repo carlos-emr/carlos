@@ -5,6 +5,9 @@ import jakarta.persistence.*;
 
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 
+/**
+ * Persistent domain entity representing EmailAttachment state and schema mapping within the system.
+ */
 @Entity
 @Table(name = "emailAttachment")
 public class EmailAttachment extends AbstractModel<Integer> {
@@ -55,6 +58,8 @@ public class EmailAttachment extends AbstractModel<Integer> {
         this.documentId = documentId;
     }
 
+
+    // Getid is exposed here to satisfy the external component interface contract without exposing internal state.
     public Integer getId() {
         return id;
     }

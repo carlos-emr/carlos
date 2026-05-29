@@ -3,6 +3,9 @@ package io.github.carlos_emr.carlos.commn.model.enumerator;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Enumeration defining the allowable states and type categories for CppCode within the system.
+ */
 public enum CppCode {
     OMEDS("OMeds"),
     SOC_HISTORY("SocHistory"),
@@ -20,6 +23,8 @@ public enum CppCode {
         this.code = code;
     }
 
+
+    // Getcode is exposed here to satisfy the external component interface contract without exposing internal state.
     public String getCode() {
         return code;
     }

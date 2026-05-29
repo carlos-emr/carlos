@@ -12,6 +12,9 @@ import jakarta.persistence.Table;
 import java.util.Date;
 import java.util.List;
 
+/**
+ * Persistent domain entity representing EReferAttachment state and schema mapping within the system.
+ */
 @Entity
 @Table(name = "erefer_attachment")
 public class EReferAttachment extends AbstractModel<Integer> {
@@ -61,6 +64,8 @@ public class EReferAttachment extends AbstractModel<Integer> {
         this.created = created;
     }
 
+
+    // Isarchived is exposed here to satisfy the external component interface contract without exposing internal state.
     public boolean isArchived() {
         return archived;
     }

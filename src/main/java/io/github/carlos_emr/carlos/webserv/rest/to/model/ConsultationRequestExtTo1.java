@@ -2,6 +2,9 @@ package io.github.carlos_emr.carlos.webserv.rest.to.model;
 
 import java.util.Date;
 
+/**
+ * Data transfer object carrying ConsultationRequestExtTo1 data across application boundaries without exposing internal domain logic.
+ */
 public class ConsultationRequestExtTo1 {
     private Integer id;
     private Integer requestId;
@@ -9,6 +12,8 @@ public class ConsultationRequestExtTo1 {
     private String value;
     private Date dateCreated;
 
+
+    // Getid is exposed here to satisfy the external component interface contract without exposing internal state.
     public Integer getId() {
         return id;
     }

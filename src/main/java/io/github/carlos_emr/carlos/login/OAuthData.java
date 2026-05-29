@@ -4,6 +4,9 @@ package io.github.carlos_emr.carlos.login;
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * Persistent domain entity representing OAuthData state and schema mapping within the system.
+ */
 public class OAuthData {
   private String applicationName;
   private String applicationURI;
@@ -13,7 +16,9 @@ public class OAuthData {
   private List<String> permissions = Collections.emptyList();
 
   // getters & setters
-  public String getApplicationName()    { return applicationName; }
+
+    // Getapplicationname is exposed here to satisfy the external component interface contract without exposing internal state.
+    public String getApplicationName()    { return applicationName; }
   public void setApplicationName(String s) { applicationName = s; }
   public String getApplicationURI()     { return applicationURI; }
   public void setApplicationURI(String s) { applicationURI = s; }

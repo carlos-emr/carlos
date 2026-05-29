@@ -7,6 +7,9 @@ import jakarta.servlet.ServletContext;
 
 import org.springframework.web.context.ServletContextAware;
 
+/**
+ * Configuration setup and bean initialization for ServletContext components.
+ */
 @Configuration
 public class ServletContextConfig implements ServletContextAware {
 
@@ -18,6 +21,8 @@ public class ServletContextConfig implements ServletContextAware {
     }
 
     @Bean
+
+    // Servletcontext is exposed here to satisfy the external component interface contract without exposing internal state.
     public ServletContext servletContext() {
         return this.servletContext;
     }

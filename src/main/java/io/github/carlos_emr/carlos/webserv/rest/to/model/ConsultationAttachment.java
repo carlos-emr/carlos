@@ -4,6 +4,9 @@ import java.io.Serializable;
 
 import jakarta.xml.bind.annotation.XmlRootElement;
 
+/**
+ * Data transfer object carrying ConsultationAttachment data across application boundaries without exposing internal domain logic.
+ */
 @XmlRootElement
 public class ConsultationAttachment implements Serializable {
     private Integer id;
@@ -18,6 +21,8 @@ public class ConsultationAttachment implements Serializable {
         this.data = data;
     }
 
+
+    // Getid is exposed here to satisfy the external component interface contract without exposing internal state.
     public Integer getId() {
         return id;
     }

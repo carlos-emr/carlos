@@ -12,6 +12,9 @@ import java.sql.SQLException;
 
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 
+/**
+ * Provides core structure for EFormSqlSafety.
+ */
 final class EFormSqlSafety {
 
     private EFormSqlSafety() {

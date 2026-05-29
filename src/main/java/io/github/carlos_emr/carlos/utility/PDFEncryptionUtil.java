@@ -9,6 +9,9 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.encryption.AccessPermission;
 import org.apache.pdfbox.pdmodel.encryption.StandardProtectionPolicy;
 
+/**
+ * Shared utility component providing helper methods for PDFEncryptionUtil operations, such as date formatting or encryption.
+ */
 public class PDFEncryptionUtil {
     public static Path encryptPDF(Path pdfPath, String password) throws IOException {
         try (PDDocument pdDocument = Loader.loadPDF(pdfPath.toFile())) {
