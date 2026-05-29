@@ -65,7 +65,12 @@ public class AddDemographicRelationship2Action extends ActionSupport {
 
     public String execute() {
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "w", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            throw new SecurityException("missing required session");
+        }
+
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
 
@@ -136,7 +141,7 @@ public class AddDemographicRelationship2Action extends ActionSupport {
         CtlRelationships cr = ctlRelationshipsDao.findByValue(relation);
         if (cr != null && ((cr.getMaleInverse() != null && cr.getMaleInverse().length() > 0) || (cr.getFemaleInverse() != null && cr.getFemaleInverse().length() > 0))) {
             //need sex of the relation
-            Demographic d = demographicManager.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), origDemo);
+            Demographic d = demographicManager.getDemographic(loggedInInfo, origDemo);
             if (d != null && d.getSex().equalsIgnoreCase("M")) {
                 relation = cr.getMaleInverse();
                 relationset = true;

@@ -66,7 +66,12 @@ public class ImportLogDownload2Action extends ActionSupport {
 
     public String execute() throws FileNotFoundException, IOException {
         // Security check - user must have demographic read privileges
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            throw new SecurityException("missing required session");
+        }
+
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
             throw new SecurityException("missing required security object _demographic");
         }
 

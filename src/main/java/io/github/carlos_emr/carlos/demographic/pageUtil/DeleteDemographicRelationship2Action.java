@@ -65,7 +65,12 @@ public class DeleteDemographicRelationship2Action extends ActionSupport {
 
     public String execute() {
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "w", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            throw new SecurityException("missing required session");
+        }
+
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
 
@@ -78,7 +83,7 @@ public class DeleteDemographicRelationship2Action extends ActionSupport {
         demo.deleteDemographicRelationship(idRel);
 
         String ip = request.getRemoteAddr();
-        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.DELETE, LogConst.CON_DEMOGRAPHIC_RELATION, id, ip);
+        LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.DELETE, LogConst.CON_DEMOGRAPHIC_RELATION, id, ip);
         request.setAttribute("demo", origDemo);
         return SUCCESS;
     }
