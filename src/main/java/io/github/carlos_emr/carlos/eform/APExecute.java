@@ -31,10 +31,13 @@
 package io.github.carlos_emr.carlos.eform;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 
+import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.eform.data.DatabaseAP;
@@ -77,17 +80,17 @@ public class APExecute {
             return "";
         }
 
-        String sql = DatabaseAP.parserReplace("demographic", demographicNo, dap.getApSQL());
+        Map<String, Object> replacements = new HashMap<>();
+        replacements.put("demographic", demographicNo);
+        ParameterizedSql query = DatabaseAP.parameterizeSql(dap.getApSQL(), replacements);
         String output = dap.getApOutput();
-        MiscUtils.getLogger().debug("SQL----" + sql);
         ArrayList<String> names = DatabaseAP.parserGetNames(output); //a list of ${apName} --> apName
-        sql = DatabaseAP.parserClean(sql);  //replaces all other ${apName} expressions with 'apName'
 
         if (dap.isJsonOutput()) {
-            ArrayNode values = EFormUtil.getJsonValues(names, sql);
+            ArrayNode values = EFormUtil.getJsonValues(names, query);
             output = values.toString(); //in case of JsonOutput, return the whole JSONArray and let the javascript deal with it
         } else {
-            ArrayList<String> values = EFormUtil.getValues(names, sql);
+            ArrayList<String> values = EFormUtil.getValues(names, query);
             if (values.size() != names.size()) {
                 output = "";
             } else {
@@ -117,16 +120,15 @@ public class APExecute {
             return "";
         }
 
-        String sql = DatabaseAP.parserReplace("invoiceNo", String.valueOf(invoiceNo), dap.getApSQL());
-        sql = DatabaseAP.parserReplace("demographic", demographicNo, sql);
+        Map<String, Object> replacements = new HashMap<>();
+        replacements.put("invoiceNo", invoiceNo);
+        replacements.put("demographic", demographicNo);
+        ParameterizedSql query = DatabaseAP.parameterizeSql(dap.getApSQL(), replacements);
 
         String output = dap.getApOutput();
-        MiscUtils.getLogger().debug("SQL----" + sql);
-
         ArrayList<String> names = DatabaseAP.parserGetNames(output);
-        sql = DatabaseAP.parserClean(sql);
 
-        ArrayList<String> values = EFormUtil.getValues(names, sql);
+        ArrayList<String> values = EFormUtil.getValues(names, query);
         if (values.size() != names.size()) {
             output = "";
         } else {

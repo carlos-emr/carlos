@@ -28,9 +28,11 @@
  */
 package io.github.carlos_emr.carlos.billing.CA.BC.dao;
 
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 import jakarta.persistence.Query;
 
@@ -44,6 +46,28 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 @Repository
 @SuppressWarnings("unchecked")
 public class Hl7LinkDao extends AbstractDaoImpl<Hl7Link> {
+    private static final String UNLINKED_LABS_PROVIDER = "-ULL";
+    private static final String ALL_PROVIDER_LABS_PROVIDER = "-APL";
+    private static final String UNASSIGNED_PATIENTS_PROVIDER = "-UAP";
+
+    /**
+     * ORDER BY fragments are a SQL-injection boundary: every request value must resolve
+     * to one of these literal fragments or fall back to the default. ORDER BY cannot
+     * be bound as a JPA parameter because SQL requires literal column references in
+     * this clause. The last_name key intentionally uses the selected column/alias so
+     * it works for both provider-linked rows and unlinked rows with blank aliases.
+     */
+    private static final String DEFAULT_REPORTS_ORDER_BY = "hl7_pid.pid_id";
+    private static final Map<String, String> REPORTS_ORDER_BY = Map.of(
+            "pid_id", DEFAULT_REPORTS_ORDER_BY,
+            "patient_name", "hl7_pid.patient_name",
+            "ordering_provider", "hl7_obr.ordering_provider",
+            "result_copies_to", "hl7_obr.result_copies_to",
+            "status", "hl7_link.status",
+            "signed_on", "hl7_link.signed_on",
+            "last_name", "last_name",
+            "date_time", "hl7_message.date_time"
+    );
 
     public Hl7LinkDao() {
         super(Hl7Link.class);
@@ -97,32 +121,71 @@ public class Hl7LinkDao extends AbstractDaoImpl<Hl7Link> {
 
     @NativeSql({"hl7_pid", "hl7_link", "hl7_obr", "hl7_message"})
     public List<Object[]> findReports(Date start, Date end, String provider_no, String orderby, String command) {
-        String select_reports_by_provider = "SELECT DISTINCT hl7_pid.pid_id, hl7_pid.patient_name, hl7_obr.ordering_provider, hl7_obr.result_copies_to, hl7_link.status, hl7_link.signed_on, provider.last_name, provider.first_name, hl7_message.date_time  FROM hl7_link, demographic, hl7_pid, hl7_obr, hl7_message, provider WHERE demographic.provider_no = provider.provider_no AND hl7_link.pid_id=hl7_obr.pid_id AND hl7_link.pid_id=hl7_pid.pid_id AND demographic.provider_no='@provider_no' AND hl7_message.message_id=hl7_pid.message_id AND demographic.demographic_no=hl7_link.demographic_no AND hl7_link.status!='P'";
+        String select_reports_by_provider = "SELECT DISTINCT hl7_pid.pid_id, hl7_pid.patient_name, hl7_obr.ordering_provider, hl7_obr.result_copies_to, hl7_link.status, hl7_link.signed_on, provider.last_name, provider.first_name, hl7_message.date_time  FROM hl7_link, demographic, hl7_pid, hl7_obr, hl7_message, provider WHERE demographic.provider_no = provider.provider_no AND hl7_link.pid_id=hl7_obr.pid_id AND hl7_link.pid_id=hl7_pid.pid_id AND demographic.provider_no = :providerNo AND hl7_message.message_id=hl7_pid.message_id AND demographic.demographic_no=hl7_link.demographic_no AND hl7_link.status!='P'";
         String select_reports_linked_to_providers = "SELECT DISTINCT hl7_pid.pid_id, hl7_pid.patient_name, hl7_obr.ordering_provider, hl7_obr.result_copies_to, hl7_link.status, hl7_link.signed_on, provider.last_name, provider.first_name, hl7_message.date_time  FROM hl7_link, demographic, hl7_pid, hl7_obr, hl7_message, provider WHERE demographic.provider_no = provider.provider_no AND hl7_link.pid_id=hl7_obr.pid_id AND hl7_link.pid_id=hl7_pid.pid_id AND hl7_message.message_id=hl7_pid.message_id AND demographic.demographic_no=hl7_link.demographic_no AND hl7_link.status!='P'";
         String select_unlinked_labs = "SELECT DISTINCT hl7_pid.pid_id, hl7_pid.patient_name, hl7_obr.ordering_provider, hl7_obr.result_copies_to, hl7_link.status, hl7_link.signed_on, hl7_message.date_time, '' as `last_name`, '' as `first_name` FROM hl7_pid left join hl7_link on hl7_link.pid_id=hl7_pid.pid_id left join hl7_obr on hl7_pid.pid_id=hl7_obr.pid_id left join hl7_message on hl7_message.message_id=hl7_pid.message_id WHERE hl7_link.status='P' OR hl7_link.status is null";
-        String sqlWhere = (start != null ? " AND hl7_message.date_time >= '" + ConversionUtils.toDateString(start) + " 00:00:00'" : "") +
-                (end != null ? " AND hl7_message.date_time <= '" + ConversionUtils.toTimeString(end) + " 23:59:59'" : "");
-        String sqlOrderBy = " ORDER BY @orderby";
+        String sqlWhere = (start != null ? " AND hl7_message.date_time >= :startDate" : "") +
+                (end != null ? " AND hl7_message.date_time <= :endDate" : "");
+        String sqlOrderBy = " ORDER BY " + getReportsOrderBy(orderby);
 
         String sql = null;
+        boolean requiresProviderNo = false;
+        String providerNoParameter = null;
         if (command != null && !command.equals("")) {
-            if ("-ULL".equals(provider_no)) {
+            if (UNLINKED_LABS_PROVIDER.equals(provider_no)) {
                 sql = select_unlinked_labs;
-            } else if ("-APL".equals(provider_no)) {
+            } else if (ALL_PROVIDER_LABS_PROVIDER.equals(provider_no)) {
                 sql = select_reports_linked_to_providers;
-            } else if ("-UAP".equals(provider_no)) {
+            } else if (UNASSIGNED_PATIENTS_PROVIDER.equals(provider_no)) {
                 sql = select_reports_by_provider;
+                requiresProviderNo = true;
+                // Legacy unassigned-patient reports are stored with a blank provider_no.
+                providerNoParameter = "";
             } else {
                 sql = select_reports_by_provider;
+                requiresProviderNo = true;
+                providerNoParameter = provider_no;
             }
             sql += sqlWhere + sqlOrderBy;
-            sql = sql.replaceAll("@provider_no", provider_no.replaceAll("-UAP", "")).replaceAll("@orderby", orderby);
 
             Query query = entityManager.createNativeQuery(sql);
+            if (requiresProviderNo) {
+                query.setParameter("providerNo", providerNoParameter);
+            }
+            if (start != null) {
+                query.setParameter("startDate", toStartOfDayTimestamp(start));
+            }
+            if (end != null) {
+                query.setParameter("endDate", toEndOfDayTimestamp(end));
+            }
             return query.getResultList();
         }
 
         return new ArrayList<Object[]>();
+    }
+
+    /**
+     * Resolves a request-supplied report sort key to a safe SQL ORDER BY fragment.
+     * This method is part of the SQL injection defense: input such as
+     * {@code pid_id; DROP TABLE hl7_link} is not returned and instead falls back to
+     * the default sort fragment.
+     *
+     * @param orderby request-supplied sort key
+     * @return allowlisted SQL fragment, or the default fragment when unrecognized
+     */
+    private String getReportsOrderBy(String orderby) {
+        if (orderby == null) {
+            return DEFAULT_REPORTS_ORDER_BY;
+        }
+        return REPORTS_ORDER_BY.getOrDefault(orderby.trim(), DEFAULT_REPORTS_ORDER_BY);
+    }
+
+    private static Timestamp toStartOfDayTimestamp(Date date) {
+        return Timestamp.valueOf(ConversionUtils.toDateString(date) + " 00:00:00");
+    }
+
+    private static Timestamp toEndOfDayTimestamp(Date date) {
+        return Timestamp.valueOf(ConversionUtils.toDateString(date) + " 23:59:59");
     }
 
 }

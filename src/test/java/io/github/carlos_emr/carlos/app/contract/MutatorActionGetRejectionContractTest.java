@@ -131,6 +131,15 @@ class MutatorActionGetRejectionContractTest {
      */
     static Stream<Arguments> unconditionalMutators() {
         return Stream.of(
+            // --- login ---
+            // Logout2Action is in io.github.carlos_emr.carlos.login, which is not yet in
+            // IN_SCOPE_PACKAGE_PREFIXES, so the discovery scan won't auto-find it.
+            // Registered explicitly here because it is an unconditional mutator:
+            // session.invalidate() and cookie deletion fire on every POST regardless of params.
+            // No hasPrivilege() is called (see Logout2Action.execute() for why), so the
+            // privilege-tuple fields below are left as empty strings — the contract assertion
+            // skips the privilege check when hasPrivilege is never invoked.
+            Arguments.of("io.github.carlos_emr.carlos.login.Logout2Action", "", ""),
             // --- appointment ---
             Arguments.of("io.github.carlos_emr.carlos.appointment.pageUtil.AppointmentAddRecord2Action",
                     "_appointment", "w"),

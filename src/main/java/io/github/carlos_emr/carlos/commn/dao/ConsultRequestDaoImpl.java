@@ -38,9 +38,7 @@ import java.util.List;
 import jakarta.persistence.Query;
 
 import org.apache.commons.lang3.StringUtils;
-import io.github.carlos_emr.carlos.commn.PaginationQuery;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
-import io.github.carlos_emr.carlos.consultations.ConsultationQuery;
 import io.github.carlos_emr.carlos.consultations.ConsultationRequestSearchFilter;
 import io.github.carlos_emr.carlos.consultations.ConsultationRequestSearchFilter.SORTMODE;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -52,134 +50,6 @@ public class ConsultRequestDaoImpl extends AbstractDaoImpl<ConsultationRequest> 
 
     public ConsultRequestDaoImpl() {
         super(ConsultationRequest.class);
-    }
-
-    @Override
-    public int getConsultationCount(PaginationQuery paginationQuery) {
-        QueryWithParams queryWithParams = generateQueryWithParams(paginationQuery, true);
-        Query query = entityManager.createQuery(queryWithParams.sql);
-        setQueryParameters(query, queryWithParams);
-
-        Long x = (Long) query.getSingleResult();
-        return x.intValue();
-    }
-
-    @SuppressWarnings("unchecked")
-    @Deprecated
-    @Override
-    public List<ConsultationRequest> listConsultationRequests(ConsultationQuery consultationQuery) {
-        QueryWithParams queryWithParams = generateQueryWithParams(consultationQuery, false);
-        Query query = entityManager.createQuery(queryWithParams.sql);
-        setQueryParameters(query, queryWithParams);
-        query.setFirstResult(consultationQuery.getStart());
-        query.setMaxResults(consultationQuery.getLimit());
-        return query.getResultList();
-    }
-
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    @Deprecated
-    private QueryWithParams generateQueryWithParams(PaginationQuery paginationQuery, boolean selectCountOnly) {
-        ConsultationQuery consultationQuery = (ConsultationQuery) paginationQuery;
-        QueryWithParams queryWithParams = new QueryWithParams();
-        
-        StringBuilder sql = new StringBuilder(
-                "select " + (selectCountOnly ? "count(*)" : "cr") +
-                        " from ConsultationRequest cr left outer join cr.professionalSpecialist specialist, ConsultationServices cs, Demographic d"
-                        +
-                        " left outer join d.provider p where d.demographicNo = cr.demographicId and cs.id = cr.serviceId ");
-        
-        if (StringUtils.isNotBlank(consultationQuery.getProviderNo())) {
-            sql.append("and cr.providerNo = :providerNo ");
-            queryWithParams.addParam("providerNo", consultationQuery.getProviderNo());
-        }
-        if (!StringUtils.equals(consultationQuery.getComplete(), "true")) {
-            sql.append("and cr.status != 4 ");
-        }
-        if (StringUtils.isNotBlank(consultationQuery.getStatus())) {
-            sql.append("and cr.status = :status ");
-            queryWithParams.addParam("status", consultationQuery.getStatus());
-        }
-        if (StringUtils.isNotBlank(consultationQuery.getTeam())) {
-            sql.append("and cr.sendTo = :team ");
-            queryWithParams.addParam("team", consultationQuery.getTeam());
-        }
-        if (StringUtils.isNotBlank(consultationQuery.getKeyword())) {
-            String keywordParam = "%" + consultationQuery.getKeyword() + "%";
-            sql.append("and (");
-            sql.append("d.lastName like :keyword ");
-            sql.append("or d.firstName like :keyword ");
-            sql.append("or specialist.lastName like :keyword ");
-            sql.append("or specialist.firstName like :keyword ");
-            sql.append("or cs.serviceDesc like :keyword");
-            sql.append(") ");
-            queryWithParams.addParam("keyword", keywordParam);
-        }
-        if (consultationQuery != null) {
-            if (StringUtils.equals("true", consultationQuery.getWithOption())) {
-                String dateType = consultationQuery.getDateType();
-                Date startDate = consultationQuery.getStartDate();
-                Date endDate = consultationQuery.getEndDate();
-
-                if (startDate != null) {
-                    if (StringUtils.equals("appointmentDate", dateType)) {
-                        sql.append("and cr.appointmentDate >= :startDate ");
-                    } else {
-                        sql.append("and cr.referralDate >= :startDate ");
-                    }
-                    queryWithParams.addParam("startDate", startDate);
-                }
-
-                if (endDate != null) {
-                    if (StringUtils.equals("appointmentDate", dateType)) {
-                        sql.append("and cr.appointmentDate <= :endDate ");
-                    } else {
-                        sql.append("and cr.referralDate <= :endDate ");
-                    }
-                    queryWithParams.addParam("endDate", endDate);
-                }
-            }
-            
-            // Build ORDER BY clause - validate all user input first
-            String sort = consultationQuery.getSort();
-            String orderby = consultationQuery.getOrderby();
-            
-            // Sanitize and validate sort direction BEFORE any usage
-            String validatedSort;
-            if (sort != null) {
-                String lowerSort = sort.toLowerCase().trim();
-                if ("asc".equals(lowerSort)) {
-                    validatedSort = "asc";
-                } else if ("desc".equals(lowerSort)) {
-                    validatedSort = "desc";
-                } else {
-                    validatedSort = "desc"; // Default to desc if invalid
-                }
-            } else {
-                validatedSort = "desc";
-            }
-            
-            // Build ORDER BY based on known column values using validated sort
-            if (StringUtils.isBlank(orderby) || "null".equals(orderby)) {
-                sql.append("order by cr.referralDate desc ");
-            } else if ("serviceDesc".equals(orderby)) {
-                sql.append(" order by cs.serviceDesc ").append(validatedSort);
-            } else if ("patient".equals(orderby)) {
-                sql.append(" order by d.lastName ").append(validatedSort);
-            } else if ("providerName".equals(orderby)) {
-                sql.append(" order by p.lastName ").append(validatedSort);
-            } else if ("specialistName".equals(orderby)) {
-                sql.append(" order by specialist.lastName ").append(validatedSort);
-            } else if ("appointmentDate".equals(orderby)) {
-                sql.append(" order by cr.appointmentDate ").append(validatedSort)
-                    .append(", cr.appointmentTime ").append(validatedSort);
-            } else {
-                sql.append(" order by cr.").append(orderby).append(" ").append(validatedSort);
-            }
-        }
-        
-        queryWithParams.sql = sql.toString();
-        return queryWithParams;
     }
 
     @Override

@@ -55,7 +55,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.OtherIdManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
-import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -252,7 +252,7 @@ public final class MessageUploader {
 
         String demProviderNo = null;
 
-        try (Connection connection = DbConnectionFilter.getThreadLocalDbConnection()) {
+        try (Connection connection = LegacyJdbcQuery.getConnection()) {
             demProviderNo = patientRouteReport(loggedInInfo, type, insertID, lastName, firstName, sex, dob, hin, connection);
         }
 
@@ -273,7 +273,7 @@ public final class MessageUploader {
             search = "hso_no";
         }
 
-        try (Connection connection = DbConnectionFilter.getThreadLocalDbConnection()) {
+        try (Connection connection = LegacyJdbcQuery.getConnection()) {
             providerRouteReport(String.valueOf(insertID), docNums, connection, demProviderNo, type, search, limit, orderByLength);
         }
         retVal = h.audit();

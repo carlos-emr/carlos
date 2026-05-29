@@ -62,10 +62,6 @@
             <result name="list">/WEB-INF/jsp/caisicore/issueAdminList.jsp</result>
             <result name="edit">/WEB-INF/jsp/caisicore/issueAdminForm.jsp</result>
         </action>
-        <action name="admin/GenerateTraceAction" class="io.github.carlos_emr.carlos.admin.traceability.GenerateTrace2Action"/>
-        <action name="admin/GenerateTraceabilityReportAction" class="io.github.carlos_emr.carlos.admin.traceability.GenerateTraceabilityReport2Action">
-            <interceptor-ref name="defaultStack"/>
-        </action>
         <action name="admin/AuditLogPurge" class="io.github.carlos_emr.carlos.admin.web.AuditLogPurge2Action">
             <result name="success">/WEB-INF/jsp/admin/auditLogPurge.jsp</result>
         </action>
@@ -273,9 +269,6 @@
         </action>
         <action name="admin/ViewSecurityUpdateSecurity" class="io.github.carlos_emr.carlos.admin.gate.ViewSecurityUpdateSecurity2Action">
             <result name="success">/WEB-INF/jsp/admin/securityupdatesecurity.jsp</result>
-        </action>
-        <action name="admin/ViewTraceReport" class="io.github.carlos_emr.carlos.admin.gate.ViewTraceReport2Action">
-            <result name="success">/WEB-INF/jsp/admin/traceReport.jsp</result>
         </action>
         <action name="admin/ViewUpdateDrugref" class="io.github.carlos_emr.carlos.admin.gate.ViewUpdateDrugref2Action">
             <result name="success">/WEB-INF/jsp/admin/updateDrugref.jsp</result>
