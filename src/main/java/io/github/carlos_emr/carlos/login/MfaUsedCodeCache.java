@@ -74,6 +74,9 @@ final class MfaUsedCodeCache {
         return cache.estimatedSize();
     }
 
+    /**
+     * Drops all tracked codes. Used by tests to isolate the process-wide singleton between cases.
+     */
     void invalidateAll() {
         cache.invalidateAll();
     }
