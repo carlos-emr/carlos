@@ -69,7 +69,10 @@ public final class RxUpdateFavorite2Action extends ActionSupport {
         // Setup variables
         int favId = Integer.parseInt(this.getFavoriteId());
 
-        RxPrescriptionData.Favorite fav = new RxPrescriptionData().getFavorite(favId);
+        RxPrescriptionData.Favorite fav = getAuthorizedFavorite(favId);
+        if (fav == null) {
+            return null;
+        }
 
         fav.setFavoriteName(this.getFavoriteName());
         fav.setCustomName(this.getCustomName());
@@ -98,7 +101,10 @@ public final class RxUpdateFavorite2Action extends ActionSupport {
         // Setup variables
         int favId = Integer.parseInt(request.getParameter("favoriteId"));
 
-        RxPrescriptionData.Favorite fav = new RxPrescriptionData().getFavorite(favId);
+        RxPrescriptionData.Favorite fav = getAuthorizedFavorite(favId);
+        if (fav == null) {
+            return null;
+        }
         String favName = request.getParameter("favoriteName");
         String customName = request.getParameter("customName");
         String takeMin = request.getParameter("takeMin");
@@ -142,6 +148,16 @@ public final class RxUpdateFavorite2Action extends ActionSupport {
         fav.Save();
 
         return null;
+    }
+
+    private RxPrescriptionData.Favorite getAuthorizedFavorite(int favoriteId)
+            throws IOException {
+        String sessionProvider = (String) request.getSession().getAttribute("user");
+        RxPrescriptionData.Favorite favorite = new RxPrescriptionData().getFavorite(favoriteId, sessionProvider);
+        if (favorite == null) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+        }
+        return favorite;
     }
 
 
