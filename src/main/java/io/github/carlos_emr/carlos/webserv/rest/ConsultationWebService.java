@@ -74,6 +74,7 @@ import io.github.carlos_emr.carlos.consultations.ConsultationResponseSearchFilte
 import io.github.carlos_emr.carlos.managers.ConsultationManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.DocumentManager;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.ConsultationRequestConverter;
@@ -742,8 +743,14 @@ public class ConsultationWebService extends AbstractServiceImpl {
                         attachment.setDocumentNo(document.getDocumentNo());
                         attachment.getDocument().setId(document.getDocumentNo());
                         goodAttachments.add(attachment);
+                    } catch (FileValidationException e) {
+                        MiscUtils.getLogger().warn("saveRequestAttachments: invalid attachment filename");
                     } catch (IOException e) {
-                        MiscUtils.getLogger().warn("saveRequestAttachments: Could not create document for attachment", e);
+                        if (isFileValidationFailure(e)) {
+                            MiscUtils.getLogger().warn("saveRequestAttachments: invalid attachment filename");
+                        } else {
+                            MiscUtils.getLogger().warn("saveRequestAttachments: Could not create document for attachment", e);
+                        }
                     }
                 }
             } else {
@@ -817,5 +824,15 @@ public class ConsultationWebService extends AbstractServiceImpl {
         for (ConsultResponseDoc doc : currentDocs) {
             consultationManager.saveConsultResponseDoc(getLoggedInInfo(), doc);
         }
+    }
+
+    private static boolean isFileValidationFailure(Throwable throwable) {
+        while (throwable != null) {
+            if (throwable instanceof FileValidationException) {
+                return true;
+            }
+            throwable = throwable.getCause();
+        }
+        return false;
     }
 }
