@@ -33,14 +33,13 @@ package io.github.carlos_emr.carlos.documentManager.actions;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
-import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.nio.file.StandardOpenOption;
 import java.util.Date;
 import java.util.Hashtable;
 import java.util.List;
@@ -697,13 +696,15 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
 
     /**
      * Writes an uploaded file to the local document storage directory, optionally
-     * replacing an existing destination file.
+     * replacing an existing destination file. Upload contents are staged in a temporary
+     * sibling file and atomically published only after the staged file is fully written
+     * and synced.
      *
      * @param is InputStream the input stream of the file content to write
      * @param fileName String the target filename (relative to DOCUMENT_DIR)
      * @param replaceExisting boolean true when an existing destination may be replaced
      * @return File the written file
-     * @throws Exception if validation or writing fails
+     * @throws Exception if validation, staging, syncing, or atomic publication fails
      */
     public static File writeLocalFile(InputStream is, String fileName, boolean replaceExisting) throws Exception {
         String docDir = CarlosProperties.getInstance().getDocumentDirectory();
@@ -716,23 +717,18 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         }
 
         Files.createDirectories(saveParent);
-        boolean reservedDestination = false;
-        if (!replaceExisting) {
-            Files.createFile(savePath);
-            reservedDestination = true;
+        if (!replaceExisting && Files.exists(savePath)) {
+            throw new FileAlreadyExistsException(savePath.toString());
         }
 
         Path tempPath = null;
         try {
             tempPath = Files.createTempFile(saveParent, "document-upload-", ".tmp");
             writeUploadContents(is, tempPath);
-            moveUploadedFile(tempPath, savePath);
+            moveUploadedFile(tempPath, savePath, replaceExisting);
         } catch (Exception e) {
             if (tempPath != null) {
                 deleteTempFile(tempPath, e);
-            }
-            if (reservedDestination) {
-                deleteReservedDestination(savePath, e);
             }
             throw e;
         }
@@ -741,39 +737,26 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
     }
 
     private static void writeUploadContents(InputStream is, Path tempPath) throws IOException {
-        try (OutputStream fos = Files.newOutputStream(tempPath, StandardOpenOption.WRITE)) {
+        try (FileOutputStream fos = new FileOutputStream(tempPath.toFile())) {
             byte[] buf = new byte[128 * 1024];
             int i = 0;
             while ((i = is.read(buf)) != -1) {
                 fos.write(buf, 0, i);
             }
+            fos.getFD().sync();
         }
     }
 
-    private static void moveUploadedFile(Path tempPath, Path savePath) throws IOException {
-        try {
-            Files.move(tempPath, savePath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-        } catch (AtomicMoveNotSupportedException e) {
-            // Known limitation: cross-filesystem moves (e.g. /tmp → /data) cannot be atomic.
-            // The destination slot is already claimed by Files.createFile() in the caller so
-            // concurrent duplicate-name uploads are still blocked; the only remaining risk is
-            // that an observer could briefly see a partial file during the non-atomic copy.
-            // Track full mitigation in GitHub issue #2274.
-            Files.move(tempPath, savePath, StandardCopyOption.REPLACE_EXISTING);
+    private static void moveUploadedFile(Path tempPath, Path savePath, boolean replaceExisting) throws IOException {
+        if (!replaceExisting && Files.exists(savePath)) {
+            throw new FileAlreadyExistsException(savePath.toString());
         }
+        Files.move(tempPath, savePath, StandardCopyOption.ATOMIC_MOVE);
     }
 
     private static void deleteTempFile(Path tempPath, Exception originalError) {
         try {
             Files.deleteIfExists(tempPath);
-        } catch (IOException deleteError) {
-            originalError.addSuppressed(deleteError);
-        }
-    }
-
-    private static void deleteReservedDestination(Path savePath, Exception originalError) {
-        try {
-            Files.deleteIfExists(savePath);
         } catch (IOException deleteError) {
             originalError.addSuppressed(deleteError);
         }
