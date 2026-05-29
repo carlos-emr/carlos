@@ -100,7 +100,7 @@ class RxDeleteAllergy2ActionTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should return bad request when ID parameter is missing")
-    void shouldReturnBadRequestWhenIdParameterIsMissing() throws Exception {
+    void shouldReturnBadRequest_whenIdParameterIsMissing() throws Exception {
         String result = action.execute();
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
@@ -111,7 +111,7 @@ class RxDeleteAllergy2ActionTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should return bad request when ID parameter is blank")
-    void shouldReturnBadRequestWhenIdParameterIsBlank() throws Exception {
+    void shouldReturnBadRequest_whenIdParameterIsBlank() throws Exception {
         mockRequest.setParameter("ID", " ");
 
         String result = action.execute();
@@ -124,7 +124,7 @@ class RxDeleteAllergy2ActionTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should return bad request when ID parameter is invalid")
-    void shouldReturnBadRequestWhenIdParameterIsInvalid() throws Exception {
+    void shouldReturnBadRequest_whenIdParameterIsInvalid() throws Exception {
         mockRequest.setParameter("ID", "abc");
 
         String result = action.execute();
