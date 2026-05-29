@@ -46,30 +46,3 @@
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-
-
-
-<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.Measurement" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.MeasurementDao" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-
-
-<%
-    LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-    String providerNo = loggedInInfo.getLoggedInProviderNo();
-
-    Measurement m = new Measurement();
-    m.setComments("");
-    m.setDataField("Yes");
-    m.setCreateDate(new java.util.Date());
-    m.setDateObserved(new java.util.Date());
-    m.setDemographicId(Integer.parseInt(request.getParameter("demographicNo")));
-    m.setMeasuringInstruction("");
-    m.setProviderNo(providerNo);
-    m.setType("medr");
-    m.setAppointmentNo(0);
-
-    MeasurementDao dao = SpringUtils.getBean(MeasurementDao.class);
-    dao.persist(m);
-%>

@@ -15,7 +15,10 @@ package io.github.carlos_emr.carlos.prescript.gate;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
+import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -31,6 +34,7 @@ import org.apache.struts2.ServletActionContext;
 public final class ViewCompleteMedRec2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private MeasurementDao measurementDao = SpringUtils.getBean(MeasurementDao.class);
 
     @Override
     public String execute() throws Exception {
@@ -47,6 +51,46 @@ public final class ViewCompleteMedRec2Action extends ActionSupport {
             return NONE;
         }
 
+        Integer demographicNo = parsePositiveInteger(request.getParameter("demographicNo"));
+        if (demographicNo == null) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        if (!belongsToSessionPatient(request, demographicNo)) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return NONE;
+        }
+
+        Measurement measurement = new Measurement();
+        measurement.setComments("");
+        measurement.setDataField("Yes");
+        measurement.setCreateDate(new java.util.Date());
+        measurement.setDateObserved(new java.util.Date());
+        measurement.setDemographicId(demographicNo);
+        measurement.setMeasuringInstruction("");
+        measurement.setProviderNo(loggedInInfo.getLoggedInProviderNo());
+        measurement.setType("medr");
+        measurement.setAppointmentNo(0);
+        measurementDao.persist(measurement);
+
         return SUCCESS;
+    }
+
+    private static boolean belongsToSessionPatient(HttpServletRequest request, int demographicNo) {
+        Object sessionBean = request.getSession().getAttribute("RxSessionBean");
+        return sessionBean instanceof RxSessionBean rxSessionBean
+                && demographicNo == rxSessionBean.getDemographicNo();
+    }
+
+    private static Integer parsePositiveInteger(String rawValue) {
+        if (rawValue == null || rawValue.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            int parsedValue = Integer.parseInt(rawValue.trim());
+            return parsedValue > 0 ? parsedValue : null;
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 }

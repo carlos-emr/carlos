@@ -15,7 +15,10 @@ package io.github.carlos_emr.carlos.prescript.gate;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.carlos.commn.dao.PrescriptionDao;
+import io.github.carlos_emr.carlos.commn.model.Prescription;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -31,6 +34,7 @@ import org.apache.struts2.ServletActionContext;
 public final class ViewAddRxComment2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private PrescriptionDao prescriptionDao = SpringUtils.getBean(PrescriptionDao.class);
 
     @Override
     public String execute() throws Exception {
@@ -47,6 +51,42 @@ public final class ViewAddRxComment2Action extends ActionSupport {
             return NONE;
         }
 
+        String scriptNo = normalizePositiveId(request.getParameter("scriptNo"));
+        String comment = request.getParameter("comment");
+        if (comment == null || "null".equalsIgnoreCase(comment)) {
+            return SUCCESS;
+        }
+        if (scriptNo == null) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+
+        Prescription prescription = prescriptionDao.find(Integer.valueOf(scriptNo));
+        if (prescription == null || !belongsToSessionPatient(request, prescription.getDemographicId())) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return NONE;
+        }
+
+        prescriptionDao.updatePrescriptionsByScriptNo(Integer.valueOf(scriptNo), comment);
         return SUCCESS;
+    }
+
+    private static boolean belongsToSessionPatient(HttpServletRequest request, Integer demographicId) {
+        Object sessionBean = request.getSession().getAttribute("RxSessionBean");
+        return sessionBean instanceof RxSessionBean rxSessionBean
+                && demographicId != null
+                && demographicId == rxSessionBean.getDemographicNo();
+    }
+
+    private static String normalizePositiveId(String rawValue) {
+        if (rawValue == null || rawValue.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            int parsedValue = Integer.parseInt(rawValue.trim());
+            return parsedValue > 0 ? Integer.toString(parsedValue) : null;
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 }
