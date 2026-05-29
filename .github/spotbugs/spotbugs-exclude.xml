@@ -88,6 +88,21 @@
         <Bug pattern="RV_RETURN_VALUE_OF_PUTIFABSENT_IGNORED"/>
     </Match>
 
+    <!--
+      IMPROPER_UNICODE: equalsIgnoreCase() / compareToIgnoreCase() are locale-neutral by design.
+      Java's String.equalsIgnoreCase() uses Character.toLowerCase/toUpperCase internally, which
+      applies Unicode case folding independent of the JVM locale — the Turkish 'i' attack does
+      not apply. There is no equalsIgnoreCase(Locale) overload, so these calls cannot be fixed
+      by adding an explicit locale argument.
+
+      All bare toLowerCase() / toUpperCase() calls (the fixable form of this warning) were
+      addressed with Locale.ROOT in PR #2425. The remaining alerts are exclusively from
+      equalsIgnoreCase() / compareToIgnoreCase() and are genuine false positives.
+    -->
+    <Match>
+        <Bug pattern="IMPROPER_UNICODE"/>
+    </Match>
+
     <!-- TrustedSql is constructed only after legacy SELECT validation; values are bound below. -->
     <Match>
         <Bug pattern="SQL_INJECTION_JDBC"/>
