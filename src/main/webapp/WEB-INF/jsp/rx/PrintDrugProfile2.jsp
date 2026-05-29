@@ -154,18 +154,18 @@
                     </tr>
                     <tr>
                         <td><!-- <b><fmt:message key="SearchDrug.nameText"/></b>-->
-                            <%=surname%>, <%=firstName%><br/>
-                            <%=address%><br/>
-                            <%=city%>, <%=province%> <%=postal%><br/><br/>
+                            <carlos:encode value='<%= surname %>' context="html"/>, <carlos:encode value='<%= firstName %>' context="html"/><br/>
+                            <carlos:encode value='<%= address %>' context="html"/><br/>
+                            <carlos:encode value='<%= city %>' context="html"/>, <carlos:encode value='<%= province %>' context="html"/> <carlos:encode value='<%= postal %>' context="html"/><br/><br/>
                         </td>
                     </tr>
                     <tr>
                         <td>
                             <b><fmt:message key="SearchDrug.ageText"/></b>
-                            ${patient.age}
-                            <b>Gender:</b> ${patient.sex}
-                            <b>HC:</b> ${patient.hin}<br/>
-                            <b>User:</b> ${userlastname}, ${userfirstname}<br/>
+                            ${carlos:forHtml(patient.age)}
+                            <b>Gender:</b> ${carlos:forHtml(patient.sex)}
+                            <b>HC:</b> ${carlos:forHtml(patient.hin)}<br/>
+                            <b>User:</b> ${carlos:forHtml(userlastname)}, ${carlos:forHtml(userfirstname)}<br/>
                         </td>
                     </tr>
                     <tr>
@@ -216,7 +216,7 @@
                                             <tr>
                                                 <td width=20% valign="top">
                                                     <a <%= styleColor%>
-                                                            href="<%= request.getContextPath() %>/rx/ViewStaticScript2?regionalIdentifier=<carlos:encode value='<%= drug.getRegionalIdentifier() %>' context="uriComponent"/>&cn=<carlos:encode value='<%= drug.getCustomName() %>' context="uriComponent"/>&bn=<carlos:encode value='<%= drug.getBrandName() %>' context="uriComponent"/>"><%=drug.getRxDate()%>
+                                                            href="<%= request.getContextPath() %>/rx/ViewStaticScript2?regionalIdentifier=<carlos:encode value='<%= drug.getRegionalIdentifier() %>' context="uriComponent"/>&cn=<carlos:encode value='<%= drug.getCustomName() %>' context="uriComponent"/>&bn=<carlos:encode value='<%= drug.getBrandName() %>' context="uriComponent"/>"><carlos:encode value='<%= drug.getRxDate() %>' context="html"/>
                                                     </a>
                                                 </td>
                                                 <td width=100%>

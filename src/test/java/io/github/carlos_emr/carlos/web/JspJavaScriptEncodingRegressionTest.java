@@ -164,6 +164,90 @@ class JspJavaScriptEncodingRegressionTest {
         }
     }
 
+    @Test
+    @DisplayName("should encode Rx JSP scriptlet output in the correct contexts")
+    @Tag("security")
+    void shouldEncodeRxJspScriptletOutput_inCorrectContexts() throws Exception {
+        String writeScriptJsp = readJsp("rx/WriteScript.jsp");
+        String viewScriptJsp = readJsp("rx/ViewScript2.jsp");
+        String displayRxRecordJsp = readJsp("rx/DisplayRxRecord.jsp");
+        String printDrugProfileJsp = readJsp("rx/PrintDrugProfile2.jsp");
+        String previewJsp = readJsp("rx/Preview2.jsp");
+        String sideLinksJsp = readJsp("rx/SideLinksNoEditFavorites2.jsp");
+        String interactionDisplayJsp = readJsp("rx/InteractionDisplay.jsp");
+        String chooseAllergyJsp = readJsp("rx/ChooseAllergy2.jsp");
+        String showPreviousPrintsJsp = readJsp("rx/ShowPreviousPrints.jsp");
+        String selectReasonJsp = readJsp("rx/SelectReason.jsp");
+
+        assertThat(writeScriptJsp)
+                .contains("for <carlos:encode value='<%= patient.getFirstName() %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= thisForm.getBrandName() %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= spec[i] %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= freq[i].getFreqCode() %>' context=\"html\"/>")
+                .doesNotContain("for <%= patient.getFirstName() %> <%= patient.getSurname() %>")
+                .doesNotContain("<%= spec[i] %>")
+                .doesNotContain("<%= freq[i].getFreqCode() %>");
+
+        assertThat(viewScriptJsp)
+                .contains("SafeEncode.forJavaScript(pharmacy.getFax())")
+                .contains("href=\"javascript:ShowDrugInfo('<carlos:encode value='<%= rx.getGenericName() %>' context=\"javaScriptAttribute\"/>');\"")
+                .contains("><carlos:encode value='<%= te %>' context=\"html\"/>")
+                .doesNotContain("'<%= pharmacy!=null?pharmacy.getFax():\"\"%>'")
+                .doesNotContain("href=\"javascript:ShowDrugInfo('<%= rx.getGenericName() %>');\">");
+
+        assertThat(displayRxRecordJsp)
+                .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
+                .contains("<td><carlos:encode value='<%= drug.getSpecialInstruction() %>' context=\"html\"/>")
+                .contains("${carlos:forHtml(pharmacy.name)}")
+                .doesNotContain("<td><%= drug.getSpecialInstruction()%>");
+
+        assertThat(printDrugProfileJsp)
+                .contains("<carlos:encode value='<%= surname %>' context=\"html\"/>")
+                .contains("${carlos:forHtml(patient.hin)}")
+                .doesNotContain("<%=surname%>, <%=firstName%>")
+                .doesNotContain("${patient.hin}");
+
+        assertThat(previewJsp)
+                .contains("value=\"<carlos:encode value='<%= pharmaFax %>' context=\"htmlAttribute\"/>\"")
+                .contains("${carlos:forHtml(infirmaryView_programAddress)}")
+                .contains("SafeEncode.forHtml(io.github.carlos_emr.CarlosProperties.getInstance().getProperty(\"RX_FOOTER\"))")
+                .contains("SafeEncode.forHtml(io.github.carlos_emr.CarlosProperties.getInstance().getProperty(\"FORMS_PROMOTEXT\"))")
+                .doesNotContain("value=\"<%=pharmaFax%>\"")
+                .doesNotContain("out.write(io.github.carlos_emr.CarlosProperties.getInstance().getProperty(\"RX_FOOTER\"));");
+
+        assertThat(sideLinksJsp)
+                .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
+                .contains("title=\"<carlos:encode value='<%= allergies[j].getDescription() %>' context=\"htmlAttribute\"/> -")
+                .contains("title=\"<carlos:encode value='<%= favorites[j].getFavoriteName() %>' context=\"htmlAttribute\"/>\"")
+                .doesNotContain("title=\"<%= allergies[j].getDescription() %> - <%= allergies[j].getReaction() %>\"")
+                .doesNotContain("title=\"<%= favorites[j].getFavoriteName() %>\"");
+
+        assertThat(interactionDisplayJsp)
+                .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
+                .contains("<carlos:encode value='<%= interactions[i].comment %>' context=\"html\"/>")
+                .doesNotContain("<%=interactions[i].comment%>");
+
+        assertThat(chooseAllergyJsp)
+                .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
+                .contains("${carlos:forHtml(allergy.value.description)}")
+                .contains("${carlos:forHtml(drugClass[1])}")
+                .doesNotContain("${allergy.value.description}")
+                .doesNotContain("${allergy.description}");
+
+        assertThat(showPreviousPrintsJsp)
+                .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
+                .contains("<carlos:encode value='<%= providerName %>' context=\"html\"/>")
+                .doesNotContain("<%=providerDao.getProvider(originalProviderNo).getFormattedName() %>")
+                .doesNotContain("<%=providerName %>");
+
+        assertThat(selectReasonJsp)
+                .contains("<carlos:encode value='<%= request.getAttribute(\"message\") %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= drugReason.getComments() %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= drugReason.getDateCoded() %>' context=\"html\"/>")
+                .doesNotContain("<%=request.getAttribute(\"message\") %>")
+                .doesNotContain("<%=drugReason.getComments() %>");
+    }
+
     private static String readJsp(String relativePath) throws Exception {
         return Files.readString(JSP_ROOT.resolve(relativePath));
     }

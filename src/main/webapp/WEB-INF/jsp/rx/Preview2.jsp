@@ -393,7 +393,7 @@
                                         %>
                                         <input type="hidden" name="clinicName"
                                                value="${carlos:forHtmlAttribute(infirmaryView_programAddress)}"/>
-                                        <input type="hidden" name="clinicPhone" value="<%=finalPhone%>"/>
+                                        <input type="hidden" name="clinicPhone" value="<carlos:encode value='<%= finalPhone %>' context="htmlAttribute"/>"/>
                                         <input type="hidden" id="finalFax" name="clinicFax" value=""/>
                                     </c:otherwise>
                                 </c:choose>
@@ -401,8 +401,8 @@
                                        value="<%= SafeEncode.forHtmlAttribute(patient.getFirstName())+ " " +SafeEncode.forHtmlAttribute(patient.getSurname()) %>"/>
                                 <input type="hidden" name="patientDOB"
                                        value="<carlos:encode value='<%= patientDOBStr %>' context="htmlAttribute"/>"/>
-                                <input type="hidden" name="pharmaFax" value="<%=pharmaFax%>"/>
-                                <input type="hidden" name="pharmaName" value="<%=pharmaName%>"/>
+                                <input type="hidden" name="pharmaFax" value="<carlos:encode value='<%= pharmaFax %>' context="htmlAttribute"/>"/>
+                                <input type="hidden" name="pharmaName" value="<carlos:encode value='<%= pharmaName %>' context="htmlAttribute"/>"/>
                                 <input type="hidden" name="pracNo" value="<carlos:encode value='<%= pracNo %>' context="htmlAttribute"/>"/>
                                 <input type="hidden" name="showPatientDOB" value="<%=showPatientDOB%>"/>
                                 <input type="hidden" name="pdfId" id="pdfId" value=""/>
@@ -420,9 +420,9 @@
                                        value="<carlos:encode value='<%= patientCityPostal %>' context="htmlAttribute"/>"/>
                                 <input type="hidden" name="patientHIN"
                                        value="<carlos:encode value='<%= patientHin %>' context="htmlAttribute"/>"/>
-                                <input type="hidden" name="bandNumber" value="${ bandNumber }"/>
+                                <input type="hidden" name="bandNumber" value="${carlos:forHtmlAttribute(bandNumber)}"/>
                                 <input type="hidden" name="patientPhone"
-                                       value="<fmt:message key="RxPreview.msgTel"/>: <carlos:encode value='<%= patientPhone %>' context="html"/>"/>
+                                       value="<fmt:message key="RxPreview.msgTel"/>: <carlos:encode value='<%= patientPhone %>' context="htmlAttribute"/>"/>
                                 <input type="hidden" name="rxDate"
                                        value="<carlos:encode value='<%= RxUtil.DateToString(rxDate, "MMMM d, yyyy") %>' context="htmlAttribute"/>"/>
                                 <input type="hidden" name="sigDoctorName"
@@ -430,16 +430,16 @@
                                 <!--img src="img/prescript.gif" border="0"-->
                             </th>
                             <th valign=top height="100px" id="clinicAddress">
-                                <b><%=doctorName%>
+                                <b><carlos:encode value='<%= doctorName %>' context="html"/>
                                 </b><br>
                                 <c:choose>
                                     <c:when test="${empty infirmaryView_programAddress}">
-                                        <%= provider.getClinicName().replaceAll("\\(\\d{6}\\)", "") %><br>
-                                        <%= provider.getClinicAddress() %><br>
-                                        <%= provider.getClinicCity() %>&nbsp;&nbsp;<%=provider.getClinicProvince()%>&nbsp;&nbsp;
-                                        <%= provider.getClinicPostal() %>
+                                        <carlos:encode value='<%= provider.getClinicName().replaceAll("\\(\\d{6}\\)", "") %>' context="html"/><br>
+                                        <carlos:encode value='<%= provider.getClinicAddress() %>' context="html"/><br>
+                                        <carlos:encode value='<%= provider.getClinicCity() %>' context="html"/>&nbsp;&nbsp;<carlos:encode value='<%= provider.getClinicProvince() %>' context="html"/>&nbsp;&nbsp;
+                                        <carlos:encode value='<%= provider.getClinicPostal() %>' context="html"/>
                                         <% if (provider.getPractitionerNo() != null && !provider.getPractitionerNo().equals("")) { %>
-                                        <br><fmt:message key="RxPreview.PractNo"/>:<%= provider.getPractitionerNo() %>
+                                        <br><fmt:message key="RxPreview.PractNo"/>:<carlos:encode value='<%= provider.getPractitionerNo() %>' context="html"/>
                                         <% } %>
                                         <br>
                                         <%
@@ -462,9 +462,9 @@
                                             request.setAttribute("phone", finalPhone);
 
                                         %>
-                                        <fmt:message key="RxPreview.msgTel"/>: <%= finalPhone %><br>
+                                        <fmt:message key="RxPreview.msgTel"/>: <carlos:encode value='<%= finalPhone %>' context="html"/><br>
                                         <oscar:oscarPropertiesCheck property="RXFAX" value="yes">
-                                            <fmt:message key="RxPreview.msgFax"/>: <%= finalFax %><br>
+                                            <fmt:message key="RxPreview.msgFax"/>: <carlos:encode value='<%= finalFax %>' context="html"/><br>
                                         </oscar:oscarPropertiesCheck>
                                     </c:when>
                                     <c:otherwise>
@@ -489,10 +489,10 @@
                                             request.setAttribute("phone", finalPhone);
 
                                         %>
-                                        ${infirmaryView_programAddress}<br>
-                                        <fmt:message key="RxPreview.msgTel"/>: <%=finalPhone %><br>
+                                        ${carlos:forHtml(infirmaryView_programAddress)}<br>
+                                        <fmt:message key="RxPreview.msgTel"/>: <carlos:encode value='<%= finalPhone %>' context="html"/><br>
                                         <oscar:oscarPropertiesCheck property="RXFAX" value="yes">
-                                            <fmt:message key="RxPreview.msgFax"/>: <%=finalFax %>
+                                            <fmt:message key="RxPreview.msgFax"/>: <carlos:encode value='<%= finalFax %>' context="html"/>
                                         </oscar:oscarPropertiesCheck>
                                     </c:otherwise>
                                 </c:choose>
@@ -519,14 +519,14 @@
 										</b><br>
 								</span>
                                 <span style="float:right">
-									<%= RxUtil.DateToString(rxDate, "MMMM d, yyyy", request.getLocale()) %>
+									<carlos:encode value='<%= RxUtil.DateToString(rxDate, "MMMM d, yyyy", request.getLocale()) %>' context="html"/>
 								</span>
                             </th>
                         </tr>
                         </thead>
                         <tfoot>
                         <% if (io.github.carlos_emr.CarlosProperties.getInstance().getProperty("RX_FOOTER") != null) {
-                            out.write(io.github.carlos_emr.CarlosProperties.getInstance().getProperty("RX_FOOTER"));
+                            out.write(SafeEncode.forHtml(io.github.carlos_emr.CarlosProperties.getInstance().getProperty("RX_FOOTER")));
                         } %>
 
                         <tr valign=bottom>
@@ -557,8 +557,8 @@
                                 %>
 
                                 <input type="hidden" name="<%= DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY %>"
-                                       value="<%=signatureRequestId%>"/>
-                                <img id="signature" style="width:300px; height:60px" src="<%=startimageUrl%>"
+                                       value="<carlos:encode value='<%= signatureRequestId %>' context="htmlAttribute"/>"/>
+                                <img id="signature" style="width:300px; height:60px" src="<carlos:encode value='<%= startimageUrl %>' context="htmlAttribute"/>"
                                      alt="digital_signature"/>
                                 <input type="hidden" name="imgFile" id="imgFile" value=""/>
 
@@ -606,7 +606,7 @@
                                 &nbsp; <carlos:encode value='<%= doctorName %>' context="html"/>
                                 <% if (pracNo != null && !pracNo.equals("") && !pracNo.equalsIgnoreCase("null")) { %>
                                 <br>
-                                &nbsp;<fmt:message key="RxPreview.PractNo"/> <%= pracNo%>
+                                &nbsp;<fmt:message key="RxPreview.PractNo"/> <carlos:encode value='<%= pracNo %>' context="html"/>
                                 <% } %>
                             </td>
                         </tr>
@@ -620,11 +620,11 @@
                             <td height=55px colspan="2">
 										<span style="float:right; font-size:10px;">
 											<fmt:message key="RxPreview.msgReprintBy"/> <carlos:encode value='<%= ProviderData.getProviderName(strUser) %>' context="html"/> <br>
-											<fmt:message key="RxPreview.msgOrigPrinted"/>:&nbsp;<%=rx.getPrintDate()%> <br>
-											<fmt:message key="RxPreview.msgTimesPrinted"/>:&nbsp;<%=String.valueOf(rx.getNumPrints())%>
+											<fmt:message key="RxPreview.msgOrigPrinted"/>:&nbsp;<carlos:encode value='<%= rx.getPrintDate() %>' context="html"/> <br>
+											<fmt:message key="RxPreview.msgTimesPrinted"/>:&nbsp;<carlos:encode value='<%= String.valueOf(rx.getNumPrints()) %>' context="html"/>
 										</span>
-                                <input type="hidden" name="origPrintDate" value="<%=rx.getPrintDate()%>"/>
-                                <input type="hidden" name="numPrints" value="<%=String.valueOf(rx.getNumPrints())%>"/>
+                                <input type="hidden" name="origPrintDate" value="<carlos:encode value='<%= rx.getPrintDate() %>' context="htmlAttribute"/>"/>
+                                <input type="hidden" name="numPrints" value="<carlos:encode value='<%= String.valueOf(rx.getNumPrints()) %>' context="htmlAttribute"/>"/>
                                 <input type="hidden" name="rxReprint" value="true"/>
                             </td>
                         </tr>
@@ -645,7 +645,7 @@
                         <% if (io.github.carlos_emr.CarlosProperties.getInstance().getProperty("FORMS_PROMOTEXT") != null && io.github.carlos_emr.CarlosProperties.getInstance().getProperty("FORMS_PROMOTEXT").length() > 0) { %>
                         <tr valign=bottom align="center">
                             <td height=25px colspan="2" style="font-size: 9px"></br>
-                                <%= io.github.carlos_emr.CarlosProperties.getInstance().getProperty("FORMS_PROMOTEXT") %>
+                                <%= SafeEncode.forHtml(io.github.carlos_emr.CarlosProperties.getInstance().getProperty("FORMS_PROMOTEXT")) %>
                             </td>
                         </tr>
                         <% } %>
@@ -680,7 +680,7 @@
 
                         <input type="hidden" name="rx"
                                value="<carlos:encode value='<%= strRx.replaceAll(";","\\\n") %>' context="htmlAttribute"/>"/>
-                        <input type="hidden" name="rx_no_newlines" value="<%= strRxNoNewLines.toString() %>"/>
+                        <input type="hidden" name="rx_no_newlines" value="<carlos:encode value='<%= strRxNoNewLines.toString() %>' context="htmlAttribute"/>"/>
                         <input type="hidden" name="additNotes" value=""/>
                         </tbody>
                     </table>

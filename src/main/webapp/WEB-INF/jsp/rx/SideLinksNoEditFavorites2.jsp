@@ -34,6 +34,7 @@
 <%@page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Allergy" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 %>
@@ -62,8 +63,8 @@
                         <%for (int j=0; j<allergies.length; j++){%>
 
             <p class="PropSheetMenuItemLevel1"><a
-                    title="<%= allergies[j].getDescription() %> - <%= allergies[j].getReaction() %>">
-                <%=allergies[j].getShortDesc(13, 8, "...")%>
+                    title="<carlos:encode value='<%= allergies[j].getDescription() %>' context="htmlAttribute"/> - <carlos:encode value='<%= allergies[j].getReaction() %>' context="htmlAttribute"/>">
+                <carlos:encode value='<%= allergies[j].getShortDesc(13, 8, "...") %>' context="html"/>
             </a></p>
             <%}%>
             </p>
@@ -77,10 +78,10 @@
         for (int j=0; j<favorites.length; j++){ %>
 
         <p class="PropSheetMenuItemLevel1"><a href="javascript:void(0);"
-                                              onclick="goSD3('<%= favorites[j].getFavoriteId() %>');"
-                                              title="<%= favorites[j].getFavoriteName() %>"><%if (favorites[j].getFavoriteName().length() > 13) { %>
-            <%= favorites[j].getFavoriteName().substring(0, 10) + "..." %> <%} else {%>
-            <%= favorites[j].getFavoriteName() %> <%}%></a></p>
+                                              onclick="goSD3('<carlos:encode value='<%= favorites[j].getFavoriteId() %>' context="javaScriptAttribute"/>');"
+                                              title="<carlos:encode value='<%= favorites[j].getFavoriteName() %>' context="htmlAttribute"/>"><%if (favorites[j].getFavoriteName().length() > 13) { %>
+            <carlos:encode value='<%= favorites[j].getFavoriteName().substring(0, 10) + "..." %>' context="html"/> <%} else {%>
+            <carlos:encode value='<%= favorites[j].getFavoriteName() %>' context="html"/> <%}%></a></p>
         <%}%>
         </p>
     </div>
