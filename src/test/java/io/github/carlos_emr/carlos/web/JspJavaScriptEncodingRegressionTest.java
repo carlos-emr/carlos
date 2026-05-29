@@ -158,7 +158,7 @@ class JspJavaScriptEncodingRegressionTest {
                 .doesNotContain("value=\"<%= f.getFavoriteName() %>\"")
                 .doesNotContain("value=\"<%= f.getCustomName() %>\"")
                 .doesNotContainPattern(
-                        "<textarea\\s+name=\"fldSpecial<%= i%>\"\\s+style=\"width: 100%\"\\s+rows=5>\\s*<%=\\s*s\\.trim\\(\\)\\s*%>\\s*</textarea>");
+                        "<textarea\\s+name=\"fldSpecial<%= i%>\"\\s+style=\"width: 100%\"\\s+rows=\"?5\"?>\\s*<%=\\s*s\\.trim\\(\\)\\s*%>\\s*</textarea>");
         assertThat(copyFavoritesJsp)
                 .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
                 .contains("value=\"<carlos:encode value='<%=providerNo%>' context=\"htmlAttribute\"/>\"")

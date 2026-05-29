@@ -150,7 +150,7 @@
                                                                 }
                                                         %>
                                                             <option value="<carlos:encode value='<%=((String) allProviders.get(p))%>' context="htmlAttribute"/>"
-                                                                <%=((String) allProviders.get(p)).equalsIgnoreCase(copyProviderNo) ? "SELECTED" : ""%>>
+                                                                <%=((String) allProviders.get(p)).equalsIgnoreCase(copyProviderNo) ? "selected=\"selected\"" : ""%>>
                                                                 <carlos:encode value='<%=providerDao.getProvider((String) allProviders.get(p)).getFormattedName()%>' context="html"/>
                                                             </option>
                                                         <% } %>
