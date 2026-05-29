@@ -53,7 +53,7 @@ class RemovedJspReferenceRegressionTest {
     private static final Pattern CARLOS_TAGLIB = Pattern.compile(
             "<%@\\s*taglib\\s+uri=\"carlos\"\\s+prefix=\"carlos\"\\s*%>");
     private static final Pattern HTML_ENCODED_DEMO_NAME = Pattern.compile(
-            "<carlos:encode\\s+value='<%=\\s*demoName\\s*%>'\\s+context=\"html\"\\s*/>");
+            "<carlos:encode\\s+value\\s*=\\s*['\"]<%=\\s*demoName\\s*%>['\"]\\s+context\\s*=\\s*['\"]html['\"]\\s*/>");
 
     @Test
     @DisplayName("Appointment admin day should not link to removed PMmodule popup JSPs")
@@ -168,11 +168,11 @@ class RemovedJspReferenceRegressionTest {
     @Test
     @DisplayName("BC billing report fragments should encode related reason and note fields")
     void shouldEncodeRelatedReasonAndNoteFields_inBcBillingReportFragments() throws IOException {
-        String flu = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/BC/billingReport_flu.jspf"));
-        String billOb = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/BC/billingReport_billob.jspf"));
-        String billed = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/BC/billingReport_billed.jspf"));
-        String unsettled = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/BC/billingReport_unsettled.jspf"));
-        String unbilled = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/BC/billingReport_unbilled.jspf"));
+        String flu = readBcBillingReportFragment("billingReport_flu.jspf");
+        String billOb = readBcBillingReportFragment("billingReport_billob.jspf");
+        String billed = readBcBillingReportFragment("billingReport_billed.jspf");
+        String unsettled = readBcBillingReportFragment("billingReport_unsettled.jspf");
+        String unbilled = readBcBillingReportFragment("billingReport_unbilled.jspf");
 
         assertThat(flu)
                 .contains("title=\"<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(reason) %>\"")
@@ -297,6 +297,14 @@ class RemovedJspReferenceRegressionTest {
         } catch (IOException e) {
             throw new IllegalStateException("Unable to inspect " + path, e);
         }
+    }
+
+    private static String readBcBillingReportFragment(String fileName) throws IOException {
+        Path fragment = BC_BILLING_REPORT_FRAGMENTS.stream()
+                .filter(path -> path.getFileName().toString().equals(fileName))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Unknown BC billing fragment: " + fileName));
+        return Files.readString(fragment);
     }
 
     private static final Pattern GLOBAL_HEAD_INCLUDE = Pattern.compile(
