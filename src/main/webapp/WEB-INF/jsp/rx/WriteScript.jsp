@@ -915,7 +915,7 @@
             String drugId = thisForm.getGCN_SEQNO();
         }
     %>
-    <!--
+    <%--
 DemographicNo:   <%= thisForm.getDemographicNo() %><br>
 RxDate:          <%= thisForm.getRxDate() %><br>
 EndDate:         <%= thisForm.getEndDate() %><br>
@@ -946,7 +946,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
 
 <% regionalIdentifier = thisForm.getRegionalIdentifier(); %>
 
--->
+--%>
     <%
 
         // set patient info
