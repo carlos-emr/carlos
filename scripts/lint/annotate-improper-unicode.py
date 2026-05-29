@@ -197,7 +197,9 @@ def already_suppressed(decl, src: bytes) -> bool:
 
 
 def find_targets(src: bytes, security_file: bool):
-    tree = Parser(JAVA).parse(src)
+    parser = Parser()
+    parser.language = JAVA
+    tree = parser.parse(src)
     root = tree.root_node
     decls = {}  # decl.id -> Target  (dedupe per declaration)
     for n in walk(root):
