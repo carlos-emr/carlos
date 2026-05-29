@@ -20,8 +20,10 @@ import io.github.carlos_emr.carlos.commn.model.Prescription;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
@@ -32,6 +34,8 @@ import org.apache.struts2.ServletActionContext;
  * @since 2026-04-13
  */
 public final class ViewAddRxComment2Action extends ActionSupport {
+
+    private static final Logger logger = MiscUtils.getLogger();
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private PrescriptionDao prescriptionDao = SpringUtils.getBean(PrescriptionDao.class);
@@ -57,17 +61,20 @@ public final class ViewAddRxComment2Action extends ActionSupport {
             return SUCCESS;
         }
         if (scriptNo == null) {
+            logger.warn("Rejected Rx comment update because script number was invalid");
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
         }
 
-        Prescription prescription = prescriptionDao.find(Integer.valueOf(scriptNo));
+        Integer parsedScriptNo = Integer.valueOf(scriptNo);
+        Prescription prescription = prescriptionDao.find(parsedScriptNo);
         if (prescription == null || !belongsToSessionPatient(request, prescription.getDemographicId())) {
+            logger.warn("Rejected Rx comment update because prescription did not match session patient");
             response.sendError(HttpServletResponse.SC_FORBIDDEN);
             return NONE;
         }
 
-        prescriptionDao.updatePrescriptionsByScriptNo(Integer.valueOf(scriptNo), comment);
+        prescriptionDao.updatePrescriptionsByScriptNo(parsedScriptNo, comment);
         return SUCCESS;
     }
 

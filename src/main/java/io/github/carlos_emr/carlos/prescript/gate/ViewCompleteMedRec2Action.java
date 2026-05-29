@@ -20,8 +20,10 @@ import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
@@ -32,6 +34,8 @@ import org.apache.struts2.ServletActionContext;
  * @since 2026-04-13
  */
 public final class ViewCompleteMedRec2Action extends ActionSupport {
+
+    private static final Logger logger = MiscUtils.getLogger();
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private MeasurementDao measurementDao = SpringUtils.getBean(MeasurementDao.class);
@@ -53,10 +57,12 @@ public final class ViewCompleteMedRec2Action extends ActionSupport {
 
         Integer demographicNo = parsePositiveInteger(request.getParameter("demographicNo"));
         if (demographicNo == null) {
+            logger.warn("Rejected medication reconciliation completion because demographic number was invalid");
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
         }
         if (!belongsToSessionPatient(request, demographicNo)) {
+            logger.warn("Rejected medication reconciliation completion because demographic did not match session patient");
             response.sendError(HttpServletResponse.SC_FORBIDDEN);
             return NONE;
         }
