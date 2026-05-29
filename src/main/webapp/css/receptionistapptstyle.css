@@ -325,6 +325,14 @@ table#firstTable a:focus-visible {
     background-color: #486ebd;
 }
 
+table#firstTable td#firstMenu ul#navlist li.nav-active,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:visited,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:active {
+    color: #00283c;
+    background-color: #d9d9d9;
+}
+
 input, select, textarea {
     background-color: #F4EaD7;
     border: 1px solid #0097cf;
@@ -427,12 +435,12 @@ a:hover .tabalert {
     color: white !important;
 }
 
-table#firstTable td#firstMenu ul#navlist li:not(.dashboardDropdown) {
+table#firstTable td#firstMenu ul#navlist > li:not(.dashboardDropdown) {
     line-height: 1;
     display: inline-block;
 }
 
-table#firstTable td#firstMenu ul#navlist li a:not(.dashboardDropdown) {
+table#firstTable td#firstMenu ul#navlist > li:not(.dashboardDropdown) > a {
     display: inline-block;
     padding: 5px;
 }
@@ -445,6 +453,35 @@ table#firstTable td#firstMenu #navlist li:hover {
 table#firstTable td#firstMenu #navlist li a:hover {
     color: #fff;
     background-color: #486ebd;
+}
+
+table#firstTable td#firstMenu ul#navlist li.nav-active > a.tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a .tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a span {
+    color: #00283c !important;
+}
+
+table#firstTable td#firstMenu ul#navlist li.nav-active:hover,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:hover,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:focus,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:focus-visible {
+    color: #fff;
+    background-color: #486ebd;
+}
+
+table#firstTable td#firstMenu ul#navlist li.nav-active:hover > a.tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active:hover > a .tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active:hover > a span,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:hover.tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:hover .tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:hover span,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:focus.tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:focus .tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:focus span,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:focus-visible.tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:focus-visible .tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:focus-visible span {
+    color: #fff !important;
 }
 
 table#firstTable td#firstMenu #navlist #logoutMobile {
