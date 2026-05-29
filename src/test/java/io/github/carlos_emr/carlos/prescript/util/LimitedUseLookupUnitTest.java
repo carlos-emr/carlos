@@ -118,16 +118,24 @@ class LimitedUseLookupUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should fall back to resource storage when configured path is invalid")
     void shouldFallBackToResourceStorage_whenConfiguredPathIsInvalid() {
-        CarlosProperties.getInstance().setProperty("odb_formulary_file", "relative-formulary.xml");
+        File configuredFile = tempDir.resolve("invalid-formulary.xml").toFile();
+        CarlosProperties.getInstance().setProperty("odb_formulary_file", configuredFile.getPath());
         ResourceStorage mockStorage = mock(ResourceStorage.class);
         when(mockStorage.getFileContents()).thenReturn(minimalLimitedUseXml("99000002").getBytes(StandardCharsets.UTF_8));
         when(mockStorage.getId()).thenReturn(1);
         when(mockResourceStorageDao.findActive(ResourceStorage.LU_CODES)).thenReturn(mockStorage);
 
-        ArrayList<LimitedUseCode> result = LimitedUseLookup.getLUInfoForDin("99000002");
+        try (MockedStatic<PathValidationUtils> pathValidation = mockStatic(PathValidationUtils.class)) {
+            pathValidation.when(() -> PathValidationUtils.validateExistingPath(any(File.class), any(File.class)))
+                    .thenThrow(new SecurityException("Invalid file path"));
 
-        assertThat(result).hasSize(1);
-        assertThat(result.get(0).getUseId()).isEqualTo("RFU1");
+            ArrayList<LimitedUseCode> result = LimitedUseLookup.getLUInfoForDin("99000002");
+
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getUseId()).isEqualTo("RFU1");
+            pathValidation.verify(() -> PathValidationUtils.validateExistingPath(eq(configuredFile),
+                    eq(configuredFile.getParentFile())));
+        }
         verify(mockResourceStorageDao).findActive(ResourceStorage.LU_CODES);
     }
 

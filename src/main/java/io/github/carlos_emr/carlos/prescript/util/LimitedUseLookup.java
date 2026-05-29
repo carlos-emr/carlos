@@ -98,7 +98,7 @@ public class LimitedUseLookup {
         return "";
     }
 
-    static public synchronized void reLoadLookupInformation() {
+    static public void reLoadLookupInformation() {
         loaded = false;
         loadLULookupInformation();
     }
