@@ -118,7 +118,7 @@ class RxAddAllergy2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldReturnBadRequestWhenTypeParameterIsMissing() throws Exception {
+    void shouldReturnBadRequest_whenTypeParameterIsMissing() throws Exception {
         when(mockRequest.getParameter("ID")).thenReturn("");
         when(mockRequest.getParameter("type")).thenReturn(null);
 
@@ -130,7 +130,7 @@ class RxAddAllergy2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldReturnBadRequestWhenTypeParameterIsNotNumeric() throws Exception {
+    void shouldReturnBadRequest_whenTypeParameterIsNotNumeric() throws Exception {
         when(mockRequest.getParameter("ID")).thenReturn("");
         when(mockRequest.getParameter("type")).thenReturn("abc");
 
@@ -142,7 +142,7 @@ class RxAddAllergy2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldAllowNullStartDateWhenTypeIsValid() throws Exception {
+    void shouldAllowNullStartDate_whenTypeIsValid() throws Exception {
         Demographic demographic = new Demographic();
         demographic.setDemographicNo(123);
         RxPatientData.Patient patient = new RxPatientData.Patient(demographic);
