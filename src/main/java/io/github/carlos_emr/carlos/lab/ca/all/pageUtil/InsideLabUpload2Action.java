@@ -55,6 +55,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -69,7 +70,6 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
-import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class InsideLabUpload2Action extends ActionSupport implements UploadedFilesAware {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -85,6 +85,7 @@ public class InsideLabUpload2Action extends ActionSupport implements UploadedFil
     private List<File> importFiles;
     private List<String> importFilesFileName;
     private List<String> importFilesContentType;
+    private String uploadValidationError;
 
     @Override
     public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
@@ -93,8 +94,13 @@ public class InsideLabUpload2Action extends ActionSupport implements UploadedFil
             this.importFilesFileName = new ArrayList<>();
             this.importFilesContentType = new ArrayList<>();
             for (UploadedFile uploaded : uploadedFiles) {
-                this.importFiles.add(PathValidationUtils.validateUpload(new File(uploaded.getAbsolutePath())));
-                this.importFilesFileName.add(uploaded.getOriginalName());
+                this.importFiles.add(PathValidationUtils.validateUploadContent(uploaded.getContent()));
+                try {
+                    this.importFilesFileName.add(PathValidationUtils.validateStrictFileName(uploaded.getOriginalName()));
+                } catch (FileValidationException e) {
+                    this.uploadValidationError = PathValidationUtils.INVALID_FILENAME_MESSAGE;
+                    this.importFilesFileName.add(null);
+                }
                 this.importFilesContentType.add(uploaded.getContentType());
             }
         }
@@ -102,13 +108,17 @@ public class InsideLabUpload2Action extends ActionSupport implements UploadedFil
 
     @Override
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(ServletActionContext.getRequest());
+        checkUserPrivilege(loggedInInfo);
+
         if (importFiles == null || importFiles.isEmpty()) {
             addActionError("No files were uploaded");
             return INPUT;
         }
-
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(ServletActionContext.getRequest());
-        checkUserPrivilege(loggedInInfo);
+        if (uploadValidationError != null) {
+            addActionError(uploadValidationError);
+            return INPUT;
+        }
 
         Map<String, FileStatus> filesStatusMap = new HashMap<>();
         
@@ -181,12 +191,10 @@ public class InsideLabUpload2Action extends ActionSupport implements UploadedFil
         return FileStatus.INVALID;
     }
 
-    @StrutsParameter(depth = 1)
     public List<File> getImportFiles() 
     { 
         return importFiles; 
     }
-    @StrutsParameter
     public void setImportFiles(List<File> importFiles) 
     { 
         this.importFiles = importFiles; 
@@ -196,7 +204,6 @@ public class InsideLabUpload2Action extends ActionSupport implements UploadedFil
     { 
         return importFilesFileName; 
     }
-    @StrutsParameter
     public void setImportFilesFileName(List<String> importFilesFileName) 
     { 
         this.importFilesFileName = importFilesFileName; 
@@ -206,7 +213,6 @@ public class InsideLabUpload2Action extends ActionSupport implements UploadedFil
     { 
         return importFilesContentType; 
     }
-    @StrutsParameter
     public void setImportFilesContentType(List<String> importFilesContentType) 
     { 
         this.importFilesContentType = importFilesContentType; 

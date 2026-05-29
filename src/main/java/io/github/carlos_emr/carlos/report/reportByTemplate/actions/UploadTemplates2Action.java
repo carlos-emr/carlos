@@ -45,7 +45,6 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
-import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.report.reportByTemplate.ReportManager;
@@ -114,7 +113,7 @@ public class UploadTemplates2Action extends ActionSupport implements UploadedFil
     public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
         if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
             UploadedFile uploaded = uploadedFiles.get(0);
-            this.templateFile = new File(uploaded.getAbsolutePath());
+            this.templateFile = PathValidationUtils.validateUploadContent(uploaded.getContent());
         }
     }
 
@@ -122,7 +121,6 @@ public class UploadTemplates2Action extends ActionSupport implements UploadedFil
         return templateFile;
     }
 
-    @StrutsParameter
     public void setTemplateFile(File templateFile) {
         this.templateFile = templateFile;
     }
