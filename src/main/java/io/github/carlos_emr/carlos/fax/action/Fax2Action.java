@@ -70,6 +70,7 @@ public class Fax2Action extends ActionSupport {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private static final Logger logger = MiscUtils.getLogger();
+    private static final String HTTP_METHOD_POST = "POST";
     private final FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
     private final DocumentAttachmentManager documentAttachmentManager = SpringUtils.getBean(DocumentAttachmentManager.class);
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -349,6 +350,10 @@ public class Fax2Action extends ActionSupport {
     @SuppressWarnings("unused")
     public String prepareFax() {
 
+        if (!requirePost()) {
+            return NONE;
+        }
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         /*
@@ -397,6 +402,20 @@ public class Fax2Action extends ActionSupport {
         }
 
         return actionForward;
+    }
+
+    private boolean requirePost() {
+        if (HTTP_METHOD_POST.equalsIgnoreCase(request.getMethod())) {
+            return true;
+        }
+
+        response.setHeader("Allow", HTTP_METHOD_POST);
+        try {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        } catch (IOException e) {
+            logger.error("Error sending method-not-allowed response", e);
+        }
+        return false;
     }
 
     /**

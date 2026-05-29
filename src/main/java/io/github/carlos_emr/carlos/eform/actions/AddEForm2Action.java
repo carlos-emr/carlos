@@ -118,6 +118,7 @@ public class AddEForm2Action extends ActionSupport {
     private EformDataManager eformDataManager = SpringUtils.getBean(EformDataManager.class);
     private DocumentAttachmentManager documentAttachmentManager = SpringUtils.getBean(DocumentAttachmentManager.class);
     private EmailManager emailManager = SpringUtils.getBean(EmailManager.class);
+    private String faxForward;
 
     public String execute() {
 
@@ -296,31 +297,8 @@ public class AddEForm2Action extends ActionSupport {
             }
 
             if (fax) {
-                StringBuilder faxForward = new StringBuilder(request.getContextPath()).append("/fax/faxAction");
-                faxForward.append("?method=").append("prepareFax");
-                faxForward.append("&transactionId=").append(URLEncoder.encode(fdid, StandardCharsets.UTF_8));
-                faxForward.append("&transactionType=").append(URLEncoder.encode(TransactionType.EFORM.name(), StandardCharsets.UTF_8));
-                faxForward.append("&demographicNo=").append(URLEncoder.encode(demographic_no, StandardCharsets.UTF_8));
-
-                /*
-                 * Added incase the eForm developer adds these elements to the
-                 * eform.
-                 */
-                if (recipient != null && !recipient.isEmpty()) {
-                    faxForward.append("&recipient=").append(URLEncoder.encode(recipient, StandardCharsets.UTF_8));
-                }
-                if (recipientFaxNumber != null && !recipientFaxNumber.isEmpty()) {
-                    faxForward.append("&recipientFaxNumber=").append(URLEncoder.encode(recipientFaxNumber, StandardCharsets.UTF_8));
-                }
-                if (letterheadFax != null && !letterheadFax.isEmpty()) {
-                    faxForward.append("&letterheadFax=").append(URLEncoder.encode(letterheadFax, StandardCharsets.UTF_8));
-                }
-                try {
-                    response.sendRedirect(faxForward.toString());
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-                return NONE;
+                prepareFaxForward(fdid, demographic_no, recipient, recipientFaxNumber, letterheadFax);
+                return "fax";
             } else if (print) {
                 return "print";
             } else if (isDownloadEForm) {
@@ -389,32 +367,8 @@ public class AddEForm2Action extends ActionSupport {
                  * This form id is sent to the fax action to render it as a faxable PDF.
                  * A preview is returned to the user once the form is rendered.
                  */
-                StringBuilder faxForward = new StringBuilder(request.getContextPath()).append("/fax/faxAction");
-                faxForward.append("?method=").append(URLEncoder.encode("prepareFax", StandardCharsets.UTF_8));
-                faxForward.append("&transactionId=").append(URLEncoder.encode(prev_fdid, StandardCharsets.UTF_8));
-                faxForward.append("&transactionType=").append(URLEncoder.encode(TransactionType.EFORM.name(), StandardCharsets.UTF_8));
-                faxForward.append("&demographicNo=").append(URLEncoder.encode(demographic_no, StandardCharsets.UTF_8));
-
-
-                /*
-                 * Added incase the eForm developer adds these elements to the
-                 * eform.
-                 */
-                if (recipient != null) {
-                    faxForward.append("&recipient=").append(recipient);
-                }
-                if (recipientFaxNumber != null) {
-                    faxForward.append("&recipientFaxNumber=").append(recipientFaxNumber);
-                }
-                if (letterheadFax != null) {
-                    faxForward.append("&letterheadFax=").append(letterheadFax);
-                }
-                try {
-                    response.sendRedirect(faxForward.toString());
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-                return NONE;
+                prepareFaxForward(prev_fdid, demographic_no, recipient, recipientFaxNumber, letterheadFax);
+                return "fax";
             } else if (print) {
                 return "print";
             } else if (isDownloadEForm) {
@@ -526,6 +480,33 @@ public class AddEForm2Action extends ActionSupport {
         } catch (MissingResourceException e) {
             return "Invalid filename";
         }
+    }
+
+    public String getFaxForward() {
+        return faxForward;
+    }
+
+    private void prepareFaxForward(String fdid, String demographicNo, String recipient, String recipientFaxNumber, String letterheadFax) {
+        StringBuilder forward = new StringBuilder("/fax/faxAction");
+        forward.append("?method=").append(URLEncoder.encode("prepareFax", StandardCharsets.UTF_8));
+        forward.append("&transactionId=").append(URLEncoder.encode(fdid, StandardCharsets.UTF_8));
+        forward.append("&transactionType=").append(URLEncoder.encode(TransactionType.EFORM.name(), StandardCharsets.UTF_8));
+        forward.append("&demographicNo=").append(URLEncoder.encode(demographicNo, StandardCharsets.UTF_8));
+
+        /*
+         * Added incase the eForm developer adds these elements to the
+         * eform.
+         */
+        if (recipient != null && !recipient.isEmpty()) {
+            forward.append("&recipient=").append(URLEncoder.encode(recipient, StandardCharsets.UTF_8));
+        }
+        if (recipientFaxNumber != null && !recipientFaxNumber.isEmpty()) {
+            forward.append("&recipientFaxNumber=").append(URLEncoder.encode(recipientFaxNumber, StandardCharsets.UTF_8));
+        }
+        if (letterheadFax != null && !letterheadFax.isEmpty()) {
+            forward.append("&letterheadFax=").append(URLEncoder.encode(letterheadFax, StandardCharsets.UTF_8));
+        }
+        faxForward = forward.toString();
     }
 
     /**

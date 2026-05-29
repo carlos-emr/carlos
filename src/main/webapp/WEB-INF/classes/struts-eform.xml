@@ -80,7 +80,7 @@
         </action>
         <action name="eform/addEForm" class="io.github.carlos_emr.carlos.eform.actions.AddEForm2Action">
             <result name="close">/eform/efmshowform_data</result>
-            <result name="fax">/fax/faxAction</result>
+            <result name="fax">${faxForward}</result>
             <result name="download">/eform/efmshowform_data</result>
             <result name="error">/eform/efmshowform_data?error=true</result>
             <result name="emailCompose">/email/emailComposeAction</result>
