@@ -116,6 +116,42 @@ class RemovedJspReferenceRegressionTest {
     }
 
     @Test
+    @DisplayName("Demographic edit view should encode patient controlled read-only fields")
+    void shouldEncodePatientControlledReadOnlyFields_inDemographicEditViewJsp() throws IOException {
+        String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/demographic/edit-view.jsp"));
+
+        assertThat(jsp)
+                .doesNotContain("<%=StringUtils.trimToEmpty(demographic.getTitle())%>")
+                .doesNotContain("<%=StringUtils.trimToEmpty(demographic.getOfficialLanguage())%>")
+                .doesNotContain("<%=sp_lang%>")
+                .doesNotContain("<%=sin%>")
+                .doesNotContain("<%=relHash.get(\"relation\")%>")
+                .doesNotContain("<%=relHash.get(\"lastName\")%>")
+                .doesNotContain("<%=relHash.get(\"firstName\")%>")
+                .doesNotContain("<%=dContact.getRole()%>")
+                .doesNotContain("<%=dContact.getContactName() %>")
+                .doesNotContain("<%=demographic.getPatientStatus()%>")
+                .doesNotContain("<%=StringUtils.trimToEmpty(demographic.getChartNo())%>")
+                .doesNotContain("<%=OtherIdManager.getDemoOtherId(demographic_no, \"meditech_id\")%>")
+                .doesNotContain("<%=StringUtils.trimToEmpty(demoExt.get(\"cytolNum\"))%>")
+                .doesNotContain("<%=alert%>")
+                .doesNotContain("<%=StringUtils.trimToEmpty(demographic.getPhone())%>")
+                .doesNotContain("<%=StringUtils.trimToEmpty(demographic.getPhone2())%>")
+                .doesNotContain("<%=StringUtils.trimToEmpty(demoExt.get(\"demo_cell\"))%>")
+                .doesNotContain("<%=StringUtils.trimToEmpty(demographic.getPostal())%>")
+                .doesNotContain("<%=StringUtils.trimToEmpty(demographic.getResidentialPostal())%>")
+                .doesNotContain("<%=StringUtils.trimToEmpty(demographic.getHin())%>")
+                .doesNotContain("<%=StringUtils.trimToEmpty(demographic.getVer())%>")
+                .contains("<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getTitle()) %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= sp_lang %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= sin %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= dContact.getContactName() %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= alert %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getHin()) %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getVer()) %>' context=\"html\"/>");
+    }
+
+    @Test
     @DisplayName("Standalone admin JSPs should guard admin-chrome helper calls")
     void shouldGuardAdminChromeHelpers_inStandaloneAdminJsps() throws IOException {
         String myGroup = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/admin/admindisplaymygroup.jsp"));
