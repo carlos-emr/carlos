@@ -47,6 +47,8 @@ import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -148,6 +150,9 @@ public class PrintDemoChartLabel2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", null)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
+        String demographicNo = request.getParameter("demographic_no");
+        LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.READ, LogConst.CON_DEMOGRAPHIC,
+                demographicNo, request.getRemoteAddr(), demographicNo);
 
         Provider provider = loggedInInfo.getLoggedInProvider();
         String curUser_no = loggedInInfo.getLoggedInProviderNo();
@@ -200,7 +205,7 @@ public class PrintDemoChartLabel2Action extends ActionSupport {
         System.setProperty("jasper.reports.compile.class.path", classpath);
 
         HashMap<String, String> parameters = new HashMap<String, String>();
-        parameters.put("demo", request.getParameter("demographic_no"));
+        parameters.put("demo", demographicNo);
 
         ProgramManager2 programManager2 = SpringUtils.getBean(ProgramManager2.class);
 
