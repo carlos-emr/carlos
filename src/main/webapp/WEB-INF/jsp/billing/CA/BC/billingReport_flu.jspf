@@ -109,7 +109,7 @@ int rowCount1 = 0;
 		<TD align="left" width="20%"><b><font size="2"
 			face="Arial, Helvetica, sans-serif"><a href=#
 			onClick='popupPage(700,720, "<%= request.getContextPath() %>/billing/CA/BC/billingView?billing_no=<%=bId%>&dboperation=search_bill&hotclick=0")'
-			title="<%=reason%>"> <%=bId%></a></font></b></TD>
+			title="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(reason) %>"> <%=bId%></a></font></b></TD>
 		<TD align="left" width="20%"><b><font size="2"
 			face="Arial, Helvetica, sans-serif"><carlos:encode value='<%= demoName %>' context="html"/></font></b></TD>
 		<TD align="left" width="20%"><b><font size="2"
@@ -134,7 +134,7 @@ int rowCount1 = 0;
 		<TD align="left" width="20%"><b><font size="2"
 			face="Arial, Helvetica, sans-serif"><a href=#
 			onClick='popupPage(700,720, "<%= request.getContextPath() %>/billing/CA/oscarBilling/billingView?billing_no=<%=bId%>&dboperation=search_bill&hotclick=0")'
-			title="<%=reason%>"> <%=bId%></a></font></b></TD>
+			title="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(reason) %>"> <%=bId%></a></font></b></TD>
 		<TD align="left" width="20%"><b><font size="2"
 			face="Arial, Helvetica, sans-serif"><carlos:encode value='<%= demoName %>' context="html"/></font></b></TD>
 		<TD align="left" width="20%"><b><font size="2"

@@ -96,11 +96,11 @@
 		<TD align="center" width="10%"><b><font size="2"
 			face="Arial, Helvetica, sans-serif"><carlos:encode value='<%= demoName %>' context="html"/></font></b></TD>
 		<TD align="center" width="20%"><b><font size="2"
-			face="Arial, Helvetica, sans-serif"><%=note%></font></b></TD>
+			face="Arial, Helvetica, sans-serif"><carlos:encode value='<%= note %>' context="html"/></font></b></TD>
 		<TD align="center" width="10%"><b> <font size="2"
 			face="Arial, Helvetica, sans-serif"><a href=#
 			onClick='popupPage(700,720, "<%= request.getContextPath() %>/billing/CA/BC/billingView?billing_no=<%=b.getId()%>&dboperation=search_bill&hotclick=0")'
-			title="<%=reason%>"> <%=b.getId()%></a></font></b></TD>
+			title="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(reason) %>"> <%=b.getId()%></a></font></b></TD>
 	</tr>
 	<%  rowCount = rowCount + 1;
     }

@@ -159,6 +159,40 @@ class RemovedJspReferenceRegressionTest {
     }
 
     @Test
+    @DisplayName("BC billing report fragments should encode related reason and note fields")
+    void shouldEncodeRelatedReasonAndNoteFields_inBcBillingReportFragments() throws IOException {
+        String flu = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/BC/billingReport_flu.jspf"));
+        String billOb = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/BC/billingReport_billob.jspf"));
+        String billed = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/BC/billingReport_billed.jspf"));
+        String unsettled = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/BC/billingReport_unsettled.jspf"));
+        String unbilled = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/BC/billingReport_unbilled.jspf"));
+
+        assertThat(flu)
+                .contains("title=\"<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(reason) %>\"")
+                .doesNotContain("title=\"<%=reason%>\"");
+        assertThat(billOb)
+                .contains("title=\"<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(reason) %>\"")
+                .contains("<carlos:encode value='<%= reason %>' context=\"html\"/>")
+                .doesNotContain("title=\"<%=reason%>\"")
+                .doesNotContain("><%=reason%><");
+        assertThat(billed)
+                .contains("title=\"<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(reason) %>\"")
+                .contains("<carlos:encode value='<%= reason %>' context=\"html\"/>(<carlos:encode value='<%= note %>' context=\"html\"/>)")
+                .doesNotContain("<%=reason%>(<%=note%>)")
+                .doesNotContain("title=\"<%=reason%>\"");
+        assertThat(unsettled)
+                .contains("<carlos:encode value='<%= note %>' context=\"html\"/>")
+                .contains("title=\"<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(reason) %>\"")
+                .doesNotContain("<%=note%>")
+                .doesNotContain("title=\"<%=reason%>\"");
+        assertThat(unbilled)
+                .contains("<carlos:encode value='<%= reason %>' context=\"html\"/>")
+                .contains("title=\"<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(reason) %>\"")
+                .doesNotContain("<%=reason%> ")
+                .doesNotContain("title=\"<%=reason%>\"");
+    }
+
+    @Test
     @DisplayName("Admin routes, UI, permissions, and docs should not expose removed Traceability report")
     void shouldNotExposeTraceabilityReport_fromAdminSurfaces() throws IOException {
         String strutsAdmin = Files.readString(Path.of("src/main/webapp/WEB-INF/classes/struts-admin.xml"));
