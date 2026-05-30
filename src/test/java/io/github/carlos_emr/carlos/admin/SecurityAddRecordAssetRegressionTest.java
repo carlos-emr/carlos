@@ -48,7 +48,7 @@ class SecurityAddRecordAssetRegressionTest {
 
     @Test
     @DisplayName("should offer providers without login records when site access privacy is enabled")
-    void shouldOfferProvidersWithoutLoginRecords_whenSiteAccessPrivacyIsEnabled() throws IOException {
+    void shouldOfferProviders_withoutLoginRecordsWhenSiteAccessPrivacyEnabled() throws IOException {
         String jsp = Files.readString(SECURITY_ADD_RECORD_JSP, StandardCharsets.UTF_8);
 
         assertThat(jsp)
