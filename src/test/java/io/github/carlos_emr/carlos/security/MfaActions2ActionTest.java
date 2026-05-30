@@ -28,6 +28,7 @@ import io.github.carlos_emr.carlos.managers.SecurityManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.struts2.ActionSupport;
@@ -86,7 +87,7 @@ class MfaActions2ActionTest extends CarlosUnitTestBase {
         servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
 
         loggedInInfoMock = mockStatic(LoggedInInfo.class);
-        loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any()))
+        loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(loggedInInfo);
 
         request.setMethod("POST");
