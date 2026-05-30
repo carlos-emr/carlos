@@ -83,7 +83,8 @@ class InboxhubFormRapidReviewUnitTest {
                 .contains("changeValueElementByName('query.status', checked ? 'A' : 'N');")
                 .contains("fetchInboxhubData();")
                 .doesNotContain("startDate")
-                .doesNotContain("setDate(new Date()");
+                .doesNotContain("_flatpickr")
+                .doesNotContain("new Date()");
     }
 
     private String extractOpenNextInboxItem(String jsp) {
