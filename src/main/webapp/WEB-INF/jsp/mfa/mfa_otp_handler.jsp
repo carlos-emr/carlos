@@ -33,6 +33,8 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib prefix="csrf" uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:message key="mfa.otp.handler.placeholder" var="otpPlaceholder"/>
+<fmt:message key="mfa.otp.handler.verify.button" var="otpVerifyButton"/>
 
 
 <html>
@@ -46,7 +48,7 @@
             <div class="row mx-3 mx-md-3 mx-lg-3 px-3 px-md-3 px-lg-3 mb-3">
                 <input class="form-control form-control-sm ${not empty requestScope.mfaValidateCodeErr ? 'is-invalid' : ''}"
                        type="text" name="code" id="otpInput" autofocus
-                       placeholder="Enter code" aria-label=".form-control-sm"
+                       placeholder="${carlos:forHtmlAttribute(otpPlaceholder)}" aria-label="${carlos:forHtmlAttribute(otpPlaceholder)}"
                        required maxlength="6">
                 <div id="otpInputFeedback" class="invalid-feedback">
                     ${carlos:forHtml(requestScope.mfaValidateCodeErr)}
@@ -55,7 +57,7 @@
 
             <div class="row mx-3 mx-md-3 mx-lg-3 px-3 px-md-3 px-lg-3 mb-3">
                 <input name="submit" type="submit" class="btn btn-success btn-sm w-100"
-                       id="verifyButton" value="Verify Code"/>
+                       id="verifyButton" value="${carlos:forHtmlAttribute(otpVerifyButton)}"/>
             </div>
         </div>
 
