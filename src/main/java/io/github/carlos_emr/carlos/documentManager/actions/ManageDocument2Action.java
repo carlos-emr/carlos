@@ -1315,15 +1315,9 @@ public class ManageDocument2Action extends ActionSupport {
 
     private void rejectIncomingDocumentPathComponents(String fileName) {
         try {
-            if (FilenameUtils.getPrefixLength(fileName) > 0
-                    || fileName.contains("/")
-                    || fileName.contains("\\")
-                    || fileName.startsWith(".")) {
-                log.warn("Incoming document filename contains path components: {}", LogSafe.sanitize(fileName, 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-                throw new SecurityException("Invalid filename");
-            }
-        } catch (IllegalArgumentException e) {
-            log.warn("Incoming document filename parser rejected invalid filename: {}", LogSafe.sanitize(fileName, 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            PathValidationUtils.validatePathComponent(fileName, "incoming document filename");
+        } catch (SecurityException e) {
+            log.warn("Incoming document filename contains path components: {}", LogSafe.sanitize(fileName, 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             throw new SecurityException("Invalid filename", e);
         }
     }

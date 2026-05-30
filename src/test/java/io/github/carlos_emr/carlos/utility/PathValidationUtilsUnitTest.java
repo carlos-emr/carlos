@@ -317,6 +317,41 @@ class PathValidationUtilsUnitTest {
         }
     }
 
+    @Nested
+    @DisplayName("Path Component Validation Tests")
+    class PathComponentValidationTests {
+
+        @ParameterizedTest
+        @DisplayName("should preserve valid single path component")
+        @ValueSource(strings = {"1", "Fax", "report.pdf", "abc_123-file.pdf", "report.jsp.txt"})
+        void shouldPreserveValidSinglePathComponent(String component) {
+            assertThat(PathValidationUtils.validatePathComponent(component, "component"))
+                .isEqualTo(component);
+        }
+
+        @ParameterizedTest
+        @DisplayName("should reject unsafe path component")
+        @ValueSource(strings = {
+            "../etc/passwd",
+            "x/../y",
+            "/tmp/report.pdf",
+            "C:\\temp\\report.pdf",
+            "foo/bar",
+            "foo\\bar",
+            ".hidden",
+            ".",
+            "..",
+            "",
+            "   ",
+            "bad\u0000name.pdf"
+        })
+        void shouldRejectUnsafePathComponent(String component) {
+            assertThatThrownBy(() -> PathValidationUtils.validatePathComponent(component, "component"))
+                .isInstanceOf(FileValidationException.class)
+                .hasMessageContaining("Invalid filename");
+        }
+    }
+
     // ========================================================================
     // PATH TRAVERSAL PREVENTION
     // ========================================================================
