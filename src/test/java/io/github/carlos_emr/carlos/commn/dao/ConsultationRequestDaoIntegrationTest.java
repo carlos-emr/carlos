@@ -169,16 +169,16 @@ public class ConsultationRequestDaoIntegrationTest extends CarlosTestBase {
             String[] format = new String[]{"yyyy-MM-dd"};
             Date outsideDate = DateUtils.parseDate("2015-03-05", format);
             Date insideDate = DateUtils.parseDate("2015-03-26", format);
-            ConsultationRequest outside = createConsultRequest(DEMO_1, "1", team, outsideDate, outsideDate);
-            ConsultationRequest inside = createConsultRequest(DEMO_1, "1", team, insideDate, insideDate);
+            ConsultationRequest requestOutsideDateRange = createConsultRequest(DEMO_1, "1", team, outsideDate, outsideDate);
+            ConsultationRequest requestInsideDateRange = createConsultRequest(DEMO_1, "1", team, insideDate, insideDate);
 
             List<ConsultationRequest> results = consultationRequestDao.getConsults(
                     team, true, DateUtils.parseDate("2015-03-20", format),
                     DateUtils.parseDate("2015-03-31", format), null, null, null, 0, 99);
 
             assertThat(results).extracting(ConsultationRequest::getId)
-                    .contains(inside.getId())
-                    .doesNotContain(outside.getId());
+                    .contains(requestInsideDateRange.getId())
+                    .doesNotContain(requestOutsideDateRange.getId());
         }
 
         @Test
@@ -189,16 +189,16 @@ public class ConsultationRequestDaoIntegrationTest extends CarlosTestBase {
             String[] format = new String[]{"yyyy-MM-dd"};
             Date outsideDate = DateUtils.parseDate("2015-03-05", format);
             Date insideDate = DateUtils.parseDate("2015-03-26", format);
-            ConsultationRequest outside = createConsultRequest(DEMO_1, "1", team, outsideDate, outsideDate);
-            ConsultationRequest inside = createConsultRequest(DEMO_1, "1", team, insideDate, insideDate);
+            ConsultationRequest requestOutsideDateRange = createConsultRequest(DEMO_1, "1", team, outsideDate, outsideDate);
+            ConsultationRequest requestInsideDateRange = createConsultRequest(DEMO_1, "1", team, insideDate, insideDate);
 
             List<ConsultationRequest> results = consultationRequestDao.getConsults(
                     team, true, DateUtils.parseDate("2015-03-20", format),
                     DateUtils.parseDate("2015-03-31", format), null, null, "1", 0, 99);
 
             assertThat(results).extracting(ConsultationRequest::getId)
-                    .contains(inside.getId())
-                    .doesNotContain(outside.getId());
+                    .contains(requestInsideDateRange.getId())
+                    .doesNotContain(requestOutsideDateRange.getId());
         }
     }
 }
