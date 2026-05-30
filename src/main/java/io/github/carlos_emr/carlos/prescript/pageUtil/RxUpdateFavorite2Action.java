@@ -93,7 +93,8 @@ public final class RxUpdateFavorite2Action extends ActionSupport {
         return SUCCESS;
     }
 
-    public String ajaxEditFavorite() {
+    public String ajaxEditFavorite()
+            throws IOException {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_rx", "u", null)) {
             throw new RuntimeException("missing required sec object (_rx)");
         }
