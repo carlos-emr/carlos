@@ -89,7 +89,7 @@ class SecurityManagerPinUnitTest {
         verify(securityDao).merge(securityCaptor.capture());
         assertThat(securityCaptor.getValue()).isSameAs(security);
         assertThat(security.getPin()).isNotEqualTo(RAW_PIN);
-        assertThat(securityManager.matchesPassword(RAW_PIN, security.getPin())).isTrue();
+        assertThat(securityManager.validatePin(RAW_PIN, security)).isTrue();
         assertThat(security.getPinUpdateDate()).isNotNull();
     }
 

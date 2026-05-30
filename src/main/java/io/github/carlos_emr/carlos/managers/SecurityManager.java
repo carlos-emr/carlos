@@ -251,10 +251,10 @@ public class SecurityManager {
 	}
 
 	private boolean constantTimeEquals(String first, String second) {
-		if (first == null || second == null) {
-			return false;
-		}
-		return MessageDigest.isEqual(first.getBytes(StandardCharsets.UTF_8), second.getBytes(StandardCharsets.UTF_8));
+		byte[] firstBytes = first == null ? new byte[0] : first.getBytes(StandardCharsets.UTF_8);
+		byte[] secondBytes = second == null ? new byte[0] : second.getBytes(StandardCharsets.UTF_8);
+		boolean matched = MessageDigest.isEqual(firstBytes, secondBytes);
+		return first != null && second != null && matched;
 	}
 
     public Security findByProviderNo(LoggedInInfo loggedInInfo, String providerNo) {
