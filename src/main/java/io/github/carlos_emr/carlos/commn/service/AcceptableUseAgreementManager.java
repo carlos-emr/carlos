@@ -41,6 +41,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.PropertyDao;
 import io.github.carlos_emr.carlos.commn.model.Property;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 public class AcceptableUseAgreementManager {
@@ -59,7 +60,7 @@ public class AcceptableUseAgreementManager {
     private static void loadAUA() {
         String path = CarlosProperties.getInstance().getProperty("BASE_DOCUMENT_DIR") + File.separator + "login" + File.separator + "AcceptableUseAgreement.txt";
         try {
-            File auaFile = new File(path);
+            File auaFile = PathValidationUtils.validateAgainstParentDirectory(new File(path));
             if (!auaFile.exists()) {
                 loadAttempted = true;
                 logger.debug("No AcceptableUseAgreement File present. disabling AcceptableUseAgreement prompt");

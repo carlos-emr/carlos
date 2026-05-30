@@ -35,6 +35,7 @@ import io.github.carlos_emr.carlos.integration.ebs.client.ng.EdtClientBuilder;
 import io.github.carlos_emr.carlos.integration.ebs.client.ng.EdtClientBuilderConfig;
 import io.github.carlos_emr.carlos.integration.mcedt.mailbox.ActionUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -44,7 +45,6 @@ import java.io.File;
 import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -124,9 +124,10 @@ public class DelegateFactory {
         if (clientKeystorePropertiesPath == null || clientKeystorePropertiesPath.trim().isEmpty()) {
             return;
         }
-        Path signaturePropFile = Paths.get(clientKeystorePropertiesPath);
+        File signatureFile = PathValidationUtils.validateAgainstParentDirectory(new File(clientKeystorePropertiesPath));
+        Path signaturePropFile = signatureFile.toPath();
         if (Files.exists(signaturePropFile)) {
-            File file = new File(clientKeystorePropertiesPath);
+            File file = signatureFile;
             try {
                 builder.setClientKeystoreFilename(file.toURI().toURL().toString());
             } catch (MalformedURLException e) {

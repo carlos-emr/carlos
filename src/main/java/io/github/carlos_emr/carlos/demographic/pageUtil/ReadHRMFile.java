@@ -58,6 +58,7 @@ import io.github.carlos_emr.carlos.hospitalReportManager.xsd.ReportsReceived;
 import io.github.carlos_emr.carlos.hospitalReportManager.xsd.ReportsReceived.OBRContent;
 import io.github.carlos_emr.carlos.hospitalReportManager.xsd.TransactionInformation;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
 
 
@@ -79,13 +80,13 @@ public class ReadHRMFile {
             if (hrmFile == null) {
                 return;
             }
-            File hrm = new File(hrmFile);
+            File hrm = PathValidationUtils.validateAgainstParentDirectory(new File(hrmFile));
             if (!hrm.exists()) {
                 return;
             }
             JAXBContext jc = JAXBContext.newInstance("io.github.carlos_emr.carlos.hospitalReportManager.xsd");
             Unmarshaller u = jc.createUnmarshaller();
-            try (FileInputStream fis = new FileInputStream(hrm)) {
+            try (FileInputStream fis = new FileInputStream(PathValidationUtils.validateAgainstParentDirectory(hrm))) {
                 SAXSource source = XmlUtils.createSecureJaxbSource(fis);
                 OmdCds root = (OmdCds) u.unmarshal(source);
                 PatientRecord pr = root.getPatientRecord();

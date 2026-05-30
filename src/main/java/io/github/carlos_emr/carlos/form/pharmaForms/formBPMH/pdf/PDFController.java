@@ -45,6 +45,7 @@ import java.util.Map;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import org.openpdf.text.DocumentException;
 import org.openpdf.text.pdf.AcroFields;
 import org.openpdf.text.pdf.AcroFields.Item;
@@ -194,8 +195,9 @@ public class PDFController {
 
     private boolean setFilePath(File file) {
 
-        if (file.exists()) {
-            this.filePath = file;
+        File validatedFile = PathValidationUtils.validateAgainstParentDirectory(file);
+        if (validatedFile.exists()) {
+            this.filePath = validatedFile;
             return Boolean.TRUE;
         }
 
@@ -407,17 +409,16 @@ public class PDFController {
             FileOutputStream fos = null;
             try {
 
-                if (!getOutputPath().endsWith("/")) {
-                    setOutputPath(getOutputPath() + "/");
-                }
-
-                setOutputPath(getOutputPath() + fileId + "_" + new Date().getTime() +
+                File outputDir = PathValidationUtils.resolveConfiguredDirectory(getOutputPath(), "BPMH output path");
+                String generatedName = PathValidationUtils.validateGeneratedFileName(fileId + "_" + new Date().getTime() +
                         "_" + getFilePath().getName());
+                File outputFile = PathValidationUtils.validateGeneratedChildPath(generatedName, outputDir);
+                setOutputPath(outputFile.getAbsolutePath());
 
-                setFileName(new File(getOutputPath()).getName());
+                setFileName(outputFile.getName());
 
                 if (getStamper() == null) {
-                    fos = new FileOutputStream(getOutputPath());
+                    fos = new FileOutputStream(PathValidationUtils.validateAgainstParentDirectory(new File(getOutputPath())));
                     try {
                         setStamper(new PdfStamper(getReader(), fos));
                     } catch (Exception e) {

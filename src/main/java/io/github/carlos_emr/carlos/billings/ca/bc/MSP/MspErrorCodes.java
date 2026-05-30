@@ -42,6 +42,7 @@ import java.util.Date;
 import java.util.Properties;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 
@@ -56,9 +57,11 @@ public class MspErrorCodes extends Properties {
             InputStream is = this.getClass().getClassLoader().getResourceAsStream("oscar/oscarBilling/ca/bc/MSP/mspEditCodes.properties");
             if (CarlosProperties.getInstance().getProperty("msp_error_codes") != null) {
                 String filename = CarlosProperties.getInstance().getProperty("msp_error_codes");
-                is = new FileInputStream(filename);
+                File configuredFile = PathValidationUtils.validateAgainstParentDirectory(new File(filename));
+                is = new FileInputStream(configuredFile);
             } else {
-                File file = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "msp_error_codes.properties");
+                File documentDir = PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
+                File file = PathValidationUtils.validateGeneratedChildPath("msp_error_codes.properties", documentDir);
                 if (file != null && file.exists()) {
                     is = new FileInputStream(file);
                 }
@@ -76,9 +79,10 @@ public class MspErrorCodes extends Properties {
             File file = null;
             if (CarlosProperties.getInstance().getProperty("msp_error_codes") != null) {
                 String filename = CarlosProperties.getInstance().getProperty("msp_error_codes");
-                file = new File(filename);
+                file = PathValidationUtils.validateAgainstParentDirectory(new File(filename));
             } else {
-                file = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "msp_error_codes.properties");
+                File documentDir = PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
+                file = PathValidationUtils.validateGeneratedChildPath("msp_error_codes.properties", documentDir);
             }
 
             store(new FileOutputStream(file), "Written on " + new Date());

@@ -1,8 +1,8 @@
 package io.github.carlos_emr.carlos.managers;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -40,6 +40,7 @@ import io.github.carlos_emr.carlos.email.util.EmailNoteUtil;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.PDFEncryptionUtil;
 import org.owasp.encoder.Encode;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -503,7 +504,7 @@ public class EmailManager {
     private void encryptAttachments(List<EmailAttachment> encryptableAttachments, String password) throws EmailSendingException {
         for (EmailAttachment attachment : encryptableAttachments) {
             try {
-                Path attachmentPDFPath = Paths.get(attachment.getFilePath());
+                Path attachmentPDFPath = PathValidationUtils.validateAgainstParentDirectory(new File(attachment.getFilePath())).toPath();
                 attachmentPDFPath = PDFEncryptionUtil.encryptPDF(attachmentPDFPath, password);
                 attachment.setFilePath(attachmentPDFPath.toString());
             } catch (IOException e) {

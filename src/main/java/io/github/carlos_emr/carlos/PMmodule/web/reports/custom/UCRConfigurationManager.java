@@ -35,6 +35,7 @@ import jakarta.xml.bind.Unmarshaller;
 import javax.xml.transform.sax.SAXSource;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
 
 public class UCRConfigurationManager {
@@ -55,13 +56,13 @@ public class UCRConfigurationManager {
     public UCRConfiguration getConfig(String basePath) throws Exception {
         logger.debug("loading up custom reports config");
         if (config == null) {
-            File f = new File(basePath, filename);
+            File f = PathValidationUtils.validateExistingPath(new File(basePath, filename), new File(basePath));
             if (f.exists()) {
                 logger.debug("found config file");
             }
             JAXBContext ctx = JAXBContext.newInstance(UCRConfiguration.class);
             Unmarshaller unmarshaller = ctx.createUnmarshaller();
-            try (FileInputStream fis = new FileInputStream(f)) {
+            try (FileInputStream fis = new FileInputStream(PathValidationUtils.validateAgainstParentDirectory(f))) {
                 SAXSource source = XmlUtils.createSecureJaxbSource(fis);
                 config = (UCRConfiguration) unmarshaller.unmarshal(source);
             }

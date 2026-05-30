@@ -15,7 +15,7 @@ public class PDFEncryptionUtil {
             StandardProtectionPolicy spp = new StandardProtectionPolicy(password, password, new AccessPermission());
             spp.setEncryptionKeyLength(256);
             pdDocument.protect(spp);
-            Path encryptPDFPath = Files.createTempFile("encryptedPDF_" + System.currentTimeMillis(), ".pdf");
+            Path encryptPDFPath = Files.createTempFile(PathValidationUtils.validateGeneratedFileName("encryptedPDF_" + System.currentTimeMillis()), ".pdf");
             pdDocument.save(encryptPDFPath.toFile());
             return encryptPDFPath;
         } catch (IOException e) {

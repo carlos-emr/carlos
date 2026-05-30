@@ -32,6 +32,7 @@ package io.github.carlos_emr.carlos.appt;
 
 import java.io.BufferedReader;
 import java.io.DataInputStream;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -54,6 +55,7 @@ import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.mail.MailSender;
 import org.springframework.mail.SimpleMailMessage;
@@ -150,7 +152,7 @@ public class AppointmentMailer implements MessageMailer {
                     this.message.setTo(emailAddress.toString());
 
 
-                    fstream = new FileInputStream(msgTemplatePath);
+                    fstream = new FileInputStream(PathValidationUtils.validateAgainstParentDirectory(new File(msgTemplatePath)));
                     instream = new DataInputStream(fstream);
 
                     BufferedReader bufreader = new BufferedReader(new InputStreamReader(instream));

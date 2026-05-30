@@ -47,6 +47,7 @@ import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.OscarDocumentCreator;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
@@ -73,7 +74,7 @@ public class PrintReferralLabel2Action extends ActionSupport {
     private InputStream getInputStream() {
         InputStream ins = null;
         try {
-            ins = new FileInputStream(System.getProperty("user.home") + "/reflabel.xml");
+            ins = new FileInputStream(PathValidationUtils.validateAgainstParentDirectory(new File(System.getProperty("user.home") + "/reflabel.xml")));
         } catch (IOException e) {
             MiscUtils.getLogger().warn("no reflabel.xml found in user's home directory, going to backup");
         }

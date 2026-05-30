@@ -60,6 +60,7 @@ import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemo
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToProvider;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
 import javax.xml.parsers.ParserConfigurationException;
@@ -109,12 +110,13 @@ public class HRMReportParser {
             try {
                 // a lot of the parsers need to refer to a file and even when they provide
                 // parse(String text) it treats the text as a URL, so we load from disk
-                File tmpXMLholder = new File(hrmReportFileLocation);
+                File tmpXMLholder = PathValidationUtils.validateAgainstParentDirectory(new File(hrmReportFileLocation));
 
                 // check DOCUMENT_DIR if not found
                 if (!tmpXMLholder.exists()) {
                     String place = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
-                    tmpXMLholder = new File(place + File.separator + hrmReportFileLocation);
+                    File documentDir = PathValidationUtils.resolveConfiguredDirectory(place, "DOCUMENT_DIR");
+                    tmpXMLholder = PathValidationUtils.validateExistingPath(new File(documentDir, hrmReportFileLocation), documentDir);
                 }
 
                 if (!tmpXMLholder.exists()) {

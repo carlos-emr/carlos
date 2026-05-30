@@ -36,6 +36,7 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.LogTeleplanTx;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.entities.Billingmaster;
@@ -386,8 +387,9 @@ public class ExtractBean extends Object implements Serializable {
             String home_dir;
             String userHomePath = System.getProperty("user.home", "user.dir");
 
-            File pFile = new File(userHomePath, oscar_home);
-            FileInputStream pStream = new FileInputStream(pFile.getPath());
+            File userHomeDir = PathValidationUtils.validateConfiguredDirectory(userHomePath, "user.home");
+            File pFile = PathValidationUtils.validateExistingPath(new File(userHomeDir, oscar_home), userHomeDir);
+            FileInputStream pStream = new FileInputStream(pFile);
 
             Properties ap = new Properties();
             ap.load(pStream);
@@ -397,7 +399,9 @@ public class ExtractBean extends Object implements Serializable {
 
             FileOutputStream out;
 
-            out = new FileOutputStream(home_dir + ohipFilename);
+            File homeDir = PathValidationUtils.resolveConfiguredDirectory(home_dir, "HOME_DIR");
+            File outputFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName(ohipFilename), homeDir);
+            out = new FileOutputStream(outputFile);
             PrintStream p;
             p = new PrintStream(out);
             p.println(value1);
@@ -413,8 +417,9 @@ public class ExtractBean extends Object implements Serializable {
             String home_dir1;
             String userHomePath1 = System.getProperty("user.home", "user.dir");
 
-            File pFile1 = new File(userHomePath1, oscar_home);
-            FileInputStream pStream1 = new FileInputStream(pFile1.getPath());
+            File userHomeDir1 = PathValidationUtils.validateConfiguredDirectory(userHomePath1, "user.home");
+            File pFile1 = PathValidationUtils.validateExistingPath(new File(userHomeDir1, oscar_home), userHomeDir1);
+            FileInputStream pStream1 = new FileInputStream(pFile1);
 
             Properties ap1 = new Properties();
             ap1.load(pStream1);
@@ -423,7 +428,9 @@ public class ExtractBean extends Object implements Serializable {
 
 
             FileOutputStream out1;
-            out1 = new FileOutputStream(home_dir1 + htmlFilename);
+            File homeDir1 = PathValidationUtils.resolveConfiguredDirectory(home_dir1, "HOME_DIR");
+            File outputFile1 = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName(htmlFilename), homeDir1);
+            out1 = new FileOutputStream(outputFile1);
             PrintStream p1;
             p1 = new PrintStream(out1);
 

@@ -27,10 +27,10 @@
 
 package io.github.carlos_emr.carlos.utility;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Date;
 
 import org.apache.logging.log4j.Logger;
@@ -49,7 +49,9 @@ public class DigitalSignatureUtils {
 
     public static String getTempFilePath(String signatureRequestId) {
         String temppath = System.getProperty("java.io.tmpdir");
-        Path path = Paths.get(temppath, "signature_" + signatureRequestId + ".jpg");
+        File tempDir = PathValidationUtils.validateConfiguredDirectory(temppath, "java.io.tmpdir");
+        String signatureFileName = PathValidationUtils.validateGeneratedFileName("signature_" + signatureRequestId + ".jpg");
+        Path path = PathValidationUtils.validateGeneratedChildPath(signatureFileName, tempDir).toPath();
         return path.toString();
     }
 
@@ -67,7 +69,8 @@ public class DigitalSignatureUtils {
             if (filename == null || filename.isEmpty()) {
                 return digitalSignature;
             }
-            try (FileInputStream fileInputStream = new FileInputStream(filename)) {
+            File signatureFile = PathValidationUtils.validateExistingPath(new File(filename), PathValidationUtils.validateConfiguredDirectory(System.getProperty("java.io.tmpdir"), "java.io.tmpdir"));
+            try (FileInputStream fileInputStream = new FileInputStream(signatureFile)) {
                 byte[] image = new byte[1024 * 256];
                 fileInputStream.read(image);
 

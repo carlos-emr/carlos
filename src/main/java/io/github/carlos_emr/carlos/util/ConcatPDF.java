@@ -51,7 +51,6 @@ package io.github.carlos_emr.carlos.util;
 
 import java.io.*;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -60,12 +59,14 @@ import org.apache.pdfbox.io.RandomAccessReadBuffer;
 import org.apache.pdfbox.multipdf.PDFMergerUtility;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 public class ConcatPDF {
 
 
     public static void concat(ArrayList<Object> alist, String filename) {
-        try (OutputStream os = new FileOutputStream(filename)) {
+        File outputFile = PathValidationUtils.validateAgainstParentDirectory(new File(filename));
+        try (OutputStream os = new FileOutputStream(outputFile)) {
             concat(alist, os);
         } catch (Exception e) {
             MiscUtils.getLogger().error("Failed to concatenate {} PDF documents to file: {}", alist.size(), filename, e);
@@ -88,7 +89,7 @@ public class ConcatPDF {
                 if (o instanceof InputStream) {
                     documentReader = Loader.loadPDF(((InputStream) o).readAllBytes());
                 } else {
-                    Path fileName = Paths.get((String) o);
+                    Path fileName = PathValidationUtils.validateAgainstParentDirectory(new File((String) o)).toPath();
                     documentReader = Loader.loadPDF(fileName.toFile());
                 }
 

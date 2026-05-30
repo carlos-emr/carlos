@@ -58,6 +58,7 @@ import io.github.carlos_emr.carlos.commn.model.BillingONExt;
 import io.github.carlos_emr.carlos.commn.dao.BillingONExtDao;
 import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.DateUtils;
@@ -341,7 +342,7 @@ public class PdfRecordPrinter {
             if (templateFilepath.isEmpty())
                 is = this.getClass().getClassLoader().getResourceAsStream(BILLING_INVOICE_TEMPLATE_FILE);
             else
-                is = new FileInputStream(templateFilepath);
+                is = new FileInputStream(PathValidationUtils.validateAgainstParentDirectory(new File(templateFilepath)));
             //get Jasper Report
 
             JasperReport jasperReport = JasperCompileManager.compileReport(is);
@@ -368,7 +369,7 @@ public class PdfRecordPrinter {
                                 if (imagePath.isEmpty()) {
                                     //DO NOTHING imageIS = this.getClass().getClassLoader().getResourceAsStream(OSCAR_LOGO_FILE);
                                 } else {
-                                    imageIS = new FileInputStream(imagePath);
+                                    imageIS = new FileInputStream(PathValidationUtils.validateAgainstParentDirectory(new File(imagePath)));
                                 }
                                 parameters.put(paramName, imageIS);
                             } else if (paramName.equals("billing_print_date")) {
@@ -901,7 +902,7 @@ public class PdfRecordPrinter {
             File tempFile = null;
             try {
                 tempFile = File.createTempFile("graphicImg", ".png");
-                FileOutputStream fos = new FileOutputStream(tempFile);
+                FileOutputStream fos = new FileOutputStream(PathValidationUtils.validateAgainstParentDirectory(tempFile));
                 convert.convertToImage(image, drawData.getVarValue(), "PNG", fos);
                 logger.debug("converted image is " + tempFile.getName());
                 fos.close();

@@ -35,6 +35,7 @@ import org.openpdf.text.Image;
 import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import org.w3c.dom.Element;
 import org.xhtmlrenderer.extend.FSImage;
 import org.xhtmlrenderer.extend.ReplacedElement;
@@ -46,6 +47,7 @@ import org.xhtmlrenderer.pdf.*;
 import org.xhtmlrenderer.render.BlockBox;
 import org.xhtmlrenderer.simple.extend.FormSubmissionListener;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -139,7 +141,7 @@ public class ReplacedElementFactoryImpl implements ReplacedElementFactory {
      */
     protected final FSImage imageForPDF(String attribute, UserAgentCallback uac) throws IOException, BadElementException {
         FSImage fsImage;
-        try (InputStream input = new FileInputStream(attribute)) {
+        try (InputStream input = new FileInputStream(PathValidationUtils.validateAgainstParentDirectory(new File(attribute)))) {
             byte[] bytes = IOUtils.toByteArray(input);
             Image image = Image.getInstance(bytes);
             fsImage = new ITextFSImage(image);

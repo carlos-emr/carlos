@@ -32,11 +32,11 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.io.File;
 import java.util.Optional;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -51,6 +51,7 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.Response;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.Hl7TextMessage;
@@ -120,8 +121,9 @@ public class LabService extends AbstractServiceImpl {
 		}
 
 		int checkFileUploadedSuccessfully;
-        try (InputStream localFileInputStream = Files.newInputStream(Paths.get(filePath))) {
-            checkFileUploadedSuccessfully = FileUploadCheck.addFile(Paths.get(filePath).getFileName().toString(), localFileInputStream, loggedInInfo.getLoggedInProviderNo());
+        File savedLabFile = PathValidationUtils.validateAgainstParentDirectory(new File(filePath));
+        try (InputStream localFileInputStream = Files.newInputStream(savedLabFile.toPath())) {
+            checkFileUploadedSuccessfully = FileUploadCheck.addFile(savedLabFile.getName(), localFileInputStream, loggedInInfo.getLoggedInProviderNo());
         } catch (IOException e) {
             logger.error("Error occurred while processing " + labT.getFileName() + " file", e);
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createResponseMap(labT.getFileName(), "Failed", "Error occurred while processing the file", null, type)).build();
@@ -143,7 +145,7 @@ public class LabService extends AbstractServiceImpl {
 			Hl7TextMessage hl7TextMessage = labManager.getHl7Message(loggedInInfo, lastLabNo);
 			Hl7TextMessageConverter converter = new Hl7TextMessageConverter();
 			labT = converter.getAsTransferObject(loggedInInfo, hl7TextMessage);
-			labT.setFileName(Paths.get(filePath).getFileName().toString());
+			labT.setFileName(savedLabFile.getName());
 		}
 		return Response.ok(labT).build();
 	}

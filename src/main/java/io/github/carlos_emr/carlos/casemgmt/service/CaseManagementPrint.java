@@ -74,6 +74,7 @@ import io.github.carlos_emr.carlos.commn.dao.AllergyDao;
 import io.github.carlos_emr.carlos.managers.PreventionManager;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.lab.ca.all.pageUtil.LabPDFCreator;
@@ -296,8 +297,9 @@ public class CaseManagementPrint {
         String headerDate = headerFormat.format(now);
 
         // Create new file to save form to
-        String path = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
-        String fileName = path + "EncounterForm-" + headerDate + ".pdf";
+        File documentDir = PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
+        File encounterFile = PathValidationUtils.validateGeneratedChildPath("EncounterForm-" + headerDate + ".pdf", documentDir);
+        String fileName = encounterFile.getAbsolutePath();
         File file = null;
         FileOutputStream out = null;
         File file2 = null;
@@ -309,7 +311,7 @@ public class CaseManagementPrint {
 
         try {
 
-            file = new File(fileName);
+            file = PathValidationUtils.validateAgainstParentDirectory(new File(fileName));
             out = new FileOutputStream(file);
 
             CaseManagementPrintPdf printer = new CaseManagementPrintPdf(request, out);
@@ -364,8 +366,9 @@ public class CaseManagementPrint {
                     // TODO:filter out the ones which aren't in our date range if there's a date range????
                     String segmentId = result.segmentID;
                     MessageHandler handler = Factory.getHandler(segmentId);
-                    String fileName2 = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + "//" + handler.getPatientName().replaceAll("\\s", "_") + "_" + handler.getMsgDate() + "_LabReport.pdf";
-                    file2 = new File(fileName2);
+                    String labReportName = PathValidationUtils.validateGeneratedFileName(handler.getPatientName().replaceAll("\\s", "_") + "_" + handler.getMsgDate() + "_LabReport.pdf");
+                    String fileName2 = PathValidationUtils.validateGeneratedChildPath(labReportName, documentDir).getAbsolutePath();
+                    file2 = PathValidationUtils.validateAgainstParentDirectory(new File(fileName2));
                     os2 = new FileOutputStream(file2);
 
                     {
@@ -377,8 +380,9 @@ public class CaseManagementPrint {
                         }
                         os2.close();
 
-                        String fileName3 = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + "//" + handler.getPatientName().replaceAll("\\s", "_") + "_" + handler.getMsgDate() + "_LabReport.1.pdf";
-                        File file3 = new File(fileName3);
+                        String embeddedLabReportName = PathValidationUtils.validateGeneratedFileName(handler.getPatientName().replaceAll("\\s", "_") + "_" + handler.getMsgDate() + "_LabReport.1.pdf");
+                        String fileName3 = PathValidationUtils.validateGeneratedChildPath(embeddedLabReportName, documentDir).getAbsolutePath();
+                        File file3 = PathValidationUtils.validateAgainstParentDirectory(new File(fileName3));
                         fos = new FileOutputStream(file3);
                         pdfCreator.addEmbeddedDocuments(file2, fos);
                         pdfDocs.add(fileName3);
@@ -408,7 +412,7 @@ public class CaseManagementPrint {
                 file2.delete();
             }
             for (Object o : pdfDocs) {
-                new File((String) o).delete();
+                PathValidationUtils.validateAgainstParentDirectory(new File((String) o)).delete();
             }
         }
 

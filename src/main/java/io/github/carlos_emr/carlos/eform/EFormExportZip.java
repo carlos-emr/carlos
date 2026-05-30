@@ -140,20 +140,13 @@ public class EFormExportZip {
     public File getImageFile(String imageFileName) throws Exception {
         String home_dir = CarlosProperties.getInstance().getEformImageDirectory();
 
-        File file = null;
         try {
-            File directory = new File(home_dir);
+            File directory = PathValidationUtils.resolveConfiguredDirectory(home_dir, "eform image directory");
             if (!directory.exists()) {
                 throw new Exception("Directory:  " + home_dir + " does not exist");
             }
-            file = new File(directory, imageFileName);
-            //String canonicalPath = file.getParentFile().getCanonicalPath(); //absolute path of the retrieved file
-
-            if (!directory.equals(file.getParentFile())) {
-                MiscUtils.getLogger().debug("SECURITY WARNING: Illegal file path detected, client attempted to navigate away from the file directory");
-                throw new Exception("Could not open file " + imageFileName + ".  Check the file path");
-            }
-            return file;
+            return PathValidationUtils.validateGeneratedChildPath(
+                    PathValidationUtils.validatePathComponent(imageFileName, "eform image file"), directory);
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
             throw new Exception("Could not open file " + home_dir + imageFileName + " does " + home_dir + " exist ?", e);
@@ -181,7 +174,7 @@ public class EFormExportZip {
         _log.info("Importing eforms");
 
         File imageDir = ImageUpload2Action.getImageFolder();
-        File imageExtractDir = new File(imageDir, "extractFolder"); //do not delete this as two people may be importing at once
+        File imageExtractDir = PathValidationUtils.validateGeneratedChildPath("extractFolder", imageDir); //do not delete this as two people may be importing at once
         //create if exists
         if (!imageExtractDir.exists() && !imageExtractDir.mkdir()) {
             errors.add("Error: Cannot create temporary folder for unzipping eform contents.  Check system logs");
@@ -190,7 +183,7 @@ public class EFormExportZip {
         }
         //create temp folder to extract files
         SimpleDateFormat format = new SimpleDateFormat("yyyyMMddkkmmssS"); //to ensure it does not repeat
-        File imageTempFolderDir = new File(imageExtractDir, "extract" + format.format(new Date()));
+        File imageTempFolderDir = PathValidationUtils.validateGeneratedChildPath("extract" + format.format(new Date()), imageExtractDir);
         if (!imageTempFolderDir.exists() && !imageTempFolderDir.mkdir()) {
             errors.add("Error: Cannot create temporary folder for unzipping eform contents.  Check system logs");
             Exception e = new Exception("Error: Cannot create temporary folder for unzipping eform contents.  New folder: " + imageTempFolderDir.getAbsolutePath());
@@ -204,9 +197,10 @@ public class EFormExportZip {
         Hashtable<String, File> tempFiles = new Hashtable<String, File>(); //references extracted files in the temp folder
         //first runthrough, get the properties files, construct eforms, cache files
         while ((ze = zis.getNextEntry()) != null) {
-            File file = new File(ze.getName());
-            _log.info("Unzipping..." + LogSafe.sanitize(file.getName()));
-            if (file.getName().equalsIgnoreCase("eform.properties")) {
+            File zipEntryFile = PathValidationUtils.validateZipEntryPath(ze, imageTempFolderDir);
+            String zipEntryFileName = PathValidationUtils.validatePathComponent(zipEntryFile.getName(), "eform import zip entry");
+            _log.info("Unzipping..." + LogSafe.sanitize(zipEntryFileName));
+            if (zipEntryFileName.equalsIgnoreCase("eform.properties")) {
                 Properties properties = new Properties();
                 properties.load(zis);
                 EForm newEForm = this.createEFormFromProperties(properties);
@@ -232,10 +226,8 @@ public class EFormExportZip {
                 _log.debug("going in eform table >" + newEForm.getFormFileName() + "<");
             } else {
                 //store temp files on HD
-                File tempFile = new File(imageTempFolderDir, file.getName());
-                // Zip Slip prevention: ensure extracted file stays within the temp extraction directory
-                tempFile = PathValidationUtils.validateExistingPath(tempFile, imageTempFolderDir);
-                tempFiles.put(file.getName(), tempFile); //reference so we can find it later
+                File tempFile = PathValidationUtils.validateGeneratedChildPath(zipEntryFileName, imageTempFolderDir);
+                tempFiles.put(zipEntryFileName, tempFile); //reference so we can find it later
                 FileOutputStream fos = new FileOutputStream(tempFile);
                 inputToOutput(zis, fos);
                 fos.close();
@@ -253,7 +245,8 @@ public class EFormExportZip {
         for (Entry<String, File> tempFile : tempFiles.entrySet()) {
             _log.info("looking at " + tempFile.getKey());
             if (eformTable.containsKey(tempFile.getKey())) {  //if file name matches eform
-                FileInputStream fis = new FileInputStream(tempFile.getValue());
+                File extractedTempFile = PathValidationUtils.validateExistingPath(tempFile.getValue(), imageTempFolderDir);
+                FileInputStream fis = new FileInputStream(extractedTempFile);
                 ByteArrayOutputStream baos = new ByteArrayOutputStream();
                 inputToOutput(fis, baos);
                 String html = new String(baos.toByteArray());
@@ -264,10 +257,9 @@ public class EFormExportZip {
             } else if (eformTableFailed.containsKey(tempFile.getKey())) {
                 //do not save file if eform fails
             } else {
-                FileInputStream fis = new FileInputStream(tempFile.getValue());
-                File imageFile = new File(ImageUpload2Action.getImageFolder(), tempFile.getKey());
-                // Zip Slip prevention: ensure the image destination stays within the image folder
-                imageFile = PathValidationUtils.validateExistingPath(imageFile, ImageUpload2Action.getImageFolder());
+                File extractedTempFile = PathValidationUtils.validateExistingPath(tempFile.getValue(), imageTempFolderDir);
+                FileInputStream fis = new FileInputStream(extractedTempFile);
+                File imageFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validatePathComponent(tempFile.getKey(), "eform image file"), ImageUpload2Action.getImageFolder());
                 if (imageFile.exists()) {
                     errors.add("Image '" + tempFile.getKey() + "' already exists, skipping image, but the form may still be uploaded.  Please resolve.");
                     _log.info("EForm Import: Image with name '" + tempFile.getKey() + "' already exists, skipping image, but the form may still be uploaded.  Please resolve.");

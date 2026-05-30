@@ -62,6 +62,7 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.integration.hl7.model.PatientId;
 import io.github.carlos_emr.carlos.integration.hl7.model.StaffId;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
 
@@ -1253,7 +1254,7 @@ public class PhsStarHandler extends BasePhsStarHandler {
         InputStream is = null;
 
         try {
-            is = new FileInputStream(new File(filename));
+            is = new FileInputStream(PathValidationUtils.validateAgainstParentDirectory(new File(filename)));
 
             if (is != null) {
                 SAXBuilder parser = XmlUtils.createSecureSAXBuilder();

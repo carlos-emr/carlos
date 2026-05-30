@@ -32,6 +32,7 @@
 
 package io.github.carlos_emr.carlos.managers;
 
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import java.io.File;
 import java.net.URL;
 import java.util.ArrayList;
@@ -223,7 +224,7 @@ public interface MeasurementManager {
         String path_set_by_property = CarlosProperties.getInstance().getProperty("MEASUREMENT_DS_HTML_DIRECTORY");
 
         if (path_set_by_property != null) {
-            File[] files1 = new File(path_set_by_property).listFiles();
+            File[] files1 = PathValidationUtils.resolveConfiguredDirectory(path_set_by_property, "measurement resource path").listFiles();
 
             for (File file1 : files1) {
                 if (file1.isFile()) {
@@ -234,7 +235,7 @@ public interface MeasurementManager {
 
         URL path_of_resource = MeasurementFlowSheet.class.getClassLoader()
                 .getResource("/oscar/encounter/oscarMeasurements/flowsheets/html/");
-        File[] files2 = new File(path_of_resource.getPath()).listFiles();
+        File[] files2 = PathValidationUtils.resolveConfiguredDirectory(path_of_resource.getPath(), "measurement resource path").listFiles();
 
         for (File file2 : files2) {
             if (file2.isFile()) {

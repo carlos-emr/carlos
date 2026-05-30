@@ -28,6 +28,7 @@
  */
 package io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.web;
 
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
@@ -38,6 +39,7 @@ import io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.pdf.PDFController;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -147,7 +149,7 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
             bpmhFormHandler.saveFormHistory();
         }
 
-        input = new FileInputStream(pdfController.getOutputPath());
+        input = new FileInputStream(PathValidationUtils.validateAgainstParentDirectory(new File(pdfController.getOutputPath())));
         pdfContent = new byte[input.available()];
         input.read(pdfContent, 0, input.available());
 

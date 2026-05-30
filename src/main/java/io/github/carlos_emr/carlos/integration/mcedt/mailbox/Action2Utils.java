@@ -34,6 +34,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.integration.mcedt.McedtConstants;
 import io.github.carlos_emr.carlos.integration.mcedt.ResourceForm;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
@@ -246,7 +247,7 @@ public class Action2Utils {
     public static List<File> getUploadList() {
         List<File> edtUploadList = new ArrayList<File>();
         CarlosProperties props = CarlosProperties.getInstance();
-        File outbox = new File(props.getProperty("ONEDT_OUTBOX", ""));
+        File outbox = PathValidationUtils.resolveConfiguredDirectory(props.getProperty("ONEDT_OUTBOX", ""), "ONEDT_OUTBOX");
         FileFilter fileFilter = new FileFilter() {
             public boolean accept(File file) {
                 return file.isFile() && !file.isHidden();
@@ -292,8 +293,8 @@ public class Action2Utils {
     public static void moveOhipToOutBox(Date startDate, Date endDate) {
         try {
             CarlosProperties props = CarlosProperties.getInstance();
-            File generatedFiles = new File(props.getProperty("HOME_DIR", ""));
-            File outbox = new File(props.getProperty("ONEDT_OUTBOX", ""));
+            File generatedFiles = PathValidationUtils.resolveConfiguredDirectory(props.getProperty("HOME_DIR", ""), "HOME_DIR");
+            File outbox = PathValidationUtils.resolveConfiguredDirectory(props.getProperty("ONEDT_OUTBOX", ""), "ONEDT_OUTBOX");
             FileFilter fileFilter = new FileFilter() {
                 public boolean accept(File file) {
                     return (file.isFile() && !file.isHidden() && Action2Utils.isOHIPFile(file.getName()));
@@ -322,8 +323,8 @@ public class Action2Utils {
     public static void moveObecToOutBox(Date startDate, Date endDate) {
         try {
             CarlosProperties props = CarlosProperties.getInstance();
-            File generatedFiles = new File(props.getProperty("DOCUMENT_DIR", ""));
-            File outbox = new File(props.getProperty("ONEDT_OUTBOX", ""));
+            File generatedFiles = PathValidationUtils.resolveConfiguredDirectory(props.getProperty("DOCUMENT_DIR", ""), "DOCUMENT_DIR");
+            File outbox = PathValidationUtils.resolveConfiguredDirectory(props.getProperty("ONEDT_OUTBOX", ""), "ONEDT_OUTBOX");
             FileFilter fileFilter = new FileFilter() {
                 public boolean accept(File file) {
                     return (file.isFile() && !file.isHidden() && Action2Utils.isOBECFile(file.getName()));
@@ -349,7 +350,7 @@ public class Action2Utils {
 
     public static void createOnEDTOutboxDir() {
         CarlosProperties props = CarlosProperties.getInstance();
-        File dateDir = new File(props.getProperty("ONEDT_OUTBOX", ""));
+        File dateDir = PathValidationUtils.resolveConfiguredDirectory(props.getProperty("ONEDT_OUTBOX", ""), "ONEDT_OUTBOX");
         if (!dateDir.exists()) dateDir.mkdirs();
     }
 
@@ -358,10 +359,9 @@ public class Action2Utils {
         try {
             SimpleDateFormat formatter = new SimpleDateFormat("dd-MM-yyyy HH:mm");
             CarlosProperties props = CarlosProperties.getInstance();
-            //File dateFile = new File(props.getProperty("ONEDT_OUTBOX", "") + ".timestamp");
-            File dateDir = new File(props.getProperty("ONEDT_OUTBOX", ""));
+            File dateDir = PathValidationUtils.resolveConfiguredDirectory(props.getProperty("ONEDT_OUTBOX", ""), "ONEDT_OUTBOX");
             if (!dateDir.exists()) dateDir.mkdirs();
-            File dateFile = new File(dateDir, ".timestamp");
+            File dateFile = PathValidationUtils.validateGeneratedChildPath(".timestamp", dateDir);
             if (!dateFile.exists()) dateFile.createNewFile();
             BufferedReader br = new BufferedReader(new FileReader(dateFile));
             String temp = br.readLine().trim();
@@ -379,7 +379,7 @@ public class Action2Utils {
         try {
             SimpleDateFormat formatter = new SimpleDateFormat("dd-MM-yyyy HH:mm");
             CarlosProperties props = CarlosProperties.getInstance();
-            File dateFile = new File(props.getProperty("ONEDT_OUTBOX", "") + ".timestamp");
+            File dateFile = PathValidationUtils.validateGeneratedSiblingPath(props.getProperty("ONEDT_OUTBOX", ""), ".timestamp", "ONEDT_OUTBOX timestamp");
             if (!dateFile.exists()) dateFile.createNewFile();
             BufferedWriter bw = new BufferedWriter(new FileWriter(dateFile));
             bw.write(formatter.format(endDate));
@@ -506,7 +506,7 @@ public class Action2Utils {
 
     public static void moveFileToDirectory(File srcFile, File destDir, boolean createDestDir, boolean override) throws IOException {
         if (override) {
-            File checkFile = new File(destDir.getAbsolutePath() + File.separator + srcFile.getName());
+            File checkFile = PathValidationUtils.validateGeneratedChildPath(srcFile.getName(), destDir);
             if (checkFile.exists()) FileUtils.forceDelete(checkFile);
         }
         FileUtils.moveFileToDirectory(srcFile, destDir, createDestDir);
@@ -514,7 +514,7 @@ public class Action2Utils {
 
     public static void copyFileToDirectory(File srcFile, File destDir, boolean createDestDir, boolean override) throws IOException {
         if (override) {
-            File checkFile = new File(destDir.getAbsolutePath() + File.separator + srcFile.getName());
+            File checkFile = PathValidationUtils.validateGeneratedChildPath(srcFile.getName(), destDir);
             if (checkFile.exists()) FileUtils.forceDelete(checkFile);
         }
         FileUtils.copyFileToDirectory(srcFile, destDir, createDestDir);

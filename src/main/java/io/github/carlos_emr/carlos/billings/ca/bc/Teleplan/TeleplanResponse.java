@@ -65,9 +65,9 @@ public class TeleplanResponse {
 
     void processResponseStream(InputStream in) {
         try {
-            String directory = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR", "./");
+            File directory = PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR", "./"), "DOCUMENT_DIR");
             double randNum = Math.random();
-            String tempFile = directory + "teleplan.msp" + randNum;
+            File tempFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName("teleplan.msp" + randNum), directory);
             BufferedReader bin = new BufferedReader(new InputStreamReader(in));
             BufferedWriter out = new BufferedWriter(new FileWriter(tempFile));
 
@@ -87,11 +87,11 @@ public class TeleplanResponse {
             //If it has a filename same to
 
             if (this.getFilename() != null && !this.getFilename().trim().equals("")) {
-                File file = new File(tempFile);
+                File file = PathValidationUtils.validateExistingPath(tempFile, directory);
                 realFilename = "teleplan" + this.getFilename() + randNum;
 
                 // Use PathValidationUtils to validate destination path
-                File allowedDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
+                File allowedDir = directory;
                 File file2;
                 try {
                     file2 = PathValidationUtils.validatePath(realFilename, allowedDir);
@@ -161,8 +161,8 @@ public class TeleplanResponse {
     }
 
     public File getFile() {
-        String directory = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR", "./");
-        return new File(directory + realFilename);
+        File directory = PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR", "./"), "DOCUMENT_DIR");
+        return PathValidationUtils.validatePath(realFilename, directory);
     }
 
 }

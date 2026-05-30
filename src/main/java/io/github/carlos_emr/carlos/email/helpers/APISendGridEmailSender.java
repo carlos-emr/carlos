@@ -1,9 +1,10 @@
 package io.github.carlos_emr.carlos.email.helpers;
 
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 
 import javax.net.ssl.SSLContext;
@@ -247,7 +248,7 @@ public class APISendGridEmailSender {
         for (EmailAttachment emailAttachment : attachments) {
             try {
                 ObjectNode jsonAttachment = objectMapper.createObjectNode();
-                Path path = Paths.get(emailAttachment.getFilePath());
+                Path path = PathValidationUtils.validateAgainstParentDirectory(new File(emailAttachment.getFilePath())).toPath();
                 jsonAttachment.put("content", Base64.encodeBase64String(Files.readAllBytes(path)));
                 jsonAttachment.put("filename", emailAttachment.getFileName());
                 jsonAttachment.put("type", "application/pdf");

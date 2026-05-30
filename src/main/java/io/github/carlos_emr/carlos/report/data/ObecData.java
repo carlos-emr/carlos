@@ -32,8 +32,6 @@ package io.github.carlos_emr.carlos.report.data;
 
 import java.io.File;
 import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.Properties;
 
@@ -43,6 +41,7 @@ import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.integration.mcedt.mailbox.ActionUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
@@ -111,12 +110,12 @@ public class ObecData {
             String oscarHome = pp.getProperty("DOCUMENT_DIR");
 
             String outbox = pp.getProperty("ONEDT_OUTBOX", "");
-            Path outboxPath = Paths.get(outbox);
-            File outboxFile = outboxPath.toFile();
+            File outboxFile = PathValidationUtils.resolveConfiguredDirectory(outbox, "ONEDT_OUTBOX");
 
             // Construct the filename
             obecFilename = "OBECE" + System.currentTimeMillis() + ".TXT";
-            File srcFile = Paths.get(oscarHome, obecFilename).toFile();
+            File documentDir = PathValidationUtils.resolveConfiguredDirectory(oscarHome, "DOCUMENT_DIR");
+            File srcFile = PathValidationUtils.validateGeneratedChildPath(obecFilename, documentDir);
 
             // Write the content to the file
             Files.write(srcFile.toPath(), value1.getBytes(), StandardOpenOption.CREATE);

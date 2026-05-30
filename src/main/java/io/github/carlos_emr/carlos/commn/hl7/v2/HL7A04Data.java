@@ -39,6 +39,7 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.appt.ApptData;
@@ -184,11 +185,12 @@ public class HL7A04Data {
 
         // create HL7 A04 file
         try {
-            File directory = new File(saveDir);
+            File directory = PathValidationUtils.resolveConfiguredDirectory(saveDir, "HL7 A04 build directory");
             if (!directory.exists())
                 directory.mkdir();
 
-            FileWriter fw = new FileWriter(saveDir + this.fileName, true);
+            File outputFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName(this.fileName), directory);
+            FileWriter fw = new FileWriter(outputFile, true);
             BufferedWriter out = new BufferedWriter(fw);
             out.write(this.message);
             out.close();

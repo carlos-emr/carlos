@@ -26,6 +26,7 @@
 package io.github.carlos_emr.carlos.utils;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileReader;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -36,6 +37,7 @@ import java.util.GregorianCalendar;
 import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.carlos.PMmodule.model.FieldDefinition;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class Utility {
@@ -334,7 +336,7 @@ public class Utility {
 
             BufferedReader in = null;
             try {
-                in = new BufferedReader(new FileReader(fileDir));
+                in = new BufferedReader(new FileReader(PathValidationUtils.validateAgainstParentDirectory(new File(fileDir))));
                 String str;
                 if (fileDir.indexOf("/in/") > -1) {
                     while ((str = in.readLine()) != null) {

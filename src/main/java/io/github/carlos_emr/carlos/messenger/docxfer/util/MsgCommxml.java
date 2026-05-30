@@ -30,6 +30,7 @@
 
 package io.github.carlos_emr.carlos.messenger.docxfer.util;
 
+import java.io.File;
 import java.io.StringReader;
 import java.io.StringWriter;
 
@@ -39,6 +40,7 @@ import javax.xml.transform.stream.StreamResult;
 
 import org.apache.commons.codec.binary.Base64;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -183,7 +185,7 @@ public class MsgCommxml {
      * @throws org.xml.sax.SAXException if the XML is malformed
      */
     public static Document parseXMLFile(String fileName) throws java.io.FileNotFoundException, javax.xml.parsers.ParserConfigurationException, java.io.IOException, org.xml.sax.SAXException {
-        try (java.io.FileReader reader = new java.io.FileReader(fileName)) {
+        try (java.io.FileReader reader = new java.io.FileReader(PathValidationUtils.validateAgainstParentDirectory(new File(fileName)))) {
             InputSource is = new InputSource(reader);
             return XmlUtils.createSecureDocumentBuilderFactory().newDocumentBuilder().parse(is);
         }

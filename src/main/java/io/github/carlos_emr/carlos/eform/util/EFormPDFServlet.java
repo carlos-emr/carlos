@@ -59,6 +59,7 @@ import io.github.carlos_emr.carlos.commn.printing.FontSettings;
 import io.github.carlos_emr.carlos.commn.printing.PdfWriterFactory;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.LogSafe;
@@ -145,17 +146,17 @@ public class EFormPDFServlet extends HttpServlet {
                 ArrayList<Object> files = new ArrayList<Object>();
                 for (int x = 0; x < Integer.parseInt(req.getParameter("multiple")); x++) {
                     baosPDF = generatePDFDocumentBytes(req, this.getServletContext(), x);
-                    tmpFile = File.createTempFile("formpdf", String.valueOf((int) Math.random() * 10000));
-                    baosPDF.writeTo(new FileOutputStream(tmpFile));
+                    tmpFile = File.createTempFile(PathValidationUtils.validateGeneratedFileName("formpdf"), String.valueOf((int) Math.random() * 10000));
+                    baosPDF.writeTo(new FileOutputStream(PathValidationUtils.validateAgainstParentDirectory(tmpFile)));
                     files.add(tmpFile.getAbsolutePath());
                     tmpFile.deleteOnExit();
                 }
-                tmpFile = File.createTempFile("formpdf", String.valueOf((int) Math.random() * 10000));
+                tmpFile = File.createTempFile(PathValidationUtils.validateGeneratedFileName("formpdf"), String.valueOf((int) Math.random() * 10000));
                 ConcatPDF.concat(files, tmpFile.getAbsolutePath());
             } else {
                 baosPDF = generatePDFDocumentBytes(req, this.getServletContext(), 0);
-                tmpFile = File.createTempFile("formpdf", String.valueOf((int) Math.random() * 10000));
-                baosPDF.writeTo(new FileOutputStream(tmpFile));
+                tmpFile = File.createTempFile(PathValidationUtils.validateGeneratedFileName("formpdf"), String.valueOf((int) Math.random() * 10000));
+                baosPDF.writeTo(new FileOutputStream(PathValidationUtils.validateAgainstParentDirectory(tmpFile)));
             }
             StringBuilder sbFilename = new StringBuilder();
             sbFilename.append("filename_");

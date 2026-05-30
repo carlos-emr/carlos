@@ -68,20 +68,22 @@ public class zip {
             BufferedInputStream origin = null;
             int BUFFER = 1024;
             String form_record_path = CarlosProperties.getInstance().getProperty("form_record_path", "/root");
-            FileOutputStream dest = new FileOutputStream(form_record_path + "formRecords.zip");
+            File formRecordDir = PathValidationUtils.resolveConfiguredDirectory(form_record_path, "form_record_path");
+            FileOutputStream dest = new FileOutputStream(PathValidationUtils.validateGeneratedChildPath("formRecords.zip", formRecordDir));
             ZipOutputStream out = new ZipOutputStream(new BufferedOutputStream(dest));
             out.setMethod(ZipOutputStream.DEFLATED);
             byte data[] = new byte[BUFFER];
             //get a list of files from current directory
-            File f = new File(form_record_path + ".");
+            File f = formRecordDir;
             String files[] = f.list();
 
             for (int i = 0; i < files.length; i++) {
                 MiscUtils.getLogger().debug("Adding: " + files[i]);
                 if (files[i].endsWith("." + fileformat)) {
-                    FileInputStream fi = new FileInputStream(form_record_path + files[i]);
+                    File inputFile = PathValidationUtils.validateGeneratedChildPath(files[i], formRecordDir);
+                    FileInputStream fi = new FileInputStream(inputFile);
                     origin = new BufferedInputStream(fi, BUFFER);
-                    ZipEntry entry = new ZipEntry(files[i]);
+                    ZipEntry entry = new ZipEntry(PathValidationUtils.validateZipEntryName(inputFile, formRecordDir));
                     out.putNextEntry(entry);
                     int count;
                     while ((count = origin.read(data, 0, BUFFER)) != -1) {
@@ -103,7 +105,9 @@ public class zip {
 
         Enumeration<? extends ZipEntry> entries;
         boolean result = false;
-        String fullpath = dirName + fName;
+        File targetDir = PathValidationUtils.resolveConfiguredDirectory(dirName, "unzip target directory");
+        File zipInputFile = PathValidationUtils.validatePath(fName, targetDir);
+        String fullpath = zipInputFile.getPath();
         if (!fName.substring(fName.length() - 4).equalsIgnoreCase(".zip")) {
             logger.error("unzipXML: " + fName + " does not have .zip extension.");
             return result;
@@ -113,8 +117,7 @@ public class zip {
         ZipEntry entry;
 
         try {
-            ZipFile zipfile = new ZipFile(fullpath);
-            File targetDir = new File(dirName);
+            ZipFile zipfile = new ZipFile(zipInputFile);
 
             entries = zipfile.entries();
             while (entries.hasMoreElements()) {
@@ -131,7 +134,7 @@ public class zip {
                 // Validate the zip entry path using PathValidationUtils
                 File z;
                 try {
-                    z = PathValidationUtils.validatePath(zName, targetDir);
+                    z = PathValidationUtils.validateZipEntryPath(new ZipEntry(zName), targetDir);
                 } catch (SecurityException e) {
                     logger.error("Skipping potentially malicious zip entry: " + zName);
                     is.close();
@@ -155,9 +158,10 @@ public class zip {
             }
             zipfile.close();
             //nee to move zip file to archive folder
-            File afile = new File(fullpath);
-            File dir = new File(dirName + "unzip_archive/");
-            Boolean success = afile.renameTo(new File(dir, afile.getName()));
+            File afile = PathValidationUtils.validateExistingPath(zipInputFile, targetDir);
+            File dir = PathValidationUtils.resolveConfiguredDirectory(new File(targetDir, "unzip_archive").getPath(), "unzip archive directory");
+            if (!dir.exists()) dir.mkdirs();
+            Boolean success = afile.renameTo(PathValidationUtils.validateGeneratedChildPath(afile.getName(), dir));
             if (!success) {
                 logger.error("io.github.carlos_emr.carlos.util.zip.unzipXML: the zip file " + fullpath + " was not archived");
             }

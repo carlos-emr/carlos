@@ -29,6 +29,7 @@
 
 package io.github.carlos_emr.carlos.lab;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -42,6 +43,7 @@ import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.IOUtils;
 import io.github.carlos_emr.carlos.commn.dao.FileUploadCheckDao;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
@@ -65,7 +67,7 @@ public final class FileUploadCheck {
         InputStream is = null;
 
         try {
-            is = new FileInputStream(fileLocation);
+            is = new FileInputStream(PathValidationUtils.validateAgainstParentDirectory(new File(fileLocation)));
             String md5sum = DigestUtils.md5Hex(IOUtils.toByteArray(is));
             return hasFileBeenUploaded(md5sum);
         } finally {

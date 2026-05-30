@@ -35,6 +35,7 @@
 
 package io.github.carlos_emr.carlos.commn.model;
 
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
@@ -432,7 +433,7 @@ public class Document extends AbstractModel<Integer> implements Serializable {
     }
 
     public byte[] getDocumentFileContentsAsBytes() throws IOException {
-        return (FileUtils.readFileToByteArray(new File(getDocumentFileFullPath())));
+        return (FileUtils.readFileToByteArray(PathValidationUtils.validateAgainstParentDirectory(new File(getDocumentFileFullPath()))));
     }
 
     @PreUpdate

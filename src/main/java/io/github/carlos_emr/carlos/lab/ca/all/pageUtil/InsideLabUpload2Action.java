@@ -45,7 +45,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -169,7 +168,7 @@ public class InsideLabUpload2Action extends ActionSupport implements UploadedFil
     }
 
     private FileStatus processFile(LoggedInInfo loggedInInfo, HttpServletRequest request, String filePath, String fileType) {
-        Path path = Paths.get(filePath);
+        Path path = PathValidationUtils.validateAgainstParentDirectory(new File(filePath)).toPath();
         String fileName = path.getFileName().toString();
         int checkFileUploadedSuccessfully;
 

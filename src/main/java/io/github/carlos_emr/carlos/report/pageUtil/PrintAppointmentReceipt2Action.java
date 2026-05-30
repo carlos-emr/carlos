@@ -28,6 +28,7 @@
 
 package io.github.carlos_emr.carlos.report.pageUtil;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -56,6 +57,7 @@ import io.github.carlos_emr.carlos.commn.model.ProviderData;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.OscarDocumentCreator;
 
@@ -170,7 +172,7 @@ public class PrintAppointmentReceipt2Action extends ActionSupport {
         logger.error("user home: " + System.getProperty("user.home"));
 
         try {
-            ins = new FileInputStream(System.getProperty("user.home") + "/AppointmentReceipt.xml");
+            ins = new FileInputStream(PathValidationUtils.validateAgainstParentDirectory(new File(System.getProperty("user.home") + "/AppointmentReceipt.xml")));
         } catch (FileNotFoundException ex1) {
             logger.debug("AppointmentReceipt.xml not found in user's home directory. Using default instead");
         }

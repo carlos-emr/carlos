@@ -49,6 +49,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.OscarDocumentCreator;
@@ -221,7 +222,7 @@ public class PrintDemoChartLabel2Action extends ActionSupport {
 
         try {
             try {
-                ins = new FileInputStream(System.getProperty("user.home") + File.separator + labelFile);
+                ins = new FileInputStream(PathValidationUtils.validateAgainstParentDirectory(new File(System.getProperty("user.home") + File.separator + labelFile)));
             } catch (FileNotFoundException ex1) {
                 logger.warn(labelFile + " not found in user's home directory. Using default instead (classpath)", ex1);
             }

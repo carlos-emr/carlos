@@ -33,6 +33,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.zip.ZipEntry;
 
 import static org.assertj.core.api.Assertions.*;
 
@@ -841,6 +842,194 @@ class PathValidationUtilsUnitTest {
 
             assertThat(result.getName()).isEqualTo("passwd");
             assertThat(result.getParentFile()).isEqualTo(allowedDir);
+        }
+    }
+
+    @Nested
+    @DisplayName("Parent Directory Validation Tests")
+    class ParentDirectoryValidationTests {
+
+        @Test
+        @DisplayName("should validate complete file against canonical parent")
+        void shouldValidateCompleteFileAgainstCanonicalParent() {
+            File file = tempDir.resolve("report.txt").toFile();
+
+            File result = PathValidationUtils.validateAgainstParentDirectory(file);
+
+            assertThat(result.getName()).isEqualTo("report.txt");
+            assertThat(result.getParentFile()).isEqualTo(tempDir.toFile());
+        }
+    }
+
+    @Nested
+    @DisplayName("Configured Directory Tests")
+    class ConfiguredDirectoryTests {
+
+        @Test
+        @DisplayName("should accept absolute configured directory")
+        void shouldAcceptAbsoluteConfiguredDirectory() {
+            File result = PathValidationUtils.validateConfiguredDirectory(allowedDir.getAbsolutePath(), "test dir");
+
+            assertThat(result).isDirectory();
+            assertThat(result).isEqualTo(allowedDir.getAbsoluteFile());
+        }
+
+        @Test
+        @DisplayName("should reject configured path when it is not a directory")
+        void shouldRejectConfiguredPathWhenItIsNotDirectory() throws IOException {
+            File file = tempDir.resolve("not-dir.txt").toFile();
+            assertThat(file.createNewFile()).isTrue();
+
+            assertThatThrownBy(() -> PathValidationUtils.validateConfiguredDirectory(file.getAbsolutePath(), "test dir"))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("not a directory");
+        }
+
+        @Test
+        @DisplayName("should resolve missing configured directory for lazy creation")
+        void shouldResolveMissingConfiguredDirectoryForLazyCreation() {
+            File missingDir = tempDir.resolve("missing-dir").toFile();
+
+            File result = PathValidationUtils.resolveConfiguredDirectory(missingDir.getAbsolutePath(), "test dir");
+
+            assertThat(result).isEqualTo(missingDir.getAbsoluteFile());
+            assertThat(result).doesNotExist();
+        }
+
+        @Test
+        @DisplayName("should reject existing file when resolving configured directory")
+        void shouldRejectExistingFileWhenResolvingConfiguredDirectory() throws IOException {
+            File file = tempDir.resolve("not-dir.txt").toFile();
+            assertThat(file.createNewFile()).isTrue();
+
+            assertThatThrownBy(() -> PathValidationUtils.resolveConfiguredDirectory(file.getAbsolutePath(), "test dir"))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("not a directory");
+        }
+
+        @Test
+        @DisplayName("should resolve trusted generated sibling path")
+        void shouldResolveTrustedGeneratedSiblingPath() {
+            File configured = tempDir.resolve("outbox").toFile();
+
+            File result = PathValidationUtils.validateGeneratedSiblingPath(configured.getAbsolutePath(), ".timestamp", "outbox timestamp");
+
+            assertThat(result.getName()).isEqualTo("outbox.timestamp");
+            assertThat(result.getParentFile()).isEqualTo(tempDir.toFile());
+        }
+
+        @Test
+        @DisplayName("should reject generated sibling suffix with path separator")
+        void shouldRejectGeneratedSiblingSuffixWithPathSeparator() {
+            File configured = tempDir.resolve("outbox").toFile();
+
+            assertThatThrownBy(() -> PathValidationUtils.validateGeneratedSiblingPath(configured.getAbsolutePath(), "/bad", "outbox timestamp"))
+                .isInstanceOf(SecurityException.class);
+        }
+    }
+
+    @Nested
+    @DisplayName("Generated Child Path Tests")
+    class GeneratedChildPathTests {
+
+        @Test
+        @DisplayName("should allow hidden application generated child name")
+        void shouldAllowHiddenApplicationGeneratedChildName() {
+            File result = PathValidationUtils.validateGeneratedChildPath(".timestamp", allowedDir);
+
+            assertThat(result.getName()).isEqualTo(".timestamp");
+            assertThat(result.getParentFile()).isEqualTo(allowedDir);
+        }
+
+        @ParameterizedTest
+        @DisplayName("should reject generated child path components")
+        @ValueSource(strings = {"../secret.txt", "nested/file.txt", "nested\\file.txt", ".", ".."})
+        void shouldRejectGeneratedChildPathComponents(String childName) {
+            assertThatThrownBy(() -> PathValidationUtils.validateGeneratedChildPath(childName, allowedDir))
+                .isInstanceOf(FileValidationException.class);
+        }
+    }
+
+
+    @Nested
+    @DisplayName("Configured File Tests")
+    class ConfiguredFileTests {
+
+        @Test
+        @DisplayName("should accept existing configured file")
+        void shouldAcceptExistingConfiguredFile() throws IOException {
+            File file = tempDir.resolve("configured.properties").toFile();
+            assertThat(file.createNewFile()).isTrue();
+
+            File result = PathValidationUtils.validateConfiguredFile(file.getAbsolutePath(), "configured file");
+
+            assertThat(result).isFile();
+            assertThat(result).isEqualTo(file.getAbsoluteFile());
+        }
+
+        @Test
+        @DisplayName("should reject configured file when it is a directory")
+        void shouldRejectConfiguredFileWhenItIsDirectory() {
+            assertThatThrownBy(() -> PathValidationUtils.validateConfiguredFile(allowedDir.getAbsolutePath(), "configured file"))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("not a file");
+        }
+
+        @Test
+        @DisplayName("should resolve missing configured file for lazy creation")
+        void shouldResolveMissingConfiguredFileForLazyCreation() {
+            File missingFile = tempDir.resolve("missing.properties").toFile();
+
+            File result = PathValidationUtils.resolveConfiguredFile(missingFile.getAbsolutePath(), "configured file");
+
+            assertThat(result).isEqualTo(missingFile.getAbsoluteFile());
+            assertThat(result).doesNotExist();
+        }
+    }
+
+    @Nested
+    @DisplayName("ZIP Entry Validation Tests")
+    class ZipEntryValidationTests {
+
+        @Test
+        @DisplayName("should resolve safe ZIP entry path inside destination")
+        void shouldResolveSafeZipEntryPathInsideDestination() {
+            ZipEntry entry = new ZipEntry("nested/report.xml");
+
+            File result = PathValidationUtils.validateZipEntryPath(entry, allowedDir);
+
+            assertThat(result.getPath()).endsWith("nested" + File.separator + "report.xml");
+            assertThat(result.getAbsolutePath()).startsWith(allowedDir.getAbsolutePath());
+        }
+
+        @ParameterizedTest
+        @DisplayName("should reject unsafe ZIP entry paths")
+        @ValueSource(strings = {"../escape.txt", "nested/../../escape.txt", "/absolute.txt", "C:/absolute.txt", "nested/./file.txt"})
+        void shouldRejectUnsafeZipEntryPaths(String entryName) {
+            assertThatThrownBy(() -> PathValidationUtils.validateZipEntryPath(new ZipEntry(entryName), allowedDir))
+                .isInstanceOf(FileValidationException.class);
+        }
+
+        @Test
+        @DisplayName("should build safe ZIP entry name from source root")
+        void shouldBuildSafeZipEntryNameFromSourceRoot() throws IOException {
+            Path nestedDir = tempDir.resolve("nested");
+            Files.createDirectories(nestedDir);
+            File file = nestedDir.resolve("report.xml").toFile();
+            assertThat(file.createNewFile()).isTrue();
+
+            String result = PathValidationUtils.validateZipEntryName(file, allowedDir);
+
+            assertThat(result).isEqualTo("nested/report.xml");
+        }
+
+        @Test
+        @DisplayName("should reject ZIP entry name outside source root")
+        void shouldRejectZipEntryNameOutsideSourceRoot() throws IOException {
+            File outside = Files.createTempFile("outside", ".txt").toFile();
+
+            assertThatThrownBy(() -> PathValidationUtils.validateZipEntryName(outside, allowedDir))
+                .isInstanceOf(SecurityException.class);
         }
     }
 

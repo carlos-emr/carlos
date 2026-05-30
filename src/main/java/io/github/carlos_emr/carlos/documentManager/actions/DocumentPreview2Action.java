@@ -33,7 +33,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -315,7 +314,7 @@ public class DocumentPreview2Action extends ActionSupport {
         }
         
         // Validate the PDF path to prevent path traversal attacks
-        Path pdfPath = Paths.get(pdfPathString);
+        Path pdfPath = PathValidationUtils.validateAgainstParentDirectory(new java.io.File(pdfPathString)).toPath();
         
         try {
             // Get the canonical path to resolve any path traversal attempts

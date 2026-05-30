@@ -29,6 +29,7 @@
 
 package io.github.carlos_emr.carlos.billings.OHIP;
 
+import java.io.File;
 import java.io.FileOutputStream;
 import java.io.PrintStream;
 import java.io.Serializable;
@@ -45,6 +46,7 @@ import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.utility.DateRange;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -564,7 +566,9 @@ public class ExtractBean extends Object implements Serializable {
         try {
             String home_dir;
             home_dir = CarlosProperties.getInstance().getProperty("HOME_DIR");
-            FileOutputStream out = new FileOutputStream(home_dir + ohipFilename);
+            File homeDir = PathValidationUtils.resolveConfiguredDirectory(home_dir, "HOME_DIR");
+            File outputFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName(ohipFilename), homeDir);
+            FileOutputStream out = new FileOutputStream(outputFile);
             PrintStream p = new PrintStream(out);
             p.println(value1);
 
@@ -590,9 +594,10 @@ public class ExtractBean extends Object implements Serializable {
 			pStream1.close();
 			*/
             home_dir1 = CarlosProperties.getInstance().getProperty("HOME_DIR");
+            File homeDir1 = PathValidationUtils.resolveConfiguredDirectory(home_dir1, "HOME_DIR");
+            File outputFile1 = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName(htmlFilename), homeDir1);
 
-            FileOutputStream out1 = new FileOutputStream(home_dir1
-                    + htmlFilename);
+            FileOutputStream out1 = new FileOutputStream(outputFile1);
             PrintStream p1 = new PrintStream(out1);
             p1.println(htmlvalue1);
 

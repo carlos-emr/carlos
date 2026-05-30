@@ -28,6 +28,7 @@ package io.github.carlos_emr.carlos.integration.fhir.resources;
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -36,6 +37,7 @@ import java.util.Properties;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.integration.fhir.interfaces.ResourceAttributeFilterInterface;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 public class ResourceAttributeFilter implements ResourceAttributeFilterInterface {
 
@@ -58,7 +60,7 @@ public class ResourceAttributeFilter implements ResourceAttributeFilterInterface
         InputStream is = getClass().getResourceAsStream(filterURL);
 
         if (is == null) {
-            is = new FileInputStream(filterURL);
+            is = new FileInputStream(PathValidationUtils.validateAgainstParentDirectory(new File(filterURL)));
         }
 
         try {

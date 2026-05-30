@@ -1024,7 +1024,7 @@ public final class EDocUtil {
         FileInputStream fis = null;
         try {
             // first we get length of file and allocate mem for file
-            File file = new File(fpath);
+            File file = validateResolvedDocumentOrTempFile(fpath);
             long length = file.length();
             fdata = new byte[(int) length];
 
@@ -1192,7 +1192,7 @@ public final class EDocUtil {
     public static byte[] readContent(String fileName) throws IOException {
         InputStream is = null;
         try {
-            is = new BufferedInputStream(new FileInputStream(new File(fileName)));
+            is = new BufferedInputStream(new FileInputStream(validateResolvedDocumentOrTempFile(fileName)));
             return IOUtils.toByteArray(is);
         } finally {
             try {
@@ -1200,6 +1200,20 @@ public final class EDocUtil {
             } catch (IOException e) {
                 logger.error("Unable to close output stream", e);
             }
+        }
+    }
+
+    private static File validateResolvedDocumentOrTempFile(String fileName) {
+        File resolvedFile = new File(resolvePath(fileName));
+        File documentDir = PathValidationUtils.resolveConfiguredDirectory(
+                CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
+        try {
+            return PathValidationUtils.validateExistingPath(resolvedFile, documentDir);
+        } catch (SecurityException e) {
+            if (PathValidationUtils.isInAllowedTempDirectory(resolvedFile)) {
+                return PathValidationUtils.validateAgainstParentDirectory(resolvedFile);
+            }
+            throw e;
         }
     }
 
@@ -1233,7 +1247,7 @@ public final class EDocUtil {
 
         try {
             String docDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
-            File documentDir = new File(docDir);
+            File documentDir = PathValidationUtils.resolveConfiguredDirectory(docDir, "DOCUMENT_DIR");
 
             // Determine the input file - if relative, resolve against document directory
             Path inputPath = Paths.get(fileName);
@@ -1346,7 +1360,7 @@ public final class EDocUtil {
             }
             // resolvePath validates the path is within allowed directories
             String resolvedPath = resolvePath(fileName);
-            Path path = Paths.get(resolvedPath);
+            Path path = PathValidationUtils.validateExistingPath(new File(resolvedPath), new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"))).toPath();
 
             if (Files.exists(path)) {
                 try (PDDocument pdf = Loader.loadPDF(path.toFile())) {
@@ -1384,7 +1398,8 @@ public final class EDocUtil {
 		}
 
 		String destPath = IncomingDocUtil.getIncomingDocumentFilePath(String.valueOf(queueId), "Refile");
-		File destFile = new File(destPath, "R" + destFileName);
+		File destDir = PathValidationUtils.validateConfiguredDirectory(destPath, "incoming refile directory");
+		File destFile = PathValidationUtils.validateGeneratedChildPath("R" + PathValidationUtils.validateGeneratedFileName(destFileName), destDir);
 		return destFile.exists();
 	}
 

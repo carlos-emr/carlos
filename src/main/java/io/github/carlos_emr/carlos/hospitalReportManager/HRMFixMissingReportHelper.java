@@ -39,6 +39,7 @@ import io.github.carlos_emr.carlos.commn.model.Property;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocument;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -82,13 +83,14 @@ public class HRMFixMissingReportHelper {
             for (HRMDocument doc : documents) {
                 String hrmReportFileLocation = doc.getReportFile();
 
-                File tmpXMLholder = new File(hrmReportFileLocation);
+                File tmpXMLholder = PathValidationUtils.validateAgainstParentDirectory(new File(hrmReportFileLocation));
 
                 if (tmpXMLholder.exists()) {
                     continue;
                 }
                 String place = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
-                tmpXMLholder = new File(place + File.separator + hrmReportFileLocation);
+                File documentDir = PathValidationUtils.resolveConfiguredDirectory(place, "DOCUMENT_DIR");
+                tmpXMLholder = PathValidationUtils.validateExistingPath(new File(documentDir, hrmReportFileLocation), documentDir);
 
                 if (tmpXMLholder.exists()) {
                     continue;
@@ -102,7 +104,7 @@ public class HRMFixMissingReportHelper {
                 if (file != null) {
                     //copy it over to document_dir
                     try {
-                        FileUtils.copyFileToDirectory(file, new File(place));
+                        FileUtils.copyFileToDirectory(file, documentDir);
                         logger.info("Fixed:" + hrmReportFileLocation);
                     } catch (IOException e) {
                         logger.error("Unable to copy the file to DOCUMENT_DIR:" + file);
@@ -125,7 +127,7 @@ public class HRMFixMissingReportHelper {
 
     private File searchForFile(String fileName) {
         //root dir = downloadsDirectory
-        File rootDir = new File(downloadsDirectory);
+        File rootDir = PathValidationUtils.validateConfiguredDirectory(downloadsDirectory, "OMD_downloads");
         if (!rootDir.exists() || !rootDir.isDirectory()) {
             logger.error("HRM Downloads directory not found..can't continue with 4195 fixer");
             throw new IllegalArgumentException("Directory not found: " + downloadsDirectory);
@@ -137,13 +139,13 @@ public class HRMFixMissingReportHelper {
                 logger.warn("skipping file in the root directory:" + datedDirectory);
                 continue;
             }
-            File decryptedDirectory = new File(datedDirectory, "decrypted");
+            File decryptedDirectory = PathValidationUtils.validateGeneratedChildPath("decrypted", datedDirectory);
             if (!decryptedDirectory.exists() || !decryptedDirectory.isDirectory()) {
                 logger.warn("skipping.decrypted subdirectory not found in :" + datedDirectory);
                 continue;
             }
             //we can now check for the file
-            File theFile = new File(decryptedDirectory, fileName);
+            File theFile = PathValidationUtils.validateGeneratedChildPath(fileName, decryptedDirectory);
             if (theFile != null && theFile.exists()) {
                 logger.info("Found the file we were missing:" + theFile);
                 return theFile;

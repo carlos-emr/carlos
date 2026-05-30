@@ -151,7 +151,7 @@ public final class MiscUtils {
 
             String resolvedLocation = configLocation.replace("${contextName}", contextPath);
 
-            File configFile = new File(resolvedLocation);
+            File configFile = PathValidationUtils.resolveConfiguredFile(resolvedLocation, "log4j override configuration");
             if (!configFile.isFile() || !configFile.canRead()) {
                 getLogger().warn("log4j.override.configuration points to a missing or unreadable file: " + resolvedLocation);
                 return;
@@ -229,7 +229,7 @@ public final class MiscUtils {
     }
 
     public static void serializeToFile(Serializable s, String filename) throws IOException {
-        try (FileOutputStream fos = new FileOutputStream(filename);
+        try (FileOutputStream fos = new FileOutputStream(PathValidationUtils.resolveConfiguredFile(filename, "serialized output file"));
              ObjectOutputStream oos = new ObjectOutputStream(fos)) {
             oos.writeObject(s);
             oos.flush();
@@ -243,7 +243,7 @@ public final class MiscUtils {
     public static Serializable deserializeFromFile(String filename) throws IOException, ClassNotFoundException { // lgtm[java/unsafe-deserialization]
         InputStream rawIs = MiscUtils.class.getResourceAsStream(filename);
         if (rawIs == null) {
-            rawIs = new FileInputStream(filename);
+            rawIs = new FileInputStream(PathValidationUtils.validateConfiguredFile(filename, "serialized input file"));
         }
         // Include rawIs in try-with-resources so it is closed even if
         // ObjectInputStream construction throws (e.g. StreamCorruptedException).

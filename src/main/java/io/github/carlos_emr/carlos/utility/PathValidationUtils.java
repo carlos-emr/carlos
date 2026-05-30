@@ -10,6 +10,7 @@ import java.io.InputStream;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Set;
+import java.util.zip.ZipEntry;
 
 /**
  * Utility class for validating file paths to prevent path traversal attacks.
@@ -326,6 +327,290 @@ public final class PathValidationUtils {
         }
         validateWithinDirectory(file, allowedDir);
         return file;
+    }
+
+    /**
+     * Canonicalizes a file path and validates it against its immediate parent
+     * directory. Use this for legacy APIs that already pass a complete
+     * application-generated File instead of a separate base directory and
+     * filename.
+     *
+     * @param file file to validate
+     * @return canonicalized validated File
+     */
+    public static File validateAgainstParentDirectory(File file) {
+        if (file == null) {
+            throw new SecurityException("File is null");
+        }
+        try {
+            File canonicalFile = file.getCanonicalFile();
+            File parent = canonicalFile.getParentFile();
+            if (parent == null) {
+                throw new SecurityException("File has no parent directory");
+            }
+            validateWithinDirectory(canonicalFile, parent);
+            return canonicalFile;
+        } catch (IOException e) {
+            logger.error("Error validating file path", e);
+            throw new SecurityException("Error validating file path", e);
+        }
+    }
+
+    /**
+     * Canonicalizes a configured directory path while preserving support for
+     * absolute deployment-specific locations from carlos.properties.
+     *
+     * <p>This method is for trusted configuration values, not request
+     * parameters. Use it to establish the allowed base directory before
+     * resolving user or generated children with the other validation helpers.</p>
+     *
+     * @param configuredPath configured directory path
+     * @param label human-readable label for diagnostics
+     * @return canonical directory File
+     * @throws SecurityException if the path is blank, cannot be canonicalized, or is not a directory
+     */
+    public static File validateConfiguredDirectory(String configuredPath, String label) {
+        String field = label == null || label.trim().isEmpty() ? "configured directory" : label;
+        if (configuredPath == null || configuredPath.trim().isEmpty()) {
+            logger.warn("Invalid {}: null or empty", field);
+            throw new SecurityException("Invalid configured directory");
+        }
+
+        try {
+            File directory = new File(configuredPath).getCanonicalFile();
+            if (!directory.isDirectory()) {
+                logger.warn("{} is not a directory: {}", field, LogSafe.sanitize(directory.getPath(), 1024));
+                throw new SecurityException("Configured path is not a directory");
+            }
+            return directory;
+        } catch (IOException e) {
+            logger.error("Error validating {}", field, e);
+            throw new SecurityException("Error validating configured directory", e);
+        }
+    }
+
+    /**
+     * Resolves an application-generated child name inside an allowed directory
+     * and validates canonical containment without applying user filename
+     * normalization. Use this only for constants or generated names controlled
+     * by application code, such as metadata files or deterministic export names.
+     *
+     * @param generatedChildName application-generated filename
+     * @param allowedDir directory the child must remain within
+     * @return validated child File
+     * @throws SecurityException if containment validation fails
+     */
+    public static File validateGeneratedChildPath(String generatedChildName, File allowedDir) {
+        if (generatedChildName == null || generatedChildName.trim().isEmpty()) {
+            throw new FileValidationException(INVALID_FILENAME_MESSAGE);
+        }
+        if (generatedChildName.indexOf('\0') >= 0) {
+            throw new FileValidationException(INVALID_FILENAME_MESSAGE);
+        }
+        if (generatedChildName.contains("/") || generatedChildName.contains("\\")
+                || ".".equals(generatedChildName) || "..".equals(generatedChildName)) {
+            logger.warn("Generated child path must be a single filename component");
+            throw new FileValidationException(PATH_COMPONENT_FILENAME_MESSAGE);
+        }
+
+        File path = new File(allowedDir, generatedChildName);
+        validateWithinDirectory(path, allowedDir);
+        return path;
+    }
+
+    /**
+     * Canonicalizes a configured directory path that may be created later by
+     * the caller. Existing non-directory files are rejected, but missing paths
+     * are preserved to avoid changing legacy lazy-create behavior.
+     *
+     * @param configuredPath configured directory path
+     * @param label human-readable label for diagnostics
+     * @return canonical directory File
+     */
+    public static File resolveConfiguredDirectory(String configuredPath, String label) {
+        String field = label == null || label.trim().isEmpty() ? "configured directory" : label;
+        if (configuredPath == null || configuredPath.trim().isEmpty()) {
+            logger.warn("Invalid {}: null or empty", field);
+            throw new SecurityException("Invalid configured directory");
+        }
+
+        try {
+            File directory = new File(configuredPath).getCanonicalFile();
+            if (directory.exists() && !directory.isDirectory()) {
+                logger.warn("{} is not a directory: {}", field, LogSafe.sanitize(directory.getPath(), 1024));
+                throw new SecurityException("Configured path is not a directory");
+            }
+            return directory;
+        } catch (IOException e) {
+            logger.error("Error validating {}", field, e);
+            throw new SecurityException("Error validating configured directory", e);
+        }
+    }
+
+    /**
+     * Resolves a trusted generated sibling beside a configured path. This is
+     * for legacy layouts that derive files by appending a fixed suffix to a
+     * configured path, such as {@code /path/outbox.timestamp}.
+     *
+     * @param configuredPath configured base path
+     * @param suffix trusted suffix to append to the configured file or directory name
+     * @param label human-readable label for diagnostics
+     * @return validated sibling File
+     */
+    public static File validateGeneratedSiblingPath(String configuredPath, String suffix, String label) {
+        String field = label == null || label.trim().isEmpty() ? "configured sibling" : label;
+        if (configuredPath == null || configuredPath.trim().isEmpty() || suffix == null || suffix.trim().isEmpty()) {
+            logger.warn("Invalid {}: blank configured path or suffix", field);
+            throw new SecurityException("Invalid configured sibling path");
+        }
+        if (suffix.indexOf('\0') >= 0 || suffix.contains("/") || suffix.contains("\\")) {
+            logger.warn("Invalid {}: suffix must be a trusted path suffix", field);
+            throw new SecurityException("Invalid configured sibling suffix");
+        }
+
+        try {
+            File configured = new File(configuredPath).getCanonicalFile();
+            File parent = configured.getParentFile();
+            if (parent == null) {
+                throw new SecurityException("Configured path has no parent directory");
+            }
+            File sibling = new File(parent, configured.getName() + suffix);
+            validateWithinDirectory(sibling, parent);
+            return sibling;
+        } catch (IOException e) {
+            logger.error("Error validating {}", field, e);
+            throw new SecurityException("Error validating configured sibling path", e);
+        }
+    }
+
+
+    /**
+     * Canonicalizes and validates a configured file path that must already exist.
+     * This is for trusted configuration values, not request parameters.
+     *
+     * @param configuredPath configured file path
+     * @param label human-readable label for diagnostics
+     * @return canonical file
+     */
+    public static File validateConfiguredFile(String configuredPath, String label) {
+        String field = label == null || label.trim().isEmpty() ? "configured file" : label;
+        if (configuredPath == null || configuredPath.trim().isEmpty()) {
+            logger.warn("Invalid {}: null or empty", field);
+            throw new SecurityException("Invalid configured file");
+        }
+
+        try {
+            File file = new File(configuredPath).getCanonicalFile();
+            if (!file.isFile()) {
+                logger.warn("{} is not a file: {}", field, LogSafe.sanitize(file.getPath(), 1024));
+                throw new SecurityException("Configured path is not a file");
+            }
+            return file;
+        } catch (IOException e) {
+            logger.error("Error validating {}", field, e);
+            throw new SecurityException("Error validating configured file", e);
+        }
+    }
+
+    /**
+     * Canonicalizes a configured file path that may be created later by the caller.
+     * Existing non-file paths are rejected, but missing files are preserved to avoid
+     * changing legacy lazy-create behavior.
+     *
+     * @param configuredPath configured file path
+     * @param label human-readable label for diagnostics
+     * @return canonical file
+     */
+    public static File resolveConfiguredFile(String configuredPath, String label) {
+        String field = label == null || label.trim().isEmpty() ? "configured file" : label;
+        if (configuredPath == null || configuredPath.trim().isEmpty()) {
+            logger.warn("Invalid {}: null or empty", field);
+            throw new SecurityException("Invalid configured file");
+        }
+
+        try {
+            File file = new File(configuredPath).getCanonicalFile();
+            if (file.exists() && !file.isFile()) {
+                logger.warn("{} is not a file: {}", field, LogSafe.sanitize(file.getPath(), 1024));
+                throw new SecurityException("Configured path is not a file");
+            }
+            return file;
+        } catch (IOException e) {
+            logger.error("Error validating {}", field, e);
+            throw new SecurityException("Error validating configured file", e);
+        }
+    }
+
+    /**
+     * Resolves a ZIP entry under a destination directory and validates that the
+     * canonical result remains within that directory. Directory entries are allowed.
+     *
+     * @param entry ZIP entry to resolve
+     * @param destinationDir extraction root
+     * @return validated target file for the entry
+     */
+    public static File validateZipEntryPath(ZipEntry entry, File destinationDir) {
+        if (entry == null) {
+            throw new SecurityException("ZIP entry is null");
+        }
+        if (destinationDir == null) {
+            throw new SecurityException("ZIP destination directory is null");
+        }
+
+        String entryName = entry.getName();
+        validateZipEntryNameComponent(entryName);
+        File target = new File(destinationDir, entryName.replace('\\', '/'));
+        validateWithinDirectory(target, destinationDir);
+        return target;
+    }
+
+    /**
+     * Builds a safe ZIP entry name for a file known to be under a source root.
+     *
+     * @param file file being added to the archive
+     * @param sourceRoot root directory used to compute the relative entry name
+     * @return slash-separated validated relative ZIP entry name
+     */
+    public static String validateZipEntryName(File file, File sourceRoot) {
+        File validatedFile = validateExistingPath(file, sourceRoot);
+        try {
+            File canonicalRoot = sourceRoot.getCanonicalFile();
+            File canonicalFile = validatedFile.getCanonicalFile();
+            String rootPath = canonicalRoot.getPath();
+            String filePath = canonicalFile.getPath();
+            String relativeName;
+            if (filePath.equals(rootPath)) {
+                relativeName = canonicalFile.getName();
+            } else {
+                relativeName = filePath.substring(rootPath.length() + 1);
+            }
+            relativeName = relativeName.replace(File.separatorChar, '/');
+            validateZipEntryNameComponent(relativeName);
+            return relativeName;
+        } catch (IOException | RuntimeException e) {
+            logger.error("Error validating ZIP entry name", e);
+            throw new SecurityException("Invalid ZIP entry name", e);
+        }
+    }
+
+    private static void validateZipEntryNameComponent(String entryName) {
+        if (entryName == null || entryName.trim().isEmpty() || entryName.indexOf('\0') >= 0) {
+            throw new FileValidationException(INVALID_FILENAME_MESSAGE);
+        }
+        String normalized = entryName.replace('\\', '/');
+        if (normalized.startsWith("/") || normalized.startsWith("../") || normalized.endsWith("/..") || normalized.contains("/../")) {
+            throw new FileValidationException(PATH_COMPONENT_FILENAME_MESSAGE);
+        }
+        if (normalized.equals(".") || normalized.equals("..") || normalized.contains("/./") || normalized.startsWith("./") || normalized.endsWith("/.")) {
+            throw new FileValidationException(PATH_COMPONENT_FILENAME_MESSAGE);
+        }
+        try {
+            if (FilenameUtils.getPrefixLength(normalized) > 0) {
+                throw new FileValidationException(PATH_COMPONENT_FILENAME_MESSAGE);
+            }
+        } catch (IllegalArgumentException e) {
+            throw new FileValidationException(INVALID_FILENAME_MESSAGE, e);
+        }
     }
 
     // ========================================================================

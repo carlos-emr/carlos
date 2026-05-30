@@ -1,5 +1,7 @@
 package io.github.carlos_emr.carlos.integration.ebs.client.ng;
 
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
 import java.security.KeyStore;
@@ -417,7 +419,7 @@ public class EdtClientBuilder {
         }
 
         // If classpath resource not found, try filesystem
-        try (InputStream is = new FileInputStream(normalizedPath)) {
+        try (InputStream is = new FileInputStream(PathValidationUtils.validateAgainstParentDirectory(new File(normalizedPath)))) {
             props.load(is);
             return props;
         } catch (Exception e) {

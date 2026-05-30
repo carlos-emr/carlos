@@ -44,8 +44,10 @@ import io.github.carlos_emr.carlos.decisionSupport.model.DSGuidelineFactory;
 import io.github.carlos_emr.carlos.decisionSupport.model.DecisionSupportException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import java.io.InputStream;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 
@@ -154,7 +156,7 @@ public class BillingGuidelines {
                     if (isDefaultFileLocation) {
                         is = this.getClass().getClassLoader().getResourceAsStream(streamToGet);
                     } else {
-                        is = new FileInputStream(streamToGet);
+                        is = new FileInputStream(PathValidationUtils.validateAgainstParentDirectory(new File(streamToGet)));
                     }
                     in = new BufferedReader(new InputStreamReader(is));
                     String str;

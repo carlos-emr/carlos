@@ -36,6 +36,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.StringUtils;
@@ -71,7 +72,7 @@ public class PGPEncrypt {
         }
         Runtime rt = Runtime.getRuntime();
         String[] env = {""};
-        File dir = new File(dirName);
+        File dir = PathValidationUtils.resolveConfiguredDirectory(dirName, "PGP directory");
 
         boolean rtrn = false;
         try {
@@ -124,7 +125,7 @@ public class PGPEncrypt {
         cmd[1] = this.cmd;
         cmd[2] = srcFile;
         cmd[3] = this.key;
-        File dir = new File(workDir);
+        File dir = PathValidationUtils.resolveConfiguredDirectory(workDir, "PGP work directory");
 
         try {
             Process proc = rt.exec(cmd, env, dir);

@@ -34,6 +34,7 @@ import org.springframework.beans.factory.InitializingBean;
 import org.springframework.web.context.ServletContextAware;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 /**
  * Deploys bundled Rich Text Letter (RTL) eForm assets from the WAR to the
@@ -116,7 +117,7 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
             return;
         }
 
-        File targetDir = new File(imageDir);
+        File targetDir = PathValidationUtils.resolveConfiguredDirectory(imageDir, "EFORM_IMAGES_DIR");
         if (!targetDir.isDirectory()) {
             logger.warn("eForm image directory does not exist: {}; skipping asset deployment", imageDir);
             return;

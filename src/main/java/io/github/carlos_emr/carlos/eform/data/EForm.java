@@ -30,6 +30,7 @@
 
 package io.github.carlos_emr.carlos.eform.data;
 
+import java.io.File;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonMappingException;
@@ -48,6 +49,7 @@ import io.github.carlos_emr.carlos.documentManager.ConvertToEdoc;
 import io.github.carlos_emr.carlos.ui.servlet.ImageRenderingServlet;
 import io.github.carlos_emr.carlos.utility.DigitalSignatureUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.eform.EFormLoader;
@@ -59,7 +61,6 @@ import io.github.carlos_emr.carlos.util.StringBuilderUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -374,7 +375,7 @@ public class EForm extends EFormBase {
 
     public void setContextPath(String contextPath) {
         if (StringUtils.isBlank(contextPath)) return;
-        Path oscarJs = Paths.get(contextPath, "library");
+        Path oscarJs = PathValidationUtils.validateExistingPath(new File(contextPath, "library"), new File(contextPath)).toPath();
         this.formHtml = this.formHtml.replace(jsMarker, oscarJs + "/");
     }
 

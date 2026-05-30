@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.commn.dao.ResourceStorageDao;
 import io.github.carlos_emr.carlos.commn.model.ResourceStorage;
 import io.github.carlos_emr.carlos.decisionSupport.prevention.DSPreventionDrools;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -190,11 +191,11 @@ public class PreventionDSImpl implements PreventionDS {
                 } else {
                     // PREVENTION_FILE is an admin-configured property (not user input),
                     // so path traversal validation is not required here.
-                    File file = new File(preventionPath);
+                    File file = PathValidationUtils.validateAgainstParentDirectory(new File(preventionPath));
                     if (file.isFile() && file.canRead()) {
                         log.debug("Loading prevention rules from file: {}", file.getName());
 
-                        try (FileInputStream fis = new FileInputStream(file)) {
+                        try (FileInputStream fis = new FileInputStream(PathValidationUtils.validateAgainstParentDirectory(file))) {
                             kieBase = DroolsHelper.loadFromInputStream(fis);
                             fileFound = true;
                         } catch (Exception e) {

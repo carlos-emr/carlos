@@ -30,6 +30,7 @@
 
 package io.github.carlos_emr.carlos.report.ClinicalReports;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -43,6 +44,7 @@ import org.jdom2.Document;
 import org.jdom2.Element;
 import org.jdom2.input.SAXBuilder;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -207,7 +209,7 @@ public class ClinicalReportManager {
 
                 if (userConfigFilePath != null && !userConfigLoaded) {
                     try {
-                        is = new FileInputStream(userConfigFilePath);
+                        is = new FileInputStream(PathValidationUtils.validateAgainstParentDirectory(new File(userConfigFilePath)));
                         userConfigLoaded = true;
                     } catch (FileNotFoundException ex) {
                         MiscUtils.getLogger().error("Error", ex);

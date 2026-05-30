@@ -50,7 +50,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Date;
 
@@ -138,13 +137,14 @@ public class Utilities {
             File targetFile = PathValidationUtils.validatePath(filename, safeDir);
 
             // Construct retVal using the validated targetFile path
-            retVal = targetFile.getParent() + File.separator + "LabUpload." + targetFile.getName().replaceAll(".enc", "") + "." + (new Date()).getTime();
+            File outputFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName("LabUpload." + targetFile.getName().replaceAll(".enc", "") + "." + (new Date()).getTime()), targetFile.getParentFile());
+            retVal = outputFile.getPath();
 
             logger.debug("saveFile place={}, retVal={}",
                     LogSafe.sanitize(place, 1024),
                     LogSafe.sanitize(retVal, 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
 
-            try (OutputStream os = Files.newOutputStream(Paths.get(retVal));
+            try (OutputStream os = Files.newOutputStream(outputFile.toPath());
                 BufferedInputStream bis = new BufferedInputStream(stream)) {
 
                 byte[] buffer = new byte[8192]; // 8KB buffer
@@ -169,10 +169,12 @@ public class Utilities {
             if (!place.endsWith("/")) {
                 place = new StringBuilder(place).insert(place.length(), "/").toString();
             }
-            retVal = place + "KeyUpload." + filename + "." + (new Date()).getTime();
+            File baseDir = PathValidationUtils.resolveConfiguredDirectory(place, "OMD_hrm");
+            File outputFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName("KeyUpload." + filename + "." + (new Date()).getTime()), baseDir);
+            retVal = outputFile.getPath();
 
             //write the  file to the file specified
-            OutputStream os = new FileOutputStream(retVal);
+            OutputStream os = new FileOutputStream(outputFile);
 
             int bytesRead = 0;
             while ((bytesRead = stream.read()) != -1) {
@@ -207,7 +209,7 @@ public class Utilities {
             }
 
             // Validate filename using PathValidationUtils
-            File baseDir = new File(place);
+            File baseDir = PathValidationUtils.resolveConfiguredDirectory(place, "lab document directory");
             File targetFile = PathValidationUtils.validatePath(filename, baseDir);
 
             // Derive the safe output name from the validated file (not the raw input)
@@ -218,9 +220,10 @@ public class Utilities {
                 safeName = safeName.substring(0, safeName.length() - 4);
             }
 
-            retVal = new File(baseDir, "DocUpload." + safeName + "." + System.currentTimeMillis() + ".pdf").toString();
+            File outputFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName("DocUpload." + safeName + "." + System.currentTimeMillis() + ".pdf"), baseDir);
+            retVal = outputFile.toString();
 
-            try (OutputStream os = new FileOutputStream(retVal)) {
+            try (OutputStream os = new FileOutputStream(outputFile)) {
                 int bytesRead;
                 while ((bytesRead = stream.read()) != -1) {
                     os.write(bytesRead);

@@ -163,7 +163,7 @@ public class Util {
         try {
             Runtime rt = Runtime.getRuntime();
             String[] env = {""};
-            File dir = new File(dirName);
+            File dir = PathValidationUtils.resolveConfiguredDirectory(dirName, "working directory");
             Process proc = rt.exec("touch null.tmp", env, dir);
             int ecode = proc.waitFor();
             if (ecode == 0) {
@@ -191,7 +191,7 @@ public class Util {
         }
 
         // Create the base directory
-        File baseDir = new File(dirname);
+        File baseDir = PathValidationUtils.resolveConfiguredDirectory(dirname, "cleanup directory");
 
         // Create the target file
         File f = new File(baseDir, safeFileName);
@@ -208,7 +208,7 @@ public class Util {
     }
 
     static public boolean cleanFile(String filename) {
-        File f = new File(filename);
+        File f = PathValidationUtils.validateAgainstParentDirectory(new File(filename));
         CarlosProperties props = CarlosProperties.getInstance();
 
         // Try configured directories first (strict validation, no temp fallback)
@@ -521,24 +521,18 @@ public class Util {
             dirName = fixDirName(dirName);
             
             // Create the output file with proper path validation
-            File outputDir = new File(dirName).getCanonicalFile();
-            File outputFile = new File(outputDir, zipFileName).getCanonicalFile();
-            
-            // Verify the output file is within the intended directory
-            if (!outputFile.getParentFile().equals(outputDir)) {
-                logger.error("Error! Zip file path traversal attempt detected: " + zipFileName);
-                return false;
-            }
+            File outputDir = PathValidationUtils.resolveConfiguredDirectory(dirName, "zip output directory");
+            File outputFile = PathValidationUtils.validateGeneratedChildPath(zipFileName, outputDir);
             
             byte[] buf = new byte[1024];
             ZipOutputStream zout = new ZipOutputStream(new FileOutputStream(outputFile));
             for (File f : files) {
                 if (f == null) continue;
 
-                FileInputStream fin = new FileInputStream(f.getAbsolutePath());
+                FileInputStream fin = new FileInputStream(PathValidationUtils.validateAgainstParentDirectory(f));
 
                 // Add ZIP entry to output stream
-                zout.putNextEntry(new ZipEntry(f.getName()));
+                zout.putNextEntry(new ZipEntry(PathValidationUtils.validateZipEntryName(f, f.getParentFile())));
 
                 // Transfer bytes from the input files to the ZIP file
                 int len;
@@ -584,14 +578,8 @@ public class Util {
             dirName = fixDirName(dirName);
             
             // Create the output file with proper path validation
-            File outputDir = new File(dirName).getCanonicalFile();
-            File outputFile = new File(outputDir, zipFileName).getCanonicalFile();
-            
-            // Verify the output file is within the intended directory
-            if (!outputFile.getParentFile().equals(outputDir)) {
-                logger.error("Error! Zip file path traversal attempt detected: " + zipFileName);
-                return false;
-            }
+            File outputDir = PathValidationUtils.resolveConfiguredDirectory(dirName, "zip output directory");
+            File outputFile = PathValidationUtils.validateGeneratedChildPath(zipFileName, outputDir);
             
             byte[] buf = new byte[1024];
             ZipOutputStream zout = new ZipOutputStream(new FileOutputStream(outputFile));
@@ -615,17 +603,17 @@ public class Util {
                     return false;
                 }
 
-                FileInputStream fin = new FileInputStream(f.getAbsolutePath()); // codeql[java/path-injection] — validated by isPathWithinDirectory (PathValidationUtils) guard above
+                FileInputStream fin = new FileInputStream(PathValidationUtils.validateAgainstParentDirectory(f)); // codeql[java/path-injection] — validated by isPathWithinDirectory (PathValidationUtils) guard above
 
                 String dir = dirs.get(x);
 
                 if (dir.isEmpty()) {
 
                     // Add ZIP entry to output stream
-                    zout.putNextEntry(new ZipEntry(f.getName()));
+                    zout.putNextEntry(new ZipEntry(PathValidationUtils.validateZipEntryName(f, f.getParentFile())));
 
                 } else {
-                    zout.putNextEntry(new ZipEntry(dir + "/" + f.getName()));
+                    zout.putNextEntry(new ZipEntry(PathValidationUtils.validateZipEntryName(new File(f.getParentFile(), dir + File.separator + f.getName()), f.getParentFile())));
 
                 }
                 // Transfer bytes from the input files to the ZIP file

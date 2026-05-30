@@ -31,6 +31,7 @@
 package io.github.carlos_emr.carlos.util;
 
 import java.io.FileNotFoundException;
+import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.StringReader;
@@ -42,6 +43,7 @@ import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -138,7 +140,7 @@ public class UtilXML {
 
     public static Document parseXMLFile(String fileName)
             throws IOException, FileNotFoundException, Exception {
-        try (FileReader reader = new FileReader(fileName)) {
+        try (FileReader reader = new FileReader(PathValidationUtils.validateAgainstParentDirectory(new File(fileName)))) {
             InputSource is = new InputSource(reader);
             return XmlUtils.createSecureDocumentBuilderFactory().newDocumentBuilder().parse(is);
         }

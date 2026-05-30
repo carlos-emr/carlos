@@ -50,6 +50,7 @@ import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.OscarDocumentCreator;
@@ -113,9 +114,9 @@ public class PrintClientLabLabel2Action extends ActionSupport {
         InputStream ins = null;
         try {
             logger.debug("user home: " + System.getProperty("user.home"));
-            File file = new File(System.getProperty("user.home") + "/ClientLabLabel.xml");
+            File file = PathValidationUtils.validateAgainstParentDirectory(new File(System.getProperty("user.home") + "/ClientLabLabel.xml"));
             if (file.exists()) {
-                ins = new FileInputStream(file);
+                ins = new FileInputStream(PathValidationUtils.validateAgainstParentDirectory(file));
             } else {
                 ins = getClass().getResourceAsStream("/oscar/oscarDemographic/ClientLabLabel.xml");
                 logger.debug("loading from : /oscar/oscarDemographic/ClientLabLabel.xml " + ins);

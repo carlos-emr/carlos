@@ -41,6 +41,7 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.RaHeader;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -110,7 +111,7 @@ public class BillingONPremiumDaoImpl extends AbstractDaoImpl<BillingONPremium> i
         StringBuilder msgText = new StringBuilder();
 
         try {
-            file = new FileInputStream(filepath + filename);
+            file = new FileInputStream(PathValidationUtils.validateExistingPath(new File(filepath, filename), new File(filepath)));
             reader = new InputStreamReader(file);
             input = new BufferedReader(reader);
 

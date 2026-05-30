@@ -136,7 +136,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.sql.SQLException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -407,7 +406,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
                     /* check for an XML file that matches the folder name (standard). It's best for performance
                      * to avoid hunting through the folders when not needed.
                      */
-                    Path xmlFile = Paths.get(currentDirectory, stream.toFile().getName() + ".xml");
+                    Path xmlFile = PathValidationUtils.validateGeneratedChildPath(stream.toFile().getName() + ".xml", new File(currentDirectory)).toPath();
                     if (Files.exists(xmlFile)) {
                         processXmlFile(loggedInInfo, xmlFile, warnings, logs, request, timeshiftInDays, students, courseId);
                     }
@@ -454,7 +453,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
         File targetDir = directoryPath.toFile();
 
         byte[] buffer = new byte[1024];
-        try (ZipInputStream zis = new ZipInputStream(Files.newInputStream(Paths.get(zipFilePath.toString())))) {
+        try (ZipInputStream zis = new ZipInputStream(Files.newInputStream(PathValidationUtils.validateExistingPath(zipFilePath.toFile(), targetDir).toPath()))) {
             ZipEntry zipEntry = zis.getNextEntry();
             while (zipEntry != null) {
                 File newFile = resolveAndValidateZipEntry(zipEntry, targetDir);
@@ -503,84 +502,11 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
      * @return the validated File if entry is valid, null otherwise
      */
     private File resolveAndValidateZipEntry(ZipEntry zipEntry, File targetDir) {
-        String entryName = zipEntry.getName();
-
-        // Validate ZIP entry name before processing
-        if (entryName == null || entryName.trim().isEmpty()) {
-            logger.error("Skipping ZIP entry with null or empty name");
-            return null;
-        }
-
-        // Normalize path separators to handle cross-platform ZIP files
-        String normalizedEntryName = entryName.replace("\\", "/");
-
-        // Create file by resolving entry name against target directory (preserves directory structure)
-        File newFile = new File(targetDir, normalizedEntryName);
-
-        // CRITICAL SECURITY: Validate the resolved path is within the target directory
-        // This prevents ZIP Slip attacks (e.g., "../../../etc/passwd")
-        // Uses validateExistingPath for containment check without stripping path components
         try {
-            // First, perform any existing validation logic
-            newFile = PathValidationUtils.validateExistingPath(newFile, targetDir);
-
-            // Explicit canonical / normalized path containment check to prevent Zip Slip
-            // and to make the security property obvious to static analysis tools.
-            java.nio.file.Path basePath = targetDir.getCanonicalFile().toPath().normalize();
-            java.nio.file.Path resolvedPath = newFile.getCanonicalFile().toPath().normalize();
-            if (!resolvedPath.startsWith(basePath)) {
-                logger.error("SECURITY: ZIP entry {} resolves outside target directory {}", Encode.forJava(entryName), targetDir);
-                return null;
-            }
-
-            // Also ensure the parent directory (if any) is within the target directory
-            File parent = newFile.getParentFile();
-            if (parent != null) {
-                java.nio.file.Path parentPath = parent.getCanonicalFile().toPath().normalize();
-                if (!parentPath.startsWith(basePath)) {
-                    logger.error("SECURITY: Parent directory of ZIP entry {} resolves outside target directory {}", Encode.forJava(entryName), targetDir);
-                    return null;
-                }
-            }
-
-            // Additional defense-in-depth: keep existing helper-based checks
-            if (!isWithinDirectory(newFile, targetDir)) {
-                logger.error("SECURITY: ZIP entry {} resolves outside target directory according to isWithinDirectory", Encode.forJava(entryName));
-                return null;
-            }
-
-            return newFile;
-        } catch (IOException e) {
-            logger.error("SECURITY: I/O error while validating ZIP entry {}: {}", Encode.forJava(entryName), e.getMessage(), e);
-            return null;
+            return PathValidationUtils.validateZipEntryPath(zipEntry, targetDir);
         } catch (SecurityException e) {
-            logger.error("SECURITY: Rejecting malicious ZIP entry: {}", Encode.forJava(entryName), e);
+            logger.error("SECURITY: Skipping malicious ZIP entry: {}", Encode.forJava(zipEntry.getName()), e);
             return null;
-        }
-    }
-
-    /**
-     * Canonical path containment check used to prevent Zip Slip.
-     * Ensures that {@code file} is equal to or a descendant of {@code baseDir}.
-     *
-     * @param file File the file to check
-     * @param baseDir File the base directory that should contain the file
-     * @return boolean true if file is within baseDir, false otherwise
-     */
-    private boolean isWithinDirectory(File file, File baseDir) {
-        if (file == null || baseDir == null) {
-            return false;
-        }
-        try {
-            File baseCanonical = baseDir.getCanonicalFile();
-            File fileCanonical = file.getCanonicalFile();
-            String basePath = baseCanonical.getPath();
-            String filePath = fileCanonical.getPath();
-
-            return filePath.equals(basePath) || filePath.startsWith(basePath + File.separator);
-        } catch (IOException e) {
-            logger.error("Error performing canonical containment check for {}", Encode.forJava(file.getPath()), e);
-            return false;
         }
     }
 
@@ -703,7 +629,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             logger.debug("Error! Cannot write to DOCUMENT_DIR - Check carlos.properties or dir permissions.");
         }
 
-        File xmlF = new File(xmlFile);
+        File xmlF = PathValidationUtils.validateExistingPath(new File(xmlFile), new File(currentDirectory));
         OmdCdsDocument.OmdCds omdCds = null;
         try {
             XmlOptions opts = new XmlOptions();
@@ -911,7 +837,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             logger.debug("Error! Cannot write to DOCUMENT_DIR - Check carlos.properties or dir permissions.");
         }
 
-        File xmlF = new File(xmlFile);
+        File xmlF = PathValidationUtils.validateExistingPath(new File(xmlFile), new File(currentDirectory));
         PatientRecord patientRec = null;
         try {
             XmlOptions opts = new XmlOptions();
@@ -2797,7 +2723,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
                             if (StringUtils.empty(docDesc)) docDesc = "ImportReport" + (i + 1);
 
                             if (b != null) {
-                                FileOutputStream f = new FileOutputStream(docDir + docFileName);
+                                FileOutputStream f = new FileOutputStream(PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName(docFileName), PathValidationUtils.resolveConfiguredDirectory(docDir, "DOCUMENT_DIR")));
                                 f.write(b);
                                 f.close();
                             } else {
@@ -2829,7 +2755,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
                                     continue;
                                 }
 
-                                FileUtils.copyFile(sourceFile, new File(docDir + docFileName));
+                                FileUtils.copyFile(sourceFile, PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName(docFileName), PathValidationUtils.resolveConfiguredDirectory(docDir, "DOCUMENT_DIR")));
                             }
 
                             if (repR[i].getClass1() != null) {
@@ -3339,7 +3265,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
         }
 
         String fileName = new File(normalizedPath).getName();
-        File currentDir = new File(currentDirectory);
+        File currentDir = PathValidationUtils.resolveConfiguredDirectory(currentDirectory, "import current directory");
 
         List<File> candidates = new ArrayList<>();
 
@@ -3378,7 +3304,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
 
         // Try candidate with extension
         if (contentType != null && !contentType.isEmpty()) {
-            File withExt = new File(candidate.getPath() + contentType);
+            File withExt = PathValidationUtils.validateGeneratedChildPath(candidate.getName() + contentType, candidate.getParentFile());
             return tryValidateExisting(withExt, allowedRoot, originalPath);
         }
 
@@ -3480,7 +3406,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
                 keyword[0][i] = fillUp(keyword[0][i], ' ', keyword[1][i].length());
         }
 
-        File importLog = new File(dir, "ImportEvent-" + UtilDateUtilities.getToday("yyyy-MM-dd.HH.mm.ss") + ".log");
+        File importLog = PathValidationUtils.validateGeneratedChildPath("ImportEvent-" + UtilDateUtilities.getToday("yyyy-MM-dd.HH.mm.ss") + ".log", PathValidationUtils.resolveConfiguredDirectory(dir, "import log directory"));
         try (BufferedWriter out = new BufferedWriter(new FileWriter(importLog))) {
             int tableWidth = 0;
             for (int i = 0; i < keyword.length; i++) {
@@ -4606,9 +4532,9 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
 
                     InputStream stream = new ByteArrayInputStream(observationMsg.replace("\r", "\r\n").getBytes(StandardCharsets.UTF_8));
                     String filePath = Utilities.saveFile(stream, filename);
-                    File file = new File(filePath);
+                    File file = PathValidationUtils.validateAgainstParentDirectory(new File(filePath));
 
-                    localFileIs = new FileInputStream(filePath);
+                    localFileIs = new FileInputStream(file);
 
                     int checkFileUploadedSuccessfully = FileUploadCheck.addFile(file.getName(), localFileIs, admProviderNo);
 

@@ -80,7 +80,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.*;
 
@@ -670,7 +669,7 @@ public class ManageDocument2Action extends ActionSupport {
      * @return File the cache directory
      */
     private static File getDocumentCacheDir(String docdownload) {
-        File docDir = new File(docdownload);
+        File docDir = PathValidationUtils.resolveConfiguredDirectory(docdownload, "DOCUMENT_DIR");
         String documentDirName = docDir.getName();
         File parentDir = docDir.getParentFile();
 
@@ -690,7 +689,8 @@ public class ManageDocument2Action extends ActionSupport {
      * @return File the cached PNG file if it exists, or null
      */
     private File hasCacheVersion2(Document d, Integer pageNum) {
-        Path outFile = Paths.get(getDocumentCacheDir(), d.getDocfilename() + "_" + pageNum + ".png");
+        File cacheDir = PathValidationUtils.resolveConfiguredDirectory(getDocumentCacheDir(), "DOCUMENT_CACHE_DIR");
+        Path outFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName(d.getDocfilename() + "_" + pageNum + ".png"), cacheDir).toPath();
         if (!Files.exists(outFile)) {
             return null;
         }
@@ -704,7 +704,8 @@ public class ManageDocument2Action extends ActionSupport {
      * @param pageNum int the 1-based page number of the cache entry to delete
      */
     public static void deleteCacheVersion(Document d, int pageNum) {
-        Path documentCacheDir = Paths.get(getDocumentCacheDir(), d.getDocfilename() + "_" + pageNum + ".png");
+        File cacheDir = PathValidationUtils.resolveConfiguredDirectory(getDocumentCacheDir(), "DOCUMENT_CACHE_DIR");
+        Path documentCacheDir = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName(d.getDocfilename() + "_" + pageNum + ".png"), cacheDir).toPath();
         if (Files.exists(documentCacheDir)) {
             try {
                 Files.delete(documentCacheDir);
@@ -735,8 +736,10 @@ public class ManageDocument2Action extends ActionSupport {
      * @return byte[] the PNG image bytes, or null if rendering fails or page number is invalid
      */
     public byte[] createCacheVersion2(Document d, Integer pageNum) {
-        Path pdfPath = Paths.get(DOCUMENT_DIR, d.getDocfilename());
-        Path pngFile = Paths.get(getDocumentCacheDir(), d.getDocfilename() + "_" + pageNum + ".png");
+        File documentDir = PathValidationUtils.resolveConfiguredDirectory(DOCUMENT_DIR, "DOCUMENT_DIR");
+        Path pdfPath = PathValidationUtils.validateExistingPath(new File(documentDir, d.getDocfilename()), documentDir).toPath();
+        File cacheDir = PathValidationUtils.resolveConfiguredDirectory(getDocumentCacheDir(), "DOCUMENT_CACHE_DIR");
+        Path pngFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName(d.getDocfilename() + "_" + pageNum + ".png"), cacheDir).toPath();
 
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
             try (PDDocument pdf = Loader.loadPDF(pdfPath.toFile(), IOUtils.createTempFileOnlyStreamCache())) {
@@ -951,7 +954,7 @@ public class ManageDocument2Action extends ActionSupport {
         contentType = d.getContenttype();
         filename = d.getDocfilename();
 
-        Path file = Paths.get(DOCUMENT_DIR, filename);
+        Path file = PathValidationUtils.validateExistingPath(new File(DOCUMENT_DIR, filename), PathValidationUtils.resolveConfiguredDirectory(DOCUMENT_DIR, "DOCUMENT_DIR")).toPath();
 
         if (Files.exists(file)) {
             contentBytes = Files.readAllBytes(file);
@@ -1511,9 +1514,10 @@ public class ManageDocument2Action extends ActionSupport {
             docdownload += File.separator;
         }
 
-        String filePath = docdownload + fileName;
+        File documentDir = PathValidationUtils.resolveConfiguredDirectory(docdownload, "DOCUMENT_DIR");
+        File filePath = PathValidationUtils.validatePath(fileName, documentDir);
 
-        try (PDDocument reader = Loader.loadPDF(new File(filePath))) {
+        try (PDDocument reader = Loader.loadPDF(filePath)) {
             numOfPage = reader.getNumberOfPages();
         } catch (IOException e) {
             MiscUtils.getLogger().error("Failed to count pages for document: {}", fileName, e);

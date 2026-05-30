@@ -29,6 +29,7 @@
 package io.github.carlos_emr.carlos.commn.web;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -44,6 +45,7 @@ import io.github.carlos_emr.carlos.managers.BillingONManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.ConcatPDF;
@@ -155,7 +157,7 @@ public class BillingInvoice2Action extends ActionSupport {
                     Integer invoiceNo = Integer.parseInt(invoiceNoStr);
                     String filename = "BillingInvoice" + invoiceNo + "_" + UtilDateUtilities.getToday("yyyy-MM-dd.hh.mm.ss") + ".pdf";
                     String savePath = CarlosProperties.getInstance().getProperty("INVOICE_DIR") + "/" + filename;
-                    try (OutputStream fos = new FileOutputStream(savePath)) {
+                    try (OutputStream fos = new FileOutputStream(PathValidationUtils.validateAgainstParentDirectory(new File(savePath)))) {
                         if (renderPrintPDF(invoiceNo, request.getLocale(), fos)) {
                             fileList.add(savePath);
                             renderedInvoiceNos.add(invoiceNo);

@@ -241,7 +241,7 @@ public final class ImageRenderingServlet extends HttpServlet {
                 // no image, render a blank gif, yes this breaks the concept
                 // of the image already exists, but it's difficult to implement the preview otherwise
                 String tempFilePath = getServletContext().getRealPath("/images/1x1.gif");
-                fileInputStream = new FileInputStream(tempFilePath);
+                fileInputStream = new FileInputStream(PathValidationUtils.validateConfiguredFile(tempFilePath, "default preview image"));
                 byte[] imageBytes = new byte[1024 * 32];
                 fileInputStream.read(imageBytes);
                 renderImage(response, imageBytes, "gif");
@@ -307,8 +307,8 @@ public final class ImageRenderingServlet extends HttpServlet {
             }
 
             if (filename != null) {
-                File f = new File(filename);
-                if (f != null && f.exists()) {
+                File f = PathValidationUtils.validateConfiguredFile(filename, "clinic logo file");
+                if (f.exists()) {
                     byte[] data = FileUtils.readFileToByteArray(f);
 
                     if (data != null) {

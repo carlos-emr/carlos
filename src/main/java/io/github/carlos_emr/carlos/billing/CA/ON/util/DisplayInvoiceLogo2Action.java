@@ -34,6 +34,7 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
 
@@ -68,7 +69,7 @@ public class DisplayInvoiceLogo2Action extends ActionSupport {
         }
 
         response.setHeader("Content-disposition", "inline; filename=" + fileName);
-        File file = new File(fileName);
+        File file = PathValidationUtils.validateAgainstParentDirectory(new File(fileName));
         //gets content type from image extension
         String contentType = new MimetypesFileTypeMap().getContentType(file);
         /**
@@ -172,7 +173,7 @@ public class DisplayInvoiceLogo2Action extends ActionSupport {
 
         File file = null;
         try {
-            File directory = new File(document_dir);
+            File directory = PathValidationUtils.resolveConfiguredDirectory(document_dir, "DOCUMENT_DIR");
             if (!directory.exists()) {
                 MiscUtils.getLogger().info("Directory:  " + document_dir + " does not exist");
                 return fileName;
@@ -183,7 +184,7 @@ public class DisplayInvoiceLogo2Action extends ActionSupport {
                 fileName = document_dir + fileName;
             }
 
-            file = new File(fileName);
+            file = PathValidationUtils.validateExistingPath(new File(fileName), directory);
             if (!file.exists()) {
                 MiscUtils.getLogger().info("File: " + fileName);
                 return "";

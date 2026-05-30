@@ -30,9 +30,9 @@
 
 package io.github.carlos_emr.carlos.documentManager.actions;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -42,6 +42,7 @@ import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -77,7 +78,7 @@ public class CombinePDF2Action extends ActionSupport {
             Path filePath;
             for (int i = 0; i < files.length; i++) {
                 String filename = docData.getDocumentName(files[i]);
-                filePath = Paths.get(path, filename);
+                filePath = PathValidationUtils.validateExistingPath(new File(path, filename), new File(path)).toPath();
                 alist.add(filePath.toAbsolutePath().toString());
             }
             if (alist.size() > 0) {

@@ -36,11 +36,13 @@ import jakarta.xml.bind.Unmarshaller;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
 import io.github.carlos_emr.carlos.eform.data.DatabaseAP;
 import io.github.carlos_emr.carlos.eform.data.EForm;
 import io.github.carlos_emr.carlos.eform.data.EFormApConfig;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -183,7 +185,7 @@ public class EFormLoader {
                 ClassLoader loader = eLoader.getClass().getClassLoader();
                 fs = loader.getResourceAsStream("oscar/eform/apconfig.xml");
             } else {
-                fs = new FileInputStream(configpath);
+                fs = new FileInputStream(PathValidationUtils.validateAgainstParentDirectory(new File(configpath)));
             }
             try (InputStream autoClose = fs) {
                 JAXBContext ctx = JAXBContext.newInstance(EFormApConfig.class);

@@ -31,6 +31,7 @@ import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.DigitalSignatureManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.clinic.ClinicData;
@@ -38,6 +39,7 @@ import io.github.carlos_emr.carlos.prescript.data.RxProviderData;
 import io.github.carlos_emr.carlos.prescript.data.RxProviderData.Provider;
 
 import jakarta.servlet.http.HttpServletRequest;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -45,7 +47,6 @@ import java.io.OutputStream;
 import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ResourceBundle;
 import java.util.Set;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -374,7 +375,8 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
             filename = props.getProperty("faxLogoInConsultation");
         }
 
-        Path path = Paths.get(filename);
+        File imageFile = PathValidationUtils.validateAgainstParentDirectory(new File(filename));
+        Path path = imageFile.toPath();
         if (Files.exists(path)) {
             addImage(infoTable, filename, PageSize.LETTER.getWidth() * 0.5f, 50f);
         }
@@ -392,7 +394,8 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
      */
     protected void addImage(PdfPTable pdfPTable, String filename, float width, float height) {
 
-        try (FileInputStream fileInputStream = new FileInputStream(filename)) {
+        File imageFile = PathValidationUtils.validateAgainstParentDirectory(new File(filename));
+        try (FileInputStream fileInputStream = new FileInputStream(imageFile)) {
 
             PdfPCell cell = new PdfPCell();
             byte[] faxLogImage = new byte[1024 * 256];

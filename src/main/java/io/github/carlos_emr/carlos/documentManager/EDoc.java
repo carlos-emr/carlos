@@ -37,6 +37,7 @@ import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
 import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.tags.TagObject;
@@ -235,7 +236,7 @@ public class EDoc extends TagObject implements Comparable<EDoc> {
     public OutputStream getFileOutputStream() throws FileNotFoundException {
         OutputStream os = null;
         try {
-            os = new FileOutputStream(getFilePath());
+            os = new FileOutputStream(PathValidationUtils.validateAgainstParentDirectory(new File(getFilePath())));
         } catch (FileNotFoundException fnfe) {
             logger.error("Could not write to the document container", fnfe);
             throw fnfe;
@@ -244,7 +245,7 @@ public class EDoc extends TagObject implements Comparable<EDoc> {
     }
 
     public byte[] getFileBytes() throws IOException {
-        return (FileUtils.readFileToByteArray(new File(getFilePath())));
+        return (FileUtils.readFileToByteArray(PathValidationUtils.validateAgainstParentDirectory(new File(getFilePath()))));
     }
     // Getter/Setter methods...
 

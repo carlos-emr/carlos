@@ -33,6 +33,7 @@ package io.github.carlos_emr.carlos.util;
 import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FilterInputStream;
 import java.io.IOException;
@@ -50,6 +51,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Entities;
 import java.nio.charset.StandardCharsets;
@@ -250,7 +252,7 @@ public class Doc2PDF {
      * @param docBin String the binary PDF data to write
      */
     public static void SavePDF2File(String fileName, String docBin) {
-        try (FileOutputStream ostream = new FileOutputStream(fileName);
+        try (FileOutputStream ostream = new FileOutputStream(PathValidationUtils.validateAgainstParentDirectory(new File(fileName)));
              ObjectOutputStream p = new ObjectOutputStream(ostream)) {
             p.writeBytes(docBin);
             p.flush();

@@ -120,7 +120,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                 String queueId = request.getParameter("queue");
                 String destFolder = request.getParameter("destFolder");
 
-                File f = new File(IncomingDocUtil.getAndCreateIncomingDocumentFilePathName(queueId, destFolder, sanitizedFileName));
+                File f = PathValidationUtils.validateExistingPath(new File(IncomingDocUtil.getAndCreateIncomingDocumentFilePathName(queueId, destFolder, sanitizedFileName)), new File(IncomingDocUtil.getAndCreateIncomingDocumentFilePath(queueId, destFolder)));
                 if (f.exists()) {
                     map.put("error", sanitizedFileName + " " + props.getString("dms.documentUpload.alreadyExists"));
                 } else {
@@ -425,11 +425,11 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             for (UploadedFile uploaded : uploadedFiles) {
                 String inputName = uploaded.getInputName();
                 if ("filedata".equals(inputName)) {
-                    this.filedata = new File(uploaded.getAbsolutePath());
+                    this.filedata = PathValidationUtils.validateUploadContent(uploaded.getContent());
                     this.filedataContentType = uploaded.getContentType();
                     this.filedataFileName = uploaded.getOriginalName();
                 } else if ("docFile".equals(inputName)) {
-                    this.docFile = new File(uploaded.getAbsolutePath());
+                    this.docFile = PathValidationUtils.validateUploadContent(uploaded.getContent());
                 }
             }
         }

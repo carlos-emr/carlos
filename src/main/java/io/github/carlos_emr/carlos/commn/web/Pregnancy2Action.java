@@ -41,6 +41,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.log.LogAction;
@@ -792,7 +793,7 @@ Repeat antibody screen
             index++;
         }
 
-        File file = new File(request.getSession().getServletContext().getRealPath("/") + "WEB-INF/classes/oscar/form/prop/fundal_graph.png");
+        File file = PathValidationUtils.validateAgainstParentDirectory(new File(request.getSession().getServletContext().getRealPath("/") + "WEB-INF/classes/oscar/form/prop/fundal_graph.png"));
         BufferedImage bufferedImage = ImageIO.read(file);
         Graphics2D g = bufferedImage.createGraphics();
         g.setColor(Color.black);

@@ -31,6 +31,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.OscarDocumentCreator;
 import io.github.carlos_emr.CarlosProperties;
@@ -38,6 +39,7 @@ import io.github.carlos_emr.CarlosProperties;
 import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -210,7 +212,7 @@ public class PrintDemoLabel2Action extends ActionSupport {
 
         logger.debug("user home: " + System.getProperty("user.home"));
         try {
-            ins = new FileInputStream(labelPath);
+            ins = new FileInputStream(PathValidationUtils.validateAgainstParentDirectory(new File(labelPath)));
             logger.debug("loading from :" + labelPath + " " + ins);
         } catch (FileNotFoundException ex1) {
             logger.warn("label xml file not found at " + labelPath + " using default instead");

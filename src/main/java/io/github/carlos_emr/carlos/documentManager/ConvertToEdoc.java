@@ -42,6 +42,7 @@ import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.xhtmlrenderer.layout.SharedContext;
 import org.xhtmlrenderer.pdf.ITextRenderer;
@@ -49,6 +50,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.form.util.FormTransportContainer;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
@@ -665,7 +667,8 @@ public final class ConvertToEdoc {
      * Feed this method a filename, it will return a full path to the Oscar images directory.
      */
     private static String buildImageDirectoryPath(String filename) {
-        return Paths.get(getImageDirectory(), filename).toString();
+        File imageDirectory = PathValidationUtils.resolveConfiguredDirectory(getImageDirectory(), "image directory");
+        return PathValidationUtils.validateExistingPath(new File(imageDirectory, filename), imageDirectory).getPath();
     }
 
     /**
@@ -680,8 +683,8 @@ public final class ConvertToEdoc {
         // Try to resolve relative paths
         if (ConvertToEdoc.realPath != null) {
             try {
-				Path basePath = Paths.get(ConvertToEdoc.realPath);
-				String fileNameToFind = Paths.get(uri).getFileName().toString();
+				Path basePath = PathValidationUtils.resolveConfiguredDirectory(ConvertToEdoc.realPath, "real path").toPath();
+				String fileNameToFind = PathValidationUtils.validateStrictFileName(Paths.get(uri).getFileName().toString());
 
 				try (Stream<Path> paths = Files.walk(basePath)) {
 					Path found = paths
@@ -786,7 +789,7 @@ public final class ConvertToEdoc {
         potentialLink = filterFileType(potentialLink);
 
         if (potentialLink != null) {
-            path = Paths.get(potentialLink);
+            path = PathValidationUtils.validateAgainstParentDirectory(new File(potentialLink)).toPath();
         }
 
         if (path != null && Files.exists(path)) {

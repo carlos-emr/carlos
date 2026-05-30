@@ -43,13 +43,13 @@ import io.github.carlos_emr.carlos.commn.model.Site;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequestUtil;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
@@ -116,7 +116,8 @@ public final class ClinicLogoUtility {
             }
         }
 
-        Path path = Paths.get(filename);
+        File logoFile = PathValidationUtils.validateAgainstParentDirectory(new File(filename));
+        Path path = logoFile.toPath();
         if (Files.exists(path)) {
             addImage(infoTable, filename, PageSize.LETTER.getWidth() * 0.5f, LOGO_HEIGHT);
         }
@@ -147,7 +148,8 @@ public final class ClinicLogoUtility {
      * @param height float the maximum height to scale the image to (in points)
      */
     private static void addImage(PdfPTable pdfPTable, String filename, float width, float height) {
-        try (FileInputStream fileInputStream = new FileInputStream(filename)) {
+        File logoFile = PathValidationUtils.validateAgainstParentDirectory(new File(filename));
+        try (FileInputStream fileInputStream = new FileInputStream(logoFile)) {
             PdfPCell cell = new PdfPCell();
             byte[] faxLogImage = fileInputStream.readAllBytes();
             Image image = Image.getInstance(faxLogImage);
