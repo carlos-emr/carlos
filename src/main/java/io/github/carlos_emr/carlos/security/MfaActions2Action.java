@@ -78,8 +78,14 @@ public final class MfaActions2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_admin.userSecurity)");
         }
 
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
         String method = request.getParameter("method");
-        if (!METHOD_RESET_MFA.equals(method) || !"POST".equalsIgnoreCase(request.getMethod())) {
+        if (!METHOD_RESET_MFA.equals(method)) {
             response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;

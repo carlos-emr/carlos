@@ -123,7 +123,7 @@ class MfaActions2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldRejectRequest_whenMethodIsMissing() throws Exception {
+    void shouldRejectRequest_whenMethodIsNotResetMfa() throws Exception {
         request.setParameter("method", "view");
 
         String result = action.execute();
