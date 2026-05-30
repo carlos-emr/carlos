@@ -53,7 +53,7 @@ public final class McedtSecurity {
      * @throws SecurityException if the privilege is missing
      */
     public static void requireRead(HttpServletRequest request) {
-        assertPrivilege(request, "w");
+        assertPrivilege(request, "r");
     }
 
     /**

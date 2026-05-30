@@ -822,7 +822,7 @@
                     jQuery("#paper_chart_archived_program").val('');
                 }
                 if (val == 'YES') {
-                    jQuery("#paper_chart_archived_program").val('<%=currentProgram%>');
+                    jQuery("#paper_chart_archived_program").val('<%=SafeEncode.forJavaScript(currentProgram)%>');
                 }
             }
 
