@@ -65,34 +65,32 @@ public class zip {
     public void write2Zip(String fileformat) {
         MiscUtils.getLogger().debug("writing to Zip");
         try {
-            BufferedInputStream origin = null;
             int BUFFER = 1024;
             String form_record_path = CarlosProperties.getInstance().getProperty("form_record_path", "/root");
             File formRecordDir = PathValidationUtils.resolveConfiguredDirectory(form_record_path, "form_record_path");
-            FileOutputStream dest = new FileOutputStream(PathValidationUtils.validateGeneratedChildPath("formRecords.zip", formRecordDir));
-            ZipOutputStream out = new ZipOutputStream(new BufferedOutputStream(dest));
-            out.setMethod(ZipOutputStream.DEFLATED);
             byte data[] = new byte[BUFFER];
             //get a list of files from current directory
             File f = formRecordDir;
             String files[] = f.list();
 
-            for (int i = 0; i < files.length; i++) {
-                MiscUtils.getLogger().debug("Adding: " + files[i]);
-                if (files[i].endsWith("." + fileformat)) {
-                    File inputFile = PathValidationUtils.validateGeneratedChildPath(files[i], formRecordDir);
-                    FileInputStream fi = new FileInputStream(inputFile);
-                    origin = new BufferedInputStream(fi, BUFFER);
-                    ZipEntry entry = new ZipEntry(PathValidationUtils.validateZipEntryName(inputFile, formRecordDir));
-                    out.putNextEntry(entry);
-                    int count;
-                    while ((count = origin.read(data, 0, BUFFER)) != -1) {
-                        out.write(data, 0, count);
+            try (ZipOutputStream out = new ZipOutputStream(new BufferedOutputStream(new FileOutputStream(PathValidationUtils.validateGeneratedChildPath("formRecords.zip", formRecordDir))))) {
+                out.setMethod(ZipOutputStream.DEFLATED);
+                for (int i = 0; i < files.length; i++) {
+                    MiscUtils.getLogger().debug("Adding: " + files[i]);
+                    if (files[i].endsWith("." + fileformat)) {
+                        File inputFile = PathValidationUtils.validateGeneratedChildPath(files[i], formRecordDir);
+                        try (BufferedInputStream origin = new BufferedInputStream(new FileInputStream(inputFile), BUFFER)) {
+                            ZipEntry entry = new ZipEntry(PathValidationUtils.validateZipEntryName(inputFile, formRecordDir));
+                            out.putNextEntry(entry);
+                            int count;
+                            while ((count = origin.read(data, 0, BUFFER)) != -1) {
+                                out.write(data, 0, count);
+                            }
+                            out.closeEntry();
+                        }
                     }
-                    origin.close();
                 }
             }
-            out.close();
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
         }
@@ -112,51 +110,44 @@ public class zip {
         File targetDir = PathValidationUtils.resolveConfiguredDirectory(dirName, "unzip target directory");
         File zipInputFile = PathValidationUtils.validatePath(fName, targetDir);
         String fullpath = zipInputFile.getPath();
-        BufferedOutputStream dest = null;
-        BufferedInputStream is = null;
         ZipEntry entry;
 
-        try {
-            ZipFile zipfile = new ZipFile(zipInputFile);
-
+        try (ZipFile zipfile = new ZipFile(zipInputFile)) {
             entries = zipfile.entries();
             while (entries.hasMoreElements()) {
                 entry = entries.nextElement();
                 String zName = entry.getName();
 
-                is = new BufferedInputStream(zipfile.getInputStream(entry));
-                int count;
-                byte data[] = new byte[BUFFER];
-                if (!zName.substring(zName.length() - 4).equalsIgnoreCase(".zip")) {
-                    zName = zName + ".xml";
-                }
+                try (BufferedInputStream is = new BufferedInputStream(zipfile.getInputStream(entry))) {
+                    int count;
+                    byte data[] = new byte[BUFFER];
+                    if (!zName.substring(zName.length() - 4).equalsIgnoreCase(".zip")) {
+                        zName = zName + ".xml";
+                    }
 
-                // Validate the zip entry path using PathValidationUtils
-                File z;
-                try {
-                    z = PathValidationUtils.validateZipEntryPath(new ZipEntry(zName), targetDir);
-                } catch (SecurityException e) {
-                    logger.error("Skipping potentially malicious zip entry: " + zName);
-                    is.close();
-                    continue;
-                }
+                    // Validate the zip entry path using PathValidationUtils
+                    File z;
+                    try {
+                        z = PathValidationUtils.validateZipEntryPath(new ZipEntry(zName), targetDir);
+                    } catch (SecurityException e) {
+                        logger.error("Skipping potentially malicious zip entry: " + zName);
+                        continue;
+                    }
 
-                // Create parent directories if they don't exist
-                File parentDir = z.getParentFile();
-                if (parentDir != null && !parentDir.exists()) {
-                    parentDir.mkdirs();
-                }
+                    // Create parent directories if they don't exist
+                    File parentDir = z.getParentFile();
+                    if (parentDir != null && !parentDir.exists()) {
+                        parentDir.mkdirs();
+                    }
 
-                FileOutputStream fos = new FileOutputStream(z);
-                dest = new BufferedOutputStream(fos, BUFFER);
-                while ((count = is.read(data, 0, BUFFER)) != -1) {
-                    dest.write(data, 0, count);
+                    try (BufferedOutputStream dest = new BufferedOutputStream(new FileOutputStream(z), BUFFER)) {
+                        while ((count = is.read(data, 0, BUFFER)) != -1) {
+                            dest.write(data, 0, count);
+                        }
+                        dest.flush();
+                    }
                 }
-                dest.flush();
-                dest.close();
-                is.close();
             }
-            zipfile.close();
             //nee to move zip file to archive folder
             File afile = PathValidationUtils.validateExistingPath(zipInputFile, targetDir);
             File dir = PathValidationUtils.resolveConfiguredDirectory(new File(targetDir, "unzip_archive").getPath(), "unzip archive directory");

@@ -389,24 +389,18 @@ public class ExtractBean extends Object implements Serializable {
 
             File userHomeDir = PathValidationUtils.validateConfiguredDirectory(userHomePath, "user.home");
             File pFile = PathValidationUtils.validateExistingPath(new File(userHomeDir, oscar_home), userHomeDir);
-            FileInputStream pStream = new FileInputStream(pFile);
-
             Properties ap = new Properties();
-            ap.load(pStream);
+            try (FileInputStream pStream = new FileInputStream(pFile)) {
+                ap.load(pStream);
+            }
 
             home_dir = ap.getProperty("HOME_DIR");
-            pStream.close();
-
-            FileOutputStream out;
 
             File homeDir = PathValidationUtils.resolveConfiguredDirectory(home_dir, "HOME_DIR");
             File outputFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName(ohipFilename), homeDir);
-            out = new FileOutputStream(outputFile);
-            PrintStream p;
-            p = new PrintStream(out);
-            p.println(value1);
-
-            p.close();
+            try (PrintStream p = new PrintStream(new FileOutputStream(outputFile))) {
+                p.println(value1);
+            }
         } catch (Exception e) {
             logger.error("Unexpected error", e);
         }
@@ -419,25 +413,17 @@ public class ExtractBean extends Object implements Serializable {
 
             File userHomeDir1 = PathValidationUtils.validateConfiguredDirectory(userHomePath1, "user.home");
             File pFile1 = PathValidationUtils.validateExistingPath(new File(userHomeDir1, oscar_home), userHomeDir1);
-            FileInputStream pStream1 = new FileInputStream(pFile1);
-
             Properties ap1 = new Properties();
-            ap1.load(pStream1);
+            try (FileInputStream pStream1 = new FileInputStream(pFile1)) {
+                ap1.load(pStream1);
+            }
             home_dir1 = ap1.getProperty("HOME_DIR");
-            pStream1.close();
 
-
-            FileOutputStream out1;
             File homeDir1 = PathValidationUtils.resolveConfiguredDirectory(home_dir1, "HOME_DIR");
             File outputFile1 = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName(htmlFilename), homeDir1);
-            out1 = new FileOutputStream(outputFile1);
-            PrintStream p1;
-            p1 = new PrintStream(out1);
-
-
-            p1.println(htmlvalue1);
-
-            p1.close();
+            try (PrintStream p1 = new PrintStream(new FileOutputStream(outputFile1))) {
+                p1.println(htmlvalue1);
+            }
         } catch (Exception e) {
             logger.error("Unexpected error", e);
         }

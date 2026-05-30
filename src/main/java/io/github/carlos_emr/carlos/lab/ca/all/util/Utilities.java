@@ -174,13 +174,12 @@ public class Utilities {
             retVal = outputFile.getPath();
 
             //write the  file to the file specified
-            OutputStream os = new FileOutputStream(outputFile);
-
-            int bytesRead = 0;
-            while ((bytesRead = stream.read()) != -1) {
-                os.write(bytesRead);
+            try (OutputStream os = new FileOutputStream(outputFile)) {
+                int bytesRead;
+                while ((bytesRead = stream.read()) != -1) {
+                    os.write(bytesRead);
+                }
             }
-            os.close();
 
             //close the stream
             stream.close();

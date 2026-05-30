@@ -568,12 +568,9 @@ public class ExtractBean extends Object implements Serializable {
             home_dir = CarlosProperties.getInstance().getProperty("HOME_DIR");
             File homeDir = PathValidationUtils.resolveConfiguredDirectory(home_dir, "HOME_DIR");
             File outputFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName(ohipFilename), homeDir);
-            FileOutputStream out = new FileOutputStream(outputFile);
-            PrintStream p = new PrintStream(out);
-            p.println(value1);
-
-            p.close();
-            out.close();
+            try (PrintStream p = new PrintStream(new FileOutputStream(outputFile))) {
+                p.println(value1);
+            }
         } catch (Exception e) {
             logger.error("Unexpected error", e);
         }
@@ -584,25 +581,13 @@ public class ExtractBean extends Object implements Serializable {
     public void writeHtml(String htmlvalue1) {
         try {
             String home_dir1;
-			/*
-			String userHomePath1 = System.getProperty("user.home", "user.dir");
-
-			File pFile1 = new File(userHomePath1, oscar_home);
-			FileInputStream pStream1 = new FileInputStream(pFile1.getPath());
-			Properties ap1 = new Properties();
-			ap1.load(pStream1);
-			pStream1.close();
-			*/
             home_dir1 = CarlosProperties.getInstance().getProperty("HOME_DIR");
             File homeDir1 = PathValidationUtils.resolveConfiguredDirectory(home_dir1, "HOME_DIR");
             File outputFile1 = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName(htmlFilename), homeDir1);
 
-            FileOutputStream out1 = new FileOutputStream(outputFile1);
-            PrintStream p1 = new PrintStream(out1);
-            p1.println(htmlvalue1);
-
-            p1.close();
-            out1.close();
+            try (PrintStream p1 = new PrintStream(new FileOutputStream(outputFile1))) {
+                p1.println(htmlvalue1);
+            }
         } catch (Exception e) {
             logger.error("Unexpected error", e);
         }

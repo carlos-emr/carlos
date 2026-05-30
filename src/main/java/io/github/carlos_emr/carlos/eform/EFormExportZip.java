@@ -120,8 +120,7 @@ public class EFormExportZip {
                 String imageFileName = match.substring(length, match.length() - 1);
                 MiscUtils.getLogger().debug("Image Name: " + imageFileName);
                 File imageFile = getImageFile(imageFileName);
-                try {
-                    FileInputStream fis = new FileInputStream(imageFile);  //should error out if image not found, in this case, skip the image
+                try (FileInputStream fis = new FileInputStream(imageFile)) {  //should error out if image not found, in this case, skip the image
                     ZipEntry imageZipEntry = new ZipEntry(directoryName + imageFileName);
                     zos.putNextEntry(imageZipEntry);
                     outputToInput(zos, fis);
@@ -228,9 +227,9 @@ public class EFormExportZip {
                 //store temp files on HD
                 File tempFile = PathValidationUtils.validateGeneratedChildPath(zipEntryFileName, imageTempFolderDir);
                 tempFiles.put(zipEntryFileName, tempFile); //reference so we can find it later
-                FileOutputStream fos = new FileOutputStream(tempFile);
-                inputToOutput(zis, fos);
-                fos.close();
+                try (FileOutputStream fos = new FileOutputStream(tempFile)) {
+                    inputToOutput(zis, fos);
+                }
                 //store temp files in memory
                 /*ByteArrayOutputStream baos = new ByteArrayOutputStream();
                 inputToOutput(zis, baos);
@@ -246,29 +245,28 @@ public class EFormExportZip {
             _log.info("looking at " + tempFile.getKey());
             if (eformTable.containsKey(tempFile.getKey())) {  //if file name matches eform
                 File extractedTempFile = PathValidationUtils.validateExistingPath(tempFile.getValue(), imageTempFolderDir);
-                FileInputStream fis = new FileInputStream(extractedTempFile);
-                ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                inputToOutput(fis, baos);
-                String html = new String(baos.toByteArray());
-                _log.debug("THIS IS WHAT THE HTML is" + html);
-                eformTable.get(tempFile.getKey()).setFormHtml(html);
-                fis.close();
-                baos.close();
+                try (FileInputStream fis = new FileInputStream(extractedTempFile);
+                     ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+                    inputToOutput(fis, baos);
+                    String html = new String(baos.toByteArray());
+                    _log.debug("THIS IS WHAT THE HTML is" + html);
+                    eformTable.get(tempFile.getKey()).setFormHtml(html);
+                }
             } else if (eformTableFailed.containsKey(tempFile.getKey())) {
                 //do not save file if eform fails
             } else {
                 File extractedTempFile = PathValidationUtils.validateExistingPath(tempFile.getValue(), imageTempFolderDir);
-                FileInputStream fis = new FileInputStream(extractedTempFile);
                 File imageFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validatePathComponent(tempFile.getKey(), "eform image file"), ImageUpload2Action.getImageFolder());
-                if (imageFile.exists()) {
-                    errors.add("Image '" + tempFile.getKey() + "' already exists, skipping image, but the form may still be uploaded.  Please resolve.");
-                    _log.info("EForm Import: Image with name '" + tempFile.getKey() + "' already exists, skipping image, but the form may still be uploaded.  Please resolve.");
+                try (FileInputStream fis = new FileInputStream(extractedTempFile)) {
+                    if (imageFile.exists()) {
+                        errors.add("Image '" + tempFile.getKey() + "' already exists, skipping image, but the form may still be uploaded.  Please resolve.");
+                        _log.info("EForm Import: Image with name '" + tempFile.getKey() + "' already exists, skipping image, but the form may still be uploaded.  Please resolve.");
+                    }
+                    try (OutputStream os = new FileOutputStream(imageFile)) {
+                        inputToOutput(fis, os);
+                    }
+                    _log.info("Loaded eform file: " + tempFile.getKey());
                 }
-                OutputStream os = new FileOutputStream(imageFile);
-                inputToOutput(fis, os);
-                _log.info("Loaded eform file: " + tempFile.getKey());
-                fis.close();
-                os.close();
             }
         }
         _log.info("Registering: " + eformTable.values().size() + " eforms");

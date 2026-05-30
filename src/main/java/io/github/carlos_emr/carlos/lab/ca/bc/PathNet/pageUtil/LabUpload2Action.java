@@ -182,15 +182,15 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             retVal = outputFile.getPath();
             MiscUtils.getLogger().debug(retVal);
             //write the file to the file specified
-            OutputStream bos = new FileOutputStream(outputFile);
-            int bytesRead = 0;
-            //byte[] buffer = file.getFileData();
-            //while ((bytesRead = stream.read(buffer)) != -1){
-            //   bos.write(buffer, 0, bytesRead);
-            while ((bytesRead = stream.read()) != -1) {
-                bos.write(bytesRead);
+            try (OutputStream bos = new FileOutputStream(outputFile)) {
+                int bytesRead;
+                //byte[] buffer = file.getFileData();
+                //while ((bytesRead = stream.read(buffer)) != -1){
+                //   bos.write(buffer, 0, bytesRead);
+                while ((bytesRead = stream.read()) != -1) {
+                    bos.write(bytesRead);
+                }
             }
-            bos.close();
 
             //close the stream
             stream.close();

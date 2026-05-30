@@ -334,9 +334,7 @@ public class Utility {
         String fileDir = pathLoc + "/" + dir + "/" + filename;
         try {
 
-            BufferedReader in = null;
-            try {
-                in = new BufferedReader(new FileReader(PathValidationUtils.resolveTrustedPath(new File(fileDir))));
+            try (BufferedReader in = new BufferedReader(new FileReader(PathValidationUtils.resolveTrustedPath(new File(fileDir))))) {
                 String str;
                 if (fileDir.indexOf("/in/") > -1) {
                     while ((str = in.readLine()) != null) {
@@ -358,13 +356,9 @@ public class Utility {
                         list.add(fDev);
                     }
                 }
-                in.close();
 
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Uh oh, got an IOException error!", e);
-            } finally {
-                if (in != null)
-                    in.close();
             }
 
         } catch (Exception e) {

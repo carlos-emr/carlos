@@ -525,27 +525,25 @@ public class Util {
             File outputFile = PathValidationUtils.validateGeneratedChildPath(zipFileName, outputDir);
             
             byte[] buf = new byte[1024];
-            ZipOutputStream zout = new ZipOutputStream(new FileOutputStream(outputFile));
-            for (File f : files) {
-                if (f == null) continue;
+            try (ZipOutputStream zout = new ZipOutputStream(new FileOutputStream(outputFile))) {
+                for (File f : files) {
+                    if (f == null) continue;
 
-                FileInputStream fin = new FileInputStream(PathValidationUtils.resolveTrustedPath(f));
+                    try (FileInputStream fin = new FileInputStream(PathValidationUtils.resolveTrustedPath(f))) {
+                        // Add ZIP entry to output stream
+                        zout.putNextEntry(new ZipEntry(PathValidationUtils.validateZipEntryName(f, f.getParentFile())));
 
-                // Add ZIP entry to output stream
-                zout.putNextEntry(new ZipEntry(PathValidationUtils.validateZipEntryName(f, f.getParentFile())));
+                        // Transfer bytes from the input files to the ZIP file
+                        int len;
+                        while ((len = fin.read(buf)) > 0) {
+                            zout.write(buf, 0, len);
+                        }
 
-                // Transfer bytes from the input files to the ZIP file
-                int len;
-                while ((len = fin.read(buf)) > 0) {
-                    zout.write(buf, 0, len);
+                        // Complete the entry
+                        zout.closeEntry();
+                    }
                 }
-
-                // Complete the entry
-                zout.closeEntry();
-                fin.close();
             }
-            // Complete the ZIP file
-            zout.close();
             return true;
 
         } catch (IOException ex) {
@@ -582,56 +580,54 @@ public class Util {
             File outputFile = PathValidationUtils.validateGeneratedChildPath(zipFileName, outputDir);
             
             byte[] buf = new byte[1024];
-            ZipOutputStream zout = new ZipOutputStream(new FileOutputStream(outputFile));
-            Map<String, Boolean> dirMap = new HashMap<String, Boolean>();
-            for (String dir : dirs) {
-                String safeDir = dir == null || dir.isEmpty()
-                        ? ""
-                        : PathValidationUtils.validatePathComponent(dir, "zip directory");
-                dirMap.put(safeDir, true);
-            }
-            for (String dir : dirMap.keySet()) {
-                if (!dir.isEmpty()) {
-                    zout.putNextEntry(new ZipEntry(dir + "/"));
+            try (ZipOutputStream zout = new ZipOutputStream(new FileOutputStream(outputFile))) {
+                Map<String, Boolean> dirMap = new HashMap<String, Boolean>();
+                for (String dir : dirs) {
+                    String safeDir = dir == null || dir.isEmpty()
+                            ? ""
+                            : PathValidationUtils.validatePathComponent(dir, "zip directory");
+                    dirMap.put(safeDir, true);
+                }
+                for (String dir : dirMap.keySet()) {
+                    if (!dir.isEmpty()) {
+                        zout.putNextEntry(new ZipEntry(dir + "/"));
+                    }
+                }
+
+                for (int x = 0; x < files.size(); x++) {
+                    File f = files.get(x);
+                    if (f == null) continue;
+
+                    // Validate the file path
+                    if (!isPathWithinDirectory(f, dirName)) {
+                        logger.error("Error! File path is outside the allowed directory: " + f.getAbsolutePath());
+                        return false;
+                    }
+
+                    try (FileInputStream fin = new FileInputStream(PathValidationUtils.validateExistingPath(f, outputDir))) {
+                        String dir = dirs.get(x);
+
+                        if (dir.isEmpty()) {
+
+                            // Add ZIP entry to output stream
+                            zout.putNextEntry(new ZipEntry(PathValidationUtils.validateZipEntryName(f, f.getParentFile())));
+
+                        } else {
+                            String safeDir = PathValidationUtils.validatePathComponent(dir, "zip directory");
+                            zout.putNextEntry(new ZipEntry(PathValidationUtils.validateZipEntryName(new File(f.getParentFile(), safeDir + File.separator + f.getName()), f.getParentFile())));
+
+                        }
+                        // Transfer bytes from the input files to the ZIP file
+                        int len;
+                        while ((len = fin.read(buf)) > 0) {
+                            zout.write(buf, 0, len);
+                        }
+
+                        // Complete the entry
+                        zout.closeEntry();
+                    }
                 }
             }
-
-            for (int x = 0; x < files.size(); x++) {
-                File f = files.get(x);
-                if (f == null) continue;
-
-                // Validate the file path
-                if (!isPathWithinDirectory(f, dirName)) {
-                    logger.error("Error! File path is outside the allowed directory: " + f.getAbsolutePath());
-                    return false;
-                }
-
-                FileInputStream fin = new FileInputStream(PathValidationUtils.validateExistingPath(f, outputDir));
-
-                String dir = dirs.get(x);
-
-                if (dir.isEmpty()) {
-
-                    // Add ZIP entry to output stream
-                    zout.putNextEntry(new ZipEntry(PathValidationUtils.validateZipEntryName(f, f.getParentFile())));
-
-                } else {
-                    String safeDir = PathValidationUtils.validatePathComponent(dir, "zip directory");
-                    zout.putNextEntry(new ZipEntry(PathValidationUtils.validateZipEntryName(new File(f.getParentFile(), safeDir + File.separator + f.getName()), f.getParentFile())));
-
-                }
-                // Transfer bytes from the input files to the ZIP file
-                int len;
-                while ((len = fin.read(buf)) > 0) {
-                    zout.write(buf, 0, len);
-                }
-
-                // Complete the entry
-                zout.closeEntry();
-                fin.close();
-            }
-            // Complete the ZIP file
-            zout.close();
             return true;
 
         } catch (IOException ex) {

@@ -122,7 +122,6 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
 
     public String print() throws IOException {
 
-        FileInputStream input = null;
         OutputStream output = null;
         byte[] pdfContent = null;
         Integer demographicNo = Integer.parseInt(form.getDemographicNo());
@@ -149,9 +148,10 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
             bpmhFormHandler.saveFormHistory();
         }
 
-        input = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(pdfController.getOutputPath())));
-        pdfContent = new byte[input.available()];
-        input.read(pdfContent, 0, input.available());
+        try (FileInputStream pdfInput = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(pdfController.getOutputPath())))) {
+            pdfContent = new byte[pdfInput.available()];
+            pdfInput.read(pdfContent, 0, pdfInput.available());
+        }
 
         response.reset();
         response.setContentType("application/pdf");
@@ -161,10 +161,6 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
         if (output != null) {
             output.write(pdfContent);
             output.close();
-        }
-
-        if (input != null) {
-            input.close();
         }
 
         return null;
