@@ -38,6 +38,7 @@
 <%@ taglib uri="http://www.oscar-emr.com/tags/integration" prefix="i" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <%@ page import="java.math.BigInteger,java.util.*,io.github.carlos_emr.carlos.integration.mcedt.mailbox.DetailDataCustom,io.github.carlos_emr.carlos.utility.SafeEncode" %>
