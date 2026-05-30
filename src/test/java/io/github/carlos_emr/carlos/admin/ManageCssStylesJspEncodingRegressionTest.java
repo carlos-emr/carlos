@@ -44,12 +44,14 @@ class ManageCssStylesJspEncodingRegressionTest {
 
     @Test
     @Tag("security")
-    void shouldEncodeSavedStyleOptions_whenRenderingOptionsInJsp() throws Exception {
+    void shouldEncodeSavedStyleOptions_whenRenderingInJsp() throws Exception {
         String jsp = Files.readString(MANAGE_CSS_STYLES_JSP);
 
         assertThat(jsp)
                 .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
                 .doesNotContain("<option value=\"${style.style}\">${style.name}</option>")
+                .doesNotContain("value=\"${style.style}")
+                .doesNotContain(">${style.name}</option>")
                 .contains("<option value=\"${carlos:forHtmlAttribute(style.style)}\">${carlos:forHtml(style.name)}</option>");
     }
 
