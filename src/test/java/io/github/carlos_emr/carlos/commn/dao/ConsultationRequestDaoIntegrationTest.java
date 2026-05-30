@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
 import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
+import org.apache.commons.lang3.time.DateUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -58,6 +59,9 @@ public class ConsultationRequestDaoIntegrationTest extends CarlosTestBase {
     private ConsultRequestDao consultRequestDao;
 
     @Autowired
+    private ConsultationRequestDao consultationRequestDao;
+
+    @Autowired
     private ProfessionalSpecialistDao professionalSpecialistDao;
 
     private static final int DEMO_1 = 60001;
@@ -85,6 +89,21 @@ public class ConsultationRequestDaoIntegrationTest extends CarlosTestBase {
         if (specialist != null) {
             req.setProfessionalSpecialist(specialist);
         }
+        consultRequestDao.persist(req);
+        return req;
+    }
+
+    private ConsultationRequest createConsultRequest(int demographicNo, String status, String team,
+                                                     Date appointmentDate, Date referralDate) {
+        ConsultationRequest req = new ConsultationRequest();
+        req.setDemographicId(demographicNo);
+        req.setStatus(status);
+        req.setReferralDate(referralDate);
+        req.setAppointmentDate(appointmentDate);
+        req.setProviderNo("999998");
+        req.setReasonForReferral("Test referral");
+        req.setSendTo(team);
+        req.setLastUpdateDate(new Date());
         consultRequestDao.persist(req);
         return req;
     }
@@ -140,6 +159,46 @@ public class ConsultationRequestDaoIntegrationTest extends CarlosTestBase {
         void shouldFindAllRequests_withPagination() {
             List<ConsultationRequest> results = consultRequestDao.findAll(0, 2);
             assertThat(results).hasSize(2);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should filter consultation list by referral date range")
+        void shouldFilterConsultationList_whenReferralDateRangeProvided() throws Exception {
+            String team = "referral-date-team-" + System.nanoTime();
+            String[] format = new String[]{"yyyy-MM-dd"};
+            Date outsideDate = DateUtils.parseDate("2015-03-05", format);
+            Date insideDate = DateUtils.parseDate("2015-03-26", format);
+            ConsultationRequest outside = createConsultRequest(DEMO_1, "1", team, outsideDate, outsideDate);
+            ConsultationRequest inside = createConsultRequest(DEMO_1, "1", team, insideDate, insideDate);
+
+            List<ConsultationRequest> results = consultationRequestDao.getConsults(
+                    team, true, DateUtils.parseDate("2015-03-20", format),
+                    DateUtils.parseDate("2015-03-31", format), null, null, null, 0, 99);
+
+            assertThat(results).extracting(ConsultationRequest::getId)
+                    .contains(inside.getId())
+                    .doesNotContain(outside.getId());
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should filter consultation list by appointment date range")
+        void shouldFilterConsultationList_whenAppointmentDateRangeProvided() throws Exception {
+            String team = "appointment-date-team-" + System.nanoTime();
+            String[] format = new String[]{"yyyy-MM-dd"};
+            Date outsideDate = DateUtils.parseDate("2015-03-05", format);
+            Date insideDate = DateUtils.parseDate("2015-03-26", format);
+            ConsultationRequest outside = createConsultRequest(DEMO_1, "1", team, outsideDate, outsideDate);
+            ConsultationRequest inside = createConsultRequest(DEMO_1, "1", team, insideDate, insideDate);
+
+            List<ConsultationRequest> results = consultationRequestDao.getConsults(
+                    team, true, DateUtils.parseDate("2015-03-20", format),
+                    DateUtils.parseDate("2015-03-31", format), null, null, "1", 0, 99);
+
+            assertThat(results).extracting(ConsultationRequest::getId)
+                    .contains(inside.getId())
+                    .doesNotContain(outside.getId());
         }
     }
 }
