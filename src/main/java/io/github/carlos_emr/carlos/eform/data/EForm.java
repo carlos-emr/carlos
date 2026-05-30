@@ -63,6 +63,7 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class EForm extends EFormBase {
     private static EFormDataDao eFormDataDao = (EFormDataDao) SpringUtils.getBean(EFormDataDao.class);
@@ -100,6 +101,8 @@ public class EForm extends EFormBase {
         this.providerNo = providerNo;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public EForm(String fdid) {
         if (!StringUtils.isBlank(fdid) && !"null".equalsIgnoreCase(fdid)) {
             EFormData eFormData = eFormDataDao.find(Integer.valueOf(fdid));
@@ -432,6 +435,8 @@ public class EForm extends EFormBase {
 
     // ----------------------------------private
     // -----------------------------------------
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private DatabaseAP getAPExtra(String apName, String fieldHeader) {
         // --------------------------Process extra attributes for APs --------------------------------
         Pattern p = Pattern.compile("\\b[a-z]\\$[^ \\$#]+#[^\n]+");
@@ -581,6 +586,8 @@ public class EForm extends EFormBase {
 		return new StringBuilder(getFormHtml());
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private int nextIndex(StringBuilder text, String option1, String option2, int pointer) {
         // converts text content to lowercase
         text = new StringBuilder(text.toString().toLowerCase());
@@ -618,6 +625,8 @@ public class EForm extends EFormBase {
         return nextIndex(text, " ", ">", pointer);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String getFieldType(String fieldHeader) {
         if (fieldHeader.substring(1, 9).equalsIgnoreCase("textarea")) return "textarea";
         if (fieldHeader.substring(1, 7).equalsIgnoreCase("select")) return "select";
@@ -823,6 +832,8 @@ public class EForm extends EFormBase {
 		*/
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String getFieldName(StringBuilder html, int pointer) {
         //pointer can be any place in the tag - isolates tag and sends back field type
         int open = html.substring(0, pointer).lastIndexOf("<");
@@ -878,6 +889,8 @@ public class EForm extends EFormBase {
         return html.substring(fieldIndex, end);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private void saveFieldValue(StringBuilder html, int fieldIndex) {
         String header = getFieldHeader(html, fieldIndex);
         if (StringUtils.isBlank(header)) return;
@@ -924,6 +937,8 @@ public class EForm extends EFormBase {
         return refFid;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
     public void setSignatureCode(String contextPath, String userAgent, String demographicNo, String providerId) {
         String signatureRequestId = DigitalSignatureUtils.generateSignatureRequestId(providerId);
         String imageUrl = contextPath + "/imageRenderingServlet?source=" + ImageRenderingServlet.Source.signature_preview.name() + "&" + DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY + "=" + signatureRequestId;
@@ -1122,6 +1137,8 @@ public class EForm extends EFormBase {
      * Empty image src values are the result of using Javascript in the eForm to dynamically
      * set paths for images.
      */
+    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
     public void addImagePathPlaceholders(String[] imagePathPlaceholders)
         throws JsonProcessingException, JsonMappingException {
         if (imagePathPlaceholders != null && imagePathPlaceholders.length > 0) {

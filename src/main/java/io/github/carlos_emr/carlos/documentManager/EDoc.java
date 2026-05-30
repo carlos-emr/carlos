@@ -49,6 +49,7 @@ import java.text.SimpleDateFormat;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.Locale;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class EDoc extends TagObject implements Comparable<EDoc> {
     private static final Logger logger = MiscUtils.getLogger();
@@ -412,6 +413,8 @@ public class EDoc extends TagObject implements Comparable<EDoc> {
     }
 
     // docPublic = "checked" for the edoc to be public
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public void setDocPublic(String docPublic) {
         if (docPublic.equalsIgnoreCase("checked")) this.docPublic = "1";
         else if (docPublic == null || docPublic.length() == 0) this.docPublic = "0";
@@ -423,6 +426,8 @@ public class EDoc extends TagObject implements Comparable<EDoc> {
         return abnormal;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public void setAbnormal(String abnormal) {
         if (abnormal == null || abnormal.length() == 0) this.abnormal = "false";
         else if (abnormal.equalsIgnoreCase("checked")) this.abnormal = "true";

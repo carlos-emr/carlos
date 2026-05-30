@@ -48,6 +48,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import org.springframework.transaction.annotation.Transactional;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 /**
  * Builds fixed-width OHIP claim extracts and companion HTML previews from
  * Ontario billing rows. The prototype instance holds the current provider,
@@ -153,6 +154,8 @@ public class OhipClaimExtractService implements Serializable {
                 + providerNo + specialty + space(42) + "\r");
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String buildHeader1() {
         referralDoc = "000000";
         hcFlag = ""; // for html content
@@ -201,6 +204,8 @@ public class OhipClaimExtractService implements Serializable {
         return ("\n" + patientHeader + "\r" + patientHeader2);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String buildHeader2() {
         spec = "RMB";
         hcFlag = "H";

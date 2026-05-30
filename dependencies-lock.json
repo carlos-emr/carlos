@@ -296,6 +296,14 @@
     "optional" : false,
     "integrity" : "sha512:fiXBLMWhIZZiGGp6MBg3zZU1wOAYiM/TU/gU17e9YdHePhNIPM0F0dimSeMUTM8CMN4khJyM809pvRJAaUuY/Q=="
   }, {
+    "groupId" : "com.github.spotbugs",
+    "artifactId" : "spotbugs-annotations",
+    "version" : "4.9.3",
+    "scope" : "provided",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:eKdKAU6v/5Sxb9ulLqx+imicraLvFNDCMEErkEIx1XbK5JVxrslep6ufsQ0N77yLNWAHGAMg/LyLNjW9SzvgsA=="
+  }, {
     "groupId" : "com.github.virtuald",
     "artifactId" : "curvesapi",
     "version" : "1.08",

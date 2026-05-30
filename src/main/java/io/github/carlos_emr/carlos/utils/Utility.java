@@ -36,6 +36,7 @@ import java.util.GregorianCalendar;
 import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.carlos.PMmodule.model.FieldDefinition;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class Utility {
     public static boolean IsEmpty(String pStr) {
@@ -87,6 +88,8 @@ public class Utility {
     }
 
     // Convert dd/mm/yyyy d/m/yyyy to System format
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static Date GetSysDate(String pDate) // throws Exception
     {
         Date date;
@@ -137,6 +140,8 @@ public class Utility {
     }
 
     // Convert dd/mm/yyyy to System format
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static Date GetSysDateMin(String pDate) throws Exception {
         if (IsEmpty(pDate)) {
             Calendar c1 = Calendar.getInstance();
@@ -159,6 +164,8 @@ public class Utility {
         }
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static Date GetSysDateMax(String pDate) throws Exception {
         if (IsEmpty(pDate)) {
             return SetDate(2999, 12, 31);

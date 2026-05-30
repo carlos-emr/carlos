@@ -46,6 +46,7 @@ import io.github.carlos_emr.carlos.prescript.data.RxDrugData;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /*
  * Author: Dennis Warren
@@ -329,6 +330,8 @@ public class BpmhForm2Handler {
      * First checks the Demographic if FP is set, then checks the
      * note fields.
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public void setFormBeanFamilyDoctor(String familyDrName, String familyDrPhone, String familyDrFax) {
 
         List<DemographicCust> demographicCustList = null;
@@ -561,6 +564,8 @@ public class BpmhForm2Handler {
 
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String getDrugReason(Integer drugId) {
 
         Icd9 icd9 = null;

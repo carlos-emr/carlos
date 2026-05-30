@@ -48,6 +48,7 @@ import ca.uhn.hl7v2.parser.Parser;
 import ca.uhn.hl7v2.parser.PipeParser;
 import ca.uhn.hl7v2.util.Terser;
 import ca.uhn.hl7v2.validation.impl.NoValidation;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Deprecated
 /**
@@ -914,6 +915,8 @@ public class IHAHandler implements MessageHandler {
         return (getOBXField(i, j, 11, 0, 1));
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public int getOBXFinalResultCount() {
         int obrCount = getOBRCount();
@@ -966,6 +969,8 @@ public class IHAHandler implements MessageHandler {
         }
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public boolean isOBXAbnormal(int i, int j) {
         try {

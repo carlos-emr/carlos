@@ -60,6 +60,7 @@ import java.util.Iterator;
 import java.util.List;
 
 import org.springframework.dao.DataAccessException;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Manages provider signature stamp images for consultations, prescriptions, and eForms.
@@ -84,6 +85,8 @@ public class ProviderSignatureStamp2Action extends ActionSupport implements Uplo
     private static final int MAX_SIGNATURE_WIDTH = 1000;
     private static final int MAX_SIGNATURE_HEIGHT = 400;
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public String execute() {
         HttpServletRequest request = ServletActionContext.getRequest();

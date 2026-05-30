@@ -45,6 +45,7 @@ import io.github.carlos_emr.carlos.login.OscarOAuthDataProvider;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1SignatureVerifier;
 
 import java.util.Locale;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Service
 public class OAuth1SignatureVerifierImplementation implements OAuth1SignatureVerifier {
@@ -54,6 +55,8 @@ public class OAuth1SignatureVerifierImplementation implements OAuth1SignatureVer
     // ★ NEW: configurable clock skew (seconds)
     private static final long ALLOWED_SKEW_SECONDS = 300L;
 
+    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
     @Override
     public String verifySignature(HttpServletRequest req, AppOAuth1Config cfg) {
         // --- 1) OAuth params from Authorization header ---

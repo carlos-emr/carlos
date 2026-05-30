@@ -38,6 +38,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Paths;
 import java.util.*;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Singleton class for managing OpenO EMR system properties and configuration.
@@ -229,6 +230,8 @@ public class CarlosProperties extends Properties {
      * @param val value that will cause a true value to be returned
      * @return boolean
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public boolean getBooleanProperty(String key, String val) {
         key = key == null ? null : key.trim();
         val = val == null ? null : val.trim();

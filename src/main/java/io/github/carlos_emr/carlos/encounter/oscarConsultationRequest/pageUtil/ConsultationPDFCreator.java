@@ -48,6 +48,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ResourceBundle;
 import java.util.Set;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Generates a formatted PDF document for a clinical consultation request (referral letter).
@@ -347,6 +348,8 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
     /**
      * @deprecated use the createLogo method in the ClinicLogoUtility at io.github.carlos_emr.carlos.utility
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Deprecated
     private PdfPTable createLogoHeader() {
 

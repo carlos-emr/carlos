@@ -45,6 +45,7 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Servlet filter that sanitizes error responses to prevent Java stack traces and internal
@@ -197,6 +198,8 @@ public class ResponseSanitizationFilter implements Filter {
         LOGGER.info("ResponseSanitizationFilter initialized: enabled={}", enabled);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     static boolean parseEnabledProperty(String propValue) {
         if (propValue == null || propValue.isBlank()) {
             return true;

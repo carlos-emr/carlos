@@ -50,6 +50,7 @@ import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Utility for loading clinic logo images and embedding them into PDF document headers.
@@ -83,6 +84,8 @@ public final class ClinicLogoUtility {
      *
      * @return PdfPTable an OpenPDF table element containing the logo image, for insertion into a PDF
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static PdfPTable createLogoHeader() {
 
         PdfPTable infoTable = new PdfPTable(1);

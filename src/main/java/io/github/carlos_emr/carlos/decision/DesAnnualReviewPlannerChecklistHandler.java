@@ -38,6 +38,7 @@ import org.xml.sax.Attributes;
 import org.xml.sax.Locator;
 import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * SAX XML parser handler for generating annual health review planning checklists in HTML format.
@@ -187,6 +188,8 @@ public class DesAnnualReviewPlannerChecklistHandler extends DefaultHandler {
      * @param atts Attributes associated with the element
      * @throws SAXException if XML processing error occurs
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public void startElement(String namespaceURI, String localName, String rawName, Attributes atts)
             throws SAXException {
         MiscUtils.getLogger().debug("Processing element - localName: " + localName + ", rawName: " + rawName);

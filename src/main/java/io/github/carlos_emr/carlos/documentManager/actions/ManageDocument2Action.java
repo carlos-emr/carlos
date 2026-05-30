@@ -77,6 +77,7 @@ import java.awt.image.BufferedImage;
 import java.io.*;
 
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -86,6 +87,7 @@ import java.util.*;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.utility.LogSafe;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts2 action for document viewing, updating, routing, and incoming document processing
@@ -130,6 +132,11 @@ public class ManageDocument2Action extends ActionSupport {
 
     private static final String DOCUMENT_DIR = CarlosProperties.getInstance().getDocumentDirectory();
     private static final String DOCUMENT_CACHE_DIR = CarlosProperties.getInstance().getDocumentCacheDirectory();
+
+    // Canonical incoming-document queue subdirectories. Kept in sync with the allowlist
+    // enforced by IncomingDocUtil.getIncomingDocumentFilePath.
+    private static final Set<String> ALLOWED_INCOMING_QUEUE_DIRS = Set.of("Fax", "Mail", "File", "Refile");
+    private static final int MAX_INCOMING_DOCUMENT_MOVE_ATTEMPTS = 1000;
 
     private static final Map<String, ActionHandler> ACTIONS = new HashMap<>();
 
@@ -1111,6 +1118,12 @@ public class ManageDocument2Action extends ActionSupport {
      */
     public String addIncomingDocument() throws Exception {
 
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
+
         String pdfDir = request.getParameter("pdfDir");
         String pdfName = request.getParameter("pdfName");
         String demographic_no = request.getParameter("demog");
@@ -1137,7 +1150,17 @@ public class ManageDocument2Action extends ActionSupport {
             log.warn("Invalid incoming document directory parameters rejected");
             throw new SecurityException("Invalid directory parameters");
         }
-        
+
+        // Restrict pdfDir to the canonical incoming queue subdirectories. Canonical-path
+        // containment alone only bounds the move to the incoming root; without this
+        // allowlist an _edoc writer could file documents out of any other single-segment
+        // subdirectory under the queue (e.g. *_deleted/archive dirs). This mirrors the
+        // restriction enforced by IncomingDocUtil.getIncomingDocumentFilePath.
+        if (!ALLOWED_INCOMING_QUEUE_DIRS.contains(pdfDir)) {
+            log.warn("Invalid incoming document directory parameters rejected");
+            throw new SecurityException("Invalid directory parameters");
+        }
+
         String incomingDocDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
         File incomingDir = validateConfiguredDocumentDirectory(incomingDocDir, "INCOMINGDOCUMENT_DIR");
 
@@ -1178,34 +1201,28 @@ public class ManageDocument2Action extends ActionSupport {
         newDoc.setDocSubClass(docSubClass);
         newDoc.setDocPublic("0");
         fileName = newDoc.getFileName();
-        String sanitizedFileName = sanitizeIncomingDocumentDestinationFileName(fileName);
-
-        // Ensure filename uniqueness. The generated filename includes a timestamp, but
-        // collisions can still occur when multiple documents are uploaded in quick succession.
-        // The counter-based suffix (_1, _2, ...) guarantees a unique filename on disk.
-        File destFile = PathValidationUtils.validatePath(sanitizedFileName, saveDir);
-        String originalSanitized = sanitizedFileName;
-        int counter = 1;
-        while (destFile.exists()) {
-            String nameWithoutExt = originalSanitized;
-            String extension = "";
-            int lastDot = originalSanitized.lastIndexOf(".");
-            if (lastDot > 0) {
-                nameWithoutExt = originalSanitized.substring(0, lastDot);
-                extension = originalSanitized.substring(lastDot);
-            }
-            sanitizedFileName = nameWithoutExt + "_" + counter + extension;
-            destFile = PathValidationUtils.validatePath(sanitizedFileName, saveDir);
-            counter++;
-        }
+        String originalSanitized = sanitizeIncomingDocumentDestinationFileName(fileName);
 
         String doc_no = "";
-        String storedFileName = destFile.getName();
-        newDoc.setFileName(storedFileName);
+        String storedFileName = null;
+        File destFile = null;
+        boolean success = false;
 
-        newDoc.setContentType(docType);
+        for (int counter = 0; counter < MAX_INCOMING_DOCUMENT_MOVE_ATTEMPTS; counter++) {
+            String candidateFileName = incomingDestinationCandidate(originalSanitized, counter);
+            destFile = PathValidationUtils.validatePath(candidateFileName, saveDir);
+            try {
+                success = moveIncomingDocument(sourceFile, destFile);
+            } catch (FileAlreadyExistsException e) {
+                continue;
+            }
+            if (success) {
+                storedFileName = destFile.getName();
+                newDoc.setFileName(storedFileName);
+            }
+            break;
+        }
 
-        boolean success = moveIncomingDocument(sourceFile, destFile);
         if (!success) {
             log.error("Not able to move incoming document into document store");
             // File was not successfully moved - attempt to delete temp file to prevent orphaned files
@@ -1299,15 +1316,9 @@ public class ManageDocument2Action extends ActionSupport {
 
     private void rejectIncomingDocumentPathComponents(String fileName) {
         try {
-            if (FilenameUtils.getPrefixLength(fileName) > 0
-                    || fileName.contains("/")
-                    || fileName.contains("\\")
-                    || fileName.startsWith(".")) {
-                log.warn("Incoming document filename contains path components: {}", LogSafe.sanitize(fileName, 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-                throw new SecurityException("Invalid filename");
-            }
-        } catch (IllegalArgumentException e) {
-            log.warn("Incoming document filename parser rejected invalid filename: {}", LogSafe.sanitize(fileName, 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            PathValidationUtils.validatePathComponent(fileName, "incoming document filename");
+        } catch (SecurityException e) {
+            log.warn("Incoming document filename contains path components: {}", LogSafe.sanitize(fileName, 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             throw new SecurityException("Invalid filename", e);
         }
     }
@@ -1339,11 +1350,39 @@ public class ManageDocument2Action extends ActionSupport {
     }
 
     /**
-     * Moves a validated incoming source file into the document store. Protected for
-     * tests so rename failure can be exercised without filesystem-specific setup.
+     * Moves a validated incoming source file into the document store. Uses
+     * {@link Files#move} rather than {@link File#renameTo} so the move succeeds across
+     * filesystem/volume boundaries (incoming-fax storage and the document store are
+     * commonly separate mounts in production). {@code renameTo} silently returns
+     * {@code false} across volumes, and the caller deletes the source on failure — that
+     * combination would permanently lose the incoming document. Protected for tests so
+     * move failure can be exercised without filesystem-specific setup.
      */
-    protected boolean moveIncomingDocument(File sourceFile, File destFile) {
-        return sourceFile.renameTo(destFile);
+    private String incomingDestinationCandidate(String originalFileName, int counter) {
+        if (counter == 0) {
+            return originalFileName;
+        }
+
+        String nameWithoutExt = originalFileName;
+        String extension = "";
+        int lastDot = originalFileName.lastIndexOf(".");
+        if (lastDot > 0) {
+            nameWithoutExt = originalFileName.substring(0, lastDot);
+            extension = originalFileName.substring(lastDot);
+        }
+        return nameWithoutExt + "_" + counter + extension;
+    }
+
+    protected boolean moveIncomingDocument(File sourceFile, File destFile) throws FileAlreadyExistsException {
+        try {
+            Files.move(sourceFile.toPath(), destFile.toPath());
+            return true;
+        } catch (FileAlreadyExistsException e) {
+            throw e;
+        } catch (IOException e) {
+            log.error("Failed to move incoming document into document store", e);
+            return false;
+        }
     }
 
     private void routeDocumentToProviders(String[] flagproviders, String docNo, String demographicNo) {
@@ -1640,6 +1679,8 @@ public class ManageDocument2Action extends ActionSupport {
      * @throws Exception if parameter validation fails
      * @throws SecurityException if path traversal is detected or file type is not PDF
      */
+    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
     public File createIncomingCacheVersion(String queueId, String pdfDir, String pdfName, Integer pageNum) throws Exception {
         
         // Validate input parameters to prevent path traversal

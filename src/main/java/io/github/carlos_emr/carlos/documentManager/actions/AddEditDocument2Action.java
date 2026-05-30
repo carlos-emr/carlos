@@ -94,6 +94,7 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts2 action for adding and editing documents in the CARLOS EMR document management system.
@@ -154,10 +155,10 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             if ("filenameinvalid".equals(docFileBindErrorKey)) {
                 response.setHeader("oscar_error", props.getString("dms.error.invalidFilename"));
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, props.getString("dms.error.invalidFilename"));
-                return null;
+                return NONE;
             }
             sendHtml5UploadError(props, HttpServletResponse.SC_BAD_REQUEST, ERROR_ZERO_SIZE_KEY);
-            return null;
+            return NONE;
         }
 
         int numberOfPages = 0;
@@ -167,7 +168,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         } catch (SecurityException e) {
             MiscUtils.getLogger().error("Invalid uploaded document file", e);
             sendHtml5UploadError(props, ERROR_NO_WRITE_KEY);
-            return null;
+            return NONE;
         }
 
         String fileName;
@@ -176,7 +177,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         } catch (FileValidationException e) {
             response.setHeader("oscar_error", props.getString("dms.error.invalidFilename"));
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, props.getString("dms.error.invalidFilename"));
-            return null;
+            return NONE;
         }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String user = loggedInInfo.getLoggedInProviderNo();
@@ -198,12 +199,12 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         } catch (IOException e) {
             MiscUtils.getLogger().error("Failed to determine uploaded document file size", e);
             sendHtml5UploadError(props, ERROR_NO_WRITE_KEY);
-            return null;
+            return NONE;
         }
         // save local file;
         if (expectedFileSize == 0) {
             sendHtml5UploadError(props, HttpServletResponse.SC_BAD_REQUEST, ERROR_ZERO_SIZE_KEY);
-            return null;
+            return NONE;
         }
         // The upload source was validated above; keep all subsequent file I/O scoped to the
         // validated temp file reference and use try-with-resources for explicit stream cleanup.
@@ -213,13 +214,13 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         } catch (IOException e) {
             MiscUtils.getLogger().error("Failed to write uploaded document file", e);
             sendHtml5UploadError(props, ERROR_NO_WRITE_KEY);
-            return null;
+            return NONE;
         }
 
         if (!isWrittenUploadComplete(file, expectedFileSize)) {
             deleteIncompleteWrittenUpload(file);
             sendHtml5UploadError(props, ERROR_NO_WRITE_KEY);
-            return null;
+            return NONE;
         }
 
         if (storedFileName.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
@@ -250,7 +251,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             request.getSession().setAttribute("preferredQueue", String.valueOf(qid)); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): qid is Integer.parseInt-validated queue ID
         }
 
-        return null;
+        return NONE;
 
     }
 
@@ -363,6 +364,8 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
      * @param request HttpServletRequest the current request for session and parameter access
      * @return boolean true if the document was added successfully, false on validation or I/O error
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private boolean addDocument(HttpServletRequest request) {
 
         Hashtable errors = new Hashtable();
@@ -533,6 +536,8 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
      * @param request HttpServletRequest the current request for session and parameter access
      * @return String the Struts2 result name ("successEdit" or "failEdit")
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String editDocument(HttpServletRequest request) {
         Hashtable errors = new Hashtable();
 

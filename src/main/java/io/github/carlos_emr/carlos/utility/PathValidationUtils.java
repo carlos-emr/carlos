@@ -47,6 +47,8 @@ public final class PathValidationUtils {
             "Invalid filename. Use letters, numbers, dots, underscores, or spaces; spaces are converted to underscores, and filenames must not start with a dot.";
     public static final String HIDDEN_FILENAME_MESSAGE =
             "Invalid filename: hidden files not allowed. Do not start the filename with a dot.";
+    public static final String PATH_COMPONENT_FILENAME_MESSAGE =
+            "Invalid filename: must not include a path.";
     private static final String BLOCKED_EXTENSION_MESSAGE =
             "Invalid filename: file extension .%s not allowed.";
     private static final Set<String> BLOCKED_EXTENSIONS = Set.of(
@@ -244,7 +246,7 @@ public final class PathValidationUtils {
                     || userProvidedFileName.contains("/")
                     || userProvidedFileName.contains("\\")) {
                 logger.warn("Path components not allowed in filename");
-                throw new FileValidationException(INVALID_FILENAME_MESSAGE);
+                throw new FileValidationException(PATH_COMPONENT_FILENAME_MESSAGE);
             }
         } catch (IllegalArgumentException e) {
             logger.warn("Filename parser rejected invalid filename");
@@ -252,6 +254,49 @@ public final class PathValidationUtils {
         }
 
         return validateFileName(userProvidedFileName);
+    }
+
+    /**
+     * Validates a single path component without normalizing or stripping path
+     * information. Use this for directory or filename segments that must be
+     * preserved exactly, such as queue identifiers and existing queued document
+     * names.
+     *
+     * @param value the path component to validate
+     * @param label field name used in log messages
+     * @return the original value when it is a safe single component
+     * @throws FileValidationException if the value is blank, hidden, absolute,
+     * contains path separators, or is a traversal component
+     */
+    public static String validatePathComponent(String value, String label) {
+        String field = label == null || label.trim().isEmpty() ? "path component" : label;
+        if (value == null || value.trim().isEmpty()) {
+            logger.warn("Invalid {}: null or empty", field);
+            throw new FileValidationException(INVALID_FILENAME_MESSAGE);
+        }
+        if (value.indexOf('\0') >= 0) {
+            logger.warn("Invalid {}: contains null byte", field);
+            throw new FileValidationException(INVALID_FILENAME_MESSAGE);
+        }
+        if (".".equals(value) || "..".equals(value) || value.startsWith(".")) {
+            logger.warn("Invalid {}: hidden or traversal component", field);
+            throw new FileValidationException(INVALID_FILENAME_MESSAGE);
+        }
+
+        try {
+            if (FilenameUtils.getPrefixLength(value) > 0
+                    || value.contains("/")
+                    || value.contains("\\")
+                    || !FilenameUtils.getName(value).equals(value)) {
+                logger.warn("Invalid {}: path components not allowed", field);
+                throw new FileValidationException(INVALID_FILENAME_MESSAGE);
+            }
+        } catch (IllegalArgumentException e) {
+            logger.warn("Invalid {}: filename parser rejected value", field);
+            throw new FileValidationException(INVALID_FILENAME_MESSAGE, e);
+        }
+
+        return value;
     }
 
     static String normalizeFileNameCharacters(String fileName) {

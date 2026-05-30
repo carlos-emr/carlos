@@ -66,6 +66,7 @@ import ca.ontario.health.edt.TypeListData;
 import ca.ontario.health.edt.TypeListResult;
 import ca.ontario.health.edt.UpdateRequest;
 import ca.ontario.health.edt.UploadData;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Defines utility methods for action classes.
@@ -270,6 +271,8 @@ public class ActionUtils {
         return false;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static boolean isOBECFile(String filename) {
         String suffix = filename.substring(filename.lastIndexOf(".") + 1);
         String prefix = "";
@@ -403,6 +406,8 @@ public class ActionUtils {
         return result;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     static String getTypeDescription(ResourceForm form, String typeCode) {
 
         String typeDesc = "";
