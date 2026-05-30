@@ -39,13 +39,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("unit")
 class ManageCssStylesJspEncodingRegressionTest {
     private static final String BASEDIR_PROPERTY = "basedir";
-    private static final Path MANAGE_CSS_STYLES_JSP = resolveProjectPath(
-            Path.of("src/main/webapp/WEB-INF/jsp/admin/manageCSSStyles.jsp"));
+    private static final Path MANAGE_CSS_STYLES_JSP_PATH =
+            Path.of("src/main/webapp/WEB-INF/jsp/admin/manageCSSStyles.jsp");
 
     @Test
     @Tag("security")
     void shouldEncodeSavedStyleOptions_whenRenderingInJsp() throws Exception {
-        String jsp = Files.readString(MANAGE_CSS_STYLES_JSP);
+        String jsp = Files.readString(resolveProjectPath(MANAGE_CSS_STYLES_JSP_PATH));
 
         assertThat(jsp)
                 .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
