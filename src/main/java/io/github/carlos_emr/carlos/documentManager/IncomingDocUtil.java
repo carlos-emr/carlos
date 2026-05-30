@@ -221,7 +221,7 @@ public final class IncomingDocUtil {
      */
     public static String getIncomingDocumentFilePathName(String queueId, String pdfDir, String pdfName) {
         // Validate pdfName to prevent path traversal
-        pdfName = validatePathComponent(pdfName, "pdfName");
+        pdfName = PathValidationUtils.validateStrictFileName(pdfName);
         
         String filePathName = getIncomingDocumentFilePath(queueId, pdfDir);
         
