@@ -130,7 +130,11 @@ public class SecurityInfoManagerImpl implements SecurityInfoManager {
                 List<String> roleInObj = (List<String>) v.get(1);
 
                 for (String objRole : roleInObj) {
-                    if (roleNames.toLowerCase().contains(objRole.toLowerCase().trim())) {
+                    String trimmedObjRole = StringUtils.trim(objRole);
+                    boolean matchedRole = Arrays.stream(roleNames.split(","))
+                        .map(StringUtils::trim)
+                        .anyMatch(roleName -> StringUtils.equalsIgnoreCase(roleName, trimmedObjRole));
+                    if (matchedRole) {
                         noMatchingRoleToSpecificPatient = false;
                         break;
                     }
