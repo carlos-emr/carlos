@@ -1039,7 +1039,7 @@
                                 <security:oscarSec roleName="<%=roleName$%>" objectName="_edoc" rights="r">
                                     <li>
                                         <a HREF="#"
-                                           onclick="return openScheduleSection('<%=scheduleDocumentReportUrlForJsAttribute%>', function(u){ popup('700', '1024', u, 'edocView'); }, event);"
+                                           onclick="return openScheduleSection('<%=scheduleDocumentReportUrlForJsAttribute%>', function(u){ popup('800', '1200', u, 'edocView'); }, event);"
                                            TITLE='<fmt:message key="provider.appointmentProviderAdminDay.viewEdoc"/>'><fmt:message key="global.edoc"/></a>
                                     </li>
                                 </security:oscarSec>
