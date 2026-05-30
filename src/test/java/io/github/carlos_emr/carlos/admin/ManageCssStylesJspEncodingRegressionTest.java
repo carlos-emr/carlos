@@ -44,7 +44,7 @@ class ManageCssStylesJspEncodingRegressionTest {
             Path.of("src/main/webapp/WEB-INF/jsp/admin/manageCSSStyles.jsp");
 
     @Test
-    void shouldEncodeSavedStyleOptions_whenRenderingInJsp() throws Exception {
+    void shouldEncodeSavedStyleOptions_inSelectDropdown() throws Exception {
         String jsp = Files.readString(resolveProjectPath(MANAGE_CSS_STYLES_JSP_PATH));
         int selectStart = jsp.indexOf("<select name=\"selectedStyle\" id=\"style\">");
         int selectEnd = jsp.indexOf("</select>", selectStart);
@@ -52,8 +52,8 @@ class ManageCssStylesJspEncodingRegressionTest {
         assertThat(selectStart).isGreaterThanOrEqualTo(0);
         assertThat(selectEnd).isGreaterThan(selectStart);
         String savedStylesSelect = jsp.substring(selectStart, selectEnd);
-        assertThat(jsp)
-                .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
+        assertThat(jsp).contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>");
+        assertThat(savedStylesSelect)
                 .contains("<option value=\"${carlos:forHtmlAttribute(style.style)}\">${carlos:forHtml(style.name)}</option>");
         assertThat(savedStylesSelect)
                 .doesNotContain("<option value=\"${style.style}\">${style.name}</option>")
