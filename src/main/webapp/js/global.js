@@ -1,4 +1,8 @@
 // setfocus to the current window
+function carlosGlobalMessage(key, fallback) {
+    return (window.carlosI18n && window.carlosI18n[key]) || fallback;
+}
+
 function setfocus() {
     this.focus();
 }
@@ -56,7 +60,7 @@ function popupFocusPage(vheight, vwidth, varpage, pageTitle) {
 
 // Prompt user if exiting without saving
 function onExit() {
-    if (confirm("Are you sure you wish to exit without saving your changes?") == true) {
+    if (confirm(carlosGlobalMessage('js.global.confirmExit', 'Are you sure you wish to exit without saving your changes?')) == true) {
         window.close();
     }
     return (false);

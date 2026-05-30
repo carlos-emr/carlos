@@ -1,3 +1,14 @@
+function carlosCheckDateMessage(key, fallback) {
+    return (window.carlosI18n && window.carlosI18n[key]) || fallback;
+}
+
+function carlosCheckDateFormat(template) {
+    for (var i = 1; i < arguments.length; i++) {
+        template = template.replace(new RegExp('\\{' + (i - 1) + '\\}', 'g'), arguments[i]);
+    }
+    return template;
+}
+
 function deferedSubmit(methodName) {
     if (deferSubmit) {
         if (methodName == '') {
@@ -80,7 +91,7 @@ function getFormatedDate(year1, month1, day1) {
 function setInvalid(checkedDateObj) {
     isDateValid = false;
     doOnBlur = false;
-    alert('Date entered is not valid.');
+    alert(carlosCheckDateMessage('js.checkDate.invalidDateEntered', 'Date entered is not valid.'));
     checkedDateObj.style.backgroundColor = '#ff0000';
     checkedDateObj.focus();
     doOnBlur = true;
@@ -135,7 +146,7 @@ function convert_date(convertedDate) {
         }
     }
     if (!hasIt) {
-        alert("Date format is not valid");
+        alert(carlosCheckDateMessage('js.checkDate.invalidFormatNoPeriod', 'Date format is not valid'));
         return null;
     }
 
@@ -157,7 +168,7 @@ function convert_date(convertedDate) {
     else if (month == 'NOV') month1 = '11';
     else if (month == 'DEC') month1 = '12';
     else {
-        alert("Date format is not valid.");
+        alert(carlosCheckDateMessage('js.checkDate.invalidFormat', 'Date format is not valid.'));
         return null;
     }
     var newDate = day + '-' + month1 + '-' + year;
@@ -176,14 +187,14 @@ function checkAndValidateDate(dateStr, datePattern) {
         matchArray = dateStr.match(datePat);
     }
     if (matchArray == null) {
-        alert("Please enter the date as yyyy-mm-dd. Your current selection reads: " + dateStr);
+        alert(carlosCheckDateFormat(carlosCheckDateMessage('js.checkDate.enterDateYmd', 'Please enter the date as yyyy-mm-dd. Your current selection reads: {0}'), dateStr));
         return false;
     } else {
         var dateArr = dateStr.split('-');
         if (validateDate(dateArr[0], dateArr[1], dateArr[2])) {
             return true;
         } else {
-            alert("Invalid Date");
+            alert(carlosCheckDateMessage('js.checkDate.invalidDate', 'Invalid Date'));
             return false;
         }
     }
@@ -197,7 +208,7 @@ function check_date_format1(dateStr) {
     var matchArray = dateStr.match(datePat); // is the format ok?
 
     if (matchArray == null) {
-        alert("Please enter the date as dd-mmm-yyyy. Your current selection reads: " + dateStr);
+        alert(carlosCheckDateFormat(carlosCheckDateMessage('js.checkDate.enterDateDmy', 'Please enter the date as dd-mmm-yyyy. Your current selection reads: {0}'), dateStr));
         return false;
     } else {
         return true;
@@ -208,19 +219,19 @@ function calculateAge(year, month, date) {
     month = month - 1;
 
     if (month != parseInt(month)) {
-        alert('Type Month of birth in digits only!');
+        alert(carlosCheckDateMessage('js.checkDate.birthMonthDigits', 'Type Month of birth in digits only!'));
         return false;
     }
     if (date != parseInt(date)) {
-        alert('Type Date of birth in digits only!');
+        alert(carlosCheckDateMessage('js.checkDate.birthDateDigits', 'Type Date of birth in digits only!'));
         return false;
     }
     if (year != parseInt(year)) {
-        alert('Type Year of birth in digits only!');
+        alert(carlosCheckDateMessage('js.checkDate.birthYearDigits', 'Type Year of birth in digits only!'));
         return false;
     }
     if (year.length < 4) {
-        alert('Type Year of birth in full!');
+        alert(carlosCheckDateMessage('js.checkDate.birthYearFull', 'Type Year of birth in full!'));
         return false;
     }
 
@@ -304,15 +315,15 @@ date.setDate(day);
     date.setDate(iDay);
 
     if (iYear != date.getFullYear()) {
-        alert("yr" + iYear + date.getFullYear());
+        alert(carlosCheckDateFormat(carlosCheckDateMessage('js.checkDate.yearMismatch', 'yr{0}{1}'), iYear, date.getFullYear()));
         return (false);
     }
     if (iMonth != date.getMonth() + 1) {
-        alert("mth " + iMonth + " " + date.getMonth());
+        alert(carlosCheckDateFormat(carlosCheckDateMessage('js.checkDate.monthMismatch', 'mth {0} {1}'), iMonth, date.getMonth()));
         return (false);
     }
     if (iDay != date.getDate()) {
-        alert("day " + iDay + " " + date.getMonth());
+        alert(carlosCheckDateFormat(carlosCheckDateMessage('js.checkDate.dayMismatch', 'day {0} {1}'), iDay, date.getMonth()));
         return (false);
     }
 
@@ -327,7 +338,7 @@ function isValidTime(timeStr) {
     var matchArray = timeStr.match(timePat); // is the format ok?
 
     if (matchArray == null) {
-        alert("Time is not in a valid format, must be HH:MM (e.g. 17:00) .")
+        alert(carlosCheckDateMessage('js.checkDate.invalidTimeFormat', 'Time is not in a valid format, must be HH:MM (e.g. 17:00) .'))
         return false;
     }
 
@@ -337,12 +348,12 @@ function isValidTime(timeStr) {
     min = timeArr[1];
 
     if (hour < 0 || hour > 23) {
-        alert("Hour must be between 0 and 23");
+        alert(carlosCheckDateMessage('js.checkDate.hourRange', 'Hour must be between 0 and 23'));
         return false;
     }
 
     if (min < 0 || min > 59) {
-        alert("Minutes must be between 0 and 59");
+        alert(carlosCheckDateMessage('js.checkDate.minutesRange', 'Minutes must be between 0 and 59'));
         return false;
     }
 
@@ -358,7 +369,7 @@ function isValidDate(dateStr) {
     var matchArray = dateStr.match(datePat); // is the format ok?
 
     if (matchArray == null) {
-        alert("Please enter the date as yyyy-mm-dd. Your current selection reads: " + datePat);
+        alert(carlosCheckDateFormat(carlosCheckDateMessage('js.checkDate.enterDateYmd', 'Please enter the date as yyyy-mm-dd. Your current selection reads: {0}'), datePat));
         return false;
     }
 
@@ -369,17 +380,17 @@ function isValidDate(dateStr) {
     day = dateArr[2];
 
     if (month < 1 || month > 12) { // check month range
-        alert("Month must be between 1 and 12.");
+        alert(carlosCheckDateMessage('js.checkDate.monthRange', 'Month must be between 1 and 12.'));
         return false;
     }
 
     if (day < 1 || day > 31) {
-        alert("Day must be between 1 and 31.");
+        alert(carlosCheckDateMessage('js.checkDate.dayRange', 'Day must be between 1 and 31.'));
         return false;
     }
 
     if ((month == 4 || month == 6 || month == 9 || month == 11) && day == 31) {
-        alert("Month " + month + " doesn't have 31 days!")
+        alert(carlosCheckDateFormat(carlosCheckDateMessage('js.checkDate.monthNo31Days', 'Month {0} doesn\'t have 31 days!'), month))
         return false
     }
 
@@ -388,7 +399,7 @@ function isValidDate(dateStr) {
 
         if (day > 29 || (day == 29 && !isleap)) {
 
-            alert("February " + year + " doesn't have " + day + " days!");
+            alert(carlosCheckDateFormat(carlosCheckDateMessage('js.checkDate.februaryNoDays', 'February {0} doesn\'t have {1} days!'), year, day));
             return false;
         }
     }
@@ -403,13 +414,13 @@ function validateBirthDay(myDate) {
 
     var today = new Date;
     if (date > today) {
-        alert('Date of birth must not be greater than current date.');
+        alert(carlosCheckDateMessage('js.checkDate.birthDateFuture', 'Date of birth must not be greater than current date.'));
         return false;
     }
 
     date.setFullYear(date.getFullYear() + 100, date.getMonth(), date.getDate());
     if (date < today) {
-        alert('Date of birth may not be older than 100 years.');
+        alert(carlosCheckDateMessage('js.checkDate.birthDateTooOld', 'Date of birth may not be older than 100 years.'));
         return false;
     }
 }
