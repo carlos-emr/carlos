@@ -241,7 +241,7 @@ public class SecurityManager {
 		String rawPinValue = rawPin.toString();
 		boolean matchesPlaintext = constantTimeEquals(rawPinValue, storedPin);
 		boolean matchesEncrypted = constantTimeEquals(encryptLegacyPin(rawPinValue), storedPin);
-		// Use non-short-circuit OR so both legacy formats are compared before returning.
+		// The single-pipe OR is deliberate: both legacy formats must be compared before returning.
 		return matchesPlaintext | matchesEncrypted;
 	}
 
@@ -254,7 +254,7 @@ public class SecurityManager {
 		byte[] firstBytes = first == null ? new byte[0] : first.getBytes(StandardCharsets.UTF_8);
 		byte[] secondBytes = second == null ? new byte[0] : second.getBytes(StandardCharsets.UTF_8);
 		boolean matched = MessageDigest.isEqual(firstBytes, secondBytes);
-		return first != null && second != null && matched;
+		return (first != null) & (second != null) & matched;
 	}
 
     public Security findByProviderNo(LoggedInInfo loggedInInfo, String providerNo) {

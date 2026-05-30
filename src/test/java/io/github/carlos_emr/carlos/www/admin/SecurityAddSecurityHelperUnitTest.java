@@ -111,4 +111,19 @@ class SecurityAddSecurityHelperUnitTest extends CarlosUnitTestBase {
         assertThat(persisted.getPinUpdateDate()).isNotNull();
         verify(pageContext).setAttribute("message", "admin.securityaddsecurity.msgAdditionSuccess");
     }
+
+    @Test
+    @DisplayName("should parse lock setting when value is valid")
+    void shouldParseLockSetting_whenValueIsValid() {
+        assertThat(SecurityAddSecurityHelper.parseLockSetting("0")).isZero();
+        assertThat(SecurityAddSecurityHelper.parseLockSetting("1")).isOne();
+    }
+
+    @Test
+    @DisplayName("should default lock setting when value is missing or invalid")
+    void shouldDefaultLockSetting_whenValueIsMissingOrInvalid() {
+        assertThat(SecurityAddSecurityHelper.parseLockSetting(null)).isZero();
+        assertThat(SecurityAddSecurityHelper.parseLockSetting("")).isZero();
+        assertThat(SecurityAddSecurityHelper.parseLockSetting("invalid")).isZero();
+    }
 }

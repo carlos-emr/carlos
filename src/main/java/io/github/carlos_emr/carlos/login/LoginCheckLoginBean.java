@@ -240,8 +240,8 @@ public final class LoginCheckLoginBean {
 
         boolean isWan = isWAN();
         boolean isPinCheckEnabled = this.isPinCheckEnabled();
-        boolean isRemotePinRequired = isPinCheckEnabled && isWan && security.getBRemotelockset() != null && security.getBRemotelockset().intValue() == 1;
-        boolean isLocalPinRequired = isPinCheckEnabled && !isWan && security.getBLocallockset() != null && security.getBLocallockset().intValue() == 1;
+        boolean isRemotePinRequired = isPinCheckEnabled && isWan && isEnabled(security.getBRemotelockset());
+        boolean isLocalPinRequired = isPinCheckEnabled && !isWan && isEnabled(security.getBLocallockset());
         boolean isPinRequired = isRemotePinRequired || isLocalPinRequired;
         boolean isPinValid = true;
         if (isPinRequired) {
@@ -528,5 +528,9 @@ public final class LoginCheckLoginBean {
 	private boolean isPinCheckEnabled() {
 		return MfaManager.isOscarLegacyPinEnabled() && !security.isUsingMfa();
 	}
+
+    private boolean isEnabled(Integer value) {
+        return Integer.valueOf(1).equals(value);
+    }
 
 }
