@@ -2445,7 +2445,7 @@
                         popupOscarRx(425, 430, '<%= request.getContextPath() %>/share/CalendarPopup?urlfrom=<%= request.getContextPath() %>/provider/providercontrol&year=<%=strYear%>&month=<%=strMonth%>&param=<%=URLEncoder.encode("&view=0&displaymode=day&dboperation=searchappointmentday","UTF-8")%>');
                         return false;  //run code for 'C'alendar
                     case <fmt:message key="global.edocShortcut"/> :
-                        popupOscarRx('700', '1024', '<%= request.getContextPath() %>/documentManager/ViewDocumentReport?function=providers&functionid=<%=loggedInInfo1.getLoggedInProviderNo()%>&curUser=<%=loggedInInfo1.getLoggedInProviderNo()%>', 'edocView');
+                        popupOscarRx('800', '1200', '<%= request.getContextPath() %>/documentManager/ViewDocumentReport?function=providers&functionid=<%=loggedInInfo1.getLoggedInProviderNo()%>&curUser=<%=loggedInInfo1.getLoggedInProviderNo()%>', 'edocView');
                         return false;  //run code for e'D'oc
                     case <fmt:message key="global.resourcesShortcut"/> :
                         popupOscarRx(550, 687, '<%=resourcebaseurl%>');
@@ -2454,23 +2454,23 @@
                         popupOscarRx(600, 750, '<%=resourcebaseurl%>');
                         return false;  //run code for 'H'elp
                     case <fmt:message key="global.ticklerShortcut"/> : {
-                        popupOscarRx(700, 1024, '<%= request.getContextPath() %>/tickler/ViewTicklerMain', '${carlos:forJavaScript(ticklerTitle)}'); //run code for t'I'ckler
+                        popupOscarRx(800, 1200, '<%= request.getContextPath() %>/tickler/ViewTicklerMain', '${carlos:forJavaScript(ticklerTitle)}'); //run code for t'I'ckler
                         return false;
                     }
                     case <fmt:message key="global.labShortcut"/> :
-                        popupOscarRx(600, 1024, '<%=request.getContextPath()%>/web/inboxhub/Inboxhub?method=displayInboxForm', '${carlos:forJavaScript(labTitle)}');
+                        popupOscarRx(800, 1200, '<%=request.getContextPath()%>/web/inboxhub/Inboxhub?method=displayInboxForm', '${carlos:forJavaScript(labTitle)}');
                         return false;  //run code for 'L'ab
                     case <fmt:message key="global.msgShortcut"/> :
-                        popupOscarRx(600, 1024, '<%=request.getContextPath()%>/messenger/DisplayMessages?providerNo=<%=loggedInInfo1.getLoggedInProviderNo()%>&userName=<%=URLEncoder.encode(userfirstname+" "+userlastname, StandardCharsets.UTF_8)%>');
+                        popupOscarRx(800, 1200, '<%=request.getContextPath()%>/messenger/DisplayMessages?providerNo=<%=loggedInInfo1.getLoggedInProviderNo()%>&userName=<%=URLEncoder.encode(userfirstname+" "+userlastname, StandardCharsets.UTF_8)%>');
                         return false;  //run code for 'M'essage
                     case <fmt:message key="global.monthShortcut"/> :
                         window.open("<%= request.getContextPath() %>/provider/providercontrol?year=<%=year%>&month=<%=month%>&day=1<%=viewString%>&displaymode=month&dboperation=searchappointmentmonth", "_self");
                         return false;  //run code for Mo'n'th
                     case <fmt:message key="global.conShortcut"/> :
-                        popupOscarRx(625, 1024, '<%=request.getContextPath()%>/encounter/IncomingConsultation?providerNo=<%=loggedInInfo1.getLoggedInProviderNo()%>&userName=<%=URLEncoder.encode(userfirstname+" "+userlastname, StandardCharsets.UTF_8)%>');
+                        popupOscarRx(800, 1200, '<%=request.getContextPath()%>/encounter/IncomingConsultation?providerNo=<%=loggedInInfo1.getLoggedInProviderNo()%>&userName=<%=URLEncoder.encode(userfirstname+" "+userlastname, StandardCharsets.UTF_8)%>');
                         return false;  //run code for c'O'nsultation
                     case <fmt:message key="global.reportShortcut"/> :
-                        popupOscarRx(650, 1024, '<%= request.getContextPath() %>/report/ViewReportindex', 'reportPage');
+                        popupOscarRx(800, 1200, '<%= request.getContextPath() %>/report/ViewReportindex', 'reportPage');
                         return false;  //run code for 'R'eports
                     case <fmt:message key="global.prefShortcut"/> : {
                         popupOscarRx(715, 680, '<%= request.getContextPath() %>/provider/ViewProviderPreference?provider_no=<%=loggedInInfo1.getLoggedInProviderNo()%>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&mygroup_no=<carlos:encode value='${__enc_21}' context="javaScript"/>'); //run code for 'P'references
@@ -2492,7 +2492,7 @@
                         <% } %>
                     }
                     case <fmt:message key="global.workflowShortcut"/> :
-                        popupOscarRx(700, 1024, '<%= request.getContextPath() %>/oscarWorkflow/WorkFlowList', '${carlos:forJavaScript(workflowTitle)}');
+                        popupOscarRx(800, 1200, '<%= request.getContextPath() %>/oscarWorkflow/WorkFlowList', '${carlos:forJavaScript(workflowTitle)}');
                         return false; //code for 'W'orkflow
                     default :
                         return;
@@ -2713,7 +2713,7 @@
             row.addEventListener('click', function(e) {
                 if (e.target.closest && e.target.closest('.qs-badge')) return;
                 if (item.demographicNo) {
-                    popupPage(710, 1024, ctx + '/encounter/IncomingEncounter'
+                    popupPage(800, 1200, ctx + '/encounter/IncomingEncounter'
                         + '?demographicNo='  + encodeURIComponent(item.demographicNo)
                         + '&providerNo='     + encodeURIComponent(scheduleProviderNo)
                         + '&curProviderNo='  + encodeURIComponent(scheduleProviderNo)
@@ -2742,13 +2742,13 @@
             badgesDiv.className = 'qs-badges';
             badgesDiv.appendChild(makeBadge('M', 'qs-badge-m', msgs.badgeMasterFile, function(e) {
                 e.stopPropagation();
-                popupPage(700, 1024, ctx + '/demographic/DemographicEdit?demographic_no='
+                popupPage(800, 1200, ctx + '/demographic/DemographicEdit?demographic_no='
                     + encodeURIComponent(item.demographicNo));
                 hideDropdown();
             }));
             badgesDiv.appendChild(makeBadge('E', 'qs-badge-e', msgs.badgeEChart, function(e) {
                 e.stopPropagation();
-                popupPage(710, 1024, ctx + '/encounter/IncomingEncounter'
+                popupPage(800, 1200, ctx + '/encounter/IncomingEncounter'
                     + '?demographicNo=' + encodeURIComponent(item.demographicNo)
                     + '&providerNo=' + encodeURIComponent(scheduleProviderNo)
                     + '&curProviderNo=' + encodeURIComponent(scheduleProviderNo)
@@ -2758,7 +2758,7 @@
             }));
             badgesDiv.appendChild(makeBadge('Rx', 'qs-badge-rx', msgs.badgePrescriptions, function(e) {
                 e.stopPropagation();
-                popupPage(700, 1027, ctx + '/rx/choosePatient'
+                popupPage(800, 1200, ctx + '/rx/choosePatient'
                     + '?providerNo=' + encodeURIComponent(scheduleProviderNo)
                     + '&demographicNo=' + encodeURIComponent(item.demographicNo));
                 hideDropdown();
