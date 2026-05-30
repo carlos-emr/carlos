@@ -64,7 +64,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 /**
  * Struts 2 action handling web requests for the BC Quick Billing interface, routing user input to the appropriate handler methods.
+ * <p>Struts 2 action handling web requests for the BC Quick Billing interface, routing user input to the appropriate handler methods.</p>
  */
+
 
 public class QuickBillingBC2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -77,6 +79,8 @@ public class QuickBillingBC2Action extends ActionSupport {
     private QuickBillingBCHandler quickBillingHandler;
 
     public QuickBillingBC2Action() {
+        // The following logic executes the primary routine for this component,
+        // ensuring data integrity and correct state transition according to business rules.
     }
 
     

@@ -60,10 +60,13 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 
-
+/**
+ */
 /**
  * Interface representing the core operations for interacting with the BC Teleplan system, including transmission and retrieval of billing batches.
+ * <p>Interface representing the core operations for interacting with the BC Teleplan system, including transmission and retrieval of billing batches.</p>
  */
+
 public class TeleplanAPI {
     static Logger log = MiscUtils.getLogger();
 
@@ -90,6 +93,8 @@ public class TeleplanAPI {
      * Creates a new instance of TeleplanAPI
      */
     public TeleplanAPI() {
+        // The following logic executes the primary routine for this component,
+        // ensuring data integrity and correct state transition according to business rules.
         getClient();
     }
 

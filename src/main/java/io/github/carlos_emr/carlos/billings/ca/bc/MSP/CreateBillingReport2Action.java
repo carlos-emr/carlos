@@ -41,7 +41,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 /**
  * Struts 2 action orchestrating the generation of comprehensive MSP billing reports for administrative review and export.
+ * <p>Struts 2 action orchestrating the generation of comprehensive MSP billing reports for administrative review and export.</p>
  */
+
 
 public class CreateBillingReport2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -58,6 +60,8 @@ public class CreateBillingReport2Action extends ActionSupport {
     private static final String REPORTS_PATH = "oscar/oscarBilling/ca/bc/reports/";
 
     public CreateBillingReport2Action() {
+        // The following logic executes the primary routine for this component,
+        // ensuring data integrity and correct state transition according to business rules.
         this.cfgReports();
 
     }

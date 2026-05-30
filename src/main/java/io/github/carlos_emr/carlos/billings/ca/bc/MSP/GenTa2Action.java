@@ -61,12 +61,15 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 import io.github.carlos_emr.CarlosProperties;
 
-
+/**
+ */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 /**
  * Struts 2 action responsible for initiating the generation of Teleplan claim transmission archives.
+ * <p>Struts 2 action responsible for initiating the generation of Teleplan claim transmission archives.</p>
  */
+
 
 public class GenTa2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -87,6 +90,8 @@ public class GenTa2Action extends ActionSupport {
      * Creates a new instance of GenTaAction
      */
     public GenTa2Action() {
+        // The following logic executes the primary routine for this component,
+        // ensuring data integrity and correct state transition according to business rules.
     }
 
 

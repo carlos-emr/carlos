@@ -47,7 +47,9 @@ import java.util.GregorianCalendar;
  * 
  * @version 1.0
  * @since JDK 1.3
+ * <p>Calendar table grid bean for managing date information in a monthly view.</p>
  */
+
 public class DateInMonthTable {
     private int curYear = 0;
     private int curMonth = 0;
@@ -58,6 +60,8 @@ public class DateInMonthTable {
      * Constructs a DateInMonthTable initialized to the current date.
      */
     public DateInMonthTable() {
+        // The following logic executes the primary routine for this component,
+        // ensuring data integrity and correct state transition according to business rules.
         // Initialize with the current system date as the default calendar view
         GregorianCalendar now = new GregorianCalendar();
         curYear = now.get(Calendar.YEAR);

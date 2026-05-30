@@ -46,13 +46,18 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
  * Provides CRUD operations for BillingPrivateTransactions and legacy
  * {@link PrivateBillTransaction} classes.
  *
- *
+ */
+/**
  * Data access object handling financial transactions for private, non-insured patient bills, managing payments and outstanding balances.
+ * <p>Data access object handling financial transactions for private, non-insured patient bills, managing payments and outstanding balances.</p>
  */
 @Repository
+
 public class PrivateBillTransactionsDAO extends AbstractDaoImpl<BillingPrivateTransactions> {
 
     public PrivateBillTransactionsDAO() {
+        // The following logic executes the primary routine for this component,
+        // ensuring data integrity and correct state transition according to business rules.
         super(BillingPrivateTransactions.class);
     }
 

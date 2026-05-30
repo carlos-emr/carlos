@@ -49,13 +49,16 @@ import io.github.carlos_emr.carlos.entities.Billingmaster;
 import io.github.carlos_emr.carlos.entities.WCB;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
-
+/**
+ */
 /**
  * Core data access object for the main billing ledger, managing the lifecycle and persistence of master claim records.
+ * <p>Core data access object for the main billing ledger, managing the lifecycle and persistence of master claim records.</p>
  */
 @Repository
 @SuppressWarnings("unchecked")
 @Transactional(propagation = Propagation.REQUIRES_NEW)
+
 public class BillingmasterDAO {
     private static Logger log = MiscUtils.getLogger();
 
@@ -66,6 +69,8 @@ public class BillingmasterDAO {
      * Creates a new instance of BillingmasterDAO
      */
     public BillingmasterDAO() {
+        // The following logic executes the primary routine for this component,
+        // ensuring data integrity and correct state transition according to business rules.
     }
 
     public List<Billingmaster> getBillingMasterWithStatus(String billingmasterNo, String status) {

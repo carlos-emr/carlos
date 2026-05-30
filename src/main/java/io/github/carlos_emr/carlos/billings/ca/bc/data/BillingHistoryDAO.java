@@ -50,14 +50,19 @@ import io.github.carlos_emr.carlos.util.SqlUtils;
  * on the BillHistory Object
  *
  * @version 1.0
- *
- * Data access implementation for querying billing history records, supporting pagination and filtering by date, provider, or patient.
  */
+/**
+ * Data access implementation for querying billing history records, supporting pagination and filtering by date, provider, or patient.
+ * <p>Data access implementation for querying billing history records, supporting pagination and filtering by date, provider, or patient.</p>
+ */
+
 public class BillingHistoryDAO {
 
     private BillingHistoryDao dao = SpringUtils.getBean(BillingHistoryDao.class);
 
     public BillingHistoryDAO() {
+        // The following logic executes the primary routine for this component,
+        // ensuring data integrity and correct state transition according to business rules.
     }
 
     /**

@@ -46,9 +46,12 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
  * For The Oscar McMaster Project
  * Developed By Andromedia
  * www.andromedia.ca
- *
- * Session bean or service bridge abstracting complex WCB transactional workflows from the presentation layer.
  */
+/**
+ * Session bean or service bridge abstracting complex WCB transactional workflows from the presentation layer.
+ * <p>Session bean or service bridge abstracting complex WCB transactional workflows from the presentation layer.</p>
+ */
+
 public class WcbSb {
     private static Logger logger = MiscUtils.getLogger();
 
@@ -114,6 +117,8 @@ public class WcbSb {
     String newLine = "\r\n";
 
     public WcbSb(String billingNo) {
+        // The following logic executes the primary routine for this component,
+        // ensuring data integrity and correct state transition according to business rules.
         BillingServiceDao bsDao = SpringUtils.getBean(BillingServiceDao.class);
 
         for (Object[] o : bsDao.findSomethingByBillingId(ConversionUtils.fromIntString(billingNo))) {

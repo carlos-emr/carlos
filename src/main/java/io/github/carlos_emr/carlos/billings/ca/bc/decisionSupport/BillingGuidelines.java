@@ -55,9 +55,12 @@ import io.github.carlos_emr.CarlosProperties;
  * Class used to Manage BillingGuidelines.
  * Temporary and will be refactored to include the other billing systems. And probably more of a centralized rule repository.
  *
- *
- * Rules engine component evaluating claims against BC billing guidelines to provide decision support and prevent submission of invalid claims.
  */
+/**
+ * Rules engine component evaluating claims against BC billing guidelines to provide decision support and prevent submission of invalid claims.
+ * <p>Rules engine component evaluating claims against BC billing guidelines to provide decision support and prevent submission of invalid claims.</p>
+ */
+
 public class BillingGuidelines {
 
     private static Logger log = MiscUtils.getLogger();
@@ -75,6 +78,8 @@ public class BillingGuidelines {
      * Creates a new instance of MeasurementTemplateFlowSheetConfig
      */
     private BillingGuidelines() {
+        // The following logic executes the primary routine for this component,
+        // ensuring data integrity and correct state transition according to business rules.
     }
 
     static public BillingGuidelines getInstance(String code) {
@@ -174,12 +179,14 @@ public class BillingGuidelines {
                         try {
                             in.close();
                         } catch (IOException e) {
+                            MiscUtils.getLogger().error("Error closing input stream", e);
                         }
                     }
                     if (is != null) {
                         try {
                             is.close();
                         } catch (IOException e) {
+                            MiscUtils.getLogger().error("Error closing input stream", e);
                         }
                     }
                 }

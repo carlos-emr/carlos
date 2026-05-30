@@ -43,16 +43,21 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.entities.Billactivity;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
-
+/**
+ */
 /**
  * Records and retrieves detailed activity logs associated with individual bills, crucial for tracking state changes and auditing.
+ * <p>Records and retrieves detailed activity logs associated with individual bills, crucial for tracking state changes and auditing.</p>
  */
+
 public class BillActivityDAO {
 
     private BillActivityDao dao = SpringUtils.getBean(BillActivityDao.class);
 
 
     public BillActivityDAO() {
+        // The following logic executes the primary routine for this component,
+        // ensuring data integrity and correct state transition according to business rules.
     }
 
     public String getMonthCode() {

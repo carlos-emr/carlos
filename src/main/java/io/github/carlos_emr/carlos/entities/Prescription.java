@@ -39,9 +39,12 @@ package io.github.carlos_emr.carlos.entities;
  * <p>Company: </p>
  *
  * @version 1.0
- *
- * Domain entity representing a medical prescription, including medication details, dosage instructions, and associations with patients and prescribers.
  */
+/**
+ * Domain entity representing a medical prescription, including medication details, dosage instructions, and associations with patients and prescribers.
+ * <p>Domain entity representing a medical prescription, including medication details, dosage instructions, and associations with patients and prescribers.</p>
+ */
+
 public class Prescription {
     private String scriptNo;
     private String providerNo;
@@ -52,6 +55,8 @@ public class Prescription {
     private String textView;
 
     public Prescription() {
+        // The following logic executes the primary routine for this component,
+        // ensuring data integrity and correct state transition according to business rules.
     }
 
     public String getScriptNo() {

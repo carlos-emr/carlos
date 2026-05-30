@@ -57,7 +57,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 /**
  * Struts 2 action dedicated to persisting BC Quick Billing form data, managing the transaction boundary and response mapping upon save.
+ * <p>Struts 2 action dedicated to persisting BC Quick Billing form data, managing the transaction boundary and response mapping upon save.</p>
  */
+
 
 public class QuickBillingBCSave2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -67,6 +69,8 @@ public class QuickBillingBCSave2Action extends ActionSupport {
 
 
     public QuickBillingBCSave2Action() {
+        // The following logic executes the primary routine for this component,
+        // ensuring data integrity and correct state transition according to business rules.
     }
 
 

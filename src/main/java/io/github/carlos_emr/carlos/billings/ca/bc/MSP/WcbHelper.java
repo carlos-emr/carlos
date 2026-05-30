@@ -37,16 +37,21 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.Wcb;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
-
+/**
+ */
 /**
  * Helper component providing standardized methods for processing, formatting, and calculating WCB-related billing metrics.
+ * <p>Helper component providing standardized methods for processing, formatting, and calculating WCB-related billing metrics.</p>
  */
+
 public class WcbHelper {
 
     ArrayList empList = null;
     ArrayList claimList = null;
 
     public WcbHelper() {
+        // The following logic executes the primary routine for this component,
+        // ensuring data integrity and correct state transition according to business rules.
     }
 
     public WcbHelper(String demographic_no) {

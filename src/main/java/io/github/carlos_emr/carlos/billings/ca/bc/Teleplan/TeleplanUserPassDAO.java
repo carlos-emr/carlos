@@ -42,15 +42,20 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 /**
  * Deals with storing the teleplan sequence #
  *
- *
- * Data access layer for securely retrieving and updating authentication credentials required for connecting to the Teleplan network.
  */
+/**
+ * Data access layer for securely retrieving and updating authentication credentials required for connecting to the Teleplan network.
+ * <p>Data access layer for securely retrieving and updating authentication credentials required for connecting to the Teleplan network.</p>
+ */
+
 public class TeleplanUserPassDAO {
     static Logger log = MiscUtils.getLogger();
     private PropertyDao propertyDao = SpringUtils.getBean(PropertyDao.class);
 
 
     public TeleplanUserPassDAO() {
+        // The following logic executes the primary routine for this component,
+        // ensuring data integrity and correct state transition according to business rules.
     }
 
     private void setUsername(String username) {

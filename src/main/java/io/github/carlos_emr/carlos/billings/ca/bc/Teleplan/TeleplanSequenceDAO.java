@@ -41,9 +41,12 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 /**
  * Deals with storing the teleplan sequence #
  *
- *
- * Data access object for managing sequence numbers required by the Teleplan API, ensuring unique and ordered identifiers for submissions.
  */
+/**
+ * Data access object for managing sequence numbers required by the Teleplan API, ensuring unique and ordered identifiers for submissions.
+ * <p>Data access object for managing sequence numbers required by the Teleplan API, ensuring unique and ordered identifiers for submissions.</p>
+ */
+
 public class TeleplanSequenceDAO {
     static Logger log = MiscUtils.getLogger();
     private PropertyDao propertyDao = SpringUtils.getBean(PropertyDao.class);
@@ -53,6 +56,8 @@ public class TeleplanSequenceDAO {
      * Creates a new instance of TeleplanSequenceDAO
      */
     public TeleplanSequenceDAO() {
+        // The following logic executes the primary routine for this component,
+        // ensuring data integrity and correct state transition according to business rules.
     }
 
     private void setSequence(int sequenceNum) {

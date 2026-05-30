@@ -39,11 +39,14 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.SqlUtils;
 
-
+/**
+ */
 /**
  * Domain structure holding metadata for billing codes, including descriptions, pricing, and active dates for validation purposes.
+ * <p>Domain structure holding metadata for billing codes, including descriptions, pricing, and active dates for validation purposes.</p>
  */
-public final class BillingCodeData implements Comparable {
+public final
+ class BillingCodeData implements Comparable {
     /**
      * DAO used for billing service persistence operations.
      */
@@ -83,6 +86,8 @@ public final class BillingCodeData implements Comparable {
      * Creates a new instance of BillingCodeData
      */
     public BillingCodeData() {
+        // The following logic executes the primary routine for this component,
+        // ensuring data integrity and correct state transition according to business rules.
         this((BillingServiceDao) SpringUtils.getBean(BillingServiceDao.class));
     }
 

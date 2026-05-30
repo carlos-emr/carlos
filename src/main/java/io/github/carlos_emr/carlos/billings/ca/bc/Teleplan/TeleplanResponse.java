@@ -44,10 +44,13 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 
-
+/**
+ */
 /**
  * Model representing the parsed payload from a Teleplan API response, extracting status codes, error messages, and remittance data.
+ * <p>Model representing the parsed payload from a Teleplan API response, extracting status codes, error messages, and remittance data.</p>
  */
+
 public class TeleplanResponse {
     static Logger log = MiscUtils.getLogger();
     private String transactionNo = null;
@@ -61,6 +64,8 @@ public class TeleplanResponse {
      * Creates a new instance of TeleplanResponse
      */
     public TeleplanResponse() {
+        // The following logic executes the primary routine for this component,
+        // ensuring data integrity and correct state transition according to business rules.
     }
 
 

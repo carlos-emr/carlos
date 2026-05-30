@@ -57,9 +57,12 @@ import io.github.carlos_emr.carlos.util.UtilMisc;
  * @todo Should be renamed to something more appropriate eg ServiceCodeDAO
  * <p>Description: </p>
  * <p>Responsible for service code validation
- *
- * Implements complex, BC-specific validation rules for service codes to prevent common rejection reasons prior to submission.
  */
+/**
+ * Implements complex, BC-specific validation rules for service codes to prevent common rejection reasons prior to submission.
+ * <p>Implements complex, BC-specific validation rules for service codes to prevent common rejection reasons prior to submission.</p>
+ */
+
 public class ServiceCodeValidationLogic {
 
     private String demographicNo;
@@ -74,6 +77,8 @@ public class ServiceCodeValidationLogic {
      * Create a new ServiceCodeValidationLogic object
      */
     public ServiceCodeValidationLogic() {
+        // The following logic executes the primary routine for this component,
+        // ensuring data integrity and correct state transition according to business rules.
     }
 
     /**

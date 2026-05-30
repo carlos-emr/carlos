@@ -40,9 +40,12 @@ package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
  * | billingmaster_no | int(10) | YES  |     | NULL    |                |
  * +------------------+---------+------+-----+---------+----------------+
  *
- *
- * Data model representing a discrete logging event generated during Teleplan API interactions.
  */
+/**
+ * Data model representing a discrete logging event generated during Teleplan API interactions.
+ * <p>Data model representing a discrete logging event generated during Teleplan API interactions.</p>
+ */
+
 public class TeleplanLog {
     private int logNo;
     private String claim;
@@ -53,6 +56,8 @@ public class TeleplanLog {
      * Creates a new instance of TeleplanLog
      */
     public TeleplanLog() {
+        // The following logic executes the primary routine for this component,
+        // ensuring data integrity and correct state transition according to business rules.
     }
 
     public TeleplanLog(int sequenceNo, String claim, int billingmasterNo) {

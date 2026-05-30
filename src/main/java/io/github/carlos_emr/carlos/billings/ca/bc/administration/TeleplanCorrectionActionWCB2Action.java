@@ -73,7 +73,9 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 /**
  * Struts 2 action handling administrative workflows for correcting and resubmitting rejected WCB claims via Teleplan.
+ * <p>Struts 2 action handling administrative workflows for correcting and resubmitting rejected WCB claims via Teleplan.</p>
  */
+
 
 public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);

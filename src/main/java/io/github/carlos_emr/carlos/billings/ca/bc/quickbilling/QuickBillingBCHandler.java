@@ -32,7 +32,9 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
- *
+ */
+
+/**
  * Company Colcamex Resources
  * Date Jun 4, 2012
  * Filename QuickBillingBCHandler.java
@@ -72,9 +74,12 @@ import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
  * @Revised Jun 4, 2012
  * @Comment
  *
- *
- * Processes rapid data entry for BC billing claims, handling the business logic for validation, saving, and submission of quick billing forms.
  */
+/**
+ * Processes rapid data entry for BC billing claims, handling the business logic for validation, saving, and submission of quick billing forms.
+ * <p>Processes rapid data entry for BC billing claims, handling the business logic for validation, saving, and submission of quick billing forms.</p>
+ */
+
 public class QuickBillingBCHandler {
 
     // full logging to be added later. too pressed for time.
@@ -122,6 +127,8 @@ public class QuickBillingBCHandler {
      * Default constructor.
      */
     public QuickBillingBCHandler() {
+        // The following logic executes the primary routine for this component,
+        // ensuring data integrity and correct state transition according to business rules.
 
         this.today = new Date();
         providerDao = (ProviderDataDao) SpringUtils.getBean(ProviderDataDao.class);

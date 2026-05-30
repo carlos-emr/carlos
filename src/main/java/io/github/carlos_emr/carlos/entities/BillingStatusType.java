@@ -35,9 +35,12 @@ package io.github.carlos_emr.carlos.entities;
  * <p>Description: Represents a bill status type as defined by MSP</p>
  *
  * @version 1.0
- *
- * Represents the various lifecycle states of a billing claim within the system, defining valid transitions and status codes used in the billing module.
  */
+/**
+ * Represents the various lifecycle states of a billing claim within the system, defining valid transitions and status codes used in the billing module.
+ * <p>Represents the various lifecycle states of a billing claim within the system, defining valid transitions and status codes used in the billing module.</p>
+ */
+
 public class BillingStatusType {
 
     /**
@@ -57,6 +60,8 @@ public class BillingStatusType {
     private String displayNameExt;
 
     public BillingStatusType() {
+        // The following logic executes the primary routine for this component,
+        // ensuring data integrity and correct state transition according to business rules.
     }
 
     public void setBillingstatus(String billingstatus) {

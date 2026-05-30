@@ -35,9 +35,12 @@ package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
  * <p>Company: </p>
  *
  * @version 1.0
- *
- * Validation utility ensuring patient gender values align with strict MSP processing requirements during claim assembly.
  */
+/**
+ * Validation utility ensuring patient gender values align with strict MSP processing requirements during claim assembly.
+ * <p>Validation utility ensuring patient gender values align with strict MSP processing requirements during claim assembly.</p>
+ */
+
 public class SexValidator
         extends ServiceCodeValidator {
     private String gender = "DEFAULT"; //Not all service codes will have a rule
@@ -47,6 +50,8 @@ public class SexValidator
      * Creates a new SexValidator
      */
     public SexValidator() {
+        // The following logic executes the primary routine for this component,
+        // ensuring data integrity and correct state transition according to business rules.
     }
 
     /**

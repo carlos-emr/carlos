@@ -45,9 +45,8 @@ import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 
 import io.github.carlos_emr.carlos.util.StringUtils;
 
-
 /**
- * Entity class representing Workers' Compensation Board (WCB) claims, storing incident details and associated medical billing data for workplace injuries.
+ * @author jaygallagher
  */
 @Entity
 @Table(name = "wcb")

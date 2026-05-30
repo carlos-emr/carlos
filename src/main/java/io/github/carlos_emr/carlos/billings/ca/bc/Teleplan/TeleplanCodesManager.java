@@ -44,9 +44,8 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.CarlosProperties;
 
 
-
 /**
- * Service class for managing, validating, and retrieving active fee items and diagnostic codes specifically aligned with Teleplan requirements.
+ * @author jay
  */
 public class TeleplanCodesManager {
 

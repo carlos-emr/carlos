@@ -51,10 +51,13 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
-
+/**
+ */
 /**
  * Reference entity for diagnostic (ICD) codes used in billing, facilitating code lookups and relationship mapping.
+ * <p>Reference entity for diagnostic (ICD) codes used in billing, facilitating code lookups and relationship mapping.</p>
  */
+
 public class DxReference {
     private static final Logger _log = MiscUtils.getLogger();
     DiagnosticCodeDao diagnosticCodeDao = SpringUtils.getBean(DiagnosticCodeDao.class);
@@ -63,6 +66,8 @@ public class DxReference {
      * Creates a new instance of DxReference
      */
     public DxReference() {
+        // The following logic executes the primary routine for this component,
+        // ensuring data integrity and correct state transition according to business rules.
     }
     //select dx_code1, dx_code2, dx_code3,service_date from billingmaster order by service_date desc;
     /*

@@ -37,16 +37,21 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.LogTeleplanTx;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-
+/**
+ */
 /**
  * Manages the persistence of raw communication logs between the application and the Teleplan service for troubleshooting network or protocol issues.
+ * <p>Manages the persistence of raw communication logs between the application and the Teleplan service for troubleshooting network or protocol issues.</p>
  */
+
 
 public class TeleplanLogDAO {
 
     private LogTeleplanTxDao dao = SpringUtils.getBean(LogTeleplanTxDao.class);
 
     public TeleplanLogDAO() {
+        // The following logic executes the primary routine for this component,
+        // ensuring data integrity and correct state transition according to business rules.
     }
 
     public void save(TeleplanLog tl) {

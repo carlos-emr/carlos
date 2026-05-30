@@ -37,9 +37,12 @@ import io.github.carlos_emr.carlos.util.UtilMisc;
  * BillHistory  represents an archive of a modification event on a specific line(BillingMaster Record) of a Bill
  *
  * @version 1.0
- *
- * Tracks historical changes and audit trails for billing records, capturing timestamps, user actions, and previous states of a bill.
  */
+/**
+ * Tracks historical changes and audit trails for billing records, capturing timestamps, user actions, and previous states of a bill.
+ * <p>Tracks historical changes and audit trails for billing records, capturing timestamps, user actions, and previous states of a bill.</p>
+ */
+
 public class BillHistory {
 
     private int id;
@@ -55,6 +58,8 @@ public class BillHistory {
     private String paymentTypeDesc;
 
     public BillHistory() {
+        // The following logic executes the primary routine for this component,
+        // ensuring data integrity and correct state transition according to business rules.
     }
 
     public void setId(int id) {

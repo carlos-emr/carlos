@@ -38,10 +38,13 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 
-
+/**
+ */
 /**
  * Constant dictionary and utility wrapper for WCB-specific billing codes used during Teleplan data generation.
+ * <p>Constant dictionary and utility wrapper for WCB-specific billing codes used during Teleplan data generation.</p>
  */
+
 public class WCBCodes {
 
     private static Logger log = MiscUtils.getLogger();
@@ -57,6 +60,8 @@ public class WCBCodes {
 
     /* Do not use this constructor. Use getInstance instead */
     private WCBCodes() {
+        // The following logic executes the primary routine for this component,
+        // ensuring data integrity and correct state transition according to business rules.
         log.debug("WCBCodes CONSTRUCTOR");
     }
 

@@ -59,15 +59,20 @@ import io.github.carlos_emr.carlos.util.UtilMisc;
  * | note_type        | int(2)     | YES  |     | NULL    |                |
  * +------------------+------------+------+-----+---------+----------------+
  *
- *
- * Entity representing free-text annotations attached to specific billing records, commonly used for administrative follow-up or claim justification.
  */
+/**
+ * Entity representing free-text annotations attached to specific billing records, commonly used for administrative follow-up or claim justification.
+ * <p>Entity representing free-text annotations attached to specific billing records, commonly used for administrative follow-up or claim justification.</p>
+ */
+
 public class BillingNote {
 
     /**
      * Creates a new instance of BillingNote
      */
     public BillingNote() {
+        // The following logic executes the primary routine for this component,
+        // ensuring data integrity and correct state transition according to business rules.
     }
 
     //

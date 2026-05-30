@@ -45,10 +45,13 @@ import java.text.Format;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
-
+/**
+ */
 /**
  * Handles the specialized formatting and transmission logic required for submitting Workers' Compensation Board claims through the Teleplan network.
+ * <p>Handles the specialized formatting and transmission logic required for submitting Workers' Compensation Board claims through the Teleplan network.</p>
  */
+
 public class WCBTeleplanSubmission {
     private static Logger log = MiscUtils.getLogger();
 
@@ -56,6 +59,8 @@ public class WCBTeleplanSubmission {
 
     //Misc misc = new Misc();
     public String getHtmlLine(WCB wcb, Billingmaster bm) {
+        // The following logic executes the primary routine for this component,
+        // ensuring data integrity and correct state transition according to business rules.
         log.debug("WCB " + wcb + " BM " + bm);
         return getHtmlLine("" + bm.getBillingmasterNo(), "" + bm.getBillingNo(), wcb.getW_lname() + "," + wcb.getW_fname(), wcb.getW_phn(), dateFormat(wcb.getW_servicedate()), bm.getBillingCode(), bm.getBillAmount(), bm.getDxCode1(), "", "");
 

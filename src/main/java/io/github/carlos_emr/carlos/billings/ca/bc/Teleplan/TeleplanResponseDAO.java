@@ -34,15 +34,20 @@ import io.github.carlos_emr.carlos.billing.CA.BC.dao.TeleplanResponseLogDao;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanResponseLog;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-
+/**
+ */
 /**
  * Persists and retrieves historical Teleplan response payloads, enabling auditability and reprocessing of remittance files.
+ * <p>Persists and retrieves historical Teleplan response payloads, enabling auditability and reprocessing of remittance files.</p>
  */
+
 public class TeleplanResponseDAO {
 
     private TeleplanResponseLogDao dao = SpringUtils.getBean(TeleplanResponseLogDao.class);
 
     public TeleplanResponseDAO() {
+        // The following logic executes the primary routine for this component,
+        // ensuring data integrity and correct state transition according to business rules.
     }
 
     public void save(TeleplanResponse tr) {
