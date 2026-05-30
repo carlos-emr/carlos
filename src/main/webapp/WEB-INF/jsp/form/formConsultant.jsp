@@ -22,6 +22,8 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%-- i18n scope: full (general form) --%>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");

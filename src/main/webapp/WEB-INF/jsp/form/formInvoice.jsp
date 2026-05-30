@@ -1,3 +1,4 @@
+<%-- i18n scope: full (general form) --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 

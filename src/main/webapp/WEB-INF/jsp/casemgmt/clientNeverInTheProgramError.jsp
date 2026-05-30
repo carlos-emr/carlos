@@ -30,6 +30,8 @@
 
 
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.*" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -47,11 +49,14 @@
         ProgramDao programDao = (ProgramDao) SpringUtils.getBean(ProgramDao.class);
         programName = programDao.getProgramName(programId);
     }
+    request.setAttribute("programName", programName);
 
 %>
 
-<h3 style="color: red">Access Denied</h3>
-<p>You cannot access this client's Encounters because he/she has never admitted in the <%=programName %>.
+<h3 style="color: red"><fmt:message key="casemgmt.accessDenied.title"/></h3>
+<p><fmt:message key="casemgmt.clientNeverInProgram.message">
+    <fmt:param value="${carlos:forHtml(programName)}"/>
+</fmt:message>
 </p>
 
-<input type="button" value="Close Window" onclick="self.close()"/>
+<input type="button" value="<fmt:message key='demographic.manageContacts.closeWindow'/>" onclick="self.close()"/>

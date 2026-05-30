@@ -1,3 +1,4 @@
+<%-- i18n scope: UI-chrome-only (regulated clinical instrument) --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");

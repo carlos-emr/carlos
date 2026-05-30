@@ -27,6 +27,8 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%-- i18n scope: UI-chrome-only (regulated clinical instrument) --%>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 

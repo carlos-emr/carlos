@@ -52,6 +52,13 @@ class TargetClinicalJspI18nTest {
 
     private static final String[] LOCALES = {"en", "fr", "es", "pt_BR", "pl"};
     private static final Pattern FMT_KEY_PATTERN = Pattern.compile("<fmt:message\\b[^>]*\\bkey=[\"']([^\"']+)[\"']");
+    private static final String UI_CHROME_SCOPE =
+            "<%-- i18n scope: UI-chrome-only (regulated clinical instrument) --%>";
+    private static final String FULL_SCOPE = "<%-- i18n scope: full (general form) --%>";
+    private static final List<Path> CASEMGMT_ACCESS_JSPS = List.of(
+            Path.of("src/main/webapp/WEB-INF/jsp/casemgmt/clientNeverInTheProgramError.jsp"),
+            Path.of("src/main/webapp/WEB-INF/jsp/casemgmt/domain-error.jsp")
+    );
     private static final List<Path> TARGET_ROOTS = List.of(
             Path.of("src/main/webapp/demographic"),
             Path.of("src/main/webapp/WEB-INF/jsp/demographic"),
@@ -140,6 +147,45 @@ class TargetClinicalJspI18nTest {
                 .doesNotContain("Please enter appointment type name")
                 .doesNotContain("Please enter value in Names field")
                 .doesNotContain("Type will be deleted! Are you sure?");
+    }
+
+    @Test
+    @DisplayName("should resolve case management access error keys in every shipped locale")
+    void shouldResolveCaseManagementAccessErrorKeys_inEveryLocale() throws IOException {
+        Stream.Builder<String> keys = Stream.builder();
+        for (Path jsp : CASEMGMT_ACCESS_JSPS) {
+            fmtMessageKeys(jsp).forEach(keys);
+        }
+        List<String> distinctKeys = keys.build().distinct().toList();
+
+        for (String locale : LOCALES) {
+            Properties bundle = loadBundle(locale);
+            List<String> missing = distinctKeys.stream()
+                    .filter(key -> !bundle.containsKey(key))
+                    .toList();
+
+            assertThat(missing)
+                    .as("oscarResources_%s.properties should define case management access error labels", locale)
+                    .isEmpty();
+        }
+    }
+
+    @Test
+    @DisplayName("should annotate clinical form JSPs with i18n scope")
+    void shouldAnnotateClinicalFormJsps_withI18nScope() throws IOException {
+        List<Path> missingScope = new ArrayList<>();
+        try (Stream<Path> walk = Files.walk(Path.of("src/main/webapp/WEB-INF/jsp/form"))) {
+            for (Path jsp : walk.filter(path -> path.toString().endsWith(".jsp")).toList()) {
+                String content = read(jsp);
+                if (!content.contains(UI_CHROME_SCOPE) && !content.contains(FULL_SCOPE)) {
+                    missingScope.add(jsp);
+                }
+            }
+        }
+
+        assertThat(missingScope)
+                .as("clinical form JSPs should declare whether i18n applies to UI chrome only or the full form")
+                .isEmpty();
     }
 
     private List<String> fmtMessageKeys(Path jsp) throws IOException {

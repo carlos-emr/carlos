@@ -30,16 +30,14 @@
 
 
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
-<h3 style="color: red">Access Denied</h3>
+<h3 style="color: red"><fmt:message key="casemgmt.accessDenied.title"/></h3>
 
-<p>You cannot access this client's Encounters because he/she is not
-    in your program domain. What this means is that this client is currently
-    not, and has never been a particpant in any program you have rights to.
+<p><fmt:message key="casemgmt.domainError.message"/>
 </p>
 
-<p>Please talk to your administrator about getting the proper
-    access.</p>
+<p><fmt:message key="casemgmt.domainError.contactAdministrator"/></p>
 
-<input type="button" value="Close Window" onclick="self.close()"/>
+<input type="button" value="<fmt:message key='demographic.manageContacts.closeWindow'/>" onclick="self.close()"/>
