@@ -100,7 +100,7 @@ public class CarlosCsrfGuardFilter implements Filter {
             LOGGER.error("CsrfGuard is not initialized — cannot validate CSRF tokens. "
                     + "Rejecting {} request",
                     httpRequest.getMethod(), e);
-            httpResponse.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            httpResponse.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
             return;
         }
 
@@ -163,8 +163,10 @@ public class CarlosCsrfGuardFilter implements Filter {
             }
         } catch (Exception e) {
             LOGGER.error("Failed to generate CSRF tokens for validated {} request — "
-                    + "continuing without token generation (next POST from this page WILL fail validation)",
+                    + "rejecting with 503 so the failure is visible immediately",
                     httpRequest.getMethod(), e);
+            httpResponse.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            return;
         }
 
         // Validation passed — continue the filter chain
