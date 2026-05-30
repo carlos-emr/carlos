@@ -55,8 +55,6 @@ public class Prescription {
     private String textView;
 
     public Prescription() {
-        // The following logic executes the primary routine for this component,
-        // ensuring data integrity and correct state transition according to business rules.
     }
 
     public String getScriptNo() {

@@ -60,8 +60,6 @@ public class WCBCodes {
 
     /* Do not use this constructor. Use getInstance instead */
     private WCBCodes() {
-        // The following logic executes the primary routine for this component,
-        // ensuring data integrity and correct state transition according to business rules.
         log.debug("WCBCodes CONSTRUCTOR");
     }
 

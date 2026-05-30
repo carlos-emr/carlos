@@ -46,8 +46,6 @@ public class TeleplanResponseDAO {
     private TeleplanResponseLogDao dao = SpringUtils.getBean(TeleplanResponseLogDao.class);
 
     public TeleplanResponseDAO() {
-        // The following logic executes the primary routine for this component,
-        // ensuring data integrity and correct state transition according to business rules.
     }
 
     public void save(TeleplanResponse tr) {

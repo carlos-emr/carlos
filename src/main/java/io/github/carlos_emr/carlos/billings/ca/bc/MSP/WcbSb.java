@@ -117,8 +117,6 @@ public class WcbSb {
     String newLine = "\r\n";
 
     public WcbSb(String billingNo) {
-        // The following logic executes the primary routine for this component,
-        // ensuring data integrity and correct state transition according to business rules.
         BillingServiceDao bsDao = SpringUtils.getBean(BillingServiceDao.class);
 
         for (Object[] o : bsDao.findSomethingByBillingId(ConversionUtils.fromIntString(billingNo))) {

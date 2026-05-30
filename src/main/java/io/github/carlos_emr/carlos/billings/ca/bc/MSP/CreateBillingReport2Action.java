@@ -60,8 +60,6 @@ public class CreateBillingReport2Action extends ActionSupport {
     private static final String REPORTS_PATH = "oscar/oscarBilling/ca/bc/reports/";
 
     public CreateBillingReport2Action() {
-        // The following logic executes the primary routine for this component,
-        // ensuring data integrity and correct state transition according to business rules.
         this.cfgReports();
 
     }

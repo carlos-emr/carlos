@@ -50,8 +50,6 @@ public class WcbHelper {
     ArrayList claimList = null;
 
     public WcbHelper() {
-        // The following logic executes the primary routine for this component,
-        // ensuring data integrity and correct state transition according to business rules.
     }
 
     public WcbHelper(String demographic_no) {

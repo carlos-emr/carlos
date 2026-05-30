@@ -50,8 +50,6 @@ public class TeleplanLogDAO {
     private LogTeleplanTxDao dao = SpringUtils.getBean(LogTeleplanTxDao.class);
 
     public TeleplanLogDAO() {
-        // The following logic executes the primary routine for this component,
-        // ensuring data integrity and correct state transition according to business rules.
     }
 
     public void save(TeleplanLog tl) {

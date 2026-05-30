@@ -69,8 +69,6 @@ public class BillingmasterDAO {
      * Creates a new instance of BillingmasterDAO
      */
     public BillingmasterDAO() {
-        // The following logic executes the primary routine for this component,
-        // ensuring data integrity and correct state transition according to business rules.
     }
 
     public List<Billingmaster> getBillingMasterWithStatus(String billingmasterNo, String status) {

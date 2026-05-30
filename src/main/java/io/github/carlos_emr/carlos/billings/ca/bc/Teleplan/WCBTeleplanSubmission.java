@@ -59,8 +59,6 @@ public class WCBTeleplanSubmission {
 
     //Misc misc = new Misc();
     public String getHtmlLine(WCB wcb, Billingmaster bm) {
-        // The following logic executes the primary routine for this component,
-        // ensuring data integrity and correct state transition according to business rules.
         log.debug("WCB " + wcb + " BM " + bm);
         return getHtmlLine("" + bm.getBillingmasterNo(), "" + bm.getBillingNo(), wcb.getW_lname() + "," + wcb.getW_fname(), wcb.getW_phn(), dateFormat(wcb.getW_servicedate()), bm.getBillingCode(), bm.getBillAmount(), bm.getDxCode1(), "", "");
 

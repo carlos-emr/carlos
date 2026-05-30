@@ -61,8 +61,6 @@ public class BillingHistoryDAO {
     private BillingHistoryDao dao = SpringUtils.getBean(BillingHistoryDao.class);
 
     public BillingHistoryDAO() {
-        // The following logic executes the primary routine for this component,
-        // ensuring data integrity and correct state transition according to business rules.
     }
 
     /**

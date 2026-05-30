@@ -66,8 +66,6 @@ public class DxReference {
      * Creates a new instance of DxReference
      */
     public DxReference() {
-        // The following logic executes the primary routine for this component,
-        // ensuring data integrity and correct state transition according to business rules.
     }
     //select dx_code1, dx_code2, dx_code3,service_date from billingmaster order by service_date desc;
     /*

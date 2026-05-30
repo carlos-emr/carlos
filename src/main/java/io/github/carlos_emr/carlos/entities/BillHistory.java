@@ -58,8 +58,6 @@ public class BillHistory {
     private String paymentTypeDesc;
 
     public BillHistory() {
-        // The following logic executes the primary routine for this component,
-        // ensuring data integrity and correct state transition according to business rules.
     }
 
     public void setId(int id) {

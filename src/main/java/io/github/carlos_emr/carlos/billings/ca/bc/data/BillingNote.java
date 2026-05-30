@@ -71,8 +71,6 @@ public class BillingNote {
      * Creates a new instance of BillingNote
      */
     public BillingNote() {
-        // The following logic executes the primary routine for this component,
-        // ensuring data integrity and correct state transition according to business rules.
     }
 
     //

@@ -51,8 +51,6 @@ public class TeleplanService {
      * Creates a new instance of TeleplanService
      */
     public TeleplanService() {
-        // The following logic executes the primary routine for this component,
-        // ensuring data integrity and correct state transition according to business rules.
     }
 
 

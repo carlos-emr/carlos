@@ -50,8 +50,6 @@ import org.springframework.stereotype.Repository;
 public class BillingPreferencesDAO extends AbstractDaoImpl<BillingPreference> {
 
     public BillingPreferencesDAO() {
-        // The following logic executes the primary routine for this component,
-        // ensuring data integrity and correct state transition according to business rules.
         super(BillingPreference.class);
     }
 

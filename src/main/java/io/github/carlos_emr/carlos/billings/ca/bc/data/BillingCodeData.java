@@ -86,8 +86,6 @@ public final
      * Creates a new instance of BillingCodeData
      */
     public BillingCodeData() {
-        // The following logic executes the primary routine for this component,
-        // ensuring data integrity and correct state transition according to business rules.
         this((BillingServiceDao) SpringUtils.getBean(BillingServiceDao.class));
     }
 

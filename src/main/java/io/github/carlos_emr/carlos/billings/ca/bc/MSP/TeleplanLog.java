@@ -56,8 +56,6 @@ public class TeleplanLog {
      * Creates a new instance of TeleplanLog
      */
     public TeleplanLog() {
-        // The following logic executes the primary routine for this component,
-        // ensuring data integrity and correct state transition according to business rules.
     }
 
     public TeleplanLog(int sequenceNo, String claim, int billingmasterNo) {

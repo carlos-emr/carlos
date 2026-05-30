@@ -56,8 +56,6 @@ public class TeleplanSequenceDAO {
      * Creates a new instance of TeleplanSequenceDAO
      */
     public TeleplanSequenceDAO() {
-        // The following logic executes the primary routine for this component,
-        // ensuring data integrity and correct state transition according to business rules.
     }
 
     private void setSequence(int sequenceNum) {

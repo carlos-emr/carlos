@@ -50,8 +50,6 @@ public class SexValidator
      * Creates a new SexValidator
      */
     public SexValidator() {
-        // The following logic executes the primary routine for this component,
-        // ensuring data integrity and correct state transition according to business rules.
     }
 
     /**

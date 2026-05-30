@@ -78,8 +78,6 @@ public class BillingGuidelines {
      * Creates a new instance of MeasurementTemplateFlowSheetConfig
      */
     private BillingGuidelines() {
-        // The following logic executes the primary routine for this component,
-        // ensuring data integrity and correct state transition according to business rules.
     }
 
     static public BillingGuidelines getInstance(String code) {

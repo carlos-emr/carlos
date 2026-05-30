@@ -127,8 +127,6 @@ public class QuickBillingBCHandler {
      * Default constructor.
      */
     public QuickBillingBCHandler() {
-        // The following logic executes the primary routine for this component,
-        // ensuring data integrity and correct state transition according to business rules.
 
         this.today = new Date();
         providerDao = (ProviderDataDao) SpringUtils.getBean(ProviderDataDao.class);
