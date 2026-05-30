@@ -48,7 +48,7 @@ class RxUpdateFormJspRegressionTest {
 
     @Test
     @DisplayName("update form should POST to a concrete Struts URL for CSRF token injection")
-    void updateFormShouldPostToConcreteStrutsUrl_doForCsrfTokenInjection() throws IOException {
+    void shouldPostToConcreteStrutsUrl_forCsrfTokenInjection() throws IOException {
         String jsp = Files.readString(UPDATE_FORM_JSP, StandardCharsets.UTF_8);
 
         assertThat(jsp).contains("action=\"<%= request.getContextPath() %>/rx/ViewUpdateForm\"");
