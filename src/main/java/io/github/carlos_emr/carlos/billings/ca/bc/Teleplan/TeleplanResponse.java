@@ -44,8 +44,9 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 
+
 /**
- * @author jay
+ * Model representing the parsed payload from a Teleplan API response, extracting status codes, error messages, and remittance data.
  */
 public class TeleplanResponse {
     static Logger log = MiscUtils.getLogger();

@@ -36,12 +36,14 @@ import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
 
 import java.util.ArrayList;
 import java.util.List;
+/**
+ * Data transfer object backing the BC Quick Billing UI, encapsulating form inputs and validating client-side data formats before server-side processing.
+ */
 
 
 public class QuickBillingBCFormBean {
 
     /**
-     * @author Dennis Warren
      * Company Colcamex Resources
      * Date Jun 4, 2012
      */

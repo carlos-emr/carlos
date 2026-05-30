@@ -59,7 +59,8 @@ import io.github.carlos_emr.carlos.util.UtilMisc;
  * | note_type        | int(2)     | YES  |     | NULL    |                |
  * +------------------+------------+------+-----+---------+----------------+
  *
- * @author root
+ *
+ * Entity representing free-text annotations attached to specific billing records, commonly used for administrative follow-up or claim justification.
  */
 public class BillingNote {
 

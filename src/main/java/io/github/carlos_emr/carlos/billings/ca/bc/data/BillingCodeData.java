@@ -39,8 +39,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.SqlUtils;
 
+
 /**
- * @author root
+ * Domain structure holding metadata for billing codes, including descriptions, pricing, and active dates for validation purposes.
  */
 public final class BillingCodeData implements Comparable {
     /**

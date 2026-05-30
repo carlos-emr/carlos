@@ -31,7 +31,6 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.PayRefSummary;
  * <p>Copyright: Copyright (c) 2005</p>
  * <p>Company: </p>
  *
- * @author Joel Legris
  * @version 1.0
  */
 import org.apache.struts2.ActionSupport;
@@ -40,6 +39,9 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+/**
+ * Struts 2 action orchestrating the generation of comprehensive MSP billing reports for administrative review and export.
+ */
 
 public class CreateBillingReport2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -63,6 +65,7 @@ public class CreateBillingReport2Action extends ActionSupport {
     /**
      * Performs Report Generation Logic based on the supplied parameters form the submitted form
      */
+    // Aggregates data and generates the comprehensive administrative billing report based on user parameters
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {

@@ -45,8 +45,9 @@ import java.text.Format;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
+
 /**
- * @author jaygallagher
+ * Handles the specialized formatting and transmission logic required for submitting Workers' Compensation Board claims through the Teleplan network.
  */
 public class WCBTeleplanSubmission {
     private static Logger log = MiscUtils.getLogger();

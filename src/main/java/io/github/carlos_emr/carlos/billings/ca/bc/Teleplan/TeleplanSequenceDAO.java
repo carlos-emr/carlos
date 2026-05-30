@@ -41,7 +41,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 /**
  * Deals with storing the teleplan sequence #
  *
- * @author jay
+ *
+ * Data access object for managing sequence numbers required by the Teleplan API, ensuring unique and ordered identifiers for submissions.
  */
 public class TeleplanSequenceDAO {
     static Logger log = MiscUtils.getLogger();

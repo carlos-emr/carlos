@@ -49,8 +49,9 @@ import io.github.carlos_emr.carlos.entities.Billingmaster;
 import io.github.carlos_emr.carlos.entities.WCB;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+
 /**
- * @author jay
+ * Core data access object for the main billing ledger, managing the lifecycle and persistence of master claim records.
  */
 @Repository
 @SuppressWarnings("unchecked")

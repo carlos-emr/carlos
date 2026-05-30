@@ -38,8 +38,9 @@ package io.github.carlos_emr.carlos.entities;
  * <p>Copyright: Copyright (c) 2004</p>
  * <p>Company: </p>
  *
- * @author not attributable
  * @version 1.0
+ *
+ * Domain entity representing a medical prescription, including medication details, dosage instructions, and associations with patients and prescribers.
  */
 public class Prescription {
     private String scriptNo;

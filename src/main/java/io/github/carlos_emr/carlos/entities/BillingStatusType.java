@@ -34,8 +34,9 @@ package io.github.carlos_emr.carlos.entities;
  *
  * <p>Description: Represents a bill status type as defined by MSP</p>
  *
- * @author not attributable
  * @version 1.0
+ *
+ * Represents the various lifecycle states of a billing claim within the system, defining valid transitions and status codes used in the billing module.
  */
 public class BillingStatusType {
 

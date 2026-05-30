@@ -60,7 +60,6 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
 /*
- * @author Jef King
  * For The Oscar McMaster Project
  * Developed By Andromedia
  * www.andromedia.ca
@@ -72,6 +71,9 @@ import io.github.carlos_emr.carlos.util.StringUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+/**
+ * Struts 2 action handling administrative workflows for correcting and resubmitting rejected WCB claims via Teleplan.
+ */
 
 public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -85,6 +87,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
     private WcbDao wcbDao = SpringUtils.getBean(WcbDao.class);
     private DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
 
+    // Handles the workflow for retrieving and applying corrections to a previously rejected WCB claim
     public String execute()
             throws IOException, ServletException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

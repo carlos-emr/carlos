@@ -21,11 +21,9 @@
  * Hamilton
  * Ontario, Canada
  *
- * @author Dennis Warren
  * Company Colcamex Resources
  * Date Jun 4, 2012
  * Filename QuickBillingBCHandler.java
- * @author Dennis Warren
  * Company Colcamex Resources
  * Date Jun 4, 2012
  * Filename QuickBillingBCHandler.java
@@ -34,10 +32,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
- */
-
-/**
- * @author Dennis Warren
+ *
  * Company Colcamex Resources
  * Date Jun 4, 2012
  * Filename QuickBillingBCHandler.java
@@ -74,10 +69,11 @@ import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
 
 
 /**
- * @author Dennis Warren
  * @Revised Jun 4, 2012
  * @Comment
  *
+ *
+ * Processes rapid data entry for BC billing claims, handling the business logic for validation, saving, and submission of quick billing forms.
  */
 public class QuickBillingBCHandler {
 

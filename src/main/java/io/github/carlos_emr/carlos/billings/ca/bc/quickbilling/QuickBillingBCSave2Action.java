@@ -39,7 +39,6 @@ import jakarta.servlet.http.HttpServletResponse;
 
 
 /**
- * @author Dennis Warren
  * Company Colcamex Resources
  * Date Jun 4, 2012
  * Revised Jun 6, 2012
@@ -56,6 +55,9 @@ import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+/**
+ * Struts 2 action dedicated to persisting BC Quick Billing form data, managing the transaction boundary and response mapping upon save.
+ */
 
 public class QuickBillingBCSave2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -68,6 +70,7 @@ public class QuickBillingBCSave2Action extends ActionSupport {
     }
 
 
+    // Captures the POST request to validate and persist the quick billing submission
     public String execute()
             throws ServletException, IOException {        if (request.getSession().getAttribute("user") == null) {
             return "Logout";

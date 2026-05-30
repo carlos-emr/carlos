@@ -37,8 +37,9 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.Wcb;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+
 /**
- * @author Jay Gallagher
+ * Helper component providing standardized methods for processing, formatting, and calculating WCB-related billing metrics.
  */
 public class WcbHelper {
 

@@ -34,8 +34,9 @@ import io.github.carlos_emr.carlos.billing.CA.BC.dao.TeleplanResponseLogDao;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanResponseLog;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+
 /**
- * @author jay
+ * Persists and retrieves historical Teleplan response payloads, enabling auditability and reprocessing of remittance files.
  */
 public class TeleplanResponseDAO {
 

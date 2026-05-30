@@ -49,8 +49,9 @@ import io.github.carlos_emr.carlos.util.SqlUtils;
  * BillingHistoryDAO is responsible for providing database CRUD operations
  * on the BillHistory Object
  *
- * @author not attributable
  * @version 1.0
+ *
+ * Data access implementation for querying billing history records, supporting pagination and filtering by date, provider, or patient.
  */
 public class BillingHistoryDAO {
 

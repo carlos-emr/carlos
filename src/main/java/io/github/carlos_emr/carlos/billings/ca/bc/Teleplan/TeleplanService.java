@@ -37,8 +37,9 @@ import java.io.FileWriter;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
+
 /**
- * @author jay
+ * Business logic tier orchestrating the assembly, submission, and reconciliation phases of Teleplan claims processing.
  */
 public class TeleplanService {
     static Logger log = MiscUtils.getLogger();
@@ -120,7 +121,6 @@ public class TeleplanService {
 //        
 //        String e = "VS1V62429999999V6242OSCAR_MCMASTER           V1.1      20030930OSCAR MCMASTER                          (905) 575-1300                                                                                   ";
 //
-//        
 //        File getSequenceFile =  File.createTempFile("ddd","eee");
 //        
 //        BufferedWriter out = new BufferedWriter(new FileWriter(getSequenceFile));

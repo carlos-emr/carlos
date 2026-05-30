@@ -37,8 +37,9 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.LogTeleplanTx;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+
 /**
- * @author jay
+ * Manages the persistence of raw communication logs between the application and the Teleplan service for troubleshooting network or protocol issues.
  */
 
 public class TeleplanLogDAO {

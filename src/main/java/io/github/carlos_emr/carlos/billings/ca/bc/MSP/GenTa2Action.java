@@ -61,11 +61,12 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 import io.github.carlos_emr.CarlosProperties;
 
-/**
- * @author jay
- */
+
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+/**
+ * Struts 2 action responsible for initiating the generation of Teleplan claim transmission archives.
+ */
 
 public class GenTa2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -89,6 +90,7 @@ public class GenTa2Action extends ActionSupport {
     }
 
 
+    // Coordinates the extraction of unbilled claims and generates the transmission archive file for Teleplan
     public String execute()
             throws IOException, ServletException, Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

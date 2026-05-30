@@ -39,8 +39,9 @@ import org.springframework.stereotype.Repository;
 /**
  * Responsible for CRUD operation a user Billing Module Preferences
  *
- * @author not attributable
  * @version 1.0
+ *
+ * Data access layer for user and clinic-specific billing configuration settings, such as default fee modifiers or display preferences.
  */
 @Repository
 public class BillingPreferencesDAO extends AbstractDaoImpl<BillingPreference> {

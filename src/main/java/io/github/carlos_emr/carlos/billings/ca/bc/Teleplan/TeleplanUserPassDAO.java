@@ -42,7 +42,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 /**
  * Deals with storing the teleplan sequence #
  *
- * @author jay
+ *
+ * Data access layer for securely retrieving and updating authentication credentials required for connecting to the Teleplan network.
  */
 public class TeleplanUserPassDAO {
     static Logger log = MiscUtils.getLogger();

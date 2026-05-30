@@ -36,8 +36,9 @@ import io.github.carlos_emr.carlos.util.UtilMisc;
 /**
  * BillHistory  represents an archive of a modification event on a specific line(BillingMaster Record) of a Bill
  *
- * @author Joel Legris
  * @version 1.0
+ *
+ * Tracks historical changes and audit trails for billing records, capturing timestamps, user actions, and previous states of a bill.
  */
 public class BillHistory {
 

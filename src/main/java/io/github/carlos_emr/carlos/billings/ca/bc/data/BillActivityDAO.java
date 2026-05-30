@@ -43,8 +43,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.entities.Billactivity;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+
 /**
- * @author jay
+ * Records and retrieves detailed activity logs associated with individual bills, crucial for tracking state changes and auditing.
  */
 public class BillActivityDAO {
 

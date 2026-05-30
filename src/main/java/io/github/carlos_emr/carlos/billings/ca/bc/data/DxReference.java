@@ -51,8 +51,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
+
 /**
- * @author jay
+ * Reference entity for diagnostic (ICD) codes used in billing, facilitating code lookups and relationship mapping.
  */
 public class DxReference {
     private static final Logger _log = MiscUtils.getLogger();

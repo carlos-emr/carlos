@@ -38,8 +38,9 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 
+
 /**
- * @author jaygallagher
+ * Constant dictionary and utility wrapper for WCB-specific billing codes used during Teleplan data generation.
  */
 public class WCBCodes {
 

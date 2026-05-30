@@ -34,8 +34,9 @@ package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
  *
  * <p>Company: </p>
  *
- * @author not attributable
  * @version 1.0
+ *
+ * Validation utility ensuring patient gender values align with strict MSP processing requirements during claim assembly.
  */
 public class SexValidator
         extends ServiceCodeValidator {

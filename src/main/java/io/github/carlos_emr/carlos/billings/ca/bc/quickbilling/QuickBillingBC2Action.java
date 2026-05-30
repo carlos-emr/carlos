@@ -47,7 +47,6 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData.BillingVisit;
 
 /**
- * @author Dennis Warren
  * Company Colcamex Resources
  * Date Jun 4, 2012
  * Revised Jun 6, 2012
@@ -63,6 +62,9 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+/**
+ * Struts 2 action handling web requests for the BC Quick Billing interface, routing user input to the appropriate handler methods.
+ */
 
 public class QuickBillingBC2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -80,6 +82,7 @@ public class QuickBillingBC2Action extends ActionSupport {
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    // Routes the initial GET request to display the quick billing data entry interface
     public String execute() throws ServletException, IOException {
         String creator = (String) request.getSession().getAttribute("user");
         if (creator == null) {

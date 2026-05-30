@@ -45,7 +45,6 @@ import java.util.GregorianCalendar;
  * 
  * <p>Useful for generating calendar-based UI components and schedule views.</p>
  * 
- * @author Martin
  * @version 1.0
  * @since JDK 1.3
  */
@@ -59,6 +58,7 @@ public class DateInMonthTable {
      * Constructs a DateInMonthTable initialized to the current date.
      */
     public DateInMonthTable() {
+        // Initialize with the current system date as the default calendar view
         GregorianCalendar now = new GregorianCalendar();
         curYear = now.get(Calendar.YEAR);
         curMonth = now.get(Calendar.MONTH);
