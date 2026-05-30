@@ -123,13 +123,33 @@ class MfaManagerImplUnitTest extends CarlosUnitTestBase {
             when(properties.getProperty(PROVIDER_NAME_PROPERTY, "CARLOS EMR")).thenReturn("CARLOS EMR");
             when(properties.getProperty(LOGO_PATH_PROPERTY)).thenReturn(CARLOS_FAVICON_PATH, null);
 
+            assertThat(MfaManagerImpl.class.getClassLoader().getResource(CARLOS_FAVICON_PATH)).isNotNull();
+
             String qrCodeWithLogo = realManager.getQRCodeImageData(42, "secret");
             String qrCodeWithoutLogo = realManager.getQRCodeImageData(42, "secret");
 
-            assertThat(MfaManagerImpl.class.getClassLoader().getResource(CARLOS_FAVICON_PATH)).isNotNull();
             assertThat(qrCodeWithLogo).startsWith("data:image/png;base64,");
             assertThat(qrCodeWithoutLogo).startsWith("data:image/png;base64,");
             assertThat(qrCodeWithLogo).isNotEqualTo(qrCodeWithoutLogo);
+        }
+    }
+
+    @Test
+    @DisplayName("should leave the QR code unchanged when the configured logo resource is missing")
+    void shouldLeaveQrCodeUnchanged_whenConfiguredLogoResourceIsMissing() {
+        MfaManagerImpl realManager = new MfaManagerImpl(securityDao, securityManager);
+
+        try (MockedStatic<CarlosProperties> propertiesMock = mockStatic(CarlosProperties.class)) {
+            propertiesMock.when(CarlosProperties::getInstance).thenReturn(properties);
+            when(properties.getProperty(PROVIDER_NAME_PROPERTY, "CARLOS EMR")).thenReturn("CARLOS EMR");
+            when(properties.getProperty(LOGO_PATH_PROPERTY)).thenReturn("loginResource/missing-carlos-favicon.png", null);
+
+            String qrCodeWithMissingLogo = realManager.getQRCodeImageData(42, "secret");
+            String qrCodeWithoutLogo = realManager.getQRCodeImageData(42, "secret");
+
+            assertThat(MfaManagerImpl.class.getClassLoader().getResource("loginResource/missing-carlos-favicon.png")).isNull();
+            assertThat(qrCodeWithMissingLogo).startsWith("data:image/png;base64,");
+            assertThat(qrCodeWithMissingLogo).isEqualTo(qrCodeWithoutLogo);
         }
     }
 }
