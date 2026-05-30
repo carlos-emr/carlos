@@ -31,9 +31,12 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.managers.MfaManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.SecurityManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+
+import java.io.IOException;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -49,27 +52,68 @@ public final class MfaActions2Action extends ActionSupport {
 
     public static final String METHOD_RESET_MFA = "resetMfa";
 
-    private final SecurityManager securityManager = SpringUtils.getBean(SecurityManager.class);
-    private final MfaManager mfaManager = SpringUtils.getBean(MfaManager.class);
+    private final SecurityManager securityManager;
+    private final MfaManager mfaManager;
+    private final SecurityInfoManager securityInfoManager;
 
-    public String execute() {
-        String method = request.getParameter("method");
-        if (METHOD_RESET_MFA.equals(method)) {
-            return resetMfa();
+    public MfaActions2Action() {
+        this(SpringUtils.getBean(SecurityManager.class),
+                SpringUtils.getBean(MfaManager.class),
+                SpringUtils.getBean(SecurityInfoManager.class));
+    }
+
+    MfaActions2Action(
+            SecurityManager securityManager,
+            MfaManager mfaManager,
+            SecurityInfoManager securityInfoManager) {
+        this.securityManager = securityManager;
+        this.mfaManager = mfaManager;
+        this.securityInfoManager = securityInfoManager;
+    }
+
+    @Override
+    public String execute() throws IOException {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.userSecurity", "w", null)) {
+            throw new SecurityException("missing required sec object (_admin.userSecurity)");
         }
-        return SUCCESS;
+
+        String method = request.getParameter("method");
+        if (!METHOD_RESET_MFA.equals(method) || !"POST".equalsIgnoreCase(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+        return resetMfa(loggedInInfo);
     }
 
     /**
      * Resets the MFA secret for a specified user.
      *
-     * @return null, as this action does not forward to another page.
+     * @return NONE, as this action does not forward to another page.
      */
-    public String resetMfa() {
+    String resetMfa(LoggedInInfo loggedInInfo) throws IOException {
         String securityId = request.getParameter("securityId");
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        Security security = this.securityManager.find(loggedInInfo, Integer.valueOf(securityId));
+        if (securityId == null || !securityId.matches("\\d+")) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid securityId");
+            return NONE;
+        }
+
+        Integer parsedSecurityId;
+        try {
+            parsedSecurityId = Integer.valueOf(securityId);
+        } catch (NumberFormatException e) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid securityId");
+            return NONE;
+        }
+
+        Security security = this.securityManager.find(loggedInInfo, parsedSecurityId);
+        if (security == null) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND, "Security record not found");
+            return NONE;
+        }
+
         this.mfaManager.resetMfaSecret(loggedInInfo, security);
-        return null;
+        return NONE;
     }
 }
