@@ -75,8 +75,8 @@ public class PrintReferralLabel2Action extends ActionSupport {
         InputStream ins = null;
         try {
             ins = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(System.getProperty("user.home") + "/reflabel.xml")));
-        } catch (IOException e) {
-            MiscUtils.getLogger().warn("no reflabel.xml found in user's home directory, going to backup");
+        } catch (IOException | SecurityException e) {
+            MiscUtils.getLogger().warn("no reflabel.xml found in user's home directory, going to backup", e);
         }
         if (ins == null) {
             ins = getClass().getResourceAsStream("/org/oscarehr/common/web/reflabel.xml");

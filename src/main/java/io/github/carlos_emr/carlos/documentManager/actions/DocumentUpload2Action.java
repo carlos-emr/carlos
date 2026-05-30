@@ -120,7 +120,8 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                 String queueId = request.getParameter("queue");
                 String destFolder = request.getParameter("destFolder");
 
-                File f = PathValidationUtils.validateExistingPath(new File(IncomingDocUtil.getAndCreateIncomingDocumentFilePathName(queueId, destFolder, sanitizedFileName)), new File(IncomingDocUtil.getAndCreateIncomingDocumentFilePath(queueId, destFolder)));
+                File incomingDir = PathValidationUtils.resolveConfiguredDirectory(IncomingDocUtil.getAndCreateIncomingDocumentFilePath(queueId, destFolder), "incoming document directory");
+                File f = PathValidationUtils.validateGeneratedChildPath(sanitizedFileName, incomingDir);
                 if (f.exists()) {
                     map.put("error", sanitizedFileName + " " + props.getString("dms.documentUpload.alreadyExists"));
                 } else {

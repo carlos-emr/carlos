@@ -49,6 +49,7 @@ import io.github.carlos_emr.CarlosProperties;
  */
 public class TeleplanResponse {
     static Logger log = MiscUtils.getLogger();
+    private static final String DOCUMENT_DIR_PROPERTY = "DOCUMENT_DIR";
     private String transactionNo = null;
     private String result = null;
     private String filename = null;
@@ -65,7 +66,7 @@ public class TeleplanResponse {
 
     void processResponseStream(InputStream in) {
         try {
-            File directory = PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR", "./"), "DOCUMENT_DIR");
+            File directory = PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty(DOCUMENT_DIR_PROPERTY, "./"), DOCUMENT_DIR_PROPERTY);
             double randNum = Math.random();
             File tempFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName("teleplan.msp" + randNum), directory);
             BufferedReader bin = new BufferedReader(new InputStreamReader(in));
@@ -161,7 +162,7 @@ public class TeleplanResponse {
     }
 
     public File getFile() {
-        File directory = PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR", "./"), "DOCUMENT_DIR");
+        File directory = PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty(DOCUMENT_DIR_PROPERTY, "./"), DOCUMENT_DIR_PROPERTY);
         return PathValidationUtils.validatePath(realFilename, directory);
     }
 

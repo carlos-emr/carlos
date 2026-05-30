@@ -119,7 +119,7 @@ public final class ClinicLogoUtility {
         File logoFile = PathValidationUtils.resolveTrustedPath(new File(filename));
         Path path = logoFile.toPath();
         if (Files.exists(path)) {
-            addImage(infoTable, filename, PageSize.LETTER.getWidth() * 0.5f, LOGO_HEIGHT);
+            addImage(infoTable, logoFile, PageSize.LETTER.getWidth() * 0.5f, LOGO_HEIGHT);
         }
         return infoTable;
 
@@ -143,12 +143,11 @@ public final class ClinicLogoUtility {
      * Loads an image file and adds it as a scaled cell to the given PDF table.
      *
      * @param pdfPTable PdfPTable the table to add the image cell to
-     * @param filename String the absolute file path of the image
+     * @param logoFile File the validated image file
      * @param width float the maximum width to scale the image to (in points)
      * @param height float the maximum height to scale the image to (in points)
      */
-    private static void addImage(PdfPTable pdfPTable, String filename, float width, float height) {
-        File logoFile = PathValidationUtils.resolveTrustedPath(new File(filename));
+    private static void addImage(PdfPTable pdfPTable, File logoFile, float width, float height) {
         try (FileInputStream fileInputStream = new FileInputStream(logoFile)) {
             PdfPCell cell = new PdfPCell();
             byte[] faxLogImage = fileInputStream.readAllBytes();
@@ -161,11 +160,11 @@ public final class ClinicLogoUtility {
             cell.setFixedHeight(HEADER_HEIGHT);
             pdfPTable.addCell(cell);
         } catch (FileNotFoundException e) {
-            logger.error("Failed to locate file at " + filename, e);
+            logger.error("Failed to locate file at " + logoFile, e);
         } catch (BadElementException e) {
             logger.error("Unexpected error.", e);
         } catch (MalformedURLException e) {
-            logger.error("This image location is malformed " + filename, e);
+            logger.error("This image location is malformed " + logoFile, e);
         } catch (IOException e) {
             logger.error("Unexpected error.", e);
         }

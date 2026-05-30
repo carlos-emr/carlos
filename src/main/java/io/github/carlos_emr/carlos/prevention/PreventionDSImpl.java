@@ -195,7 +195,7 @@ public class PreventionDSImpl implements PreventionDS {
                     if (file.isFile() && file.canRead()) {
                         log.debug("Loading prevention rules from file: {}", file.getName());
 
-                        try (FileInputStream fis = new FileInputStream(PathValidationUtils.resolveTrustedPath(file))) {
+                        try (FileInputStream fis = new FileInputStream(file)) {
                             kieBase = DroolsHelper.loadFromInputStream(fis);
                             fileFound = true;
                         } catch (Exception e) {

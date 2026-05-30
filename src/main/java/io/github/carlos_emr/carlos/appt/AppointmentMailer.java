@@ -177,6 +177,8 @@ public class AppointmentMailer implements MessageMailer {
                     logger.error("No Appointment Reminder Template found", fnf);
                 } catch (IOException io) {
                     logger.error("IOException occurred", io);
+                } catch (SecurityException se) {
+                    logger.error("Invalid appointment reminder template path", se);
                 } catch (AddressException addr) {
                     logger.error("To Address not valid:" + demographic.getEmail());
                 } finally {

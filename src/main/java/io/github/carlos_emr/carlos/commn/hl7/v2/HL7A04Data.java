@@ -194,7 +194,7 @@ public class HL7A04Data {
             BufferedWriter out = new BufferedWriter(fw);
             out.write(this.message);
             out.close();
-        } catch (IOException e) {
+        } catch (IOException | SecurityException e) {
             logger.error("ERROR while saving HL7 A04 file: " + e.toString());
             return false;
         }

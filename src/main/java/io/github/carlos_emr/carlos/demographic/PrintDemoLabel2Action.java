@@ -214,8 +214,8 @@ public class PrintDemoLabel2Action extends ActionSupport {
         try {
             ins = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(labelPath)));
             logger.debug("loading from :" + labelPath + " " + ins);
-        } catch (FileNotFoundException ex1) {
-            logger.warn("label xml file not found at " + labelPath + " using default instead");
+        } catch (FileNotFoundException | SecurityException ex1) {
+            logger.warn("label xml file not found at " + labelPath + " using default instead", ex1);
         }
         if (ins == null) {
             try {

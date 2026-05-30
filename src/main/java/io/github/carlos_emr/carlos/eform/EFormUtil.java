@@ -229,7 +229,13 @@ public class EFormUtil {
     public static ArrayList<String> listImages() {
         String imagePath = CarlosProperties.getInstance().getEformImageDirectory();
         logger.debug("Img Path: " + imagePath);
-        File dir = PathValidationUtils.resolveConfiguredDirectory(imagePath, "eform image path");
+        File dir;
+        try {
+            dir = PathValidationUtils.resolveConfiguredDirectory(imagePath, "eform image path");
+        } catch (SecurityException e) {
+            logger.warn("eForm image path is unavailable", e);
+            return new ArrayList<String>();
+        }
         String[] files = dir.list();
         ArrayList<String> fileList;
         if (files != null) {
@@ -1238,7 +1244,13 @@ public class EFormUtil {
     public static ArrayList<String> listRichTextLetterTemplates() {
         String imagePath = CarlosProperties.getInstance().getEformImageDirectory();
         MiscUtils.getLogger().debug("Img Path: " + imagePath);
-        File dir = PathValidationUtils.resolveConfiguredDirectory(imagePath, "eform image path");
+        File dir;
+        try {
+            dir = PathValidationUtils.resolveConfiguredDirectory(imagePath, "eform image path");
+        } catch (SecurityException e) {
+            MiscUtils.getLogger().warn("eForm image path is unavailable", e);
+            return new ArrayList<String>();
+        }
         String[] files = getRichTextLetterTemplates(dir);
         ArrayList<String> fileList;
         if (files != null) fileList = new ArrayList<String>(Arrays.asList(files));

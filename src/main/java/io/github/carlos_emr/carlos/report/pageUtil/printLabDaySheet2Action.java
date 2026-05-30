@@ -28,6 +28,7 @@
 
 package io.github.carlos_emr.carlos.report.pageUtil;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -103,9 +104,9 @@ public class printLabDaySheet2Action extends ActionSupport {
         InputStream ins = null;
 
         try {
-            ins = new FileInputStream(PathValidationUtils.resolveConfiguredFile(System.getProperty("user.home") + "Addresslabel.xml", "lab day sheet user template"));
-        } catch (FileNotFoundException ex1) {
-            logger.debug("Addresslabel.xml not found in user's home directory. Using default instead");
+            ins = new FileInputStream(PathValidationUtils.resolveConfiguredFile(new File(System.getProperty("user.home"), "Addresslabel.xml").getPath(), "lab day sheet user template"));
+        } catch (FileNotFoundException | SecurityException ex1) {
+            logger.debug("Addresslabel.xml not found in user's home directory. Using default instead", ex1);
         }
 
         if (ins == null) {

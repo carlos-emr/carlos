@@ -138,6 +138,7 @@ public class TeleplanSubmission {
         try {
             File directory = PathValidationUtils.validateConfiguredDirectory(dirToSaveFiles, "Teleplan output directory");
             String safeFileName = PathValidationUtils.validateGeneratedFileName(fileName);
+            fileName = safeFileName;
 
             htmlFile = PathValidationUtils.validateGeneratedChildPath(safeFileName + ".html", directory);
             mspFile = PathValidationUtils.validateGeneratedChildPath(safeFileName, directory);

@@ -105,13 +105,13 @@ public class zip {
 
         Enumeration<? extends ZipEntry> entries;
         boolean result = false;
-        File targetDir = PathValidationUtils.resolveConfiguredDirectory(dirName, "unzip target directory");
-        File zipInputFile = PathValidationUtils.validatePath(fName, targetDir);
-        String fullpath = zipInputFile.getPath();
-        if (!fName.substring(fName.length() - 4).equalsIgnoreCase(".zip")) {
+        if (fName == null || fName.length() < 4 || !fName.toLowerCase().endsWith(".zip")) {
             logger.error("unzipXML: " + fName + " does not have .zip extension.");
             return result;
         }
+        File targetDir = PathValidationUtils.resolveConfiguredDirectory(dirName, "unzip target directory");
+        File zipInputFile = PathValidationUtils.validatePath(fName, targetDir);
+        String fullpath = zipInputFile.getPath();
         BufferedOutputStream dest = null;
         BufferedInputStream is = null;
         ZipEntry entry;

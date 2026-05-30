@@ -1358,9 +1358,9 @@ public final class EDocUtil {
                 logger.debug("File not found (may be from different environment): " + fileName);
                 return 0;
             }
-            // resolvePath validates the path is within allowed directories
+            // resolvePath validates the path is within allowed directories, including temp directories.
             String resolvedPath = resolvePath(fileName);
-            Path path = PathValidationUtils.validateExistingPath(new File(resolvedPath), new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"))).toPath();
+            Path path = Paths.get(resolvedPath);
 
             if (Files.exists(path)) {
                 try (PDDocument pdf = Loader.loadPDF(path.toFile())) {

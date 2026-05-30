@@ -314,7 +314,14 @@ public class DocumentPreview2Action extends ActionSupport {
         }
         
         // Validate the PDF path to prevent path traversal attacks
-        Path pdfPath = PathValidationUtils.resolveTrustedPath(new java.io.File(pdfPathString)).toPath();
+        Path pdfPath;
+        try {
+            pdfPath = new java.io.File(pdfPathString).toPath();
+        } catch (RuntimeException e) {
+            logger.error("Invalid PDF path provided", e);
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return;
+        }
         
         try {
             // Get the canonical path to resolve any path traversal attempts

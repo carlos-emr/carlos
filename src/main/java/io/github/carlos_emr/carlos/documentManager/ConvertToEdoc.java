@@ -667,8 +667,13 @@ public final class ConvertToEdoc {
      * Feed this method a filename, it will return a full path to the Oscar images directory.
      */
     private static String buildImageDirectoryPath(String filename) {
-        File imageDirectory = PathValidationUtils.resolveConfiguredDirectory(getImageDirectory(), "image directory");
-        return PathValidationUtils.validateExistingPath(new File(imageDirectory, filename), imageDirectory).getPath();
+        try {
+            File imageDirectory = PathValidationUtils.resolveConfiguredDirectory(getImageDirectory(), "image directory");
+            return PathValidationUtils.validateExistingPath(new File(imageDirectory, filename), imageDirectory).getPath();
+        } catch (SecurityException e) {
+            logger.warn("Skipping invalid image resource path", e);
+            return "";
+        }
     }
 
     /**
@@ -684,7 +689,7 @@ public final class ConvertToEdoc {
         if (ConvertToEdoc.realPath != null) {
             try {
 				Path basePath = PathValidationUtils.resolveConfiguredDirectory(ConvertToEdoc.realPath, "real path").toPath();
-				String fileNameToFind = PathValidationUtils.validateStrictFileName(Paths.get(uri).getFileName().toString());
+				String fileNameToFind = PathValidationUtils.validatePathComponent(Paths.get(uri).getFileName().toString(), "resource file name");
 
 				try (Stream<Path> paths = Files.walk(basePath)) {
 					Path found = paths

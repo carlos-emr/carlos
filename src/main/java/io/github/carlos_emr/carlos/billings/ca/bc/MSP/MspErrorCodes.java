@@ -70,10 +70,14 @@ public class MspErrorCodes extends Properties {
             return new FileInputStream(configuredFile);
         }
 
-        File documentDir = PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
-        File file = PathValidationUtils.validateGeneratedChildPath("msp_error_codes.properties", documentDir);
-        if (file.exists()) {
-            return new FileInputStream(file);
+        try {
+            File documentDir = PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
+            File file = PathValidationUtils.validateGeneratedChildPath("msp_error_codes.properties", documentDir);
+            if (file.exists()) {
+                return new FileInputStream(file);
+            }
+        } catch (Exception e) {
+            MiscUtils.getLogger().warn("Could not load MSP error codes from DOCUMENT_DIR; using bundled defaults", e);
         }
 
         return this.getClass().getClassLoader().getResourceAsStream("oscar/oscarBilling/ca/bc/MSP/mspEditCodes.properties");

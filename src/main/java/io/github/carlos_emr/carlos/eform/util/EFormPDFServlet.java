@@ -139,6 +139,7 @@ public class EFormPDFServlet extends HttpServlet {
         ByteArrayOutputStream baosPDF = null;
         FileInputStream fis = null;
         File tmpFile = null;
+        ArrayList<File> intermediateFiles = new ArrayList<File>();
 
         try {
 
@@ -151,10 +152,16 @@ public class EFormPDFServlet extends HttpServlet {
                         baosPDF.writeTo(fos);
                     }
                     files.add(tmpFile.getAbsolutePath());
-                    tmpFile.deleteOnExit();
+                    intermediateFiles.add(tmpFile);
                 }
                 tmpFile = File.createTempFile(PathValidationUtils.validateGeneratedFileName("formpdf"), String.valueOf((int) Math.random() * 10000));
                 ConcatPDF.concat(files, tmpFile.getAbsolutePath());
+                for (File intermediateFile : intermediateFiles) {
+                    if (!intermediateFile.delete()) {
+                        intermediateFile.deleteOnExit();
+                    }
+                }
+                intermediateFiles.clear();
             } else {
                 baosPDF = generatePDFDocumentBytes(req, this.getServletContext(), 0);
                 tmpFile = File.createTempFile(PathValidationUtils.validateGeneratedFileName("formpdf"), String.valueOf((int) Math.random() * 10000));
@@ -204,7 +211,12 @@ public class EFormPDFServlet extends HttpServlet {
         } finally {
             if (baosPDF != null) baosPDF.close();
             if (fis != null) fis.close();
-            if (tmpFile != null) tmpFile.deleteOnExit();
+            for (File intermediateFile : intermediateFiles) {
+                if (!intermediateFile.delete()) {
+                    intermediateFile.deleteOnExit();
+                }
+            }
+            if (tmpFile != null && !tmpFile.delete()) tmpFile.deleteOnExit();
         }
     }
 

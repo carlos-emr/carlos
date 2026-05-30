@@ -112,10 +112,14 @@ public class CreateHRMFile {
         options.setSaveSuggestedPrefixes(suggestedPrefix);
         options.setSaveOuter();
 
+        File documentDir = PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
+        File file;
         if (!filepath.contains(File.separator)) {
-            filepath = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + File.separator + filepath;
+            file = PathValidationUtils.validateGeneratedChildPath(filepath, documentDir);
+            filepath = file.getPath();
+        } else {
+            file = PathValidationUtils.validateExistingPath(new File(filepath), documentDir);
         }
-        File file = PathValidationUtils.resolveTrustedPath(new File(filepath));
         try {
             omdCdsDoc.save(file, options);
         } catch (IOException ex) {

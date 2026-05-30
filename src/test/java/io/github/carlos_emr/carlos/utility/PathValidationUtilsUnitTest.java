@@ -867,11 +867,11 @@ class PathValidationUtilsUnitTest {
 
         @Test
         @DisplayName("should accept absolute configured directory")
-        void shouldAcceptAbsoluteConfiguredDirectory() {
+        void shouldAcceptAbsoluteConfiguredDirectory() throws IOException {
             File result = PathValidationUtils.validateConfiguredDirectory(allowedDir.getAbsolutePath(), "test dir");
 
             assertThat(result).isDirectory();
-            assertThat(result).isEqualTo(allowedDir.getAbsoluteFile());
+            assertThat(result).isEqualTo(allowedDir.getCanonicalFile());
         }
 
         @Test
@@ -887,12 +887,12 @@ class PathValidationUtilsUnitTest {
 
         @Test
         @DisplayName("should resolve missing configured directory for lazy creation")
-        void shouldResolveMissingConfiguredDirectoryForLazyCreation() {
+        void shouldResolveMissingConfiguredDirectoryForLazyCreation() throws IOException {
             File missingDir = tempDir.resolve("missing-dir").toFile();
 
             File result = PathValidationUtils.resolveConfiguredDirectory(missingDir.getAbsolutePath(), "test dir");
 
-            assertThat(result).isEqualTo(missingDir.getAbsoluteFile());
+            assertThat(result).isEqualTo(missingDir.getCanonicalFile());
             assertThat(result).doesNotExist();
         }
 
@@ -964,7 +964,7 @@ class PathValidationUtilsUnitTest {
             File result = PathValidationUtils.validateConfiguredFile(file.getAbsolutePath(), "configured file");
 
             assertThat(result).isFile();
-            assertThat(result).isEqualTo(file.getAbsoluteFile());
+            assertThat(result).isEqualTo(file.getCanonicalFile());
         }
 
         @Test
@@ -977,12 +977,12 @@ class PathValidationUtilsUnitTest {
 
         @Test
         @DisplayName("should resolve missing configured file for lazy creation")
-        void shouldResolveMissingConfiguredFileForLazyCreation() {
+        void shouldResolveMissingConfiguredFileForLazyCreation() throws IOException {
             File missingFile = tempDir.resolve("missing.properties").toFile();
 
             File result = PathValidationUtils.resolveConfiguredFile(missingFile.getAbsolutePath(), "configured file");
 
-            assertThat(result).isEqualTo(missingFile.getAbsoluteFile());
+            assertThat(result).isEqualTo(missingFile.getCanonicalFile());
             assertThat(result).doesNotExist();
         }
     }
