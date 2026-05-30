@@ -248,7 +248,7 @@ public class APISendGridEmailSender {
         for (EmailAttachment emailAttachment : attachments) {
             try {
                 ObjectNode jsonAttachment = objectMapper.createObjectNode();
-                Path path = PathValidationUtils.validateAgainstParentDirectory(new File(emailAttachment.getFilePath())).toPath();
+                Path path = PathValidationUtils.resolveTrustedPath(new File(emailAttachment.getFilePath())).toPath();
                 jsonAttachment.put("content", Base64.encodeBase64String(Files.readAllBytes(path)));
                 jsonAttachment.put("filename", emailAttachment.getFileName());
                 jsonAttachment.put("type", "application/pdf");

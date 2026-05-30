@@ -236,7 +236,7 @@ public class EDoc extends TagObject implements Comparable<EDoc> {
     public OutputStream getFileOutputStream() throws FileNotFoundException {
         OutputStream os = null;
         try {
-            os = new FileOutputStream(PathValidationUtils.validateAgainstParentDirectory(new File(getFilePath())));
+            os = new FileOutputStream(PathValidationUtils.resolveTrustedPath(new File(getFilePath())));
         } catch (FileNotFoundException fnfe) {
             logger.error("Could not write to the document container", fnfe);
             throw fnfe;
@@ -245,7 +245,7 @@ public class EDoc extends TagObject implements Comparable<EDoc> {
     }
 
     public byte[] getFileBytes() throws IOException {
-        return (FileUtils.readFileToByteArray(PathValidationUtils.validateAgainstParentDirectory(new File(getFilePath()))));
+        return (FileUtils.readFileToByteArray(PathValidationUtils.resolveTrustedPath(new File(getFilePath()))));
     }
     // Getter/Setter methods...
 

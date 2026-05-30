@@ -185,7 +185,7 @@ public class MsgCommxml {
      * @throws org.xml.sax.SAXException if the XML is malformed
      */
     public static Document parseXMLFile(String fileName) throws java.io.FileNotFoundException, javax.xml.parsers.ParserConfigurationException, java.io.IOException, org.xml.sax.SAXException {
-        try (java.io.FileReader reader = new java.io.FileReader(PathValidationUtils.validateAgainstParentDirectory(new File(fileName)))) {
+        try (java.io.FileReader reader = new java.io.FileReader(PathValidationUtils.resolveTrustedPath(new File(fileName)))) {
             InputSource is = new InputSource(reader);
             return XmlUtils.createSecureDocumentBuilderFactory().newDocumentBuilder().parse(is);
         }

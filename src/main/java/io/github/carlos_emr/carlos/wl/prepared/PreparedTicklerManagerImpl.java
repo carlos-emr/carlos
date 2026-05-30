@@ -51,7 +51,7 @@ public class PreparedTicklerManagerImpl implements PreparedTicklerManager {
     /* loads up the runtime plugins */
     public void setPath(String path) {
         ticklers.clear();
-        File f = PathValidationUtils.validateAgainstParentDirectory(new File(path + "/WEB-INF/classes/org/caisi/tickler/prepared/runtime"));
+        File f = PathValidationUtils.resolveTrustedPath(new File(path + "/WEB-INF/classes/org/caisi/tickler/prepared/runtime"));
         if (f.isDirectory()) {
             File[] files = f.listFiles();
             for (int x = 0; x < files.length; x++) {

@@ -789,7 +789,7 @@ public final class ConvertToEdoc {
         potentialLink = filterFileType(potentialLink);
 
         if (potentialLink != null) {
-            path = PathValidationUtils.validateAgainstParentDirectory(new File(potentialLink)).toPath();
+            path = PathValidationUtils.resolveTrustedPath(new File(potentialLink)).toPath();
         }
 
         if (path != null && Files.exists(path)) {

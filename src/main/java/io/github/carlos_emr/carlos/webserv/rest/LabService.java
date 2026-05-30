@@ -28,6 +28,8 @@
  */
 package io.github.carlos_emr.carlos.webserv.rest;
 
+import io.github.carlos_emr.CarlosProperties;
+
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -121,7 +123,7 @@ public class LabService extends AbstractServiceImpl {
 		}
 
 		int checkFileUploadedSuccessfully;
-        File savedLabFile = PathValidationUtils.validateAgainstParentDirectory(new File(filePath));
+        File savedLabFile = PathValidationUtils.validateExistingPath(new File(filePath), PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR"));
         try (InputStream localFileInputStream = Files.newInputStream(savedLabFile.toPath())) {
             checkFileUploadedSuccessfully = FileUploadCheck.addFile(savedLabFile.getName(), localFileInputStream, loggedInInfo.getLoggedInProviderNo());
         } catch (IOException e) {

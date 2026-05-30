@@ -342,7 +342,7 @@ public class PdfRecordPrinter {
             if (templateFilepath.isEmpty())
                 is = this.getClass().getClassLoader().getResourceAsStream(BILLING_INVOICE_TEMPLATE_FILE);
             else
-                is = new FileInputStream(PathValidationUtils.validateAgainstParentDirectory(new File(templateFilepath)));
+                is = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(templateFilepath)));
             //get Jasper Report
 
             JasperReport jasperReport = JasperCompileManager.compileReport(is);
@@ -369,7 +369,7 @@ public class PdfRecordPrinter {
                                 if (imagePath.isEmpty()) {
                                     //DO NOTHING imageIS = this.getClass().getClassLoader().getResourceAsStream(OSCAR_LOGO_FILE);
                                 } else {
-                                    imageIS = new FileInputStream(PathValidationUtils.validateAgainstParentDirectory(new File(imagePath)));
+                                    imageIS = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(imagePath)));
                                 }
                                 parameters.put(paramName, imageIS);
                             } else if (paramName.equals("billing_print_date")) {
@@ -902,7 +902,7 @@ public class PdfRecordPrinter {
             File tempFile = null;
             try {
                 tempFile = File.createTempFile("graphicImg", ".png");
-                FileOutputStream fos = new FileOutputStream(PathValidationUtils.validateAgainstParentDirectory(tempFile));
+                FileOutputStream fos = new FileOutputStream(PathValidationUtils.resolveTrustedPath(tempFile));
                 convert.convertToImage(image, drawData.getVarValue(), "PNG", fos);
                 logger.debug("converted image is " + tempFile.getName());
                 fos.close();

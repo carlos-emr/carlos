@@ -203,7 +203,7 @@ public class CarlosProperties extends Properties {
     public void readFromFile(String url) throws IOException {
         InputStream is = getClass().getResourceAsStream(url);
         if (is == null) {
-            File propertyFile = PathValidationUtils.validateAgainstParentDirectory(new File(url));
+            File propertyFile = PathValidationUtils.resolveConfiguredFile(url, "carlos properties file");
             is = new FileInputStream(propertyFile);
         }
 
@@ -520,7 +520,7 @@ public class CarlosProperties extends Properties {
 	 * @throws IOException If an I/O error occurs while writing to the file.
 	 */
 	public void saveProperty(String propFilePath, String key, String value) throws IOException {
-		File propertyFile = PathValidationUtils.validateAgainstParentDirectory(new File(propFilePath));
+		File propertyFile = PathValidationUtils.resolveConfiguredFile(propFilePath, "properties file");
 		try (FileWriter writer = new FileWriter(propertyFile, true)) {
 			// Write the new key-value pair
 			writer.write("\n" + key + "=" + value + "\n");

@@ -1254,7 +1254,7 @@ public class PhsStarHandler extends BasePhsStarHandler {
         InputStream is = null;
 
         try {
-            is = new FileInputStream(PathValidationUtils.validateAgainstParentDirectory(new File(filename)));
+            is = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(filename)));
 
             if (is != null) {
                 SAXBuilder parser = XmlUtils.createSecureSAXBuilder();

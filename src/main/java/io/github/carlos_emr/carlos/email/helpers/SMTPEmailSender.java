@@ -196,7 +196,7 @@ public class SMTPEmailSender {
         }
 
         for (EmailAttachment attachment : attachments) {
-            helper.addAttachment(attachment.getFileName(), PathValidationUtils.validateAgainstParentDirectory(new File(attachment.getFilePath())));
+            helper.addAttachment(attachment.getFileName(), PathValidationUtils.resolveTrustedPath(new File(attachment.getFilePath())));
         }
     }
 

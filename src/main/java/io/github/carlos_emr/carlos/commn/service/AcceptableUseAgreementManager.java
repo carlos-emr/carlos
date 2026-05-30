@@ -60,7 +60,7 @@ public class AcceptableUseAgreementManager {
     private static void loadAUA() {
         String path = CarlosProperties.getInstance().getProperty("BASE_DOCUMENT_DIR") + File.separator + "login" + File.separator + "AcceptableUseAgreement.txt";
         try {
-            File auaFile = PathValidationUtils.validateAgainstParentDirectory(new File(path));
+            File auaFile = PathValidationUtils.resolveTrustedPath(new File(path));
             if (!auaFile.exists()) {
                 loadAttempted = true;
                 logger.debug("No AcceptableUseAgreement File present. disabling AcceptableUseAgreement prompt");

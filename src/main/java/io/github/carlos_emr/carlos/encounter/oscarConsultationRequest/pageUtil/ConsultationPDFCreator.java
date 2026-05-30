@@ -375,7 +375,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
             filename = props.getProperty("faxLogoInConsultation");
         }
 
-        File imageFile = PathValidationUtils.validateAgainstParentDirectory(new File(filename));
+        File imageFile = PathValidationUtils.resolveTrustedPath(new File(filename));
         Path path = imageFile.toPath();
         if (Files.exists(path)) {
             addImage(infoTable, filename, PageSize.LETTER.getWidth() * 0.5f, 50f);
@@ -394,7 +394,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
      */
     protected void addImage(PdfPTable pdfPTable, String filename, float width, float height) {
 
-        File imageFile = PathValidationUtils.validateAgainstParentDirectory(new File(filename));
+        File imageFile = PathValidationUtils.resolveTrustedPath(new File(filename));
         try (FileInputStream fileInputStream = new FileInputStream(imageFile)) {
 
             PdfPCell cell = new PdfPCell();

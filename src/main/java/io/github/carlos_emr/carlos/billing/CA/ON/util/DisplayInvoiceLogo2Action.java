@@ -69,7 +69,7 @@ public class DisplayInvoiceLogo2Action extends ActionSupport {
         }
 
         response.setHeader("Content-disposition", "inline; filename=" + fileName);
-        File file = PathValidationUtils.validateAgainstParentDirectory(new File(fileName));
+        File file = PathValidationUtils.resolveTrustedPath(new File(fileName));
         //gets content type from image extension
         String contentType = new MimetypesFileTypeMap().getContentType(file);
         /**

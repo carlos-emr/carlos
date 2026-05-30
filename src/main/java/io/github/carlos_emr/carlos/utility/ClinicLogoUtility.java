@@ -116,7 +116,7 @@ public final class ClinicLogoUtility {
             }
         }
 
-        File logoFile = PathValidationUtils.validateAgainstParentDirectory(new File(filename));
+        File logoFile = PathValidationUtils.resolveTrustedPath(new File(filename));
         Path path = logoFile.toPath();
         if (Files.exists(path)) {
             addImage(infoTable, filename, PageSize.LETTER.getWidth() * 0.5f, LOGO_HEIGHT);
@@ -148,7 +148,7 @@ public final class ClinicLogoUtility {
      * @param height float the maximum height to scale the image to (in points)
      */
     private static void addImage(PdfPTable pdfPTable, String filename, float width, float height) {
-        File logoFile = PathValidationUtils.validateAgainstParentDirectory(new File(filename));
+        File logoFile = PathValidationUtils.resolveTrustedPath(new File(filename));
         try (FileInputStream fileInputStream = new FileInputStream(logoFile)) {
             PdfPCell cell = new PdfPCell();
             byte[] faxLogImage = fileInputStream.readAllBytes();

@@ -140,7 +140,7 @@ public class UtilXML {
 
     public static Document parseXMLFile(String fileName)
             throws IOException, FileNotFoundException, Exception {
-        try (FileReader reader = new FileReader(PathValidationUtils.validateAgainstParentDirectory(new File(fileName)))) {
+        try (FileReader reader = new FileReader(PathValidationUtils.resolveTrustedPath(new File(fileName)))) {
             InputSource is = new InputSource(reader);
             return XmlUtils.createSecureDocumentBuilderFactory().newDocumentBuilder().parse(is);
         }

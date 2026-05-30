@@ -161,7 +161,7 @@ public class zip {
             File afile = PathValidationUtils.validateExistingPath(zipInputFile, targetDir);
             File dir = PathValidationUtils.resolveConfiguredDirectory(new File(targetDir, "unzip_archive").getPath(), "unzip archive directory");
             if (!dir.exists()) dir.mkdirs();
-            Boolean success = afile.renameTo(PathValidationUtils.validateGeneratedChildPath(afile.getName(), dir));
+            boolean success = afile.renameTo(PathValidationUtils.validateGeneratedChildPath(afile.getName(), dir));
             if (!success) {
                 logger.error("io.github.carlos_emr.carlos.util.zip.unzipXML: the zip file " + fullpath + " was not archived");
             }

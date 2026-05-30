@@ -185,7 +185,7 @@ public class EFormLoader {
                 ClassLoader loader = eLoader.getClass().getClassLoader();
                 fs = loader.getResourceAsStream("oscar/eform/apconfig.xml");
             } else {
-                fs = new FileInputStream(PathValidationUtils.validateAgainstParentDirectory(new File(configpath)));
+                fs = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(configpath)));
             }
             try (InputStream autoClose = fs) {
                 JAXBContext ctx = JAXBContext.newInstance(EFormApConfig.class);

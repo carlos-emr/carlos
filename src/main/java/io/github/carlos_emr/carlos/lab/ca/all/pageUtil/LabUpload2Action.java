@@ -147,7 +147,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             } else {
                 filePath = Utilities.saveFile(is, fileName);
             }
-            File file = PathValidationUtils.validateAgainstParentDirectory(new File(filePath));
+            File file = PathValidationUtils.validateExistingPath(new File(filePath), PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR"));
 
             if (validateSignature(clientKey, signature, file)) {
                 logger.debug("Validated Successfully");

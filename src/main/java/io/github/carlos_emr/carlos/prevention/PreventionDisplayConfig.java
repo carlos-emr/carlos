@@ -115,7 +115,7 @@ public class PreventionDisplayConfig {
                 if (filename.startsWith("classpath:")) {
                     is = this.getClass().getClassLoader().getResourceAsStream(filename.substring(10));
                 } else {
-                    is = new FileInputStream(PathValidationUtils.validateAgainstParentDirectory(new File(filename)));
+                    is = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(filename)));
                 }
             } else {
                 is = this.getClass().getClassLoader().getResourceAsStream("oscar/prevention/PreventionItems.xml");
@@ -211,7 +211,7 @@ public class PreventionDisplayConfig {
                 if (filename.startsWith("classpath:")) {
                     is = this.getClass().getClassLoader().getResourceAsStream(filename.substring(10));
                 } else {
-                    is = new FileInputStream(PathValidationUtils.validateAgainstParentDirectory(new File(filename)));
+                    is = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(filename)));
                 }
             } else {
                 is = this.getClass().getClassLoader().getResourceAsStream("oscar/prevention/PreventionConfigSets.xml");

@@ -311,7 +311,7 @@ public class CaseManagementPrint {
 
         try {
 
-            file = PathValidationUtils.validateAgainstParentDirectory(new File(fileName));
+            file = PathValidationUtils.resolveTrustedPath(new File(fileName));
             out = new FileOutputStream(file);
 
             CaseManagementPrintPdf printer = new CaseManagementPrintPdf(request, out);
@@ -368,7 +368,7 @@ public class CaseManagementPrint {
                     MessageHandler handler = Factory.getHandler(segmentId);
                     String labReportName = PathValidationUtils.validateGeneratedFileName(handler.getPatientName().replaceAll("\\s", "_") + "_" + handler.getMsgDate() + "_LabReport.pdf");
                     String fileName2 = PathValidationUtils.validateGeneratedChildPath(labReportName, documentDir).getAbsolutePath();
-                    file2 = PathValidationUtils.validateAgainstParentDirectory(new File(fileName2));
+                    file2 = PathValidationUtils.resolveTrustedPath(new File(fileName2));
                     os2 = new FileOutputStream(file2);
 
                     {
@@ -382,7 +382,7 @@ public class CaseManagementPrint {
 
                         String embeddedLabReportName = PathValidationUtils.validateGeneratedFileName(handler.getPatientName().replaceAll("\\s", "_") + "_" + handler.getMsgDate() + "_LabReport.1.pdf");
                         String fileName3 = PathValidationUtils.validateGeneratedChildPath(embeddedLabReportName, documentDir).getAbsolutePath();
-                        File file3 = PathValidationUtils.validateAgainstParentDirectory(new File(fileName3));
+                        File file3 = PathValidationUtils.resolveTrustedPath(new File(fileName3));
                         fos = new FileOutputStream(file3);
                         pdfCreator.addEmbeddedDocuments(file2, fos);
                         pdfDocs.add(fileName3);
@@ -412,7 +412,7 @@ public class CaseManagementPrint {
                 file2.delete();
             }
             for (Object o : pdfDocs) {
-                PathValidationUtils.validateAgainstParentDirectory(new File((String) o)).delete();
+                PathValidationUtils.resolveTrustedPath(new File((String) o)).delete();
             }
         }
 

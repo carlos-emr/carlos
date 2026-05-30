@@ -433,7 +433,7 @@ public class Document extends AbstractModel<Integer> implements Serializable {
     }
 
     public byte[] getDocumentFileContentsAsBytes() throws IOException {
-        return (FileUtils.readFileToByteArray(PathValidationUtils.validateAgainstParentDirectory(new File(getDocumentFileFullPath()))));
+        return (FileUtils.readFileToByteArray(PathValidationUtils.resolveTrustedPath(new File(getDocumentFileFullPath()))));
     }
 
     @PreUpdate

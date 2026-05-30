@@ -65,7 +65,7 @@ public class ConcatPDF {
 
 
     public static void concat(ArrayList<Object> alist, String filename) {
-        File outputFile = PathValidationUtils.validateAgainstParentDirectory(new File(filename));
+        File outputFile = PathValidationUtils.resolveTrustedPath(new File(filename));
         try (OutputStream os = new FileOutputStream(outputFile)) {
             concat(alist, os);
         } catch (Exception e) {
@@ -89,7 +89,7 @@ public class ConcatPDF {
                 if (o instanceof InputStream) {
                     documentReader = Loader.loadPDF(((InputStream) o).readAllBytes());
                 } else {
-                    Path fileName = PathValidationUtils.validateAgainstParentDirectory(new File((String) o)).toPath();
+                    Path fileName = PathValidationUtils.resolveTrustedPath(new File((String) o)).toPath();
                     documentReader = Loader.loadPDF(fileName.toFile());
                 }
 

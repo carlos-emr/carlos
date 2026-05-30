@@ -172,7 +172,7 @@ public class PrintAppointmentReceipt2Action extends ActionSupport {
         logger.error("user home: " + System.getProperty("user.home"));
 
         try {
-            ins = new FileInputStream(PathValidationUtils.validateAgainstParentDirectory(new File(System.getProperty("user.home") + "/AppointmentReceipt.xml")));
+            ins = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(System.getProperty("user.home") + "/AppointmentReceipt.xml")));
         } catch (FileNotFoundException ex1) {
             logger.debug("AppointmentReceipt.xml not found in user's home directory. Using default instead");
         }

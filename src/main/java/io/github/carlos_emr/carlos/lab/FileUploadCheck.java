@@ -67,7 +67,7 @@ public final class FileUploadCheck {
         InputStream is = null;
 
         try {
-            is = new FileInputStream(PathValidationUtils.validateAgainstParentDirectory(new File(fileLocation)));
+            is = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(fileLocation)));
             String md5sum = DigestUtils.md5Hex(IOUtils.toByteArray(is));
             return hasFileBeenUploaded(md5sum);
         } finally {

@@ -221,7 +221,7 @@ public class TeleplanSubmission {
     }
 
     private void write(File file, String fileValue) throws Exception {
-        File validatedFile = PathValidationUtils.validateAgainstParentDirectory(file);
+        File validatedFile = PathValidationUtils.resolveTrustedPath(file);
         FileOutputStream out = new FileOutputStream(validatedFile);
         BufferedOutputStream bufout = new BufferedOutputStream(out);
         PrintStream p = new PrintStream(bufout);

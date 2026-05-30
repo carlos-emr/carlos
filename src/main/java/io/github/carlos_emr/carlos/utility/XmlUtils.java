@@ -30,7 +30,6 @@ package io.github.carlos_emr.carlos.utility;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -556,17 +555,12 @@ public final class XmlUtils {
     public static Document toDocumentFromFile(String url) throws ParserConfigurationException, SAXException, IOException {
         InputStream is = XmlUtils.class.getResourceAsStream(url);
         if (is == null) {
-            is = new FileInputStream(PathValidationUtils.validateAgainstParentDirectory(new File(url)));
+            is = new FileInputStream(PathValidationUtils.validateConfiguredFile(url, "XML document file"));
         }
 
-        Document var2;
-        try {
-            var2 = toDocument((InputStream) is);
-        } finally {
-            ((InputStream) is).close();
+        try (InputStream input = is) {
+            return toDocument(input);
         }
-
-        return var2;
     }
 
     public static Document toDocument(String s) throws IOException, SAXException, ParserConfigurationException {

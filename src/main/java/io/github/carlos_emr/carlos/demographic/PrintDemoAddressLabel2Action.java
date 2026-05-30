@@ -174,7 +174,7 @@ public class PrintDemoAddressLabel2Action extends ActionSupport {
         logger.debug("user home: " + System.getProperty("user.home"));
 
         try {
-            ins = new FileInputStream(PathValidationUtils.validateAgainstParentDirectory(new File(System.getProperty("user.home") + "/Addresslabel.xml")));
+            ins = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(System.getProperty("user.home") + "/Addresslabel.xml")));
         } catch (FileNotFoundException ex1) {
             logger.debug("Addresslabel.xml not found in user's home directory. Using default instead");
         }

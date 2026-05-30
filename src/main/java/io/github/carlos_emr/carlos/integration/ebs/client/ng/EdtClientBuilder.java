@@ -419,7 +419,7 @@ public class EdtClientBuilder {
         }
 
         // If classpath resource not found, try filesystem
-        try (InputStream is = new FileInputStream(PathValidationUtils.validateAgainstParentDirectory(new File(normalizedPath)))) {
+        try (InputStream is = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(normalizedPath)))) {
             props.load(is);
             return props;
         } catch (Exception e) {

@@ -135,10 +135,22 @@ public final class Factory {
         String labTypesPathOverride = CarlosProperties.getInstance().getProperty("LAB_TYPES");
 
         if (labTypesPathOverride != null && !labTypesPathOverride.isEmpty()) {
-            labTypesPath = PathValidationUtils.validateAgainstParentDirectory(new File(labTypesPathOverride)).toPath();
+            labTypesPath = PathValidationUtils.validateConfiguredFile(labTypesPathOverride, "LAB_TYPES").toPath();
         }
 
-        try (InputStream is = Files.newInputStream(PathValidationUtils.validateAgainstParentDirectory(labTypesPath.toFile()).toPath())) {
+        if (labTypesPath == null) {
+            logger.error("Could not resolve Message configuration file. Using default message handler instead.");
+            try {
+                MessageHandler handler = new DefaultGenericHandler();
+                handler.init(hl7Body);
+                return handler;
+            } catch (Exception e) {
+                logger.error("Could not create default message handler", e);
+                return null;
+            }
+        }
+
+        try (InputStream is = Files.newInputStream(PathValidationUtils.validateConfiguredFile(labTypesPath.toString(), "message configuration file").toPath())) {
 
             // return default handler if the type is not specified
             if (type == null) {

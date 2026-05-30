@@ -83,7 +83,7 @@ public class HRMFixMissingReportHelper {
             for (HRMDocument doc : documents) {
                 String hrmReportFileLocation = doc.getReportFile();
 
-                File tmpXMLholder = PathValidationUtils.validateAgainstParentDirectory(new File(hrmReportFileLocation));
+                File tmpXMLholder = PathValidationUtils.resolveTrustedPath(new File(hrmReportFileLocation));
 
                 if (tmpXMLholder.exists()) {
                     continue;

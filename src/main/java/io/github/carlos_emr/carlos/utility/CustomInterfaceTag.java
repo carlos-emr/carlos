@@ -140,7 +140,7 @@ public class CustomInterfaceTag extends TagSupport {
             return false;
         }
         String realPath = servletContext.getRealPath(path);
-        return realPath != null && PathValidationUtils.validateAgainstParentDirectory(new File(realPath)).isFile();
+        return realPath != null && PathValidationUtils.resolveTrustedPath(new File(realPath)).isFile();
     }
 
     @Override

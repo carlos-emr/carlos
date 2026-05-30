@@ -330,30 +330,51 @@ public final class PathValidationUtils {
     }
 
     /**
-     * Canonicalizes a file path and validates it against its immediate parent
-     * directory. Use this for legacy APIs that already pass a complete
-     * application-generated File instead of a separate base directory and
-     * filename.
+     * Canonicalizes a trusted internal path without treating it as a security boundary.
+     * Use a trusted base-directory helper instead for request, upload, or other
+     * externally controlled paths.
      *
-     * @param file file to validate
-     * @return canonicalized validated File
+     * @param file trusted file path to canonicalize
+     * @return canonicalized file
      */
-    public static File validateAgainstParentDirectory(File file) {
+    public static File resolveTrustedPath(File file) {
+        return resolveTrustedPath(file, "trusted file");
+    }
+
+    /**
+     * Canonicalizes a trusted internal path without treating it as a security boundary.
+     * Use a trusted base-directory helper instead for request, upload, or other
+     * externally controlled paths.
+     *
+     * @param file trusted file path to canonicalize
+     * @param label human-readable label for diagnostics
+     * @return canonicalized file
+     */
+    public static File resolveTrustedPath(File file, String label) {
+        String field = label == null || label.trim().isEmpty() ? "trusted file" : label;
         if (file == null) {
             throw new SecurityException("File is null");
         }
         try {
-            File canonicalFile = file.getCanonicalFile();
-            File parent = canonicalFile.getParentFile();
-            if (parent == null) {
-                throw new SecurityException("File has no parent directory");
-            }
-            validateWithinDirectory(canonicalFile, parent);
-            return canonicalFile;
+            return file.getCanonicalFile();
         } catch (IOException e) {
-            logger.error("Error validating file path", e);
-            throw new SecurityException("Error validating file path", e);
+            logger.error("Error resolving {}", field, e);
+            throw new SecurityException("Error resolving trusted path", e);
         }
+    }
+
+    /**
+     * Canonicalizes a file path against its own parent directory. This is not a
+     * security boundary; use a trusted base-directory helper for untrusted paths.
+     *
+     * @param file file to canonicalize
+     * @return canonicalized file
+     * @deprecated use {@link #resolveTrustedPath(File)} for trusted internal paths,
+     * or validate against a real trusted base directory.
+     */
+    @Deprecated
+    public static File validateAgainstParentDirectory(File file) {
+        return resolveTrustedPath(file);
     }
 
     /**

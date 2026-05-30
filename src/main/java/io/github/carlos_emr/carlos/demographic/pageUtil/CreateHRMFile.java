@@ -115,7 +115,7 @@ public class CreateHRMFile {
         if (!filepath.contains(File.separator)) {
             filepath = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + File.separator + filepath;
         }
-        File file = PathValidationUtils.validateAgainstParentDirectory(new File(filepath));
+        File file = PathValidationUtils.resolveTrustedPath(new File(filepath));
         try {
             omdCdsDoc.save(file, options);
         } catch (IOException ex) {

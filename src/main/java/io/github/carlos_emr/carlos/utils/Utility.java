@@ -336,7 +336,7 @@ public class Utility {
 
             BufferedReader in = null;
             try {
-                in = new BufferedReader(new FileReader(PathValidationUtils.validateAgainstParentDirectory(new File(fileDir))));
+                in = new BufferedReader(new FileReader(PathValidationUtils.resolveTrustedPath(new File(fileDir))));
                 String str;
                 if (fileDir.indexOf("/in/") > -1) {
                     while ((str = in.readLine()) != null) {

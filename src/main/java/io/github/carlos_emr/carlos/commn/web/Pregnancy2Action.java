@@ -793,7 +793,7 @@ Repeat antibody screen
             index++;
         }
 
-        File file = PathValidationUtils.validateAgainstParentDirectory(new File(request.getSession().getServletContext().getRealPath("/") + "WEB-INF/classes/oscar/form/prop/fundal_graph.png"));
+        File file = PathValidationUtils.resolveTrustedPath(new File(request.getSession().getServletContext().getRealPath("/") + "WEB-INF/classes/oscar/form/prop/fundal_graph.png"));
         BufferedImage bufferedImage = ImageIO.read(file);
         Graphics2D g = bufferedImage.createGraphics();
         g.setColor(Color.black);

@@ -110,7 +110,7 @@ public class HRMReportParser {
             try {
                 // a lot of the parsers need to refer to a file and even when they provide
                 // parse(String text) it treats the text as a URL, so we load from disk
-                File tmpXMLholder = PathValidationUtils.validateAgainstParentDirectory(new File(hrmReportFileLocation));
+                File tmpXMLholder = PathValidationUtils.resolveTrustedPath(new File(hrmReportFileLocation));
 
                 // check DOCUMENT_DIR if not found
                 if (!tmpXMLholder.exists()) {

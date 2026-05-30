@@ -504,7 +504,7 @@ public class EmailManager {
     private void encryptAttachments(List<EmailAttachment> encryptableAttachments, String password) throws EmailSendingException {
         for (EmailAttachment attachment : encryptableAttachments) {
             try {
-                Path attachmentPDFPath = PathValidationUtils.validateAgainstParentDirectory(new File(attachment.getFilePath())).toPath();
+                Path attachmentPDFPath = PathValidationUtils.resolveTrustedPath(new File(attachment.getFilePath())).toPath();
                 attachmentPDFPath = PDFEncryptionUtil.encryptPDF(attachmentPDFPath, password);
                 attachment.setFilePath(attachmentPDFPath.toString());
             } catch (IOException e) {

@@ -252,7 +252,7 @@ public class Doc2PDF {
      * @param docBin String the binary PDF data to write
      */
     public static void SavePDF2File(String fileName, String docBin) {
-        try (FileOutputStream ostream = new FileOutputStream(PathValidationUtils.validateAgainstParentDirectory(new File(fileName)));
+        try (FileOutputStream ostream = new FileOutputStream(PathValidationUtils.resolveTrustedPath(new File(fileName)));
              ObjectOutputStream p = new ObjectOutputStream(ostream)) {
             p.writeBytes(docBin);
             p.flush();

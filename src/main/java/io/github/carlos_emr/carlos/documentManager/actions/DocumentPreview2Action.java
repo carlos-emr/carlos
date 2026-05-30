@@ -314,7 +314,7 @@ public class DocumentPreview2Action extends ActionSupport {
         }
         
         // Validate the PDF path to prevent path traversal attacks
-        Path pdfPath = PathValidationUtils.validateAgainstParentDirectory(new java.io.File(pdfPathString)).toPath();
+        Path pdfPath = PathValidationUtils.resolveTrustedPath(new java.io.File(pdfPathString)).toPath();
         
         try {
             // Get the canonical path to resolve any path traversal attempts

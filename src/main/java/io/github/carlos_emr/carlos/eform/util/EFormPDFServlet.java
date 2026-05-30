@@ -147,7 +147,9 @@ public class EFormPDFServlet extends HttpServlet {
                 for (int x = 0; x < Integer.parseInt(req.getParameter("multiple")); x++) {
                     baosPDF = generatePDFDocumentBytes(req, this.getServletContext(), x);
                     tmpFile = File.createTempFile(PathValidationUtils.validateGeneratedFileName("formpdf"), String.valueOf((int) Math.random() * 10000));
-                    baosPDF.writeTo(new FileOutputStream(PathValidationUtils.validateAgainstParentDirectory(tmpFile)));
+                    try (FileOutputStream fos = new FileOutputStream(PathValidationUtils.resolveTrustedPath(tmpFile))) {
+                        baosPDF.writeTo(fos);
+                    }
                     files.add(tmpFile.getAbsolutePath());
                     tmpFile.deleteOnExit();
                 }
@@ -156,7 +158,9 @@ public class EFormPDFServlet extends HttpServlet {
             } else {
                 baosPDF = generatePDFDocumentBytes(req, this.getServletContext(), 0);
                 tmpFile = File.createTempFile(PathValidationUtils.validateGeneratedFileName("formpdf"), String.valueOf((int) Math.random() * 10000));
-                baosPDF.writeTo(new FileOutputStream(PathValidationUtils.validateAgainstParentDirectory(tmpFile)));
+                try (FileOutputStream fos = new FileOutputStream(PathValidationUtils.resolveTrustedPath(tmpFile))) {
+                    baosPDF.writeTo(fos);
+                }
             }
             StringBuilder sbFilename = new StringBuilder();
             sbFilename.append("filename_");

@@ -195,7 +195,7 @@ public class PDFController {
 
     private boolean setFilePath(File file) {
 
-        File validatedFile = PathValidationUtils.validateAgainstParentDirectory(file);
+        File validatedFile = PathValidationUtils.resolveTrustedPath(file);
         if (validatedFile.exists()) {
             this.filePath = validatedFile;
             return Boolean.TRUE;
@@ -418,7 +418,7 @@ public class PDFController {
                 setFileName(outputFile.getName());
 
                 if (getStamper() == null) {
-                    fos = new FileOutputStream(PathValidationUtils.validateAgainstParentDirectory(new File(getOutputPath())));
+                    fos = new FileOutputStream(PathValidationUtils.resolveTrustedPath(new File(getOutputPath())));
                     try {
                         setStamper(new PdfStamper(getReader(), fos));
                     } catch (Exception e) {

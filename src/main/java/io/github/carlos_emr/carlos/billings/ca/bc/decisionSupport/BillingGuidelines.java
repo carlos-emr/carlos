@@ -156,7 +156,7 @@ public class BillingGuidelines {
                     if (isDefaultFileLocation) {
                         is = this.getClass().getClassLoader().getResourceAsStream(streamToGet);
                     } else {
-                        is = new FileInputStream(PathValidationUtils.validateAgainstParentDirectory(new File(streamToGet)));
+                        is = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(streamToGet)));
                     }
                     in = new BufferedReader(new InputStreamReader(is));
                     String str;

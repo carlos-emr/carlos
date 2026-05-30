@@ -1211,7 +1211,7 @@ public final class EDocUtil {
             return PathValidationUtils.validateExistingPath(resolvedFile, documentDir);
         } catch (SecurityException e) {
             if (PathValidationUtils.isInAllowedTempDirectory(resolvedFile)) {
-                return PathValidationUtils.validateAgainstParentDirectory(resolvedFile);
+                return PathValidationUtils.resolveTrustedPath(resolvedFile);
             }
             throw e;
         }

@@ -209,7 +209,7 @@ public class ClinicalReportManager {
 
                 if (userConfigFilePath != null && !userConfigLoaded) {
                     try {
-                        is = new FileInputStream(PathValidationUtils.validateAgainstParentDirectory(new File(userConfigFilePath)));
+                        is = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(userConfigFilePath)));
                         userConfigLoaded = true;
                     } catch (FileNotFoundException ex) {
                         MiscUtils.getLogger().error("Error", ex);

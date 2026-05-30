@@ -124,7 +124,7 @@ public class DelegateFactory {
         if (clientKeystorePropertiesPath == null || clientKeystorePropertiesPath.trim().isEmpty()) {
             return;
         }
-        File signatureFile = PathValidationUtils.validateAgainstParentDirectory(new File(clientKeystorePropertiesPath));
+        File signatureFile = PathValidationUtils.resolveTrustedPath(new File(clientKeystorePropertiesPath));
         Path signaturePropFile = signatureFile.toPath();
         if (Files.exists(signaturePropFile)) {
             File file = signatureFile;

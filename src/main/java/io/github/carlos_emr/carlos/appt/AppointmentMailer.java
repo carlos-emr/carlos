@@ -152,7 +152,7 @@ public class AppointmentMailer implements MessageMailer {
                     this.message.setTo(emailAddress.toString());
 
 
-                    fstream = new FileInputStream(PathValidationUtils.validateAgainstParentDirectory(new File(msgTemplatePath)));
+                    fstream = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(msgTemplatePath)));
                     instream = new DataInputStream(fstream);
 
                     BufferedReader bufreader = new BufferedReader(new InputStreamReader(instream));

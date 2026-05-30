@@ -39,6 +39,8 @@
 
 package io.github.carlos_emr.carlos.lab.ca.all.pageUtil;
 
+import io.github.carlos_emr.CarlosProperties;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -168,7 +170,7 @@ public class InsideLabUpload2Action extends ActionSupport implements UploadedFil
     }
 
     private FileStatus processFile(LoggedInInfo loggedInInfo, HttpServletRequest request, String filePath, String fileType) {
-        Path path = PathValidationUtils.validateAgainstParentDirectory(new File(filePath)).toPath();
+        Path path = PathValidationUtils.validateExistingPath(new File(filePath), PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR")).toPath();
         String fileName = path.getFileName().toString();
         int checkFileUploadedSuccessfully;
 

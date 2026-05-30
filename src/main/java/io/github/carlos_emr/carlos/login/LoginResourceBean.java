@@ -151,7 +151,7 @@ public class LoginResourceBean {
 
         // Load custom properties from .env file if it exists
         if (propertiesFile.exists()) {
-            try (FileInputStream fileInputStream = new FileInputStream(PathValidationUtils.validateAgainstParentDirectory(propertiesFile))) {
+            try (FileInputStream fileInputStream = new FileInputStream(PathValidationUtils.resolveTrustedPath(propertiesFile))) {
                 loginProperties.load(fileInputStream);
             } catch (Exception e) {
                 MiscUtils.getLogger().warn("Problem with fetching login resources " + e);

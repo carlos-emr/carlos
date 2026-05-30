@@ -60,7 +60,7 @@ public class ResourceAttributeFilter implements ResourceAttributeFilterInterface
         InputStream is = getClass().getResourceAsStream(filterURL);
 
         if (is == null) {
-            is = new FileInputStream(PathValidationUtils.validateAgainstParentDirectory(new File(filterURL)));
+            is = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(filterURL)));
         }
 
         try {

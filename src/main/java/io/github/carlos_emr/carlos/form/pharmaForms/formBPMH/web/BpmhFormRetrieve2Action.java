@@ -149,7 +149,7 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
             bpmhFormHandler.saveFormHistory();
         }
 
-        input = new FileInputStream(PathValidationUtils.validateAgainstParentDirectory(new File(pdfController.getOutputPath())));
+        input = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(pdfController.getOutputPath())));
         pdfContent = new byte[input.available()];
         input.read(pdfContent, 0, input.available());
 

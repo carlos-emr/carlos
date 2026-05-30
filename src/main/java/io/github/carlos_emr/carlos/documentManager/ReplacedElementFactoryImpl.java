@@ -141,7 +141,7 @@ public class ReplacedElementFactoryImpl implements ReplacedElementFactory {
      */
     protected final FSImage imageForPDF(String attribute, UserAgentCallback uac) throws IOException, BadElementException {
         FSImage fsImage;
-        try (InputStream input = new FileInputStream(PathValidationUtils.validateAgainstParentDirectory(new File(attribute)))) {
+        try (InputStream input = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(attribute)))) {
             byte[] bytes = IOUtils.toByteArray(input);
             Image image = Image.getInstance(bytes);
             fsImage = new ITextFSImage(image);

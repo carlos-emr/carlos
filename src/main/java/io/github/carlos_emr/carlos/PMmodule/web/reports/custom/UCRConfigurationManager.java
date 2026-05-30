@@ -62,7 +62,7 @@ public class UCRConfigurationManager {
             }
             JAXBContext ctx = JAXBContext.newInstance(UCRConfiguration.class);
             Unmarshaller unmarshaller = ctx.createUnmarshaller();
-            try (FileInputStream fis = new FileInputStream(PathValidationUtils.validateAgainstParentDirectory(f))) {
+            try (FileInputStream fis = new FileInputStream(PathValidationUtils.resolveTrustedPath(f))) {
                 SAXSource source = XmlUtils.createSecureJaxbSource(fis);
                 config = (UCRConfiguration) unmarshaller.unmarshal(source);
             }

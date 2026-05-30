@@ -80,13 +80,13 @@ public class ReadHRMFile {
             if (hrmFile == null) {
                 return;
             }
-            File hrm = PathValidationUtils.validateAgainstParentDirectory(new File(hrmFile));
+            File hrm = PathValidationUtils.resolveTrustedPath(new File(hrmFile));
             if (!hrm.exists()) {
                 return;
             }
             JAXBContext jc = JAXBContext.newInstance("io.github.carlos_emr.carlos.hospitalReportManager.xsd");
             Unmarshaller u = jc.createUnmarshaller();
-            try (FileInputStream fis = new FileInputStream(PathValidationUtils.validateAgainstParentDirectory(hrm))) {
+            try (FileInputStream fis = new FileInputStream(PathValidationUtils.resolveTrustedPath(hrm))) {
                 SAXSource source = XmlUtils.createSecureJaxbSource(fis);
                 OmdCds root = (OmdCds) u.unmarshal(source);
                 PatientRecord pr = root.getPatientRecord();

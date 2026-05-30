@@ -191,11 +191,11 @@ public class PreventionDSImpl implements PreventionDS {
                 } else {
                     // PREVENTION_FILE is an admin-configured property (not user input),
                     // so path traversal validation is not required here.
-                    File file = PathValidationUtils.validateAgainstParentDirectory(new File(preventionPath));
+                    File file = PathValidationUtils.resolveTrustedPath(new File(preventionPath));
                     if (file.isFile() && file.canRead()) {
                         log.debug("Loading prevention rules from file: {}", file.getName());
 
-                        try (FileInputStream fis = new FileInputStream(PathValidationUtils.validateAgainstParentDirectory(file))) {
+                        try (FileInputStream fis = new FileInputStream(PathValidationUtils.resolveTrustedPath(file))) {
                             kieBase = DroolsHelper.loadFromInputStream(fis);
                             fileFound = true;
                         } catch (Exception e) {

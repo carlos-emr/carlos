@@ -4532,7 +4532,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
 
                     InputStream stream = new ByteArrayInputStream(observationMsg.replace("\r", "\r\n").getBytes(StandardCharsets.UTF_8));
                     String filePath = Utilities.saveFile(stream, filename);
-                    File file = PathValidationUtils.validateAgainstParentDirectory(new File(filePath));
+                    File file = PathValidationUtils.validateExistingPath(new File(filePath), PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR"));
 
                     localFileIs = new FileInputStream(file);
 
