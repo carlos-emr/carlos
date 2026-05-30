@@ -129,6 +129,12 @@ public class SecurityManager {
 		return EncryptionUtils.hash(password);
 	}
 
+	/**
+	 * Encode the given PIN using the configured password hashing algorithm.
+	 *
+	 * @param pin The PIN to hash.
+	 * @return The hashed PIN.
+	 */
 	public String encodePin(CharSequence pin) {
 		return this.encodePassword(pin);
 	}
@@ -150,6 +156,17 @@ public class SecurityManager {
 		return isValid;
 	}
 
+	/**
+	 * Validates a raw PIN against the stored PIN value.
+	 *
+	 * <p>Modern hashes are verified with the configured password hashing algorithm. Legacy plaintext
+	 * and legacy encrypted PIN values are accepted only long enough to replace them with a modern
+	 * hash, which is persisted through {@link #upgradeSavePinHash(CharSequence, Security)}.</p>
+	 *
+	 * @param rawPin The PIN supplied by the user.
+	 * @param security The security record containing the stored PIN.
+	 * @return True when the supplied PIN matches and any required upgrade succeeds.
+	 */
 	public boolean validatePin(CharSequence rawPin, Security security) {
 		if (rawPin == null || security == null || security.getPin() == null) {
 			return false;
@@ -200,6 +217,13 @@ public class SecurityManager {
                 return true;
             }
 
+	/**
+	 * Hashes the supplied PIN, stores it on the security record, and persists the change.
+	 *
+	 * @param rawPin The raw PIN to hash.
+	 * @param security The security record to update.
+	 * @return True if the hash was generated, verified, and persisted.
+	 */
 	public boolean upgradeSavePinHash(CharSequence rawPin, Security security) {
 		String hash = this.encodePin(rawPin);
 		boolean matched = this.matchesPassword(rawPin, hash);
@@ -215,7 +239,7 @@ public class SecurityManager {
 
 	private boolean matchesLegacyPin(CharSequence rawPin, String storedPin) {
 		String rawPinValue = rawPin.toString();
-		return constantTimeEquals(rawPinValue, storedPin) || constantTimeEquals(encryptLegacyPin(rawPinValue), storedPin);
+		return constantTimeEquals(rawPinValue, storedPin) | constantTimeEquals(encryptLegacyPin(rawPinValue), storedPin);
 	}
 
 	@SuppressWarnings("deprecation")

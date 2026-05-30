@@ -243,7 +243,10 @@ public final class LoginCheckLoginBean {
         boolean isRemotePinRequired = isPinCheckEnabled && isWan && security.getBRemotelockset() != null && security.getBRemotelockset().intValue() == 1;
         boolean isLocalPinRequired = isPinCheckEnabled && !isWan && security.getBLocallockset() != null && security.getBLocallockset().intValue() == 1;
         boolean isPinRequired = isRemotePinRequired || isLocalPinRequired;
-        boolean isPinValid = !isPinRequired || (pin != null && pin.length() >= 3 && this.securityManager.validatePin(pin, security));
+        boolean isPinValid = true;
+        if (isPinRequired) {
+            isPinValid = pin != null && pin.length() >= 3 && this.securityManager.validatePin(pin, security);
+        }
 
         if (isRemotePinRequired && !isPinValid) {
             return cleanNullObj(LOG_PRE + "Pin-remote needed: " + username);
