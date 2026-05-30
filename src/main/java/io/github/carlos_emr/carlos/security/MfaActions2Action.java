@@ -94,15 +94,14 @@ public final class MfaActions2Action extends ActionSupport {
      */
     String resetMfa(LoggedInInfo loggedInInfo) throws IOException {
         String securityId = request.getParameter("securityId");
-        if (securityId == null || !securityId.matches("\\d+")) {
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid securityId");
-            return NONE;
-        }
-
         Integer parsedSecurityId;
         try {
             parsedSecurityId = Integer.valueOf(securityId);
         } catch (NumberFormatException e) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid securityId");
+            return NONE;
+        }
+        if (parsedSecurityId < 0) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid securityId");
             return NONE;
         }
