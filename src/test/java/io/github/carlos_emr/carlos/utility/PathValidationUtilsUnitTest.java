@@ -1033,6 +1033,31 @@ class PathValidationUtilsUnitTest {
         }
     }
 
+
+    @Nested
+    @DisplayName("Child Path Validation Tests")
+    class ChildPathValidationTests {
+
+        @Test
+        @DisplayName("should allow non-existing child path inside allowed directory")
+        void shouldAllowNonExistingChildPathInsideAllowedDirectory() {
+            File child = tempDir.resolve("new-document.pdf").toFile();
+
+            File result = PathValidationUtils.validateChildPath(child, allowedDir);
+
+            assertThat(result).isEqualTo(child);
+        }
+
+        @Test
+        @DisplayName("should reject child path outside allowed directory")
+        void shouldRejectChildPathOutsideAllowedDirectory() {
+            File outside = tempDir.getParent().resolve("outside-document.pdf").toFile();
+
+            assertThatThrownBy(() -> PathValidationUtils.validateChildPath(outside, allowedDir))
+                .isInstanceOf(SecurityException.class);
+        }
+    }
+
     // ========================================================================
     // SYMLINK HANDLING (Platform Dependent)
     // ========================================================================

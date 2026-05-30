@@ -151,7 +151,13 @@ public final class MiscUtils {
 
             String resolvedLocation = configLocation.replace("${contextName}", contextPath);
 
-            File configFile = PathValidationUtils.resolveConfiguredFile(resolvedLocation, "log4j override configuration");
+            File configFile;
+            try {
+                configFile = PathValidationUtils.resolveConfiguredFile(resolvedLocation, "log4j override configuration");
+            } catch (SecurityException e) {
+                getLogger().warn("log4j.override.configuration points to a missing or unreadable file: " + resolvedLocation, e);
+                return;
+            }
             if (!configFile.isFile() || !configFile.canRead()) {
                 getLogger().warn("log4j.override.configuration points to a missing or unreadable file: " + resolvedLocation);
                 return;

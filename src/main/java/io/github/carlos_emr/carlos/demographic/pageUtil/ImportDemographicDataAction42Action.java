@@ -170,7 +170,6 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
     private static final String REPORTTEXT = "Text";
     private static final String RISKFACTOR = "Risk";
     private static String currentDirectory;
-    private static List<Path> validXmlFileList = Collections.emptyList();
 
     String admProviderNo = null;
     Demographic demographic = null;
@@ -247,7 +246,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
 
         ArrayList<String> warnings = new ArrayList<>();
         ArrayList<String[]> logs = new ArrayList<>();
-        validXmlFileList = new ArrayList<>();
+        List<Path> validXmlFiles = new ArrayList<>();
         String[] logResult;
 
         /*
@@ -328,7 +327,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
 
         // if the saved temporary file is an XML import of a single patient file, then go straight to processing
         if (filetype.contains("xml") && Files.exists(directory) && Files.isRegularFile(directory)) {
-            processXmlFile(loggedInInfo, directory, directory.getParent(), warnings, logs, request, this.getTimeshiftInDays(), students, courseId);
+            processXmlFile(loggedInInfo, directory, directory.getParent(), warnings, logs, request, this.getTimeshiftInDays(), students, courseId, validXmlFiles);
         }
 
         //TODO if the saved temporary file is a zip file then go on to unzip and process the directory tree.
@@ -337,12 +336,12 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             // unzip into parent directory
             Path rootDirectory = unzipFile(directory);
             // process starting at parent directory.
-            processXmlFilesInDirectory(loggedInInfo, rootDirectory, warnings, logs, request, this.getTimeshiftInDays(), students, courseId);
+            processXmlFilesInDirectory(loggedInInfo, rootDirectory, warnings, logs, request, this.getTimeshiftInDays(), students, courseId, validXmlFiles);
         }
 
         // if the saved temporary file is a directory tree; then search for and process the xml file in each directory
         else if (Files.exists(directory)) {
-            processXmlFilesInDirectory(loggedInInfo, directory, warnings, logs, request, this.getTimeshiftInDays(), students, courseId);
+            processXmlFilesInDirectory(loggedInInfo, directory, warnings, logs, request, this.getTimeshiftInDays(), students, courseId, validXmlFiles);
         }
 
         //TODO is it possible that the uploaded file is an batch file of XML files? If so, then a process is needed to
@@ -350,8 +349,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
 
 
         // use the completed valid xml list to run through the contact imports.
-        for (Path validXmlFile : validXmlFileList) {
-            logResult = importContacts(loggedInInfo, validXmlFile.toString(), validXmlFile.getParent(), warnings, request, this.getTimeshiftInDays(), students, courseId);
+        for (Path validXmlFile : validXmlFiles) {
+            logResult = importContacts(loggedInInfo, validXmlFile.toString(), validXmlFile.getParent(), request, this.getTimeshiftInDays());
             logs.add(logResult);
         }
 
@@ -396,7 +395,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
      * Search for all XML / CDS / CMS patient files in a given directory and process.
      */
     private void processXmlFilesInDirectory(LoggedInInfo loggedInInfo, Path fileDirectory, ArrayList<String> warnings, ArrayList<String[]> logs,
-                                            HttpServletRequest request, int timeshiftInDays, List<Provider> students, int courseId) throws IOException {
+                                            HttpServletRequest request, int timeshiftInDays, List<Provider> students, int courseId, List<Path> validXmlFiles) throws IOException {
         try (DirectoryStream<Path> directoryStream = Files.newDirectoryStream(fileDirectory)) {
             for (Path stream : directoryStream) {
                 if (Files.isDirectory(stream)) {
@@ -408,7 +407,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
                      */
                     Path xmlFile = PathValidationUtils.validateGeneratedChildPath(stream.toFile().getName() + ".xml", new File(currentDirectory)).toPath();
                     if (Files.exists(xmlFile)) {
-                        processXmlFile(loggedInInfo, xmlFile, stream, warnings, logs, request, timeshiftInDays, students, courseId);
+                        processXmlFile(loggedInInfo, xmlFile, stream, warnings, logs, request, timeshiftInDays, students, courseId, validXmlFiles);
                     }
 
                     /*
@@ -418,7 +417,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
                         List<Path> possibleXmlFileList = searchFileByExtension(stream, warnings);
                         for (Path possibleXmlFile : possibleXmlFileList) {
                             if (Files.exists(possibleXmlFile)) {
-                                processXmlFile(loggedInInfo, possibleXmlFile, stream, warnings, logs, request, timeshiftInDays, students, courseId);
+                                processXmlFile(loggedInInfo, possibleXmlFile, stream, warnings, logs, request, timeshiftInDays, students, courseId, validXmlFiles);
                             }
                         }
                     }
@@ -427,7 +426,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
                     if (filePath.toLowerCase().endsWith(".xml")) {
                         // Set the current directory to the XML file's parent for attachment resolution
                         currentDirectory = stream.getParent().toAbsolutePath().toString();
-                        processXmlFile(loggedInInfo, stream, stream.getParent(), warnings, logs, request, timeshiftInDays, students, courseId);
+                        processXmlFile(loggedInInfo, stream, stream.getParent(), warnings, logs, request, timeshiftInDays, students, courseId, validXmlFiles);
                     } else {
                         // Skip regular files (like JPG, PDF attachments) - they will be referenced by XML files
                     }
@@ -513,9 +512,9 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
     /**
      * Process a single patient XML / CDS / CMS file import and add to OSCAR's database.
      */
-    private void processXmlFile(LoggedInInfo loggedInInfo, Path xmlFile, Path importRoot, ArrayList<String> warnings, ArrayList<String[]> logs, HttpServletRequest request, int timeshiftInDays, List<Provider> students, int courseId) throws Exception {
+    private void processXmlFile(LoggedInInfo loggedInInfo, Path xmlFile, Path importRoot, ArrayList<String> warnings, ArrayList<String[]> logs, HttpServletRequest request, int timeshiftInDays, List<Provider> students, int courseId, List<Path> validXmlFiles) throws Exception {
         String[] logResult = importXML(loggedInInfo, xmlFile.toString(), importRoot, warnings, request, timeshiftInDays, students, courseId, false);
-        validXmlFileList.add(xmlFile);
+        validXmlFiles.add(xmlFile);
         logs.add(logResult);
     }
 
@@ -585,9 +584,6 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
         request.getSession().setAttribute("providerBean", providerBean);
     }
 
-    private String[] importContacts(LoggedInInfo loggedInInfo, String xmlFile, Path importRoot, ArrayList<String> warnings, HttpServletRequest request, int timeShiftInDays, List<Provider> students, int courseId) throws SQLException, Exception {
-        return importContacts(loggedInInfo, xmlFile, importRoot, warnings, request, timeShiftInDays, null, null, 0);
-    }
 
     private String[] importXML(LoggedInInfo loggedInInfo, String xmlFile, Path importRoot, ArrayList<String> warnings, HttpServletRequest request, int timeShiftInDays, List<Provider> students, int courseId, boolean cleanFile) throws SQLException, Exception {
         if (students == null || students.isEmpty()) {
@@ -620,7 +616,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    private String[] importContacts(LoggedInInfo loggedInInfo, String xmlFile, Path importRoot, ArrayList<String> warnings, HttpServletRequest request, int timeShiftInDays, Provider student, Program admitTo, int courseId) throws SQLException, Exception {
+    private String[] importContacts(LoggedInInfo loggedInInfo, String xmlFile, Path importRoot, HttpServletRequest request, int timeShiftInDays) throws SQLException, Exception {
         DemographicData dd = new DemographicData();
 
         String docDir = oscarProperties.getProperty("DOCUMENT_DIR");

@@ -149,8 +149,7 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
         }
 
         try (FileInputStream pdfInput = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(pdfController.getOutputPath())))) {
-            pdfContent = new byte[pdfInput.available()];
-            pdfInput.read(pdfContent, 0, pdfInput.available());
+            pdfContent = pdfInput.readAllBytes();
         }
 
         response.reset();

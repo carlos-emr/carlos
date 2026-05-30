@@ -123,7 +123,13 @@ public class LabService extends AbstractServiceImpl {
 		}
 
 		int checkFileUploadedSuccessfully;
-        File savedLabFile = PathValidationUtils.validateExistingPath(new File(filePath), PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR"));
+        File savedLabFile;
+        try {
+            savedLabFile = PathValidationUtils.validateExistingPath(new File(filePath), PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR"));
+        } catch (SecurityException e) {
+            logger.error("Invalid saved lab file path", e);
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createResponseMap(labT.getFileName(), "Failed", "Error occurred while processing the file", null, type)).build();
+        }
         try (InputStream localFileInputStream = Files.newInputStream(savedLabFile.toPath())) {
             checkFileUploadedSuccessfully = FileUploadCheck.addFile(savedLabFile.getName(), localFileInputStream, loggedInInfo.getLoggedInProviderNo());
         } catch (IOException e) {

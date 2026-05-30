@@ -308,14 +308,9 @@ public final class ImageRenderingServlet extends HttpServlet {
 
             if (filename != null) {
                 File f = PathValidationUtils.validateConfiguredFile(filename, "clinic logo file");
-                if (f.exists()) {
-                    byte[] data = FileUtils.readFileToByteArray(f);
-
-                    if (data != null) {
-                        renderImage(response, data, "jpeg");
-                        return;
-                    }
-                }
+                byte[] data = FileUtils.readFileToByteArray(f);
+                renderImage(response, data, "jpeg");
+                return;
             }
         } catch (Exception e) {
             logger.error("Unexpected error.", e);

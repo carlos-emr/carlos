@@ -318,12 +318,18 @@ public class DocumentPreview2Action extends ActionSupport {
         try {
             pdfPath = new java.io.File(pdfPathString).toPath();
         } catch (RuntimeException e) {
-            logger.error("Invalid PDF path provided", e);
+            logger.error("Invalid PDF path provided: {}", LogSafe.sanitize(pdfPathString));
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             return;
         }
         
         try {
+            if (!Files.exists(pdfPath) || !Files.isRegularFile(pdfPath)) {
+                logger.error("PDF file not found or is not a regular file: {}", LogSafe.sanitize(pdfPathString)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
+                response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                return;
+            }
+
             // Get the canonical path to resolve any path traversal attempts
             Path canonicalPdfPath = pdfPath.toRealPath();
             
@@ -354,13 +360,6 @@ public class DocumentPreview2Action extends ActionSupport {
             if (!isValidPath) {
                 logger.error("Access denied: Path traversal attempt detected for path: {}", LogSafe.sanitize(pdfPathString)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-                return;
-            }
-            
-            // Additional check: ensure the file exists and is a regular file
-            if (!Files.exists(canonicalPdfPath) || !Files.isRegularFile(canonicalPdfPath)) {
-                logger.error("PDF file not found or is not a regular file: {}", LogSafe.sanitize(pdfPathString)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-                response.setStatus(HttpServletResponse.SC_NOT_FOUND);
                 return;
             }
             

@@ -180,7 +180,7 @@ public class AppointmentMailer implements MessageMailer {
                 } catch (SecurityException se) {
                     logger.error("Invalid appointment reminder template path", se);
                 } catch (AddressException addr) {
-                    logger.error("To Address not valid:" + demographic.getEmail());
+                    logger.error("Invalid appointment reminder recipient address");
                 } finally {
                     try {
                         if (instream != null) {

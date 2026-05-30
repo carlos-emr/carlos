@@ -19,7 +19,10 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.HashMap;
@@ -121,18 +124,16 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                 String destFolder = request.getParameter("destFolder");
 
                 File incomingDir = PathValidationUtils.resolveConfiguredDirectory(IncomingDocUtil.getAndCreateIncomingDocumentFilePath(queueId, destFolder), "incoming document directory");
-                File f = PathValidationUtils.validateGeneratedChildPath(sanitizedFileName, incomingDir);
-                if (f.exists()) {
+                File destinationFile = PathValidationUtils.validateGeneratedChildPath(sanitizedFileName, incomingDir);
+                WriteToIncomingDocsResult writeResult = writeToIncomingDocs(docFile, destinationFile);
+                if (writeResult == WriteToIncomingDocsResult.ALREADY_EXISTS) {
                     map.put("error", sanitizedFileName + " " + props.getString("dms.documentUpload.alreadyExists"));
+                } else if (writeResult == WriteToIncomingDocsResult.FAILED) {
+                    map.put("error", "Failed to write file. Please contact administrator");
+                    MiscUtils.getLogger().error("Failed to write file to {}", LogSafe.sanitize(destFolder)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                 } else {
-                    boolean success = writeToIncomingDocs(docFile, queueId, destFolder, sanitizedFileName);
-                    if (!success) {
-                        map.put("error", "Failed to write file. Please contact administrator");
-                        MiscUtils.getLogger().error("Failed to write file to {}", LogSafe.sanitize(destFolder)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-                    } else {
-                        map.put("name", docFile.getName());
-                        map.put("size", docFile.length());
-                    }
+                    map.put("name", docFile.getName());
+                    map.put("size", docFile.length());
                 }
 
                 if (queueId != null) {
@@ -287,48 +288,32 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
         }
     }
 
-    private boolean writeToIncomingDocs(File docFile, String queueId, String PdfDir, String fileName) {
-        if (queueId == null || PdfDir == null || fileName == null) {
+    private WriteToIncomingDocsResult writeToIncomingDocs(File docFile, File destinationFile) {
+        if (docFile == null || destinationFile == null) {
             logger.error("Invalid parameters provided for writeToIncomingDocs");
-            return false;
+            return WriteToIncomingDocsResult.FAILED;
         }
 
-        // Check that filename doesn't contain path traversal sequences
-        if (fileName.contains("..") || fileName.contains("/") || fileName.contains("\\")) {
-            logger.error("Filename contains invalid path characters");
-            return false;
-        }
-
-        // Create directory structure and get validated parent path
-        String parentPath = IncomingDocUtil.getAndCreateIncomingDocumentFilePath(queueId, PdfDir);
-        File parentDir = new File(parentPath);
-        if (!parentDir.exists()) {
-            return false;
-        }
-
-        // Use PathValidationUtils to construct and validate the destination file path
-        // (sanitizes fileName, rejects traversal, ensures result is within parentDir).
-        File destinationFile;
-        try {
-            destinationFile = PathValidationUtils.validatePath(fileName, parentDir);
-        } catch (SecurityException e) {
-            logger.error("Destination file is outside allowed directory: {}", LogSafe.sanitize(fileName));
-            return false;
-        }
-
-        // Write the file - validate source file at point of use for static analysis visibility
         File validatedDocFile = PathValidationUtils.validateUpload(docFile);
         try (InputStream fis = Files.newInputStream(validatedDocFile.toPath());
-                FileOutputStream fos = new FileOutputStream(destinationFile)) {
+                OutputStream fos = Files.newOutputStream(destinationFile.toPath(), StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
             IOUtils.copy(fis, fos);
-        } catch (IOException e) {
+        } catch (FileAlreadyExistsException e) {
+            return WriteToIncomingDocsResult.ALREADY_EXISTS;
+        } catch (IOException | SecurityException e) {
             logger.error("Error writing file to incoming docs", e);
-            return false;
+            return WriteToIncomingDocsResult.FAILED;
         }
 
-        return true;
+        return WriteToIncomingDocsResult.SUCCESS;
     }
-    
+
+    private enum WriteToIncomingDocsResult {
+        SUCCESS,
+        ALREADY_EXISTS,
+        FAILED
+    }
+
     /**
      * Sanitizes a filename for use in incoming documents to prevent path traversal attacks.
      * Uses Apache Commons IO FilenameUtils for robust path traversal prevention.

@@ -614,7 +614,8 @@ public class Util {
 
                         } else {
                             String safeDir = PathValidationUtils.validatePathComponent(dir, "zip directory");
-                            zout.putNextEntry(new ZipEntry(PathValidationUtils.validateZipEntryName(new File(f.getParentFile(), safeDir + File.separator + f.getName()), f.getParentFile())));
+                            String safeEntryName = PathValidationUtils.validateZipEntryName(f, f.getParentFile());
+                            zout.putNextEntry(new ZipEntry(safeDir + "/" + safeEntryName));
 
                         }
                         // Transfer bytes from the input files to the ZIP file

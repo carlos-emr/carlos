@@ -179,7 +179,7 @@ public class HL7A04Data {
         if (this.message == null)
             this.generateA04MessageGuelph();
 
-        logger.info("Creating HL7 A04 file with contents: " + this.message);
+        logger.info("Creating HL7 A04 file");
 
         String saveDir = oscarProperties.getHL7A04BuildDirectory();
 

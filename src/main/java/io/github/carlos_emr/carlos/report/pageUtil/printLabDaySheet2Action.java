@@ -141,6 +141,7 @@ public class printLabDaySheet2Action extends ActionSupport {
         response.setHeader("Content-disposition", getHeader(response).toString());
         if (ins == null) {
             logger.error("No lab day sheet template stream available");
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             return NONE;
         }
 

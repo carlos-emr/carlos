@@ -65,24 +65,24 @@ public class TeleplanResponse {
 
 
     void processResponseStream(InputStream in) {
+        File tempFile = null;
         try {
             File directory = PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty(DOCUMENT_DIR_PROPERTY, "./"), DOCUMENT_DIR_PROPERTY);
             double randNum = Math.random();
-            File tempFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName("teleplan.msp" + randNum), directory);
-            BufferedReader bin = new BufferedReader(new InputStreamReader(in));
-            BufferedWriter out = new BufferedWriter(new FileWriter(tempFile));
+            tempFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName("teleplan.msp" + randNum), directory);
 
             String str = "";
             String lastLine = null;
-            while ((str = bin.readLine()) != null) {
-                //write str to temp file
-                lineCount++;
-                out.write(str + "\n");
-                log.debug(str);
-                lastLine = new String(str);
+            try (BufferedReader bin = new BufferedReader(new InputStreamReader(in));
+                    BufferedWriter out = new BufferedWriter(new FileWriter(tempFile))) {
+                while ((str = bin.readLine()) != null) {
+                    //write str to temp file
+                    lineCount++;
+                    out.write(str + "\n");
+                    log.debug(str);
+                    lastLine = new String(str);
+                }
             }
-            out.close();
-            bin.close();
             lineCount--;
             processLastLine(lastLine);
             //If it has a filename same to
@@ -109,6 +109,9 @@ public class TeleplanResponse {
 
         } catch (IOException e) {
             MiscUtils.getLogger().error("Error", e);
+            if (tempFile != null && tempFile.exists() && !tempFile.delete()) {
+                log.warn("Could not delete partial Teleplan response file");
+            }
         }
     }
 

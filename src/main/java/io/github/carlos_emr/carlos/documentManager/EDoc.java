@@ -237,7 +237,7 @@ public class EDoc extends TagObject implements Comparable<EDoc> {
         OutputStream os = null;
         try {
             File documentDir = PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
-            os = new FileOutputStream(PathValidationUtils.validateExistingPath(new File(getFilePath()), documentDir));
+            os = new FileOutputStream(PathValidationUtils.validateChildPath(new File(getFilePath()), documentDir));
         } catch (FileNotFoundException fnfe) {
             logger.error("Could not write to the document container", fnfe);
             throw fnfe;

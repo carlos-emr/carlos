@@ -223,11 +223,11 @@ public class TeleplanSubmission {
 
     private void write(File file, String fileValue) throws Exception {
         File validatedFile = PathValidationUtils.resolveTrustedPath(file);
-        FileOutputStream out = new FileOutputStream(validatedFile);
-        BufferedOutputStream bufout = new BufferedOutputStream(out);
-        PrintStream p = new PrintStream(bufout);
-        p.println(fileValue); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- MSP billing data stream
-        p.close();
+        try (FileOutputStream out = new FileOutputStream(validatedFile);
+                BufferedOutputStream bufout = new BufferedOutputStream(out);
+                PrintStream p = new PrintStream(bufout)) {
+            p.println(fileValue); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- MSP billing data stream
+        }
     }
 
 

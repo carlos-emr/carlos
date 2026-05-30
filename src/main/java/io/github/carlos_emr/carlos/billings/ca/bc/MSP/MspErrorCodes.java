@@ -66,8 +66,12 @@ public class MspErrorCodes extends Properties {
     private InputStream openErrorCodesStream() throws Exception {
         String configuredPath = CarlosProperties.getInstance().getProperty("msp_error_codes");
         if (configuredPath != null) {
-            File configuredFile = PathValidationUtils.validateConfiguredFile(configuredPath, "msp_error_codes");
-            return new FileInputStream(configuredFile);
+            try {
+                File configuredFile = PathValidationUtils.validateConfiguredFile(configuredPath, "msp_error_codes");
+                return new FileInputStream(configuredFile);
+            } catch (Exception e) {
+                MiscUtils.getLogger().warn("Could not load configured MSP error codes; using fallback", e);
+            }
         }
 
         try {

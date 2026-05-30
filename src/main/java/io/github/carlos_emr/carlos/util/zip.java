@@ -121,7 +121,7 @@ public class zip {
                 try (BufferedInputStream is = new BufferedInputStream(zipfile.getInputStream(entry))) {
                     int count;
                     byte data[] = new byte[BUFFER];
-                    if (!zName.substring(zName.length() - 4).equalsIgnoreCase(".zip")) {
+                    if (!zName.regionMatches(true, zName.length() - 4, ".zip", 0, 4)) {
                         zName = zName + ".xml";
                     }
 

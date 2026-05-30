@@ -330,6 +330,23 @@ public final class PathValidationUtils {
     }
 
     /**
+     * Validates that a child file path is within the allowed directory. The child
+     * does not need to exist yet, so this helper is appropriate for creation paths.
+     *
+     * @param file the file path to validate
+     * @param allowedDir the directory the file must be within
+     * @return the validated File
+     * @throws SecurityException if the file is outside the allowed directory
+     */
+    public static File validateChildPath(File file, File allowedDir) {
+        if (file == null) {
+            throw new SecurityException("File is null");
+        }
+        validateWithinDirectory(file, allowedDir);
+        return file;
+    }
+
+    /**
      * Canonicalizes a trusted internal path without treating it as a security boundary.
      * Use a trusted base-directory helper instead for request, upload, or other
      * externally controlled paths.
