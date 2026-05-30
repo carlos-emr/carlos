@@ -83,7 +83,7 @@
                 <td class="MainTableRightColumn" valign="top">
                     <c:if test="${not empty savedMessage}">
                         <div class="messages">
-                                ${savedMessage}
+                                ${carlos:forHtml(savedMessage)}
                         </div>
                     </c:if>
 
