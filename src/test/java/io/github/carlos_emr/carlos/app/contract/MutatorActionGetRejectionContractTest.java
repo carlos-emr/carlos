@@ -225,6 +225,8 @@ class MutatorActionGetRejectionContractTest {
         "io.github.carlos_emr.carlos.messenger.config.pageUtil.MsgMessengerAdmin2Action",
         // Provider document descriptions: read methods permit GET; write methods are POST-only.
         "io.github.carlos_emr.carlos.provider.web.DocumentDescriptionTemplate2Action",
+        // Security: resetMfa is POST-only; default/no-method dispatch returns 405.
+        "io.github.carlos_emr.carlos.security.MfaActions2Action",
         // Admin API clients: list methods permit GET; add/delete are POST-only.
         "io.github.carlos_emr.carlos.admin.web.ClientManage2Action",
         // Schedule: all below reject GET on Save/Delete/mutation-intent params.
@@ -309,7 +311,8 @@ class MutatorActionGetRejectionContractTest {
         "io.github.carlos_emr.carlos.commn.web.FlowSheetCustom2Action",
         "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action",
         "io.github.carlos_emr.carlos.login.gate.SelectFacility2Action",
-        "io.github.carlos_emr.carlos.provider.web.DocumentDescriptionTemplate2Action"
+        "io.github.carlos_emr.carlos.provider.web.DocumentDescriptionTemplate2Action",
+        "io.github.carlos_emr.carlos.security.MfaActions2Action"
     );
 
     @ParameterizedTest(name = "{0} rejects GET and HEAD without side-effects")
