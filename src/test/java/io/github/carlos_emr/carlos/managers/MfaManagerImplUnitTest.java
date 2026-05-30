@@ -53,6 +53,7 @@ class MfaManagerImplUnitTest extends CarlosUnitTestBase {
 
     private static final String PROVIDER_NAME_PROPERTY = "mfa.registration.qrcode.provider.name";
     private static final String LOGO_PATH_PROPERTY = "mfa.registration.qrcode.logo.path";
+    private static final String CARLOS_FAVICON_PATH = "loginResource/carlos_favicon.png";
 
     @Mock
     private SecurityDao securityDao;
@@ -109,6 +110,26 @@ class MfaManagerImplUnitTest extends CarlosUnitTestBase {
             verify(manager).getQRCodeImageData("Clinic MFA", "alice", "secret");
             assertThat(result).isEqualTo("data:image/png;base64,"
                     + Base64.getEncoder().encodeToString("qr".getBytes(StandardCharsets.UTF_8)));
+        }
+    }
+
+    @Test
+    @DisplayName("should apply the CARLOS favicon logo when configured for MFA QR codes")
+    void shouldApplyCarlosFaviconLogo_whenConfiguredForMfaQrCodes() {
+        MfaManagerImpl realManager = new MfaManagerImpl(securityDao, securityManager);
+
+        try (MockedStatic<CarlosProperties> propertiesMock = mockStatic(CarlosProperties.class)) {
+            propertiesMock.when(CarlosProperties::getInstance).thenReturn(properties);
+            when(properties.getProperty(PROVIDER_NAME_PROPERTY, "CARLOS EMR")).thenReturn("CARLOS EMR");
+            when(properties.getProperty(LOGO_PATH_PROPERTY)).thenReturn(CARLOS_FAVICON_PATH, null);
+
+            String qrCodeWithLogo = realManager.getQRCodeImageData(42, "secret");
+            String qrCodeWithoutLogo = realManager.getQRCodeImageData(42, "secret");
+
+            assertThat(MfaManagerImpl.class.getClassLoader().getResource(CARLOS_FAVICON_PATH)).isNotNull();
+            assertThat(qrCodeWithLogo).startsWith("data:image/png;base64,");
+            assertThat(qrCodeWithoutLogo).startsWith("data:image/png;base64,");
+            assertThat(qrCodeWithLogo).isNotEqualTo(qrCodeWithoutLogo);
         }
     }
 }
