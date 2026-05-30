@@ -111,7 +111,7 @@ class MfaActions2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldRejectGet_whenResetMfaRequested() throws Exception {
+    void shouldRejectGet_forResetMfaRequest() throws Exception {
         request.setMethod("GET");
 
         String result = action.execute();
@@ -123,7 +123,7 @@ class MfaActions2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldRejectRequest_whenMethodIsNotResetMfa() throws Exception {
+    void shouldRejectRequest_forNonResetMfaMethod() throws Exception {
         request.setParameter("method", "view");
 
         String result = action.execute();
@@ -135,7 +135,7 @@ class MfaActions2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldThrowSecurityException_whenAdminPrivilegeDenied() {
+    void shouldThrowSecurityException_forDeniedAdminPrivilege() {
         when(securityInfoManager.hasPrivilege(
                 eq(loggedInInfo), eq("_admin.userSecurity"), eq("w"), isNull()))
                 .thenReturn(false);
@@ -147,7 +147,7 @@ class MfaActions2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldRejectBadRequest_whenSecurityIdIsInvalid() throws Exception {
+    void shouldRejectRequest_forInvalidSecurityId() throws Exception {
         request.setParameter("securityId", "not-a-number");
 
         String result = action.execute();
@@ -158,7 +158,7 @@ class MfaActions2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldRejectNotFound_whenSecurityRecordDoesNotExist() throws Exception {
+    void shouldRejectRequest_forNonexistentSecurityRecord() throws Exception {
         when(securityManager.find(loggedInInfo, 123)).thenReturn(null);
 
         String result = action.execute();
@@ -169,7 +169,7 @@ class MfaActions2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldResetMfaSecret_whenPostIsAuthorizedAndValid() throws Exception {
+    void shouldResetMfaSecret_forAuthorizedValidPost() throws Exception {
         Security security = mock(Security.class);
         when(securityManager.find(loggedInInfo, 123)).thenReturn(security);
 

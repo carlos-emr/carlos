@@ -62,6 +62,10 @@ public final class MfaActions2Action extends ActionSupport {
                 SpringUtils.getBean(SecurityInfoManager.class));
     }
 
+    /**
+     * Constructor for unit tests; production code should use the no-argument
+     * constructor so dependencies are resolved from Spring.
+     */
     MfaActions2Action(
             SecurityManager securityManager,
             MfaManager mfaManager,
@@ -98,7 +102,7 @@ public final class MfaActions2Action extends ActionSupport {
      *
      * @return NONE, as this action does not forward to another page.
      */
-    String resetMfa(LoggedInInfo loggedInInfo) throws IOException {
+    private String resetMfa(LoggedInInfo loggedInInfo) throws IOException {
         String securityId = request.getParameter("securityId");
         Integer parsedSecurityId;
         try {
