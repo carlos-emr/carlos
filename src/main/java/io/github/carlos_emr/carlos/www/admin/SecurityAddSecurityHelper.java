@@ -111,6 +111,16 @@ public class SecurityAddSecurityHelper {
         return "admin.securityaddsecurity.msgAdditionSuccess";
     }
 
+    /**
+     * Parses a lock-setting request value.
+     *
+     * <p>Valid form values are expected to be numeric flags, where 0 disables the lock and 1 enables
+     * it. Missing or malformed values default to 0 so direct POSTs cannot fail provider creation with
+     * an unhandled parsing exception.</p>
+     *
+     * @param value The submitted lock-setting value.
+     * @return The parsed numeric flag, or 0 when the value is missing or invalid.
+     */
     static int parseLockSetting(String value) {
         try {
             return value == null ? 0 : Integer.parseInt(value);

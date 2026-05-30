@@ -239,7 +239,10 @@ public class SecurityManager {
 
 	private boolean matchesLegacyPin(CharSequence rawPin, String storedPin) {
 		String rawPinValue = rawPin.toString();
-		return constantTimeEquals(rawPinValue, storedPin) | constantTimeEquals(encryptLegacyPin(rawPinValue), storedPin);
+		boolean matchesPlaintext = constantTimeEquals(rawPinValue, storedPin);
+		boolean matchesEncrypted = constantTimeEquals(encryptLegacyPin(rawPinValue), storedPin);
+		// Use non-short-circuit OR so both legacy formats are compared before returning.
+		return matchesPlaintext | matchesEncrypted;
 	}
 
 	@SuppressWarnings("deprecation")
