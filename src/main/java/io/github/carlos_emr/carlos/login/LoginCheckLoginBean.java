@@ -245,7 +245,7 @@ public final class LoginCheckLoginBean {
         boolean isPinRequired = isRemotePinRequired || isLocalPinRequired;
         boolean isPinValid = true;
         if (isPinRequired) {
-            isPinValid = pin != null && pin.length() >= 3 && this.securityManager.validatePin(pin, security);
+            isPinValid = this.securityManager.validatePin(pin, security);
         }
 
         if (isRemotePinRequired && !isPinValid) {

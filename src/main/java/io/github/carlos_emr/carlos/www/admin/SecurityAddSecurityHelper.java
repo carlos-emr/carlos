@@ -42,7 +42,6 @@ import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 
@@ -128,9 +127,10 @@ public class SecurityAddSecurityHelper {
      */
     static int parseLockSetting(String value) {
         try {
-            return value == null ? 0 : Integer.parseInt(value);
+            int parsed = value == null ? 0 : Integer.parseInt(value);
+            return parsed == 1 ? 1 : 0;
         } catch (NumberFormatException e) {
-            logger.warn("Invalid security lock setting submitted; defaulting to disabled: {}", LogSafe.sanitize(value));
+            logger.warn("Invalid security lock setting submitted; defaulting to disabled");
             return 0;
         }
     }

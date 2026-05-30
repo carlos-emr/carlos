@@ -125,5 +125,10 @@ class SecurityAddSecurityHelperUnitTest extends CarlosUnitTestBase {
         assertThat(SecurityAddSecurityHelper.parseLockSetting(null)).isZero();
         assertThat(SecurityAddSecurityHelper.parseLockSetting("")).isZero();
         assertThat(SecurityAddSecurityHelper.parseLockSetting("invalid")).isZero();
+        assertThat(SecurityAddSecurityHelper.parseLockSetting("-1")).isZero();
+        assertThat(SecurityAddSecurityHelper.parseLockSetting("2")).isZero();
+        assertThat(SecurityAddSecurityHelper.parseLockSetting("1.5")).isZero();
+        assertThat(SecurityAddSecurityHelper.parseLockSetting(" 1 ")).isZero();
+        assertThat(SecurityAddSecurityHelper.parseLockSetting("2147483648")).isZero();
     }
 }

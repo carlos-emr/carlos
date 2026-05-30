@@ -161,14 +161,15 @@ public class SecurityManager {
 	 *
 	 * <p>Modern hashes are verified with the configured password hashing algorithm. Legacy plaintext
 	 * and legacy encrypted PIN values are accepted only long enough to replace them with a modern
-	 * hash, which is persisted through {@link #upgradeSavePinHash(CharSequence, Security)}.</p>
+	 * hash, which is persisted through {@link #upgradeSavePinHash(CharSequence, Security)}. The
+	 * legacy encryption path should be removed after production PINs have migrated to modern hashes.</p>
 	 *
 	 * @param rawPin The PIN supplied by the user.
 	 * @param security The security record containing the stored PIN.
 	 * @return True when the supplied PIN matches and any required upgrade succeeds.
 	 */
 	public boolean validatePin(CharSequence rawPin, Security security) {
-		if (rawPin == null || security == null || security.getPin() == null) {
+		if (rawPin == null || rawPin.length() < 3 || security == null || security.getPin() == null) {
 			return false;
 		}
 
@@ -239,10 +240,7 @@ public class SecurityManager {
 
 	private boolean matchesLegacyPin(CharSequence rawPin, String storedPin) {
 		String rawPinValue = rawPin.toString();
-		boolean matchesPlaintext = constantTimeEquals(rawPinValue, storedPin);
-		boolean matchesEncrypted = constantTimeEquals(encryptLegacyPin(rawPinValue), storedPin);
-		// The single-pipe OR is deliberate: both legacy formats must be compared before returning.
-		return matchesPlaintext | matchesEncrypted;
+		return constantTimeEquals(rawPinValue, storedPin) || constantTimeEquals(encryptLegacyPin(rawPinValue), storedPin);
 	}
 
 	@SuppressWarnings("deprecation")
@@ -251,10 +249,10 @@ public class SecurityManager {
 	}
 
 	private boolean constantTimeEquals(String first, String second) {
-		byte[] firstBytes = first == null ? new byte[0] : first.getBytes(StandardCharsets.UTF_8);
-		byte[] secondBytes = second == null ? new byte[0] : second.getBytes(StandardCharsets.UTF_8);
-		boolean matched = MessageDigest.isEqual(firstBytes, secondBytes);
-		return (first != null) & (second != null) & matched;
+		if (first == null || second == null) {
+			return false;
+		}
+		return MessageDigest.isEqual(first.getBytes(StandardCharsets.UTF_8), second.getBytes(StandardCharsets.UTF_8));
 	}
 
     public Security findByProviderNo(LoggedInInfo loggedInInfo, String providerNo) {
