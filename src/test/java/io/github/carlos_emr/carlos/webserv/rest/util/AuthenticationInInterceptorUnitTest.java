@@ -84,7 +84,8 @@ class AuthenticationInInterceptorUnitTest extends CarlosUnitTestBase {
         assertThat(auditLog.getAction()).isEqualTo("REST WS: NOT AUTHORIZED");
         assertThat(auditLog.getIp()).isEqualTo("127.0.0.1");
         assertThat(auditLog.getContent()).isEqualTo("http://localhost/ws/rest/patient");
-        assertThat(auditLog.getData()).isEqualTo("consumer_key=client\\r\\nforged");
+        String escapedConsumerKey = "client\\r\\nforged";
+        assertThat(auditLog.getData()).isEqualTo("consumer_key=" + escapedConsumerKey);
         assertThat(auditLog.getData()).doesNotContain("demographicNo", "12345", "appointmentNo", "67890");
 
         ArgumentCaptor<Response> responseCaptor = ArgumentCaptor.forClass(Response.class);
