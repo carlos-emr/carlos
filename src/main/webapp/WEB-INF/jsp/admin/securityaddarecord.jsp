@@ -267,7 +267,7 @@
                             if (isSiteAccessPrivacy) {
                                 for (Provider p : providerDao.getActiveProviders()) {
                                     List<Security> s = securityDao.findByProviderNo(p.getProviderNo());
-                                    if (s.size() > 0) {
+                                    if (s.isEmpty()) {
                         %>
                         <option value="<%=p.getProviderNo()%>"><carlos:encode value='<%= p.getFormattedName() %>' context="html"/>
                         </option>
