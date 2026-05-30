@@ -37,22 +37,28 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @DisplayName("Manage CSS styles JSP encoding")
 @Tag("unit")
+@Tag("security")
 class ManageCssStylesJspEncodingRegressionTest {
     private static final String BASEDIR_PROPERTY = "basedir";
     private static final Path MANAGE_CSS_STYLES_JSP_PATH =
             Path.of("src/main/webapp/WEB-INF/jsp/admin/manageCSSStyles.jsp");
 
     @Test
-    @Tag("security")
     void shouldEncodeSavedStyleOptions_whenRenderingInJsp() throws Exception {
         String jsp = Files.readString(resolveProjectPath(MANAGE_CSS_STYLES_JSP_PATH));
+        int selectStart = jsp.indexOf("<select name=\"selectedStyle\" id=\"style\">");
+        int selectEnd = jsp.indexOf("</select>", selectStart);
 
+        assertThat(selectStart).isGreaterThanOrEqualTo(0);
+        assertThat(selectEnd).isGreaterThan(selectStart);
+        String savedStylesSelect = jsp.substring(selectStart, selectEnd);
         assertThat(jsp)
                 .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
+                .contains("<option value=\"${carlos:forHtmlAttribute(style.style)}\">${carlos:forHtml(style.name)}</option>");
+        assertThat(savedStylesSelect)
                 .doesNotContain("<option value=\"${style.style}\">${style.name}</option>")
                 .doesNotContain("value=\"${style.style}")
-                .doesNotContain(">${style.name}</option>")
-                .contains("<option value=\"${carlos:forHtmlAttribute(style.style)}\">${carlos:forHtml(style.name)}</option>");
+                .doesNotContain(">${style.name}</option>");
     }
 
     /**
