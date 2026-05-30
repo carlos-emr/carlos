@@ -105,7 +105,7 @@ class NioFileManagerImplCopyFileUnitTest {
             assertThat(Files.readString(destination)).isEqualTo("cleanup failure still persists copy");
             assertThat(Files.exists(source)).isTrue();
         } finally {
-            sourceDir.toFile().setWritable(true, false);
+            assertThat(sourceDir.toFile().setWritable(true, false)).isTrue();
             Files.deleteIfExists(source);
             Files.deleteIfExists(sourceDir);
         }
