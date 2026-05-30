@@ -101,10 +101,6 @@ public final class MfaActions2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid securityId");
             return NONE;
         }
-        if (parsedSecurityId < 0) {
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid securityId");
-            return NONE;
-        }
 
         Security security = this.securityManager.find(loggedInInfo, parsedSecurityId);
         if (security == null) {
