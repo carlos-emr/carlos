@@ -55,8 +55,12 @@ class ScheduleNavigationAssetRegressionTest {
             Path.of("src", "main", "webapp", "WEB-INF", "jsp", "messenger", "ViewMessage.jsp");
     private static final Path CREATE_MESSAGE_JSP =
             Path.of("src", "main", "webapp", "WEB-INF", "jsp", "messenger", "CreateMessage.jsp");
+    private static final Path SENT_MESSAGE_JSP =
+            Path.of("src", "main", "webapp", "WEB-INF", "jsp", "messenger", "SentMessage.jsp");
     private static final Path INBOXHUB_JSP =
             Path.of("src", "main", "webapp", "WEB-INF", "jsp", "web", "inboxhub", "Inboxhub.jsp");
+    private static final Path TICKLER_MAIN_JSP =
+            Path.of("src", "main", "webapp", "WEB-INF", "jsp", "tickler", "ticklerMain.jsp");
     private static final Path MAIN_MENU_JSP =
             Path.of("src", "main", "webapp", "WEB-INF", "jsp", "provider", "mainMenu.jsp");
     private static final Path APPOINTMENT_PROVIDER_DAY_JSP =
@@ -107,7 +111,9 @@ class ScheduleNavigationAssetRegressionTest {
         String displayMessages = Files.readString(DISPLAY_MESSAGES_JSP, StandardCharsets.UTF_8);
         String viewMessage = Files.readString(VIEW_MESSAGE_JSP, StandardCharsets.UTF_8);
         String createMessage = Files.readString(CREATE_MESSAGE_JSP, StandardCharsets.UTF_8);
+        String sentMessage = Files.readString(SENT_MESSAGE_JSP, StandardCharsets.UTF_8);
         String inboxhub = Files.readString(INBOXHUB_JSP, StandardCharsets.UTF_8);
+        String ticklerMain = Files.readString(TICKLER_MAIN_JSP, StandardCharsets.UTF_8);
         String mainMenu = Files.readString(MAIN_MENU_JSP, StandardCharsets.UTF_8);
         String appointmentProviderDay = Files.readString(APPOINTMENT_PROVIDER_DAY_JSP, StandardCharsets.UTF_8);
         String scheduleScript = Files.readString(SCHEDULE_PAGE_SCRIPT, StandardCharsets.UTF_8);
@@ -151,7 +157,14 @@ class ScheduleNavigationAssetRegressionTest {
         assertThat(createMessage)
                 .contains("boolean showScheduleNav = \"1\".equals(request.getParameter(\"scheduleNav\"));")
                 .contains("<jsp:include page=\"/WEB-INF/jsp/provider/mainMenu.jsp\"/>")
+                .contains("<input type=\"hidden\" name=\"scheduleNav\" value=\"1\">")
                 .contains("ClearMessage<%=scheduleNavFirstQuerySuffix%>")
+                .contains("DisplayMessages<%=scheduleNavFirstQuerySuffix%>");
+        assertThat(sentMessage)
+                .contains("boolean showScheduleNav = \"1\".equals(request.getParameter(\"scheduleNav\"));")
+                .contains("<link rel=\"stylesheet\" href=\"<%=request.getContextPath()%>/css/topnav.css\">")
+                .contains("<jsp:include page=\"/WEB-INF/jsp/provider/mainMenu.jsp\"/>")
+                .contains("ViewCreateMessage<%=scheduleNavFirstQuerySuffix%>")
                 .contains("DisplayMessages<%=scheduleNavFirstQuerySuffix%>");
         assertThat(inboxhub)
                 .contains("<c:if test=\"${param.scheduleNav eq '1'}\">")
@@ -159,6 +172,12 @@ class ScheduleNavigationAssetRegressionTest {
                 .contains("<jsp:include page=\"/WEB-INF/jsp/provider/mainMenu.jsp\"/>")
                 .contains("const inboxContextPath =")
                 .doesNotContain("const contextPath =");
+        assertThat(ticklerMain)
+                .contains("boolean showScheduleNav = \"1\".equals(request.getParameter(\"scheduleNav\"));")
+                .contains("<link rel=\"stylesheet\" href=\"<%=request.getContextPath()%>/css/topnav.css\">")
+                .contains("<jsp:include page=\"/WEB-INF/jsp/provider/mainMenu.jsp\"/>")
+                .contains("action=\"<%= request.getContextPath() %>/tickler/ViewTicklerMain\"")
+                .contains("<input type=\"hidden\" name=\"scheduleNav\" value=\"1\">");
         assertThat(mainMenu)
                 .contains("NavPath.requestPathMatches")
                 .doesNotContain("private boolean requestPathMatches")
