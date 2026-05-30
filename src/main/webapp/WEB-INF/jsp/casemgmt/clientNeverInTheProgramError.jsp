@@ -30,11 +30,11 @@
 
 
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
-<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.*" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
 <%
     String programId_str = (String) request.getSession().getAttribute("case_program_id");
@@ -49,13 +49,12 @@
         ProgramDao programDao = (ProgramDao) SpringUtils.getBean(ProgramDao.class);
         programName = programDao.getProgramName(programId);
     }
-    request.setAttribute("programName", programName);
 
 %>
 
 <h3 style="color: red"><fmt:message key="casemgmt.accessDenied.title"/></h3>
 <p><fmt:message key="casemgmt.clientNeverInProgram.message">
-    <fmt:param value="${carlos:forHtml(programName)}"/>
+    <fmt:param value="<%=SafeEncode.forHtmlContent(programName)%>"/>
 </fmt:message>
 </p>
 
