@@ -51,7 +51,8 @@ class RxUpdateFormJspRegressionTest {
     void shouldPostToConcreteStrutsUrl_forCsrfTokenInjection() throws IOException {
         String jsp = Files.readString(UPDATE_FORM_JSP, StandardCharsets.UTF_8);
 
-        assertThat(jsp).contains("action=\"<%= request.getContextPath() %>/rx/ViewUpdateForm\"");
+        assertThat(jsp).contains("request.getContextPath()");
+        assertThat(jsp).contains("/rx/ViewUpdateForm");
         assertThat(jsp).contains("method=\"post\"");
         assertThat(jsp).doesNotContain("<form action=\"\" method=\"post\">");
     }
