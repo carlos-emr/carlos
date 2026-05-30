@@ -67,6 +67,7 @@ public class HtmlTeleplanHelper {
         try {
             dateStr = new SimpleDateFormat("yyyyMMdd").format(new Date());
         } catch (Exception e) {
+            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("Error formatting date", e);
         }
         StringBuilder htmlContentHeader = new StringBuilder();
         htmlContentHeader.append("<tr> \n");
