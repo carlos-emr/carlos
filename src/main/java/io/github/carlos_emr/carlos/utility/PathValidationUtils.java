@@ -47,6 +47,8 @@ public final class PathValidationUtils {
             "Invalid filename. Use letters, numbers, dots, underscores, or spaces; spaces are converted to underscores, and filenames must not start with a dot.";
     public static final String HIDDEN_FILENAME_MESSAGE =
             "Invalid filename: hidden files not allowed. Do not start the filename with a dot.";
+    public static final String PATH_COMPONENT_FILENAME_MESSAGE =
+            "Invalid filename: must not include a path.";
     private static final String BLOCKED_EXTENSION_MESSAGE =
             "Invalid filename: file extension .%s not allowed.";
     private static final Set<String> BLOCKED_EXTENSIONS = Set.of(
@@ -244,7 +246,7 @@ public final class PathValidationUtils {
                     || userProvidedFileName.contains("/")
                     || userProvidedFileName.contains("\\")) {
                 logger.warn("Path components not allowed in filename");
-                throw new FileValidationException(INVALID_FILENAME_MESSAGE);
+                throw new FileValidationException(PATH_COMPONENT_FILENAME_MESSAGE);
             }
         } catch (IllegalArgumentException e) {
             logger.warn("Filename parser rejected invalid filename");

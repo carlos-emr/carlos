@@ -181,5 +181,20 @@ class NavPathUnitTest {
 
             assertThat(NavPath.requestPathMatches(request, "/messenger/")).isTrue();
         }
+
+        @Test
+        void shouldReturnFalse_whenRequestIsNull() {
+            assertThat(NavPath.requestPathMatches(null, "/tickler/")).isFalse();
+        }
+
+        @Test
+        void shouldReturnFalse_whenPatternsAreEmpty() {
+            assertThat(NavPath.requestPathMatches(request)).isFalse();
+        }
+
+        @Test
+        void shouldReturnFalse_whenPatternsAreNull() {
+            assertThat(NavPath.requestPathMatches(request, (String[]) null)).isFalse();
+        }
     }
 }

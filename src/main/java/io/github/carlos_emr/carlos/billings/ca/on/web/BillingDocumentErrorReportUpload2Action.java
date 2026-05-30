@@ -628,10 +628,6 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
         if (value == null) {
             return null;
         }
-        String basename = org.apache.commons.io.FilenameUtils.getName(value);
-        if (!basename.equals(value)) {
-            throw new SecurityException("MOH report filename must not include a path");
-        }
-        return basename;
+        return PathValidationUtils.validateStrictFileName(value);
     }
 }

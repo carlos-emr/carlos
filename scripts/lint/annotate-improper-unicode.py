@@ -33,8 +33,9 @@ field / type) inserts, immediately above it:
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "<reason>")
 
 and ensures ``import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;`` is present.
-Files whose basename is in ``SECURITY_FILES`` get the trust-path justification (referencing
-the hardening issue from the ISSUE env var); everything else gets the benign justification.
+Sites in known security-sensitive files get the trust-path justification when their enclosing
+declaration references trust-path tokens (auth, role/access/right decisions, scheme/host checks,
+OAuth callbacks, file-extension allowlists). Everything else gets the benign justification.
 
 USAGE
 -----
@@ -92,10 +93,18 @@ SECURITY_FILES = {
     "DocumentUpload2Action.java",
     "SRFaxProviderClient.java",
     "EForm.java",
+    "SecurityInfoManagerImpl.java",
+    "CaseManagementManagerImpl.java",
+    "CaseManagementIssue.java",
+    "AuthenticationInInterceptor.java",
+    "AuthorizeResource.java",
+    "LocalOnlyUserAgent.java",
+    "EctDisplayAction.java",
 }
 TRUST_TOKEN = re.compile(
     r"scheme|https?|\bhost\b|content-?type|x-www-form|\.pdf|getRequestURI|oauth"
-    r"|signature|redirect|\bIDN\b|toASCII",
+    r"|signature|redirect|callback|\bIDN\b|toASCII|auth(?:entication|orization|z)?"
+    r"|privilege|role|rights?|access|security|ssrf|wadl",
     re.IGNORECASE,
 )
 
@@ -184,14 +193,20 @@ def has_string_comparison(scope, src: bytes) -> bool:
 
 
 def already_suppressed(decl, src: bytes) -> bool:
-    """True if the declaration already carries a @SuppressFBWarnings (avoid duplicate -> compile error)."""
+    """True only when the declaration already suppresses IMPROPER_UNICODE.
+
+    Other @SuppressFBWarnings values should not make this script silently skip a
+    Unicode finding; if a future mixed site needs annotation merging, it should be
+    visible in review instead of disappearing from the inventory.
+    """
     for c in decl.children:
         if c.type == "modifiers":
             for m in c.children:
                 if m.type in ("annotation", "marker_annotation"):
                     nm = m.child_by_field_name("name")
                     if nm is not None and text(nm, src).split(".")[-1] == "SuppressFBWarnings":
-                        return True
+                        if "IMPROPER_UNICODE" in text(m, src):
+                            return True
     return False
 
 

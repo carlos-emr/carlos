@@ -77,10 +77,10 @@ import java.awt.image.BufferedImage;
 import java.io.*;
 
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.*;
 
@@ -136,6 +136,7 @@ public class ManageDocument2Action extends ActionSupport {
     // Canonical incoming-document queue subdirectories. Kept in sync with the allowlist
     // enforced by IncomingDocUtil.getIncomingDocumentFilePath.
     private static final Set<String> ALLOWED_INCOMING_QUEUE_DIRS = Set.of("Fax", "Mail", "File", "Refile");
+    private static final int MAX_INCOMING_DOCUMENT_MOVE_ATTEMPTS = 1000;
 
     private static final Map<String, ActionHandler> ACTIONS = new HashMap<>();
 
@@ -1117,6 +1118,12 @@ public class ManageDocument2Action extends ActionSupport {
      */
     public String addIncomingDocument() throws Exception {
 
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
+
         String pdfDir = request.getParameter("pdfDir");
         String pdfName = request.getParameter("pdfName");
         String demographic_no = request.getParameter("demog");
@@ -1194,34 +1201,28 @@ public class ManageDocument2Action extends ActionSupport {
         newDoc.setDocSubClass(docSubClass);
         newDoc.setDocPublic("0");
         fileName = newDoc.getFileName();
-        String sanitizedFileName = sanitizeIncomingDocumentDestinationFileName(fileName);
-
-        // Ensure filename uniqueness. The generated filename includes a timestamp, but
-        // collisions can still occur when multiple documents are uploaded in quick succession.
-        // The counter-based suffix (_1, _2, ...) guarantees a unique filename on disk.
-        File destFile = PathValidationUtils.validatePath(sanitizedFileName, saveDir);
-        String originalSanitized = sanitizedFileName;
-        int counter = 1;
-        while (destFile.exists()) {
-            String nameWithoutExt = originalSanitized;
-            String extension = "";
-            int lastDot = originalSanitized.lastIndexOf(".");
-            if (lastDot > 0) {
-                nameWithoutExt = originalSanitized.substring(0, lastDot);
-                extension = originalSanitized.substring(lastDot);
-            }
-            sanitizedFileName = nameWithoutExt + "_" + counter + extension;
-            destFile = PathValidationUtils.validatePath(sanitizedFileName, saveDir);
-            counter++;
-        }
+        String originalSanitized = sanitizeIncomingDocumentDestinationFileName(fileName);
 
         String doc_no = "";
-        String storedFileName = destFile.getName();
-        newDoc.setFileName(storedFileName);
+        String storedFileName = null;
+        File destFile = null;
+        boolean success = false;
 
-        newDoc.setContentType(docType);
+        for (int counter = 0; counter < MAX_INCOMING_DOCUMENT_MOVE_ATTEMPTS; counter++) {
+            String candidateFileName = incomingDestinationCandidate(originalSanitized, counter);
+            destFile = PathValidationUtils.validatePath(candidateFileName, saveDir);
+            try {
+                success = moveIncomingDocument(sourceFile, destFile);
+            } catch (FileAlreadyExistsException e) {
+                continue;
+            }
+            if (success) {
+                storedFileName = destFile.getName();
+                newDoc.setFileName(storedFileName);
+            }
+            break;
+        }
 
-        boolean success = moveIncomingDocument(sourceFile, destFile);
         if (!success) {
             log.error("Not able to move incoming document into document store");
             // File was not successfully moved - attempt to delete temp file to prevent orphaned files
@@ -1357,10 +1358,27 @@ public class ManageDocument2Action extends ActionSupport {
      * combination would permanently lose the incoming document. Protected for tests so
      * move failure can be exercised without filesystem-specific setup.
      */
-    protected boolean moveIncomingDocument(File sourceFile, File destFile) {
+    private String incomingDestinationCandidate(String originalFileName, int counter) {
+        if (counter == 0) {
+            return originalFileName;
+        }
+
+        String nameWithoutExt = originalFileName;
+        String extension = "";
+        int lastDot = originalFileName.lastIndexOf(".");
+        if (lastDot > 0) {
+            nameWithoutExt = originalFileName.substring(0, lastDot);
+            extension = originalFileName.substring(lastDot);
+        }
+        return nameWithoutExt + "_" + counter + extension;
+    }
+
+    protected boolean moveIncomingDocument(File sourceFile, File destFile) throws FileAlreadyExistsException {
         try {
-            Files.move(sourceFile.toPath(), destFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            Files.move(sourceFile.toPath(), destFile.toPath());
             return true;
+        } catch (FileAlreadyExistsException e) {
+            throw e;
         } catch (IOException e) {
             log.error("Failed to move incoming document into document store", e);
             return false;

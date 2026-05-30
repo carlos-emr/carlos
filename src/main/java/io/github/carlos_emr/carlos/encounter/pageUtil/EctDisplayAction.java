@@ -267,7 +267,7 @@ public class EctDisplayAction extends ActionSupport {
                 Dao.setDivId(cmd);
 
                 SecurityManager securityMgr = new SecurityManager();
-                if (securityMgr.hasReadAccess("_" + cmd.toLowerCase(), request.getSession().getAttribute("userrole") + "," + request.getSession().getAttribute("user"))) {
+                if (hasReadAccessForDisplayCommand(securityMgr, cmd)) {
 
                     if (getInfo(bean, request, Dao)) {
                         request.setAttribute("DAO", Dao);
@@ -334,6 +334,13 @@ public class EctDisplayAction extends ActionSupport {
      *
      * @return Returns name of the module corresponding to the mapping in the {@link #Actions}
      */
+    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
+    private boolean hasReadAccessForDisplayCommand(SecurityManager securityMgr, String cmd) {
+        return securityMgr.hasReadAccess("_" + cmd.toLowerCase(),
+                request.getSession().getAttribute("userrole") + "," + request.getSession().getAttribute("user"));
+    }
+
     public String getCmd() {
         return "";
     }

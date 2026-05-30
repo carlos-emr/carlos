@@ -157,7 +157,7 @@ public class ScheduleOfBenefitsUpload2Action extends ActionSupport implements Up
         if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
             UploadedFile uploaded = uploadedFiles.get(0);
             this.importFile = PathValidationUtils.validateUpload(new File(uploaded.getAbsolutePath()));
-            this.importFileFileName = uploaded.getOriginalName();
+            this.importFileFileName = PathValidationUtils.validateStrictFileName(uploaded.getOriginalName());
         }
     }
 

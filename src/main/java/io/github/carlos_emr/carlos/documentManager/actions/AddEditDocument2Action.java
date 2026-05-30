@@ -155,10 +155,10 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             if ("filenameinvalid".equals(docFileBindErrorKey)) {
                 response.setHeader("oscar_error", props.getString("dms.error.invalidFilename"));
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, props.getString("dms.error.invalidFilename"));
-                return null;
+                return NONE;
             }
             sendHtml5UploadError(props, HttpServletResponse.SC_BAD_REQUEST, ERROR_ZERO_SIZE_KEY);
-            return null;
+            return NONE;
         }
 
         int numberOfPages = 0;
@@ -168,7 +168,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         } catch (SecurityException e) {
             MiscUtils.getLogger().error("Invalid uploaded document file", e);
             sendHtml5UploadError(props, ERROR_NO_WRITE_KEY);
-            return null;
+            return NONE;
         }
 
         String fileName;
@@ -177,7 +177,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         } catch (FileValidationException e) {
             response.setHeader("oscar_error", props.getString("dms.error.invalidFilename"));
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, props.getString("dms.error.invalidFilename"));
-            return null;
+            return NONE;
         }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String user = loggedInInfo.getLoggedInProviderNo();
@@ -199,12 +199,12 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         } catch (IOException e) {
             MiscUtils.getLogger().error("Failed to determine uploaded document file size", e);
             sendHtml5UploadError(props, ERROR_NO_WRITE_KEY);
-            return null;
+            return NONE;
         }
         // save local file;
         if (expectedFileSize == 0) {
             sendHtml5UploadError(props, HttpServletResponse.SC_BAD_REQUEST, ERROR_ZERO_SIZE_KEY);
-            return null;
+            return NONE;
         }
         // The upload source was validated above; keep all subsequent file I/O scoped to the
         // validated temp file reference and use try-with-resources for explicit stream cleanup.
@@ -214,13 +214,13 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         } catch (IOException e) {
             MiscUtils.getLogger().error("Failed to write uploaded document file", e);
             sendHtml5UploadError(props, ERROR_NO_WRITE_KEY);
-            return null;
+            return NONE;
         }
 
         if (!isWrittenUploadComplete(file, expectedFileSize)) {
             deleteIncompleteWrittenUpload(file);
             sendHtml5UploadError(props, ERROR_NO_WRITE_KEY);
-            return null;
+            return NONE;
         }
 
         if (storedFileName.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
@@ -251,7 +251,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             request.getSession().setAttribute("preferredQueue", String.valueOf(qid)); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): qid is Integer.parseInt-validated queue ID
         }
 
-        return null;
+        return NONE;
 
     }
 
