@@ -44,7 +44,7 @@ class ManageCssStylesJspEncodingRegressionTest {
 
     @Test
     @Tag("security")
-    void shouldEncodeSavedStyleOptions_inHtmlAttributeAndBodyContexts() throws Exception {
+    void shouldEncodeSavedStyleOptions_whenRenderingOptionsInJsp() throws Exception {
         String jsp = Files.readString(MANAGE_CSS_STYLES_JSP);
 
         assertThat(jsp)
@@ -53,6 +53,13 @@ class ManageCssStylesJspEncodingRegressionTest {
                 .contains("<option value=\"${carlos:forHtmlAttribute(style.style)}\">${carlos:forHtml(style.name)}</option>");
     }
 
+    /**
+     * Resolves a project-relative path from the Maven {@code basedir} property or
+     * current working directory, walking parent directories for IDE and CLI runs.
+     *
+     * @param relativePath path relative to the project root
+     * @return resolved regular file or directory path
+     */
     private static Path resolveProjectPath(Path relativePath) {
         Path current = Path.of(System.getProperty(BASEDIR_PROPERTY, System.getProperty("user.dir")))
                 .toAbsolutePath()
