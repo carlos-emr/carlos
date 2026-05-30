@@ -32,7 +32,6 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 
-import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.AppUser;
 

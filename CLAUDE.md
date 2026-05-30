@@ -520,6 +520,13 @@ public Example2Action(SomeManager someManager) {
 - **Never Change GPL Version**: Preserve GPL2, GPL2+, GPL3, etc. exactly as-is in each file
 - **Attribution**: See `NOTICE.md` for full project attribution and heritage documentation
 
+**Copyright Header Standards**:
+- **New Files**: Use CARLOS project header (see `docs/copyright-header-carlos.md`)
+- **Modified Files**: Preserve all existing headers; optionally add modification notice for functional changes
+- **Never Remove**: Existing copyright notices - this violates GPL
+- **Never Change GPL Version**: Preserve GPL2, GPL2+, GPL3, etc. exactly as-is in each file
+- **Attribution**: See `NOTICE.md` for full project attribution and heritage documentation
+
 ## Healthcare Integration Standards
 
 **Billing Identifier Abbreviations**:
