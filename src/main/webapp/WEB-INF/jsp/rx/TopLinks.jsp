@@ -33,13 +33,14 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.core" prefix="core" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <core:set var="ctx" value="${ pageContext.servletContext.contextPath }"/>
 <core:set var="url"
        value="${ ctx }/demographic/DemographicEdit?demographic_no=${ carlos:forUriComponent(param.demographicNo) }&appointment="/>
 
-<table id="${ not empty param.tableId ? carlos:forHtmlAttribute(param.tableId) : 'topLink' }">
+<table id="${ not empty param.tableId ? carlos:forHtmlAttribute(fn:replace(param.tableId, ' ', '_')) : 'topLink' }">
     <tr>
         <td id="topLinkLeftColumn">
             <h1>${carlos:forHtmlContent(param.title)}</h1>
