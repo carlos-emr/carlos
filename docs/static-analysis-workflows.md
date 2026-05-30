@@ -233,6 +233,16 @@ Edit `.github/spotbugs/spotbugs-exclude.xml`. Use `<Match>` elements with `<Bug>
 `<Package>`, or `<Source>` matchers. See the
 [SpotBugs filter documentation](https://spotbugs.readthedocs.io/en/stable/filter.html).
 
+#### Path traversal findings
+
+Treat `PATH_TRAVERSAL_IN` and related Find Security Bugs alerts as valid until the exact value used
+at the filesystem sink is proven safe. Prefer fixing the flow with `PathValidationUtils` before
+adding suppression: use `validatePathComponent()` for request-controlled path segments that must be
+preserved exactly, use the returned values, and validate the assembled `File` with
+`validateExistingPath()` before read/write/delete operations. Do not suppress an alert just because
+`validatePath()` was called on the same raw request value if the original value is later used to
+construct the real path.
+
 #### Per-site suppression with `@SuppressFBWarnings`
 
 To suppress a finding on a single declaration, add

@@ -190,10 +190,13 @@ Reference implementations: `src/main/webapp/WEB-INF/jsp/lab/CA/ALL/labDisplay.js
 
 **Key Methods:**
 ```java
-// For user-provided filenames (sanitizes and validates)
+// For user-provided filenames where basename stripping is acceptable
 File safeFile = PathValidationUtils.validatePath(userFilename, allowedDir);
 
-// For validating existing file paths
+// For one directory or filename segment that must be preserved exactly
+String safeComponent = PathValidationUtils.validatePathComponent(rawComponent, "componentName");
+
+// For validating existing or assembled file paths
 PathValidationUtils.validateExistingPath(file, allowedDir);
 
 // For validating uploaded files from Struts2/Tomcat
@@ -216,6 +219,12 @@ if (!file.getCanonicalPath().startsWith(baseDir.getCanonicalPath() + File.separa
 // NEW (consistent, robust)
 PathValidationUtils.validateExistingPath(file, baseDir);
 ```
+
+**Component validation rule:** use `validatePathComponent()` when request data becomes a directory
+or filename segment that must not be normalized (queue ids, existing server filenames, document
+subdirectories). Do not use `validatePath()` as a boolean guard and then build the real `File` from
+the original request value; validate the component, use the returned value, then call
+`validateExistingPath()` or `validatePath()` on the final filesystem target.
 
 **Full documentation**: `docs/path-validation-utils.md`
 
