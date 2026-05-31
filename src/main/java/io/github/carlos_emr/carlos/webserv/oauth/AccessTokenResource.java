@@ -22,7 +22,7 @@
  * Notes:
  *   • Logs invalid attempts at WARN level but never logs secrets.
  *   • Request tokens are invalidated/consumed once exchanged by the provider.
- *   • Optional timestamp/nonce replay checks may be added in the provider.
+ *   • Timestamp/nonce replay checks are enforced by the provider.
  *   • Always responds with "application/x-www-form-urlencoded" as required
  *     by the OAuth 1.0a spec.
  */
@@ -102,8 +102,12 @@ public class AccessTokenResource {
             return Response.status(401).entity("invalid_signature").build();
         }
 
-        // (optional) timestamp/nonce checks if you have them in provider/parser
-        // provider.checkTimestampAndNonce(oreq);
+        try {
+            provider.checkTimestampAndNonce(oreq);
+        } catch (OAuth1Exception e) {
+            logger.warn("Access token request failed: timestamp/nonce validation error");
+            return Response.status(e.getHttpCode()).entity(e.getMessage()).build();
+        }
 
         // 4) Create access token (provider will handle marking request token as used)
         AccessToken at = provider.createAccessToken(rt);

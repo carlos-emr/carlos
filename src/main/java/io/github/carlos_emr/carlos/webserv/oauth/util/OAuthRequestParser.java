@@ -1,5 +1,6 @@
 package io.github.carlos_emr.carlos.webserv.oauth.util;
 
+import io.github.carlos_emr.carlos.webserv.oauth.OAuth1Exception;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
@@ -27,8 +28,7 @@ import java.util.Map;
  *
  * Notes:
  *   • Prioritizes Authorization header values over query/form parameters.
- *   • Decoding is done with UTF-8; exceptions are swallowed to avoid
- *     blocking on malformed input.
+ *   • Decoding is done with UTF-8; malformed encodings are rejected.
  *   • Utility class only; cannot be instantiated.
  */
 
@@ -76,8 +76,10 @@ public final class OAuthRequestParser {
                         }
                         // URL-decode
                         try {
-                            val = URLDecoder.decode(val, StandardCharsets.UTF_8.name());
-                        } catch (Exception ignored) { }
+                            val = URLDecoder.decode(val, StandardCharsets.UTF_8);
+                        } catch (IllegalArgumentException e) {
+                            throw new OAuth1Exception(400, "invalid_oauth_parameters");
+                        }
                         params.put(key, val);
                     }
                 }
@@ -110,9 +112,9 @@ public final class OAuthRequestParser {
                 String v = pair.split("=", 2)[1]
                               .replaceAll("^\"|\"$", ""); // trim quotes
                 try {
-                    return URLDecoder.decode(v, StandardCharsets.UTF_8.name());
-                } catch (Exception e) {
-                    return v;
+                    return URLDecoder.decode(v, StandardCharsets.UTF_8);
+                } catch (IllegalArgumentException e) {
+                    throw new OAuth1Exception(400, "invalid_oauth_parameters");
                 }
             }
         }

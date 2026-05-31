@@ -29,10 +29,15 @@
 package io.github.carlos_emr.carlos.login;
 
 
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import io.github.carlos_emr.carlos.commn.dao.ServiceAccessTokenDao;
 import io.github.carlos_emr.carlos.commn.dao.ServiceClientDao;
 import io.github.carlos_emr.carlos.commn.dao.ServiceRequestTokenDao;
@@ -49,17 +54,24 @@ import io.github.carlos_emr.carlos.webserv.oauth.Client;
 // OAuth 1.0a - replaced cxf OAuthServiceException. 
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1Exception;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1Permission;
+import io.github.carlos_emr.carlos.webserv.oauth.OAuth1Request;
 import io.github.carlos_emr.carlos.webserv.oauth.RequestToken;
 import io.github.carlos_emr.carlos.webserv.oauth.RequestTokenRegistration;
 import io.github.carlos_emr.carlos.webserv.oauth.UserSubject;
-
-import java.util.*;
 
 @Component
 @Transactional
 public class OscarOAuthDataProvider {
 
+    private static final long ALLOWED_SKEW_SECONDS = 300L;
+    private static final long NONCE_TTL_SECONDS = 600L;
+    private static final long MAX_NONCES = 100_000L;
+
     private final org.apache.logging.log4j.Logger logger = MiscUtils.getLogger();
+    private final Cache<String, Boolean> usedNonces = Caffeine.newBuilder()
+            .expireAfterWrite(Duration.ofSeconds(NONCE_TTL_SECONDS))
+            .maximumSize(MAX_NONCES)
+            .build();
 
     @Autowired private ServiceRequestTokenDao serviceRequestTokenDao;
     @Autowired private ServiceAccessTokenDao serviceAccessTokenDao;
@@ -235,6 +247,33 @@ public class OscarOAuthDataProvider {
     public String getRequestTokenSecret(String requestTokenId) {
         ServiceRequestToken srt = serviceRequestTokenDao.findByTokenId(requestTokenId);
         return srt != null ? srt.getTokenSecret() : null;
+    }
+
+    public void checkTimestampAndNonce(OAuth1Request request) {
+        if (request == null || isBlank(request.consumerKey) || isBlank(request.nonce) || isBlank(request.timestamp)) {
+            throw new OAuth1Exception(400, "invalid_oauth_parameters");
+        }
+
+        long timestamp;
+        try {
+            timestamp = Long.parseLong(request.timestamp);
+        } catch (NumberFormatException e) {
+            throw new OAuth1Exception(400, "invalid_oauth_timestamp");
+        }
+
+        long now = System.currentTimeMillis() / 1000L;
+        if (Math.abs(now - timestamp) > ALLOWED_SKEW_SECONDS) {
+            throw new OAuth1Exception(401, "stale_oauth_timestamp");
+        }
+
+        String nonceKey = request.consumerKey + '\n' + request.nonce + '\n' + request.timestamp;
+        if (usedNonces.asMap().putIfAbsent(nonceKey, Boolean.TRUE) != null) {
+            throw new OAuth1Exception(401, "oauth_nonce_replayed");
+        }
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
     private ServiceAccessToken findUnexpiredAccessToken(String accessTokenId) {
