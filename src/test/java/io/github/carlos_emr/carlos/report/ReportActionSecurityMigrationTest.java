@@ -45,6 +45,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -117,9 +118,9 @@ class ReportActionSecurityMigrationTest extends CarlosUnitTestBase {
         assertMissingPrivilegeFails(new GenerateReport2Action());
         assertMissingPrivilegeFails(new UploadTemplates2Action());
 
-        verify(securityInfoManager, org.mockito.Mockito.times(5))
+        verify(securityInfoManager, times(5))
                 .hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.READ, null);
-        verify(securityInfoManager, org.mockito.Mockito.times(5))
+        verify(securityInfoManager, times(5))
                 .hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.READ, null);
     }
 
