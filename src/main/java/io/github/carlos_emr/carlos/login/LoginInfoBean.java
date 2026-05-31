@@ -57,6 +57,12 @@ public final class LoginInfoBean {
         maxduration = maxduration1;
     }
 
+    /**
+     * Resets login attempt tracking to a normal, unlocked state for a new tracking window.
+     * This clears the failed-attempt counter and releases any lockout status.
+     *
+     * @param starttime1 the start time for the new login attempt tracking window
+     */
     public void initialLoginInfoBean(GregorianCalendar starttime1) {
         starttime = starttime1;
         times = 0;
