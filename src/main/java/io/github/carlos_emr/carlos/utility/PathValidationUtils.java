@@ -436,7 +436,9 @@ public final class PathValidationUtils {
      * @param generatedChildName application-generated filename
      * @param allowedDir directory the child must remain within
      * @return validated child File
-     * @throws SecurityException if containment validation fails
+     * @throws FileValidationException if the generated name is blank, contains a null byte,
+     *         contains a path separator, or is "." or ".."
+     * @throws SecurityException if the resolved child escapes {@code allowedDir}
      */
     public static File validateGeneratedChildPath(String generatedChildName, File allowedDir) {
         if (generatedChildName == null || generatedChildName.trim().isEmpty()) {
@@ -586,6 +588,10 @@ public final class PathValidationUtils {
      * @param entry ZIP entry to resolve
      * @param destinationDir extraction root
      * @return validated target file for the entry
+     * @throws FileValidationException if the entry name is absolute, empty, contains a null byte,
+     *         or contains a traversal segment ("..", "/../", "/./")
+     * @throws SecurityException if the entry or destination is null, or the resolved target
+     *         escapes {@code destinationDir}
      */
     public static File validateZipEntryPath(ZipEntry entry, File destinationDir) {
         if (entry == null) {
@@ -608,6 +614,8 @@ public final class PathValidationUtils {
      * @param file file being added to the archive
      * @param sourceRoot root directory used to compute the relative entry name
      * @return slash-separated validated relative ZIP entry name
+     * @throws SecurityException if the file is outside {@code sourceRoot} or the derived
+     *         entry name is unsafe
      */
     public static String validateZipEntryName(File file, File sourceRoot) {
         File validatedFile = validateExistingPath(file, sourceRoot);

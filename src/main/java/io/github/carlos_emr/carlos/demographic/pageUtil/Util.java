@@ -546,7 +546,10 @@ public class Util {
             }
             return true;
 
-        } catch (IOException ex) {
+        } catch (IOException | SecurityException ex) {
+            // SecurityException is thrown by PathValidationUtils when an output dir/name fails
+            // validation; honor this boolean method's contract by returning false rather than
+            // letting the unchecked exception escape.
             logger.error("Error", ex);
         }
         return false;
@@ -631,7 +634,10 @@ public class Util {
             }
             return true;
 
-        } catch (IOException ex) {
+        } catch (IOException | SecurityException ex) {
+            // SecurityException is thrown by PathValidationUtils when an output dir/name fails
+            // validation; honor this boolean method's contract by returning false rather than
+            // letting the unchecked exception escape.
             logger.error("Error", ex);
         }
         return false;

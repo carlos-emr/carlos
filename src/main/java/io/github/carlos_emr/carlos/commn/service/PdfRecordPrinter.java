@@ -906,7 +906,10 @@ public class PdfRecordPrinter {
                 convert.convertToImage(image, drawData.getVarValue(), "PNG", fos);
                 logger.debug("converted image is " + tempFile.getName());
                 fos.close();
-            } catch (IOException e) {
+            } catch (IOException | SecurityException e) {
+                // SecurityException is thrown by PathValidationUtils.validateConfiguredFile when the
+                // referenced eForm diagram image is missing/invalid. Skip that one diagram (as the
+                // legacy FileNotFoundException path did) rather than aborting the whole record PDF.
                 logger.error("Error", e);
                 if (tempFile != null) {
                     tempFile.delete();

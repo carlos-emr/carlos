@@ -23,7 +23,7 @@ class ZipUtilTest {
 
     @Test
     @DisplayName("unzipXML should handle short entry names")
-    void unzipXMLShouldHandleShortEntryNames() throws Exception {
+    void shouldUnzipXml_whenEntryNameIsShort() throws Exception {
         Path zipPath = tempDir.resolve("short.zip");
         try (ZipOutputStream zipOutputStream = new ZipOutputStream(Files.newOutputStream(zipPath))) {
             zipOutputStream.putNextEntry(new ZipEntry("a"));
@@ -35,5 +35,31 @@ class ZipUtilTest {
 
         assertThat(result).isTrue();
         assertThat(Files.readString(tempDir.resolve("a.xml"))).isEqualTo("data");
+    }
+
+    @Test
+    @DisplayName("unzipXML should block ZIP Slip entries that escape the target directory")
+    void shouldBlockZipSlip_whenEntryNameEscapesTargetDirectory() throws Exception {
+        // unzipXML appends ".xml" to non-.zip entries, so "../slip-evil" becomes "../slip-evil.xml",
+        // which resolves OUTSIDE tempDir. PathValidationUtils.validateZipEntryPath must reject it so
+        // the entry is skipped, while a benign sibling entry still extracts normally.
+        Path zipPath = tempDir.resolve("evil.zip");
+        try (ZipOutputStream zipOutputStream = new ZipOutputStream(Files.newOutputStream(zipPath))) {
+            zipOutputStream.putNextEntry(new ZipEntry("../slip-evil"));
+            zipOutputStream.write("pwned".getBytes(StandardCharsets.UTF_8));
+            zipOutputStream.closeEntry();
+            zipOutputStream.putNextEntry(new ZipEntry("good"));
+            zipOutputStream.write("safe".getBytes(StandardCharsets.UTF_8));
+            zipOutputStream.closeEntry();
+        }
+
+        boolean result = zip.unzipXML(tempDir.toString(), "evil.zip");
+
+        // Extraction completes (malicious entry skipped, not fatal).
+        assertThat(result).isTrue();
+        // The escaping entry was NOT written outside the extraction directory.
+        assertThat(tempDir.getParent().resolve("slip-evil.xml")).doesNotExist();
+        // The benign entry still extracted inside the directory.
+        assertThat(Files.readString(tempDir.resolve("good.xml"))).isEqualTo("safe");
     }
 }

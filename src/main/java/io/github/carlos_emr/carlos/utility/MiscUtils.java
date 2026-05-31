@@ -249,7 +249,16 @@ public final class MiscUtils {
     public static Serializable deserializeFromFile(String filename) throws IOException, ClassNotFoundException { // lgtm[java/unsafe-deserialization]
         InputStream rawIs = MiscUtils.class.getResourceAsStream(filename);
         if (rawIs == null) {
-            rawIs = new FileInputStream(PathValidationUtils.validateConfiguredFile(filename, "serialized input file"));
+            File inputFile;
+            try {
+                inputFile = PathValidationUtils.validateConfiguredFile(filename, "serialized input file");
+            } catch (SecurityException e) {
+                // Preserve the declared IOException contract: a missing/invalid file surfaced as
+                // FileNotFoundException before this validation was added, so callers catching
+                // IOException for "not found" keep working.
+                throw new IOException("Cannot read serialized input file", e);
+            }
+            rawIs = new FileInputStream(inputFile);
         }
         // Include rawIs in try-with-resources so it is closed even if
         // ObjectInputStream construction throws (e.g. StreamCorruptedException).
