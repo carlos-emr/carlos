@@ -63,7 +63,9 @@ import java.util.regex.Pattern;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class EForm extends EFormBase {
-    private static EFormDataDao eFormDataDao = (EFormDataDao) SpringUtils.getBean(EFormDataDao.class);
+    // Resolve the DAO lazily (per call) rather than in a static-final initializer, so merely
+    // loading EForm (e.g. Mockito.mockStatic in a unit test) no longer fetches a Spring bean.
+    private static EFormDataDao eFormDataDao() { return SpringUtils.getBean(EFormDataDao.class); }
     private static Logger log = MiscUtils.getLogger();
 
     private String appointment_no = "-1";
@@ -102,7 +104,7 @@ public class EForm extends EFormBase {
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public EForm(String fdid) {
         if (!StringUtils.isBlank(fdid) && !"null".equalsIgnoreCase(fdid)) {
-            EFormData eFormData = eFormDataDao.find(Integer.valueOf(fdid));
+            EFormData eFormData = eFormDataDao().find(Integer.valueOf(fdid));
             if (eFormData != null) {
                 this.fdid = fdid;
                 this.fid = eFormData.getFormId().toString();
