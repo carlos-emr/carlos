@@ -45,7 +45,9 @@
     <!--
         SameSite=Strict: prevents Tomcat-managed session cookies from being sent
         on cross-site requests. This is defense-in-depth alongside CSRFGuard
-        tokens and keeps the JSESSIONID scoped to same-site navigation.
+        tokens and keeps the JSESSIONID scoped to same-site navigation. OAuth
+        authorization state must be carried by OAuth tokens, not by a cross-site
+        JSESSIONID callback.
     -->
     <CookieProcessor sameSiteCookies="strict" />
 
