@@ -408,6 +408,26 @@ if [ "${UPGRADE}" = "true" ] ; then
                 echo "# buttons are available in the form to manually populate Medications" >> ${C_HOME}${PROGRAM}.properties 
                 echo "CONSULTATION_AUTO_INCLUDE_MEDICATIONS=true" >> ${C_HOME}${PROGRAM}.properties 
                 echo "" >> ${C_HOME}${PROGRAM}.properties 
+                echo "# Set to true to allow CPP Past Medical History to auto-populate into" >> ${C_HOME}${PROGRAM}.properties
+                echo "# the Clinical Information field of a new consultation request." >> ${C_HOME}${PROGRAM}.properties
+                echo "CONSULTATION_AUTO_INCLUDE_PAST_MEDICAL_HISTORY=true" >> ${C_HOME}${PROGRAM}.properties
+                echo "" >> ${C_HOME}${PROGRAM}.properties
+                echo "# Set to true to allow CPP Social History to auto-populate into" >> ${C_HOME}${PROGRAM}.properties
+                echo "# the Clinical Information field of a new consultation request." >> ${C_HOME}${PROGRAM}.properties
+                echo "CONSULTATION_AUTO_INCLUDE_SOCIAL_HISTORY=true" >> ${C_HOME}${PROGRAM}.properties
+                echo "" >> ${C_HOME}${PROGRAM}.properties
+                echo "# Set to true to allow CPP Family History to auto-populate into" >> ${C_HOME}${PROGRAM}.properties
+                echo "# the Clinical Information field of a new consultation request." >> ${C_HOME}${PROGRAM}.properties
+                echo "CONSULTATION_AUTO_INCLUDE_FAMILY_HISTORY=true" >> ${C_HOME}${PROGRAM}.properties
+                echo "" >> ${C_HOME}${PROGRAM}.properties
+                echo "# Set to true to allow CPP Ongoing Concerns to auto-populate into" >> ${C_HOME}${PROGRAM}.properties
+                echo "# the Clinical Information field of a new consultation request." >> ${C_HOME}${PROGRAM}.properties
+                echo "CONSULTATION_AUTO_INCLUDE_ONGOING_CONCERNS=true" >> ${C_HOME}${PROGRAM}.properties
+                echo "" >> ${C_HOME}${PROGRAM}.properties
+                echo "# Set to true to allow CPP Reminders to auto-populate into" >> ${C_HOME}${PROGRAM}.properties
+                echo "# the Clinical Information field of a new consultation request." >> ${C_HOME}${PROGRAM}.properties
+                echo "CONSULTATION_AUTO_INCLUDE_REMINDERS=true" >> ${C_HOME}${PROGRAM}.properties
+                echo "" >> ${C_HOME}${PROGRAM}.properties
             fi
 
             BILLING_REVIEW_AUTO_PAYMENT=$(sed '/^\#/d' ${C_HOME}${PROGRAM}.properties | grep 'BILLING_REVIEW_AUTO_PAYMENT'  | tail -n 1 | cut -d "=" -f2 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//') 2>>$LOG_FILE
