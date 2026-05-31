@@ -32,12 +32,13 @@
 <fmt:setBundle basename="oscarResources"/>
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
 <html>
-<p>&nbsp;</p>
-<h3 align="center"><fmt:message key="provider.selectClinicSite"/></h3>
 <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
 </head>
 <body>
+<%-- Retained for legacy programLocation results; SelectFacility2Action handles facility selection before this page. --%>
+<p>&nbsp;</p>
+<h3 align="center"><fmt:message key="provider.selectClinicSite"/></h3>
 <p>&nbsp;</p>
 </body>
 </html>
