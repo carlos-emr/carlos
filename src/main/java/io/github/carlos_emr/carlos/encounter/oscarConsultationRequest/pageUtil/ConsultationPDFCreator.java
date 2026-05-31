@@ -350,8 +350,8 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
      * @deprecated use the createLogo method in the ClinicLogoUtility at io.github.carlos_emr.carlos.utility
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
-    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; path derived from trusted configuration/constant/DB value, not user-controllable input")
+    // FindSecBugs PATH_TRAVERSAL_IN: site-logo path validated for containment within DOCUMENT_DIR; fax-logo path from a trusted config property
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; site-logo path validated for containment within DOCUMENT_DIR, fax-logo path from a trusted config property")
     @Deprecated
     private PdfPTable createLogoHeader() {
 
@@ -365,8 +365,10 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
             if (site != null) {
                 if (site.getSiteLogoId() != null) {
                     io.github.carlos_emr.carlos.commn.model.Document d = documentDao.getDocument(String.valueOf(site.getSiteLogoId()));
-                    String dir = props.getProperty("DOCUMENT_DIR");
-                    filename = dir.concat(d.getDocfilename());
+                    // Validate the DB-stored logo filename stays within DOCUMENT_DIR - a docfilename
+                    // like "../../outside.png" would otherwise resolve outside it and be opened below.
+                    File documentDir = PathValidationUtils.resolveConfiguredDirectory(props.getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
+                    filename = PathValidationUtils.validateExistingPath(new File(documentDir, d.getDocfilename()), documentDir).getPath();
                 } else {
                     //If no logo file uploaded for this site, use the default one defined in carlos properties file.
                     filename = props.getProperty("faxLogoInConsultation");

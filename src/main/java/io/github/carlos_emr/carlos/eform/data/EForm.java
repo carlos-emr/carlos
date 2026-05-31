@@ -30,7 +30,6 @@
 
 package io.github.carlos_emr.carlos.eform.data;
 
-import java.io.File;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonMappingException;
@@ -49,7 +48,6 @@ import io.github.carlos_emr.carlos.documentManager.ConvertToEdoc;
 import io.github.carlos_emr.carlos.ui.servlet.ImageRenderingServlet;
 import io.github.carlos_emr.carlos.utility.DigitalSignatureUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.eform.EFormLoader;
@@ -59,8 +57,6 @@ import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementsDataBeanHandler;
 import io.github.carlos_emr.carlos.util.StringBuilderUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
-
-import java.nio.file.Path;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -373,12 +369,15 @@ public class EForm extends EFormBase {
         this.formDate = UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd");
     }
 
-    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void setContextPath(String contextPath) {
         if (StringUtils.isBlank(contextPath)) return;
-        Path oscarJs = PathValidationUtils.validateExistingPath(new File(contextPath, "library"), new File(contextPath)).toPath();
-        this.formHtml = this.formHtml.replace(jsMarker, oscarJs + "/");
+        // contextPath is a servlet URL prefix (e.g. "/carlos") that is injected into browser-facing
+        // HTML, NOT a filesystem path - build the library URL directly rather than running filesystem
+        // path validation on it (which would inject OS separators and reject some valid context paths).
+        String normalizedContextPath = contextPath.endsWith("/")
+                ? contextPath.substring(0, contextPath.length() - 1)
+                : contextPath;
+        this.formHtml = this.formHtml.replace(jsMarker, normalizedContextPath + "/library/");
     }
 
     public void setFdid(String fdid) {

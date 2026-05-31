@@ -112,12 +112,23 @@ public class HRMReportParser {
             try {
                 // a lot of the parsers need to refer to a file and even when they provide
                 // parse(String text) it treats the text as a URL, so we load from disk
+                String place = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+                File documentDir = PathValidationUtils.resolveConfiguredDirectory(place, "DOCUMENT_DIR");
                 File tmpXMLholder = PathValidationUtils.resolveTrustedPath(new File(hrmReportFileLocation));
 
-                // check DOCUMENT_DIR if not found
-                if (!tmpXMLholder.exists()) {
-                    String place = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
-                    File documentDir = PathValidationUtils.resolveConfiguredDirectory(place, "DOCUMENT_DIR");
+                // Enforce DOCUMENT_DIR containment: only trust the resolved absolute path if it both
+                // exists and is within DOCUMENT_DIR; otherwise resolve the name relative to (and
+                // contained within) DOCUMENT_DIR rather than reading an arbitrary on-disk location.
+                boolean withinDocumentDir = false;
+                if (tmpXMLholder.exists()) {
+                    try {
+                        PathValidationUtils.validateExistingPath(tmpXMLholder, documentDir);
+                        withinDocumentDir = true;
+                    } catch (SecurityException e) {
+                        withinDocumentDir = false;
+                    }
+                }
+                if (!withinDocumentDir) {
                     tmpXMLholder = PathValidationUtils.validateExistingPath(new File(documentDir, hrmReportFileLocation), documentDir);
                 }
 

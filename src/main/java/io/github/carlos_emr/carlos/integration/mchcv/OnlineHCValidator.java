@@ -150,9 +150,8 @@ public class OnlineHCValidator implements HCValidator {
         File signatureFile = PathValidationUtils.resolveTrustedPath(new File(clientKeystorePropertiesPath));
         Path signaturePropFile = signatureFile.toPath();
         if (Files.exists(signaturePropFile)) {
-            File file = signatureFile;
             try {
-                builder.setClientKeystoreFilename(file.toURI().toURL().toString());
+                builder.setClientKeystoreFilename(signatureFile.toURI().toURL().toString());
             } catch (MalformedURLException e) {
                 logger.error("Malformed URL: " + clientKeystorePropertiesPath, e);
             }

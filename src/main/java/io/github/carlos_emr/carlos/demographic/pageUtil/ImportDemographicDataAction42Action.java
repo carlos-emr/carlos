@@ -506,7 +506,9 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
         try {
             return PathValidationUtils.validateZipEntryPath(zipEntry, targetDir);
         } catch (SecurityException e) {
-            logger.error("SECURITY: Skipping malicious ZIP entry: {}", Encode.forJava(zipEntry.getName()), e);
+            // Do not log the entry name: uploaded export entry/file names can carry patient-identifying
+            // content (PHI). PathValidationUtils already logs the sanitized rejected path internally.
+            logger.error("SECURITY: Skipping malicious ZIP entry during demographic import", e);
             return null;
         }
     }
@@ -809,7 +811,10 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
                     if (rel[j] == null) continue;
 
                     DemographicRelationship demoRel = new DemographicRelationship();
-                    demoRel.addDemographicRelationship(demographicNo, cDemoNo, rel[j], sdm.equals("true"), emc.equals("true"), contactNote, admProviderNo, facilityId);
+                    // Link the contact to THIS file's resolved patient (looked up above by HIN/name+DOB),
+                    // not the mutable demographicNo field which reflects the last primary import -
+                    // otherwise multi-patient batch imports mis-link contacts to the wrong patient.
+                    demoRel.addDemographicRelationship(String.valueOf(patient.getDemographicNo()), cDemoNo, rel[j], sdm.equals("true"), emc.equals("true"), contactNote, admProviderNo, facilityId);
 
                     //clear emc, sdm, contactNote after 1st save
                     emc = "";
@@ -2754,10 +2759,9 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
                                     File allowedRoot = new File(importDirectory);
                                     sourceFile = PathValidationUtils.validateExistingPath(sourceFile, allowedRoot);
                                 } catch (SecurityException e) {
-                                    logger.error("SECURITY: Rejecting file copy - resolved path outside allowed directory. FilePath: {}, SourceFile: {}",
-                                        Encode.forJava(new File(filePath).getName()),
-                                        Encode.forJava(sourceFile.getName()),
-                                        e);
+                                    // Do not log the uploaded file/source names: they can carry
+                                    // patient-identifying content (PHI). The rejection itself is the signal.
+                                    logger.error("SECURITY: Rejecting file copy - resolved path outside the allowed import directory", e);
                                     err_data.add("Error! Security violation for Report (" + (i + 1) + "): Invalid file path");
                                     continue;
                                 }

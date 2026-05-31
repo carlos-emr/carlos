@@ -89,7 +89,7 @@ public class ReadHRMFile {
             }
             JAXBContext jc = JAXBContext.newInstance("io.github.carlos_emr.carlos.hospitalReportManager.xsd");
             Unmarshaller u = jc.createUnmarshaller();
-            try (FileInputStream fis = new FileInputStream(PathValidationUtils.resolveTrustedPath(hrm))) {
+            try (FileInputStream fis = new FileInputStream(hrm)) {
                 SAXSource source = XmlUtils.createSecureJaxbSource(fis);
                 OmdCds root = (OmdCds) u.unmarshal(source);
                 PatientRecord pr = root.getPatientRecord();

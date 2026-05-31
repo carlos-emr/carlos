@@ -74,8 +74,9 @@ public class DigitalSignatureUtils {
             }
             File signatureFile = PathValidationUtils.validateExistingPath(new File(filename), PathValidationUtils.validateConfiguredDirectory(System.getProperty("java.io.tmpdir"), "java.io.tmpdir"));
             try (FileInputStream fileInputStream = new FileInputStream(signatureFile)) {
-                byte[] image = new byte[1024 * 256];
-                fileInputStream.read(image);
+                // Read the exact signature bytes rather than a fixed 256KB buffer (a single read()
+                // can under-fill and the fixed array persisted padding/truncated the stored image).
+                byte[] image = fileInputStream.readAllBytes();
 
                 digitalSignature = new DigitalSignature();
                 digitalSignature.setDateSigned(new Date());

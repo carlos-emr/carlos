@@ -117,7 +117,7 @@ public class PrintClientLabLabel2Action extends ActionSupport {
             logger.debug("user home: " + System.getProperty("user.home"));
             File file = PathValidationUtils.resolveTrustedPath(new File(System.getProperty("user.home") + "/ClientLabLabel.xml"));
             if (file.exists()) {
-                ins = new FileInputStream(PathValidationUtils.resolveTrustedPath(file));
+                ins = new FileInputStream(file);
             } else {
                 ins = getClass().getResourceAsStream("/oscar/oscarDemographic/ClientLabLabel.xml");
                 logger.debug("loading from : /oscar/oscarDemographic/ClientLabLabel.xml " + ins);
