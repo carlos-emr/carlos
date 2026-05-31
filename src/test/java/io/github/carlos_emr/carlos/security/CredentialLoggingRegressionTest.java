@@ -59,6 +59,19 @@ class CredentialLoggingRegressionTest {
     }
 
     @Test
+    @DisplayName("OAuth REST endpoint should not enable CXF body logging")
+    void shouldNotEnableCxfBodyLogging_forOauthEndpoints() throws IOException {
+        String restConfig = readResource("applicationContextREST.xml");
+        int oauthEndpointsStart = restConfig.indexOf("<jaxrs:server id=\"oauthEndpoints\"");
+        int oauthEndpointsEnd = restConfig.indexOf("</jaxrs:server>", oauthEndpointsStart);
+
+        assertThat(oauthEndpointsStart).isNotNegative();
+        assertThat(oauthEndpointsEnd).isGreaterThan(oauthEndpointsStart);
+        assertThat(restConfig.substring(oauthEndpointsStart, oauthEndpointsEnd))
+                .doesNotContain("<cxf:logging");
+    }
+
+    @Test
     @DisplayName("Teleplan password save should log presence only")
     void shouldLogPasswordPresenceOnly_forTeleplanPasswordSave() throws IOException {
         String teleplanDao = readSource("billings/ca/bc/Teleplan/TeleplanUserPassDAO.java");
@@ -82,5 +95,9 @@ class CredentialLoggingRegressionTest {
 
     private static String readSource(String relativePath) throws IOException {
         return Files.readString(Path.of("src/main/java/io/github/carlos_emr/carlos", relativePath));
+    }
+
+    private static String readResource(String relativePath) throws IOException {
+        return Files.readString(Path.of("src/main/resources", relativePath));
     }
 }
