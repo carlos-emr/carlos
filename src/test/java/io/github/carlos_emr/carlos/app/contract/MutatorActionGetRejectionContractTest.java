@@ -21,8 +21,11 @@
  */
 package io.github.carlos_emr.carlos.app.contract;
 
+import io.github.carlos_emr.carlos.admin.web.SecurityAddSecurity2Action;
 import io.github.carlos_emr.carlos.admin.web.SecurityDelete2Action;
+import io.github.carlos_emr.carlos.admin.web.SecurityUpdate2Action;
 import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
+import io.github.carlos_emr.carlos.login.UploadLoginText2Action;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.security.CarlosMethodSecurity;
@@ -140,6 +143,8 @@ class MutatorActionGetRejectionContractTest {
             // privilege-tuple fields below are left as empty strings — the contract assertion
             // skips the privilege check when hasPrivilege is never invoked.
             Arguments.of("io.github.carlos_emr.carlos.login.Logout2Action", "", ""),
+            Arguments.of("io.github.carlos_emr.carlos.login.UploadLoginText2Action",
+                    "_admin", "w"),
             // --- appointment ---
             Arguments.of("io.github.carlos_emr.carlos.appointment.pageUtil.AppointmentAddRecord2Action",
                     "_appointment", "w"),
@@ -157,7 +162,11 @@ class MutatorActionGetRejectionContractTest {
             // --- admin ---
             Arguments.of("io.github.carlos_emr.carlos.admin.web.ClinicNbrManage2Action",
                     "_admin", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.admin.web.SecurityAddSecurity2Action",
+                    "_admin", "w"),
             Arguments.of("io.github.carlos_emr.carlos.admin.web.SecurityDelete2Action",
+                    "_admin", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.admin.web.SecurityUpdate2Action",
                     "_admin", "w"),
             // --- clinical measurements / flowsheets ---
             Arguments.of("io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action",
@@ -300,7 +309,9 @@ class MutatorActionGetRejectionContractTest {
     private static final Set<String> IN_SCOPE_EXPLICIT_CLASSES = Set.of(
         "io.github.carlos_emr.carlos.admin.web.ClientManage2Action",
         "io.github.carlos_emr.carlos.admin.web.ClinicNbrManage2Action",
+        "io.github.carlos_emr.carlos.admin.web.SecurityAddSecurity2Action",
         "io.github.carlos_emr.carlos.admin.web.SecurityDelete2Action",
+        "io.github.carlos_emr.carlos.admin.web.SecurityUpdate2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSaveBilling2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingUpdateBilling2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ManageTeleplan2Action",
@@ -310,6 +321,7 @@ class MutatorActionGetRejectionContractTest {
         "io.github.carlos_emr.carlos.billings.ca.on.web.ScheduleOfBenefitsUpload2Action",
         "io.github.carlos_emr.carlos.commn.web.FlowSheetCustom2Action",
         "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action",
+        "io.github.carlos_emr.carlos.login.UploadLoginText2Action",
         "io.github.carlos_emr.carlos.login.gate.SelectFacility2Action",
         "io.github.carlos_emr.carlos.provider.web.DocumentDescriptionTemplate2Action"
     );
@@ -419,7 +431,7 @@ class MutatorActionGetRejectionContractTest {
                         return autoMocks.computeIfAbsent(beanType, Mockito::mock);
                     });
 
-            Object action = instantiateAction(actionClass, autoMocks);
+            Object action = instantiateAction(actionClass, autoMocks, securityInfoManager, methodSecurity);
 
             Throwable caught = null;
             Object result = null;
@@ -459,13 +471,21 @@ class MutatorActionGetRejectionContractTest {
         }
     }
 
-    private static Object instantiateAction(Class<?> actionClass, Map<Class<?>, Object> autoMocks)
+    private static Object instantiateAction(Class<?> actionClass, Map<Class<?>, Object> autoMocks,
+            SecurityInfoManager securityInfoManager, CarlosMethodSecurity methodSecurity)
             throws Exception {
         if (actionClass.equals(SecurityDelete2Action.class)) {
-            CarlosMethodSecurity methodSecurity = mock(CarlosMethodSecurity.class);
-            when(methodSecurity.hasAdminWrite()).thenReturn(true);
             SecurityDao securityDao = (SecurityDao) autoMocks.computeIfAbsent(SecurityDao.class, Mockito::mock);
             return new SecurityDelete2Action(securityDao, methodSecurity);
+        }
+        if (actionClass.equals(SecurityAddSecurity2Action.class)) {
+            return new SecurityAddSecurity2Action(securityInfoManager);
+        }
+        if (actionClass.equals(SecurityUpdate2Action.class)) {
+            return new SecurityUpdate2Action(securityInfoManager);
+        }
+        if (actionClass.equals(UploadLoginText2Action.class)) {
+            return new UploadLoginText2Action(securityInfoManager);
         }
         return actionClass.getDeclaredConstructor().newInstance();
     }
