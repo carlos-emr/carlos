@@ -1,0 +1,59 @@
+/*
+ * This file is part of the CARLOS project.
+ *
+ * Copyright (c) 2026 CARLOS Contributors.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ * Project repository: https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.app;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+
+import java.io.IOException;
+import java.io.Reader;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Properties;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+/**
+ * Regression coverage for the CSRFGuard properties file.
+ *
+ * @since 2026-05-31
+ */
+@Tag("unit")
+@Tag("security")
+@DisplayName("CSRFGuard configuration")
+class CsrfGuardConfigurationRegressionTest {
+
+    private static final Path CSRF_GUARD_PROPERTIES =
+            Path.of("src/main/webapp/WEB-INF/Owasp.CsrfGuard.properties");
+
+    @Test
+    @DisplayName("should use native PRNG without provider constraint")
+    void shouldUseNativePrngWithoutProviderConstraint_whenCsrfGuardConfigLoaded() throws IOException {
+        Properties properties = new Properties();
+        try (Reader reader = Files.newBufferedReader(CSRF_GUARD_PROPERTIES)) {
+            properties.load(reader);
+        }
+
+        assertThat(properties.getProperty("PRNG")).isEqualTo("NativePRNG");
+        assertThat(properties).doesNotContainKey("Provider");
+    }
+}
