@@ -79,7 +79,9 @@ public class TeleplanResponse {
                     //write str to temp file
                     lineCount++;
                     out.write(str + "\n");
-                    log.debug(str);
+                    // Do not log the raw Teleplan response line: it can contain claim/billing
+                    // (PHI-correlating) content. Log only non-sensitive length metadata.
+                    log.debug("Read Teleplan response line ({} chars)", str.length());
                     lastLine = new String(str);
                 }
             }

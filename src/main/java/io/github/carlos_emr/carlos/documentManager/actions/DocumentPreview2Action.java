@@ -324,14 +324,17 @@ public class DocumentPreview2Action extends ActionSupport {
         }
         
         try {
-            if (!Files.exists(pdfPath) || !Files.isRegularFile(pdfPath)) {
-                logger.error("PDF file not found or is not a regular file: {}", LogSafe.sanitize(pdfPathString)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
+            // Canonicalize first so no filesystem check runs on the raw, user-supplied path.
+            // toRealPath resolves symlinks and ".." and throws if the file does not exist;
+            // containment against the allowed roots is validated below before the file is read.
+            Path canonicalPdfPath;
+            try {
+                canonicalPdfPath = pdfPath.toRealPath();
+            } catch (IOException e) {
+                logger.error("PDF file not found: {}", LogSafe.sanitize(pdfPathString)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                 response.setStatus(HttpServletResponse.SC_NOT_FOUND);
                 return;
             }
-
-            // Get the canonical path to resolve any path traversal attempts
-            Path canonicalPdfPath = pdfPath.toRealPath();
             
             // Define allowed directories based on OSCAR configuration
             String[] allowedBasePaths = {
@@ -362,7 +365,14 @@ public class DocumentPreview2Action extends ActionSupport {
                 response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                 return;
             }
-            
+
+            // Reject non-regular files (directories, devices) now that the path is validated.
+            if (!Files.isRegularFile(canonicalPdfPath)) {
+                logger.error("PDF path is not a regular file: {}", LogSafe.sanitize(pdfPathString)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
+                response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                return;
+            }
+
             // Serve the validated PDF file
             response.setContentType("application/pdf");
             try (InputStream inputStream = Files.newInputStream(canonicalPdfPath);

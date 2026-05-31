@@ -41,6 +41,7 @@ import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
 
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
@@ -72,6 +73,12 @@ public class zip {
             //get a list of files from current directory
             File f = formRecordDir;
             String files[] = f.list();
+            if (files == null) {
+                // resolveConfiguredDirectory may return a non-existent/unreadable directory;
+                // listing it yields null. Treat as nothing to archive instead of NPE-ing.
+                MiscUtils.getLogger().warn("form_record_path directory is missing or unreadable; nothing to zip");
+                return;
+            }
 
             try (ZipOutputStream out = new ZipOutputStream(new BufferedOutputStream(new FileOutputStream(PathValidationUtils.validateGeneratedChildPath("formRecords.zip", formRecordDir))))) {
                 out.setMethod(ZipOutputStream.DEFLATED);
@@ -130,7 +137,7 @@ public class zip {
                     try {
                         z = PathValidationUtils.validateZipEntryPath(new ZipEntry(zName), targetDir);
                     } catch (SecurityException e) {
-                        logger.error("Skipping potentially malicious zip entry: " + zName);
+                        logger.error("Skipping potentially malicious zip entry: {}", LogSafe.sanitize(zName));
                         continue;
                     }
 

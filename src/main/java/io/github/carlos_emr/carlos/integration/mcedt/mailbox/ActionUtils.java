@@ -242,21 +242,22 @@ public class ActionUtils {
     public static List<File> getUploadList() {
         List<File> edtUploadList = new ArrayList<File>();
         CarlosProperties props = CarlosProperties.getInstance();
-        File outbox = PathValidationUtils.resolveConfiguredDirectory(props.getProperty("ONEDT_OUTBOX", ""), "ONEDT_OUTBOX");
+        String outboxPath = props.getProperty("ONEDT_OUTBOX", "");
+        if (outboxPath == null || outboxPath.trim().isEmpty()) {
+            logger.warn("ONEDT_OUTBOX is not configured; returning empty upload list");
+            return edtUploadList;
+        }
+        File outbox = PathValidationUtils.resolveConfiguredDirectory(outboxPath, "ONEDT_OUTBOX");
         FileFilter fileFilter = new FileFilter() {
             public boolean accept(File file) {
                 return file.isFile() && !file.isHidden();
             }
         };
         File[] toEdt = outbox.listFiles(fileFilter);
-        if (toEdt != null) {
-            Arrays.sort(toEdt, new Comparator<File>() {
-                public int compare(File f1, File f2) {
-                    return Long.valueOf(f1.lastModified()).compareTo(f2.lastModified());
-                }
-            });
-
+        if (toEdt == null) {
+            return edtUploadList;
         }
+        Arrays.sort(toEdt, Comparator.comparingLong(File::lastModified));
         for (File file : toEdt) {
             edtUploadList.add(file);
         }
