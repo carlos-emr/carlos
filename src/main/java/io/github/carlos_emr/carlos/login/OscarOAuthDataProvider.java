@@ -29,6 +29,8 @@
 package io.github.carlos_emr.carlos.login;
 
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
@@ -55,6 +57,8 @@ import io.github.carlos_emr.carlos.webserv.oauth.UserSubject;
 
 import java.util.*;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 @Component
 @Transactional
 public class OscarOAuthDataProvider {
@@ -69,13 +73,16 @@ public class OscarOAuthDataProvider {
         logger.debug("getClient({})", consumerKey);
         ServiceClient sc = serviceClientDao.findByKey(consumerKey);
         if (sc != null) {
-            return new Client(sc.getKey(), sc.getSecret(), sc.getName(), sc.getUri());
+            Client client = new Client(sc.getKey(), sc.getSecret(), sc.getName(), sc.getUri());
+            client.setCallbackUri(sc.getUri());
+            return client;
         }
         return null;
     }
 
     public RequestToken createRequestToken(RequestTokenRegistration reg) {
         logger.debug("createRequestToken() called");
+        validateCallbackAllowed(reg);
         String tokenId = UUID.randomUUID().toString();
         String tokenSecret = UUID.randomUUID().toString();
 
@@ -118,6 +125,7 @@ public class OscarOAuthDataProvider {
 
         ServiceClient sc = serviceClientDao.find(srt.getClientId());
         Client client = new Client(sc.getKey(), sc.getSecret(), sc.getName(), sc.getUri());
+        client.setCallbackUri(sc.getUri());
 
         RequestToken rt = new RequestToken(client, srt.getTokenId(), srt.getTokenSecret());
         List<OAuth1Permission> perms = new ArrayList<>();
@@ -261,6 +269,58 @@ public class OscarOAuthDataProvider {
             return true;
         }
         return System.currentTimeMillis() / 1000 >= expiresAt;
+    }
+
+    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
+    private static void validateCallbackAllowed(RequestTokenRegistration reg) {
+        Client client = reg.getClient();
+        String registeredCallback = client == null ? null : client.getCallbackUri();
+        String requestedCallback = reg.getCallback();
+        if (registeredCallback == null || registeredCallback.isBlank()
+                || requestedCallback == null || requestedCallback.isBlank()) {
+            return;
+        }
+
+        if ("oob".equalsIgnoreCase(registeredCallback)) {
+            if (!"oob".equalsIgnoreCase(requestedCallback)) {
+                throw new OAuth1Exception(400, "callback_uri not allowed");
+            }
+            return;
+        }
+        if ("oob".equalsIgnoreCase(requestedCallback)) {
+            throw new OAuth1Exception(400, "callback_uri not allowed");
+        }
+
+        String registered = normalizeCallbackForComparison(registeredCallback);
+        String requested = normalizeCallbackForComparison(requestedCallback);
+        if (!requested.startsWith(registered)) {
+            throw new OAuth1Exception(400, "callback_uri not allowed");
+        }
+    }
+
+    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
+    private static String normalizeCallbackForComparison(String callback) {
+        try {
+            URI uri = URI.create(callback).normalize();
+            String scheme = uri.getScheme() == null ? null : uri.getScheme().toLowerCase();
+            if (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme)) {
+                throw new OAuth1Exception(400, "invalid_callback_scheme");
+            }
+            String host = uri.getHost() == null ? null : uri.getHost().toLowerCase();
+            int port = uri.getPort();
+            if ((port == 80 && "http".equalsIgnoreCase(scheme))
+                    || (port == 443 && "https".equalsIgnoreCase(scheme))) {
+                port = -1;
+            }
+            String path = (uri.getPath() == null || uri.getPath().isEmpty()) ? "/" : uri.getPath();
+            return new URI(scheme, uri.getUserInfo(), host, port, path, uri.getQuery(), uri.getFragment()).toString();
+        } catch (OAuth1Exception e) {
+            throw e;
+        } catch (IllegalArgumentException | URISyntaxException e) {
+            throw new OAuth1Exception(400, "invalid_callback");
+        }
     }
 
 }

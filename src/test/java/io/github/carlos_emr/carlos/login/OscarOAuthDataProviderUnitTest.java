@@ -7,6 +7,9 @@ package io.github.carlos_emr.carlos.login;
 
 import io.github.carlos_emr.carlos.commn.dao.ServiceAccessTokenDao;
 import io.github.carlos_emr.carlos.commn.model.ServiceAccessToken;
+import io.github.carlos_emr.carlos.webserv.oauth.Client;
+import io.github.carlos_emr.carlos.webserv.oauth.OAuth1Exception;
+import io.github.carlos_emr.carlos.webserv.oauth.RequestTokenRegistration;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -14,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -66,6 +70,29 @@ class OscarOAuthDataProviderUnitTest {
         verifyNoMoreInteractions(accessTokenDao);
     }
 
+    @Test
+    @DisplayName("should reject request token callback outside registered callback")
+    void shouldRejectRequestTokenCallback_whenOutsideRegisteredCallback() {
+        OscarOAuthDataProvider provider = new OscarOAuthDataProvider();
+        RequestTokenRegistration registration = registration("https://trusted.example/callback",
+                "https://attacker.example/callback");
+
+        assertThatThrownBy(() -> provider.createRequestToken(registration))
+                .isInstanceOf(OAuth1Exception.class)
+                .hasMessage("callback_uri not allowed");
+    }
+
+    @Test
+    @DisplayName("should reject request token callback when registered callback is OOB")
+    void shouldRejectRequestTokenCallback_whenRegisteredCallbackIsOob() {
+        OscarOAuthDataProvider provider = new OscarOAuthDataProvider();
+        RequestTokenRegistration registration = registration("oob", "https://trusted.example/callback");
+
+        assertThatThrownBy(() -> provider.createRequestToken(registration))
+                .isInstanceOf(OAuth1Exception.class)
+                .hasMessage("callback_uri not allowed");
+    }
+
     private static OscarOAuthDataProvider provider(ServiceAccessTokenDao accessTokenDao) {
         OscarOAuthDataProvider provider = new OscarOAuthDataProvider();
         ReflectionTestUtils.setField(provider, "serviceAccessTokenDao", accessTokenDao);
@@ -81,5 +108,13 @@ class OscarOAuthDataProviderUnitTest {
         token.setIssued(issued);
         token.setLifetime(lifetime);
         return token;
+    }
+
+    private static RequestTokenRegistration registration(String registeredCallback, String requestedCallback) {
+        Client client = new Client("consumer", "secret", "App", "https://trusted.example");
+        client.setCallbackUri(registeredCallback);
+        RequestTokenRegistration registration = new RequestTokenRegistration(client);
+        registration.setCallback(requestedCallback);
+        return registration;
     }
 }

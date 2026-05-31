@@ -71,6 +71,8 @@ import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.*;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -125,7 +127,8 @@ public class OscarRequestTokenService {
             cbToStore = normalizeUrl(decoded);
         } else {
             // fallback to app-registered callback if your flow allows it
-            cbToStore = normalizeUrl(client.getCallbackUri());
+            String registeredCallback = client.getCallbackUri();
+            cbToStore = "oob".equalsIgnoreCase(registeredCallback) ? "oob" : normalizeUrl(registeredCallback);
         }
 
         reg.setCallback(cbToStore);   // <-- store plain URL now (not encoded)
@@ -169,9 +172,15 @@ public class OscarRequestTokenService {
     // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
     private static String normalizeUrl(String url) {
+        if (url == null || url.isEmpty()) {
+            return url;
+        }
         try {
-            var u = java.net.URI.create(url).normalize();
+            var u = URI.create(url).normalize();
             String scheme = u.getScheme() == null ? null : u.getScheme().toLowerCase();
+            if (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme)) {
+                throw new OAuth1Exception(400, "invalid_callback_scheme");
+            }
             String host   = u.getHost()   == null ? null : u.getHost().toLowerCase();
             int port = u.getPort();
             if ((port == 80 && "http".equalsIgnoreCase(scheme)) ||
@@ -179,9 +188,11 @@ public class OscarRequestTokenService {
                 port = -1; // drop default ports
             }
             String path = (u.getPath() == null || u.getPath().isEmpty()) ? "/" : u.getPath();
-            return new java.net.URI(scheme, u.getUserInfo(), host, port, path, u.getQuery(), u.getFragment()).toString();
-        } catch (Exception ignore) {
-            return url; // fail-safe
+            return new URI(scheme, u.getUserInfo(), host, port, path, u.getQuery(), u.getFragment()).toString();
+        } catch (OAuth1Exception e) {
+            throw e;
+        } catch (IllegalArgumentException | URISyntaxException e) {
+            throw new OAuth1Exception(400, "invalid_callback");
         }
     }
 

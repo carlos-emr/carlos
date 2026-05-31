@@ -92,6 +92,48 @@ class AuthorizeResourceUnitTest {
     }
 
     @Test
+    @DisplayName("should redirect to HTTPS callback when nonce is valid")
+    void shouldRedirectToHttpsCallback_whenNonceValid() {
+        OscarOAuthDataProvider provider = mock(OscarOAuthDataProvider.class);
+        RequestToken token = requestToken("request-token");
+        token.setCallback("https://app.example/callback");
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/ws/oauth/authorize");
+        request.getSession().setAttribute("user", "999");
+        request.getSession().setAttribute("oauth.authorize.nonce.request-token", "nonce-123");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        when(provider.getRequestToken("request-token")).thenReturn(token);
+        when(provider.finalizeAuthorization(token, "999")).thenReturn("verifier-123");
+        AuthorizeResource resource = resource(request, response, provider);
+
+        Response result = resource.approve("request-token", "nonce-123", "allow");
+
+        assertThat(result.getStatus()).isEqualTo(303);
+        assertThat(result.getLocation())
+                .hasToString("https://app.example/callback?oauth_token=request-token&oauth_verifier=verifier-123");
+        verify(provider).finalizeAuthorization(token, "999");
+    }
+
+    @Test
+    @DisplayName("should reject callback with non HTTP scheme")
+    void shouldRejectCallback_whenSchemeIsNotHttp() {
+        OscarOAuthDataProvider provider = mock(OscarOAuthDataProvider.class);
+        RequestToken token = requestToken("request-token");
+        token.setCallback("javascript:alert(1)");
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/ws/oauth/authorize");
+        request.getSession().setAttribute("user", "999");
+        request.getSession().setAttribute("oauth.authorize.nonce.request-token", "nonce-123");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        when(provider.getRequestToken("request-token")).thenReturn(token);
+        AuthorizeResource resource = resource(request, response, provider);
+
+        Response result = resource.approve("request-token", "nonce-123", "allow");
+
+        assertThat(result.getStatus()).isEqualTo(400);
+        assertThat(result.getEntity()).isEqualTo("invalid_callback_scheme");
+        verify(provider, never()).finalizeAuthorization(token, "999");
+    }
+
+    @Test
     @DisplayName("should preserve nonce when consent login rotates session")
     void shouldPreserveNonce_whenConsentLoginRotatesSession() throws Exception {
         OscarOAuthDataProvider provider = mock(OscarOAuthDataProvider.class);

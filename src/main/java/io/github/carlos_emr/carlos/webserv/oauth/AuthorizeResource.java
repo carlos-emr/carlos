@@ -132,12 +132,25 @@ public class AuthorizeResource {
             return Response.status(401).entity("login_required").type(MediaType.TEXT_PLAIN).build();
         }
 
-        String verifier = provider.finalizeAuthorization(rt, providerNo);
-
         // nosemgrep: open-redirect -- callback comes from the server-persisted request token
         // (set during /initiate by OscarRequestTokenService), not from user input in this POST.
         String cb = rt.getCallback();
+        URI cbUri = null;
         if (cb != null && !"oob".equalsIgnoreCase(cb)) {
+            try {
+                cbUri = URI.create(cb);
+            } catch (IllegalArgumentException e) {
+                return Response.status(400).entity("invalid_callback").type(MediaType.TEXT_PLAIN).build();
+            }
+            String scheme = cbUri.getScheme();
+            if (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme)) {
+                return Response.status(400).entity("invalid_callback_scheme").type(MediaType.TEXT_PLAIN).build();
+            }
+        }
+
+        String verifier = provider.finalizeAuthorization(rt, providerNo);
+
+        if (cbUri != null) {
             String sep = cb.contains("?") ? "&" : "?";
             String loc = cb + sep + "oauth_token=" + enc(tokenId) + "&oauth_verifier=" + enc(verifier);
             return Response.seeOther(URI.create(loc)).build(); // 303 redirect
