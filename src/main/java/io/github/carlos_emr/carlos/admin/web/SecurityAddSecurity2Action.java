@@ -44,6 +44,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public class SecurityAddSecurity2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private SecurityRecordAccessGuard securityRecordAccessGuard = new SecurityRecordAccessGuard();
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
@@ -61,6 +62,17 @@ public class SecurityAddSecurity2Action extends ActionSupport {
 
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
+
+        String providerNo = request.getParameter("provider_no");
+        if (providerNo == null || providerNo.trim().isEmpty()) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "provider_no required");
+            return NONE;
+        }
+
+        if (!securityRecordAccessGuard.hasCurrentFacilityAccess(loggedInInfo, providerNo)) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, "Cross-facility access denied");
             return NONE;
         }
 

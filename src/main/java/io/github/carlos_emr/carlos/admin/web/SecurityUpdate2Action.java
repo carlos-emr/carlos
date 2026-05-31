@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.admin.web;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -44,6 +45,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public class SecurityUpdate2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private SecurityRecordAccessGuard securityRecordAccessGuard = new SecurityRecordAccessGuard();
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
@@ -61,6 +63,23 @@ public class SecurityUpdate2Action extends ActionSupport {
 
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
+
+        Integer securityId = securityRecordAccessGuard.parseSecurityId(request.getParameter("security_no"));
+        if (securityId == null) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "security_no required");
+            return NONE;
+        }
+
+        Security security = securityRecordAccessGuard.findSecurity(securityId);
+        if (security == null) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND, "Security record not found");
+            return NONE;
+        }
+
+        if (!securityRecordAccessGuard.hasCurrentFacilityAccess(loggedInInfo, security)) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, "Cross-facility access denied");
             return NONE;
         }
 
