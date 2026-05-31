@@ -63,8 +63,11 @@ import io.github.carlos_emr.carlos.webserv.oauth.UserSubject;
 @Transactional
 public class OscarOAuthDataProvider {
 
+    /** Match the OAuth verifier's five-minute timestamp window. */
     private static final long ALLOWED_SKEW_SECONDS = 300L;
+    /** Keep nonce entries for twice the accepted skew so near-window replays are rejected. */
     private static final long NONCE_TTL_SECONDS = 600L;
+    /** Bound memory use; Caffeine may evict older entries under sustained high OAuth volume. */
     private static final long MAX_NONCES = 100_000L;
 
     private final org.apache.logging.log4j.Logger logger = MiscUtils.getLogger();
@@ -249,6 +252,12 @@ public class OscarOAuthDataProvider {
         return srt != null ? srt.getTokenSecret() : null;
     }
 
+    /**
+     * Validates that an OAuth 1.0a nonce/timestamp pair has not already been accepted.
+     *
+     * @param request parsed OAuth request containing consumer key, nonce, and timestamp
+     * @throws OAuth1Exception when required fields are missing, the timestamp is stale, or the nonce was replayed
+     */
     public void checkTimestampAndNonce(OAuth1Request request) {
         if (request == null || isBlank(request.consumerKey) || isBlank(request.nonce) || isBlank(request.timestamp)) {
             throw new OAuth1Exception(400, "invalid_oauth_parameters");

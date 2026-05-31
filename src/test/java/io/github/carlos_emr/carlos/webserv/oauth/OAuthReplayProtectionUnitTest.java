@@ -31,6 +31,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/**
+ * Regression coverage for OAuth 1.0a nonce replay rejection and malformed header decoding.
+ */
 @DisplayName("OAuth replay protection")
 @Tag("unit")
 @Tag("security")

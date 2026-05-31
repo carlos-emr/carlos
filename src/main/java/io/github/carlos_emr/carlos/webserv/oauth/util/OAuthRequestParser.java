@@ -34,6 +34,9 @@ import java.util.Map;
 
 
 public final class OAuthRequestParser {
+    private static final org.apache.logging.log4j.Logger logger =
+            org.apache.logging.log4j.LogManager.getLogger(OAuthRequestParser.class);
+
     private OAuthRequestParser() {
         // utility class - prevents instantiation
     }
@@ -78,6 +81,7 @@ public final class OAuthRequestParser {
                         try {
                             val = URLDecoder.decode(val, StandardCharsets.UTF_8);
                         } catch (IllegalArgumentException e) {
+                            logger.warn("Rejected malformed OAuth parameter encoding", e);
                             throw new OAuth1Exception(400, "invalid_oauth_parameters");
                         }
                         params.put(key, val);
@@ -114,6 +118,7 @@ public final class OAuthRequestParser {
                 try {
                     return URLDecoder.decode(v, StandardCharsets.UTF_8);
                 } catch (IllegalArgumentException e) {
+                    logger.warn("Rejected malformed OAuth signature encoding", e);
                     throw new OAuth1Exception(400, "invalid_oauth_parameters");
                 }
             }
