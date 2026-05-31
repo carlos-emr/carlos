@@ -88,7 +88,7 @@ table {
   display: none !important;
 }
 
-table#firstTable td:#userSettings > div {
+table#firstTable td#userSettings > div {
   display: block;
 }
 
@@ -181,7 +181,8 @@ a.encounterBtn, a.masterBtn {
     text-align: center;
     white-space: nowrap;
     z-index: 1;
-    border: 0 solid transparent;
+    border-style: solid;
+    border-color: transparent;
     border-width: 0 5px;
     border-image: url(../mobile/toolButton.png) 0 5 0 5 fill stretch;
 }
@@ -302,8 +303,8 @@ a.encounterBtn, a.masterBtn {
     top: calc(100% + 2px);
     left: 0;
     z-index: 9999;
-    min-width: 360px;
-    max-width: 480px;
+    min-width: 280px;
+    max-width: calc(100vw - 10px);
     max-height: 420px;
     overflow-y: auto;
     background: #fff;
@@ -426,6 +427,6 @@ a.encounterBtn, a.masterBtn {
   display: none;
 }
 
-img {
+.quick-search-wrapper img {
   width: 30px !important;
 }
