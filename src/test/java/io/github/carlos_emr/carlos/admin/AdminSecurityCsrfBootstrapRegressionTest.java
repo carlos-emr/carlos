@@ -34,8 +34,14 @@ import org.junit.jupiter.api.Test;
 class AdminSecurityCsrfBootstrapRegressionTest {
 
     private static final String CSRF_BOOTSTRAP_INCLUDE = "<%@ include file=\"/WEB-INF/jspf/csrf-token.jspf\" %>";
+    private static final String BODY_SCOPED_CSRF_QUERY =
+            "var csrfEl = document.querySelector('body > input[name=\"CSRF-TOKEN\"]');";
+    private static final String DOCUMENT_SCOPED_CSRF_QUERY =
+            "var csrfEl = document.querySelector('input[name=\"CSRF-TOKEN\"]');";
+    private static final Path SECURITY_UPDATE_SECURITY_JSP =
+            Path.of("src/main/webapp/WEB-INF/jsp/admin/securityupdatesecurity.jsp");
     private static final List<Path> ADMIN_SECURITY_JSPS = List.of(
-            Path.of("src/main/webapp/WEB-INF/jsp/admin/securityupdatesecurity.jsp"),
+            SECURITY_UPDATE_SECURITY_JSP,
             Path.of("src/main/webapp/WEB-INF/jsp/admin/securityaddarecord.jsp"),
             Path.of("src/main/webapp/WEB-INF/jsp/admin/securityupdate.jsp"));
 
@@ -61,11 +67,11 @@ class AdminSecurityCsrfBootstrapRegressionTest {
     @Test
     @DisplayName("MFA reset should read the canonical bootstrap CSRF token")
     void shouldQueryBodyScopedCsrfToken_forMfaReset() throws Exception {
-        String jsp = Files.readString(ADMIN_SECURITY_JSPS.get(0));
+        String jsp = Files.readString(SECURITY_UPDATE_SECURITY_JSP);
 
         assertThat(jsp)
-                .contains("var csrfEl = document.querySelector('body > input[name=\"CSRF-TOKEN\"]');")
-                .doesNotContain("var csrfEl = document.querySelector('input[name=\"CSRF-TOKEN\"]');");
+                .contains(BODY_SCOPED_CSRF_QUERY)
+                .doesNotContain(DOCUMENT_SCOPED_CSRF_QUERY);
     }
 
     private static int countOccurrences(String text, String needle) {
