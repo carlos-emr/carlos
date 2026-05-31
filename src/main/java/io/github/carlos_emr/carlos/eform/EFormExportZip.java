@@ -242,14 +242,16 @@ public class EFormExportZip {
 
         //loop through each file and decide -if html eform, put in DB, if supporting files (i.e. images) put on HD
         for (Entry<String, File> tempFile : tempFiles.entrySet()) {
-            _log.info("looking at " + tempFile.getKey());
+            _log.info("looking at {}", LogSafe.sanitize(tempFile.getKey()));
             if (eformTable.containsKey(tempFile.getKey())) {  //if file name matches eform
                 File extractedTempFile = PathValidationUtils.validateExistingPath(tempFile.getValue(), imageTempFolderDir);
                 try (FileInputStream fis = new FileInputStream(extractedTempFile);
                      ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
                     inputToOutput(fis, baos);
                     String html = new String(baos.toByteArray());
-                    _log.debug("THIS IS WHAT THE HTML is" + html);
+                    // Do not log raw uploaded HTML (attacker-controlled, multi-line → log forging
+                    // and content dump); log only its length.
+                    _log.debug("Loaded eform HTML content ({} chars)", html == null ? 0 : html.length());
                     eformTable.get(tempFile.getKey()).setFormHtml(html);
                 }
             } else if (eformTableFailed.containsKey(tempFile.getKey())) {
@@ -260,19 +262,19 @@ public class EFormExportZip {
                 try (FileInputStream fis = new FileInputStream(extractedTempFile)) {
                     if (imageFile.exists()) {
                         errors.add("Image '" + tempFile.getKey() + "' already exists, skipping image, but the form may still be uploaded.  Please resolve.");
-                        _log.info("EForm Import: Image with name '" + tempFile.getKey() + "' already exists, skipping image, but the form may still be uploaded.  Please resolve.");
+                        _log.info("EForm Import: Image with name '{}' already exists, skipping image, but the form may still be uploaded.  Please resolve.", LogSafe.sanitize(tempFile.getKey()));
                     }
                     try (OutputStream os = new FileOutputStream(imageFile)) {
                         inputToOutput(fis, os);
                     }
-                    _log.info("Loaded eform file: " + tempFile.getKey());
+                    _log.info("Loaded eform file: {}", LogSafe.sanitize(tempFile.getKey()));
                 }
             }
         }
         _log.info("Registering: " + eformTable.values().size() + " eforms");
         //write constructed eforms
         for (EForm eform : eformTable.values()) {
-            _log.info("New eform: " + eform.getFormName());
+            _log.info("New eform: {}", LogSafe.sanitize(eform.getFormName()));
             EFormUtil.saveEForm(eform);
         }
         deleteDirectory(imageTempFolderDir);
