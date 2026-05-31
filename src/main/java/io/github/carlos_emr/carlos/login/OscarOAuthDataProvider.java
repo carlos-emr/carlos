@@ -71,7 +71,7 @@ public class OscarOAuthDataProvider {
     private static final long MAX_NONCES = 100_000L;
 
     private final org.apache.logging.log4j.Logger logger = MiscUtils.getLogger();
-    private final Cache<String, Boolean> usedNonces = Caffeine.newBuilder()
+    private static final Cache<String, Boolean> usedNonces = Caffeine.newBuilder()
             .expireAfterWrite(Duration.ofSeconds(NONCE_TTL_SECONDS))
             .maximumSize(MAX_NONCES)
             .build();
@@ -275,10 +275,17 @@ public class OscarOAuthDataProvider {
             throw new OAuth1Exception(401, "stale_oauth_timestamp");
         }
 
-        String nonceKey = request.consumerKey + '\n' + request.nonce + '\n' + request.timestamp;
-        if (usedNonces.asMap().putIfAbsent(nonceKey, Boolean.TRUE) != null) {
+        if (usedNonces.asMap().putIfAbsent(nonceKey(request), Boolean.TRUE) != null) {
             throw new OAuth1Exception(401, "oauth_nonce_replayed");
         }
+    }
+
+    private static String nonceKey(OAuth1Request request) {
+        return lengthPrefixed(request.consumerKey) + lengthPrefixed(request.nonce) + lengthPrefixed(request.timestamp);
+    }
+
+    private static String lengthPrefixed(String value) {
+        return value.length() + ":" + value;
     }
 
     private static boolean isBlank(String value) {

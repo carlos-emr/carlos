@@ -43,7 +43,7 @@ class OAuthReplayProtectionUnitTest {
     @DisplayName("should reject nonce replay when timestamp matches")
     void shouldRejectNonceReplay_whenTimestampMatches() {
         OscarOAuthDataProvider provider = new OscarOAuthDataProvider();
-        OAuth1Request request = oauthRequest("consumer", "nonce-123", currentTimestamp());
+        OAuth1Request request = oauthRequest("consumer", uniqueNonce(), currentTimestamp());
 
         assertThatCode(() -> provider.checkTimestampAndNonce(request)).doesNotThrowAnyException();
 
@@ -59,8 +59,23 @@ class OAuthReplayProtectionUnitTest {
     void shouldAllowSameNonce_whenTimestampDiffers() {
         OscarOAuthDataProvider provider = new OscarOAuthDataProvider();
         long now = System.currentTimeMillis() / 1000L;
-        OAuth1Request first = oauthRequest("consumer", "nonce-123", Long.toString(now));
-        OAuth1Request second = oauthRequest("consumer", "nonce-123", Long.toString(now + 1));
+        String nonce = uniqueNonce();
+        OAuth1Request first = oauthRequest("consumer", nonce, Long.toString(now));
+        OAuth1Request second = oauthRequest("consumer", nonce, Long.toString(now + 1));
+
+        assertThatCode(() -> provider.checkTimestampAndNonce(first)).doesNotThrowAnyException();
+
+        assertThatCode(() -> provider.checkTimestampAndNonce(second)).doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("should allow distinct nonce inputs when values contain delimiters")
+    void shouldAllowDistinctNonceInputs_whenValuesContainDelimiters() {
+        OscarOAuthDataProvider provider = new OscarOAuthDataProvider();
+        String timestamp = currentTimestamp();
+        String suffix = uniqueNonce();
+        OAuth1Request first = oauthRequest("consumer-" + suffix, "nonce\nvalue", timestamp);
+        OAuth1Request second = oauthRequest("consumer-" + suffix + "\nnonce", "value", timestamp);
 
         assertThatCode(() -> provider.checkTimestampAndNonce(first)).doesNotThrowAnyException();
 
@@ -163,5 +178,9 @@ class OAuthReplayProtectionUnitTest {
 
     private static String currentTimestamp() {
         return Long.toString(System.currentTimeMillis() / 1000L);
+    }
+
+    private static String uniqueNonce() {
+        return "nonce-" + System.nanoTime();
     }
 }
