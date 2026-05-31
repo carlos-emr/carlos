@@ -114,7 +114,7 @@ public class UploadLoginText2Action extends ActionSupport implements UploadedFil
 
         try {
             if (importFile == null) {
-                _logger.warn("No file uploaded; skipping AUA text write");
+                _logger.warn("No file uploaded; skipping login text write");
             } else if (importFile.getName().length() > 0) {
                 fis = Files.newInputStream(importFile.toPath());
                 String savePath = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + "/OSCARloginText.txt";
