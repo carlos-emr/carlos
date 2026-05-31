@@ -29,6 +29,7 @@
 
 <%@ page contentType="text/html;charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -50,7 +51,7 @@
     <!-- Right Section: QR Code -->
     <div class="col-12 col-md-5 text-center">
         <div class="row mx-0 mt-2 p-2">
-            <img src="${requestScope.qrData}" alt="QR Code for Multi-Factor Authentication Setup" class="img-fluid">
+            <img src="${carlos:forHtmlAttribute(requestScope.qrData)}" alt="QR Code for Multi-Factor Authentication Setup" class="img-fluid">
         </div>
         <div class="row">
             <jsp:include page="/WEB-INF/jsp/mfa/mfa_otp_handler.jsp"/>
