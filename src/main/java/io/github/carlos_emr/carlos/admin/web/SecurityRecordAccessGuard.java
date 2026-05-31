@@ -49,6 +49,12 @@ public class SecurityRecordAccessGuard {
         this.providerSiteDao = providerSiteDao;
     }
 
+    /**
+     * Parses a security record id from request input.
+     *
+     * @param securityIdParam request parameter value; leading and trailing whitespace is ignored
+     * @return parsed id, or {@code null} when the value is null, blank, or non-numeric
+     */
     public Integer parseSecurityId(String securityIdParam) {
         if (securityIdParam == null || securityIdParam.trim().isEmpty()) {
             return null;
@@ -61,6 +67,12 @@ public class SecurityRecordAccessGuard {
         }
     }
 
+    /**
+     * Loads a security record by id.
+     *
+     * @param securityId security record id
+     * @return matching record, or {@code null} when the id is null or the record does not exist
+     */
     public Security findSecurity(Integer securityId) {
         if (securityId == null) {
             return null;
@@ -69,10 +81,24 @@ public class SecurityRecordAccessGuard {
         return securityDao.find(securityId);
     }
 
+    /**
+     * Checks whether the security record belongs to the current facility.
+     *
+     * @param loggedInInfo current logged-in context
+     * @param security security record to validate
+     * @return {@code true} when the security record is non-null and its provider belongs to the current facility
+     */
     public boolean hasCurrentFacilityAccess(LoggedInInfo loggedInInfo, Security security) {
         return security != null && hasCurrentFacilityAccess(loggedInInfo, security.getProviderNo());
     }
 
+    /**
+     * Checks whether a provider belongs to the current facility via provider-site mappings.
+     *
+     * @param loggedInInfo current logged-in context
+     * @param providerNo provider number to validate
+     * @return {@code true} when the provider is mapped to the current facility; otherwise {@code false}, including for null or blank input
+     */
     public boolean hasCurrentFacilityAccess(LoggedInInfo loggedInInfo, String providerNo) {
         if (loggedInInfo == null
                 || loggedInInfo.getCurrentFacility() == null
