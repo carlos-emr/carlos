@@ -59,8 +59,6 @@ import java.nio.file.Files;
 import java.util.List;
 
 public class UploadTemplates2Action extends ActionSupport implements UploadedFilesAware {
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -70,6 +68,7 @@ public class UploadTemplates2Action extends ActionSupport implements UploadedFil
         if (loggedInInfo == null) {
             throw new SecurityException("missing required sec object (_admin or _report)");
         }
+        SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.READ, null)
                 && !securityInfoManager.hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.READ, null)) {
             throw new SecurityException("missing required sec object (_admin or _report)");
