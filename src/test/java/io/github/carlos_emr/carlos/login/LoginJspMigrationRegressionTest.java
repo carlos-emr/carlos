@@ -77,6 +77,10 @@ class LoginJspMigrationRegressionTest {
             Path.of("src/main/webapp/WEB-INF/jsp/login/forcepasswordreset.jsp");
     private static final Path LOGIN_FAILED_JSP =
             Path.of("src/main/webapp/WEB-INF/jsp/login/loginfailed.jsp");
+    private static final Path LOGIN_INDEX_JSP =
+            Path.of("src/main/webapp/WEB-INF/jsp/login/index.jsp");
+    private static final Path LOCATION_JSP =
+            Path.of("src/main/webapp/WEB-INF/jsp/login/location.jsp");
     private static final Path SELECT_FACILITY_JSP =
             Path.of("src/main/webapp/WEB-INF/jsp/login/select_facility.jsp");
     private static final Path THIRD_PARTY_LOGIN_JSP =
@@ -315,6 +319,33 @@ class LoginJspMigrationRegressionTest {
                 .doesNotContain("/login;jsessionid=")
                 .doesNotContain("oauthData.replyTo)};jsessionid=")
                 .doesNotContain("pageContext.session.id");
+    }
+
+    @Test
+    @DisplayName("login JSPs should not retain unused OWASP advanced encoder taglibs")
+    void shouldNotRetainUnusedOwaspAdvancedEncoderTaglibs_forLoginJsps() throws IOException {
+        String loginIndexJsp = Files.readString(LOGIN_INDEX_JSP, StandardCharsets.UTF_8);
+        String locationJsp = Files.readString(LOCATION_JSP, StandardCharsets.UTF_8);
+        String thirdPartyLoginJsp = Files.readString(THIRD_PARTY_LOGIN_JSP, StandardCharsets.UTF_8);
+
+        assertThat(loginIndexJsp).doesNotContain("owasp.encoder.jakarta.advanced");
+        assertThat(locationJsp).doesNotContain("owasp.encoder.jakarta.advanced");
+        assertThat(thirdPartyLoginJsp).doesNotContain("owasp.encoder.jakarta.advanced");
+    }
+
+    @Test
+    @DisplayName("location JSP should not render retired clinic site program selector")
+    void shouldNotRenderRetiredProgramSelector_forLocation() throws IOException {
+        String locationJsp = Files.readString(LOCATION_JSP, StandardCharsets.UTF_8);
+
+        assertThat(locationJsp)
+                .doesNotContain("programIdForLocation")
+                .doesNotContain("setLocation()")
+                .doesNotContain("SessionConstants.CURRENT_PROGRAM_ID")
+                .doesNotContain("LabelValueBean")
+                .doesNotContain("new ArrayList")
+                .doesNotContain("provider/providercontrol?")
+                .doesNotContain("Go -->");
     }
 
     @Test
