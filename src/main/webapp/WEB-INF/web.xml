@@ -585,8 +585,9 @@
 
   <session-config>
     <session-timeout>120</session-timeout>
-    <!-- Session cookies are intentionally HTTPS-only; local and upstream-proxy
-         deployments must serve CARLOS over HTTPS before creating sessions. -->
+    <!-- Session cookies are intentionally HTTPS-only. Localhost devcontainer
+         browsers can use secure localhost cookies; non-local HTTP and upstream
+         proxy deployments must serve CARLOS over HTTPS before creating sessions. -->
     <cookie-config>
       <http-only>true</http-only>
       <secure>true</secure>
