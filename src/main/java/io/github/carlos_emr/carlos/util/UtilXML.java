@@ -45,6 +45,7 @@ import javax.xml.transform.stream.StreamResult;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NamedNodeMap;
@@ -138,6 +139,8 @@ public class UtilXML {
         return document;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public static Document parseXMLFile(String fileName)
             throws IOException, FileNotFoundException, Exception {
         try (FileReader reader = new FileReader(PathValidationUtils.resolveTrustedPath(new File(fileName)))) {

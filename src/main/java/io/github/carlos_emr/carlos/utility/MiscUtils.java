@@ -47,6 +47,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.LoggerContext;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 /**
  * When using the shutdown hook...
  * <br /><br />
@@ -136,6 +138,8 @@ public final class MiscUtils {
     public MiscUtils() {
     }
 
+    // FindSecBugs CRLF_INJECTION_LOGS: resolvedLocation derives from the log4j.override.configuration JVM system property and the servlet container's contextPath (getServletContext().getContextPath()); both are trusted server/deployment config, not request input.
+    @SuppressFBWarnings(value = "CRLF_INJECTION_LOGS", justification = "resolvedLocation is built from the log4j.override.configuration system property and the servlet context path, both trusted deployment config; no request-controlled CR/LF.")
     public static void addLoggingOverrideConfiguration(String contextPath) {
         String configLocation = System.getProperty("log4j.override.configuration");
         if (configLocation != null) {

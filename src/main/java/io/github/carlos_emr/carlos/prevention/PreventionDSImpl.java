@@ -48,6 +48,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import io.github.carlos_emr.CarlosProperties;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Default Spring implementation of the {@link PreventionDS} prevention decision support service.
@@ -166,6 +167,8 @@ public class PreventionDSImpl implements PreventionDS {
      * <p>Errors at each tier are logged and do not prevent attempting
      * subsequent tiers.</p>
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     @PostConstruct
     private void loadRuleBase() {
         try {

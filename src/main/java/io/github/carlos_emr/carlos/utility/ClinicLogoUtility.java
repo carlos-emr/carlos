@@ -85,7 +85,8 @@ public final class ClinicLogoUtility {
      * @return PdfPTable an OpenPDF table element containing the logo image, for insertion into a PDF
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; path derived from trusted configuration/constant/DB value, not user-controllable input")
     public static PdfPTable createLogoHeader() {
 
         PdfPTable infoTable = new PdfPTable(1);
@@ -147,6 +148,8 @@ public final class ClinicLogoUtility {
      * @param width float the maximum width to scale the image to (in points)
      * @param height float the maximum height to scale the image to (in points)
      */
+    // FindSecBugs CRLF_INJECTION_LOGS: logoFile is resolved via PathValidationUtils.resolveTrustedPath from server-configured properties (clinicLetterheadLogo / faxLogoInConsultation / DOCUMENT_DIR + DB-stored document filename); no request-controlled string reaches this log.
+    @SuppressFBWarnings(value = "CRLF_INJECTION_LOGS", justification = "logoFile path is derived from server config properties and a server-stored document filename, not from request input; no attacker-controlled CR/LF.")
     private static void addImage(PdfPTable pdfPTable, File logoFile, float width, float height) {
         try (FileInputStream fileInputStream = new FileInputStream(logoFile)) {
             PdfPCell cell = new PdfPCell();

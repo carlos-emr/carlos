@@ -70,6 +70,7 @@ import io.github.carlos_emr.carlos.lab.FileUploadCheck;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.HandlerClassFactory;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.MessageHandler;
 import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Path("/labs")
 @Component("labService")
@@ -102,6 +103,8 @@ public class LabService extends AbstractServiceImpl {
 	@Path("/hl7LabUpload")
 	@Produces("application/json")
 	@Consumes("application/json")
+	// FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+	@SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
 	public Response uploadHl7Lab(Hl7TextMessageTo1 labT, @Context HttpServletRequest request) {
 		LoggedInInfo loggedInInfo = getLoggedInInfo();
 

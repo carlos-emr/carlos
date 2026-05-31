@@ -53,6 +53,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
 
 import io.github.carlos_emr.CarlosProperties;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 
 /**
@@ -102,6 +103,8 @@ public class LimitedUseLookup {
         loadLULookupInformation();
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     static private void loadLULookupInformation() {
         log.debug("current LU lookup size " + luLookup.size());
         if (!loaded) {

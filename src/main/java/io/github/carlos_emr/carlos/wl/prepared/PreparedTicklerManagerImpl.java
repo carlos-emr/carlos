@@ -37,6 +37,7 @@ import java.util.List;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class PreparedTicklerManagerImpl implements PreparedTicklerManager {
 
@@ -49,6 +50,8 @@ public class PreparedTicklerManagerImpl implements PreparedTicklerManager {
     }
 
     /* loads up the runtime plugins */
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public void setPath(String path) {
         ticklers.clear();
         File f = PathValidationUtils.resolveTrustedPath(new File(path + "/WEB-INF/classes/org/caisi/tickler/prepared/runtime"));

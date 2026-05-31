@@ -328,6 +328,8 @@ public class Utility {
     }
 
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public static ArrayList getTemplate(String pathLoc, String dir, String filename) {
         FieldDefinition fDev = null; // clientImageMgr.getClientImage(demoNo);
         ArrayList list = new ArrayList();

@@ -178,12 +178,14 @@ public class BillingGuidelines {
                         try {
                             in.close();
                         } catch (IOException e) {
+                            // ignore: failure closing stream during cleanup is non-actionable
                         }
                     }
                     if (is != null) {
                         try {
                             is.close();
                         } catch (IOException e) {
+                            // ignore: failure closing stream during cleanup is non-actionable
                         }
                     }
                 }

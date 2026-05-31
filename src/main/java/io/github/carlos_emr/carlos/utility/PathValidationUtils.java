@@ -16,6 +16,8 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.zip.ZipEntry;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 /**
  * Utility class for validating file paths to prevent path traversal attacks.
  *
@@ -46,6 +48,8 @@ import java.util.zip.ZipEntry;
  *
  * @since 2025-12-09
  */
+// FindSecBugs PATH_TRAVERSAL_IN: this class IS the path-validation / secure-file utility; Find Security Bugs flags its internal File/Path operations, which are the containment checks and secure temp-file creation themselves, not vulnerable sinks.
+@SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "PathValidationUtils is the path-validation utility; its internal File/Path operations are the containment checks and secure temp-file creation themselves, not vulnerable sinks")
 public final class PathValidationUtils {
 
     public static final String INVALID_FILENAME_MESSAGE =

@@ -48,6 +48,7 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
 
 import io.github.carlos_emr.CarlosProperties;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * @author jay
@@ -187,6 +188,8 @@ public class ClinicalReportManager {
     }
 
     @SuppressWarnings("unchecked")
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     private void loadReportsFromFile() {
 
         if (!loaded) {

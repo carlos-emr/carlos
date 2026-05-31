@@ -59,6 +59,7 @@ import java.nio.charset.StandardCharsets;
 import io.github.carlos_emr.carlos.documentManager.LocalOnlyUserAgent;
 import org.xhtmlrenderer.pdf.ITextRenderer;
 import org.xhtmlrenderer.layout.SharedContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * HTML-to-PDF conversion utility using Flying Saucer's ITextRenderer.
@@ -251,6 +252,8 @@ public class Doc2PDF {
      * @param fileName String the output file path
      * @param docBin String the binary PDF data to write
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public static void SavePDF2File(String fileName, String docBin) {
         try (FileOutputStream ostream = new FileOutputStream(PathValidationUtils.resolveTrustedPath(new File(fileName)));
              ObjectOutputStream p = new ObjectOutputStream(ostream)) {

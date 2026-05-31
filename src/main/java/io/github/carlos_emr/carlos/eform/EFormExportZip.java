@@ -167,7 +167,8 @@ public class EFormExportZip {
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    // FindSecBugs CRLF_INJECTION_LOGS: the logged zip entry name is already passed through LogSafe.sanitize(...), so CR/LF are neutralized.
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "CRLF_INJECTION_LOGS"}, justification = "IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. CRLF_INJECTION_LOGS: logged zip entry name is already wrapped in LogSafe.sanitize(...).")
     public List<String> importForm(InputStream importInputStream) throws IOException, Exception {
         ArrayList<String> errors = new ArrayList<String>();
         _log.info("Importing eforms");

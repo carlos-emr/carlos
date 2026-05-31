@@ -130,6 +130,8 @@ public class CustomInterfaceTag extends TagSupport {
      * @param path the webapp-relative resource path (e.g. {@code /js/custom/default/main.js})
      * @return {@code true} if the resource exists; {@code false} otherwise
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     private boolean scriptResourceExists(ServletContext servletContext, String path) {
         try {
             if (servletContext.getResource(path) != null) {

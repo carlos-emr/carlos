@@ -63,6 +63,8 @@ public class zip {
         write2Zip(fileformat);
     }
 
+    // FindSecBugs CRLF_INJECTION_LOGS: files[i] is an entry name from File.list() on the server-configured form_record_path directory (resolveConfiguredDirectory); it is a server-stored on-disk filename, not request input, so no attacker-controlled CR/LF reaches the log.
+    @SuppressFBWarnings(value = "CRLF_INJECTION_LOGS", justification = "logged filename comes from File.list() on the configured form_record_path directory, a server-side directory listing, not request input; no attacker-controlled CR/LF.")
     public void write2Zip(String fileformat) {
         MiscUtils.getLogger().debug("writing to Zip");
         try {

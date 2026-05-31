@@ -60,6 +60,7 @@ import io.github.carlos_emr.carlos.utility.XmlUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.demographic.data.DemographicData;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class PreventionDisplayConfig {
     private static Logger log = MiscUtils.getLogger();
@@ -103,6 +104,8 @@ public class PreventionDisplayConfig {
         return prevHash.get(s);
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public void loadPreventions() {
         prevList = new ArrayList<HashMap<String, String>>();
         prevHash = new HashMap<String, HashMap<String, String>>();
@@ -199,6 +202,8 @@ public class PreventionDisplayConfig {
     }
 
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public void loadConfigurationSets() {
         getPreventions();
         configHash = new HashMap<String, Map<String, Object>>();

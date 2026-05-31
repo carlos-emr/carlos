@@ -36,6 +36,7 @@ import java.util.Date;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.DigitalSignatureDao;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class DigitalSignatureUtils {
 
@@ -61,6 +62,8 @@ public class DigitalSignatureUtils {
      * @param demographicId of the owner of this signature
      * @throws FileNotFoundException if missing or error in image when one was expected
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static DigitalSignature storeDigitalSignatureFromTempFileToDB(LoggedInInfo loggedInInfo, String signatureRequestId, int demographicId) {
         DigitalSignature digitalSignature = null;
 

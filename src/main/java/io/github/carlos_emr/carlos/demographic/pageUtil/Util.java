@@ -555,6 +555,8 @@ public class Util {
         return false;
     }
 
+    // FindSecBugs CRLF_INJECTION_LOGS: the logged f.getAbsolutePath() is a server-constructed export file path (generated XML / readme / export-log files in a server temp dir) and is only logged on the validateExistingPath failure branch; it is a server-side filesystem path, not request-controlled input.
+    @SuppressFBWarnings(value = "CRLF_INJECTION_LOGS", justification = "logged absolute path is a server-generated export file path, not request input; no attacker-controlled CR/LF.")
     static public boolean zipFiles(ArrayList<File> files, ArrayList<String> dirs, String zipFileName, String dirName) throws Exception {
         try {
             if (files == null) {
