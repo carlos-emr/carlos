@@ -373,6 +373,8 @@ public class EForm extends EFormBase {
         this.formDate = UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd");
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void setContextPath(String contextPath) {
         if (StringUtils.isBlank(contextPath)) return;
         Path oscarJs = PathValidationUtils.validateExistingPath(new File(contextPath, "library"), new File(contextPath)).toPath();

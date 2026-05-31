@@ -65,6 +65,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import io.github.carlos_emr.CarlosProperties;
 import ca.uhn.hl7v2.HL7Exception;
@@ -1245,6 +1246,8 @@ public class PhsStarHandler extends BasePhsStarHandler {
         return programId;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     private String readProgramMappingFile(String service, String patientType, String location) {
         String filename = CarlosProperties.getInstance().getProperty("phs_star.program_file");
         if (filename == null) {

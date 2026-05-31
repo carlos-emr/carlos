@@ -29,6 +29,7 @@
 package io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.web;
 
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
@@ -120,6 +121,8 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
         return NONE;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public String print() throws IOException {
 
         OutputStream output = null;

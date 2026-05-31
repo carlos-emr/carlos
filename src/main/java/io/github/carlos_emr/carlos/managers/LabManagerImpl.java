@@ -57,6 +57,7 @@ import org.openpdf.text.DocumentException;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.lab.ca.all.pageUtil.LabPDFCreator;
 import io.github.carlos_emr.carlos.util.StringUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 
 /**
@@ -148,6 +149,8 @@ public class LabManagerImpl implements LabManager {
      * @return Path to the generated temporary PDF file
      * @throws PDFGenerationException if an error occurs during PDF generation
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public Path renderLab(LoggedInInfo loggedInInfo, Integer segmentId) throws PDFGenerationException {
         checkPrivilege(loggedInInfo, "r");
         LogAction.addLogSynchronous(loggedInInfo, "LabManager.getHl7MessageAsPDF", "labId=" + segmentId);

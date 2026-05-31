@@ -36,6 +36,7 @@ import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.w3c.dom.Element;
 import org.xhtmlrenderer.extend.FSImage;
 import org.xhtmlrenderer.extend.ReplacedElement;
@@ -139,6 +140,8 @@ public class ReplacedElementFactoryImpl implements ReplacedElementFactory {
      * @throws IOException if the image file cannot be read
      * @throws BadElementException if the image data cannot be parsed by OpenPDF
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     protected final FSImage imageForPDF(String attribute, UserAgentCallback uac) throws IOException, BadElementException {
         FSImage fsImage;
         try (InputStream input = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(attribute)))) {

@@ -350,7 +350,8 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
      * @deprecated use the createLogo method in the ClinicLogoUtility at io.github.carlos_emr.carlos.utility
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; path derived from trusted configuration/constant/DB value, not user-controllable input")
     @Deprecated
     private PdfPTable createLogoHeader() {
 
@@ -392,6 +393,8 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
      * @param width     float maximum width in points to scale the image to
      * @param height    float maximum height in points to scale the image to
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     protected void addImage(PdfPTable pdfPTable, String filename, float width, float height) {
 
         File imageFile = PathValidationUtils.resolveTrustedPath(new File(filename));

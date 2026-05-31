@@ -37,6 +37,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class UCRConfigurationManager {
 
@@ -53,6 +54,8 @@ public class UCRConfigurationManager {
         this.filename = filename;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public UCRConfiguration getConfig(String basePath) throws Exception {
         logger.debug("loading up custom reports config");
         if (config == null) {

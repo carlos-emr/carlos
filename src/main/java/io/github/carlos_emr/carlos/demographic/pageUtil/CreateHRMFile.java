@@ -41,6 +41,7 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.xmlbeans.XmlOptions;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -91,6 +92,8 @@ import io.github.carlos_emr.CarlosProperties;
  */
 public class CreateHRMFile {
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     static public void create(DemographicsDocument.Demographics demographic, List<Reports> reports, String filepath) {
 
         OmdCdsDocument omdCdsDoc = OmdCdsDocument.Factory.newInstance();

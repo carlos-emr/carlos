@@ -408,6 +408,8 @@ public final class IncomingDocUtil {
      * @param degrees int the rotation angle in degrees (e.g., 90, 180, -90)
      * @throws Exception if the rotation, file deletion, or rename operation fails
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static void rotatePage(String queueId, String myPdfDir, String myPdfName, String MyPdfPageNumber, int degrees) throws Exception {
         long lastModified;
         String filePathName, tempFilePathName;
@@ -463,6 +465,8 @@ public final class IncomingDocUtil {
      * @param degrees int the rotation angle in degrees (e.g., 90, 180, -90)
      * @throws Exception if the rotation, file deletion, or rename operation fails
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static void rotateAlPages(String queueId, String myPdfDir, String myPdfName, int degrees) throws Exception {
         long lastModified;
         String filePathName, tempFilePathName;
@@ -520,6 +524,8 @@ public final class IncomingDocUtil {
      * @param PageNumberToDelete String the 1-based page number to delete
      * @throws Exception if the page deletion, file operations, or rename fails
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static void deletePage(String queueId, String myPdfDir, String myPdfName, String PageNumberToDelete) throws Exception {
         long lastModified;
         String filePathName, tempFilePathName;
@@ -611,7 +617,8 @@ public final class IncomingDocUtil {
      * @throws Exception if the page specification is invalid or file operations fail
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; path validated for directory containment via PathValidationUtils before use")
     public static void extractPage(String queueId, String myPdfDir, String myPdfName, String pageNumbersToExtract) throws Exception {
         long lastModified;
         String filePathName, tempFilePathName;
@@ -769,6 +776,8 @@ public final class IncomingDocUtil {
      * @param myPdfName String the PDF filename to delete
      * @throws Exception if the file cannot be deleted or moved to the recycle bin
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static void DeletePDF(String queueId, String myPdfDir, String myPdfName) throws Exception {
         String filePathName;
         boolean success;

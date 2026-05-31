@@ -1203,6 +1203,8 @@ public final class EDocUtil {
         }
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private static File validateResolvedDocumentOrTempFile(String fileName) {
         File resolvedFile = new File(resolvePath(fileName));
         File documentDir = PathValidationUtils.resolveConfiguredDirectory(

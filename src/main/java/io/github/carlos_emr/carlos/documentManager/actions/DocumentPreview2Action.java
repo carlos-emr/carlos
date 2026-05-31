@@ -304,6 +304,8 @@ public class DocumentPreview2Action extends ActionSupport {
      * Response: Streams PDF content directly with "application/pdf" content type, or sets
      * appropriate HTTP error status code if validation fails.
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void renderPDF() {
         String pdfPathString = StringUtils.isNullOrEmpty(request.getParameter("pdfPath")) ? "" : request.getParameter("pdfPath");
         

@@ -332,6 +332,8 @@ public class PdfRecordPrinter {
      * @param invoiceNo Integer the billing invoice number to render
      * @param locale Locale for date formatting
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public void printBillingInvoice(Integer invoiceNo, Locale locale) {
         CarlosProperties props = CarlosProperties.getInstance();
         InputStream is = null;

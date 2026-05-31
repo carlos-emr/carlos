@@ -394,6 +394,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
     /**
      * Search for all XML / CDS / CMS patient files in a given directory and process.
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private void processXmlFilesInDirectory(LoggedInInfo loggedInInfo, Path fileDirectory, ArrayList<String> warnings, ArrayList<String[]> logs,
                                             HttpServletRequest request, int timeshiftInDays, List<Provider> students, int courseId, List<Path> validXmlFiles) throws IOException {
         try (DirectoryStream<Path> directoryStream = Files.newDirectoryStream(fileDirectory)) {
@@ -615,7 +617,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; path validated for directory containment via PathValidationUtils before use")
     private String[] importContacts(LoggedInInfo loggedInInfo, String xmlFile, Path importRoot, HttpServletRequest request, int timeShiftInDays) throws SQLException, Exception {
         DemographicData dd = new DemographicData();
 
@@ -821,7 +824,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
 
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; path validated for directory containment via PathValidationUtils before use")
     private String[] importXML(LoggedInInfo loggedInInfo, String xmlFile, Path importRoot, ArrayList<String> warnings, HttpServletRequest request, int timeShiftInDays, Provider student, Program admitTo, int courseId, boolean cleanFile) throws SQLException, Exception {
         ArrayList<String> err_demo = new ArrayList<String>(); //errors: duplicate demographics
         ArrayList<String> err_data = new ArrayList<String>(); //errors: discrete data
@@ -4503,6 +4507,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
         }
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private void importLabs(LoggedInInfo loggedInInfo, LaboratoryResults[] labResultArr) {
         List<String> accessionsDone = new ArrayList<String>();
 

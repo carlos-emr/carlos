@@ -175,6 +175,8 @@ public class EFormLoader {
      *</eformap-config>
      *Call ap like so: <input type="text" oscarDB=patient_name size="20">*/
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public static void parseXML() {
         try {
             Properties op = CarlosProperties.getInstance();

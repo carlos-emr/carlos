@@ -57,6 +57,7 @@ import io.github.carlos_emr.carlos.hospitalReportManager.xsd.ReportMedia;
 import io.github.carlos_emr.carlos.hospitalReportManager.xsd.ReportsReceived;
 import io.github.carlos_emr.carlos.hospitalReportManager.xsd.ReportsReceived.OBRContent;
 import io.github.carlos_emr.carlos.hospitalReportManager.xsd.TransactionInformation;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
@@ -75,6 +76,8 @@ public class ReadHRMFile {
  *
  */
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public ReadHRMFile(String hrmFile) {
         try {
             if (hrmFile == null) {

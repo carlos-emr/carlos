@@ -37,6 +37,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.List;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.decisionSupport.model.DSConsequence;
 import io.github.carlos_emr.carlos.decisionSupport.model.DSGuideline;
@@ -137,6 +138,8 @@ public class BillingGuidelines {
     /**
      * Loads all the guidelines from preset files in this package.  This will probably change to load them from a table in the database.
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     void loadGuidelines(String regionCode) {
         log.debug("LOADING GUIDELINES");
         billingGuideLines = new ArrayList<DSGuideline>();

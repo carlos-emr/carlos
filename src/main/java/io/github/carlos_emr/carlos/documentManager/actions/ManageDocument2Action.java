@@ -735,6 +735,8 @@ public class ManageDocument2Action extends ActionSupport {
      * @param pageNum Integer the 1-based page number to render
      * @return byte[] the PNG image bytes, or null if rendering fails or page number is invalid
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public byte[] createCacheVersion2(Document d, Integer pageNum) {
         File documentDir = PathValidationUtils.resolveConfiguredDirectory(DOCUMENT_DIR, "DOCUMENT_DIR");
         Path pdfPath = PathValidationUtils.validateExistingPath(new File(documentDir, d.getDocfilename()), documentDir).toPath();
@@ -923,6 +925,8 @@ public class ManageDocument2Action extends ActionSupport {
      * @throws Exception if the document file does not exist and no docxml fallback is available
      * @throws SecurityException if the user lacks _edoc read privilege
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void display() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 

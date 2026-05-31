@@ -61,6 +61,8 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.form.graphic.FrmGraphicFactory;
@@ -133,6 +135,8 @@ public class EFormPDFServlet extends HttpServlet {
      * @throws jakarta.servlet.ServletException if a servlet error occurs
      * @throws java.io.IOException if an I/O error occurs
      */
+    // FindSecBugs PREDICTABLE_RANDOM: random used only for a temp-file name suffix whose uniqueness/exclusivity is guaranteed by File.createTempFile; not a security control
+    @SuppressFBWarnings(value = "PREDICTABLE_RANDOM", justification = "random used only for a temp-file name suffix whose uniqueness/exclusivity is guaranteed by File.createTempFile; not a security control")
     public void doPost(HttpServletRequest req, HttpServletResponse res) throws jakarta.servlet.ServletException,
             java.io.IOException {
 

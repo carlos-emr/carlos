@@ -438,6 +438,8 @@ public class CarlosProperties extends Properties {
         return carlosProperties.getProperty("form_intake_program_cash_fid");
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public String getDocumentDirectory() {
        String documents = carlosProperties.getProperty("DOCUMENT_DIR");
 
@@ -454,6 +456,8 @@ public class CarlosProperties extends Properties {
         return carlosProperties.getProperty("DOCUMENT_CACHE_DIR");
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public String getEformImageDirectory() {
         String eform_images = carlosProperties.getProperty("EFORM_IMAGES_DIR");
 
@@ -480,6 +484,8 @@ public class CarlosProperties extends Properties {
      *
      * @return String path to the fax incoming directory, never null
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public String getFaxIncomingDirectory() {
         String faxIncoming = carlosProperties.getProperty("FAX_INCOMING_DIR");
 

@@ -38,6 +38,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.integration.fhir.interfaces.ResourceAttributeFilterInterface;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class ResourceAttributeFilter implements ResourceAttributeFilterInterface {
 
@@ -56,6 +57,8 @@ public class ResourceAttributeFilter implements ResourceAttributeFilterInterface
         }
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     private void readFromFile(String filterURL) throws IOException {
         InputStream is = getClass().getResourceAsStream(filterURL);
 

@@ -233,6 +233,8 @@ public class EDoc extends TagObject implements Comparable<EDoc> {
         this.filePath = filePath;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public OutputStream getFileOutputStream() throws FileNotFoundException {
         OutputStream os = null;
         try {
@@ -245,6 +247,8 @@ public class EDoc extends TagObject implements Comparable<EDoc> {
         return os;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public byte[] getFileBytes() throws IOException {
         File documentDir = PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
         return (FileUtils.readFileToByteArray(PathValidationUtils.validateExistingPath(new File(getFilePath()), documentDir)));

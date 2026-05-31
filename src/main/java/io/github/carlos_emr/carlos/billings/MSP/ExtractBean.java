@@ -30,6 +30,7 @@
 
 package io.github.carlos_emr.carlos.billings.MSP;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.billing.CA.BC.dao.LogTeleplanTxDao;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.LogTeleplanTx;
@@ -382,6 +383,8 @@ public class ExtractBean extends Object implements Serializable {
     }
 
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void writeFile(String value1) {
         try {
             String home_dir;
@@ -406,6 +409,8 @@ public class ExtractBean extends Object implements Serializable {
         }
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void writeHtml(String htmlvalue1) {
         try {
             String home_dir1;

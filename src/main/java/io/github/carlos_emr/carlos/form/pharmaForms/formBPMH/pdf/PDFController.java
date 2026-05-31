@@ -46,6 +46,7 @@ import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.openpdf.text.DocumentException;
 import org.openpdf.text.pdf.AcroFields;
 import org.openpdf.text.pdf.AcroFields.Item;
@@ -380,6 +381,8 @@ public class PDFController {
      * @param outPath : outPut path for completed PDF.
      * @param pdfPath : the absolute path to an editable pdf template.
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public void writeDataToPDF(String pdfPath, String outPath, Object data, String[] pages, String fileId) {
 
         if (pages.length <= 0) {

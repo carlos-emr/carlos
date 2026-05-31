@@ -35,6 +35,7 @@
 
 package io.github.carlos_emr.carlos.commn.model;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import java.io.File;
 import java.io.IOException;
@@ -432,6 +433,8 @@ public class Document extends AbstractModel<Integer> implements Serializable {
         return (docDir + '/' + docfilename);
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public byte[] getDocumentFileContentsAsBytes() throws IOException {
         return (FileUtils.readFileToByteArray(PathValidationUtils.resolveTrustedPath(new File(getDocumentFileFullPath()))));
     }

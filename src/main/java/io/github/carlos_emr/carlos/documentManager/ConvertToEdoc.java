@@ -666,6 +666,8 @@ public final class ConvertToEdoc {
     /**
      * Feed this method a filename, it will return a full path to the Oscar images directory.
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private static String buildImageDirectoryPath(String filename) {
         try {
             File imageDirectory = PathValidationUtils.resolveConfiguredDirectory(getImageDirectory(), "image directory");
@@ -682,6 +684,8 @@ public final class ConvertToEdoc {
      * @param uri URI input
      * @return String fully resolved absolute path
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private static String getRealPath(String uri) {
         String contextRealPath = "";
 
@@ -786,6 +790,8 @@ public final class ConvertToEdoc {
      * @param potentialLink String link to validate
      * @return String valid link
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     private static String validateLink(String potentialLink) {
 
         String absolutePath = null;
