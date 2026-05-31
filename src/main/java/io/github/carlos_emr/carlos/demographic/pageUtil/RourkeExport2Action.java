@@ -3788,7 +3788,9 @@ public class RourkeExport2Action extends ActionSupport {
         //Zip export files
         String zipName = "rourke2009_export-" + UtilDateUtilities.getToday("yyyy-MM-dd.HH.mm.ss") + ".zip";
         if (!Util.zipFiles(files, zipName, tmpDir)) {
+            // Abort rather than copying a missing/partial zip into DOCUMENT_DIR below.
             MiscUtils.getLogger().error("Error! Failed zipping export files");
+            throw new Exception("Failed to zip Rourke export files; aborting export");
         }
 
         //copy zip to document directory

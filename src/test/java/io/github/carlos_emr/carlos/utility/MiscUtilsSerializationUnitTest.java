@@ -68,6 +68,7 @@ class MiscUtilsSerializationUnitTest {
         // The fix maps PathValidationUtils' SecurityException back to IOException so callers
         // catching "not found" keep working, as they did before validation was added.
         assertThatThrownBy(() -> MiscUtils.deserializeFromFile(missing.toString()))
-                .isInstanceOf(IOException.class);
+                .isInstanceOf(IOException.class)
+                .hasCauseInstanceOf(SecurityException.class);
     }
 }

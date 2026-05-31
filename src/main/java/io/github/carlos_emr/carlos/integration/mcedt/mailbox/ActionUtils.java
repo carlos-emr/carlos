@@ -255,6 +255,7 @@ public class ActionUtils {
         };
         File[] toEdt = outbox.listFiles(fileFilter);
         if (toEdt == null) {
+            logger.warn("ONEDT_OUTBOX directory is missing or unreadable; returning empty upload list");
             return edtUploadList;
         }
         Arrays.sort(toEdt, Comparator.comparingLong(File::lastModified));
@@ -351,7 +352,12 @@ public class ActionUtils {
 
     public static void createOnEDTOutboxDir() {
         CarlosProperties props = CarlosProperties.getInstance();
-        File dateDir = PathValidationUtils.resolveConfiguredDirectory(props.getProperty("ONEDT_OUTBOX", ""), "ONEDT_OUTBOX");
+        String outboxPath = props.getProperty("ONEDT_OUTBOX", "");
+        if (outboxPath == null || outboxPath.trim().isEmpty()) {
+            logger.warn("ONEDT_OUTBOX is not configured; skipping outbox directory creation");
+            return;
+        }
+        File dateDir = PathValidationUtils.resolveConfiguredDirectory(outboxPath, "ONEDT_OUTBOX");
         if (!dateDir.exists()) dateDir.mkdirs();
     }
 

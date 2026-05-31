@@ -192,10 +192,13 @@ public class DisplayInvoiceLogo2Action extends ActionSupport {
                 MiscUtils.getLogger().info("File: " + fileName);
                 return "";
             }
+            // Return the containment-validated path (not the raw fileName) so the caller operates
+            // on the value PathValidationUtils actually validated.
+            return file.getPath();
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
         }
 
-        return fileName;
+        return "";
     }
 }

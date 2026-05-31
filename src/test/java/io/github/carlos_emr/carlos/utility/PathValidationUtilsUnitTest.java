@@ -31,8 +31,11 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermission;
+import java.util.Set;
 import java.util.zip.ZipEntry;
 
 import static org.assertj.core.api.Assertions.*;
@@ -1182,6 +1185,42 @@ class PathValidationUtilsUnitTest {
             File result = PathValidationUtils.validateUpload(symlinkFile, "output.txt", tempDir.toFile());
 
             assertThat(result.getName()).isEqualTo("output.txt");
+        }
+    }
+
+    @Nested
+    @DisplayName("Secure Temp File Tests")
+    class SecureTempFileTests {
+
+        @Test
+        @DisplayName("should create a usable temp file when prefix and suffix are valid")
+        void shouldCreateUsableTempFile_whenPrefixAndSuffixValid() throws IOException {
+            File tempFile = PathValidationUtils.createSecureTempFile("carlostmp", ".pdf");
+            try {
+                assertThat(tempFile).exists();
+                assertThat(tempFile.canRead()).isTrue();
+                assertThat(tempFile.canWrite()).isTrue();
+                assertThat(tempFile.getName()).endsWith(".pdf");
+            } finally {
+                tempFile.delete();
+            }
+        }
+
+        @Test
+        @DisplayName("should restrict permissions to owner-only on a POSIX filesystem")
+        void shouldRestrictPermissions_toOwnerOnlyOnPosixFilesystem() throws IOException {
+            Assumptions.assumeTrue(
+                    FileSystems.getDefault().supportedFileAttributeViews().contains("posix"),
+                    "Test requires a POSIX filesystem");
+
+            File tempFile = PathValidationUtils.createSecureTempFile("carlostmp", ".pdf");
+            try {
+                Set<PosixFilePermission> perms = Files.getPosixFilePermissions(tempFile.toPath());
+                assertThat(perms).containsExactlyInAnyOrder(
+                        PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE);
+            } finally {
+                tempFile.delete();
+            }
         }
     }
 }

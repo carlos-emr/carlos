@@ -2682,7 +2682,9 @@ public class DemographicExportAction42Action extends ActionSupport {
                         break;
                     }
                     if (!Util.zipFiles(files, dirs, zipName, tmpDir)) {
-                        logger.debug("Error! Failed to zip export files");
+                        // Surface at ERROR (was DEBUG): a failed zip otherwise degrades silently into
+                        // a broken encrypt/download below.
+                        logger.error("Error! Failed to zip export files");
                     }
 
                     if (pgpReady.equals("Yes")) {

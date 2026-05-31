@@ -790,8 +790,8 @@ public final class ConvertToEdoc {
      * @param potentialLink String link to validate
      * @return String valid link
      */
-    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
+    // FindSecBugs PATH_TRAVERSAL_IN: link comes from src/href attributes of server-rendered (template-generated) XHTML, bounded upstream by buildImageDirectoryPath/getRealPath; not request input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "link comes from src/href attributes of server-rendered (template-generated) XHTML, bounded upstream; not request input")
     private static String validateLink(String potentialLink) {
 
         String absolutePath = null;

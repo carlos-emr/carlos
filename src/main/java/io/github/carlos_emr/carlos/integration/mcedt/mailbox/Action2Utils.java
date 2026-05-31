@@ -260,6 +260,7 @@ public class Action2Utils {
         };
         File[] toEdt = outbox.listFiles(fileFilter);
         if (toEdt == null) {
+            logger.warn("ONEDT_OUTBOX directory is missing or unreadable; returning empty upload list");
             return edtUploadList;
         }
         Arrays.sort(toEdt, Comparator.comparingLong(File::lastModified));

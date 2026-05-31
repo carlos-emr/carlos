@@ -726,8 +726,10 @@ public final class PathValidationUtils {
      * for sensitive (e.g. PHI) content such as generated PDFs. Falls back to a default
      * temporary file on non-POSIX filesystems (for example Windows).
      *
-     * @param prefix temp file name prefix (at least three characters)
-     * @param suffix temp file name suffix (may be null, defaulting to {@code .tmp})
+     * @param prefix temp file name prefix; should be a validated/generated component
+     *        (e.g. via {@link #validateGeneratedFileName(String)}), not raw user input
+     * @param suffix temp file name suffix, appended verbatim (no leading {@code .} is inserted);
+     *        may be null, in which case {@code .tmp} is used
      * @return the created temporary File
      * @throws IOException if the file cannot be created
      */
@@ -738,7 +740,9 @@ public final class PathValidationUtils {
                             EnumSet.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE)))
                     .toFile();
         } catch (UnsupportedOperationException e) {
-            // Non-POSIX filesystem (e.g. Windows): fall back to a default temp file in the JVM temp dir.
+            // Non-POSIX filesystem (e.g. Windows): owner-only permissions are unavailable, so fall
+            // back to a default temp file. Log it so the degraded (default-permission) mode is auditable.
+            logger.debug("POSIX permissions unsupported on this filesystem; created temp file with default permissions");
             return Files.createTempFile(prefix, suffix).toFile(); // NOSONAR java:S5443 - non-POSIX fallback; OWNER-only perms unsupported on this platform
         }
     }

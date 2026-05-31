@@ -61,8 +61,6 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.form.graphic.FrmGraphicFactory;
@@ -135,8 +133,6 @@ public class EFormPDFServlet extends HttpServlet {
      * @throws jakarta.servlet.ServletException if a servlet error occurs
      * @throws java.io.IOException if an I/O error occurs
      */
-    // FindSecBugs PREDICTABLE_RANDOM: random used only for a temp-file name suffix whose uniqueness/exclusivity is guaranteed by File.createTempFile; not a security control
-    @SuppressFBWarnings(value = "PREDICTABLE_RANDOM", justification = "random used only for a temp-file name suffix whose uniqueness/exclusivity is guaranteed by File.createTempFile; not a security control")
     public void doPost(HttpServletRequest req, HttpServletResponse res) throws jakarta.servlet.ServletException,
             java.io.IOException {
 
@@ -151,14 +147,14 @@ public class EFormPDFServlet extends HttpServlet {
                 ArrayList<Object> files = new ArrayList<Object>();
                 for (int x = 0; x < Integer.parseInt(req.getParameter("multiple")); x++) {
                     baosPDF = generatePDFDocumentBytes(req, this.getServletContext(), x);
-                    tmpFile = PathValidationUtils.createSecureTempFile(PathValidationUtils.validateGeneratedFileName("formpdf"), String.valueOf((int) Math.random() * 10000));
+                    tmpFile = PathValidationUtils.createSecureTempFile(PathValidationUtils.validateGeneratedFileName("formpdf"), ".pdf");
                     try (FileOutputStream fos = new FileOutputStream(PathValidationUtils.resolveTrustedPath(tmpFile))) {
                         baosPDF.writeTo(fos);
                     }
                     files.add(tmpFile.getAbsolutePath());
                     intermediateFiles.add(tmpFile);
                 }
-                tmpFile = PathValidationUtils.createSecureTempFile(PathValidationUtils.validateGeneratedFileName("formpdf"), String.valueOf((int) Math.random() * 10000));
+                tmpFile = PathValidationUtils.createSecureTempFile(PathValidationUtils.validateGeneratedFileName("formpdf"), ".pdf");
                 ConcatPDF.concat(files, tmpFile.getAbsolutePath());
                 for (File intermediateFile : intermediateFiles) {
                     if (!intermediateFile.delete()) {
@@ -168,7 +164,7 @@ public class EFormPDFServlet extends HttpServlet {
                 intermediateFiles.clear();
             } else {
                 baosPDF = generatePDFDocumentBytes(req, this.getServletContext(), 0);
-                tmpFile = PathValidationUtils.createSecureTempFile(PathValidationUtils.validateGeneratedFileName("formpdf"), String.valueOf((int) Math.random() * 10000));
+                tmpFile = PathValidationUtils.createSecureTempFile(PathValidationUtils.validateGeneratedFileName("formpdf"), ".pdf");
                 try (FileOutputStream fos = new FileOutputStream(PathValidationUtils.resolveTrustedPath(tmpFile))) {
                     baosPDF.writeTo(fos);
                 }
