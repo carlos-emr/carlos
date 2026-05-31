@@ -155,6 +155,16 @@ class JspJavaScriptEncodingRegressionTest {
     }
 
     @Test
+    void shouldEncodeMfaQrData_inHtmlAttributeContext() throws Exception {
+        String mfaRegistrationJsp = readJsp("mfa/mfa_registration.jsp");
+
+        assertThat(mfaRegistrationJsp)
+                .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
+                .contains("src=\"${carlos:forHtmlAttribute(requestScope.qrData)}\"")
+                .doesNotContain("src=\"${requestScope.qrData}\"");
+    }
+
+    @Test
     @DisplayName("should encode decision textarea file content in HTML body context")
     @Tag("security")
     void shouldEncodeDecisionTextareaFileContent_inHtmlBodyContext() throws Exception {
