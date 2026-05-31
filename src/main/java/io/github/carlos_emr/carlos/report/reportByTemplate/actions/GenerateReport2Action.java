@@ -50,8 +50,18 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class GenerateReport2Action extends ActionSupport {
+    private final SecurityInfoManager securityInfoManager;
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
+
+    public GenerateReport2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class));
+    }
+
+    GenerateReport2Action(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
+    }
 
     public String execute() {
 
@@ -59,7 +69,6 @@ public class GenerateReport2Action extends ActionSupport {
         if (loggedInInfo == null) {
             throw new SecurityException("missing required sec object (_admin or _report)");
         }
-        SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.READ, null)
                 && !securityInfoManager.hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.READ, null)) {
             throw new SecurityException("missing required sec object (_admin or _report)");

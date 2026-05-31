@@ -68,7 +68,15 @@ public class RptByExample2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private ReportByExamplesDao dao = SpringUtils.getBean(ReportByExamplesDao.class);
+    private final SecurityInfoManager securityInfoManager;
 
+    public RptByExample2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class));
+    }
+
+    RptByExample2Action(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
+    }
 
     public String execute()
             throws ServletException, IOException {
@@ -78,7 +86,6 @@ public class RptByExample2Action extends ActionSupport {
             return NONE;
         }
 
-        SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.READ, null)
                 && !securityInfoManager.hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.READ, null)) {
             throw new SecurityException("missing required sec object (_admin or _report)");
