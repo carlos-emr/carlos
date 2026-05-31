@@ -43,12 +43,11 @@
     <Resources cacheMaxSize="204800" cacheObjectMaxSize="2048" cacheTtl="60000" />
 
     <!--
-        SameSite=Lax: Blocks cross-site POST requests (CSRF defense-in-depth
-        alongside CSRFGuard tokens) while allowing session cookies on top-level
-        GET navigations from external sites. "strict" breaks SAML SSO and OAuth
-        1.0a redirect-back flows (browser won't send JSESSIONID after IdP redirect).
+        SameSite=Strict: prevents Tomcat-managed session cookies from being sent
+        on cross-site requests. This is defense-in-depth alongside CSRFGuard
+        tokens and keeps the JSESSIONID scoped to same-site navigation.
     -->
-    <CookieProcessor sameSiteCookies="lax" />
+    <CookieProcessor sameSiteCookies="strict" />
 
     <!--
         Disable session persistence across Tomcat restarts.
