@@ -902,10 +902,12 @@ public class PdfRecordPrinter {
             File tempFile = null;
             try {
                 tempFile = File.createTempFile("graphicImg", ".png");
-                FileOutputStream fos = new FileOutputStream(PathValidationUtils.resolveTrustedPath(tempFile));
-                convert.convertToImage(image, drawData.getVarValue(), "PNG", fos);
+                // try-with-resources so the stream is closed even when convertToImage throws
+                // (e.g. SecurityException for a missing image), avoiding a FileOutputStream leak.
+                try (FileOutputStream fos = new FileOutputStream(PathValidationUtils.resolveTrustedPath(tempFile))) {
+                    convert.convertToImage(image, drawData.getVarValue(), "PNG", fos);
+                }
                 logger.debug("converted image is " + tempFile.getName());
-                fos.close();
             } catch (IOException | SecurityException e) {
                 // SecurityException is thrown by PathValidationUtils.validateConfiguredFile when the
                 // referenced eForm diagram image is missing/invalid. Skip that one diagram (as the

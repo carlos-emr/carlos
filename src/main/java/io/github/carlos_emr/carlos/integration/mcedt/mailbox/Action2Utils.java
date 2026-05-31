@@ -262,11 +262,7 @@ public class Action2Utils {
         if (toEdt == null) {
             return edtUploadList;
         }
-        Arrays.sort(toEdt, new Comparator<File>() {
-            public int compare(File f1, File f2) {
-                return Long.valueOf(f1.lastModified()).compareTo(f2.lastModified());
-            }
-        });
+        Arrays.sort(toEdt, Comparator.comparingLong(File::lastModified));
         for (File file : toEdt) {
             edtUploadList.add(file);
         }

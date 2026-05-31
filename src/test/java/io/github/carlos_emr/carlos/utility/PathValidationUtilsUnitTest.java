@@ -403,11 +403,9 @@ class PathValidationUtilsUnitTest {
             // Allowed dir "app" must NOT be treated as containing sibling "app-evil". This guards
             // against a naive prefix check (e.g. "/x/app-evil".startsWith("/x/app")); the real check
             // is separator-aware via startsWith(base + File.separator).
-            File appDir = tempDir.resolve("app").toFile();
-            appDir.mkdir();
-            File siblingFile = tempDir.resolve("app-evil").resolve("secret.txt").toFile();
-            siblingFile.getParentFile().mkdirs();
-            siblingFile.createNewFile();
+            File appDir = Files.createDirectory(tempDir.resolve("app")).toFile();
+            Path siblingDir = Files.createDirectory(tempDir.resolve("app-evil"));
+            File siblingFile = Files.createFile(siblingDir.resolve("secret.txt")).toFile();
 
             assertThatThrownBy(() -> PathValidationUtils.validateExistingPath(siblingFile, appDir))
                     .isInstanceOf(SecurityException.class)
@@ -564,8 +562,7 @@ class PathValidationUtilsUnitTest {
         @Test
         @DisplayName("should validate upload content when it is a file in an allowed temp directory")
         void shouldValidateUploadContent_whenFileInAllowedTempDirectory() throws IOException {
-            File tempFile = new File(System.getProperty("java.io.tmpdir"), "upload_content_check.tmp");
-            tempFile.createNewFile();
+            File tempFile = Files.createTempFile("upload_content_", ".tmp").toFile();
             tempFile.deleteOnExit();
 
             File result = PathValidationUtils.validateUploadContent(tempFile);
@@ -640,8 +637,7 @@ class PathValidationUtilsUnitTest {
         @Test
         @DisplayName("should report a system temp file as in an allowed temp directory")
         void shouldReturnTrue_whenFileIsInSystemTempDirectory() throws IOException {
-            File tempFile = new File(System.getProperty("java.io.tmpdir"), "temp_dir_check.tmp");
-            tempFile.createNewFile();
+            File tempFile = Files.createTempFile("temp_dir_", ".tmp").toFile();
             tempFile.deleteOnExit();
 
             assertThat(PathValidationUtils.isInAllowedTempDirectory(tempFile)).isTrue();
