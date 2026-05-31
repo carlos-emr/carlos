@@ -151,14 +151,14 @@ public class EFormPDFServlet extends HttpServlet {
                 ArrayList<Object> files = new ArrayList<Object>();
                 for (int x = 0; x < Integer.parseInt(req.getParameter("multiple")); x++) {
                     baosPDF = generatePDFDocumentBytes(req, this.getServletContext(), x);
-                    tmpFile = File.createTempFile(PathValidationUtils.validateGeneratedFileName("formpdf"), String.valueOf((int) Math.random() * 10000));
+                    tmpFile = PathValidationUtils.createSecureTempFile(PathValidationUtils.validateGeneratedFileName("formpdf"), String.valueOf((int) Math.random() * 10000));
                     try (FileOutputStream fos = new FileOutputStream(PathValidationUtils.resolveTrustedPath(tmpFile))) {
                         baosPDF.writeTo(fos);
                     }
                     files.add(tmpFile.getAbsolutePath());
                     intermediateFiles.add(tmpFile);
                 }
-                tmpFile = File.createTempFile(PathValidationUtils.validateGeneratedFileName("formpdf"), String.valueOf((int) Math.random() * 10000));
+                tmpFile = PathValidationUtils.createSecureTempFile(PathValidationUtils.validateGeneratedFileName("formpdf"), String.valueOf((int) Math.random() * 10000));
                 ConcatPDF.concat(files, tmpFile.getAbsolutePath());
                 for (File intermediateFile : intermediateFiles) {
                     if (!intermediateFile.delete()) {
@@ -168,7 +168,7 @@ public class EFormPDFServlet extends HttpServlet {
                 intermediateFiles.clear();
             } else {
                 baosPDF = generatePDFDocumentBytes(req, this.getServletContext(), 0);
-                tmpFile = File.createTempFile(PathValidationUtils.validateGeneratedFileName("formpdf"), String.valueOf((int) Math.random() * 10000));
+                tmpFile = PathValidationUtils.createSecureTempFile(PathValidationUtils.validateGeneratedFileName("formpdf"), String.valueOf((int) Math.random() * 10000));
                 try (FileOutputStream fos = new FileOutputStream(PathValidationUtils.resolveTrustedPath(tmpFile))) {
                     baosPDF.writeTo(fos);
                 }

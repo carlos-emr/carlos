@@ -7,7 +7,11 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.zip.ZipEntry;
@@ -710,6 +714,29 @@ public final class PathValidationUtils {
         }
 
         return new FileInputStream(validatedFile); // codeql[java/path-injection] -- validateUpload restricts to allowed temp dirs.
+    }
+
+    /**
+     * Creates a temporary file with owner-only read/write permissions on POSIX
+     * filesystems, avoiding the world-readable default of {@link File#createTempFile}
+     * for sensitive (e.g. PHI) content such as generated PDFs. Falls back to a default
+     * temporary file on non-POSIX filesystems (for example Windows).
+     *
+     * @param prefix temp file name prefix (at least three characters)
+     * @param suffix temp file name suffix (may be null, defaulting to {@code .tmp})
+     * @return the created temporary File
+     * @throws IOException if the file cannot be created
+     */
+    public static File createSecureTempFile(String prefix, String suffix) throws IOException {
+        try {
+            return Files.createTempFile(prefix, suffix,
+                    PosixFilePermissions.asFileAttribute(
+                            EnumSet.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE)))
+                    .toFile();
+        } catch (UnsupportedOperationException e) {
+            // Non-POSIX filesystem (e.g. Windows): fall back to a default temp file in the JVM temp dir.
+            return Files.createTempFile(prefix, suffix).toFile(); // NOSONAR java:S5443 - non-POSIX fallback; OWNER-only perms unsupported on this platform
+        }
     }
 
     /**
