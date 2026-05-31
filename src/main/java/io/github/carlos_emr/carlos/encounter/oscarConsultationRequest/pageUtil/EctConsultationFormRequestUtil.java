@@ -247,7 +247,7 @@ public class EctConsultationFormRequestUtil {
         getSpecailistsName(id);
 
 
-		ConsultationRequest cr = consultationRequestDao.find(Integer.parseInt(id));
+		ConsultationRequest cr = consultationRequestDao.findWithAssociations(Integer.parseInt(id));
 		
 		if (cr != null) {
 			fdid = cr.getFdid();

@@ -41,4 +41,6 @@ public interface ConsultRequestDao extends AbstractDao<ConsultationRequest> {
     public int getConsultationCount2(ConsultationRequestSearchFilter filter);
 
     public List<Object[]> search(ConsultationRequestSearchFilter filter);
+
+    public ConsultationRequest findWithAssociations(Integer id);
 }

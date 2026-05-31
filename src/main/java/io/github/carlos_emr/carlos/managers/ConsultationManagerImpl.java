@@ -98,6 +98,7 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsultationResponseSea
 import io.github.carlos_emr.carlos.webserv.rest.to.model.OtnEconsult;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
@@ -238,7 +239,7 @@ public class ConsultationManagerImpl implements ConsultationManager {
     public ConsultationRequest getRequest(LoggedInInfo loggedInInfo, Integer id) {
         checkPrivilege(loggedInInfo, SecurityInfoManager.READ);
 
-        ConsultationRequest request = consultationRequestDao.find(id);
+        ConsultationRequest request = consultationRequestDao.findWithAssociations(id);
         LogAction.addLogSynchronous(loggedInInfo, "ConsultationManager.getRequest", "id=" + request.getId());
 
         return request;
@@ -278,6 +279,7 @@ public class ConsultationManagerImpl implements ConsultationManager {
     }
 
     @Override
+    @Transactional
     public void saveConsultationRequest(LoggedInInfo loggedInInfo, ConsultationRequest request) {
         if (request.getId() == null) { //new consultation request
             checkPrivilege(loggedInInfo, SecurityInfoManager.WRITE);
@@ -739,8 +741,9 @@ public class ConsultationManagerImpl implements ConsultationManager {
     }
 
     @Override
+    @Transactional
     public void archiveConsultationRequest(Integer requestId) {
-        ConsultationRequest c = consultationRequestDao.find(requestId);
+        ConsultationRequest c = consultationRequestDao.findWithAssociations(requestId);
         if (c != null) {
             List<ConsultationRequestExt> exts = consultationRequestExtDao.getConsultationRequestExts(requestId);
 
