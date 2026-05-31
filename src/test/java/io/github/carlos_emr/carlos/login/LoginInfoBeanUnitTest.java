@@ -35,8 +35,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 class LoginInfoBeanUnitTest {
 
     @Test
-    @DisplayName("should reset attempt count and status when initialized")
-    void shouldResetAttemptCountAndStatus_whenInitialized() {
+    @DisplayName("should reset start time, attempt count, and status when initialized")
+    void shouldResetStartTimeAndAttemptCountAndStatus_whenInitialized() {
         LoginInfoBean bean = new LoginInfoBean();
         GregorianCalendar startTime = new GregorianCalendar(2026, GregorianCalendar.MAY, 31);
 
