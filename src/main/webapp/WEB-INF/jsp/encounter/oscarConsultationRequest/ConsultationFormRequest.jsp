@@ -1133,13 +1133,22 @@
          */
         function autoImportClinicalHistory(demographicNo) {
             var target = "#clinicalInformation";
-            var issueTypes = [
-                {issueType: "MedHistory", label: "Past Medical History", enabled: <%= "true".equalsIgnoreCase(props.getProperty("CONSULTATION_AUTO_INCLUDE_PAST_MEDICAL_HISTORY", "true")) %>},
-                {issueType: "SocHistory", label: "Social History", enabled: <%= "true".equalsIgnoreCase(props.getProperty("CONSULTATION_AUTO_INCLUDE_SOCIAL_HISTORY", "true")) %>},
-                {issueType: "FamHistory", label: "Family History", enabled: <%= "true".equalsIgnoreCase(props.getProperty("CONSULTATION_AUTO_INCLUDE_FAMILY_HISTORY", "true")) %>},
-                {issueType: "Concerns", label: "Ongoing Concerns", enabled: <%= "true".equalsIgnoreCase(props.getProperty("CONSULTATION_AUTO_INCLUDE_ONGOING_CONCERNS", "true")) %>},
-                {issueType: "Reminders", label: "Reminders", enabled: <%= "true".equalsIgnoreCase(props.getProperty("CONSULTATION_AUTO_INCLUDE_REMINDERS", "true")) %>}
-            ].filter(function (section) { return section.enabled; });
+            var issueTypes = [];
+            <% if ("true".equalsIgnoreCase(props.getProperty("CONSULTATION_AUTO_INCLUDE_PAST_MEDICAL_HISTORY", "true"))) { %>
+            issueTypes.push({issueType: "MedHistory", label: "Past Medical History"});
+            <% } %>
+            <% if ("true".equalsIgnoreCase(props.getProperty("CONSULTATION_AUTO_INCLUDE_SOCIAL_HISTORY", "true"))) { %>
+            issueTypes.push({issueType: "SocHistory", label: "Social History"});
+            <% } %>
+            <% if ("true".equalsIgnoreCase(props.getProperty("CONSULTATION_AUTO_INCLUDE_FAMILY_HISTORY", "true"))) { %>
+            issueTypes.push({issueType: "FamHistory", label: "Family History"});
+            <% } %>
+            <% if ("true".equalsIgnoreCase(props.getProperty("CONSULTATION_AUTO_INCLUDE_ONGOING_CONCERNS", "true"))) { %>
+            issueTypes.push({issueType: "Concerns", label: "Ongoing Concerns"});
+            <% } %>
+            <% if ("true".equalsIgnoreCase(props.getProperty("CONSULTATION_AUTO_INCLUDE_REMINDERS", "true"))) { %>
+            issueTypes.push({issueType: "Reminders", label: "Reminders"});
+            <% } %>
             var idx = 0;
 
             function fetchNext() {

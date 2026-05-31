@@ -89,7 +89,7 @@ class ConsultationFormRequestCppAutoImportRegressionTest {
         Path current = Path.of(System.getProperty(BASEDIR_PROPERTY, System.getProperty("user.dir")))
                 .toAbsolutePath()
                 .normalize();
-        for (int checkedParents = 0; current != null && checkedParents < 6; checkedParents++) {
+        for (int traversalDepth = 0; current != null && traversalDepth < 6; traversalDepth++) {
             Path candidate = current.resolve(relativePath).normalize();
             if (Files.isRegularFile(candidate) || Files.isDirectory(candidate)) {
                 return candidate;
