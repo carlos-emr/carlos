@@ -416,7 +416,7 @@
                         for (int i = 0; i < sets.size(); i++) {
                             String setName = sets.get(i);
                     %>
-                    <option value="<%=setName%>"><%=setName%>
+                    <option value="<carlos:encode value='<%= setName %>' context="htmlAttribute"/>"><carlos:encode value='<%= setName %>' context="html"/>
                     </option>
                     <%}%>
                 </select>
@@ -437,7 +437,7 @@
                         for (int i = 0; i < providers.size(); i++) {
                             Provider p = providers.get(i);
                     %>
-                    <option value="<%=p.getProviderNo()%>"><%=p.getFormattedName()%>
+                    <option value="<carlos:encode value='<%= p.getProviderNo() %>' context="htmlAttribute"/>"><carlos:encode value='<%= p.getFormattedName() %>' context="html"/>
                     </option>
                     <%}%>
                 </select>

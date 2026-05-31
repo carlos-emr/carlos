@@ -155,6 +155,35 @@ class JspJavaScriptEncodingRegressionTest {
     }
 
     @Test
+    void shouldEncodeExportSelections_inHtmlContexts() throws Exception {
+        String demographicExportJsp = readJsp("demographic/demographicExport.jsp");
+        String rourkeExportJsp = readJsp("demographic/rourkeExport.jsp");
+
+        assertThat(demographicExportJsp)
+                .doesNotContain("<option value=\"<%=setName%>\"><%=setName%>")
+                .doesNotContain("<option value=\"<%=p.getProviderNo()%>\"><%=p.getFormattedName()%>")
+                .contains("<option value=\"<carlos:encode value='<%= setName %>' context=\"htmlAttribute\"/>\"><carlos:encode value='<%= setName %>' context=\"html\"/>")
+                .contains("<option value=\"<carlos:encode value='<%= p.getProviderNo() %>' context=\"htmlAttribute\"/>\"><carlos:encode value='<%= p.getFormattedName() %>' context=\"html\"/>");
+        assertThat(rourkeExportJsp)
+                .doesNotContain("<option value=\"<%=setName%>\"><%=setName%>")
+                .contains("<option value=\"<carlos:encode value='<%= setName %>' context=\"htmlAttribute\"/>\"><carlos:encode value='<%= setName %>' context=\"html\"/>");
+    }
+
+    @Test
+    void shouldEncodeRourkeExportHistoryFields_inUriAndHtmlContexts() throws Exception {
+        String rourkeExportJsp = readJsp("demographic/rourkeExport.jsp");
+
+        assertThat(rourkeExportJsp)
+                .doesNotContain("zipFile=<%=file%>'><%=file %>")
+                .doesNotContain("<td><%=dataExport.getUser()%>")
+                .doesNotContain("<td><%=dataExport.getType()%>")
+                .contains("zipFile=<carlos:encode value='<%= file %>' context=\"uriComponent\"/>")
+                .contains("><carlos:encode value='<%= file %>' context=\"html\"/>")
+                .contains("<td><carlos:encode value='<%= dataExport.getUser() %>' context=\"html\"/>")
+                .contains("<td><carlos:encode value='<%= dataExport.getType() %>' context=\"html\"/>");
+    }
+
+    @Test
     @DisplayName("should encode decision textarea file content in HTML body context")
     @Tag("security")
     void shouldEncodeDecisionTextareaFileContent_inHtmlBodyContext() throws Exception {
