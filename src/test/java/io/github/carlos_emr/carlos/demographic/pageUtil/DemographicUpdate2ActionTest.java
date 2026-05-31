@@ -68,11 +68,8 @@ class DemographicUpdate2ActionTest extends CarlosWebTestBase {
         String key = LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY";
         setSessionAttribute(key, mockLoggedInInfo);
 
-        action = new DemographicUpdate2Action();
+        action = new DemographicUpdate2Action(mockSecurityInfoManager);
 
-        java.lang.reflect.Field secField = DemographicUpdate2Action.class.getDeclaredField("securityInfoManager");
-        secField.setAccessible(true);
-        secField.set(action, mockSecurityInfoManager);
     }
 
     @AfterEach

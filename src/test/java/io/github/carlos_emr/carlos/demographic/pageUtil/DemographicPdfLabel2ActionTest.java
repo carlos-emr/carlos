@@ -60,11 +60,8 @@ class DemographicPdfLabel2ActionTest extends CarlosWebTestBase {
         String key = LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY";
         setSessionAttribute(key, mockLoggedInInfo);
 
-        action = new DemographicPdfLabel2Action();
+        action = new DemographicPdfLabel2Action(mockSecurityInfoManager);
 
-        java.lang.reflect.Field secField = DemographicPdfLabel2Action.class.getDeclaredField("securityInfoManager");
-        secField.setAccessible(true);
-        secField.set(action, mockSecurityInfoManager);
     }
 
     @Test

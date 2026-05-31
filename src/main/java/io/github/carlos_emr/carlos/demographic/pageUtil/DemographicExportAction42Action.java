@@ -205,16 +205,16 @@ public class DemographicExportAction42Action extends ActionSupport {
 
 
     private static final Logger logger = MiscUtils.getLogger();
-    private static final DemographicArchiveDao demoArchiveDao = (DemographicArchiveDao) SpringUtils.getBean(DemographicArchiveDao.class);
-    private static final DemographicContactDao contactDao = (DemographicContactDao) SpringUtils.getBean(DemographicContactDao.class);
-    private static final PartialDateDao partialDateDao = (PartialDateDao) SpringUtils.getBean(PartialDateDao.class);
-    private static final HRMDocumentToDemographicDao hrmDocToDemographicDao = (HRMDocumentToDemographicDao) SpringUtils.getBean(HRMDocumentToDemographicDao.class);
-    private static final HRMDocumentDao hrmDocDao = (HRMDocumentDao) SpringUtils.getBean(HRMDocumentDao.class);
-    private static final HRMDocumentCommentDao hrmDocCommentDao = (HRMDocumentCommentDao) SpringUtils.getBean(HRMDocumentCommentDao.class);
-    private static final CaseManagementManager cmm = (CaseManagementManager) SpringUtils.getBean(CaseManagementManager.class);
-    private static final Hl7TextInfoDao hl7TxtInfoDao = (Hl7TextInfoDao) SpringUtils.getBean(Hl7TextInfoDao.class);
-    private static final Hl7TextMessageDao hl7TxtMssgDao = (Hl7TextMessageDao) SpringUtils.getBean(Hl7TextMessageDao.class);
-    private static final DemographicExtDao demographicExtDao = (DemographicExtDao) SpringUtils.getBean(DemographicExtDao.class);
+    private final DemographicArchiveDao demoArchiveDao;
+    private final DemographicContactDao contactDao;
+    private final PartialDateDao partialDateDao;
+    private final HRMDocumentToDemographicDao hrmDocToDemographicDao;
+    private final HRMDocumentDao hrmDocDao;
+    private final HRMDocumentCommentDao hrmDocCommentDao;
+    private final CaseManagementManager cmm;
+    private final Hl7TextInfoDao hl7TxtInfoDao;
+    private final Hl7TextMessageDao hl7TxtMssgDao;
+    private final DemographicExtDao demographicExtDao;
     private static final String PATIENTID = "Patient";
     private static final String ALERT = "Alert";
     private static final String ALLERGY = "Allergy";
@@ -256,7 +256,32 @@ public class DemographicExportAction42Action extends ActionSupport {
             "msp", DiagnosticCodeDao.class
     );
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final SecurityInfoManager securityInfoManager;
+
+    public DemographicExportAction42Action(
+            DemographicArchiveDao demoArchiveDao,
+            DemographicContactDao contactDao,
+            PartialDateDao partialDateDao,
+            HRMDocumentToDemographicDao hrmDocToDemographicDao,
+            HRMDocumentDao hrmDocDao,
+            HRMDocumentCommentDao hrmDocCommentDao,
+            CaseManagementManager cmm,
+            Hl7TextInfoDao hl7TxtInfoDao,
+            Hl7TextMessageDao hl7TxtMssgDao,
+            DemographicExtDao demographicExtDao,
+            SecurityInfoManager securityInfoManager) {
+        this.demoArchiveDao = demoArchiveDao;
+        this.contactDao = contactDao;
+        this.partialDateDao = partialDateDao;
+        this.hrmDocToDemographicDao = hrmDocToDemographicDao;
+        this.hrmDocDao = hrmDocDao;
+        this.hrmDocCommentDao = hrmDocCommentDao;
+        this.cmm = cmm;
+        this.hl7TxtInfoDao = hl7TxtInfoDao;
+        this.hl7TxtMssgDao = hl7TxtMssgDao;
+        this.demographicExtDao = demographicExtDao;
+        this.securityInfoManager = securityInfoManager;
+    }
 
     Integer exportNo = 0;
     ArrayList<String> exportError = null;

@@ -94,15 +94,15 @@ public class PrintDemoChartLabel2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private static Logger logger = MiscUtils.getLogger();
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-
+    private final SecurityInfoManager securityInfoManager;
     /**
      * Default constructor for PrintDemoChartLabel2Action.
      *
      * Initializes the action with default state. Spring and Struts2 dependencies
      * are injected via field initialization and ServletActionContext.
      */
-    public PrintDemoChartLabel2Action() {
+    public PrintDemoChartLabel2Action(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
     }
 
     /**

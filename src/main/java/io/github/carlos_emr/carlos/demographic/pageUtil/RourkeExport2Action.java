@@ -45,7 +45,6 @@ import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.DataExport;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.form.model.FormRourke2009;
@@ -65,28 +64,32 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class RourkeExport2Action extends ActionSupport {
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-
+    private final SecurityInfoManager securityInfoManager;
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    private ClinicDAO clinicDAO = SpringUtils.getBean(ClinicDAO.class);
-    private DataExportDao dataExportDAO = SpringUtils.getBean(DataExportDao.class);
-    private DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
-    private Rourke2009DAO frmRourke2009DAO = SpringUtils.getBean(Rourke2009DAO.class);
+    private final ClinicDAO clinicDAO;
+    private final DataExportDao dataExportDAO;
+    private final DemographicDao demographicDao;
+    private final Rourke2009DAO frmRourke2009DAO;
+
+    public RourkeExport2Action(
+            SecurityInfoManager securityInfoManager,
+            ClinicDAO clinicDAO,
+            DataExportDao dataExportDAO,
+            DemographicDao demographicDao,
+            Rourke2009DAO frmRourke2009DAO) {
+        this.securityInfoManager = securityInfoManager;
+        this.clinicDAO = clinicDAO;
+        this.dataExportDAO = dataExportDAO;
+        this.demographicDao = demographicDao;
+        this.frmRourke2009DAO = frmRourke2009DAO;
+    }
 
     private Logger log = MiscUtils.getLogger();
 
     public Rourke2009DAO getFrmRourke2009DAO() {
         return frmRourke2009DAO;
-    }
-
-    public void setFrmRourke2009DAO(Rourke2009DAO frmRourke2009DAO) {
-        this.frmRourke2009DAO = frmRourke2009DAO;
-    }
-
-    public void setDemographicDao(DemographicDao demographicDao) {
-        this.demographicDao = demographicDao;
     }
 
     public DemographicDao getDemographicDao() {
@@ -97,16 +100,8 @@ public class RourkeExport2Action extends ActionSupport {
         return dataExportDAO;
     }
 
-    public void setDataExportDAO(DataExportDao dataExportDAO) {
-        this.dataExportDAO = dataExportDAO;
-    }
-
     public ClinicDAO getClinicDAO() {
         return clinicDAO;
-    }
-
-    public void setClinicDAO(ClinicDAO clinicDAO) {
-        this.clinicDAO = clinicDAO;
     }
 
     public String getFile() {

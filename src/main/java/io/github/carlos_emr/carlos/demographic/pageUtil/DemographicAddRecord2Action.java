@@ -79,13 +79,30 @@ public class DemographicAddRecord2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
-    private DemographicCustDao demographicCustDao = SpringUtils.getBean(DemographicCustDao.class);
-    private DemographicExtDao demographicExtDao = SpringUtils.getBean(DemographicExtDao.class);
-    private DemographicArchiveDao demographicArchiveDao = SpringUtils.getBean(DemographicArchiveDao.class);
-    private DemographicExtArchiveDao demographicExtArchiveDao = SpringUtils.getBean(DemographicExtArchiveDao.class);
-    private WaitingListDao waitingListDao = SpringUtils.getBean(WaitingListDao.class);
+    private final SecurityInfoManager securityInfoManager;
+    private final DemographicDao demographicDao;
+    private final DemographicCustDao demographicCustDao;
+    private final DemographicExtDao demographicExtDao;
+    private final DemographicArchiveDao demographicArchiveDao;
+    private final DemographicExtArchiveDao demographicExtArchiveDao;
+    private final WaitingListDao waitingListDao;
+
+    public DemographicAddRecord2Action(
+            SecurityInfoManager securityInfoManager,
+            DemographicDao demographicDao,
+            DemographicCustDao demographicCustDao,
+            DemographicExtDao demographicExtDao,
+            DemographicArchiveDao demographicArchiveDao,
+            DemographicExtArchiveDao demographicExtArchiveDao,
+            WaitingListDao waitingListDao) {
+        this.securityInfoManager = securityInfoManager;
+        this.demographicDao = demographicDao;
+        this.demographicCustDao = demographicCustDao;
+        this.demographicExtDao = demographicExtDao;
+        this.demographicArchiveDao = demographicArchiveDao;
+        this.demographicExtArchiveDao = demographicExtArchiveDao;
+        this.waitingListDao = waitingListDao;
+    }
 
     /**
      * Processes a demographic add form POST, persisting all related records and

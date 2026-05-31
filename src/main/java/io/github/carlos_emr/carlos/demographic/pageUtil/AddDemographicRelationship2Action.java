@@ -57,11 +57,11 @@ public class AddDemographicRelationship2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
-    private DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-
-    public AddDemographicRelationship2Action() {
-
+    private final DemographicManager demographicManager;
+    private final SecurityInfoManager securityInfoManager;
+    public AddDemographicRelationship2Action(DemographicManager demographicManager, SecurityInfoManager securityInfoManager) {
+        this.demographicManager = demographicManager;
+        this.securityInfoManager = securityInfoManager;
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md

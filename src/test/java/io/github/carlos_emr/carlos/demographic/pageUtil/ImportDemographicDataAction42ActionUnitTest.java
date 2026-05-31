@@ -98,7 +98,7 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
         when(mockEctProgramManager.getDefaultProgramId(TEST_PROVIDER)).thenReturn(0);
         when(mockProviderDao.getActiveProviders()).thenReturn(List.of());
 
-        action = new ImportDemographicDataAction42Action();
+        action = new ImportDemographicDataAction42Action(mockSecurityInfoManager, mockNioFileManager);
     }
 
     @Test
