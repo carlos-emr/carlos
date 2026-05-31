@@ -77,6 +77,7 @@
     </head>
     <link rel="stylesheet" href="<%= request.getContextPath() %>/web.css"/>
     <body topmargin="0" leftmargin="0" rightmargin="0">
+    <%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
     <center>
         <table border="0" cellspacing="0" cellpadding="0" width="100%">
             <tr bgcolor="#486ebd">
