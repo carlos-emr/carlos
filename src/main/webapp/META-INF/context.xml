@@ -49,6 +49,8 @@
         may prompt for same-site login when launched from a third-party client;
         its request token, callback, and verifier are server-persisted, and the
         consent POST consumes a same-site session nonce before redirecting back.
+        No SAML SSO callback is configured here; deployments adding SAML must
+        validate that flow with Strict SameSite or provide a deployment override.
     -->
     <CookieProcessor sameSiteCookies="strict" />
 
