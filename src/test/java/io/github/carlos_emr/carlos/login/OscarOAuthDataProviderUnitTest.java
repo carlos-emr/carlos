@@ -93,6 +93,29 @@ class OscarOAuthDataProviderUnitTest {
                 .hasMessage("callback_uri not allowed");
     }
 
+    @Test
+    @DisplayName("should reject request token callback when registered callback is missing")
+    void shouldRejectRequestTokenCallback_whenRegisteredCallbackIsMissing() {
+        OscarOAuthDataProvider provider = new OscarOAuthDataProvider();
+        RequestTokenRegistration registration = registration(null, "https://trusted.example/callback");
+
+        assertThatThrownBy(() -> provider.createRequestToken(registration))
+                .isInstanceOf(OAuth1Exception.class)
+                .hasMessage("callback_uri not allowed");
+    }
+
+    @Test
+    @DisplayName("should reject request token callback when path only shares prefix")
+    void shouldRejectRequestTokenCallback_whenPathOnlySharesPrefix() {
+        OscarOAuthDataProvider provider = new OscarOAuthDataProvider();
+        RequestTokenRegistration registration = registration("https://trusted.example/app",
+                "https://trusted.example/application");
+
+        assertThatThrownBy(() -> provider.createRequestToken(registration))
+                .isInstanceOf(OAuth1Exception.class)
+                .hasMessage("callback_uri not allowed");
+    }
+
     private static OscarOAuthDataProvider provider(ServiceAccessTokenDao accessTokenDao) {
         OscarOAuthDataProvider provider = new OscarOAuthDataProvider();
         ReflectionTestUtils.setField(provider, "serviceAccessTokenDao", accessTokenDao);

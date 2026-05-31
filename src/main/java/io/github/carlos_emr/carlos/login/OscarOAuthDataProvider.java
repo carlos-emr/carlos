@@ -277,9 +277,11 @@ public class OscarOAuthDataProvider {
         Client client = reg.getClient();
         String registeredCallback = client == null ? null : client.getCallbackUri();
         String requestedCallback = reg.getCallback();
-        if (registeredCallback == null || registeredCallback.isBlank()
-                || requestedCallback == null || requestedCallback.isBlank()) {
+        if (requestedCallback == null || requestedCallback.isBlank()) {
             return;
+        }
+        if (registeredCallback == null || registeredCallback.isBlank()) {
+            throw new OAuth1Exception(400, "callback_uri not allowed");
         }
 
         if ("oob".equalsIgnoreCase(registeredCallback)) {
@@ -294,9 +296,20 @@ public class OscarOAuthDataProvider {
 
         String registered = normalizeCallbackForComparison(registeredCallback);
         String requested = normalizeCallbackForComparison(requestedCallback);
-        if (!requested.startsWith(registered)) {
+        if (!isCallbackPrefixAllowed(requested, registered)) {
             throw new OAuth1Exception(400, "callback_uri not allowed");
         }
+    }
+
+    private static boolean isCallbackPrefixAllowed(String requested, String registered) {
+        if (!requested.startsWith(registered)) {
+            return false;
+        }
+        if (requested.length() == registered.length() || registered.endsWith("/")) {
+            return true;
+        }
+        char next = requested.charAt(registered.length());
+        return next == '/' || next == '?' || next == '#' || next == '&';
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md

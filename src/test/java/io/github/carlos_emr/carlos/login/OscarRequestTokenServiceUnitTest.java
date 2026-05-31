@@ -49,7 +49,7 @@ class OscarRequestTokenServiceUnitTest {
         OAuth1Request oauthRequest = new OAuth1Request();
         oauthRequest.consumerKey = "consumer";
         oauthRequest.callback = "javascript:alert(1)";
-        Client client = new Client("consumer", "secret", "App", "https://trusted.example/callback");
+        Client client = new Client("consumer", "secret", "App", "https://trusted.example");
         client.setCallbackUri("https://trusted.example/callback");
         when(parser.parseFromRequest(request)).thenReturn(oauthRequest);
         when(dataProvider.getClient("consumer")).thenReturn(client);
