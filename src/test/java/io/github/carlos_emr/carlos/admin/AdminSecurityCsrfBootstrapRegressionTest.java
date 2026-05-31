@@ -41,7 +41,7 @@ class AdminSecurityCsrfBootstrapRegressionTest {
 
     @Test
     @DisplayName("admin security mutation pages should include canonical CSRF bootstrap")
-    void shouldIncludeCanonicalCsrfBootstrap_forAdminSecurityMutationPages() throws Exception {
+    void shouldIncludeCsrfBootstrap_forAllAdminSecurityMutationPages() throws Exception {
         for (Path jspPath : ADMIN_SECURITY_JSPS) {
             String jsp = Files.readString(jspPath);
 
@@ -60,7 +60,7 @@ class AdminSecurityCsrfBootstrapRegressionTest {
 
     @Test
     @DisplayName("MFA reset should read the canonical bootstrap CSRF token")
-    void shouldReadCanonicalBootstrapCsrfToken_forMfaReset() throws Exception {
+    void shouldQueryBodyScopedCsrfToken_forMfaReset() throws Exception {
         String jsp = Files.readString(ADMIN_SECURITY_JSPS.get(0));
 
         assertThat(jsp)
