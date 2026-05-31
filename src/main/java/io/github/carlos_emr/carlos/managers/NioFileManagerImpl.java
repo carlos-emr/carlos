@@ -492,23 +492,24 @@ public class NioFileManagerImpl implements NioFileManager {
             // This is more reliable than manual path manipulation as it handles edge cases
             String sanitizedFileName = FilenameUtils.getName(tempFilePath);
             if (sanitizedFileName == null || sanitizedFileName.isEmpty()) {
-                log.error("Invalid file path provided: " + tempFilePath);
+                log.error("Invalid file path provided: {}", LogSafe.sanitize(tempFilePath, 1024));
                 return null;
             }
 
             // Get source and destination directories
             File documentDir = new File(getDocumentDirectory());
-            File sourceFile = new File(tempFilePath);
-            File destinationFile = new File(documentDir, sanitizedFileName);
-
-            // Validate that source file exists and is a regular file
-            if (!sourceFile.exists() || !sourceFile.isFile()) {
-                log.error("Source file does not exist or is not a regular file: " + tempFilePath);
+            File sourceFile;
+            try {
+                sourceFile = PathValidationUtils.validateUpload(new File(tempFilePath));
+            } catch (SecurityException e) {
+                log.error("Invalid source file path for Oscar document copy (upload validation failed): {}; reason: {}",
+                        LogSafe.sanitize(tempFilePath, 1024), e.getMessage());
+                log.debug("Rejected Oscar document copy source", e);
                 return null;
             }
 
             // Validate destination path using PathValidationUtils
-            destinationFile = PathValidationUtils.validatePath(sanitizedFileName, documentDir);
+            File destinationFile = PathValidationUtils.validatePath(sanitizedFileName, documentDir);
 
             // Perform the copy operation
             Files.copy(sourceFile.toPath(), destinationFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
@@ -527,6 +528,11 @@ public class NioFileManagerImpl implements NioFileManager {
         } catch (IOException e) {
             log.error("An error occurred while moving the PDF file", e);
             return null;
+        } catch (SecurityException e) {
+            log.error("Invalid destination file path for Oscar document copy (destination validation failed): {}; reason: {}",
+                    LogSafe.sanitize(tempFilePath, 1024), e.getMessage());
+            log.debug("Rejected Oscar document copy destination", e);
+            return null;
         }
     }
 
@@ -536,7 +542,7 @@ public class NioFileManagerImpl implements NioFileManager {
      * not for the full DOCUMENT_DIRECTORY path in Oscar.properties.
      * This method considers both locations.
      */
-    private String getDocumentDirectory() {
+    String getDocumentDirectory() {
         String document_dir = DOCUMENT_DIRECTORY;
         if (document_dir == null || !Files.isDirectory(Paths.get(document_dir))) {
             document_dir = String.valueOf(Paths.get(BASE_DOCUMENT_DIR, "document"));
