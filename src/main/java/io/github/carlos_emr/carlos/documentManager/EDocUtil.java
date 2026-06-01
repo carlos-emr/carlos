@@ -222,21 +222,25 @@ public final class EDocUtil {
         return modules;
     }
 
-    private static ProgramManager programManager = (ProgramManager) SpringUtils.getBean(ProgramManager.class);
-    private static CaseManagementNoteLinkDAO caseManagementNoteLinkDao = (CaseManagementNoteLinkDAO) SpringUtils.getBean(CaseManagementNoteLinkDAO.class);
-    private static CaseManagementNoteDAO caseManagementNoteDao = (CaseManagementNoteDAO) SpringUtils.getBean(CaseManagementNoteDAO.class);
-    private static TicklerLinkDao ticklerLinkDao = (TicklerLinkDao) SpringUtils.getBean(TicklerLinkDao.class);
-    private static TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
-    private static ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
-    private static CtlDocTypeDao ctldoctypedao = (CtlDocTypeDao) SpringUtils.getBean(CtlDocTypeDao.class);
-    private static DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
-    private static CtlDocumentDao ctlDocumentDao = (CtlDocumentDao) SpringUtils.getBean(CtlDocumentDao.class);
+    // Collaborator beans are resolved lazily (per call) instead of in static-final field
+    // initializers, so merely loading EDocUtil (e.g. Mockito.mockStatic in a unit test) no longer
+    // fetches from the Spring context at class-load time. SpringUtils.getBean returns the cached
+    // singleton, so the per-call cost is a map lookup and behavior is unchanged.
+    private static ProgramManager programManager() { return SpringUtils.getBean(ProgramManager.class); }
+    private static CaseManagementNoteLinkDAO caseManagementNoteLinkDao() { return SpringUtils.getBean(CaseManagementNoteLinkDAO.class); }
+    private static CaseManagementNoteDAO caseManagementNoteDao() { return SpringUtils.getBean(CaseManagementNoteDAO.class); }
+    private static TicklerLinkDao ticklerLinkDao() { return SpringUtils.getBean(TicklerLinkDao.class); }
+    private static TicklerManager ticklerManager() { return SpringUtils.getBean(TicklerManager.class); }
+    private static ProviderDao providerDao() { return SpringUtils.getBean(ProviderDao.class); }
+    private static CtlDocTypeDao ctldoctypedao() { return SpringUtils.getBean(CtlDocTypeDao.class); }
+    private static DemographicManager demographicManager() { return SpringUtils.getBean(DemographicManager.class); }
+    private static CtlDocumentDao ctlDocumentDao() { return SpringUtils.getBean(CtlDocumentDao.class); }
 
     public static String getProviderName(String providerNo) {
         if (providerNo == null || providerNo.length() == 0) {
             return "";
         }
-        Provider p = providerDao.getProvider(providerNo);
+        Provider p = providerDao().getProvider(providerNo);
         if (p != null) {
             return p.getLastName().toUpperCase() + ", " + p.getFirstName().toUpperCase();
         }
@@ -247,7 +251,7 @@ public final class EDocUtil {
         if (demographicNo == null || demographicNo.length() == 0) {
             return "";
         }
-        Demographic d = demographicManager.getDemographic(loggedInInfo, demographicNo);
+        Demographic d = demographicManager().getDemographic(loggedInInfo, demographicNo);
         if (d != null) {
             return d.getLastName().toUpperCase() + ", " + d.getFirstName().toUpperCase();
         }
@@ -258,12 +262,12 @@ public final class EDocUtil {
         if (providerNo == null || providerNo.length() == 0) {
             return null;
         }
-        return providerDao.getProvider(providerNo);
+        return providerDao().getProvider(providerNo);
     }
 
     public static ArrayList<String> getDoctypesByStatus(String module, String[] statuses) {
         ArrayList<String> doctypes = new ArrayList<String>();
-        List<CtlDocType> result = ctldoctypedao.findByStatusAndModule(statuses, module);
+        List<CtlDocType> result = ctldoctypedao().findByStatusAndModule(statuses, module);
         for (CtlDocType obj : result) {
             doctypes.add(obj.getDocType());
         }
@@ -280,7 +284,7 @@ public final class EDocUtil {
     }
 
     public static String getDocStatus(String module, String doctype) {
-        List<CtlDocType> result = ctldoctypedao.findByDocTypeAndModule(doctype, module);
+        List<CtlDocType> result = ctldoctypedao().findByDocTypeAndModule(doctype, module);
         String status = "";
         for (CtlDocType obj : result) {
             status = obj.getStatus();
@@ -289,7 +293,7 @@ public final class EDocUtil {
     }
 
     public static void addCaseMgmtNoteLink(CaseManagementNoteLink cmnl) {
-        caseManagementNoteLinkDao.save(cmnl);
+        caseManagementNoteLinkDao().save(cmnl);
         logger.debug("ADD CASEMGMT NOTE LINK : Id=" + cmnl.getId());
     }
 
@@ -333,7 +337,7 @@ public final class EDocUtil {
         cdpk.setDocumentNo(document_no);
         cd.getId().setModuleId(ConversionUtils.fromIntString(newDocument.getModuleId()));
         cd.setStatus(String.valueOf(newDocument.getStatus()));
-        ctlDocumentDao.persist(cd);
+        ctlDocumentDao().persist(cd);
 
         return document_no.toString();
     }
@@ -347,18 +351,18 @@ public final class EDocUtil {
         ctldoctype.setDocType(docType);
         ctldoctype.setModule(module.toLowerCase(Locale.ROOT));
         ctldoctype.setStatus(status);
-        ctldoctypedao.persist(ctldoctype);
+        ctldoctypedao().persist(ctldoctype);
     }
 
     public static void changeDocTypeStatusSQL(String docType, String module, String status) {
-        ctldoctypedao.changeDocType(docType, module, status);
+        ctldoctypedao().changeDocType(docType, module, status);
     }
 
     /**
      * new method to let the user add a new DocumentType into the database
      */
     public static void addDocTypeSQL(String docType, String module) {
-        ctldoctypedao.addDocType(docType, module);
+        ctldoctypedao().addDocType(docType, module);
     }
 
     public static void detachDocConsult(String docNo, String consultId) {
@@ -751,7 +755,7 @@ public final class EDocUtil {
 
         for (EDoc eDoc : eDocs) {
             Integer programId = eDoc.getProgramId();
-            if (programManager.hasAccessBasedOnCurrentFacility(loggedInInfo, programId)) results.add(eDoc);
+            if (programManager().hasAccessBasedOnCurrentFacility(loggedInInfo, programId)) results.add(eDoc);
         }
 
         return results;
@@ -882,7 +886,7 @@ public final class EDocUtil {
     }
 
     public static void undeleteDocument(String documentNo) {
-        CtlDocument cd = ctlDocumentDao.getCtrlDocument(ConversionUtils.fromIntString(documentNo));
+        CtlDocument cd = ctlDocumentDao().getCtrlDocument(ConversionUtils.fromIntString(documentNo));
         String status = "";
         if (cd != null) {
             status = cd.getStatus();
@@ -992,7 +996,7 @@ public final class EDocUtil {
             cdpk.setDocumentNo(doc.getDocumentNo());
             cd.getId().setModuleId(ConversionUtils.fromIntString(demoNo));
             cd.setStatus(String.valueOf('A'));
-            ctlDocumentDao.persist(cd);
+            ctlDocumentDao().persist(cd);
 
         }
 
@@ -1064,7 +1068,7 @@ public final class EDocUtil {
     // get noteId from tableId
     public static Long getNoteIdFromDocId(Long docId) {
         Long noteId = 0L;
-        CaseManagementNoteLink cmnLink = caseManagementNoteLinkDao.getLastLinkByTableId(CaseManagementNoteLink.DOCUMENT, docId);
+        CaseManagementNoteLink cmnLink = caseManagementNoteLinkDao().getLastLinkByTableId(CaseManagementNoteLink.DOCUMENT, docId);
         if (cmnLink != null) noteId = cmnLink.getNoteId();
         return noteId;
     }
@@ -1072,7 +1076,7 @@ public final class EDocUtil {
     // get tableId from noteId when table_name is document
     public static Long getTableIdFromNoteId(Long noteId) {
         Long tableId = 0L;
-        CaseManagementNoteLink cmnLink = caseManagementNoteLinkDao.getLastLinkByNote(noteId);
+        CaseManagementNoteLink cmnLink = caseManagementNoteLinkDao().getLastLinkByNote(noteId);
         if (cmnLink != null && cmnLink.getTableName().equals(CaseManagementNoteLink.DOCUMENT)) {
             tableId = cmnLink.getTableId();
         }
@@ -1108,14 +1112,14 @@ public final class EDocUtil {
     public static String getHtmlTicklers(LoggedInInfo loggedInInfo, String docId) {
 
         Long table_id = Long.valueOf(docId);
-        List<TicklerLink> linkList = ticklerLinkDao.getLinkByTableId("DOC", table_id);
+        List<TicklerLink> linkList = ticklerLinkDao().getLinkByTableId("DOC", table_id);
         String HtmlTickler = "";
         Integer ticklerNo;
 
         if (linkList != null) {
             for (TicklerLink tl : linkList) {
                 ticklerNo = tl.getTicklerNo();
-                Tickler t = ticklerManager.getTickler(loggedInInfo, ticklerNo.intValue());
+                Tickler t = ticklerManager().getTickler(loggedInInfo, ticklerNo.intValue());
                 HtmlTickler += "<br>" + Encode.forHtml(t.getMessage());
             }
         }
@@ -1163,12 +1167,12 @@ public final class EDocUtil {
             tableId = Long.valueOf(docId);
         }
 
-        CaseManagementNoteLink cmnLink = caseManagementNoteLinkDao.getLastLinkByTableId(CaseManagementNoteLink.DOCUMENT, tableId);
+        CaseManagementNoteLink cmnLink = caseManagementNoteLinkDao().getLastLinkByTableId(CaseManagementNoteLink.DOCUMENT, tableId);
         CaseManagementNote p_cmn = null;
         if (cmnLink != null) {
-            p_cmn = caseManagementNoteDao.getNote(cmnLink.getNoteId());
+            p_cmn = caseManagementNoteDao().getNote(cmnLink.getNoteId());
             //get the most recent previous note from uuid.
-            p_cmn = caseManagementNoteDao.getMostRecentNote(p_cmn.getUuid());
+            p_cmn = caseManagementNoteDao().getMostRecentNote(p_cmn.getUuid());
         }
 
         //if get providers no is -1, it's a document note.
