@@ -32,6 +32,8 @@
 
 package io.github.carlos_emr.carlos.managers;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import java.io.File;
 import java.net.URL;
@@ -233,6 +235,11 @@ public interface MeasurementManager {
                         dsHtml.add(file1.getName());
                     }
                 }
+            } else {
+                // Surface a misconfigured/unreadable flowsheet directory: otherwise the list silently
+                // comes back short and the cause is undiagnosable.
+                MiscUtils.getLogger().warn("Configured flowsheet directory missing or unreadable: {}",
+                        LogSafe.sanitize(path_set_by_property));
             }
         }
 
@@ -248,6 +255,9 @@ public interface MeasurementManager {
                         dsHtml.add(file2.getName());
                     }
                 }
+            } else {
+                MiscUtils.getLogger().warn("Bundled flowsheet resource directory unreadable: {}",
+                        LogSafe.sanitize(path_of_resource.getPath()));
             }
         }
 

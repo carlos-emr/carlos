@@ -160,7 +160,7 @@ public class HRMFixMissingReportHelper {
             //we can now check for the file
             File theFile = PathValidationUtils.validateGeneratedChildPath(fileName, decryptedDirectory);
             if (theFile != null && theFile.exists()) {
-                logger.info("Found the file we were missing:" + theFile);
+                logger.info("Found the file we were missing: {}", LogSafe.sanitize(theFile.getPath()));
                 return theFile;
             }
         }

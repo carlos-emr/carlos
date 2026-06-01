@@ -54,8 +54,9 @@ public class DisplayInvoiceLogo2Action extends ActionSupport {
     private HttpServletResponse response = ServletActionContext.getResponse();
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
-    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; path validated for directory containment via PathValidationUtils before use")
+    // FindSecBugs PATH_TRAVERSAL_IN: fileName is the containment-validated path returned by getLogoImgAbsPath()
+    // (validated within DOCUMENT_DIR there); resolveTrustedPath below only canonicalizes the already-validated value.
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; fileName is already containment-validated within DOCUMENT_DIR by getLogoImgAbsPath(); resolveTrustedPath only canonicalizes a trusted value")
     @Override
     public String execute() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
