@@ -116,6 +116,14 @@ public final class LoggedInInfo implements Serializable {
         return (getLoggedInInfoFromSession(request.getSession()));
     }
 
+    public static LoggedInInfo requireLoggedInInfoFromSession(HttpServletRequest request) {
+        LoggedInInfo loggedInInfo = getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            throw new SecurityException("missing required session");
+        }
+        return loggedInInfo;
+    }
+
     /**
      * This method should be used for www services.
      * This will be stored in the requestAttributes, not the session.

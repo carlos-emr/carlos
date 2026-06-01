@@ -69,10 +69,7 @@ public class PrintClientLabLabel2Action extends ActionSupport {
 
     public String execute() {
 
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (loggedInInfo == null) {
-            throw new SecurityException("missing required session");
-        }
+        LoggedInInfo loggedInInfo = LoggedInInfo.requireLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
             throw new SecurityException("missing required sec object (_demographic)");

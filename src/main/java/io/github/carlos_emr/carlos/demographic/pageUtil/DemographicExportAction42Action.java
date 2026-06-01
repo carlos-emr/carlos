@@ -267,10 +267,7 @@ public class DemographicExportAction42Action extends ActionSupport {
     public String execute() throws Exception {
         String strEditable = oscarProperties.getProperty("ENABLE_EDIT_APPT_STATUS");
 
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (loggedInInfo == null) {
-            throw new SecurityException("missing required session");
-        }
+        LoggedInInfo loggedInInfo = LoggedInInfo.requireLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
             throw new SecurityException("missing required security object (_demographic)");

@@ -143,10 +143,7 @@ public class PrintDemoChartLabel2Action extends ActionSupport {
      * @throws SecurityException if user lacks "_demographic" read privilege
      */
     public String execute() {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (loggedInInfo == null) {
-            throw new SecurityException("missing required session");
-        }
+        LoggedInInfo loggedInInfo = LoggedInInfo.requireLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
             throw new SecurityException("missing required sec object (_demographic)");
