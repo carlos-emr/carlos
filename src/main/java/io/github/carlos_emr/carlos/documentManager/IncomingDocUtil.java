@@ -639,9 +639,7 @@ public final class IncomingDocUtil {
         String myPdfNameF = myPdfName.substring(0, index);
         String myPdfNameExt = myPdfName.substring(index, myPdfName.length());
 
-        ArrayList<String> extractList = new ArrayList<String>();
-        int startPage, endPage;
-        boolean cancelExtract = false;
+        ArrayList<String> extractList;
 
         PdfReader reader = null;
         Document document = null;
@@ -657,62 +655,7 @@ public final class IncomingDocUtil {
             File validatedExtractFile = PathValidationUtils.validatePath(extractFileName, extractBaseDir);
             extractPath = validatedExtractFile.getPath();
 
-            // extractList uses 1-based indexing (matching PDF page numbers),
-            // so index 0 is an unused placeholder
-            for (int pgIndex = 0; pgIndex <= reader.getNumberOfPages(); pgIndex++) {
-                extractList.add(pgIndex, "0");
-            }
-
-            String tmpPageNumbersToExtract = pageNumbersToExtract;
-            String[] pageList = tmpPageNumbersToExtract.split(",");
-            for (int i = 0; i < pageList.length; i++) {
-                if (!pageList[i].isEmpty()) {
-                    String[] rangeList = pageList[i].split("-");
-                    if (rangeList.length > 2) {
-                        cancelExtract = true;
-                    }
-                    for (int j = 0; j < rangeList.length; j++) {
-                        if (!rangeList[j].matches("^[0-9]+$")) {
-                            cancelExtract = true;
-                        }
-                    }
-                    if (!cancelExtract) {
-                        if (rangeList.length == 1) {
-                            startPage = Integer.parseInt(rangeList[0], 10);
-                            if (startPage > extractList.size() || startPage == 0) {
-                                cancelExtract = true;
-                            } else {
-                                extractList.set(startPage, "1");
-                            }
-                        } else if (rangeList.length == 2) {
-                            startPage = Integer.parseInt(rangeList[0], 10);
-                            endPage = Integer.parseInt(rangeList[1], 10);
-
-                            for (int k = startPage; k <= endPage; k++) {
-
-                                if (k > extractList.size() || k == 0) {
-                                    cancelExtract = true;
-                                } else {
-                                    extractList.set(k, "1");
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            // Reject extraction if ALL pages would be extracted (nothing would remain)
-            if (!cancelExtract) {
-                cancelExtract = true;
-                for (int pageNumber = 1; pageNumber <= reader.getNumberOfPages(); pageNumber++) {
-                    if (!(extractList.get(pageNumber).equals("1"))) {
-                        cancelExtract = false;
-                    }
-                }
-            }
-            if (cancelExtract == true) {
-                reader.close();
-                throw new Exception(myPdfName + " : Invalid Pages to Extract " + pageNumbersToExtract);
-            }
+            extractList = buildExtractList(myPdfName, pageNumbersToExtract, reader.getNumberOfPages());
 
             document = new Document(reader.getPageSizeWithRotation(1));
             copyFos = new FileOutputStream(validatedTempFile);
@@ -720,31 +663,9 @@ public final class IncomingDocUtil {
             extractFos = new FileOutputStream(validatedExtractFile);
             extractCopy = new PdfCopy(document, extractFos);
             document.open();
-            for (int pageNumber = 1; pageNumber <= reader.getNumberOfPages(); pageNumber++) {
-                if (!(extractList.get(pageNumber).equals("1"))) {
-                    copy.addPage(copy.getImportedPage(reader, pageNumber));
-                } else {
-                    extractCopy.addPage(copy.getImportedPage(reader, pageNumber));
-                }
-            }
-
-
+            copyExtractedPages(reader, extractList, copy, extractCopy);
         } finally {
-            // Each close is independently protected so a failure in one
-            // does not prevent cleanup of the remaining resources.
-            // PdfCopy closed before Document to match deletePage ordering.
-            try { if (copy != null) copy.close(); }
-            catch (Exception e) { MiscUtils.getLogger().error("Error closing copy writer during page extraction", e); }
-            try { if (extractCopy != null) extractCopy.close(); }
-            catch (Exception e) { MiscUtils.getLogger().error("Error closing extract writer during page extraction", e); }
-            try { if (document != null) document.close(); }
-            catch (Exception e) { MiscUtils.getLogger().error("Error closing PDF document during page extraction", e); }
-            try { if (copyFos != null) copyFos.close(); }
-            catch (Exception e) { MiscUtils.getLogger().error("Error closing copy output stream during page extraction", e); }
-            try { if (extractFos != null) extractFos.close(); }
-            catch (Exception e) { MiscUtils.getLogger().error("Error closing extract output stream during page extraction", e); }
-            try { if (reader != null) reader.close(); }
-            catch (Exception e) { MiscUtils.getLogger().error("Error closing PDF reader during page extraction", e); }
+            closePageExtractionResources(copy, extractCopy, document, copyFos, extractFos, reader);
         }
 
         boolean success = f.delete();
@@ -761,6 +682,118 @@ public final class IncomingDocUtil {
             f2.setLastModified(lastModified);
         } else {
             throw new Exception("Error in deleting file:" + filePathName);
+        }
+    }
+
+    private static ArrayList<String> buildExtractList(String pdfName, String pageNumbersToExtract, int pageCount) throws Exception {
+        ArrayList<String> extractList = initializeExtractList(pageCount);
+        boolean validPages = true;
+
+        for (String pageSpec : pageNumbersToExtract.split(",")) {
+            if (!pageSpec.isEmpty()) {
+                validPages = markPagesForExtraction(extractList, pageSpec, pageCount) && validPages;
+            }
+        }
+
+        if (!validPages || !hasPageRemaining(extractList, pageCount)) {
+            throw new Exception(pdfName + " : Invalid Pages to Extract " + pageNumbersToExtract);
+        }
+
+        return extractList;
+    }
+
+    private static ArrayList<String> initializeExtractList(int pageCount) {
+        ArrayList<String> extractList = new ArrayList<String>();
+        for (int pgIndex = 0; pgIndex <= pageCount; pgIndex++) {
+            extractList.add(pgIndex, "0");
+        }
+        return extractList;
+    }
+
+    private static boolean markPagesForExtraction(ArrayList<String> extractList, String pageSpec, int pageCount) {
+        String[] rangeList = pageSpec.split("-");
+        if (rangeList.length == 1) {
+            return markExtractPage(extractList, rangeList[0], pageCount);
+        }
+        if (rangeList.length == 2 && isNumericPage(rangeList[0]) && isNumericPage(rangeList[1])) {
+            int startPage = Integer.parseInt(rangeList[0], 10);
+            int endPage = Integer.parseInt(rangeList[1], 10);
+            return markExtractRange(extractList, startPage, endPage, pageCount);
+        }
+        return false;
+    }
+
+    private static boolean markExtractPage(ArrayList<String> extractList, String pageSpec, int pageCount) {
+        if (!isNumericPage(pageSpec)) {
+            return false;
+        }
+        int pageNumber = Integer.parseInt(pageSpec, 10);
+        if (!isValidPageNumber(pageNumber, pageCount)) {
+            return false;
+        }
+        extractList.set(pageNumber, "1");
+        return true;
+    }
+
+    private static boolean markExtractRange(ArrayList<String> extractList, int startPage, int endPage, int pageCount) {
+        if (startPage > endPage) {
+            return false;
+        }
+        for (int pageNumber = startPage; pageNumber <= endPage; pageNumber++) {
+            if (!isValidPageNumber(pageNumber, pageCount)) {
+                return false;
+            }
+            extractList.set(pageNumber, "1");
+        }
+        return true;
+    }
+
+    private static boolean isNumericPage(String pageSpec) {
+        return pageSpec.matches("^[0-9]+$");
+    }
+
+    private static boolean isValidPageNumber(int pageNumber, int pageCount) {
+        return pageNumber >= 1 && pageNumber <= pageCount;
+    }
+
+    private static boolean hasPageRemaining(ArrayList<String> extractList, int pageCount) {
+        for (int pageNumber = 1; pageNumber <= pageCount; pageNumber++) {
+            if (!"1".equals(extractList.get(pageNumber))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static void copyExtractedPages(PdfReader reader, ArrayList<String> extractList, PdfCopy copy,
+            PdfCopy extractCopy) throws Exception {
+        for (int pageNumber = 1; pageNumber <= reader.getNumberOfPages(); pageNumber++) {
+            if ("1".equals(extractList.get(pageNumber))) {
+                extractCopy.addPage(copy.getImportedPage(reader, pageNumber));
+            } else {
+                copy.addPage(copy.getImportedPage(reader, pageNumber));
+            }
+        }
+    }
+
+    private static void closePageExtractionResources(PdfCopy copy, PdfCopy extractCopy, Document document,
+            FileOutputStream copyFos, FileOutputStream extractFos, PdfReader reader) {
+        closePdfResource(copy, "Error closing copy writer during page extraction");
+        closePdfResource(extractCopy, "Error closing extract writer during page extraction");
+        closePdfResource(document, "Error closing PDF document during page extraction");
+        closePdfResource(copyFos, "Error closing copy output stream during page extraction");
+        closePdfResource(extractFos, "Error closing extract output stream during page extraction");
+        closePdfResource(reader, "Error closing PDF reader during page extraction");
+    }
+
+    private static void closePdfResource(AutoCloseable resource, String message) {
+        if (resource == null) {
+            return;
+        }
+        try {
+            resource.close();
+        } catch (Exception e) {
+            MiscUtils.getLogger().error(message, e);
         }
     }
 
