@@ -37,12 +37,16 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @DisplayName("Consultation request CPP auto-import")
 @Tag("unit")
+@Tag("web")
+@Tag("regression")
 class ConsultationFormRequestCppAutoImportRegressionTest {
     private static final String BASEDIR_PROPERTY = "basedir";
+    private static final Path RELEASE_CONFIG = resolveProjectPath(Path.of("archive/release/config"));
     private static final Path JSP_ROOT = resolveProjectPath(Path.of("src/main/webapp/WEB-INF/jsp"));
     private static final Path RESOURCES_ROOT = resolveProjectPath(Path.of("src/main/resources"));
 
     @Test
+    @DisplayName("should gate every CPP auto-import section with independent properties")
     void shouldGateEveryCppAutoImportSection_withIndependentProperties() throws Exception {
         String jsp = readJsp("encounter/oscarConsultationRequest/ConsultationFormRequest.jsp");
 
@@ -60,6 +64,7 @@ class ConsultationFormRequestCppAutoImportRegressionTest {
     }
 
     @Test
+    @DisplayName("should define default CPP auto-import properties in carlos.properties")
     void shouldDefineDefaultCppAutoImportProperties_inCarlosProperties() throws Exception {
         String properties = Files.readString(RESOURCES_ROOT.resolve("carlos.properties"));
 
@@ -72,6 +77,20 @@ class ConsultationFormRequestCppAutoImportRegressionTest {
     }
 
     @Test
+    @DisplayName("should define default CPP auto-import properties in release config")
+    void shouldDefineDefaultCppAutoImportProperties_inReleaseConfig() throws Exception {
+        String releaseConfig = Files.readString(RELEASE_CONFIG);
+
+        assertThat(releaseConfig)
+                .contains("echo \"CONSULTATION_AUTO_INCLUDE_PAST_MEDICAL_HISTORY=true\"")
+                .contains("echo \"CONSULTATION_AUTO_INCLUDE_SOCIAL_HISTORY=true\"")
+                .contains("echo \"CONSULTATION_AUTO_INCLUDE_FAMILY_HISTORY=true\"")
+                .contains("echo \"CONSULTATION_AUTO_INCLUDE_ONGOING_CONCERNS=true\"")
+                .contains("echo \"CONSULTATION_AUTO_INCLUDE_REMINDERS=true\"");
+    }
+
+    @Test
+    @DisplayName("should format auto-imported CPP sections with editable labels")
     void shouldFormatAutoImportedCppSections_withEditableLabels() throws Exception {
         String jsp = readJsp("encounter/oscarConsultationRequest/ConsultationFormRequest.jsp");
 
