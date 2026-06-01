@@ -99,4 +99,24 @@ class HL7A04DataSaveUnitTest {
             assertThat(Files.readString(target)).isEqualTo("EXISTING\nAPPENDED");
         }
     }
+
+    @Test
+    @DisplayName("should preserve a '+' (timezone offset) in the generated A04 filename")
+    void shouldPreservePlusInFilename_whenTimezoneFormatted() throws Exception {
+        try (MockedStatic<CarlosProperties> propsMock = mockStatic(CarlosProperties.class)) {
+            CarlosProperties props = mock(CarlosProperties.class);
+            propsMock.when(CarlosProperties::getInstance).thenReturn(props);
+            when(props.getHL7A04BuildDirectory()).thenReturn(tempDir.toString() + "/");
+
+            HL7A04Data data = new HL7A04Data();
+            setField(data, "message", "MSH|^~\\&|CARLOS");
+            // Mirrors the production name format yyyyMMddkkmmss.SSSZ + ".txt", whose RFC-822 'Z' yields
+            // a '+0000'/'-0500' offset. The trusted generated name must be preserved, NOT run through a
+            // user-input sanitizer that would strip the '+' and diverge from the MSH control ID.
+            setField(data, "fileName", "20260601120000.123+0000.txt");
+
+            assertThat(data.save()).isTrue();
+            assertThat(tempDir.resolve("20260601120000.123+0000.txt")).exists();
+        }
+    }
 }
