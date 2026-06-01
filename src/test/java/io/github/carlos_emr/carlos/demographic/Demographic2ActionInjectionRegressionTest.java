@@ -48,7 +48,7 @@ class Demographic2ActionInjectionRegressionTest {
     private static final Path DEMOGRAPHIC_SOURCE_DIR =
             Path.of("src/main/java/io/github/carlos_emr/carlos/demographic");
     private static final Pattern FIELD_GET_BEAN = Pattern.compile(
-            "^\\s*private\\s+(?:static\\s+)?(?:final\\s+)?[^;=]+\\s+\\w+\\s*=\\s*(?:\\([^)]*\\)\\s*)?SpringUtils\\.getBean\\([^;]+;\\s*$");
+            "^    (?:(?:private|protected|public)\\s+)?(?:static\\s+)?(?:final\\s+)?[A-Z][^;=]+\\s+\\w+\\s*=\\s*(?:\\([^)]*\\)\\s*)?SpringUtils\\.getBean\\([^;]+;\\s*$");
 
     @Test
     @DisplayName("should use constructor injection instead of SpringUtils field shims")

@@ -182,27 +182,61 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
     CarlosProperties oscarProperties = CarlosProperties.getInstance();
     List<String> importErrors = new ArrayList<String>();
 
-    ProgramManager programManager = (ProgramManager) SpringUtils.getBean(ProgramManager.class);
-    AdmissionManager admissionManager = (AdmissionManager) SpringUtils.getBean(AdmissionManager.class);
-    AdmissionDao admissionDao = (AdmissionDao) SpringUtils.getBean(AdmissionDao.class);
-    CaseManagementManager caseManagementManager = (CaseManagementManager) SpringUtils.getBean(CaseManagementManager.class);
-    DrugDao drugDao = (DrugDao) SpringUtils.getBean(DrugDao.class);
-    DrugReasonDao drugReasonDao = (DrugReasonDao) SpringUtils.getBean(DrugReasonDao.class);
-    DemographicArchiveDao demoArchiveDao = (DemographicArchiveDao) SpringUtils.getBean(DemographicArchiveDao.class);
-    ProviderDataDao providerDataDao = (ProviderDataDao) SpringUtils.getBean(ProviderDataDao.class);
-    PartialDateDao partialDateDao = (PartialDateDao) SpringUtils.getBean(PartialDateDao.class);
-    DemographicExtDao demographicExtDao = (DemographicExtDao) SpringUtils.getBean(DemographicExtDao.class);
-    OscarAppointmentDao appointmentDao = (OscarAppointmentDao) SpringUtils.getBean(OscarAppointmentDao.class);
-    PatientLabRoutingDao patientLabRoutingDao = SpringUtils.getBean(PatientLabRoutingDao.class);
-    ProviderLabRoutingDao providerLabRoutingDao = SpringUtils.getBean(ProviderLabRoutingDao.class);
-    MeasurementsExtDao measurementsExtDao = SpringUtils.getBean(MeasurementsExtDao.class);
-    IssueDAO issueDao = SpringUtils.getBean(IssueDAO.class);
-    DemographicContactDao contactDao = (DemographicContactDao) SpringUtils.getBean(DemographicContactDao.class);
+    private final ProgramManager programManager;
+    private final AdmissionManager admissionManager;
+    private final AdmissionDao admissionDao;
+    private final CaseManagementManager caseManagementManager;
+    private final DrugDao drugDao;
+    private final DrugReasonDao drugReasonDao;
+    private final DemographicArchiveDao demoArchiveDao;
+    private final ProviderDataDao providerDataDao;
+    private final PartialDateDao partialDateDao;
+    private final DemographicExtDao demographicExtDao;
+    private final OscarAppointmentDao appointmentDao;
+    private final PatientLabRoutingDao patientLabRoutingDao;
+    private final ProviderLabRoutingDao providerLabRoutingDao;
+    private final MeasurementsExtDao measurementsExtDao;
+    private final IssueDAO issueDao;
+    private final DemographicContactDao contactDao;
 
     private final NioFileManager nioFileManager;
 
-    public ImportDemographicDataAction42Action(SecurityInfoManager securityInfoManager, NioFileManager nioFileManager) {
+    public ImportDemographicDataAction42Action(
+            SecurityInfoManager securityInfoManager,
+            ProgramManager programManager,
+            AdmissionManager admissionManager,
+            AdmissionDao admissionDao,
+            CaseManagementManager caseManagementManager,
+            DrugDao drugDao,
+            DrugReasonDao drugReasonDao,
+            DemographicArchiveDao demoArchiveDao,
+            ProviderDataDao providerDataDao,
+            PartialDateDao partialDateDao,
+            DemographicExtDao demographicExtDao,
+            OscarAppointmentDao appointmentDao,
+            PatientLabRoutingDao patientLabRoutingDao,
+            ProviderLabRoutingDao providerLabRoutingDao,
+            MeasurementsExtDao measurementsExtDao,
+            IssueDAO issueDao,
+            DemographicContactDao contactDao,
+            NioFileManager nioFileManager) {
         this.securityInfoManager = securityInfoManager;
+        this.programManager = programManager;
+        this.admissionManager = admissionManager;
+        this.admissionDao = admissionDao;
+        this.caseManagementManager = caseManagementManager;
+        this.drugDao = drugDao;
+        this.drugReasonDao = drugReasonDao;
+        this.demoArchiveDao = demoArchiveDao;
+        this.providerDataDao = providerDataDao;
+        this.partialDateDao = partialDateDao;
+        this.demographicExtDao = demographicExtDao;
+        this.appointmentDao = appointmentDao;
+        this.patientLabRoutingDao = patientLabRoutingDao;
+        this.providerLabRoutingDao = providerLabRoutingDao;
+        this.measurementsExtDao = measurementsExtDao;
+        this.issueDao = issueDao;
+        this.contactDao = contactDao;
         this.nioFileManager = nioFileManager;
     }
     private LabUploadWs labUpload = new LabUploadWs();
