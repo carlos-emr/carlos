@@ -175,22 +175,16 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             //properties must exist
             String place = props.getProperty("DOCUMENT_DIR");
 
-            if (!place.endsWith("/"))
-                place = new StringBuilder(place).insert(place.length(), "/").toString();
-            retVal = place + "LabUpload." + filename + "." + (new Date()).getTime();
+            File baseDir = PathValidationUtils.resolveConfiguredDirectory(place, "PathNet lab upload directory");
+            File outputFile = PathValidationUtils.validateGeneratedChildPath(
+                    PathValidationUtils.validateGeneratedFileName("LabUpload." + filename + "." + (new Date()).getTime()),
+                    baseDir);
+            retVal = outputFile.getPath();
             MiscUtils.getLogger().debug(retVal);
-            //write the file to the file specified
-            OutputStream bos = new FileOutputStream(retVal);
-            int bytesRead = 0;
-            //byte[] buffer = file.getFileData();
-            //while ((bytesRead = stream.read(buffer)) != -1){
-            //   bos.write(buffer, 0, bytesRead);
-            while ((bytesRead = stream.read()) != -1) {
-                bos.write(bytesRead);
+            try (OutputStream bos = new FileOutputStream(outputFile)) {
+                stream.transferTo(bos);
             }
-            bos.close();
 
-            //close the stream
             stream.close();
         } catch (FileNotFoundException fnfe) {
 
@@ -198,7 +192,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             MiscUtils.getLogger().error("Error", fnfe);
             return isAdded = false;
 
-        } catch (IOException ioe) {
+        } catch (IOException | SecurityException ioe) {
             MiscUtils.getLogger().error("Error", ioe);
             return isAdded = false;
         }

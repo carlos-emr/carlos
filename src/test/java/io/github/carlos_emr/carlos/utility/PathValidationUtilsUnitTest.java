@@ -641,6 +641,68 @@ class PathValidationUtilsUnitTest {
     }
 
     // ========================================================================
+    // CONFIGURED AND GENERATED PATH VALIDATION
+    // ========================================================================
+
+    @Nested
+    @DisplayName("Configured and Generated Path Validation Tests")
+    class ConfiguredAndGeneratedPathValidationTests {
+
+        @Test
+        @DisplayName("should resolve configured directory to canonical path")
+        void shouldResolveConfiguredDirectoryToCanonicalPath() throws IOException {
+            File resolved = PathValidationUtils.resolveConfiguredDirectory(tempDir.resolve(".").toString(), "test dir");
+
+            assertThat(resolved).isEqualTo(tempDir.toFile().getCanonicalFile());
+        }
+
+        @Test
+        @DisplayName("should reject configured directory that is a file")
+        void shouldRejectConfiguredDirectoryThatIsFile() throws IOException {
+            Path file = Files.writeString(tempDir.resolve("not-a-directory.txt"), "content");
+
+            assertThatThrownBy(() -> PathValidationUtils.resolveConfiguredDirectory(file.toString(), "test dir"))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("Configured path is not a directory");
+        }
+
+        @Test
+        @DisplayName("should validate generated child path inside allowed directory")
+        void shouldValidateGeneratedChildPathInsideAllowedDirectory() throws IOException {
+            File child = PathValidationUtils.validateGeneratedChildPath("LabUpload.result.123", allowedDir);
+
+            assertThat(child.getCanonicalFile().getParentFile()).isEqualTo(allowedDir.getCanonicalFile());
+            assertThat(child.getName()).isEqualTo("LabUpload.result.123");
+        }
+
+        @ParameterizedTest
+        @DisplayName("should reject generated child path components with traversal syntax")
+        @ValueSource(strings = {"../evil.txt", "nested/evil.txt", "nested\\evil.txt", ".", ".."})
+        void shouldRejectGeneratedChildPathComponentsWithTraversalSyntax(String generatedName) {
+            assertThatThrownBy(() -> PathValidationUtils.validateGeneratedChildPath(generatedName, allowedDir))
+                    .isInstanceOf(FileValidationException.class)
+                    .hasMessageContaining(PathValidationUtils.PATH_COMPONENT_FILENAME_MESSAGE);
+        }
+
+        @Test
+        @DisplayName("should validate configured file")
+        void shouldValidateConfiguredFile() throws IOException {
+            Path file = Files.writeString(tempDir.resolve("message_config.xml"), "<root/>");
+
+            assertThat(PathValidationUtils.validateConfiguredFile(file.toString(), "config").getCanonicalFile())
+                    .isEqualTo(file.toFile().getCanonicalFile());
+        }
+
+        @Test
+        @DisplayName("should reject configured file that is a directory")
+        void shouldRejectConfiguredFileThatIsDirectory() {
+            assertThatThrownBy(() -> PathValidationUtils.validateConfiguredFile(tempDir.toString(), "config"))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("Configured path is not a file");
+        }
+    }
+
+    // ========================================================================
     // TEMP FILE VALIDATION
     // ========================================================================
 

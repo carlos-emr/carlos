@@ -50,7 +50,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Date;
 
@@ -130,8 +129,11 @@ public class Utilities {
             File safeDir = PathValidationUtils.getRequiredDocumentDirectory();
             File targetFile = PathValidationUtils.validatePath(filename, safeDir);
 
-            // Construct retVal using the validated targetFile path
-            retVal = targetFile.getParent() + File.separator + "LabUpload." + targetFile.getName().replaceAll(".enc", "") + "." + (new Date()).getTime();
+            File outputFile = PathValidationUtils.validateGeneratedChildPath(
+                    PathValidationUtils.validateGeneratedFileName(
+                            "LabUpload." + targetFile.getName().replaceAll(".enc", "") + "." + (new Date()).getTime()),
+                    targetFile.getParentFile());
+            retVal = outputFile.getPath();
 
             if (logger.isDebugEnabled()) {
                 logger.debug("saveFile place={}, retVal={}",
@@ -139,7 +141,7 @@ public class Utilities {
                         LogSafe.sanitize(retVal, 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             }
 
-            try (OutputStream os = Files.newOutputStream(Paths.get(retVal));
+            try (OutputStream os = Files.newOutputStream(outputFile.toPath());
                 BufferedInputStream bis = new BufferedInputStream(stream)) {
 
                 byte[] buffer = new byte[8192]; // 8KB buffer
@@ -161,26 +163,24 @@ public class Utilities {
         String place = CarlosProperties.getInstance().getProperty("OMD_hrm");
 
         try {
-            if (!place.endsWith("/")) {
-                place = new StringBuilder(place).insert(place.length(), "/").toString();
+            File baseDir = PathValidationUtils.resolveConfiguredDirectory(place, "OMD_hrm");
+            File outputFile = PathValidationUtils.validateGeneratedChildPath(
+                    PathValidationUtils.validateGeneratedFileName("KeyUpload." + filename + "." + (new Date()).getTime()),
+                    baseDir);
+            retVal = outputFile.getPath();
+
+            try (OutputStream os = new FileOutputStream(outputFile)) {
+                int bytesRead;
+                while ((bytesRead = stream.read()) != -1) {
+                    os.write(bytesRead);
+                }
             }
-            retVal = place + "KeyUpload." + filename + "." + (new Date()).getTime();
 
-            //write the  file to the file specified
-            OutputStream os = new FileOutputStream(retVal);
-
-            int bytesRead = 0;
-            while ((bytesRead = stream.read()) != -1) {
-                os.write(bytesRead);
-            }
-            os.close();
-
-            //close the stream
             stream.close();
         } catch (FileNotFoundException fnfe) {
             logger.error("Error", fnfe);
             return retVal;
-        } catch (IOException ioe) {
+        } catch (IOException | SecurityException ioe) {
             logger.error("Error", ioe);
             return retVal;
         }
@@ -205,9 +205,12 @@ public class Utilities {
                 safeName = safeName.substring(0, safeName.length() - 4);
             }
 
-            retVal = new File(baseDir, "DocUpload." + safeName + "." + System.currentTimeMillis() + ".pdf").toString();
+            File outputFile = PathValidationUtils.validateGeneratedChildPath(
+                    PathValidationUtils.validateGeneratedFileName("DocUpload." + safeName + "." + System.currentTimeMillis() + ".pdf"),
+                    baseDir);
+            retVal = outputFile.toString();
 
-            try (OutputStream os = new FileOutputStream(retVal)) {
+            try (OutputStream os = new FileOutputStream(outputFile)) {
                 int bytesRead;
                 while ((bytesRead = stream.read()) != -1) {
                     os.write(bytesRead);
@@ -221,7 +224,7 @@ public class Utilities {
         } catch (IOException ioe) {
             logger.error("Error", ioe);
             return retVal;
-        } catch (IllegalArgumentException iae) {
+        } catch (IllegalArgumentException | SecurityException iae) {
             logger.error("Invalid filename: {}", LogSafe.sanitize(filename), iae); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             return null;
         }

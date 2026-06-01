@@ -336,6 +336,125 @@ public final class PathValidationUtils {
     }
 
     /**
+     * Validates a child file path is within the allowed directory. The child does
+     * not need to exist yet, so this helper is appropriate for creation paths.
+     *
+     * @param file the file path to validate
+     * @param allowedDir the directory the file must be within
+     * @return the validated File
+     * @throws SecurityException if the file is null or outside the allowed directory
+     */
+    public static File validateChildPath(File file, File allowedDir) {
+        if (file == null) {
+            throw new SecurityException("File is null");
+        }
+        validateWithinDirectory(file, allowedDir);
+        return file;
+    }
+
+    /**
+     * Resolves an application-generated child filename inside an allowed directory
+     * and validates canonical containment without applying user filename stripping.
+     * Use this only after trusted/generated prefixes and suffixes have been added
+     * and the final filename component has been validated.
+     *
+     * @param generatedChildName application-generated filename component
+     * @param allowedDir directory the child must remain within
+     * @return validated child File
+     * @throws FileValidationException if the generated name is blank or contains path syntax
+     * @throws SecurityException if the resolved child escapes allowedDir
+     */
+    public static File validateGeneratedChildPath(String generatedChildName, File allowedDir) {
+        if (generatedChildName == null || generatedChildName.trim().isEmpty()) {
+            throw new FileValidationException(INVALID_FILENAME_MESSAGE);
+        }
+        if (generatedChildName.indexOf('\0') >= 0
+                || generatedChildName.contains("/")
+                || generatedChildName.contains("\\")
+                || ".".equals(generatedChildName)
+                || "..".equals(generatedChildName)) {
+            logger.warn("Generated child path must be a single filename component");
+            throw new FileValidationException(PATH_COMPONENT_FILENAME_MESSAGE);
+        }
+
+        File path = new File(allowedDir, generatedChildName);
+        validateWithinDirectory(path, allowedDir);
+        return path;
+    }
+
+    /**
+     * Canonicalizes a configured directory path while preserving support for
+     * deployment-specific absolute locations from carlos.properties. Existing
+     * non-directory paths are rejected; missing directories are preserved so
+     * callers that historically created them lazily keep that behavior.
+     *
+     * @param configuredPath configured directory path
+     * @param label human-readable label for diagnostics
+     * @return canonical directory File
+     * @throws SecurityException if the path is blank, cannot be canonicalized, or is a file
+     */
+    // PATH_TRAVERSAL_IN: configured directory values are trusted deployment configuration; this method canonicalizes them and rejects blank or non-directory values before returning them.
+    @SuppressFBWarnings(
+            value = "PATH_TRAVERSAL_IN",
+            justification = "configured directory values are trusted deployment configuration; this method canonicalizes them and rejects blank or non-directory values before returning them.")
+    public static File resolveConfiguredDirectory(String configuredPath, String label) {
+        String field = label == null || label.trim().isEmpty() ? "configured directory" : label;
+        if (configuredPath == null || configuredPath.trim().isEmpty()) {
+            logger.warn("Invalid {}: null or empty", field);
+            throw new SecurityException("Invalid configured directory");
+        }
+
+        try {
+            File directory = new File(configuredPath).getCanonicalFile();
+            if (directory.exists() && !directory.isDirectory()) {
+                if (logger.isWarnEnabled()) {
+                    logger.warn("{} is not a directory: {}", field, LogSafe.sanitize(directory.getPath(), 1024));
+                }
+                throw new SecurityException("Configured path is not a directory");
+            }
+            return directory;
+        } catch (IOException e) {
+            logger.error("Error validating {}", field, e);
+            throw new SecurityException("Error validating configured directory", e);
+        }
+    }
+
+    /**
+     * Canonicalizes a configured file path that must already exist. This is for
+     * trusted configuration values, not request parameters.
+     *
+     * @param configuredPath configured file path
+     * @param label human-readable label for diagnostics
+     * @return canonical file
+     * @throws SecurityException if the path is blank, cannot be canonicalized, or is not a file
+     */
+    // PATH_TRAVERSAL_IN: configured file values are trusted deployment configuration; this method canonicalizes them and rejects blank or non-file values before returning them.
+    @SuppressFBWarnings(
+            value = "PATH_TRAVERSAL_IN",
+            justification = "configured file values are trusted deployment configuration; this method canonicalizes them and rejects blank or non-file values before returning them.")
+    public static File validateConfiguredFile(String configuredPath, String label) {
+        String field = label == null || label.trim().isEmpty() ? "configured file" : label;
+        if (configuredPath == null || configuredPath.trim().isEmpty()) {
+            logger.warn("Invalid {}: null or empty", field);
+            throw new SecurityException("Invalid configured file");
+        }
+
+        try {
+            File file = new File(configuredPath).getCanonicalFile();
+            if (!file.isFile()) {
+                if (logger.isWarnEnabled()) {
+                    logger.warn("{} is not a file: {}", field, LogSafe.sanitize(file.getPath(), 1024));
+                }
+                throw new SecurityException("Configured path is not a file");
+            }
+            return file;
+        } catch (IOException e) {
+            logger.error("Error validating {}", field, e);
+            throw new SecurityException("Error validating configured file", e);
+        }
+    }
+
+    /**
      * Validates that the path string resolves to a file within the allowed directory.
      * Convenience overload that constructs the {@link File} internally, avoiding a
      * bare {@code new File(taintedPath)} at the call site and keeping the taint sink

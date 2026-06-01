@@ -56,6 +56,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao;
 import io.github.carlos_emr.carlos.commn.model.Hl7TextMessage;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
 
@@ -135,10 +136,26 @@ public final class Factory {
         String labTypesPathOverride = CarlosProperties.getInstance().getProperty("LAB_TYPES");
 
         if (labTypesPathOverride != null && !labTypesPathOverride.isEmpty()) {
-            labTypesPath = Paths.get(labTypesPathOverride);
+            try {
+                labTypesPath = PathValidationUtils.validateConfiguredFile(labTypesPathOverride, "LAB_TYPES").toPath();
+            } catch (SecurityException e) {
+                logger.error("Configured LAB_TYPES override is invalid; using default message configuration instead", e);
+            }
         }
 
-        try (InputStream is = Files.newInputStream(labTypesPath)) {
+        if (labTypesPath == null) {
+            logger.error("Could not resolve Message configuration file. Using default message handler instead.");
+            try {
+                MessageHandler handler = new DefaultGenericHandler();
+                handler.init(hl7Body);
+                return handler;
+            } catch (Exception e) {
+                logger.error("Could not create default message handler", e);
+                return null;
+            }
+        }
+
+        try (InputStream is = Files.newInputStream(PathValidationUtils.validateConfiguredFile(labTypesPath.toString(), "message configuration file").toPath())) {
 
             // return default handler if the type is not specified
             if (type == null) {

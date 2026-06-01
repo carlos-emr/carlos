@@ -147,7 +147,8 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             } else {
                 filePath = Utilities.saveFile(is, fileName);
             }
-            File file = new File(filePath);
+            File file = PathValidationUtils.validateExistingDocumentPath(filePath);
+            filePath = file.getPath();
 
             if (validateSignature(clientKey, signature, file)) {
                 logger.debug("Validated Successfully");
