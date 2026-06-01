@@ -18,44 +18,67 @@
  */
 package io.github.carlos_emr.carlos.web;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
-import java.util.stream.Stream;
 
-import org.junit.jupiter.api.DynamicTest;
-import org.junit.jupiter.api.TestFactory;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 
 /**
  * Regression coverage for JSP saved-message HTML encoding.
  *
  * @since 2026-05-30
  */
+@DisplayName("Saved message JSP encoding")
+@Tag("unit")
+@Tag("regression")
+@Tag("security")
 class SavedMessageEncodingRegressionTest {
 
-    private static final Path REPOSITORY_ROOT = Path.of("").toAbsolutePath();
-    private static final Path WEBAPP_ROOT = REPOSITORY_ROOT.resolve("src/main/webapp");
+    private static final String BASEDIR_PROPERTY = "basedir";
+    private static final String CARLOS_TAGLIB = "<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>";
+    private static final String ENCODED_SAVED_MESSAGE = "${carlos:forHtml(savedMessage)}";
+    private static final String RAW_SAVED_MESSAGE = "${savedMessage}";
+    private static final Path JSP_ROOT = resolveProjectPath(Path.of("src/main/webapp/WEB-INF/jsp"));
 
-    @TestFactory
-    Stream<DynamicTest> jspSavedMessageAlertsEncodeHtml() throws IOException {
-        List<Path> jspAssets = List.of(
-                WEBAPP_ROOT.resolve("WEB-INF/jsp/admin/sitesAdminDetail.jsp"),
-                WEBAPP_ROOT.resolve("WEB-INF/jsp/form/pharmaForms/formBPMH.jsp"));
+    @Test
+    @DisplayName("should encode savedMessage in sites admin detail")
+    void shouldEncodeSavedMessage_inSitesAdminDetail() throws IOException {
+        assertSavedMessageEncoded("admin/sitesAdminDetail.jsp");
+    }
 
-        return jspAssets.stream()
-                .map(path -> DynamicTest.dynamicTest(REPOSITORY_ROOT.relativize(path).toString(), () -> {
-                    String content = Files.readString(path);
+    @Test
+    @DisplayName("should encode savedMessage in BPMH form")
+    void shouldEncodeSavedMessage_inBpmhForm() throws IOException {
+        assertSavedMessageEncoded("form/pharmaForms/formBPMH.jsp");
+    }
 
-                    assertTrue(
-                            content.contains("${carlos:forHtml(savedMessage)}"),
-                            "savedMessage should be encoded for HTML output");
-                    assertFalse(
-                            content.contains("${savedMessage}"),
-                            "savedMessage must not be rendered without HTML encoding");
-                }));
+    private static void assertSavedMessageEncoded(String relativePath) throws IOException {
+        String jsp = Files.readString(JSP_ROOT.resolve(relativePath), StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains(CARLOS_TAGLIB)
+                .contains(ENCODED_SAVED_MESSAGE)
+                .doesNotContain(RAW_SAVED_MESSAGE);
+    }
+
+    private static Path resolveProjectPath(Path relativePath) {
+        Path current = Path.of(System.getProperty(BASEDIR_PROPERTY, System.getProperty("user.dir")))
+                .toAbsolutePath()
+                .normalize();
+        for (int checkedParents = 0; current != null && checkedParents < 6; checkedParents++) {
+            Path candidate = current.resolve(relativePath).normalize();
+            if (Files.isRegularFile(candidate) || Files.isDirectory(candidate)) {
+                return candidate;
+            }
+            current = current.getParent();
+        }
+        throw new IllegalStateException("Unable to locate " + relativePath + " from "
+                + System.getProperty(BASEDIR_PROPERTY, System.getProperty("user.dir")));
     }
 }
