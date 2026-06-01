@@ -195,7 +195,7 @@
                 </td>
                 <td>
                     <button type="submit" class="btn btn-sm"
-                            onclick="return removeProvider('<carlos:encode value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(0) %>' context="javaScript"/>', '<carlos:encode value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(1) %>' context="javaScript"/> <carlos:encode value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(2) %>' context="javaScript"/>')"
+                            onclick="return removeProvider('<carlos:encode value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(0) %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(1) %>' context="javaScriptAttribute"/> <carlos:encode value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(2) %>' context="javaScriptAttribute"/>')"
                             title="<fmt:message key='admin.labFwdRules.removeTitle'/>"><i class="fa-solid fa-trash"></i> <fmt:message key="admin.labFwdRules.remove"/>
                     </button>
                 </td>

@@ -169,9 +169,9 @@ class JspJavaScriptEncodingRegressionTest {
                 .contains("<td><carlos:encode value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(1) %>' context=\"html\"/> "
                         + "<carlos:encode value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(2) %>' context=\"html\"/>")
                 .contains("removeProvider('<carlos:encode value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(0) %>' "
-                        + "context=\"javaScript\"/>', '<carlos:encode value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(1) %>' "
-                        + "context=\"javaScript\"/> <carlos:encode value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(2) %>' "
-                        + "context=\"javaScript\"/>')");
+                        + "context=\"javaScriptAttribute\"/>', '<carlos:encode value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(1) %>' "
+                        + "context=\"javaScriptAttribute\"/> <carlos:encode value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(2) %>' "
+                        + "context=\"javaScriptAttribute\"/>')");
     }
 
     @Test
