@@ -358,6 +358,9 @@ public final class PathValidationUtils {
      * @return the canonical DOCUMENT_DIR directory
      * @throws IOException if DOCUMENT_DIR is unavailable or cannot be canonicalized
      */
+    @SuppressFBWarnings(
+            value = "PATH_TRAVERSAL_IN",
+            justification = "DOCUMENT_DIR is server configuration; this method canonicalizes it and rejects missing or non-directory values before returning it.")
     public static File getRequiredDocumentDirectory() throws IOException {
         String documentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         if (documentDir == null || documentDir.isBlank()) {
@@ -685,6 +688,9 @@ public final class PathValidationUtils {
      * @param basePath the base path (typically from a system property)
      * @param subDir optional subdirectory to append
      */
+    @SuppressFBWarnings(
+            value = "PATH_TRAVERSAL_IN",
+            justification = "Temp directory whitelist entries come from server/system properties and are canonicalized before being stored.")
     private static void addTempDir(Set<String> dirs, String basePath, String subDir) {
         if (basePath == null || basePath.trim().isEmpty()) {
             return;
