@@ -54,6 +54,7 @@ public final class PathValidationUtils {
             "Invalid filename: must not include a path.";
     private static final String BLOCKED_EXTENSION_MESSAGE =
             "Invalid filename: file extension .%s not allowed.";
+    private static final String INVALID_FIELD_EMPTY_LOG = "Invalid {}: null or empty";
     private static final Set<String> BLOCKED_EXTENSIONS = Set.of(
             "jsp", "jspx", "war", "class", "jar", "jnlp");
 
@@ -278,7 +279,7 @@ public final class PathValidationUtils {
     public static String validatePathComponent(String value, String label) {
         String field = label == null || label.trim().isEmpty() ? "path component" : label;
         if (value == null || value.trim().isEmpty()) {
-            logger.warn("Invalid {}: null or empty", field);
+            logger.warn(INVALID_FIELD_EMPTY_LOG, field);
             throw new FileValidationException(INVALID_FILENAME_MESSAGE);
         }
         if (value.indexOf('\0') >= 0) {
@@ -345,11 +346,7 @@ public final class PathValidationUtils {
      * @throws SecurityException if the file is null or outside the allowed directory
      */
     public static File validateChildPath(File file, File allowedDir) {
-        if (file == null) {
-            throw new SecurityException("File is null");
-        }
-        validateWithinDirectory(file, allowedDir);
-        return file;
+        return validateExistingPath(file, allowedDir);
     }
 
     /**
@@ -400,7 +397,7 @@ public final class PathValidationUtils {
     public static File resolveConfiguredDirectory(String configuredPath, String label) {
         String field = label == null || label.trim().isEmpty() ? "configured directory" : label;
         if (configuredPath == null || configuredPath.trim().isEmpty()) {
-            logger.warn("Invalid {}: null or empty", field);
+            logger.warn(INVALID_FIELD_EMPTY_LOG, field);
             throw new SecurityException("Invalid configured directory");
         }
 
@@ -435,7 +432,7 @@ public final class PathValidationUtils {
     public static File validateConfiguredFile(String configuredPath, String label) {
         String field = label == null || label.trim().isEmpty() ? "configured file" : label;
         if (configuredPath == null || configuredPath.trim().isEmpty()) {
-            logger.warn("Invalid {}: null or empty", field);
+            logger.warn(INVALID_FIELD_EMPTY_LOG, field);
             throw new SecurityException("Invalid configured file");
         }
 
