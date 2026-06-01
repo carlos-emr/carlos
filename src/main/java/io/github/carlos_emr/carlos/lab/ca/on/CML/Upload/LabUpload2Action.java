@@ -101,8 +101,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                     // Validates source file is from an allowed temp location
                     importFile = PathValidationUtils.validateUpload(importFile);
                 } catch (SecurityException e) {
-                    _logger.error("Invalid upload source: {}",
-                            LogSafe.sanitize(importFile == null ? null : importFile.getPath()));
+                    _logger.error("Invalid upload source: {}", LogSafe.sanitize(importFile.getPath()));
                     outcome = OUTCOME_ACCESS_DENIED;
                     request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, outcome);
                     return SUCCESS;
