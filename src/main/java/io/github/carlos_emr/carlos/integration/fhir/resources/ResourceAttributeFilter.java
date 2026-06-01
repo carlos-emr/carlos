@@ -63,7 +63,13 @@ public class ResourceAttributeFilter implements ResourceAttributeFilterInterface
         InputStream is = getClass().getResourceAsStream(filterURL);
 
         if (is == null) {
-            is = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(filterURL)));
+            try {
+                is = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(filterURL)));
+            } catch (SecurityException e) {
+                // Honour the declared throws IOException so the constructor's IOException handler
+                // catches a canonicalization failure rather than an unchecked SecurityException.
+                throw new IOException("Unable to resolve filter resource file", e);
+            }
         }
 
         try {

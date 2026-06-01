@@ -73,6 +73,10 @@ public final class FileUploadCheck {
             is = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(fileLocation)));
             String md5sum = DigestUtils.md5Hex(IOUtils.toByteArray(is));
             return hasFileBeenUploaded(md5sum);
+        } catch (SecurityException e) {
+            // Honour the declared throws IOException: a canonicalization failure on the (trusted)
+            // file location surfaces as IOException rather than an unchecked SecurityException.
+            throw new IOException("Unable to resolve uploaded file location", e);
         } finally {
             IOUtils.closeQuietly(is);
         }
