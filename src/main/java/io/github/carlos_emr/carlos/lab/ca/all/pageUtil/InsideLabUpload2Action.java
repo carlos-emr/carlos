@@ -45,7 +45,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -148,6 +147,10 @@ public class InsideLabUpload2Action extends ActionSupport implements UploadedFil
         // Convert File to InputStream and process
         try (InputStream inputStream = PathValidationUtils.openValidatedUploadInputStream(file)) {
             String filePath = Utilities.saveFile(inputStream, fileName);
+            if (filePath == null) {
+                MiscUtils.getLogger().error("Unable to save uploaded lab file: {}", fileName);
+                return FileStatus.FAILED;
+            }
             // Continue with your existing processing logic
             return processFile(loggedInInfo, ServletActionContext.getRequest(), filePath, getFileType(ServletActionContext.getRequest()));
         } catch (IOException e) {
@@ -170,8 +173,16 @@ public class InsideLabUpload2Action extends ActionSupport implements UploadedFil
     }
 
     private FileStatus processFile(LoggedInInfo loggedInInfo, HttpServletRequest request, String filePath, String fileType) {
-        Path path = Paths.get(filePath);
-        String fileName = path.getFileName().toString();
+        Path path;
+        String fileName;
+        try {
+            File savedFile = PathValidationUtils.validateExistingDocumentPath(filePath);
+            path = savedFile.toPath();
+            fileName = path.getFileName().toString();
+        } catch (IOException | SecurityException e) {
+            MiscUtils.getLogger().error("Invalid saved lab file path", e);
+            return FileStatus.FAILED;
+        }
         int checkFileUploadedSuccessfully;
 
         try (InputStream localFileInputStream = Files.newInputStream(path)) {

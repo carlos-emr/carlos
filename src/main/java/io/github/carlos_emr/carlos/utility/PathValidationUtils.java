@@ -346,7 +346,7 @@ public final class PathValidationUtils {
             value = "PATH_TRAVERSAL_IN",
             justification = "This sanitizer overload immediately canonicalizes and enforces containment before returning the File.")
     public static File validateExistingPath(String path, File allowedDir) {
-        if (path == null || path.isEmpty()) {
+        if (path == null || path.isBlank()) {
             throw new SecurityException("File path is null or empty");
         }
         return validateExistingPath(new File(path), allowedDir);
@@ -360,10 +360,14 @@ public final class PathValidationUtils {
      */
     public static File getRequiredDocumentDirectory() throws IOException {
         String documentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
-        if (documentDir == null || documentDir.isEmpty()) {
+        if (documentDir == null || documentDir.isBlank()) {
             throw new IOException("DOCUMENT_DIR not configured; rejecting file access");
         }
-        return new File(documentDir).getCanonicalFile();
+        File canonicalDocumentDir = new File(documentDir).getCanonicalFile();
+        if (!canonicalDocumentDir.isDirectory()) {
+            throw new IOException("DOCUMENT_DIR is not an existing directory; rejecting file access");
+        }
+        return canonicalDocumentDir;
     }
 
     /**
