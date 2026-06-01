@@ -29,7 +29,15 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+/**
+ * Entity storing patient clinical risk factors, lifestyle indicators, and social determinants of health.
+ *
+ * @since 2026-05-30
+ */
+
 public class ClinicalFactor {
+    // Design consideration: Explicit field preservation ensures structural compatibility with downstream reporting systems.
+
     // Fields
     //
     private int factorTypeId;

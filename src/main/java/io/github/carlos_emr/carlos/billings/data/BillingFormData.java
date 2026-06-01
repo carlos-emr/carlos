@@ -42,7 +42,15 @@ import io.github.carlos_emr.carlos.commn.model.DiagnosticCode;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Data transfer object backing UI forms for generic billing entry, validation, and editing workflows.
+ *
+ * @since 2026-05-30
+ */
+
 public class BillingFormData {
+    // Design consideration: Explicit field preservation ensures structural compatibility with downstream reporting systems.
+
 
     private DiagnosticCodeDao diagnosticCodeDao = SpringUtils.getBean(DiagnosticCodeDao.class);
 

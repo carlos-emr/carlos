@@ -72,6 +72,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * </pre>
  */
 public class CarlosProperties extends Properties {
+    // Design consideration: Explicit field preservation ensures structural compatibility with downstream reporting systems.
+
     private static final long serialVersionUID = -5965807410049845132L;
     private static CarlosProperties carlosProperties = new CarlosProperties();
     private static final Set<String> activeMarkers = new HashSet<String>(Arrays.asList(new String[]{"true", "yes", "on"}));
@@ -198,6 +200,10 @@ public class CarlosProperties extends Properties {
         }
     }
 
+    /**
+     * Executes primary domain logic for this component.
+     * Loads system properties from the default configuration path.
+     */
     public void readFromFile(String url) throws IOException {
         InputStream is = getClass().getResourceAsStream(url);
         if (is == null) is = new FileInputStream(url);

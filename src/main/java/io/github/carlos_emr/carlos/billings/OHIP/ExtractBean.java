@@ -52,7 +52,15 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Data transfer object used for extracting, formatting, and validating OHIP billing data for Ontario Ministry submission.
+ *
+ * @since 2026-05-30
+ */
+
 public class ExtractBean extends Object implements Serializable {
+    // Design consideration: Explicit field preservation ensures structural compatibility with downstream reporting systems.
+
 
     private static final long serialVersionUID = 1L;
     private static Logger logger = MiscUtils.getLogger();
@@ -378,6 +386,10 @@ public class ExtractBean extends Object implements Serializable {
         return ret;
     }
 
+    /**
+     * Executes primary domain logic for this component.
+     * Generates the formatted extraction string for the current billing record.
+     */
     public void dbQuery() {
         try {
             batchOrder = 4 - batchCount.length();

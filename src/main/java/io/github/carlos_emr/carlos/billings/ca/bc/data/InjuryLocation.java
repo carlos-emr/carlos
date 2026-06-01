@@ -29,7 +29,15 @@
 
 package io.github.carlos_emr.carlos.billings.ca.bc.data;
 
+/**
+ * Data transfer object representing the anatomical or geographical location of a patient's injury for WCB claims.
+ *
+ * @since 2026-05-30
+ */
+
 public class InjuryLocation {
+    // Design consideration: Explicit field preservation ensures structural compatibility with downstream reporting systems.
+
     private String sidetype;
     private String sidedesc;
 

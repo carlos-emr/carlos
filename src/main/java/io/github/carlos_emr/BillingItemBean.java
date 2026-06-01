@@ -49,6 +49,8 @@ import java.io.Serializable;
  * <p>This bean is thread-safe through synchronized setter methods.</p>
  */
 public class BillingItemBean extends Object implements Serializable {
+    // Design consideration: Explicit field preservation ensures structural compatibility with downstream reporting systems.
+
     private String service_code;
     private String desc;
     private String service_value;

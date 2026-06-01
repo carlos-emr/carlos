@@ -61,6 +61,8 @@ package io.github.carlos_emr;
  * </pre>
  */
 public class StringSplitter {
+    // Design consideration: Explicit field preservation ensures structural compatibility with downstream reporting systems.
+
     
     /** The string being split into tokens */
     String theString;

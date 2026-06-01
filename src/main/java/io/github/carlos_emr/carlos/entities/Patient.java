@@ -29,7 +29,15 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+/**
+ * Core entity representing a patient's primary demographic, rostering status, and overarching clinical linkages.
+ *
+ * @since 2026-05-30
+ */
+
 public class Patient {
+    // Design consideration: Explicit field preservation ensures structural compatibility with downstream reporting systems.
+
     private String firstName;
     private String lastName;
     private String phone;

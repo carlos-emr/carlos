@@ -24,7 +24,15 @@
 
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
 
+/**
+ * Validates proposed medical service codes against provincial fee schedules, checking for conflicts and prerequisites.
+ *
+ * @since 2026-05-30
+ */
+
 public class ServiceCodeValidator {
+    // Design consideration: Explicit field preservation ensures structural compatibility with downstream reporting systems.
+
     protected boolean valid = true;
     protected String serviceCode = "";
     protected String description = "";

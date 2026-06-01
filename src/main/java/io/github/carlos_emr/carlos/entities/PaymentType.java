@@ -29,7 +29,15 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+/**
+ * Lookup entity defining accepted methods of payment (e.g., cash, credit, cheque) for private billing reconciliation.
+ *
+ * @since 2026-05-30
+ */
+
 public class PaymentType {
+    // Design consideration: Explicit field preservation ensures structural compatibility with downstream reporting systems.
+
     private String id;
     private String paymentType;
 

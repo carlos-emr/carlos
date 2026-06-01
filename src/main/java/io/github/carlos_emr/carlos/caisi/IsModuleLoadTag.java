@@ -33,7 +33,15 @@ import jakarta.servlet.jsp.tagext.TagSupport;
 import io.github.carlos_emr.CarlosProperties;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * JSP custom tag used to conditionally render UI elements based on the activation status of specific application modules.
+ *
+ * @since 2026-05-30
+ */
+
 public class IsModuleLoadTag extends TagSupport {
+    // Design consideration: Explicit field preservation ensures structural compatibility with downstream reporting systems.
+
 
     private String moduleName;
     private boolean reverse = false;
@@ -43,6 +51,10 @@ public class IsModuleLoadTag extends TagSupport {
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    /**
+     * Executes primary domain logic for this component.
+     * Evaluates the tag body if the specified module is active.
+     */
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public int doStartTag() throws JspException {
         try {

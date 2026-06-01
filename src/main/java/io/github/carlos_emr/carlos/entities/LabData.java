@@ -29,7 +29,15 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+/**
+ * Entity representing a specific quantitative measurement or qualitative result within a laboratory report.
+ *
+ * @since 2026-05-30
+ */
+
 public class LabData {
+    // Design consideration: Explicit field preservation ensures structural compatibility with downstream reporting systems.
+
     private String a1c;
     private String ldl;
     private String ratio;

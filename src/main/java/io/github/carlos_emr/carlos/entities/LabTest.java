@@ -30,8 +30,16 @@
 package io.github.carlos_emr.carlos.entities;
 
 //
+/**
+ * Entity defining a specific laboratory test or panel configuration, including expected ranges and units.
+ *
+ * @since 2026-05-30
+ */
+
 public class LabTest
         extends Test {
+    // Design consideration: Explicit field preservation ensures structural compatibility with downstream reporting systems.
+
     private String observationDateTime = "";
     private String loincCode = "";
     private String labType = "";

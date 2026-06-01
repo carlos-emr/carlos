@@ -43,7 +43,15 @@ import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.carlos.demographic.data.DemographicData;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * UI backing form containing fields required to submit WorkSafeBC Teleplan claim corrections and adjustments.
+ *
+ * @since 2026-05-30
+ */
+
 public class TeleplanCorrectionFormWCB {
+    // Design consideration: Explicit field preservation ensures structural compatibility with downstream reporting systems.
+
 
     private static Logger logger = MiscUtils.getLogger();
 

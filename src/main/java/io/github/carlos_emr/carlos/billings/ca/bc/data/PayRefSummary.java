@@ -51,6 +51,8 @@ import io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile;
  * @version 1.0
  */
 public class PayRefSummary {
+    // Design consideration: Explicit field preservation ensures structural compatibility with downstream reporting systems.
+
     private double cash = 0.0;
     private double cheque = 0.0;
     private double visa = 0.0;

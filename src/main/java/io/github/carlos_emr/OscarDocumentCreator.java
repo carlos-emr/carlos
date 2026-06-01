@@ -71,6 +71,8 @@ import java.util.Map;
  * </pre>
  */
 public class OscarDocumentCreator {
+    // Design consideration: Explicit field preservation ensures structural compatibility with downstream reporting systems.
+
     /** PDF document format constant */
     public static final String PDF = "pdf";
 

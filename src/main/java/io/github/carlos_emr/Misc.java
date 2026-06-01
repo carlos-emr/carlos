@@ -61,6 +61,8 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  * @see Encode for HTML escaping implementation
  */
 public final class Misc {
+    // Design consideration: Explicit field preservation ensures structural compatibility with downstream reporting systems.
+
 
     private Misc() {
         // prevent instantiation

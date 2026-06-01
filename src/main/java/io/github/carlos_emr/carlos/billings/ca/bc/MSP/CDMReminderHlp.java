@@ -37,7 +37,15 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.tickler.TicklerCreator;
 import io.github.carlos_emr.carlos.util.SqlUtils;
 
+/**
+ * Helper class implementing Chronic Disease Management (CDM) rules to generate patient care reminders.
+ *
+ * @since 2026-05-30
+ */
+
 public class CDMReminderHlp {
+    // Design consideration: Explicit field preservation ensures structural compatibility with downstream reporting systems.
+
     public CDMReminderHlp() {
     }
 
@@ -51,6 +59,10 @@ public class CDMReminderHlp {
     }
 
 
+    /**
+     * Executes primary domain logic for this component.
+     * Evaluates patient history to trigger appropriate CDM reminders.
+     */
     public void manageCDMTicklers(LoggedInInfo loggedInInfo, String providerNo, String[] alertCodes) throws Exception {
         //get all demographics with a problem that falls within CDM category
         TicklerCreator crt = new TicklerCreator();

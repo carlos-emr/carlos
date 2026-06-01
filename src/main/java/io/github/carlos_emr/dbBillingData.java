@@ -56,6 +56,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  */
 @Deprecated
 public class dbBillingData {
+    // Design consideration: Explicit field preservation ensures structural compatibility with downstream reporting systems.
+
     private Logger logger = MiscUtils.getLogger();
     private BillingServiceDao billingServiceDao = SpringUtils.getBean(BillingServiceDao.class);
 

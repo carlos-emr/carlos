@@ -32,7 +32,15 @@ package io.github.carlos_emr.carlos.entities;
 import java.math.BigDecimal;
 import java.util.Date;
 
+/**
+ * Entity tracking financial transactions, payments, and adjustments for uninsured or private patient billing.
+ *
+ * @since 2026-05-30
+ */
+
 public class PrivateBillTransaction {
+    // Design consideration: Explicit field preservation ensures structural compatibility with downstream reporting systems.
+
     private int id;
     private int billingmaster_no;
     private double amount_received;

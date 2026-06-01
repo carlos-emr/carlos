@@ -18,7 +18,15 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import java.util.Properties;
 import java.util.Vector;
 
+/**
+ * Data aggregation class for calculating and generating Goods and Services Tax (GST) collection reports.
+ *
+ * @since 2026-05-30
+ */
+
 public class GstReport {
+    // Design consideration: Explicit field preservation ensures structural compatibility with downstream reporting systems.
+
 
     public Vector<Properties> getGST(LoggedInInfo loggedInInfo, String[] providerNos, String startDate, String endDate) {
         Properties props;

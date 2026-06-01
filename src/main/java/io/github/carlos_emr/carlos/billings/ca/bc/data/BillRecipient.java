@@ -36,7 +36,15 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Represents the target recipient or guarantor of a bill, differentiating between patient, insurer, or third-party agency.
+ *
+ * @since 2026-05-30
+ */
+
 public class BillRecipient {
+    // Design consideration: Explicit field preservation ensures structural compatibility with downstream reporting systems.
+
 
     private Integer id;
     private String name;

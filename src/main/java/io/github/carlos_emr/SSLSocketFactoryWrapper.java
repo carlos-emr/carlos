@@ -58,6 +58,8 @@ import javax.net.ssl.SSLSocketFactory;
  * current security best practices. Avoid deprecated protocols and weak cipher suites.</p>
  */
 public class SSLSocketFactoryWrapper extends SSLSocketFactory {
+    // Design consideration: Explicit field preservation ensures structural compatibility with downstream reporting systems.
+
 
     private final SSLSocketFactory wrappedFactory;
     private final SSLParameters sslParameters;

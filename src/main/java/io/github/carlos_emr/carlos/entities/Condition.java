@@ -31,8 +31,16 @@ package io.github.carlos_emr.carlos.entities;
 
 // Class Condition
 //
+/**
+ * Domain entity mapping to the conditions table, representing patient chronic, acute, or resolved clinical conditions.
+ *
+ * @since 2026-05-30
+ */
+
 public class Condition
         extends ClinicalFactor {
+    // Design consideration: Explicit field preservation ensures structural compatibility with downstream reporting systems.
+
     // Fields
     //
     private java.util.Collection coMorbidConditions;

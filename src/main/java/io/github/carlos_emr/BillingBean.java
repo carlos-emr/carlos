@@ -48,6 +48,8 @@ import java.util.GregorianCalendar;
  * synchronized methods.</p>
  */
 public class BillingBean extends Object implements Serializable {
+    // Design consideration: Explicit field preservation ensures structural compatibility with downstream reporting systems.
+
     private ArrayList<BillingItemBean> billingItems;
     private GregorianCalendar billingDate;
     private int billingNo;

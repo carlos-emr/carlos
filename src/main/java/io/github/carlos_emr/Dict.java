@@ -50,6 +50,8 @@ import jakarta.servlet.http.HttpServletRequest;
  * </pre>
  */
 public class Dict extends Properties {
+    // Design consideration: Explicit field preservation ensures structural compatibility with downstream reporting systems.
+
     
     /**
      * Constructs an empty dictionary.

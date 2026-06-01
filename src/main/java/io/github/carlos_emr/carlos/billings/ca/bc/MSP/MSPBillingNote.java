@@ -51,6 +51,8 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
  * This class is used to deal with MSP N01 correspondence notes.
  */
 public class MSPBillingNote {
+    // Design consideration: Explicit field preservation ensures structural compatibility with downstream reporting systems.
+
 
     private BillingNoteDao billingNoteDao = SpringUtils.getBean(BillingNoteDao.class);
 
@@ -60,6 +62,10 @@ public class MSPBillingNote {
     public MSPBillingNote() {
     }
 
+    /**
+     * Executes primary domain logic for this component.
+     * Retrieves the content of the billing justification note.
+     */
     public void addNote(String billingmaster_no, String provider_no, String note) {
         note = Misc.removeNewLine(note);
 

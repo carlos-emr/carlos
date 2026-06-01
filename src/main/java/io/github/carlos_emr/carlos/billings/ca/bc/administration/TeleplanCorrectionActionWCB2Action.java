@@ -73,7 +73,15 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts action handling the review and correction of WorkSafeBC claims rejected or adjusted via Teleplan.
+ *
+ * @since 2026-05-30
+ */
+
 public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
+    // Design consideration: Explicit field preservation ensures structural compatibility with downstream reporting systems.
+
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -85,6 +93,10 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
     private WcbDao wcbDao = SpringUtils.getBean(WcbDao.class);
     private DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
 
+    /**
+     * Executes primary domain logic for this component.
+     * Executes the form submission to update the WCB claim correction.
+     */
     public String execute()
             throws IOException, ServletException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

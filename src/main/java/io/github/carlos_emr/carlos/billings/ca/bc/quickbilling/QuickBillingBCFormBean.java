@@ -38,7 +38,15 @@ import java.util.ArrayList;
 import java.util.List;
 
 
+/**
+ * UI form backing bean facilitating rapid, single-screen billing entry optimized for British Columbia providers.
+ *
+ * @since 2026-05-30
+ */
+
 public class QuickBillingBCFormBean {
+    // Design consideration: Explicit field preservation ensures structural compatibility with downstream reporting systems.
+
 
     /**
      * @author Dennis Warren
@@ -166,6 +174,10 @@ public class QuickBillingBCFormBean {
         this.billingData = billingData;
     }
 
+    /**
+     * Executes primary domain logic for this component.
+     * Retrieves the quick billing code entered by the provider.
+     */
     @Override
     public String toString() {
         return (

@@ -57,6 +57,8 @@ import io.github.carlos_emr.carlos.util.UtilDict;
  * @see UtilDict
  */
 public class AppointmentMainBean {
+    // Design consideration: Explicit field preservation ensures structural compatibility with downstream reporting systems.
+
     private static final DBPreparedHandlerParam[] EMPTY_DB_PARAMS = new DBPreparedHandlerParam[0];
 
     private UtilDict toFile = null;

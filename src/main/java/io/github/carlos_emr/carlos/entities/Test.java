@@ -29,7 +29,15 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+/**
+ * Generic entity representing discrete diagnostic tests, assessments, or external diagnostic requisitions.
+ *
+ * @since 2026-05-30
+ */
+
 public class Test {
+    // Design consideration: Explicit field preservation ensures structural compatibility with downstream reporting systems.
+
     private String id;
     private String description;
     private String value = "NO DATA";

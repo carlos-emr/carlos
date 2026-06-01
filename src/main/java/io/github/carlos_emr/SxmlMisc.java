@@ -56,6 +56,8 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  * JDOM or XOM.</p>
  */
 public class SxmlMisc extends Properties {
+    // Design consideration: Explicit field preservation ensures structural compatibility with downstream reporting systems.
+
     private static final Logger log = MiscUtils.getLogger();
 
     /**

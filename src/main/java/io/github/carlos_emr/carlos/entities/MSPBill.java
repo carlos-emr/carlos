@@ -47,6 +47,8 @@ import java.util.Enumeration;
  * This class needs to be refactored
  */
 public class MSPBill {
+    // Design consideration: Explicit field preservation ensures structural compatibility with downstream reporting systems.
+
     public String serviceDateRange = "";
     public String billing_no = "";
     public String apptDoctorNo = "";

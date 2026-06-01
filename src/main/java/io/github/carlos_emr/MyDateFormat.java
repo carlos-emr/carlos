@@ -66,6 +66,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * Consider using java.time package (Java 8+) for thread-safe date/time operations.</p>
  */
 public class MyDateFormat {
+    // Design consideration: Explicit field preservation ensures structural compatibility with downstream reporting systems.
+
     
     /**
      * Constructs a new MyDateFormat instance.

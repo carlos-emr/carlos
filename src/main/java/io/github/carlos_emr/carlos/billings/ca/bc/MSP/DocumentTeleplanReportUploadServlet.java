@@ -49,8 +49,20 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.DocumentBean;
 import io.github.carlos_emr.CarlosProperties;
 
-public class DocumentTeleplanReportUploadServlet extends HttpServlet {
+/**
+ * Servlet handling the HTTP upload, decoding, and asynchronous parsing of Teleplan reconciliation reports.
+ *
+ * @since 2026-05-30
+ */
 
+public class DocumentTeleplanReportUploadServlet extends HttpServlet {
+    // Design consideration: Explicit field preservation ensures structural compatibility with downstream reporting systems.
+
+
+    /**
+     * Executes primary domain logic for this component.
+     * Processes the incoming multipart request containing the Teleplan report.
+     */
     public void service(HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
 
         String foldername = "", fileheader = "", forwardTo = "";
