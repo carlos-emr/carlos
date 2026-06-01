@@ -114,7 +114,7 @@ public class ObecData {
         try {
             File documentDir = PathValidationUtils.resolveConfiguredDirectory(oscarHome, "DOCUMENT_DIR");
             srcFile = PathValidationUtils.validateGeneratedChildPath(obecFilename, documentDir);
-            Files.write(srcFile.toPath(), value1.getBytes(), StandardOpenOption.CREATE);
+            Files.write(srcFile.toPath(), value1.getBytes(), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
         } catch (Exception e) {
             // The primary DOCUMENT_DIR write failed (disk/permission/misconfiguration): return an empty
             // name so callers/the UI surface failure instead of a filename that was never written.

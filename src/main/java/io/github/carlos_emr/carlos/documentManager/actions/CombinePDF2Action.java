@@ -31,7 +31,9 @@
 package io.github.carlos_emr.carlos.documentManager.actions;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 
@@ -77,11 +79,11 @@ public class CombinePDF2Action extends ActionSupport {
         if (files != null) {
             MiscUtils.getLogger().debug("size = " + files.length);
             EDocUtil docData = new EDocUtil();
-            String path = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+            File documentDir = PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
             Path filePath;
             for (int i = 0; i < files.length; i++) {
                 String filename = docData.getDocumentName(files[i]);
-                filePath = PathValidationUtils.validateExistingPath(new File(path, filename), new File(path)).toPath();
+                filePath = PathValidationUtils.validateExistingPath(new File(documentDir, filename), documentDir).toPath();
                 alist.add(filePath.toAbsolutePath().toString());
             }
             if (alist.size() > 0) {
@@ -95,11 +97,16 @@ public class CombinePDF2Action extends ActionSupport {
 
                     response.setHeader("Content-Disposition", "attachment; filename=\"combinedPDF-" + UtilDateUtilities.getToday("yyyy-MM-dd.hh.mm.ss") + ".pdf\"");
                 }
+                File tempPdf = null;
                 try {
-                    // Buffer the merge first: skippedFiles is fully known before any byte is written,
-                    // so we can surface an error instead of streaming a silently-truncated PDF.
-                    java.io.ByteArrayOutputStream pdfBuffer = new java.io.ByteArrayOutputStream();
-                    int skipped = ConcatPDF.concat(alist, pdfBuffer);
+                    // Merge to a secure temp file (not an in-memory buffer): the skipped count is known
+                    // before streaming, so we can refuse to serve a silently-truncated PDF, without
+                    // risking high memory / OOM on large or large-count combined documents.
+                    tempPdf = PathValidationUtils.createSecureTempFile("combinedPDF" + System.currentTimeMillis(), ".pdf");
+                    int skipped;
+                    try (FileOutputStream tmpOut = new FileOutputStream(tempPdf)) {
+                        skipped = ConcatPDF.concat(alist, tmpOut);
+                    }
                     if (skipped > 0) {
                         // Some documents could not be included: refuse to serve a truncated PDF.
                         MiscUtils.getLogger().error("Combine PDF: {} of {} document(s) could not be included",
@@ -110,7 +117,7 @@ public class CombinePDF2Action extends ActionSupport {
                                     skipped + " of " + alist.size() + " document(s) could not be included; combined PDF not produced");
                         }
                     } else {
-                        response.getOutputStream().write(pdfBuffer.toByteArray());
+                        Files.copy(tempPdf.toPath(), response.getOutputStream());
                     }
                 } catch (IOException | RuntimeException ex) {
                     // RuntimeException covers ConcatPDF's merge failure; own the error rather than letting
@@ -123,6 +130,10 @@ public class CombinePDF2Action extends ActionSupport {
                         } catch (IOException sendErr) {
                             MiscUtils.getLogger().error("Failed to send combine-PDF error response", sendErr);
                         }
+                    }
+                } finally {
+                    if (tempPdf != null && !tempPdf.delete()) {
+                        MiscUtils.getLogger().warn("Failed to delete temporary combined-PDF file; leaving for OS temp sweep");
                     }
                 }
                 // This branch streams the PDF directly; returning NONE prevents Struts from

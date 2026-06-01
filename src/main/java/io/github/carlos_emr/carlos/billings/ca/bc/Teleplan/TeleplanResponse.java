@@ -85,8 +85,12 @@ public class TeleplanResponse {
                     lastLine = str;
                 }
             }
-            lineCount--;
-            processLastLine(lastLine);
+            // Guard the empty-response case: with no lines read, lastLine stays null and
+            // processLastLine(null) would NPE (and lineCount would go negative).
+            if (lastLine != null) {
+                lineCount--;
+                processLastLine(lastLine);
+            }
             //If it has a filename same to
 
             if (this.getFilename() != null && !this.getFilename().trim().equals("")) {

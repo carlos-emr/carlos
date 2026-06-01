@@ -129,6 +129,8 @@ public class LabService extends AbstractServiceImpl {
         File savedLabFile;
         try {
             savedLabFile = PathValidationUtils.validateExistingPath(new File(filePath), PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR"));
+            // Use the containment-validated path for all downstream consumers (e.g. msgHandler.parse below).
+            filePath = savedLabFile.getPath();
         } catch (SecurityException e) {
             logger.error("Invalid saved lab file path", e);
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createResponseMap(labT.getFileName(), "Failed", "Error occurred while processing the file", null, type)).build();
