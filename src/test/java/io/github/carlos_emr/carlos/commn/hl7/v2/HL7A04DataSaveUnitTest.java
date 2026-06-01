@@ -37,8 +37,9 @@ import static org.mockito.Mockito.when;
  * Unit tests for {@link HL7A04Data#save()}, the A04 file writer that now uses try-with-resources.
  *
  * <p>Drives the happy path (message persisted to the configured build directory and the writer
- * closed) and the early no-message guard. The message/fileName fields are populated internally
- * from demographic data in production, so they are set reflectively here to isolate the writer.</p>
+ * closed) and append-mode behaviour against an existing file. The message/fileName fields are
+ * populated internally from demographic data in production, so they are set reflectively here to
+ * isolate the writer.</p>
  *
  * @since 2026-06-01
  */

@@ -389,7 +389,8 @@ public final class PathValidationUtils {
     }
 
     /**
-     * Canonicalizes a file path against its own parent directory. This is not a
+     * Canonicalizes a trusted file path by delegating to {@link #resolveTrustedPath(File)}.
+     * Despite the legacy name, it performs no parent-directory containment check and is not a
      * security boundary; use a trusted base-directory helper for untrusted paths.
      *
      * @param file file to canonicalize

@@ -43,7 +43,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  *
  * <p>Guards the behaviour relied on by {@code EmailManager.encryptAttachments}: the output is a
  * real, password-protected PDF, and (since the move to {@code createSecureTempFile}) the encrypted
- * copy is written with OWNER-only permissions rather than into the world-readable system temp dir.</p>
+ * copy in the system temp dir is created with OWNER-only permissions instead of the default
+ * world-readable permissions.</p>
  *
  * @since 2026-06-01
  */

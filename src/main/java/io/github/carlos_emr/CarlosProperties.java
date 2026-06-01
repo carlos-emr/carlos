@@ -207,8 +207,9 @@ public class CarlosProperties extends Properties {
             try {
                 propertyFile = PathValidationUtils.resolveConfiguredFile(url, "carlos properties file");
             } catch (SecurityException e) {
-                // Honour the declared throws IOException: a blank/missing/invalid configured path
-                // surfaces as IOException rather than an unchecked SecurityException.
+                // Honour the declared throws IOException: a blank or un-canonicalizable configured
+                // path surfaces as IOException rather than an unchecked SecurityException. (resolveConfiguredFile
+                // permits a merely missing path; that surfaces below as FileNotFoundException from the stream.)
                 throw new IOException("Unable to resolve carlos properties file", e);
             }
             is = new FileInputStream(propertyFile);
@@ -537,7 +538,8 @@ public class CarlosProperties extends Properties {
 		try {
 			propertyFile = PathValidationUtils.resolveConfiguredFile(propFilePath, "properties file");
 		} catch (SecurityException e) {
-			// Honour the declared throws IOException for a blank/missing/invalid path.
+			// Honour the declared throws IOException for a blank or un-canonicalizable path
+			// (resolveConfiguredFile permits a missing one - this append-mode write then creates it).
 			throw new IOException("Unable to resolve properties file for saving", e);
 		}
 		try (FileWriter writer = new FileWriter(propertyFile, true)) {
