@@ -216,13 +216,13 @@ public class EFormExportZip {
                         properties.load(zis);
                         EForm newEForm = this.createEFormFromProperties(properties);
                         //check for errors or existing forms
-                        if (newEForm.getFormName() == null || newEForm.getFormName().equals("")) {
+                        if (newEForm.getFormName() == null || newEForm.getFormName().isEmpty()) {
                             errors.add("Skipped form because it has no form name.");
                             _log.info("Skipped form because it has no form name.");
                             eformTableFailed.put(newEForm.getFormFileName(), newEForm);
                             continue;
                         }
-                        if (newEForm.getFormFileName() == null | newEForm.getFormFileName().equals("")) {
+                        if (newEForm.getFormFileName() == null || newEForm.getFormFileName().isEmpty()) {
                             errors.add("Skipped form titled '" + newEForm.getFormName() + "' because it has no form filename.");
                             _log.info("Skipped form titled '" + newEForm.getFormName() + "' because it has no form filename.");
                             continue;

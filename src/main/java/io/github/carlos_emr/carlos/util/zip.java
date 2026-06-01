@@ -179,10 +179,10 @@ public class zip {
             if (!dir.exists()) dir.mkdirs();
             boolean success = afile.renameTo(PathValidationUtils.validateGeneratedChildPath(afile.getName(), dir));
             if (!success) {
-                logger.error("io.github.carlos_emr.carlos.util.zip.unzipXML: the zip file " + fullpath + " was not archived");
+                logger.error("io.github.carlos_emr.carlos.util.zip.unzipXML: the zip file {} was not archived", LogSafe.sanitize(fullpath));
             }
         } catch (Exception e) {
-            logger.error("io.github.carlos_emr.carlos.util.zip.unzipXML: failed to archive the zip file " + fullpath, e);
+            logger.error("io.github.carlos_emr.carlos.util.zip.unzipXML: failed to archive the zip file {}", LogSafe.sanitize(fullpath), e);
         }
         result = true;
         return result;
