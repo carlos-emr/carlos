@@ -716,9 +716,13 @@ public final class IncomingDocUtil {
             return markExtractPage(extractList, rangeList[0], pageCount);
         }
         if (rangeList.length == 2 && isNumericPage(rangeList[0]) && isNumericPage(rangeList[1])) {
-            int startPage = Integer.parseInt(rangeList[0], 10);
-            int endPage = Integer.parseInt(rangeList[1], 10);
-            return markExtractRange(extractList, startPage, endPage, pageCount);
+            try {
+                int startPage = Integer.parseInt(rangeList[0], 10);
+                int endPage = Integer.parseInt(rangeList[1], 10);
+                return markExtractRange(extractList, startPage, endPage, pageCount);
+            } catch (NumberFormatException e) {
+                return false;
+            }
         }
         return false;
     }
@@ -727,7 +731,12 @@ public final class IncomingDocUtil {
         if (!isNumericPage(pageSpec)) {
             return false;
         }
-        int pageNumber = Integer.parseInt(pageSpec, 10);
+        int pageNumber;
+        try {
+            pageNumber = Integer.parseInt(pageSpec, 10);
+        } catch (NumberFormatException e) {
+            return false;
+        }
         if (!isValidPageNumber(pageNumber, pageCount)) {
             return false;
         }
@@ -786,6 +795,9 @@ public final class IncomingDocUtil {
         closePdfResource(reader, "Error closing PDF reader during page extraction");
     }
 
+    @SuppressFBWarnings(
+            value = "CRLF_INJECTION_LOGS",
+            justification = "message is always one of the fixed internal cleanup strings passed by closePageExtractionResources().")
     private static void closePdfResource(AutoCloseable resource, String message) {
         if (resource == null) {
             return;
