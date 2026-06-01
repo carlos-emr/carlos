@@ -80,7 +80,6 @@ class AdminJsonActionsUnitTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContext;
     private MockedStatic<LoggedInInfo> loggedInInfoStatic;
-    private MockedStatic<LogAction> logActionStatic;
 
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
@@ -116,15 +115,10 @@ class AdminJsonActionsUnitTest extends CarlosUnitTestBase {
         loggedInInfoStatic = mockStatic(LoggedInInfo.class);
         loggedInInfoStatic.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(loggedInInfo);
-
-        logActionStatic = mockStatic(LogAction.class);
     }
 
     @AfterEach
     void tearDown() {
-        if (logActionStatic != null) {
-            logActionStatic.close();
-        }
         if (loggedInInfoStatic != null) {
             loggedInInfoStatic.close();
         }
@@ -230,7 +224,9 @@ class AdminJsonActionsUnitTest extends CarlosUnitTestBase {
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin"), eq("w"), nullable(String.class)))
                 .thenReturn(false);
 
-        assertThatThrownBy(() -> new GetPublicKey2Action().execute())
+        GetPublicKey2Action action = new GetPublicKey2Action();
+
+        assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_admin");
         verifyNoInteractions(publicKeyDao);
@@ -272,7 +268,7 @@ class AdminJsonActionsUnitTest extends CarlosUnitTestBase {
         assertThat(json.get("matchingProfessionalSpecialistId").asInt()).isEqualTo(7);
         assertThat(response.getHeader("Cache-Control")).contains("no-store").contains("no-cache");
         assertThat(response.getHeader("Pragma")).isEqualTo("no-cache");
-        logActionStatic.verify(() -> LogAction.addLog(
+        logActionMock.verify(() -> LogAction.addLog(
                 eq(loggedInInfo),
                 eq(LogConst.READ),
                 eq("PublicKey"),
