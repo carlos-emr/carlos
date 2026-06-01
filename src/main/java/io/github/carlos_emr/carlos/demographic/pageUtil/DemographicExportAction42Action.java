@@ -2682,7 +2682,15 @@ public class DemographicExportAction42Action extends ActionSupport {
                         break;
                     }
                     if (!Util.zipFiles(files, dirs, zipName, tmpDir)) {
-                        logger.debug("Error! Failed to zip export files");
+                        // A failed zip must STOP the export: otherwise the code below encrypts/downloads a
+                        // missing/broken file while reporting success to the user.
+                        logger.error("Error! Failed to zip export files");
+                        exportError.add("Error! Failed to create the export zip.");
+                        setExportStatusHeader(response, "error");
+                        ffwd = "fail";
+                        Util.cleanFiles(files);
+                        Util.cleanFile(tmpDir);
+                        break;
                     }
 
                     if (pgpReady.equals("Yes")) {

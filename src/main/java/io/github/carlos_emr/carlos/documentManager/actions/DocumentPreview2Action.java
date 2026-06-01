@@ -33,7 +33,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -305,6 +304,8 @@ public class DocumentPreview2Action extends ActionSupport {
      * Response: Streams PDF content directly with "application/pdf" content type, or sets
      * appropriate HTTP error status code if validation fails.
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void renderPDF() {
         String pdfPathString = StringUtils.isNullOrEmpty(request.getParameter("pdfPath")) ? "" : request.getParameter("pdfPath");
         
@@ -315,11 +316,27 @@ public class DocumentPreview2Action extends ActionSupport {
         }
         
         // Validate the PDF path to prevent path traversal attacks
-        Path pdfPath = Paths.get(pdfPathString);
+        Path pdfPath;
+        try {
+            pdfPath = new java.io.File(pdfPathString).toPath();
+        } catch (RuntimeException e) {
+            logger.error("Invalid PDF path provided: {}", LogSafe.sanitize(pdfPathString));
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return;
+        }
         
         try {
-            // Get the canonical path to resolve any path traversal attempts
-            Path canonicalPdfPath = pdfPath.toRealPath();
+            // Canonicalize first so no filesystem check runs on the raw, user-supplied path.
+            // toRealPath resolves symlinks and ".." and throws if the file does not exist;
+            // containment against the allowed roots is validated below before the file is read.
+            Path canonicalPdfPath;
+            try {
+                canonicalPdfPath = pdfPath.toRealPath();
+            } catch (IOException e) {
+                logger.error("PDF file not found: {}", LogSafe.sanitize(pdfPathString)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
+                response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                return;
+            }
             
             // Define allowed directories based on OSCAR configuration
             String[] allowedBasePaths = {
@@ -350,14 +367,14 @@ public class DocumentPreview2Action extends ActionSupport {
                 response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                 return;
             }
-            
-            // Additional check: ensure the file exists and is a regular file
-            if (!Files.exists(canonicalPdfPath) || !Files.isRegularFile(canonicalPdfPath)) {
-                logger.error("PDF file not found or is not a regular file: {}", LogSafe.sanitize(pdfPathString)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+
+            // Reject non-regular files (directories, devices) now that the path is validated.
+            if (!Files.isRegularFile(canonicalPdfPath)) {
+                logger.error("PDF path is not a regular file: {}", LogSafe.sanitize(pdfPathString)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                 response.setStatus(HttpServletResponse.SC_NOT_FOUND);
                 return;
             }
-            
+
             // Serve the validated PDF file
             response.setContentType("application/pdf");
             try (InputStream inputStream = Files.newInputStream(canonicalPdfPath);
