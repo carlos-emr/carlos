@@ -21,9 +21,16 @@
  */
 package io.github.carlos_emr.carlos.report;
 
+import java.util.Collections;
+
+import io.github.carlos_emr.carlos.PMmodule.dao.SecUserRoleDao;
 import io.github.carlos_emr.carlos.commn.dao.ReportByExamplesDao;
+import io.github.carlos_emr.carlos.commn.dao.ReportTemplatesDao;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.report.pageUtil.RptByExample2Action;
+import io.github.carlos_emr.carlos.report.reportByTemplate.ReportFactory;
+import io.github.carlos_emr.carlos.report.reportByTemplate.ReportManager;
+import io.github.carlos_emr.carlos.report.reportByTemplate.Reporter;
 import io.github.carlos_emr.carlos.report.reportByTemplate.actions.ExportTemplate2Action;
 import io.github.carlos_emr.carlos.report.reportByTemplate.actions.GenerateOutFiles2Action;
 import io.github.carlos_emr.carlos.report.reportByTemplate.actions.GenerateReport2Action;
@@ -38,6 +45,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -45,6 +53,8 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockConstruction;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -61,12 +71,16 @@ class ReportActionSecurityMigrationUnitTest extends CarlosUnitTestBase {
     private MockHttpServletResponse response;
     private SecurityInfoManager securityInfoManager;
     private LoggedInInfo loggedInInfo;
+    private SecUserRoleDao secUserRoleDao;
 
     @BeforeEach
     void setUp() {
         securityInfoManager = mock(SecurityInfoManager.class);
+        secUserRoleDao = mock(SecUserRoleDao.class);
         registerMock(SecurityInfoManager.class, securityInfoManager);
+        registerMock(SecUserRoleDao.class, secUserRoleDao);
         registerMock(ReportByExamplesDao.class, mock(ReportByExamplesDao.class));
+        registerMock(ReportTemplatesDao.class, mock(ReportTemplatesDao.class));
 
         request = new MockHttpServletRequest();
         request.setContextPath("/carlos");
@@ -77,6 +91,8 @@ class ReportActionSecurityMigrationUnitTest extends CarlosUnitTestBase {
         servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
 
         loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+        when(secUserRoleDao.findByRoleNameAndProviderNo("admin", "999998")).thenReturn(Collections.emptyList());
     }
 
     @AfterEach
@@ -124,6 +140,60 @@ class ReportActionSecurityMigrationUnitTest extends CarlosUnitTestBase {
                 .hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.READ, null);
     }
 
+    @Test
+    @DisplayName("migrated actions skip report privilege check when admin read is present")
+    void shouldSkipReportReadPrivilege_whenAdminReadPrivilegeAllowsAccess() {
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.READ, null)).thenReturn(true);
+
+        assertAuthorizedMigrationGateAllowsActionBody();
+
+        verify(securityInfoManager, times(5))
+                .hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.READ, null);
+        verify(securityInfoManager, never())
+                .hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.READ, null);
+    }
+
+    @Test
+    @DisplayName("migrated actions allow report read privilege when admin read is missing")
+    void shouldAllowAccess_whenReportReadPrivilegeAllowsAccess() {
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.READ, null)).thenReturn(false);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.READ, null)).thenReturn(true);
+
+        assertAuthorizedMigrationGateAllowsActionBody();
+
+        verify(securityInfoManager, times(5))
+                .hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.READ, null);
+        verify(securityInfoManager, times(5))
+                .hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.READ, null);
+    }
+
+    @Test
+    @DisplayName("UploadTemplates passes LoggedInInfo when adding and editing templates")
+    void shouldPassLoggedInInfo_whenAddingAndEditingTemplates() {
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.READ, null)).thenReturn(true);
+
+        try (MockedConstruction<ReportManager> reportManagers = mockConstruction(ReportManager.class, (mock, context) -> {
+            when(mock.addTemplate(null, "", loggedInInfo)).thenReturn("added");
+            when(mock.updateTemplate(null, "42", "", loggedInInfo)).thenReturn("updated");
+        })) {
+            request.setParameter("action", "add");
+            assertThat(new UploadTemplates2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(request.getAttribute("message")).isEqualTo("added");
+
+            request.setParameter("action", "edit");
+            request.setParameter("templateid", "42");
+            assertThat(new UploadTemplates2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(request.getAttribute("message")).isEqualTo("updated");
+
+            assertThat(reportManagers.constructed()).hasSize(2);
+            verify(reportManagers.constructed().get(0)).addTemplate(null, "", loggedInInfo);
+            verify(reportManagers.constructed().get(1)).updateTemplate(null, "42", "", loggedInInfo);
+        }
+    }
+
     private void assertMissingLoggedInInfoFails(ActionSupport action) {
         assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
@@ -134,5 +204,32 @@ class ReportActionSecurityMigrationUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
                 .hasMessage(MISSING_ADMIN_OR_REPORT);
+    }
+
+    private void assertAuthorizedMigrationGateAllowsActionBody() {
+        assertThatThrownBy(() -> new RptByExample2Action().execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required admin privileges to run query by example");
+
+        request.setParameter("templateid", "template-1");
+        assertThat(new ExportTemplate2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(request.getAttribute("message"))
+                .isEqualTo("The K2A export service has been discontinued and is no longer available");
+
+        assertThat(new GenerateOutFiles2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+
+        request.setParameter("type", "mock");
+        Reporter reporter = mock(Reporter.class);
+        when(reporter.generateReport(request)).thenReturn(false);
+        try (MockedStatic<ReportFactory> reportFactoryMock = org.mockito.Mockito.mockStatic(ReportFactory.class)) {
+            reportFactoryMock.when(() -> ReportFactory.getReporter("mock")).thenReturn(reporter);
+
+            assertThat(new GenerateReport2Action().execute()).isEqualTo("fail");
+        }
+        verify(reporter).generateReport(request);
+
+        request.setParameter("action", "noop");
+        assertThat(new UploadTemplates2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(request.getAttribute("message")).isEqualTo("Error: No file uploaded");
     }
 }
