@@ -27,6 +27,7 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import jakarta.servlet.http.HttpServletResponse;
 
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 import org.apache.struts2.ActionSupport;
@@ -63,11 +64,14 @@ class SecurityAdminWriteActionsTest extends CarlosUnitTestBase {
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
+    private CarlosMethodSecurity methodSecurity;
 
     @BeforeEach
     void setUpServletActionContext() {
         request = new MockHttpServletRequest();
         response = new MockHttpServletResponse();
+        methodSecurity = mock(CarlosMethodSecurity.class);
+        registerMock(CarlosMethodSecurity.class, methodSecurity);
         servletActionContextMock = org.mockito.Mockito.mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
         servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
@@ -89,18 +93,59 @@ class SecurityAdminWriteActionsTest extends CarlosUnitTestBase {
         );
     }
 
+    static Stream<Arguments> springWiredActions() {
+        return Stream.of(
+            Arguments.of("SecurityAddSecurity2Action",
+                    (Supplier<ActionSupport>) SecurityAddSecurity2Action::new),
+            Arguments.of("SecurityUpdate2Action",
+                    (Supplier<ActionSupport>) SecurityUpdate2Action::new)
+        );
+    }
+
     @ParameterizedTest(name = "{0} denies POST without admin write privilege")
     @MethodSource("writeActions")
     @DisplayName("should require admin write privilege for POST")
     void shouldRequireAdminWritePrivilege_forPost(
             String actionName, Function<CarlosMethodSecurity, ActionSupport> actionFactory) {
-        CarlosMethodSecurity methodSecurity = mock(CarlosMethodSecurity.class);
         when(methodSecurity.hasAdminWrite()).thenReturn(false);
         request.setMethod("POST");
 
         assertThatThrownBy(() -> actionFactory.apply(methodSecurity).execute())
+                .as("%s should reject POST without admin write privilege", actionName)
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("(_admin or _admin.userAdmin)");
+        verify(methodSecurity).hasAdminWrite();
+    }
+
+    @ParameterizedTest(name = "{0} allows POST with admin write privilege")
+    @MethodSource("writeActions")
+    @DisplayName("should return success for POST after passing admin write privilege")
+    void shouldReturnSuccess_forPostWithAdminWritePrivilege(
+            String actionName, Function<CarlosMethodSecurity, ActionSupport> actionFactory) throws Exception {
+        when(methodSecurity.hasAdminWrite()).thenReturn(true);
+        request.setMethod("POST");
+
+        String result = actionFactory.apply(methodSecurity).execute();
+
+        assertThat(result)
+                .as("%s should allow POST after admin write privilege is granted", actionName)
+                .isEqualTo(ActionSupport.SUCCESS);
+        verify(methodSecurity).hasAdminWrite();
+    }
+
+    @ParameterizedTest(name = "{0} resolves CarlosMethodSecurity from SpringUtils")
+    @MethodSource("springWiredActions")
+    @DisplayName("should use default constructor Spring wiring")
+    void shouldUseSpringWiring_forDefaultConstructor(
+            String actionName, Supplier<ActionSupport> actionFactory) throws Exception {
+        when(methodSecurity.hasAdminWrite()).thenReturn(true);
+        request.setMethod("POST");
+
+        String result = actionFactory.get().execute();
+
+        assertThat(result)
+                .as("%s should use the registered CarlosMethodSecurity bean", actionName)
+                .isEqualTo(ActionSupport.SUCCESS);
         verify(methodSecurity).hasAdminWrite();
     }
 
@@ -109,14 +154,17 @@ class SecurityAdminWriteActionsTest extends CarlosUnitTestBase {
     @DisplayName("should reject GET after passing admin write privilege")
     void shouldRejectGet_whenAdminWritePrivilegeGranted(
             String actionName, Function<CarlosMethodSecurity, ActionSupport> actionFactory) throws Exception {
-        CarlosMethodSecurity methodSecurity = mock(CarlosMethodSecurity.class);
         when(methodSecurity.hasAdminWrite()).thenReturn(true);
         request.setMethod("GET");
 
         String result = actionFactory.apply(methodSecurity).execute();
 
-        assertThat(result).isEqualTo(ActionSupport.NONE);
-        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        assertThat(result)
+                .as("%s should not render a result view for rejected GET", actionName)
+                .isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus())
+                .as("%s should send 405 for GET", actionName)
+                .isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         verify(methodSecurity).hasAdminWrite();
     }
 }
