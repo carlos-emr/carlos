@@ -2734,8 +2734,24 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
 
                             if (StringUtils.empty(docDesc)) docDesc = "ImportReport" + (i + 1);
 
+                            // Build the validated destination path once. A blocked extension, an emptied
+                            // filename, or a misconfigured DOCUMENT_DIR throws SecurityException; degrade to a
+                            // per-report error and continue the batch instead of aborting the whole import
+                            // (which would return an HTML 500 to the JSON uploader). Do not log
+                            // docFileName/docDir - they are PHI-adjacent.
+                            File destFile;
+                            try {
+                                destFile = PathValidationUtils.validateGeneratedChildPath(
+                                        PathValidationUtils.validateGeneratedFileName(docFileName),
+                                        PathValidationUtils.resolveConfiguredDirectory(docDir, "DOCUMENT_DIR"));
+                            } catch (SecurityException e) {
+                                logger.error("SECURITY: rejected report destination filename", e);
+                                err_data.add("Error! Invalid filename for Report (" + (i + 1) + ")");
+                                continue;
+                            }
+
                             if (b != null) {
-                                try (FileOutputStream f = new FileOutputStream(PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName(docFileName), PathValidationUtils.resolveConfiguredDirectory(docDir, "DOCUMENT_DIR")))) {
+                                try (FileOutputStream f = new FileOutputStream(destFile)) {
                                     f.write(b);
                                 }
                             } else {
@@ -2766,7 +2782,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
                                     continue;
                                 }
 
-                                FileUtils.copyFile(sourceFile, PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName(docFileName), PathValidationUtils.resolveConfiguredDirectory(docDir, "DOCUMENT_DIR")));
+                                FileUtils.copyFile(sourceFile, destFile);
                             }
 
                             if (repR[i].getClass1() != null) {

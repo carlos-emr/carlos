@@ -393,7 +393,10 @@ public class CaseManagementPrint {
 
             }
             ConcatPDF.concat(pdfDocs, os);
-        } catch (IOException e) {
+        } catch (IOException | SecurityException e) {
+            // SecurityException covers PathValidationUtils rejecting a misconfigured temp/document
+            // directory or a generated lab-report filename; like an IOException it aborts this print
+            // rather than escaping uncaught into the direct-PDF servlet response (the CARLOS Error: 0 page).
             logger.error("Error ", e);
 
         } finally {
@@ -413,8 +416,16 @@ public class CaseManagementPrint {
                 file2.delete();
             }
             for (Object o : pdfDocs) {
-                if (!PathValidationUtils.resolveTrustedPath(new File((String) o)).delete()) {
-                    logger.warn("Failed to delete temporary print PDF; leaving it for the OS temp sweep");
+                // Resolve+delete must never throw out of this finally: a malformed temp path would
+                // otherwise mask any in-flight exception AND skip deletion of the remaining temp PDFs,
+                // which contain PHI. Degrade to a warning and continue cleaning up the rest.
+                try {
+                    File tempPdf = PathValidationUtils.resolveTrustedPath(new File((String) o));
+                    if (!tempPdf.delete()) {
+                        logger.warn("Failed to delete temporary print PDF; leaving it for the OS temp sweep");
+                    }
+                } catch (RuntimeException ex) {
+                    logger.warn("Could not delete temporary print PDF; leaving it for the OS temp sweep", ex);
                 }
             }
         }
