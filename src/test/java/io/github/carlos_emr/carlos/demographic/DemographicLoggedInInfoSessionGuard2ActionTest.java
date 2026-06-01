@@ -38,12 +38,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 @DisplayName("Demographic loggedInInfo session guard 2Action tests")
-@Tag("unit")
+@Tag("integration")
 @Tag("web")
 @Tag("demographic")
 class DemographicLoggedInInfoSessionGuard2ActionTest extends CarlosWebTestBase {
 
-    private static final String LOGGED_IN_INFO_SESSION_KEY = LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY";
+    private static final String LOGGED_IN_INFO_SESSION_KEY = new LoggedInInfo().getLoggedInInfoKey();
 
     @BeforeEach
     void setUp() {

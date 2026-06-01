@@ -116,6 +116,13 @@ public final class LoggedInInfo implements Serializable {
         return (getLoggedInInfoFromSession(request.getSession()));
     }
 
+    /**
+     * Retrieves the browser-request {@link LoggedInInfo} from the current HTTP session.
+     *
+     * @param request non-null current HTTP request used to access the session
+     * @return non-null {@link LoggedInInfo} stored in the session
+     * @throws SecurityException when session {@link LoggedInInfo} is missing
+     */
     public static LoggedInInfo requireLoggedInInfoFromSession(HttpServletRequest request) {
         LoggedInInfo loggedInInfo = getLoggedInInfoFromSession(request);
         if (loggedInInfo == null) {
