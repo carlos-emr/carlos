@@ -59,7 +59,7 @@ import static org.mockito.Mockito.when;
 @Tag("unit")
 @Tag("admin")
 @Tag("security")
-class SecurityAdminWriteActionsTest extends CarlosUnitTestBase {
+class SecurityAdminWriteActionsUnitTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockHttpServletRequest request;
