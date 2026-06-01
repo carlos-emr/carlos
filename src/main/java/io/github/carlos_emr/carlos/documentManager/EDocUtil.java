@@ -1042,6 +1042,10 @@ public final class EDocUtil {
             logger.error("Error", ex);
         } catch (IOException ex) {
             logger.error("Error", ex);
+        } catch (SecurityException ex) {
+            // PathValidationUtils rejecting a malformed document path leaves fdata null, matching the
+            // existing return-null contract instead of throwing an unchecked exception at the caller.
+            logger.error("Error", ex);
         } finally {
             try {
                 if (fis != null) fis.close();
@@ -1198,9 +1202,14 @@ public final class EDocUtil {
         try {
             is = new BufferedInputStream(new FileInputStream(validateResolvedDocumentOrTempFile(fileName)));
             return IOUtils.toByteArray(is);
+        } catch (SecurityException e) {
+            // Honour the declared throws IOException: a rejected document path surfaces as a checked
+            // IOException rather than an unchecked SecurityException callers are not expecting. Throwing
+            // here also leaves is null, so the finally below must null-guard before closing.
+            throw new IOException("Unable to resolve document file", e);
         } finally {
             try {
-                is.close();
+                if (is != null) is.close();
             } catch (IOException e) {
                 logger.error("Unable to close output stream", e);
             }

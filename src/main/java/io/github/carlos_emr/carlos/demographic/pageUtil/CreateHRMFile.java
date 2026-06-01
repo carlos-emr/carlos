@@ -115,13 +115,21 @@ public class CreateHRMFile {
         options.setSaveSuggestedPrefixes(suggestedPrefix);
         options.setSaveOuter();
 
-        File documentDir = PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
+        File documentDir;
         File file;
-        if (!filepath.contains(File.separator)) {
-            file = PathValidationUtils.validateGeneratedChildPath(filepath, documentDir);
-            filepath = file.getPath();
-        } else {
-            file = PathValidationUtils.validateExistingPath(new File(filepath), documentDir);
+        try {
+            documentDir = PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
+            if (!filepath.contains(File.separator)) {
+                file = PathValidationUtils.validateGeneratedChildPath(filepath, documentDir);
+                filepath = file.getPath();
+            } else {
+                file = PathValidationUtils.validateExistingPath(new File(filepath), documentDir);
+            }
+        } catch (SecurityException e) {
+            // A blank DOCUMENT_DIR or an unsafe HRM filepath aborts only this best-effort file write
+            // (the save below already swallows IOException), not the calling export.
+            MiscUtils.getLogger().error("Unable to resolve HRM output path; skipping HRM file write", e);
+            return;
         }
         try {
             omdCdsDoc.save(file, options);

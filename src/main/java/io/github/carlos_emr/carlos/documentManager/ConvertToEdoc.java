@@ -800,7 +800,13 @@ public final class ConvertToEdoc {
         potentialLink = filterFileType(potentialLink);
 
         if (potentialLink != null) {
-            path = PathValidationUtils.resolveTrustedPath(new File(potentialLink)).toPath();
+            try {
+                path = PathValidationUtils.resolveTrustedPath(new File(potentialLink)).toPath();
+            } catch (SecurityException e) {
+                // Best-effort link resolver: an unresolvable/malformed path is treated as "no valid
+                // local file" (returns null below) rather than throwing an unchecked exception.
+                logger.debug("Ignoring unresolvable link path", e);
+            }
         }
 
         if (path != null && Files.exists(path)) {

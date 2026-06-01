@@ -174,7 +174,9 @@ public class PrintAppointmentReceipt2Action extends ActionSupport {
 
         try {
             ins = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(System.getProperty("user.home") + "/AppointmentReceipt.xml")));
-        } catch (FileNotFoundException ex1) {
+        } catch (FileNotFoundException | SecurityException ex1) {
+            // SecurityException covers a non-canonicalizable user.home path; like a missing file it
+            // falls back to the bundled default receipt template below rather than escaping uncaught.
             logger.debug("AppointmentReceipt.xml not found in user's home directory. Using default instead");
         }
 

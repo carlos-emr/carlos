@@ -116,8 +116,17 @@ public class zip {
             logger.error("unzipXML: " + fName + " does not have .zip extension.");
             return result;
         }
-        File targetDir = PathValidationUtils.resolveConfiguredDirectory(dirName, "unzip target directory");
-        File zipInputFile = PathValidationUtils.validatePath(fName, targetDir);
+        File targetDir;
+        File zipInputFile;
+        try {
+            // A blank/misconfigured dirName or a traversal-bearing fName throws SecurityException here;
+            // honour this method's boolean "never throws" contract by returning false instead.
+            targetDir = PathValidationUtils.resolveConfiguredDirectory(dirName, "unzip target directory");
+            zipInputFile = PathValidationUtils.validatePath(fName, targetDir);
+        } catch (SecurityException e) {
+            logger.error("unzipXML: invalid target directory or zip file path", e);
+            return result;
+        }
         String fullpath = zipInputFile.getPath();
         ZipEntry entry;
 

@@ -117,10 +117,15 @@ public final class ClinicLogoUtility {
             }
         }
 
-        File logoFile = PathValidationUtils.resolveTrustedPath(new File(filename));
-        Path path = logoFile.toPath();
-        if (Files.exists(path)) {
-            addImage(infoTable, logoFile, PageSize.LETTER.getWidth() * 0.5f, LOGO_HEIGHT);
+        try {
+            File logoFile = PathValidationUtils.resolveTrustedPath(new File(filename));
+            Path path = logoFile.toPath();
+            if (Files.exists(path)) {
+                addImage(infoTable, logoFile, PageSize.LETTER.getWidth() * 0.5f, LOGO_HEIGHT);
+            }
+        } catch (SecurityException e) {
+            // A blank/misconfigured logo path must not abort the surrounding document; skip the logo.
+            logger.warn("Skipping clinic logo: invalid logo file path", e);
         }
         return infoTable;
 

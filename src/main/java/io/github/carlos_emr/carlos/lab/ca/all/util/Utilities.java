@@ -189,6 +189,12 @@ public class Utilities {
         } catch (IOException ioe) {
             logger.error("Error", ioe);
             return retVal;
+        } catch (SecurityException se) {
+            // A blank/misconfigured OMD_hrm directory or an unsafe generated filename throws here;
+            // degrade to the same null/partial-path return as the I/O failure paths rather than
+            // letting an unchecked exception escape saveHRMFile.
+            logger.error("Error", se);
+            return retVal;
         }
         return retVal;
     }

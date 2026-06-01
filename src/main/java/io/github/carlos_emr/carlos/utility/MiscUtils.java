@@ -239,7 +239,15 @@ public final class MiscUtils {
     }
 
     public static void serializeToFile(Serializable s, String filename) throws IOException {
-        try (FileOutputStream fos = new FileOutputStream(PathValidationUtils.resolveConfiguredFile(filename, "serialized output file"));
+        File outputFile;
+        try {
+            outputFile = PathValidationUtils.resolveConfiguredFile(filename, "serialized output file");
+        } catch (SecurityException e) {
+            // Preserve the declared IOException contract (mirrors deserializeFromFile): a blank or
+            // un-canonicalizable path surfaces as a checked IOException, not an unchecked SecurityException.
+            throw new IOException("Cannot write serialized output file", e);
+        }
+        try (FileOutputStream fos = new FileOutputStream(outputFile);
              ObjectOutputStream oos = new ObjectOutputStream(fos)) {
             oos.writeObject(s);
             oos.flush();

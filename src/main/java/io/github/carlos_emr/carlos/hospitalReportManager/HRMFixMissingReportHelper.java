@@ -84,36 +84,43 @@ public class HRMFixMissingReportHelper {
             documents = hrmDocumentDao.findAll(offset, limit);
 
             for (HRMDocument doc : documents) {
-                String hrmReportFileLocation = doc.getReportFile();
+                // A blank DOCUMENT_DIR or a malformed/traversal-bearing report path throws an unchecked
+                // SecurityException from PathValidationUtils; skip that one document and keep fixing the
+                // rest of the batch rather than aborting the whole run.
+                try {
+                    String hrmReportFileLocation = doc.getReportFile();
 
-                File tmpXMLholder = PathValidationUtils.resolveTrustedPath(new File(hrmReportFileLocation));
+                    File tmpXMLholder = PathValidationUtils.resolveTrustedPath(new File(hrmReportFileLocation));
 
-                if (tmpXMLholder.exists()) {
-                    continue;
-                }
-                String place = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
-                File documentDir = PathValidationUtils.resolveConfiguredDirectory(place, "DOCUMENT_DIR");
-                tmpXMLholder = PathValidationUtils.validateExistingPath(new File(documentDir, hrmReportFileLocation), documentDir);
-
-                if (tmpXMLholder.exists()) {
-                    continue;
-                }
-
-                logger.info("Searching for report file:" + hrmReportFileLocation);
-
-                //if we got to here, it means we can't find the file..let's go on a hunt
-                File file = searchForFile(tmpXMLholder.getName());
-
-                if (file != null) {
-                    //copy it over to document_dir
-                    try {
-                        FileUtils.copyFileToDirectory(file, documentDir);
-                        logger.info("Fixed:" + hrmReportFileLocation);
-                    } catch (IOException e) {
-                        logger.error("Unable to copy the file to DOCUMENT_DIR:" + file);
+                    if (tmpXMLholder.exists()) {
+                        continue;
                     }
-                } else {
-                    logger.warn("UNABLE TO FIND THE FILE:" + tmpXMLholder);
+                    String place = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+                    File documentDir = PathValidationUtils.resolveConfiguredDirectory(place, "DOCUMENT_DIR");
+                    tmpXMLholder = PathValidationUtils.validateExistingPath(new File(documentDir, hrmReportFileLocation), documentDir);
+
+                    if (tmpXMLholder.exists()) {
+                        continue;
+                    }
+
+                    logger.info("Searching for report file:" + hrmReportFileLocation);
+
+                    //if we got to here, it means we can't find the file..let's go on a hunt
+                    File file = searchForFile(tmpXMLholder.getName());
+
+                    if (file != null) {
+                        //copy it over to document_dir
+                        try {
+                            FileUtils.copyFileToDirectory(file, documentDir);
+                            logger.info("Fixed:" + hrmReportFileLocation);
+                        } catch (IOException e) {
+                            logger.error("Unable to copy the file to DOCUMENT_DIR:" + file);
+                        }
+                    } else {
+                        logger.warn("UNABLE TO FIND THE FILE:" + tmpXMLholder);
+                    }
+                } catch (SecurityException e) {
+                    logger.error("Skipping HRM document with an invalid report path", e);
                 }
             }
 

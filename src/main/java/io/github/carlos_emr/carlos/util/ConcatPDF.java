@@ -102,7 +102,9 @@ public class ConcatPDF {
                 if (documentReader != null && documentReader.isEncrypted()) {
                     documentReader.setAllSecurityToBeRemoved(true);
                 }
-            } catch (IOException e) {
+            } catch (IOException | SecurityException e) {
+                // SecurityException covers PathValidationUtils rejecting a malformed entry path; skip that
+                // entry and continue merging the rest rather than aborting the whole concatenation.
                 skippedFiles++;
                 MiscUtils.getLogger().error("Failed to open file for concatenation: " + o, e);
                 continue;

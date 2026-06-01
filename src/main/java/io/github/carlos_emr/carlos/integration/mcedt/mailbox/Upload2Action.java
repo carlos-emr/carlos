@@ -363,7 +363,16 @@ public class Upload2Action extends ActionSupport implements UploadedFilesAware {
             return "failure";
         } else {
             CarlosProperties props = CarlosProperties.getInstance();
-            File outboxDir = PathValidationUtils.resolveConfiguredDirectory(props.getProperty("ONEDT_OUTBOX", ""), "ONEDT_OUTBOX");
+            String outboxPath = props.getProperty("ONEDT_OUTBOX", "");
+            if (outboxPath.trim().isEmpty()) {
+                // ONEDT_OUTBOX must be configured to stage an upload; resolveConfiguredDirectory rejects a
+                // blank path with an unchecked SecurityException, which would otherwise escape addUpload().
+                // Fail gracefully with the standard add-failure result instead.
+                logger.warn("ONEDT_OUTBOX is not configured; cannot add upload");
+                addActionError(getText("uploadAction.upload.add.failure", new String[]{"ONEDT_OUTBOX is not configured"}));
+                return "failure";
+            }
+            File outboxDir = PathValidationUtils.resolveConfiguredDirectory(outboxPath, "ONEDT_OUTBOX");
             File myFile = validatedOutboxFile(this.getFileName(), outboxDir);
             try (FileOutputStream outputStream = new FileOutputStream(myFile)) {
                 outputStream.write(Files.readAllBytes(this.getAddUploadFile().toPath()));
