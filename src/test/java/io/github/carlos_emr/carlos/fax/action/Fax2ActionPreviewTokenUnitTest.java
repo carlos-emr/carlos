@@ -252,6 +252,19 @@ class Fax2ActionPreviewTokenUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should default page count when job id is invalid")
+    void shouldDefaultPageCount_whenJobIdIsInvalid() throws Exception {
+        request.setParameter("jobId", "not-a-number");
+
+        new Fax2Action().getPageCount();
+
+        assertThat(response.getContentAsString())
+                .contains("\"jobId\":\"not-a-number\"")
+                .contains("\"pageCount\":0");
+        verify(faxManager, never()).getPageCount(eq(loggedInInfo), any(Integer.class));
+    }
+
+    @Test
     @DisplayName("should use token path, not tampered path, when queueing fax")
     void shouldUseTokenPathNotTamperedPath_whenQueueingFax() throws Exception {
         Path pdf = createPreviewPdf();

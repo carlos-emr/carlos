@@ -111,7 +111,7 @@ public class Fax2Action extends ActionSupport {
             response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         } catch (IOException e) {
-            logger.error("Error sending method-not-allowed response", e);
+            logger.error("Error sending method-not-allowed response: {}", e.getClass().getSimpleName());
         }
         return true;
     }
@@ -222,7 +222,7 @@ public class Fax2Action extends ActionSupport {
                 faxManager.validateFaxNumber(faxNumber, "copy-to recipient fax number [" + index + "]");
             }
         } catch (Exception e) {
-            logger.error("Failed to parse copy-to recipient JSON", e);
+            logger.error("Failed to parse copy-to recipient JSON: {}", e.getClass().getSimpleName());
             throw new SecurityException("Invalid copy-to recipient format at index " + index);
         }
     }
@@ -380,7 +380,7 @@ public class Fax2Action extends ActionSupport {
             try {
                 response.sendError(HttpServletResponse.SC_NOT_FOUND, "File not found");
             } catch (IOException ex) {
-                logger.error("Error sending error response", ex);
+                logger.error("Error sending error response: {}", ex.getClass().getSimpleName());
             }
             return null;
         }
@@ -398,7 +398,7 @@ public class Fax2Action extends ActionSupport {
                 }
                 outs.flush();
             } catch (IOException e) {
-                logger.error("Error reading or writing file", e);
+                logger.error("Error reading or writing file: {}", e.getClass().getSimpleName());
             }
         }
     }
@@ -436,7 +436,7 @@ public class Fax2Action extends ActionSupport {
                 try {
                     pdfPath = documentAttachmentManager.renderEFormWithAttachments(request, response);
                 } catch (PDFGenerationException e) {
-                    logger.error(e.getMessage(), e);
+                    logger.error("Failed to render eForm fax preview: {}", e.getClass().getSimpleName());
                     String errorMessage = "This eForm (and attachments, if applicable) cannot be faxed. \\n\\n" + e.getMessage();
                     request.setAttribute("errorMessage", errorMessage);
                     return "eFormError";
@@ -469,10 +469,11 @@ public class Fax2Action extends ActionSupport {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String jobId = request.getParameter("jobId");
+        Integer parsedJobId = parseOptionalInteger(jobId, "jobId");
         int pageCount = 0;
 
-        if (jobId != null && !jobId.isEmpty()) {
-            pageCount = faxManager.getPageCount(loggedInInfo, Integer.parseInt(jobId));
+        if (parsedJobId != null) {
+            pageCount = faxManager.getPageCount(loggedInInfo, parsedJobId);
         }
 
         ObjectNode jsonObject = objectMapper.createObjectNode();
@@ -577,7 +578,7 @@ public class Fax2Action extends ActionSupport {
     }
 
     private void sendAccessDenied(Exception e) {
-        logger.warn("Invalid fax preview token", e);
+        logger.warn("Invalid fax preview token: {}", e.getClass().getSimpleName());
         sendForbidden();
     }
 
@@ -585,7 +586,7 @@ public class Fax2Action extends ActionSupport {
         try {
             response.sendError(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED_MESSAGE);
         } catch (IOException ex) {
-            logger.error("Error sending forbidden response", ex);
+            logger.error("Error sending forbidden response: {}", ex.getClass().getSimpleName());
         }
     }
 
