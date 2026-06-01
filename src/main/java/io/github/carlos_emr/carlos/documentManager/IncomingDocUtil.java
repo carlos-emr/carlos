@@ -685,7 +685,7 @@ public final class IncomingDocUtil {
         }
     }
 
-    private static ArrayList<String> buildExtractList(String pdfName, String pageNumbersToExtract, int pageCount) throws Exception {
+    private static ArrayList<String> buildExtractList(String pdfName, String pageNumbersToExtract, int pageCount) {
         ArrayList<String> extractList = initializeExtractList(pageCount);
         boolean validPages = true;
 
@@ -696,7 +696,7 @@ public final class IncomingDocUtil {
         }
 
         if (!validPages || !hasPageRemaining(extractList, pageCount)) {
-            throw new Exception(pdfName + " : Invalid Pages to Extract " + pageNumbersToExtract);
+            throw new IllegalArgumentException(pdfName + " : Invalid Pages to Extract " + pageNumbersToExtract);
         }
 
         return extractList;
@@ -758,7 +758,7 @@ public final class IncomingDocUtil {
     }
 
     private static boolean isNumericPage(String pageSpec) {
-        return pageSpec.matches("^[0-9]+$");
+        return pageSpec.matches("^\\d+$");
     }
 
     private static boolean isValidPageNumber(int pageNumber, int pageCount) {
@@ -775,7 +775,7 @@ public final class IncomingDocUtil {
     }
 
     private static void copyExtractedPages(PdfReader reader, ArrayList<String> extractList, PdfCopy copy,
-            PdfCopy extractCopy) throws Exception {
+            PdfCopy extractCopy) throws IOException {
         for (int pageNumber = 1; pageNumber <= reader.getNumberOfPages(); pageNumber++) {
             if ("1".equals(extractList.get(pageNumber))) {
                 extractCopy.addPage(copy.getImportedPage(reader, pageNumber));
