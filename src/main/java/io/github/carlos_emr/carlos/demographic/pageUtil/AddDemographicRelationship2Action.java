@@ -57,8 +57,8 @@ public class AddDemographicRelationship2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
-    private final DemographicManager demographicManager;
-    private final SecurityInfoManager securityInfoManager;
+    private final transient DemographicManager demographicManager;
+    private final transient SecurityInfoManager securityInfoManager;
     public AddDemographicRelationship2Action(DemographicManager demographicManager, SecurityInfoManager securityInfoManager) {
         this.demographicManager = demographicManager;
         this.securityInfoManager = securityInfoManager;

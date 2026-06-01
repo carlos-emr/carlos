@@ -79,13 +79,13 @@ public class DemographicAddRecord2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    private final SecurityInfoManager securityInfoManager;
-    private final DemographicDao demographicDao;
-    private final DemographicCustDao demographicCustDao;
-    private final DemographicExtDao demographicExtDao;
-    private final DemographicArchiveDao demographicArchiveDao;
-    private final DemographicExtArchiveDao demographicExtArchiveDao;
-    private final WaitingListDao waitingListDao;
+    private final transient SecurityInfoManager securityInfoManager;
+    private final transient DemographicDao demographicDao;
+    private final transient DemographicCustDao demographicCustDao;
+    private final transient DemographicExtDao demographicExtDao;
+    private final transient DemographicArchiveDao demographicArchiveDao;
+    private final transient DemographicExtArchiveDao demographicExtArchiveDao;
+    private final transient WaitingListDao waitingListDao;
 
     public DemographicAddRecord2Action(
             SecurityInfoManager securityInfoManager,

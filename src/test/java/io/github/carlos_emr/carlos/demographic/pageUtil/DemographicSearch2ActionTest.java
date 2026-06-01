@@ -51,7 +51,7 @@ class DemographicSearch2ActionTest extends CarlosWebTestBase {
     private DemographicSearch2Action action;
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp() {
         MockitoAnnotations.openMocks(this);
         replaceSpringUtilsBean(SecurityInfoManager.class, mockSecurityInfoManager);
 

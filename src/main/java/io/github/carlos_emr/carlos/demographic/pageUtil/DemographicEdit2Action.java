@@ -97,7 +97,7 @@ public class DemographicEdit2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    private final SecurityInfoManager securityInfoManager;
+    private final transient SecurityInfoManager securityInfoManager;
 
     public DemographicEdit2Action(SecurityInfoManager securityInfoManager) {
         this.securityInfoManager = securityInfoManager;

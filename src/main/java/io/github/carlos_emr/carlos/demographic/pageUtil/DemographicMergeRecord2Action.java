@@ -65,7 +65,7 @@ public class DemographicMergeRecord2Action extends ActionSupport {
 
 
     Logger logger = MiscUtils.getLogger();
-    private final SecurityInfoManager securityInfoManager;
+    private final transient SecurityInfoManager securityInfoManager;
     public DemographicMergeRecord2Action(SecurityInfoManager securityInfoManager) {
         this.securityInfoManager = securityInfoManager;
     }

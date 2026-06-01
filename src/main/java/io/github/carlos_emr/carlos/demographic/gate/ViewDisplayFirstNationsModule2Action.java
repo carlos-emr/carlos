@@ -30,7 +30,7 @@ import org.apache.struts2.ServletActionContext;
  */
 public final class ViewDisplayFirstNationsModule2Action extends ActionSupport {
 
-    private final SecurityInfoManager securityInfoManager;
+    private final transient SecurityInfoManager securityInfoManager;
 
     public ViewDisplayFirstNationsModule2Action(SecurityInfoManager securityInfoManager) {
         this.securityInfoManager = securityInfoManager;

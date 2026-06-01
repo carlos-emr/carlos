@@ -51,7 +51,7 @@ class DemographicLinkMsg2ActionTest extends CarlosWebTestBase {
     private DemographicLinkMsg2Action action;
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp() {
         MockitoAnnotations.openMocks(this);
         replaceSpringUtilsBean(SecurityInfoManager.class, mockSecurityInfoManager);
 

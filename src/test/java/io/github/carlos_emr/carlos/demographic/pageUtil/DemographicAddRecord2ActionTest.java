@@ -69,7 +69,7 @@ class DemographicAddRecord2ActionTest extends CarlosWebTestBase {
     private DemographicAddRecord2Action action;
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp() {
         mockCloseable = MockitoAnnotations.openMocks(this);
         replaceSpringUtilsBean(SecurityInfoManager.class, mockSecurityInfoManager);
         replaceSpringUtilsBean(DemographicDao.class, mockDemographicDao);

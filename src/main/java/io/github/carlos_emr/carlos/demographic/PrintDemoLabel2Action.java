@@ -93,7 +93,7 @@ public class PrintDemoLabel2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private static Logger logger = MiscUtils.getLogger();
-    private final SecurityInfoManager securityInfoManager;
+    private final transient SecurityInfoManager securityInfoManager;
 
     /**
      * Constructor for PrintDemoLabel2Action.

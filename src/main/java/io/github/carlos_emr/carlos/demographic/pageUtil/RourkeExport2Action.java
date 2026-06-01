@@ -64,14 +64,14 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class RourkeExport2Action extends ActionSupport {
-    private final SecurityInfoManager securityInfoManager;
+    private final transient SecurityInfoManager securityInfoManager;
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    private final ClinicDAO clinicDAO;
-    private final DataExportDao dataExportDAO;
-    private final DemographicDao demographicDao;
-    private final Rourke2009DAO frmRourke2009DAO;
+    private final transient ClinicDAO clinicDAO;
+    private final transient DataExportDao dataExportDAO;
+    private final transient DemographicDao demographicDao;
+    private final transient Rourke2009DAO frmRourke2009DAO;
 
     public RourkeExport2Action(
             SecurityInfoManager securityInfoManager,

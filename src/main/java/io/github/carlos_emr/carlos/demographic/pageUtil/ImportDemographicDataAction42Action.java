@@ -88,7 +88,6 @@ import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager;
 import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
-import io.github.carlos_emr.carlos.casemgmt.dao.IssueDAO;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMReport;
@@ -151,7 +150,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
-    private final SecurityInfoManager securityInfoManager;
+    private final transient SecurityInfoManager securityInfoManager;
     private static final Logger logger = MiscUtils.getLogger();
     private static final String PATIENTID = "Patient";
     private static final String ALERT = "Alert";
@@ -182,25 +181,25 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
     CarlosProperties oscarProperties = CarlosProperties.getInstance();
     List<String> importErrors = new ArrayList<String>();
 
-    private final ProgramManager programManager;
-    private final AdmissionManager admissionManager;
-    private final AdmissionDao admissionDao;
-    private final CaseManagementManager caseManagementManager;
-    private final DrugDao drugDao;
-    private final DrugReasonDao drugReasonDao;
-    private final DemographicArchiveDao demoArchiveDao;
-    private final ProviderDataDao providerDataDao;
-    private final PartialDateDao partialDateDao;
-    private final DemographicExtDao demographicExtDao;
-    private final OscarAppointmentDao appointmentDao;
-    private final PatientLabRoutingDao patientLabRoutingDao;
-    private final ProviderLabRoutingDao providerLabRoutingDao;
-    private final MeasurementsExtDao measurementsExtDao;
-    private final IssueDAO issueDao;
-    private final DemographicContactDao contactDao;
+    private final transient ProgramManager programManager;
+    private final transient AdmissionManager admissionManager;
+    private final transient AdmissionDao admissionDao;
+    private final transient CaseManagementManager caseManagementManager;
+    private final transient DrugDao drugDao;
+    private final transient DrugReasonDao drugReasonDao;
+    private final transient DemographicArchiveDao demoArchiveDao;
+    private final transient ProviderDataDao providerDataDao;
+    private final transient PartialDateDao partialDateDao;
+    private final transient DemographicExtDao demographicExtDao;
+    private final transient OscarAppointmentDao appointmentDao;
+    private final transient PatientLabRoutingDao patientLabRoutingDao;
+    private final transient ProviderLabRoutingDao providerLabRoutingDao;
+    private final transient MeasurementsExtDao measurementsExtDao;
+    private final transient DemographicContactDao contactDao;
 
-    private final NioFileManager nioFileManager;
+    private final transient NioFileManager nioFileManager;
 
+    @SuppressWarnings("java:S107")
     public ImportDemographicDataAction42Action(
             SecurityInfoManager securityInfoManager,
             ProgramManager programManager,
@@ -217,7 +216,6 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             PatientLabRoutingDao patientLabRoutingDao,
             ProviderLabRoutingDao providerLabRoutingDao,
             MeasurementsExtDao measurementsExtDao,
-            IssueDAO issueDao,
             DemographicContactDao contactDao,
             NioFileManager nioFileManager) {
         this.securityInfoManager = securityInfoManager;
@@ -235,7 +233,6 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
         this.patientLabRoutingDao = patientLabRoutingDao;
         this.providerLabRoutingDao = providerLabRoutingDao;
         this.measurementsExtDao = measurementsExtDao;
-        this.issueDao = issueDao;
         this.contactDao = contactDao;
         this.nioFileManager = nioFileManager;
     }

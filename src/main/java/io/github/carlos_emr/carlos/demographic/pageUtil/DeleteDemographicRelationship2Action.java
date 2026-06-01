@@ -55,7 +55,7 @@ public class DeleteDemographicRelationship2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
-    private final SecurityInfoManager securityInfoManager;
+    private final transient SecurityInfoManager securityInfoManager;
     /**
      * Creates a new instance of DeleteDemographicRelationship2Action
      */

@@ -205,16 +205,16 @@ public class DemographicExportAction42Action extends ActionSupport {
 
 
     private static final Logger logger = MiscUtils.getLogger();
-    private final DemographicArchiveDao demoArchiveDao;
-    private final DemographicContactDao contactDao;
-    private final PartialDateDao partialDateDao;
-    private final HRMDocumentToDemographicDao hrmDocToDemographicDao;
-    private final HRMDocumentDao hrmDocDao;
-    private final HRMDocumentCommentDao hrmDocCommentDao;
-    private final CaseManagementManager cmm;
-    private final Hl7TextInfoDao hl7TxtInfoDao;
-    private final Hl7TextMessageDao hl7TxtMssgDao;
-    private final DemographicExtDao demographicExtDao;
+    private final transient DemographicArchiveDao demoArchiveDao;
+    private final transient DemographicContactDao contactDao;
+    private final transient PartialDateDao partialDateDao;
+    private final transient HRMDocumentToDemographicDao hrmDocToDemographicDao;
+    private final transient HRMDocumentDao hrmDocDao;
+    private final transient HRMDocumentCommentDao hrmDocCommentDao;
+    private final transient CaseManagementManager cmm;
+    private final transient Hl7TextInfoDao hl7TxtInfoDao;
+    private final transient Hl7TextMessageDao hl7TxtMssgDao;
+    private final transient DemographicExtDao demographicExtDao;
     private static final String PATIENTID = "Patient";
     private static final String ALERT = "Alert";
     private static final String ALLERGY = "Allergy";
@@ -256,8 +256,9 @@ public class DemographicExportAction42Action extends ActionSupport {
             "msp", DiagnosticCodeDao.class
     );
 
-    private final SecurityInfoManager securityInfoManager;
+    private final transient SecurityInfoManager securityInfoManager;
 
+    @SuppressWarnings("java:S107")
     public DemographicExportAction42Action(
             DemographicArchiveDao demoArchiveDao,
             DemographicContactDao contactDao,

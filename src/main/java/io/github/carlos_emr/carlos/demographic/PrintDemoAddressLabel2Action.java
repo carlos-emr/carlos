@@ -78,7 +78,7 @@ public class PrintDemoAddressLabel2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private static Logger logger = MiscUtils.getLogger();
-    private final SecurityInfoManager securityInfoManager;
+    private final transient SecurityInfoManager securityInfoManager;
     /**
      * Constructs a new PrintDemoAddressLabel2Action instance.
      *

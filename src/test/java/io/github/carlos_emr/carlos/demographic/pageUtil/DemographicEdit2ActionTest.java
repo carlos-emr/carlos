@@ -87,7 +87,7 @@ class DemographicEdit2ActionTest extends CarlosWebTestBase {
     private DemographicDao mockDemographicDao;
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp() {
         MockitoAnnotations.openMocks(this);
         replaceSpringUtilsBean(SecurityInfoManager.class, mockSecurityInfoManager);
         replaceSpringUtilsBean(DemographicDao.class, mockDemographicDao);

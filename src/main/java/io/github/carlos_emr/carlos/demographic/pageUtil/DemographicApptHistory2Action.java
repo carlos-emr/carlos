@@ -45,7 +45,7 @@ public class DemographicApptHistory2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    private final SecurityInfoManager securityInfoManager;
+    private final transient SecurityInfoManager securityInfoManager;
 
     public DemographicApptHistory2Action(SecurityInfoManager securityInfoManager) {
         this.securityInfoManager = securityInfoManager;

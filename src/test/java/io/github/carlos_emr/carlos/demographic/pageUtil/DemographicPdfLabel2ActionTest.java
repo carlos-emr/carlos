@@ -51,7 +51,7 @@ class DemographicPdfLabel2ActionTest extends CarlosWebTestBase {
     private DemographicPdfLabel2Action action;
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp() {
         MockitoAnnotations.openMocks(this);
         replaceSpringUtilsBean(SecurityInfoManager.class, mockSecurityInfoManager);
 

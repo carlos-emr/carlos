@@ -31,7 +31,7 @@ import org.apache.struts2.ServletActionContext;
  */
 public final class ViewDemographicSearch2ReportResults2Action extends ActionSupport {
 
-    private final SecurityInfoManager securityInfoManager;
+    private final transient SecurityInfoManager securityInfoManager;
 
     public ViewDemographicSearch2ReportResults2Action(SecurityInfoManager securityInfoManager) {
         this.securityInfoManager = securityInfoManager;

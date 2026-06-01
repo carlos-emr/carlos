@@ -23,7 +23,6 @@ package io.github.carlos_emr.carlos.demographic.pageUtil;
 
 import io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager;
 import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
-import io.github.carlos_emr.carlos.casemgmt.dao.IssueDAO;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.commn.dao.AdmissionDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicArchiveDao;
@@ -96,7 +95,7 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
     private ImportDemographicDataAction42Action action;
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp() {
         replaceSpringUtilsBean(EctProgramManager.class, mockEctProgramManager);
         replaceSpringUtilsBean(NioFileManager.class, mockNioFileManager);
         replaceSpringUtilsBean(ProviderDao.class, mockProviderDao);
@@ -131,7 +130,6 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
                 mock(PatientLabRoutingDao.class),
                 mock(ProviderLabRoutingDao.class),
                 mock(MeasurementsExtDao.class),
-                mock(IssueDAO.class),
                 mock(DemographicContactDao.class),
                 mockNioFileManager);
     }
