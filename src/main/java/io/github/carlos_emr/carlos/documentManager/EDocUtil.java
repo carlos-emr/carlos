@@ -92,6 +92,7 @@ import io.github.carlos_emr.carlos.mds.data.ReportStatus;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 // all SQL statements here
 public final class EDocUtil {
@@ -190,6 +191,8 @@ public final class EDocUtil {
      * @return boolean true if the module is "provider" or "providers" (case-insensitive), false otherwise
      * @since 2026-01-28
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static boolean isProviderModule(String module) {
         return "provider".equalsIgnoreCase(module) || "providers".equalsIgnoreCase(module);
     }

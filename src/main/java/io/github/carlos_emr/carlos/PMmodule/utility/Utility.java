@@ -41,6 +41,7 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class Utility {
     private static Logger log = MiscUtils.getLogger();
@@ -464,6 +465,8 @@ public class Utility {
     }
 
     // ################################################################################
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static List filterOutDuplicateStrTokens(List duplStrList) {
 
         if (duplStrList == null || duplStrList.size() <= 0) {

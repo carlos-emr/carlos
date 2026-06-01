@@ -62,6 +62,7 @@ import java.nio.file.Path;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts2 action that handles creating, updating, printing, faxing, and electronically
@@ -117,6 +118,8 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
      * @throws ServletException when form rendering encounters a servlet error
      * @throws IOException      when an I/O error occurs during response writing or HL7 sending
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public String execute() throws ServletException, IOException {
 

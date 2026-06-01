@@ -52,6 +52,7 @@ import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Utility class for exporting eForms as ZIP archives.
@@ -173,6 +174,8 @@ public class EFormExportZip {
         }
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public List<String> importForm(InputStream importInputStream) throws IOException, Exception {
         ArrayList<String> errors = new ArrayList<String>();
         _log.info("Importing eforms");

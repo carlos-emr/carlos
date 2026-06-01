@@ -411,7 +411,7 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
                     any(InputStream.class),
                     argThat(fileName -> isGeneratedStoredName(fileName, "echartupload.pdf")),
                     eq(false)));
-            assertThat(result).isNull();
+            assertThat(result).isEqualTo(ActionSupport.NONE);
             assertThat(response.getStatus()).isEqualTo(500);
             assertThat(response.getHeader("oscar_error")).isEqualTo(ResourceBundle.getBundle("oscarResources")
                     .getString("dms.addDocument.errorNoWrite"));
@@ -423,7 +423,7 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
     void shouldReturnBadRequest_whenHtml5UploadMissing() throws Exception {
         String result = action.html5MultiUpload();
 
-        assertThat(result).isNull();
+        assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
         assertThat(response.getHeader("oscar_error")).isEqualTo(ResourceBundle.getBundle("oscarResources")
                 .getString("dms.addDocument.errorZeroSize"));
@@ -439,7 +439,7 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
 
         String result = action.html5MultiUpload();
 
-        assertThat(result).isNull();
+        assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
         assertThat(response.getHeader("oscar_error")).isEqualTo(ResourceBundle.getBundle("oscarResources")
                 .getString("dms.addDocument.errorZeroSize"));
@@ -468,7 +468,7 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
 
             String result = action.html5MultiUpload();
 
-            assertThat(result).isNull();
+            assertThat(result).isEqualTo(ActionSupport.NONE);
             assertThat(response.getStatus()).isEqualTo(500);
             assertThat(partialFile).doesNotExist();
         } finally {
@@ -503,7 +503,7 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
 
             String result = action.html5MultiUpload();
 
-            assertThat(result).isNull();
+            assertThat(result).isEqualTo(ActionSupport.NONE);
             assertThat(savedDocument.get()).isNotNull();
             try (var files = Files.list(documentDir)) {
                 List<String> writtenFileNames = files.map(path -> path.getFileName().toString()).toList();
@@ -542,7 +542,7 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
 
         String result = action.html5MultiUpload();
 
-        assertThat(result).isNull();
+        assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(500);
         assertThat(response.getHeader("oscar_error")).isEqualTo(ResourceBundle.getBundle("oscarResources")
                 .getString("dms.addDocument.errorNoWrite"));
@@ -564,7 +564,7 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
 
             String result = action.html5MultiUpload();
 
-            assertThat(result).isNull();
+            assertThat(result).isEqualTo(ActionSupport.NONE);
             assertThat(response.getStatus()).isEqualTo(500);
             assertThat(response.getHeader("oscar_error")).isEqualTo(ResourceBundle.getBundle("oscarResources")
                     .getString("dms.addDocument.errorNoWrite"));
@@ -814,6 +814,35 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(errors).containsEntry("filenameinvalid", "dms.error.invalidFilename");
     }
 
+    @Test
+    @DisplayName("should return failAdd with filenameinvalid error when uploaded filename has blocked extension")
+    @SuppressWarnings("unchecked")
+    void shouldReturnFailAdd_whenUploadedFilenameHasBlockedExtension() throws Exception {
+        for (String blockedName : List.of("shell.jsp", "report.pdf.jsp")) {
+            tempUploadFile = File.createTempFile("add-edit-document", ".pdf");
+            Files.writeString(tempUploadFile.toPath(), "pdf");
+
+            bindDocFileUpload(tempUploadFile, blockedName);
+            assertThat(action.getDocFile()).isNull();
+
+            action.setMode("add");
+            action.setFunction("demographic");
+            action.setFunctionId("123");
+            action.setDocDesc("Consult note");
+            action.setDocType("Consultant Report");
+
+            String result = action.execute2();
+
+            assertThat(result).isEqualTo("failAdd");
+            Hashtable<String, String> errors = (Hashtable<String, String>) request.getAttribute("docerrors");
+            assertThat(errors).containsEntry("filenameinvalid", "dms.error.invalidFilename");
+
+            Files.deleteIfExists(tempUploadFile.toPath());
+            tempUploadFile = null;
+            action = new AddEditDocument2Action();
+        }
+    }
+
     /**
      * Binds a temporary file through the same {@link AddEditDocument2Action#withUploadedFiles(List)}
      * path used by Struts 7 so tests do not reintroduce direct {@code File} upload setters.
@@ -830,7 +859,7 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
         when(uploadedFile.getInputName()).thenReturn("docFile");
         when(uploadedFile.getContent()).thenReturn(uploadFile);
         when(uploadedFile.getOriginalName()).thenReturn(originalName);
-        when(uploadedFile.getContentType()).thenReturn(contentType);
+        lenient().when(uploadedFile.getContentType()).thenReturn(contentType);
 
         action.withUploadedFiles(List.of(uploadedFile));
     }

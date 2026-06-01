@@ -320,6 +320,27 @@
         <Method name="getFullPathToDocument"/>
     </Match>
 
+    <!-- Incoming document filing validates queue path components, canonicalizes the source
+         against INCOMINGDOCUMENT_DIR, and creates destinations only via PathValidationUtils. -->
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.documentManager.actions.ManageDocument2Action"/>
+        <Method name="addIncomingDocument"/>
+    </Match>
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.documentManager.actions.ManageDocument2Action"/>
+        <Method name="validateConfiguredDocumentDirectory"/>
+    </Match>
+
+    <!-- Temp deletion accepts path-derived input only after canonical allowed-temp checks
+         and PathValidationUtils.validateUpload() confirms a regular temp file. -->
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.managers.NioFileManagerImpl"/>
+        <Method name="validateTempDeletionTarget"/>
+    </Match>
+
     <!-- Uploaded image temp files are accepted only after PathValidationUtils.validateUpload(). -->
     <Match>
         <Bug pattern="PATH_TRAVERSAL_IN"/>

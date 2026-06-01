@@ -72,6 +72,7 @@ import org.xml.sax.SAXException;
 import io.github.carlos_emr.carlos.hospitalReportManager.xsd.OmdCds;
 
 import io.github.carlos_emr.CarlosProperties;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 
 public class HRMReportParser {
@@ -179,6 +180,8 @@ public class HRMReportParser {
         return null;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private static void routeReportToDemographic(HRMReport report, HRMDocument mergedDocument) {
 
         if (report == null) {
@@ -216,6 +219,8 @@ public class HRMReportParser {
     }
 
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private static boolean hasSameStatus(HRMReport report, HRMReport loadedReport) {
         if (report.getResultStatus() != null) {
             return report.getResultStatus().equalsIgnoreCase(loadedReport.getResultStatus());
@@ -231,6 +236,8 @@ public class HRMReportParser {
      * 1) If this report was sent to another patient before, then we set the parentId of this report to that one
      *
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private static void doSimilarReportCheck(LoggedInInfo loggedInInfo, HRMReport report, HRMDocument mergedDocument) {
 
         if (report == null) {
@@ -331,6 +338,8 @@ public class HRMReportParser {
     }
 
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static void routeReportToSubClass(HRMReport report, Integer reportId) {
         if (report == null) {
             logger.info("routeReportToSubClass cannot continue, report parameter is null");
@@ -367,6 +376,8 @@ public class HRMReportParser {
         }
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static String getAppropriateDateStringFromReport(HRMReport report) {
         if (report.getFirstReportClass().equalsIgnoreCase("Diagnostic Imaging Report") || report.getFirstReportClass().equalsIgnoreCase("Cardio Respiratory Report")) {
             return (String) report.getAccompanyingSubclassList().get(0).get(4);
@@ -379,6 +390,8 @@ public class HRMReportParser {
         return sdf.format(calendar.getTime());
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static Date getAppropriateDateFromReport(HRMReport report) {
         if (report.getFirstReportClass().equalsIgnoreCase("Diagnostic Imaging Report") || report.getFirstReportClass().equalsIgnoreCase("Cardio Respiratory Report")) {
             return ((Date) (report.getAccompanyingSubclassList().get(0).get(3)));

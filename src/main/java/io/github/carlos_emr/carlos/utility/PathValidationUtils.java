@@ -50,6 +50,12 @@ public final class PathValidationUtils {
             "Invalid filename. Use letters, numbers, dots, underscores, or spaces; spaces are converted to underscores, and filenames must not start with a dot.";
     public static final String HIDDEN_FILENAME_MESSAGE =
             "Invalid filename: hidden files not allowed. Do not start the filename with a dot.";
+    public static final String PATH_COMPONENT_FILENAME_MESSAGE =
+            "Invalid filename: must not include a path.";
+    private static final String BLOCKED_EXTENSION_MESSAGE =
+            "Invalid filename: file extension .%s not allowed.";
+    private static final Set<String> BLOCKED_EXTENSIONS = Set.of(
+            "jsp", "jspx", "war", "class", "jar", "jnlp");
 
     private static final Logger logger = MiscUtils.getLogger();
 
@@ -74,17 +80,22 @@ public final class PathValidationUtils {
      * <p>Performs the following validations:</p>
      * <ol>
      *   <li>Sanitizes the user-provided filename (strips path components, rejects hidden files)</li>
+     *   <li>Rejects dangerous final filename extensions</li>
      *   <li>Validates the resulting path is within the allowed directory</li>
      * </ol>
      *
      * @param userProvidedFileName the filename provided by the user
      * @param allowedDir the directory the file must be within
      * @return the validated File path
-     * @throws SecurityException if validation fails
+     * @throws FileValidationException if the filename is null, empty, hidden, contains a null byte,
+     * or has a blocked final extension
+     * @throws SecurityException if the allowed directory is null or the resulting path is outside it
+     * @since 2025-12-09
      */
     public static File validatePath(String userProvidedFileName, File allowedDir) {
         // 1. Sanitize filename
         String safeName = sanitizeFileName(userProvidedFileName);
+        validateAllowedFinalExtension(safeName);
 
         // 2. Build and validate path
         File path = new File(allowedDir, safeName);
@@ -118,7 +129,8 @@ public final class PathValidationUtils {
      *
      * @param userProvidedFileName the filename provided by the user
      * @return the validated filename component
-     * @throws FileValidationException if validation fails
+     * @throws FileValidationException if validation fails, including when the normalized final
+     * extension is blocked for server-side execution risk
      */
     public static String validateFileName(String userProvidedFileName) {
         String baseName = sanitizeFileName(userProvidedFileName);
@@ -140,6 +152,7 @@ public final class PathValidationUtils {
         if (generatedFileName == null || generatedFileName.trim().isEmpty()) {
             throw new FileValidationException(INVALID_FILENAME_MESSAGE);
         }
+        validateAllowedFinalExtension(generatedFileName);
 
         String normalizedName = normalizeFileNameCharacters(generatedFileName);
         return validateNormalizedFileName(normalizedName);
@@ -154,7 +167,68 @@ public final class PathValidationUtils {
             logger.warn("Hidden filenames not allowed after normalization");
             throw new FileValidationException(HIDDEN_FILENAME_MESSAGE);
         }
+        validateAllowedFinalExtension(normalizedName);
         return normalizedName;
+    }
+
+    private static void validateAllowedFinalExtension(String fileName) {
+        if (fileName.indexOf('\0') >= 0) {
+            logger.warn("Filename contains null byte");
+            throw new FileValidationException(INVALID_FILENAME_MESSAGE);
+        }
+        // Check only the final extension, so report.jsp.txt stays allowed while report.txt.jsp is blocked.
+        String extension = extractFinalExtension(stripTrailingDotsAndWhitespace(fileName));
+        String blockedExtension = findBlockedExtension(extension);
+        if (blockedExtension != null) {
+            logger.warn("Blocked dangerous file extension: {}", blockedExtension);
+            throw new FileValidationException(String.format(BLOCKED_EXTENSION_MESSAGE, blockedExtension));
+        }
+    }
+
+    private static String extractFinalExtension(String fileName) {
+        int lastSeparator = Math.max(fileName.lastIndexOf('/'), fileName.lastIndexOf('\\'));
+        int lastDot = fileName.lastIndexOf('.');
+        if (lastDot <= lastSeparator || lastDot == fileName.length() - 1) {
+            return "";
+        }
+        return fileName.substring(lastDot + 1);
+    }
+
+    private static String stripTrailingDotsAndWhitespace(String fileName) {
+        int end = fileName.length();
+        while (end > 0) {
+            char current = fileName.charAt(end - 1);
+            if (current != '.' && !Character.isWhitespace(current)) {
+                break;
+            }
+            end--;
+        }
+        return fileName.substring(0, end);
+    }
+
+    private static String findBlockedExtension(String extension) {
+        for (String blockedExtension : BLOCKED_EXTENSIONS) {
+            if (equalsAsciiIgnoreCase(extension, blockedExtension)) {
+                return blockedExtension;
+            }
+        }
+        return null;
+    }
+
+    private static boolean equalsAsciiIgnoreCase(String candidate, String expectedLowerCase) {
+        if (candidate.length() != expectedLowerCase.length()) {
+            return false;
+        }
+        for (int i = 0; i < candidate.length(); i++) {
+            char candidateChar = candidate.charAt(i);
+            if (candidateChar >= 'A' && candidateChar <= 'Z') {
+                candidateChar = (char) (candidateChar + ('a' - 'A'));
+            }
+            if (candidateChar != expectedLowerCase.charAt(i)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
@@ -175,7 +249,7 @@ public final class PathValidationUtils {
                     || userProvidedFileName.contains("/")
                     || userProvidedFileName.contains("\\")) {
                 logger.warn("Path components not allowed in filename");
-                throw new FileValidationException(INVALID_FILENAME_MESSAGE);
+                throw new FileValidationException(PATH_COMPONENT_FILENAME_MESSAGE);
             }
         } catch (IllegalArgumentException e) {
             logger.warn("Filename parser rejected invalid filename");
@@ -183,6 +257,49 @@ public final class PathValidationUtils {
         }
 
         return validateFileName(userProvidedFileName);
+    }
+
+    /**
+     * Validates a single path component without normalizing or stripping path
+     * information. Use this for directory or filename segments that must be
+     * preserved exactly, such as queue identifiers and existing queued document
+     * names.
+     *
+     * @param value the path component to validate
+     * @param label field name used in log messages
+     * @return the original value when it is a safe single component
+     * @throws FileValidationException if the value is blank, hidden, absolute,
+     * contains path separators, or is a traversal component
+     */
+    public static String validatePathComponent(String value, String label) {
+        String field = label == null || label.trim().isEmpty() ? "path component" : label;
+        if (value == null || value.trim().isEmpty()) {
+            logger.warn("Invalid {}: null or empty", field);
+            throw new FileValidationException(INVALID_FILENAME_MESSAGE);
+        }
+        if (value.indexOf('\0') >= 0) {
+            logger.warn("Invalid {}: contains null byte", field);
+            throw new FileValidationException(INVALID_FILENAME_MESSAGE);
+        }
+        if (".".equals(value) || "..".equals(value) || value.startsWith(".")) {
+            logger.warn("Invalid {}: hidden or traversal component", field);
+            throw new FileValidationException(INVALID_FILENAME_MESSAGE);
+        }
+
+        try {
+            if (FilenameUtils.getPrefixLength(value) > 0
+                    || value.contains("/")
+                    || value.contains("\\")
+                    || !FilenameUtils.getName(value).equals(value)) {
+                logger.warn("Invalid {}: path components not allowed", field);
+                throw new FileValidationException(INVALID_FILENAME_MESSAGE);
+            }
+        } catch (IllegalArgumentException e) {
+            logger.warn("Invalid {}: filename parser rejected value", field);
+            throw new FileValidationException(INVALID_FILENAME_MESSAGE, e);
+        }
+
+        return value;
     }
 
     static String normalizeFileNameCharacters(String fileName) {
@@ -330,7 +447,10 @@ public final class PathValidationUtils {
      * @param userProvidedFileName the original filename from the upload
      * @param destinationDir the directory where the file should be written
      * @return the validated destination File
-     * @throws SecurityException if any validation fails
+     * @throws FileValidationException if the destination filename is null, empty, hidden,
+     * contains a null byte, or has a blocked final extension
+     * @throws SecurityException if source-file validation fails, the destination directory is null,
+     * or the resulting destination path is outside it
      */
     public static File validateUpload(
             File sourceFile,

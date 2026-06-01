@@ -46,6 +46,7 @@ import java.util.List;
 import java.util.*;
 
 import static io.github.carlos_emr.carlos.integration.mcedt.McedtConstants.*;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Defines utility methods for action classes.
@@ -275,6 +276,8 @@ public class Action2Utils {
         return false;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static boolean isOBECFile(String filename) {
         String suffix = filename.substring(filename.lastIndexOf(".") + 1);
         String prefix = "";
@@ -403,6 +406,8 @@ public class Action2Utils {
         return result;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     static String getTypeDescription(ResourceForm form, String typeCode) {
 
         String typeDesc = "";
@@ -415,6 +420,8 @@ public class Action2Utils {
         return typeDesc;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     static String getTypeDescription(String typeCode, List<TypeListData> data) {
 
         String typeDesc = "";

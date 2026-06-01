@@ -40,6 +40,7 @@ import jakarta.servlet.http.HttpSession;
 import org.owasp.encoder.Encode;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 
 public final class WebUtils {
@@ -62,6 +63,8 @@ public final class WebUtils {
         logger.debug("--- Dump Request Parameters End ---");
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static boolean isChecked(HttpServletRequest request, String parameter) {
         String temp = request.getParameter(parameter);
         return temp != null && (temp.equalsIgnoreCase("on") || temp.equalsIgnoreCase("true") || temp.equalsIgnoreCase("checked"));
