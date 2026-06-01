@@ -103,9 +103,14 @@ class ExtractBeanWriteFileUnitTest extends CarlosUnitTestBase {
 
             bean.writeFile("SHOULD-NOT-ESCAPE");
 
-            // The validators reject the traversal name (writeFile swallows the rejection), so nothing is
-            // written to the parent of HOME_DIR.
+            // The validators reject the traversal name (writeFile swallows the rejection): nothing is
+            // written outside HOME_DIR, and nothing is written inside it either.
             assertThat(homeDir.getParent().resolve("escaped-claim.txt")).doesNotExist();
+            long writtenInsideHomeDir;
+            try (var entries = Files.list(homeDir)) {
+                writtenInsideHomeDir = entries.count();
+            }
+            assertThat(writtenInsideHomeDir).isZero();
         }
     }
 }
