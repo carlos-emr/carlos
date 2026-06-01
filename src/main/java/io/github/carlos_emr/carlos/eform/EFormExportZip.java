@@ -77,7 +77,12 @@ public class EFormExportZip {
             }
             _log.debug("after:>" + fileName + "<");
 
-            String directoryName = eForm.getFormName().replaceAll("\\s", "") + "/"; //formName with all spaces removed
+            // Validate the form name and file name as single path components before they become ZIP
+            // entry names: a formName/formFileName containing "/", "\\" or ".." would otherwise produce
+            // traversal-style entries in the exported archive (ZIP-slip for whoever extracts it).
+            String formFolder = PathValidationUtils.validatePathComponent(eForm.getFormName().replaceAll("\\s", ""), "eform export form name");
+            fileName = PathValidationUtils.validatePathComponent(fileName, "eform export file name");
+            String directoryName = formFolder + "/"; //formName with all spaces removed
             String html = eForm.getFormHtml();
             properties.setProperty("form.htmlFilename", fileName);
             if (eForm.getFormName() != null && !eForm.getFormName().equals(""))
@@ -119,6 +124,8 @@ public class EFormExportZip {
                 int length = "${oscar_image_path}".length();
                 String imageFileName = match.substring(length, match.length() - 1);
                 MiscUtils.getLogger().debug("Image Name: " + imageFileName);
+                // Validate the image name as a single path component before it becomes a ZIP entry name.
+                imageFileName = PathValidationUtils.validatePathComponent(imageFileName, "eform export image name");
                 File imageFile = getImageFile(imageFileName);
                 try (FileInputStream fis = new FileInputStream(imageFile)) {  //should error out if image not found, in this case, skip the image
                     ZipEntry imageZipEntry = new ZipEntry(directoryName + imageFileName);
@@ -190,97 +197,103 @@ public class EFormExportZip {
             _log.error("Could not unzip folder, cannot create temp folder.", e);
         }
 
-        ZipInputStream zis = new ZipInputStream(importInputStream);
-        ZipEntry ze = null;
         Hashtable<String, EForm> eformTable = new Hashtable<String, EForm>(); //stores eforms constructed from eform.properties, no HTML
         Hashtable<String, EForm> eformTableFailed = new Hashtable<String, EForm>();  //stores eforms that are constructed from eform.properties that alredy exist and do not need to be imported
         Hashtable<String, File> tempFiles = new Hashtable<String, File>(); //references extracted files in the temp folder
-        //first runthrough, get the properties files, construct eforms, cache files
-        while ((ze = zis.getNextEntry()) != null) {
-            File zipEntryFile = PathValidationUtils.validateZipEntryPath(ze, imageTempFolderDir);
-            String zipEntryFileName = PathValidationUtils.validatePathComponent(zipEntryFile.getName(), "eform import zip entry");
-            _log.info("Unzipping..." + LogSafe.sanitize(zipEntryFileName));
-            if (zipEntryFileName.equalsIgnoreCase("eform.properties")) {
-                Properties properties = new Properties();
-                properties.load(zis);
-                EForm newEForm = this.createEFormFromProperties(properties);
-                //check for errors or existing forms
-                if (newEForm.getFormName() == null || newEForm.getFormName().equals("")) {
-                    errors.add("Skipped form because it has no form name.");
-                    _log.info("Skipped form because it has no form name.");
-                    eformTableFailed.put(newEForm.getFormFileName(), newEForm);
-                    continue;
-                }
-                if (newEForm.getFormFileName() == null | newEForm.getFormFileName().equals("")) {
-                    errors.add("Skipped form titled '" + newEForm.getFormName() + "' because it has no form filename.");
-                    _log.info("Skipped form titled '" + newEForm.getFormName() + "' because it has no form filename.");
-                    continue;
-                }
-                if (EFormUtil.formExistsInDB(newEForm.getFormName())) {
-                    errors.add("Skipped form '" + newEForm.getFormName() + "', form already exists");
-                    _log.info("Skipped form '" + newEForm.getFormName() + "', form already exists");
-                    eformTableFailed.put(newEForm.getFormFileName(), newEForm);
-                    continue;
-                }
-                eformTable.put(newEForm.getFormFileName(), newEForm);  //store to add html and save to DB later
-                _log.debug("going in eform table >" + newEForm.getFormFileName() + "<");
-            } else {
-                //store temp files on HD
-                File tempFile = PathValidationUtils.validateGeneratedChildPath(zipEntryFileName, imageTempFolderDir);
-                tempFiles.put(zipEntryFileName, tempFile); //reference so we can find it later
-                try (FileOutputStream fos = new FileOutputStream(tempFile)) {
-                    inputToOutput(zis, fos);
-                }
-                //store temp files in memory
-                /*ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                inputToOutput(zis, baos);
-                tempFiles.put(file.getName(), baos.toByteArray());
-                baos.close();*/
-            }
-            zis.closeEntry();
-        }
-        zis.close();
-
-        //loop through each file and decide -if html eform, put in DB, if supporting files (i.e. images) put on HD
-        for (Entry<String, File> tempFile : tempFiles.entrySet()) {
-            _log.info("looking at {}", LogSafe.sanitize(tempFile.getKey()));
-            if (eformTable.containsKey(tempFile.getKey())) {  //if file name matches eform
-                File extractedTempFile = PathValidationUtils.validateExistingPath(tempFile.getValue(), imageTempFolderDir);
-                try (FileInputStream fis = new FileInputStream(extractedTempFile);
-                     ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-                    inputToOutput(fis, baos);
-                    String html = new String(baos.toByteArray());
-                    // Do not log raw uploaded HTML (attacker-controlled, multi-line → log forging
-                    // and content dump); log only its length.
-                    _log.debug("Loaded eform HTML content ({} chars)", html.length());
-                    eformTable.get(tempFile.getKey()).setFormHtml(html);
-                }
-            } else if (eformTableFailed.containsKey(tempFile.getKey())) {
-                //do not save file if eform fails
-            } else {
-                File extractedTempFile = PathValidationUtils.validateExistingPath(tempFile.getValue(), imageTempFolderDir);
-                File imageFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validatePathComponent(tempFile.getKey(), "eform image file"), ImageUpload2Action.getImageFolder());
-                try (FileInputStream fis = new FileInputStream(extractedTempFile)) {
-                    if (imageFile.exists()) {
-                        // Honour the "skipping image" message: do not overwrite an existing image.
-                        errors.add("Image '" + tempFile.getKey() + "' already exists, skipping image, but the form may still be uploaded.  Please resolve.");
-                        _log.info("EForm Import: Image with name '{}' already exists, skipping image, but the form may still be uploaded.  Please resolve.", LogSafe.sanitize(tempFile.getKey()));
-                    } else {
-                        try (OutputStream os = new FileOutputStream(imageFile)) {
-                            inputToOutput(fis, os);
+        // Always remove the temp extraction folder, even if a malicious/invalid zip entry makes
+        // validateZipEntryPath throw partway through the first run (which would otherwise leak the
+        // extracted temp files and the open ZipInputStream).
+        try {
+            //first runthrough, get the properties files, construct eforms, cache files
+            try (ZipInputStream zis = new ZipInputStream(importInputStream)) {
+                ZipEntry ze = null;
+                while ((ze = zis.getNextEntry()) != null) {
+                    File zipEntryFile = PathValidationUtils.validateZipEntryPath(ze, imageTempFolderDir);
+                    String zipEntryFileName = PathValidationUtils.validatePathComponent(zipEntryFile.getName(), "eform import zip entry");
+                    _log.info("Unzipping..." + LogSafe.sanitize(zipEntryFileName));
+                    if (zipEntryFileName.equalsIgnoreCase("eform.properties")) {
+                        Properties properties = new Properties();
+                        properties.load(zis);
+                        EForm newEForm = this.createEFormFromProperties(properties);
+                        //check for errors or existing forms
+                        if (newEForm.getFormName() == null || newEForm.getFormName().equals("")) {
+                            errors.add("Skipped form because it has no form name.");
+                            _log.info("Skipped form because it has no form name.");
+                            eformTableFailed.put(newEForm.getFormFileName(), newEForm);
+                            continue;
                         }
-                        _log.info("Loaded eform file: {}", LogSafe.sanitize(tempFile.getKey()));
+                        if (newEForm.getFormFileName() == null | newEForm.getFormFileName().equals("")) {
+                            errors.add("Skipped form titled '" + newEForm.getFormName() + "' because it has no form filename.");
+                            _log.info("Skipped form titled '" + newEForm.getFormName() + "' because it has no form filename.");
+                            continue;
+                        }
+                        if (EFormUtil.formExistsInDB(newEForm.getFormName())) {
+                            errors.add("Skipped form '" + newEForm.getFormName() + "', form already exists");
+                            _log.info("Skipped form '" + newEForm.getFormName() + "', form already exists");
+                            eformTableFailed.put(newEForm.getFormFileName(), newEForm);
+                            continue;
+                        }
+                        eformTable.put(newEForm.getFormFileName(), newEForm);  //store to add html and save to DB later
+                        _log.debug("going in eform table >" + newEForm.getFormFileName() + "<");
+                    } else {
+                        //store temp files on HD
+                        File tempFile = PathValidationUtils.validateGeneratedChildPath(zipEntryFileName, imageTempFolderDir);
+                        tempFiles.put(zipEntryFileName, tempFile); //reference so we can find it later
+                        try (FileOutputStream fos = new FileOutputStream(tempFile)) {
+                            inputToOutput(zis, fos);
+                        }
+                        //store temp files in memory
+                        /*ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                        inputToOutput(zis, baos);
+                        tempFiles.put(file.getName(), baos.toByteArray());
+                        baos.close();*/
+                    }
+                    zis.closeEntry();
+                }
+            }
+
+            //loop through each file and decide -if html eform, put in DB, if supporting files (i.e. images) put on HD
+            for (Entry<String, File> tempFile : tempFiles.entrySet()) {
+                _log.info("looking at {}", LogSafe.sanitize(tempFile.getKey()));
+                if (eformTable.containsKey(tempFile.getKey())) {  //if file name matches eform
+                    File extractedTempFile = PathValidationUtils.validateExistingPath(tempFile.getValue(), imageTempFolderDir);
+                    try (FileInputStream fis = new FileInputStream(extractedTempFile);
+                         ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+                        inputToOutput(fis, baos);
+                        String html = new String(baos.toByteArray());
+                        // Do not log raw uploaded HTML (attacker-controlled, multi-line → log forging
+                        // and content dump); log only its length.
+                        _log.debug("Loaded eform HTML content ({} chars)", html.length());
+                        eformTable.get(tempFile.getKey()).setFormHtml(html);
+                    }
+                } else if (eformTableFailed.containsKey(tempFile.getKey())) {
+                    //do not save file if eform fails
+                } else {
+                    File extractedTempFile = PathValidationUtils.validateExistingPath(tempFile.getValue(), imageTempFolderDir);
+                    File imageFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validatePathComponent(tempFile.getKey(), "eform image file"), ImageUpload2Action.getImageFolder());
+                    try (FileInputStream fis = new FileInputStream(extractedTempFile)) {
+                        if (imageFile.exists()) {
+                            // Honour the "skipping image" message: do not overwrite an existing image.
+                            errors.add("Image '" + tempFile.getKey() + "' already exists, skipping image, but the form may still be uploaded.  Please resolve.");
+                            _log.info("EForm Import: Image with name '{}' already exists, skipping image, but the form may still be uploaded.  Please resolve.", LogSafe.sanitize(tempFile.getKey()));
+                        } else {
+                            try (OutputStream os = new FileOutputStream(imageFile)) {
+                                inputToOutput(fis, os);
+                            }
+                            _log.info("Loaded eform file: {}", LogSafe.sanitize(tempFile.getKey()));
+                        }
                     }
                 }
             }
+            _log.info("Registering: " + eformTable.values().size() + " eforms");
+            //write constructed eforms
+            for (EForm eform : eformTable.values()) {
+                _log.info("New eform: {}", LogSafe.sanitize(eform.getFormName()));
+                EFormUtil.saveEForm(eform);
+            }
+        } finally {
+            deleteDirectory(imageTempFolderDir);
         }
-        _log.info("Registering: " + eformTable.values().size() + " eforms");
-        //write constructed eforms
-        for (EForm eform : eformTable.values()) {
-            _log.info("New eform: {}", LogSafe.sanitize(eform.getFormName()));
-            EFormUtil.saveEForm(eform);
-        }
-        deleteDirectory(imageTempFolderDir);
         return errors;
     }
 
@@ -297,7 +310,14 @@ public class EFormExportZip {
         if (eForm.getFormName() == null)
             throw new Exception("Error, form.name property cannot be found in eform.properties");
         eForm.setFormSubject(properties.getProperty("form.details"));
-        eForm.setFormFileName(properties.getProperty("form.htmlFilename"));
+        // Validate the imported html filename as a single path component before persisting it: a
+        // path-like value from a malicious eform.properties would otherwise be stored and later
+        // re-exported as an unsafe ZIP entry name.
+        String htmlFilename = properties.getProperty("form.htmlFilename");
+        if (htmlFilename != null && !htmlFilename.isEmpty()) {
+            htmlFilename = PathValidationUtils.validatePathComponent(htmlFilename, "eform import html filename");
+        }
+        eForm.setFormFileName(htmlFilename);
         eForm.setFormCreator(properties.getProperty("form.creator"));
         eForm.setFormDate(properties.getProperty("form.date"));
         eForm.setShowLatestFormOnly(Boolean.valueOf(properties.getProperty("form.showLatestFormOnly")));

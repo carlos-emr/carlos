@@ -166,7 +166,14 @@ public class zip {
                     }
                 }
             }
-            //nee to move zip file to archive folder
+        } catch (Exception e) {
+            logger.error("io.github.carlos_emr.carlos.util.zip.unzipXML Unhandled exception:", e);
+            return result;
+        }
+
+        // Archive the source zip AFTER the ZipFile above is closed: renaming it while ZipFile still
+        // holds the file open fails on Windows (file lock). A failed archive does not fail the unzip.
+        try {
             File afile = PathValidationUtils.validateExistingPath(zipInputFile, targetDir);
             File dir = PathValidationUtils.resolveConfiguredDirectory(new File(targetDir, "unzip_archive").getPath(), "unzip archive directory");
             if (!dir.exists()) dir.mkdirs();
@@ -175,8 +182,7 @@ public class zip {
                 logger.error("io.github.carlos_emr.carlos.util.zip.unzipXML: the zip file " + fullpath + " was not archived");
             }
         } catch (Exception e) {
-            logger.error("io.github.carlos_emr.carlos.util.zip.unzipXML Unhandled exception:", e);
-            return result;
+            logger.error("io.github.carlos_emr.carlos.util.zip.unzipXML: failed to archive the zip file " + fullpath, e);
         }
         result = true;
         return result;
