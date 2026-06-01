@@ -294,10 +294,14 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             return WriteToIncomingDocsResult.FAILED;
         }
 
-        File validatedDocFile = PathValidationUtils.validateUpload(docFile);
-        try (InputStream fis = Files.newInputStream(validatedDocFile.toPath());
-                OutputStream fos = Files.newOutputStream(destinationFile.toPath(), StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
-            IOUtils.copy(fis, fos);
+        try {
+            // validateUpload throws SecurityException if the source escaped the allowed temp dir; keep it
+            // inside the handled block so this returns FAILED rather than escaping as an unhandled 500.
+            File validatedDocFile = PathValidationUtils.validateUpload(docFile);
+            try (InputStream fis = Files.newInputStream(validatedDocFile.toPath());
+                    OutputStream fos = Files.newOutputStream(destinationFile.toPath(), StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
+                IOUtils.copy(fis, fos);
+            }
         } catch (FileAlreadyExistsException e) {
             return WriteToIncomingDocsResult.ALREADY_EXISTS;
         } catch (IOException | SecurityException e) {
@@ -411,11 +415,25 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             for (UploadedFile uploaded : uploadedFiles) {
                 String inputName = uploaded.getInputName();
                 if ("filedata".equals(inputName)) {
-                    this.filedata = PathValidationUtils.validateUploadContent(uploaded.getContent());
+                    // Validation runs during Struts binding (before execute()). On rejection leave the
+                    // field null instead of throwing: executeUpload() already maps a null upload to a
+                    // graceful error, so a raw SecurityException here would otherwise bypass it as an
+                    // unhandled 500 to the AJAX uploader.
+                    try {
+                        this.filedata = PathValidationUtils.validateUploadContent(uploaded.getContent());
+                    } catch (SecurityException e) {
+                        logger.warn("Rejected invalid upload content for field filedata");
+                        this.filedata = null;
+                    }
                     this.filedataContentType = uploaded.getContentType();
                     this.filedataFileName = uploaded.getOriginalName();
                 } else if ("docFile".equals(inputName)) {
-                    this.docFile = PathValidationUtils.validateUploadContent(uploaded.getContent());
+                    try {
+                        this.docFile = PathValidationUtils.validateUploadContent(uploaded.getContent());
+                    } catch (SecurityException e) {
+                        logger.warn("Rejected invalid upload content for field docFile");
+                        this.docFile = null;
+                    }
                 }
             }
         }

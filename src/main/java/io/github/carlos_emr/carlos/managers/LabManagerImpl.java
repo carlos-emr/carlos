@@ -158,7 +158,7 @@ public class LabManagerImpl implements LabManager {
         Path path = null;
         try {
             String fileName = System.currentTimeMillis() + "_" + segmentId + "_LabReport";
-            File tempPDF = PathValidationUtils.createSecureTempFile(PathValidationUtils.validateGeneratedFileName(fileName), "pdf");
+            File tempPDF = PathValidationUtils.createSecureTempFile(PathValidationUtils.validateGeneratedFileName(fileName), ".pdf");
             try (FileOutputStream fileOutputStream = new FileOutputStream(PathValidationUtils.resolveTrustedPath(tempPDF));
                  ByteArrayOutputStream byteOutputStream = new ByteArrayOutputStream();) {
                 LabPDFCreator labPDFCreator = new LabPDFCreator(fileOutputStream, String.valueOf(segmentId), null);

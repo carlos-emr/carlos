@@ -189,7 +189,11 @@ public class HL7A04Data {
             if (!directory.exists())
                 directory.mkdir();
 
-            File outputFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName(this.fileName), directory);
+            // this.fileName is a trusted, system-generated A04 name ("yyyyMMddkkmmss.SSSZ" + ".txt").
+            // Validate it as a single child component only — do NOT run it through validateGeneratedFileName,
+            // which strips the '+'/timezone and silently diverges the saved filename from the MSH Message
+            // Control ID that is built from the same timestamp.
+            File outputFile = PathValidationUtils.validateGeneratedChildPath(this.fileName, directory);
             try (FileWriter fw = new FileWriter(outputFile, true);
                  BufferedWriter out = new BufferedWriter(fw)) {
                 out.write(this.message);
