@@ -109,20 +109,24 @@ public class ObecData {
         try {
             String oscarHome = pp.getProperty("DOCUMENT_DIR");
 
-            String outbox = pp.getProperty("ONEDT_OUTBOX", "");
-            File outboxFile = PathValidationUtils.resolveConfiguredDirectory(outbox, "ONEDT_OUTBOX");
-
-            // Construct the filename
+            // Write the OBEC file to DOCUMENT_DIR first: this is the primary deliverable and must not
+            // depend on the optional outbox being configured.
             obecFilename = "OBECE" + System.currentTimeMillis() + ".TXT";
             File documentDir = PathValidationUtils.resolveConfiguredDirectory(oscarHome, "DOCUMENT_DIR");
             File srcFile = PathValidationUtils.validateGeneratedChildPath(obecFilename, documentDir);
-
-            // Write the content to the file
             Files.write(srcFile.toPath(), value1.getBytes(), StandardOpenOption.CREATE);
 
-            // Copy the file to the EDT outbox directory
-            if (!outboxFile.exists()) { ActionUtils.createOnEDTOutboxDir(); }
-            ActionUtils.copyFileToDirectory(srcFile, outboxFile, false, true);
+            // Copy to the EDT outbox as a best-effort step only when ONEDT_OUTBOX is configured.
+            // resolveConfiguredDirectory rejects a blank path, so guard it here rather than let an
+            // unset outbox prevent the DOCUMENT_DIR write above from ever happening.
+            String outbox = pp.getProperty("ONEDT_OUTBOX", "");
+            if (outbox.trim().isEmpty()) {
+                logger.warn("ONEDT_OUTBOX is not configured; OBEC file written to DOCUMENT_DIR but not copied to the outbox");
+            } else {
+                File outboxFile = PathValidationUtils.resolveConfiguredDirectory(outbox, "ONEDT_OUTBOX");
+                if (!outboxFile.exists()) { ActionUtils.createOnEDTOutboxDir(); }
+                ActionUtils.copyFileToDirectory(srcFile, outboxFile, false, true);
+            }
         } catch (Exception e) {
             logger.error("Error writing or copying file", e);
         }

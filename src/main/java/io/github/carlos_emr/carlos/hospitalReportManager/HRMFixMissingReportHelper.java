@@ -38,6 +38,7 @@ import io.github.carlos_emr.carlos.commn.dao.PropertyDao;
 import io.github.carlos_emr.carlos.commn.model.Property;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocument;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -103,7 +104,9 @@ public class HRMFixMissingReportHelper {
                         continue;
                     }
 
-                    logger.info("Searching for report file:" + hrmReportFileLocation);
+                    // Sanitize the report path before logging: it is a DB-sourced, PHI-adjacent value,
+                    // so route it through LogSafe to neutralize CRLF log-forging and bound its length.
+                    logger.info("Searching for report file: {}", LogSafe.sanitize(hrmReportFileLocation));
 
                     //if we got to here, it means we can't find the file..let's go on a hunt
                     File file = searchForFile(tmpXMLholder.getName());
@@ -112,12 +115,12 @@ public class HRMFixMissingReportHelper {
                         //copy it over to document_dir
                         try {
                             FileUtils.copyFileToDirectory(file, documentDir);
-                            logger.info("Fixed:" + hrmReportFileLocation);
+                            logger.info("Fixed: {}", LogSafe.sanitize(hrmReportFileLocation));
                         } catch (IOException e) {
-                            logger.error("Unable to copy the file to DOCUMENT_DIR:" + file);
+                            logger.error("Unable to copy the file to DOCUMENT_DIR: {}", LogSafe.sanitize(file.getPath()));
                         }
                     } else {
-                        logger.warn("UNABLE TO FIND THE FILE:" + tmpXMLholder);
+                        logger.warn("UNABLE TO FIND THE FILE: {}", LogSafe.sanitize(tmpXMLholder.getPath()));
                     }
                 } catch (SecurityException e) {
                     logger.error("Skipping HRM document with an invalid report path", e);
