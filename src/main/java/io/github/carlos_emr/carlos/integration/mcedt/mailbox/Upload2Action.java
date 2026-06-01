@@ -119,22 +119,29 @@ public class Upload2Action extends ActionSupport implements UploadedFilesAware {
         ActionUtils.removeUploadFileName(request);
         List<File> files = ActionUtils.getSuccessfulUploads(request);
         CarlosProperties props = CarlosProperties.getInstance();
-        File sent = PathValidationUtils.resolveConfiguredDirectory(props.getProperty("ONEDT_SENT", ""), "ONEDT_SENT");
-        if (!sent.exists())
-            FileUtils.mkDir(sent);
+        // ONEDT_SENT may be unconfigured (blank); resolveConfiguredDirectory rejects a blank path
+        // with a SecurityException, so skip archiving rather than letting that escape cancelUpload().
+        String sentDir = props.getProperty("ONEDT_SENT", "");
+        if (sentDir.trim().isEmpty()) {
+            logger.warn("ONEDT_SENT is not configured; cancelled uploads were not moved to the sent directory");
+        } else {
+            File sent = PathValidationUtils.resolveConfiguredDirectory(sentDir, "ONEDT_SENT");
+            if (!sent.exists())
+                FileUtils.mkDir(sent);
 
-        try {
-            if (files != null && files.size() > 0) {
-                for (File file : files) {
-                    ActionUtils.moveFileToDirectory(file, sent, false, true);
+            try {
+                if (files != null && files.size() > 0) {
+                    for (File file : files) {
+                        ActionUtils.moveFileToDirectory(file, sent, false, true);
+                    }
                 }
-            }
-        } catch (IOException e) {
-            logger.error("A exception has occured while moving files at " + new Date());
+            } catch (IOException e) {
+                logger.error("A exception has occured while moving files at " + new Date());
 
-            String errorMessage = McedtMessageCreator.exceptionToString(e);
-            addActionError(getText("uploadAction.upload.faultException", new String[]{errorMessage}));
-            return "failure";
+                String errorMessage = McedtMessageCreator.exceptionToString(e);
+                addActionError(getText("uploadAction.upload.faultException", new String[]{errorMessage}));
+                return "failure";
+            }
         }
         ActionUtils.removeSuccessfulUploads(request);
         ActionUtils.removeUploadResponseResults(request);
