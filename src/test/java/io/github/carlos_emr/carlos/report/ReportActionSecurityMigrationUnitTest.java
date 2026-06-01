@@ -53,7 +53,7 @@ import static org.mockito.Mockito.when;
 @DisplayName("Report action security migration")
 @Tag("unit")
 @Tag("report")
-class ReportActionSecurityMigrationTest extends CarlosUnitTestBase {
+class ReportActionSecurityMigrationUnitTest extends CarlosUnitTestBase {
     private static final String MISSING_ADMIN_OR_REPORT = "missing required sec object (_admin or _report)";
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
@@ -88,7 +88,7 @@ class ReportActionSecurityMigrationTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("RptByExample redirects to logout when LoggedInInfo is missing")
-    void rptByExampleShouldRedirectToLogout_whenLoggedInInfoMissing() throws Exception {
+    void shouldRedirectToLogout_whenRptByExampleHasNoLoggedInInfo() throws Exception {
         String result = new RptByExample2Action().execute();
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
@@ -98,7 +98,7 @@ class ReportActionSecurityMigrationTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("report-template actions fail closed when LoggedInInfo is missing")
-    void reportTemplateActionsShouldFailClosed_whenLoggedInInfoMissing() {
+    void shouldFailClosed_whenReportTemplateActionsHaveNoLoggedInInfo() {
         assertMissingLoggedInInfoFails(new ExportTemplate2Action());
         assertMissingLoggedInInfoFails(new GenerateOutFiles2Action());
         assertMissingLoggedInInfoFails(new GenerateReport2Action());
@@ -107,8 +107,8 @@ class ReportActionSecurityMigrationTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("migrated actions require admin or report read privilege")
-    void migratedActionsShouldRequireAdminOrReportReadPrivilege() {
-        LoggedInInfo.setLoggedInInfoToSession(request.getSession(), loggedInInfo);
+    void shouldRequireAdminOrReportReadPrivilege_forMigratedActions() {
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.READ, null)).thenReturn(false);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.READ, null)).thenReturn(false);
 

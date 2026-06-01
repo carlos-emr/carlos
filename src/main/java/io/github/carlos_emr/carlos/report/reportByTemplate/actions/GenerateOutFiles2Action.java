@@ -49,6 +49,7 @@ import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
 import java.io.IOException;
 import java.io.StringReader;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
@@ -126,7 +127,7 @@ public class GenerateOutFiles2Action extends ActionSupport {
                         data[i][j] = record.get(j);
                     }
                 }
-            } catch (IOException e) {
+            } catch (IOException | UncheckedIOException e) {
                 MiscUtils.getLogger().error("Error parsing CSV", e);
                 response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                 return NONE;

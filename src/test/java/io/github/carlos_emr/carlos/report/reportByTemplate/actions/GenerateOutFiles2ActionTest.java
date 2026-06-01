@@ -72,7 +72,7 @@ class GenerateOutFiles2ActionTest extends CarlosUnitTestBase {
 
         request = new MockHttpServletRequest();
         response = new MockHttpServletResponse();
-        LoggedInInfo.setLoggedInInfoToSession(request.getSession(), loggedInInfo);
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
