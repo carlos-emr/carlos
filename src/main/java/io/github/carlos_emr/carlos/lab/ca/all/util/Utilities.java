@@ -133,9 +133,11 @@ public class Utilities {
             // Construct retVal using the validated targetFile path
             retVal = targetFile.getParent() + File.separator + "LabUpload." + targetFile.getName().replaceAll(".enc", "") + "." + (new Date()).getTime();
 
-            logger.debug("saveFile place={}, retVal={}",
-                    LogSafe.sanitize(safeDir.getPath(), 1024),
-                    LogSafe.sanitize(retVal, 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            if (logger.isDebugEnabled()) {
+                logger.debug("saveFile place={}, retVal={}",
+                        LogSafe.sanitize(safeDir.getPath(), 1024),
+                        LogSafe.sanitize(retVal, 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            }
 
             try (OutputStream os = Files.newOutputStream(Paths.get(retVal));
                 BufferedInputStream bis = new BufferedInputStream(stream)) {

@@ -617,8 +617,10 @@ class PathValidationUtilsUnitTest {
             Path outside = Files.createTempFile("outside-document-dir", ".hl7");
             CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", tempDir.toString());
 
+            String outsidePath = outside.toString();
+
             try {
-                assertThatThrownBy(() -> PathValidationUtils.validateExistingDocumentPath(outside.toString()))
+                assertThatThrownBy(() -> PathValidationUtils.validateExistingDocumentPath(outsidePath))
                         .isInstanceOf(SecurityException.class)
                         .hasMessageContaining("Invalid file path");
             } finally {
