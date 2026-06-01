@@ -226,20 +226,28 @@ public interface MeasurementManager {
         if (path_set_by_property != null) {
             File[] files1 = PathValidationUtils.resolveConfiguredDirectory(path_set_by_property, "measurement resource path").listFiles();
 
-            for (File file1 : files1) {
-                if (file1.isFile()) {
-                    dsHtml.add(file1.getName());
+            // listFiles() returns null if the directory is missing or unreadable (I/O error).
+            if (files1 != null) {
+                for (File file1 : files1) {
+                    if (file1.isFile()) {
+                        dsHtml.add(file1.getName());
+                    }
                 }
             }
         }
 
         URL path_of_resource = MeasurementFlowSheet.class.getClassLoader()
                 .getResource("/oscar/encounter/oscarMeasurements/flowsheets/html/");
-        File[] files2 = PathValidationUtils.resolveConfiguredDirectory(path_of_resource.getPath(), "measurement resource path").listFiles();
+        // getResource() returns null when the flowsheet HTML resource directory is absent from the classpath.
+        if (path_of_resource != null) {
+            File[] files2 = PathValidationUtils.resolveConfiguredDirectory(path_of_resource.getPath(), "measurement resource path").listFiles();
 
-        for (File file2 : files2) {
-            if (file2.isFile()) {
-                dsHtml.add(file2.getName());
+            if (files2 != null) {
+                for (File file2 : files2) {
+                    if (file2.isFile()) {
+                        dsHtml.add(file2.getName());
+                    }
+                }
             }
         }
 

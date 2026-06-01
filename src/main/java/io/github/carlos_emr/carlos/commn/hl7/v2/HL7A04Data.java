@@ -190,10 +190,10 @@ public class HL7A04Data {
                 directory.mkdir();
 
             File outputFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName(this.fileName), directory);
-            FileWriter fw = new FileWriter(outputFile, true);
-            BufferedWriter out = new BufferedWriter(fw);
-            out.write(this.message);
-            out.close();
+            try (FileWriter fw = new FileWriter(outputFile, true);
+                 BufferedWriter out = new BufferedWriter(fw)) {
+                out.write(this.message);
+            }
         } catch (IOException | SecurityException e) {
             logger.error("ERROR while saving HL7 A04 file: " + e.toString());
             return false;

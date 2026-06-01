@@ -252,7 +252,7 @@ public class EFormExportZip {
                     String html = new String(baos.toByteArray());
                     // Do not log raw uploaded HTML (attacker-controlled, multi-line → log forging
                     // and content dump); log only its length.
-                    _log.debug("Loaded eform HTML content ({} chars)", html == null ? 0 : html.length());
+                    _log.debug("Loaded eform HTML content ({} chars)", html.length());
                     eformTable.get(tempFile.getKey()).setFormHtml(html);
                 }
             } else if (eformTableFailed.containsKey(tempFile.getKey())) {
@@ -262,13 +262,15 @@ public class EFormExportZip {
                 File imageFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validatePathComponent(tempFile.getKey(), "eform image file"), ImageUpload2Action.getImageFolder());
                 try (FileInputStream fis = new FileInputStream(extractedTempFile)) {
                     if (imageFile.exists()) {
+                        // Honour the "skipping image" message: do not overwrite an existing image.
                         errors.add("Image '" + tempFile.getKey() + "' already exists, skipping image, but the form may still be uploaded.  Please resolve.");
                         _log.info("EForm Import: Image with name '{}' already exists, skipping image, but the form may still be uploaded.  Please resolve.", LogSafe.sanitize(tempFile.getKey()));
+                    } else {
+                        try (OutputStream os = new FileOutputStream(imageFile)) {
+                            inputToOutput(fis, os);
+                        }
+                        _log.info("Loaded eform file: {}", LogSafe.sanitize(tempFile.getKey()));
                     }
-                    try (OutputStream os = new FileOutputStream(imageFile)) {
-                        inputToOutput(fis, os);
-                    }
-                    _log.info("Loaded eform file: {}", LogSafe.sanitize(tempFile.getKey()));
                 }
             }
         }

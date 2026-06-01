@@ -413,7 +413,9 @@ public class CaseManagementPrint {
                 file2.delete();
             }
             for (Object o : pdfDocs) {
-                PathValidationUtils.resolveTrustedPath(new File((String) o)).delete();
+                if (!PathValidationUtils.resolveTrustedPath(new File((String) o)).delete()) {
+                    logger.warn("Failed to delete temporary print PDF; leaving it for the OS temp sweep");
+                }
             }
         }
 

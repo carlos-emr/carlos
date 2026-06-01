@@ -1119,7 +1119,7 @@ public final class EDocUtil {
         if (linkList != null) {
             for (TicklerLink tl : linkList) {
                 ticklerNo = tl.getTicklerNo();
-                Tickler t = ticklerManager().getTickler(loggedInInfo, ticklerNo.intValue());
+                Tickler t = ticklerManager().getTickler(loggedInInfo, ticklerNo);
                 HtmlTickler += "<br>" + Encode.forHtml(t.getMessage());
             }
         }
