@@ -62,6 +62,7 @@ public class zip {
         write2Zip(fileformat);
     }
 
+    // PATH_TRAVERSAL_IN: form_record_path is server-configured; listed files come from that directory, and fileformat is only an extension filter.
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
         justification = "form_record_path is a server-configured CarlosProperties value, not user "
             + "input. Files listed come from File.list() on that directory; fileformat is used "

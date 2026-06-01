@@ -56,6 +56,7 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -154,7 +155,7 @@ public class InsideLabUpload2Action extends ActionSupport implements UploadedFil
             // Continue with your existing processing logic
             return processFile(loggedInInfo, ServletActionContext.getRequest(), filePath, getFileType(ServletActionContext.getRequest()));
         } catch (IOException e) {
-            MiscUtils.getLogger().error("Error processing file: " + fileName, e);
+            MiscUtils.getLogger().error("Error processing file: {}", LogSafe.sanitize(fileName), e); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
             return FileStatus.FAILED;
         }
     }

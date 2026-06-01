@@ -116,6 +116,7 @@ public final class Factory {
     /*
      * Create and return the message handler corresponding to the message type
      */
+    // PATH_TRAVERSAL_IN + IMPROPER_UNICODE: LAB_TYPES is admin-only config; case folding is not used for a security or authorization decision.
     @SuppressFBWarnings(
             value = {"PATH_TRAVERSAL_IN", "IMPROPER_UNICODE"},
             justification = "LAB_TYPES is admin-only config; case folding is not used for a security or authorization decision")

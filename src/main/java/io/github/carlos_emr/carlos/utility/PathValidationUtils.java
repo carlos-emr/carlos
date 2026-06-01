@@ -346,6 +346,7 @@ public final class PathValidationUtils {
      * @return the validated File
      * @throws SecurityException if the path is null/empty or resolves outside allowedDir
      */
+    // PATH_TRAVERSAL_IN: This sanitizer overload immediately canonicalizes and enforces containment before returning the File.
     @SuppressFBWarnings(
             value = "PATH_TRAVERSAL_IN",
             justification = "This sanitizer overload immediately canonicalizes and enforces containment before returning the File.")
@@ -362,6 +363,7 @@ public final class PathValidationUtils {
      * @return the canonical DOCUMENT_DIR directory
      * @throws IOException if DOCUMENT_DIR is unavailable or cannot be canonicalized
      */
+    // PATH_TRAVERSAL_IN: DOCUMENT_DIR is server configuration; this method canonicalizes it and rejects missing or non-directory values before returning it.
     @SuppressFBWarnings(
             value = "PATH_TRAVERSAL_IN",
             justification = "DOCUMENT_DIR is server configuration; this method canonicalizes it and rejects missing or non-directory values before returning it.")

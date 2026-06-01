@@ -487,10 +487,10 @@ public class NioFileManagerImpl implements NioFileManager {
      * This method deletes the temporary file after successful copy.
      * Uses Apache Commons FilenameUtils for robust path security.
      */
+    // PATH_TRAVERSAL_IN: validateTempDeletionTarget() canonicalizes the source inside approved temp dirs, and validatePath() contains the destination inside DOCUMENT_DIR.
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
-        justification = "FilenameUtils.getName() strips all directory components from tempFilePath "
-            + "before use, and PathValidationUtils.validatePath() then confirms the destination "
-            + "stays within the document directory.")
+        justification = "validateTempDeletionTarget() canonicalizes the source inside approved temp dirs, "
+            + "and PathValidationUtils.validatePath() confirms the destination stays within the document directory.")
     public String copyFileToOscarDocuments(String tempFilePath) {
         try {
             // Use FilenameUtils.getName() to extract just the filename, removing any path components
@@ -503,17 +503,14 @@ public class NioFileManagerImpl implements NioFileManager {
 
             // Get source and destination directories
             File documentDir = new File(getDocumentDirectory());
-            File sourceFile = new File(tempFilePath);
-            File destinationFile = new File(documentDir, sanitizedFileName);
-
-            // Validate that source file exists and is a regular file
-            if (!sourceFile.exists() || !sourceFile.isFile()) {
-                log.error("Source file does not exist or is not a regular file: " + tempFilePath);
+            File sourceFile = validateTempDeletionTarget(tempFilePath);
+            if (sourceFile == null) {
+                log.error("Source file does not exist or is not a regular file: {}", LogSafe.sanitize(tempFilePath, 1024));
                 return null;
             }
 
             // Validate destination path using PathValidationUtils
-            destinationFile = PathValidationUtils.validatePath(sanitizedFileName, documentDir);
+            File destinationFile = PathValidationUtils.validatePath(sanitizedFileName, documentDir);
 
             // Perform the copy operation
             Files.copy(sourceFile.toPath(), destinationFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
@@ -529,6 +526,9 @@ public class NioFileManagerImpl implements NioFileManager {
             }
 
             return destinationFile.getPath();
+        } catch (SecurityException e) {
+            log.warn("Rejected temporary source file for document copy", e);
+            return null;
         } catch (IOException e) {
             log.error("An error occurred while moving the PDF file", e);
             return null;

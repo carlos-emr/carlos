@@ -607,8 +607,8 @@ class PathValidationUtilsUnitTest {
             Path document = Files.writeString(tempDir.resolve("lab.hl7"), "MSH");
             CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", tempDir.toString());
 
-            assertThat(PathValidationUtils.validateExistingDocumentPath(document.toString()))
-                    .isEqualTo(document.toFile());
+            assertThat(PathValidationUtils.validateExistingDocumentPath(document.toString()).getCanonicalFile())
+                    .isEqualTo(document.toFile().getCanonicalFile());
         }
 
         @Test

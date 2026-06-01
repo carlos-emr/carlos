@@ -219,6 +219,7 @@ public final class IncomingDocUtil {
      * @throws IllegalArgumentException if pdfName contains path traversal sequences
      * @throws SecurityException if the resolved path is outside the allowed directory
      */
+    // PATH_TRAVERSAL_IN: validateStrictFileName() rejects traversal sequences in pdfName; validateExistingPath() then confirms the resolved path stays inside INCOMINGDOCUMENT_DIR.
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
         justification = "validateStrictFileName() rejects traversal sequences in pdfName; "
             + "validateExistingPath() then confirms the resolved path stays inside INCOMINGDOCUMENT_DIR.")
@@ -247,6 +248,7 @@ public final class IncomingDocUtil {
      * @throws IllegalArgumentException if pdfName contains path traversal sequences
      * @throws SecurityException if the resolved path is outside the allowed directory
      */
+    // PATH_TRAVERSAL_IN: validatePathComponent() rejects traversal sequences in pdfName; the resolved path is then contained inside INCOMINGDOCUMENT_DIR.
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
         justification = "validatePathComponent() rejects traversal sequences in pdfName; "
             + "the resolved path is then contained inside INCOMINGDOCUMENT_DIR.")
@@ -276,6 +278,7 @@ public final class IncomingDocUtil {
      * @throws IllegalArgumentException if queueId or pdfDir contains invalid characters
      * @throws SecurityException if the resolved path is outside the allowed directory
      */
+    // PATH_TRAVERSAL_IN: pdfDir is whitelisted to {Fax, Mail, File, Refile}; PathValidationUtils.validateExistingPath() then confirms the path stays inside INCOMINGDOCUMENT_DIR.
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
         justification = "pdfDir is whitelisted to {Fax, Mail, File, Refile}; "
             + "PathValidationUtils.validateExistingPath() then confirms the path stays inside INCOMINGDOCUMENT_DIR.")
@@ -795,6 +798,7 @@ public final class IncomingDocUtil {
         closePdfResource(reader, "Error closing PDF reader during page extraction");
     }
 
+    // CRLF_INJECTION_LOGS: message is always one of the fixed internal cleanup strings passed by closePageExtractionResources().
     @SuppressFBWarnings(
             value = "CRLF_INJECTION_LOGS",
             justification = "message is always one of the fixed internal cleanup strings passed by closePageExtractionResources().")
