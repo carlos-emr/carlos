@@ -497,7 +497,9 @@ public class NioFileManagerImpl implements NioFileManager {
             // This is more reliable than manual path manipulation as it handles edge cases
             String sanitizedFileName = FilenameUtils.getName(tempFilePath);
             if (sanitizedFileName == null || sanitizedFileName.isEmpty()) {
-                log.error("Invalid file path provided: " + tempFilePath);
+                if (log.isErrorEnabled()) {
+                    log.error("Invalid file path provided: {}", LogSafe.sanitize(tempFilePath, 1024));
+                }
                 return null;
             }
 
@@ -505,7 +507,9 @@ public class NioFileManagerImpl implements NioFileManager {
             File documentDir = new File(getDocumentDirectory());
             File sourceFile = validateTempDeletionTarget(tempFilePath);
             if (sourceFile == null) {
-                log.error("Source file does not exist or is not a regular file: {}", LogSafe.sanitize(tempFilePath, 1024));
+                if (log.isErrorEnabled()) {
+                    log.error("Source file does not exist or is not a regular file: {}", LogSafe.sanitize(tempFilePath, 1024));
+                }
                 return null;
             }
 
