@@ -559,6 +559,21 @@
         <action name="casemgmt/ViewNoteBrowser" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
             <result name="success">/WEB-INF/jsp/casemgmt/noteBrowser.jsp</result>
         </action>
+        <action name="casemgmt/NoteBrowserDocumentDelete" class="io.github.carlos_emr.carlos.casemgmt.web.NoteBrowserDocumentDelete2Action">
+            <result name="methodNotAllowed" type="httpheader">
+                <param name="status">405</param>
+            </result>
+        </action>
+        <action name="casemgmt/NoteBrowserDocumentUndelete" class="io.github.carlos_emr.carlos.casemgmt.web.NoteBrowserDocumentUndelete2Action">
+            <result name="methodNotAllowed" type="httpheader">
+                <param name="status">405</param>
+            </result>
+        </action>
+        <action name="casemgmt/NoteBrowserDocumentRefile" class="io.github.carlos_emr.carlos.casemgmt.web.NoteBrowserDocumentRefile2Action">
+            <result name="methodNotAllowed" type="httpheader">
+                <param name="status">405</param>
+            </result>
+        </action>
         <action name="casemgmt/ViewNoteIssueList" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
             <result name="success">/WEB-INF/jsp/casemgmt/noteIssueList.jsp</result>
         </action>

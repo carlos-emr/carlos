@@ -80,24 +80,8 @@
 </security:oscarSec>
 
 <%
-    String errorMessage = "";
-//if delete request is made
-    if (request.getParameter("delDocumentNo") != null && request.getParameter("delDocumentNo").length() > 0) {
-        EDocUtil.deleteDocument(request.getParameter("delDocumentNo"));
-    }
-
-//if undelete request is made
-    if (request.getParameter("undelDocumentNo") != null && request.getParameter("undelDocumentNo").length() > 0) {
-        EDocUtil.undeleteDocument(request.getParameter("undelDocumentNo"));
-    }
-
-    if (request.getParameter("refileDocumentNo") != null && request.getParameter("refileDocumentNo").length() > 0) {
-        try {
-            EDocUtil.refileDocument(request.getParameter("refileDocumentNo"), request.getParameter("queueId"));
-        } catch (Exception e) {
-            errorMessage = e.getMessage();
-        }
-    }
+    String errorMessage = request.getParameter("errorMessage");
+    if (errorMessage == null) errorMessage = "";
 
     WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(getServletContext());
     QueueDao queueDao = (QueueDao) ctx.getBean(QueueDao.class);
@@ -169,18 +153,21 @@
         }
 
         function DeleteDoc() {
+            document.DisplayDoc.action = '<%= request.getContextPath() %>/casemgmt/NoteBrowserDocumentDelete';
             document.DisplayDoc.delDocumentNo.value = docid;
             document.DisplayDoc.viewstatus.value = document.DisplayDoc.selviewstatus.options[document.DisplayDoc.selviewstatus.selectedIndex].value;
             document.DisplayDoc.submit();
         }
 
         function UnDeleteDoc() {
+            document.DisplayDoc.action = '<%= request.getContextPath() %>/casemgmt/NoteBrowserDocumentUndelete';
             document.DisplayDoc.undelDocumentNo.value = docid;
             document.DisplayDoc.viewstatus.value = document.DisplayDoc.selviewstatus.options[document.DisplayDoc.selviewstatus.selectedIndex].value;
             document.DisplayDoc.submit();
         }
 
         function RefileDoc() {
+            document.DisplayDoc.action = '<%= request.getContextPath() %>/casemgmt/NoteBrowserDocumentRefile';
             document.DisplayDoc.refileDocumentNo.value = docid;
             document.DisplayDoc.viewstatus.value = document.DisplayDoc.selviewstatus.options[document.DisplayDoc.selviewstatus.selectedIndex].value;
             document.DisplayDoc.submit();

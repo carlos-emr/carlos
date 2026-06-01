@@ -1,0 +1,167 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ * Published under GPL v2 or later.
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.casemgmt.web;
+
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+
+import org.apache.struts2.ServletActionContext;
+import org.junit.jupiter.api.*;
+import org.mockito.*;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
+@DisplayName("NoteBrowser document mutation action unit tests")
+@Tag("unit")
+@Tag("caseManagement")
+class NoteBrowserDocumentMutation2ActionTest extends CarlosUnitTestBase {
+
+    private MockedStatic<ServletActionContext> servletActionContextMock;
+    private MockedStatic<LoggedInInfo> loggedInInfoMock;
+
+    @Mock private SecurityInfoManager mockSecurityInfoManager;
+    @Mock private LoggedInInfo mockLoggedInInfo;
+
+    private MockHttpServletRequest mockRequest;
+    private MockHttpServletResponse mockResponse;
+
+    static class TestDeleteAction extends NoteBrowserDocumentDelete2Action {
+        final List<String> deleted = new ArrayList<>();
+        @Override protected void deleteDocument(String docNo) { deleted.add(docNo); }
+    }
+
+    static class TestUndeleteAction extends NoteBrowserDocumentUndelete2Action {
+        final List<String> undeleted = new ArrayList<>();
+        @Override protected void undeleteDocument(String docNo) { undeleted.add(docNo); }
+    }
+
+    static class TestRefileAction extends NoteBrowserDocumentRefile2Action {
+        final List<String[]> refiles = new ArrayList<>();
+        @Override protected void refileDocument(String docNo, String queue) { refiles.add(new String[]{docNo, queue}); }
+    }
+
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
+
+        mockRequest = new MockHttpServletRequest();
+        mockResponse = new MockHttpServletResponse();
+        mockRequest.setMethod("POST");
+
+        servletActionContextMock = mockStatic(ServletActionContext.class);
+        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(mockRequest);
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(mockResponse);
+
+        loggedInInfoMock = mockStatic(LoggedInInfo.class);
+        loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(jakarta.servlet.http.HttpServletRequest.class)))
+                .thenReturn(mockLoggedInInfo);
+
+        registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_eChart"), eq("w"), isNull()))
+                .thenReturn(true);
+    }
+
+    @AfterEach
+    void tearDown() {
+        if (loggedInInfoMock != null) loggedInInfoMock.close();
+        if (servletActionContextMock != null) servletActionContextMock.close();
+    }
+
+    @Test
+    @DisplayName("should return methodNotAllowed on GET before mutating")
+    void shouldReturnMethodNotAllowed_whenRequestIsGet() throws Exception {
+        TestDeleteAction action = new TestDeleteAction();
+        mockRequest.setMethod("GET");
+        action.setDelDocumentNo("42");
+
+        assertThat(action.execute()).isEqualTo("methodNotAllowed");
+        assertThat(action.deleted).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should require eChart write privilege")
+    void shouldThrow_whenEChartWritePrivilegeMissing() {
+        TestDeleteAction action = new TestDeleteAction();
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_eChart"), eq("w"), isNull()))
+                .thenReturn(false);
+        action.setDelDocumentNo("42");
+
+        assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("_eChart w");
+        assertThat(action.deleted).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should delete and redirect back to note browser")
+    void shouldDeleteAndRedirect_whenRequestIsValid() throws Exception {
+        TestDeleteAction action = new TestDeleteAction();
+        action.setDelDocumentNo("42");
+        action.setDemographic_no("1001");
+        action.setView("all");
+        action.setViewstatus("active");
+        action.setSortorder("Content");
+
+        action.execute();
+
+        assertThat(action.deleted).containsExactly("42");
+        assertThat(mockResponse.getRedirectedUrl())
+                .contains("/casemgmt/ViewNoteBrowser")
+                .contains("demographic_no=1001")
+                .contains("view=all")
+                .contains("viewstatus=active")
+                .contains("sortorder=Content");
+        verify(mockSecurityInfoManager).hasPrivilege(any(LoggedInInfo.class), eq("_eChart"), eq("w"), isNull());
+        verify(mockSecurityInfoManager, never()).hasPrivilege(any(LoggedInInfo.class), eq("_eChart"), eq("r"), isNull());
+    }
+
+    @Test
+    @DisplayName("should undelete and redirect back to note browser")
+    void shouldUndeleteAndRedirect_whenRequestIsValid() throws Exception {
+        TestUndeleteAction action = new TestUndeleteAction();
+        action.setUndelDocumentNo("42");
+
+        action.execute();
+
+        assertThat(action.undeleted).containsExactly("42");
+        assertThat(mockResponse.getRedirectedUrl()).contains("/casemgmt/ViewNoteBrowser");
+    }
+
+    @Test
+    @DisplayName("should reject non-numeric queueId")
+    void shouldRejectRefile_whenQueueIdIsNonNumeric() throws Exception {
+        TestRefileAction action = new TestRefileAction();
+        action.setRefileDocumentNo("42");
+        action.setQueueId("queue-1");
+
+        action.execute();
+
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        assertThat(action.refiles).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should refile with validated numeric queueId")
+    void shouldRefile_whenDocumentAndQueueAreNumeric() throws Exception {
+        TestRefileAction action = new TestRefileAction();
+        action.setRefileDocumentNo("42");
+        action.setQueueId("7");
+
+        action.execute();
+
+        assertThat(action.refiles).hasSize(1);
+        assertThat(action.refiles.get(0)).containsExactly("42", "7");
+        assertThat(mockResponse.getRedirectedUrl()).contains("/casemgmt/ViewNoteBrowser");
+    }
+}
