@@ -100,15 +100,30 @@ public class CombinePDF2Action extends ActionSupport {
                     // so we can surface an error instead of streaming a silently-truncated PDF.
                     java.io.ByteArrayOutputStream pdfBuffer = new java.io.ByteArrayOutputStream();
                     int skipped = ConcatPDF.concat(alist, pdfBuffer);
-                    if (skipped > 0 && !response.isCommitted()) {
-                        response.reset();
-                        response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
-                                skipped + " of " + alist.size() + " document(s) could not be included; combined PDF not produced");
+                    if (skipped > 0) {
+                        // Some documents could not be included: refuse to serve a truncated PDF.
+                        MiscUtils.getLogger().error("Combine PDF: {} of {} document(s) could not be included",
+                                skipped, alist.size());
+                        if (!response.isCommitted()) {
+                            response.reset();
+                            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                                    skipped + " of " + alist.size() + " document(s) could not be included; combined PDF not produced");
+                        }
                     } else {
                         response.getOutputStream().write(pdfBuffer.toByteArray());
                     }
-                } catch (IOException ex) {
-                    MiscUtils.getLogger().error("Error", ex);
+                } catch (IOException | RuntimeException ex) {
+                    // RuntimeException covers ConcatPDF's merge failure; own the error rather than letting
+                    // Struts write an HTML error page into the application/pdf download.
+                    MiscUtils.getLogger().error("Combine PDF failed", ex);
+                    if (!response.isCommitted()) {
+                        try {
+                            response.reset();
+                            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unable to generate the combined PDF");
+                        } catch (IOException sendErr) {
+                            MiscUtils.getLogger().error("Failed to send combine-PDF error response", sendErr);
+                        }
+                    }
                 }
                 // This branch streams the PDF directly; returning NONE prevents Struts from
                 // resolving the success result and appending a JSP/error page to the PDF.

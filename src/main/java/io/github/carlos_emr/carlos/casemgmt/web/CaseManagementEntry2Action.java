@@ -2885,11 +2885,11 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         CaseManagementPrint cmp = new CaseManagementPrint();
         try {
             cmp.doPrint(loggedInInfo, demographicNo, printAllNotes, noteIds, printCPP, printRx, printLabs, printPreventions, printAllergies, (pType != null && "dates".equals(pType)) ? true : false, cStartDate, cEndDate, request, response.getOutputStream());
-        } catch (IOException | RuntimeException e) {
-            // Direct-response action: doPrint fails before writing any bytes, so the response is still
-            // uncommitted here. Surface a real error instead of an empty HTTP-200 PDF (CLAUDE.md
-            // Direct-Response Actions). If the merge failed mid-stream the response is committed and
-            // we can only log.
+        } catch (Exception e) {
+            // Direct-response action: doPrint fails before writing any bytes (DocumentException/
+            // IOException/SecurityException all fire pre-write), so the response is still uncommitted
+            // here. Surface a real error instead of an empty HTTP-200 PDF (CLAUDE.md Direct-Response
+            // Actions). If the merge failed mid-stream the response is committed and we can only log.
             logger.error("Encounter chart print failed", e);
             if (!response.isCommitted()) {
                 response.reset();

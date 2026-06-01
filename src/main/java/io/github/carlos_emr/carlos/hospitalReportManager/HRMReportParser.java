@@ -188,9 +188,9 @@ public class HRMReportParser {
                 if (errors != null) errors.add(e);
             } catch (SecurityException e) {
                 // PathValidationUtils rejects a misconfigured DOCUMENT_DIR or a DB-sourced report path
-                // that escapes it (FileValidationException extends SecurityException). Honour the
-                // null-return contract every loop caller relies on instead of letting the throw abort
-                // the whole HRM list render / batch import.
+                // that escapes it (FileValidationException extends SecurityException). Return null instead
+                // of letting the throw abort the whole HRM list render / batch import; list-render callers
+                // skip null reports, and the throw no longer aborts the batch loop.
                 logger.error("Rejected HRM report path; skipping document: {}", LogSafe.sanitize(hrmReportFileLocation));
                 if (errors != null) errors.add(e);
             }

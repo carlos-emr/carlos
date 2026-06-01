@@ -298,8 +298,16 @@ public class EFormExportZip {
     }
 
     private void deleteDirectory(File directory) {
-        for (File file : directory.listFiles()) {
-            file.delete();
+        // Null-safe: this runs from importForm's finally, so a cleanup failure must never throw and
+        // mask the real exception. listFiles() returns null when the dir is missing/unreadable.
+        if (directory == null) {
+            return;
+        }
+        File[] contents = directory.listFiles();
+        if (contents != null) {
+            for (File file : contents) {
+                file.delete();
+            }
         }
         directory.delete();
     }
