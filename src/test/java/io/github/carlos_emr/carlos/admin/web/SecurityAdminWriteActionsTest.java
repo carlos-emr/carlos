@@ -109,8 +109,9 @@ class SecurityAdminWriteActionsTest extends CarlosUnitTestBase {
             String actionName, Function<CarlosMethodSecurity, ActionSupport> actionFactory) {
         when(methodSecurity.hasAdminWrite()).thenReturn(false);
         request.setMethod("POST");
+        ActionSupport action = actionFactory.apply(methodSecurity);
 
-        assertThatThrownBy(() -> actionFactory.apply(methodSecurity).execute())
+        assertThatThrownBy(action::execute)
                 .as("%s should reject POST without admin write privilege", actionName)
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("(_admin or _admin.userAdmin)");
