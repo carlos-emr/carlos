@@ -92,6 +92,10 @@ public final class PathValidationUtils {
      * @throws SecurityException if the allowed directory is null or the resulting path is outside it
      * @since 2025-12-09
      */
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
+        justification = "This method IS the sanitizer: sanitizeFileName strips traversal sequences "
+            + "and validateWithinDirectory performs a canonical-path containment check before "
+            + "any caller opens the returned File.")
     public static File validatePath(String userProvidedFileName, File allowedDir) {
         // 1. Sanitize filename
         String safeName = sanitizeFileName(userProvidedFileName);
@@ -612,6 +616,9 @@ public final class PathValidationUtils {
     // DIRECTORY MANAGEMENT
     // ========================================================================
 
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
+        justification = "getCanonicalPath() here resolves symlinks and normalises traversal "
+            + "sequences; it is the mechanism of the path-traversal defence, not a sink.")
     private static boolean isWithinDirectory(File file, File directory) {
         if (file == null || directory == null) {
             return false;

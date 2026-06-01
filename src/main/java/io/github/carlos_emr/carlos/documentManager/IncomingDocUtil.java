@@ -219,6 +219,9 @@ public final class IncomingDocUtil {
      * @throws IllegalArgumentException if pdfName contains path traversal sequences
      * @throws SecurityException if the resolved path is outside the allowed directory
      */
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
+        justification = "validateStrictFileName() rejects traversal sequences in pdfName; "
+            + "validateExistingPath() then confirms the resolved path stays inside INCOMINGDOCUMENT_DIR.")
     public static String getIncomingDocumentFilePathName(String queueId, String pdfDir, String pdfName) {
         // Validate pdfName to prevent path traversal
         pdfName = PathValidationUtils.validateStrictFileName(pdfName);
@@ -244,6 +247,9 @@ public final class IncomingDocUtil {
      * @throws IllegalArgumentException if pdfName contains path traversal sequences
      * @throws SecurityException if the resolved path is outside the allowed directory
      */
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
+        justification = "validatePathComponent() rejects traversal sequences in pdfName; "
+            + "the resolved path is then contained inside INCOMINGDOCUMENT_DIR.")
     public static String getAndCreateIncomingDocumentFilePathName(String queueId, String pdfDir, String pdfName) {
         // Validate pdfName to prevent path traversal
         pdfName = validatePathComponent(pdfName, "pdfName");
@@ -270,6 +276,9 @@ public final class IncomingDocUtil {
      * @throws IllegalArgumentException if queueId or pdfDir contains invalid characters
      * @throws SecurityException if the resolved path is outside the allowed directory
      */
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
+        justification = "pdfDir is whitelisted to {Fax, Mail, File, Refile}; "
+            + "PathValidationUtils.validateExistingPath() then confirms the path stays inside INCOMINGDOCUMENT_DIR.")
     public static String getIncomingDocumentDeletedFilePath(String queueId, String pdfDir) {
         String filePath;
 

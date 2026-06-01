@@ -52,6 +52,7 @@ import org.apache.pdfbox.rendering.PDFRenderer;
 import org.apache.pdfbox.rendering.ImageType;
 import javax.imageio.ImageIO;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -486,6 +487,10 @@ public class NioFileManagerImpl implements NioFileManager {
      * This method deletes the temporary file after successful copy.
      * Uses Apache Commons FilenameUtils for robust path security.
      */
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
+        justification = "FilenameUtils.getName() strips all directory components from tempFilePath "
+            + "before use, and PathValidationUtils.validatePath() then confirms the destination "
+            + "stays within the document directory.")
     public String copyFileToOscarDocuments(String tempFilePath) {
         try {
             // Use FilenameUtils.getName() to extract just the filename, removing any path components

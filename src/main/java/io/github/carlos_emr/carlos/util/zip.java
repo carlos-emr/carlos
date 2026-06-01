@@ -62,6 +62,10 @@ public class zip {
         write2Zip(fileformat);
     }
 
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
+        justification = "form_record_path is a server-configured CarlosProperties value, not user "
+            + "input. Files listed come from File.list() on that directory; fileformat is used "
+            + "only as an extension filter, not as a path component.")
     public void write2Zip(String fileformat) {
         MiscUtils.getLogger().debug("writing to Zip");
         try {
@@ -96,8 +100,11 @@ public class zip {
         }
     }
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value. PATH_TRAVERSAL_IN: dirName is server-configured; fName and zip entries are validated by PathValidationUtils.
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"},
+        justification = "IMPROPER_UNICODE: case-insensitive comparison of internal enum/MIME/code. "
+            + "PATH_TRAVERSAL_IN: dirName is a server-configured EDTFolder path; fName is validated "
+            + "by PathValidationUtils in the calling action; zip entries are sanitised by validatePath().")
     public static boolean unzipXML(String dirName, String fName) {
         int BUFFER = 2048;
 
