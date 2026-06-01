@@ -77,12 +77,15 @@ public class ConcatPDF {
     }
 
     /**
-     * This class can be used to concatenate existing PDF files.
+     * Concatenates the given PDF inputs (file paths or InputStreams) into {@code outputStream}.
+     * Inputs that cannot be opened/read are skipped rather than aborting the whole merge.
      * (This was an example known as PdfCopy.java)
+     *
+     * @return the number of inputs that were skipped; {@code 0} means every input was included
      */
     // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
-    public static void concat(List<Object> fileOrInputStreamPdfList, OutputStream outputStream) {
+    public static int concat(List<Object> fileOrInputStreamPdfList, OutputStream outputStream) {
         PDFMergerUtility pdfMerger = new PDFMergerUtility();
         PDDocument documentReader;
         int totalFiles = fileOrInputStreamPdfList.size();
@@ -137,6 +140,10 @@ public class ConcatPDF {
             MiscUtils.getLogger().error("Document merge failed.", e);
             throw new RuntimeException("PDF merge failed after processing " + totalFiles + " documents", e);
         }
+
+        // Return how many inputs were skipped (bad path / unreadable / corrupt) so direct-response
+        // callers can surface "N document(s) could not be included" instead of a silently truncated PDF.
+        return skippedFiles;
     }
 
 }

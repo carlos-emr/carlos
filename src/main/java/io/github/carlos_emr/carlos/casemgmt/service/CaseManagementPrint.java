@@ -392,13 +392,17 @@ public class CaseManagementPrint {
                 }
 
             }
-            ConcatPDF.concat(pdfDocs, os);
+            int skippedSections = ConcatPDF.concat(pdfDocs, os);
+            if (skippedSections > 0) {
+                logger.warn("Chart print: {} document section(s) omitted from the printed output", skippedSections);
+            }
         } catch (IOException | SecurityException e) {
-            // SecurityException covers PathValidationUtils rejecting a misconfigured temp/document
-            // directory or a generated lab-report filename; like an IOException it aborts this print
-            // rather than escaping uncaught into the direct-PDF servlet response (the CARLOS Error: 0 page).
-            logger.error("Error ", e);
-
+            // Every failure here occurs before any byte is written to the response stream (os is only
+            // written by ConcatPDF.concat above), so propagate instead of silently returning an empty,
+            // HTTP-200 PDF. The Struts direct-response caller resets the response and sends a real error;
+            // the REST StreamingOutput caller logs and closes. Mapped to IOException per the method contract.
+            logger.error("Chart print generation failed before any output was written", e);
+            throw new IOException("Failed to generate chart print PDF", e);
         } finally {
             if (out != null) {
                 out.close();

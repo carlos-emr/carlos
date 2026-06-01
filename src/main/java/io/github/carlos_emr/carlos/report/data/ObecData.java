@@ -105,20 +105,28 @@ public class ObecData {
     }
 
     public String writeFile(String value1, Properties pp) {
-        String obecFilename = "";
+        String oscarHome = pp.getProperty("DOCUMENT_DIR");
+
+        // Write the OBEC file to DOCUMENT_DIR first: this is the primary deliverable and must not
+        // depend on the optional outbox being configured.
+        String obecFilename = "OBECE" + System.currentTimeMillis() + ".TXT";
+        File srcFile;
         try {
-            String oscarHome = pp.getProperty("DOCUMENT_DIR");
-
-            // Write the OBEC file to DOCUMENT_DIR first: this is the primary deliverable and must not
-            // depend on the optional outbox being configured.
-            obecFilename = "OBECE" + System.currentTimeMillis() + ".TXT";
             File documentDir = PathValidationUtils.resolveConfiguredDirectory(oscarHome, "DOCUMENT_DIR");
-            File srcFile = PathValidationUtils.validateGeneratedChildPath(obecFilename, documentDir);
+            srcFile = PathValidationUtils.validateGeneratedChildPath(obecFilename, documentDir);
             Files.write(srcFile.toPath(), value1.getBytes(), StandardOpenOption.CREATE);
+        } catch (Exception e) {
+            // The primary DOCUMENT_DIR write failed (disk/permission/misconfiguration): return an empty
+            // name so callers/the UI surface failure instead of a filename that was never written.
+            logger.error("Error writing OBEC file to DOCUMENT_DIR", e);
+            return "";
+        }
 
-            // Copy to the EDT outbox as a best-effort step only when ONEDT_OUTBOX is configured.
-            // resolveConfiguredDirectory rejects a blank path, so guard it here rather than let an
-            // unset outbox prevent the DOCUMENT_DIR write above from ever happening.
+        // Copy to the EDT outbox as a best-effort step only when ONEDT_OUTBOX is configured.
+        // resolveConfiguredDirectory rejects a blank path, so guard it here rather than let an
+        // unset outbox prevent the DOCUMENT_DIR write above from ever happening. A failed copy does not
+        // void the OBEC (already written to DOCUMENT_DIR); it is logged but the filename is kept.
+        try {
             String outbox = pp.getProperty("ONEDT_OUTBOX", "");
             if (outbox.trim().isEmpty()) {
                 logger.warn("ONEDT_OUTBOX is not configured; OBEC file written to DOCUMENT_DIR but not copied to the outbox");
@@ -128,7 +136,7 @@ public class ObecData {
                 ActionUtils.copyFileToDirectory(srcFile, outboxFile, false, true);
             }
         } catch (Exception e) {
-            logger.error("Error writing or copying file", e);
+            logger.error("OBEC written to DOCUMENT_DIR but copy to ONEDT_OUTBOX failed", e);
         }
         return obecFilename;
     }

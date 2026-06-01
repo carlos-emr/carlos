@@ -96,7 +96,17 @@ public class CombinePDF2Action extends ActionSupport {
                     response.setHeader("Content-Disposition", "attachment; filename=\"combinedPDF-" + UtilDateUtilities.getToday("yyyy-MM-dd.hh.mm.ss") + ".pdf\"");
                 }
                 try {
-                    ConcatPDF.concat(alist, response.getOutputStream());
+                    // Buffer the merge first: skippedFiles is fully known before any byte is written,
+                    // so we can surface an error instead of streaming a silently-truncated PDF.
+                    java.io.ByteArrayOutputStream pdfBuffer = new java.io.ByteArrayOutputStream();
+                    int skipped = ConcatPDF.concat(alist, pdfBuffer);
+                    if (skipped > 0 && !response.isCommitted()) {
+                        response.reset();
+                        response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                                skipped + " of " + alist.size() + " document(s) could not be included; combined PDF not produced");
+                    } else {
+                        response.getOutputStream().write(pdfBuffer.toByteArray());
+                    }
                 } catch (IOException ex) {
                     MiscUtils.getLogger().error("Error", ex);
                 }
