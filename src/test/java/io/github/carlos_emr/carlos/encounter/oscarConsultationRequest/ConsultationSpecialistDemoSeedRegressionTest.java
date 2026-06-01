@@ -60,8 +60,8 @@ class ConsultationSpecialistDemoSeedRegressionTest {
                 "SET @service_geology := (",
                 "WHERE serviceDesc = 'Geology'",
                 "SET @service_radiology := (",
-                "WHERE serviceDesc = 'Radiology'");
-        assertThat(migrationSql).doesNotContain(
+                "WHERE serviceDesc = 'Radiology'")
+                .doesNotContain(
                 "serviceId IN (1, 2, 3, 4, 5, 6)",
                 "SELECT 3 AS serviceId");
     }
@@ -79,8 +79,8 @@ class ConsultationSpecialistDemoSeedRegressionTest {
         assertThat(migrationSql).contains(
                 "WHERE fName = 'John' AND lName = 'C'",
                 "WHERE fName = 'Danny' AND lName = 'L'",
-                "WHERE fName = 'Test' AND lName = '1'");
-        assertThat(migrationSql).doesNotContain("WHERE fName = '1' AND lName = 'Test'");
+                "WHERE fName = 'Test' AND lName = '1'")
+                .doesNotContain("WHERE fName = '1' AND lName = 'Test'");
     }
 
     @Test
