@@ -161,9 +161,12 @@ public class Upload2Action extends ActionSupport implements UploadedFilesAware {
     public String uploadToMcedt() {
         if (this.getResourceId().equals(new BigInteger("-1"))) {
             List<UploadData> uploads = new ArrayList<UploadData>();
-            uploads.add(toUpload());
 
             try {
+                // toUpload() resolves ONEDT_OUTBOX and can throw (blank/misconfigured outbox →
+                // SecurityException, or unreadable file → RuntimeException). Build it inside the try so
+                // the outer catch returns a graceful "failure" instead of escaping as an unhandled 500.
+                uploads.add(toUpload());
                 EDTDelegate delegate = DelegateFactory.getEDTDelegateInstance(ActionUtils.getServiceId(this.getDescription()));
                 ResourceResult result;
 

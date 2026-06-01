@@ -59,6 +59,7 @@ import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentSubCla
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToProvider;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -184,6 +185,13 @@ public class HRMReportParser {
                 if (errors != null) errors.add(e);
             } catch (IOException e) {
                 logger.error("ERROR READING report_manager_cds.xsd RESOURCE", e);
+                if (errors != null) errors.add(e);
+            } catch (SecurityException e) {
+                // PathValidationUtils rejects a misconfigured DOCUMENT_DIR or a DB-sourced report path
+                // that escapes it (FileValidationException extends SecurityException). Honour the
+                // null-return contract every loop caller relies on instead of letting the throw abort
+                // the whole HRM list render / batch import.
+                logger.error("Rejected HRM report path; skipping document: {}", LogSafe.sanitize(hrmReportFileLocation));
                 if (errors != null) errors.add(e);
             }
 

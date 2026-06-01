@@ -109,7 +109,9 @@ public class TeleplanResponse {
             }
 
 
-        } catch (IOException e) {
+        } catch (IOException | SecurityException e) {
+            // SecurityException covers PathValidationUtils rejecting a misconfigured DOCUMENT_DIR or a
+            // generated destination; clean up the partial temp file like the IOException path.
             MiscUtils.getLogger().error("Error", e);
             if (tempFile != null && tempFile.exists() && !tempFile.delete()) {
                 log.warn("Could not delete partial Teleplan response file");

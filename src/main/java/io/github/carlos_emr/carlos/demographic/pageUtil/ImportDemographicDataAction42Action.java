@@ -3331,8 +3331,16 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
 
         // Try candidate with extension
         if (contentType != null && !contentType.isEmpty()) {
-            File withExt = PathValidationUtils.validateGeneratedChildPath(candidate.getName() + contentType, candidate.getParentFile());
-            return tryValidateExisting(withExt, allowedRoot, originalPath);
+            // contentType is attacker-controlled XML content; a path-bearing value would make
+            // validateGeneratedChildPath throw (FileValidationException extends SecurityException).
+            // Treat that as "not found" so one malformed report cannot abort the whole batch import.
+            try {
+                File withExt = PathValidationUtils.validateGeneratedChildPath(candidate.getName() + contentType, candidate.getParentFile());
+                return tryValidateExisting(withExt, allowedRoot, originalPath);
+            } catch (SecurityException e) {
+                logger.warn("Skipping report candidate with invalid generated name");
+                return null;
+            }
         }
 
         return null;

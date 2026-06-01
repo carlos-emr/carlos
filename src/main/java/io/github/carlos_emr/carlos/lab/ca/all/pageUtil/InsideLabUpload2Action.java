@@ -151,7 +151,9 @@ public class InsideLabUpload2Action extends ActionSupport implements UploadedFil
             String filePath = Utilities.saveFile(inputStream, fileName);
             // Continue with your existing processing logic
             return processFile(loggedInInfo, ServletActionContext.getRequest(), filePath, getFileType(ServletActionContext.getRequest()));
-        } catch (IOException e) {
+        } catch (IOException | SecurityException e) {
+            // SecurityException covers PathValidationUtils rejecting a misconfigured DOCUMENT_DIR or a
+            // bad saved path; fail just this file (like an IOException) instead of aborting the batch.
             MiscUtils.getLogger().error("Error processing file: " + fileName, e);
             return FileStatus.FAILED;
         }

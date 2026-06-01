@@ -172,7 +172,9 @@ public class Util {
             } else {
                 return false;
             }
-        } catch (IOException ex) {
+        } catch (IOException | SecurityException ex) {
+            // resolveConfiguredDirectory throws SecurityException on a blank/non-directory dirName;
+            // catch it here so this method honours its boolean contract instead of throwing.
             logger.error("Error", ex);
         }
         logger.error("Error! Cannot write to directory [" + dirName + "]");
@@ -190,21 +192,18 @@ public class Util {
             return false;
         }
 
-        // Create the base directory
-        File baseDir = PathValidationUtils.resolveConfiguredDirectory(dirname, "cleanup directory");
-
-        // Create the target file
-        File f = new File(baseDir, safeFileName);
-
-        // Validate that the resolved path is within the allowed directory
+        // Resolve the base directory + target file and validate containment inside one guarded block.
+        // resolveConfiguredDirectory throws SecurityException on a blank/non-directory dirname; keep it
+        // here so this boolean cleanup method degrades to false instead of throwing unchecked.
         try {
+            File baseDir = PathValidationUtils.resolveConfiguredDirectory(dirname, "cleanup directory");
+            File f = new File(baseDir, safeFileName);
             f = PathValidationUtils.validateExistingPath(f, baseDir);
+            return cleanFile(f);
         } catch (SecurityException e) {
             logger.error("Error! Attempted path traversal attack detected for file: {}", LogSafe.sanitize(filename));
             return false;
         }
-
-        return cleanFile(f);
     }
 
     static public boolean cleanFile(String filename) {
