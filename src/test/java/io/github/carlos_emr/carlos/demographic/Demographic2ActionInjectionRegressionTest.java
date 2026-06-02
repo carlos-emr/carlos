@@ -47,8 +47,9 @@ class Demographic2ActionInjectionRegressionTest {
 
     private static final Path DEMOGRAPHIC_SOURCE_DIR =
             Path.of("src/main/java/io/github/carlos_emr/carlos/demographic");
+    private static final Path STRUTS_CONFIG = Path.of("src/main/webapp/WEB-INF/classes/struts.xml");
     private static final Pattern FIELD_GET_BEAN = Pattern.compile(
-            "^    (?:(?:private|protected|public)\\s+)?(?:static\\s+)?(?:final\\s+)?[A-Z][^;=]+\\s+\\w+\\s*=\\s*(?:\\([^)]*\\)\\s*)?SpringUtils\\.getBean\\([^;]+;\\s*$");
+            "^    (?:(?:private|protected|public)\\s+)?(?:(?:static|final|transient)\\s+)*[A-Z][^;=]+\\s+\\w+\\s*=\\s*(?:\\([^)]*\\)\\s*)?SpringUtils\\.getBean\\([^;]+;\\s*$");
 
     @Test
     @DisplayName("should use constructor injection instead of SpringUtils field shims")
@@ -64,6 +65,16 @@ class Demographic2ActionInjectionRegressionTest {
         assertThat(violations)
                 .as("demographic 2Actions should receive Spring beans through constructors")
                 .isEmpty();
+    }
+
+    @Test
+    @DisplayName("should configure Struts Spring object factory for constructor injection")
+    void shouldConfigureStrutsSpringObjectFactory_forConstructorInjection() throws IOException {
+        String strutsConfig = Files.readString(STRUTS_CONFIG, StandardCharsets.UTF_8);
+
+        assertThat(strutsConfig)
+                .contains("<constant name=\"struts.objectFactory\" value=\"spring\"/>")
+                .contains("<constant name=\"struts.objectFactory.spring.autoWire\" value=\"constructor\"/>");
     }
 
     private static Stream<String> fieldGetBeanViolations(Path path) {

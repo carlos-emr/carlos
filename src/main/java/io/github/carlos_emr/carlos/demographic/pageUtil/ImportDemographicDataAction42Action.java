@@ -199,6 +199,28 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
 
     private final transient NioFileManager nioFileManager;
 
+    /**
+     * Creates the import action with dependencies supplied by Struts Spring constructor injection.
+     *
+     * @param securityInfoManager manager used to authorize demographic import access
+     * @param programManager manager used to load program metadata during imports
+     * @param admissionManager manager used to load and update admissions
+     * @param admissionDao DAO used for admission persistence
+     * @param caseManagementManager manager used for case-management import records
+     * @param drugDao DAO used to persist imported medication records
+     * @param drugReasonDao DAO used to persist imported medication reasons
+     * @param demoArchiveDao DAO used to persist demographic archive records
+     * @param providerDataDao DAO used to load provider data during imports
+     * @param partialDateDao DAO used to persist partial-date values
+     * @param demographicExtDao DAO used to persist demographic extension values
+     * @param appointmentDao DAO used to persist imported appointments
+     * @param patientLabRoutingDao DAO used to route imported patient lab records
+     * @param providerLabRoutingDao DAO used to route imported provider lab records
+     * @param measurementsExtDao DAO used to persist imported measurement extensions
+     * @param contactDao DAO used to persist imported demographic contacts
+     * @param nioFileManager manager used to resolve configured import file locations
+     * @since 2026-06-01
+     */
     @SuppressWarnings("java:S107")
     public ImportDemographicDataAction42Action(
             SecurityInfoManager securityInfoManager,

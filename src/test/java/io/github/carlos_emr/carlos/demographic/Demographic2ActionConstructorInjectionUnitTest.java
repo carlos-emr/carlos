@@ -24,8 +24,14 @@ package io.github.carlos_emr.carlos.demographic;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
+import java.io.IOException;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Modifier;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.stream.Stream;
 
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
@@ -45,6 +51,10 @@ import org.junit.jupiter.params.provider.MethodSource;
 @Tag("web")
 @Tag("demographic")
 class Demographic2ActionConstructorInjectionUnitTest extends CarlosWebTestBase {
+
+    private static final Path DEMOGRAPHIC_SOURCE_DIR =
+            Path.of("src/main/java/io/github/carlos_emr/carlos/demographic");
+    private static final String DEMOGRAPHIC_PACKAGE = "io.github.carlos_emr.carlos.demographic";
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("constructorInjectedActions")
@@ -84,54 +94,41 @@ class Demographic2ActionConstructorInjectionUnitTest extends CarlosWebTestBase {
         return mock(dependencyType);
     }
 
-    private static Stream<Class<?>> constructorInjectedActions() {
-        return Stream.of(
-                io.github.carlos_emr.carlos.demographic.PrintClientLabLabel2Action.class,
-                io.github.carlos_emr.carlos.demographic.PrintDemoAddressLabel2Action.class,
-                io.github.carlos_emr.carlos.demographic.PrintDemoChartLabel2Action.class,
-                io.github.carlos_emr.carlos.demographic.PrintDemoLabel2Action.class,
-                io.github.carlos_emr.carlos.demographic.gate.ViewAddDemoToPatientSet2Action.class,
-                io.github.carlos_emr.carlos.demographic.gate.ViewAddNewDemographicSwipe2Action.class,
-                io.github.carlos_emr.carlos.demographic.gate.ViewContact2Action.class,
-                io.github.carlos_emr.carlos.demographic.gate.ViewContactSearch2Action.class,
-                io.github.carlos_emr.carlos.demographic.gate.ViewDemographicAddARecordHtm2Action.class,
-                io.github.carlos_emr.carlos.demographic.gate.ViewDemographicAudit2Action.class,
-                io.github.carlos_emr.carlos.demographic.gate.ViewDemographicCohort2Action.class,
-                io.github.carlos_emr.carlos.demographic.gate.ViewDemographicEditDemographicJs2Action.class,
-                io.github.carlos_emr.carlos.demographic.gate.ViewDemographicLabelPrintSetting2Action.class,
-                io.github.carlos_emr.carlos.demographic.gate.ViewDemographicPrintDemographic2Action.class,
-                io.github.carlos_emr.carlos.demographic.gate.ViewDemographicSearch2ReportResults2Action.class,
-                io.github.carlos_emr.carlos.demographic.gate.ViewDisplayFirstNationsModule2Action.class,
-                io.github.carlos_emr.carlos.demographic.gate.ViewDisplayHealthCareTeam2Action.class,
-                io.github.carlos_emr.carlos.demographic.gate.ViewEnrollmentHistory2Action.class,
-                io.github.carlos_emr.carlos.demographic.gate.ViewManageFirstNationsModule2Action.class,
-                io.github.carlos_emr.carlos.demographic.gate.ViewManageHealthCareTeam2Action.class,
-                io.github.carlos_emr.carlos.demographic.gate.ViewPrintAddressLabel2Action.class,
-                io.github.carlos_emr.carlos.demographic.gate.ViewPrintClientLabLabel2Action.class,
-                io.github.carlos_emr.carlos.demographic.gate.ViewPrintDemoChartLabel2Action.class,
-                io.github.carlos_emr.carlos.demographic.gate.ViewPrintDemoLabel2Action.class,
-                io.github.carlos_emr.carlos.demographic.gate.ViewPrintEnvelope2Action.class,
-                io.github.carlos_emr.carlos.demographic.gate.ViewProContact2Action.class,
-                io.github.carlos_emr.carlos.demographic.gate.ViewProContactSearch2Action.class,
-                io.github.carlos_emr.carlos.demographic.gate.ViewProfessionalSpecialistSearch2Action.class,
-                io.github.carlos_emr.carlos.demographic.gate.ViewSearch2Action.class,
-                io.github.carlos_emr.carlos.demographic.gate.ViewZdemographicFullTitleSearch2Action.class,
-                io.github.carlos_emr.carlos.demographic.gate.ViewZdemographicSwipe2Action.class,
-                io.github.carlos_emr.carlos.demographic.pageUtil.AddDemographicRelationship2Action.class,
-                io.github.carlos_emr.carlos.demographic.pageUtil.DeleteDemographicRelationship2Action.class,
-                io.github.carlos_emr.carlos.demographic.pageUtil.DemographicAdd2Action.class,
-                io.github.carlos_emr.carlos.demographic.pageUtil.DemographicAddRecord2Action.class,
-                io.github.carlos_emr.carlos.demographic.pageUtil.DemographicApptHistory2Action.class,
-                io.github.carlos_emr.carlos.demographic.pageUtil.DemographicEdit2Action.class,
-                io.github.carlos_emr.carlos.demographic.pageUtil.DemographicExportAction42Action.class,
-                io.github.carlos_emr.carlos.demographic.pageUtil.DemographicLinkMsg2Action.class,
-                io.github.carlos_emr.carlos.demographic.pageUtil.DemographicMergeRecord2Action.class,
-                io.github.carlos_emr.carlos.demographic.pageUtil.DemographicPdfLabel2Action.class,
-                io.github.carlos_emr.carlos.demographic.pageUtil.DemographicSearch2Action.class,
-                io.github.carlos_emr.carlos.demographic.pageUtil.DemographicUpdate2Action.class,
-                io.github.carlos_emr.carlos.demographic.pageUtil.ImportDemographicDataAction42Action.class,
-                io.github.carlos_emr.carlos.demographic.pageUtil.ImportLogDownload2Action.class,
-                io.github.carlos_emr.carlos.demographic.pageUtil.RourkeExport2Action.class
-        );
+    private static Stream<Class<?>> constructorInjectedActions() throws IOException {
+        try (Stream<Path> sourceFiles = Files.walk(DEMOGRAPHIC_SOURCE_DIR)) {
+            return sourceFiles
+                    .filter(path -> path.getFileName().toString().endsWith("2Action.java"))
+                    .filter(Demographic2ActionConstructorInjectionUnitTest::declaresConstructorInjectedDependencies)
+                    .map(Demographic2ActionConstructorInjectionUnitTest::sourcePathToClass)
+                    .filter(Demographic2ActionConstructorInjectionUnitTest::isConcreteClass)
+                    .sorted(Comparator.comparing(Class::getName))
+                    .toList()
+                    .stream();
+        }
+    }
+
+    private static boolean declaresConstructorInjectedDependencies(Path path) {
+        try {
+            return Files.readString(path, StandardCharsets.UTF_8).contains("private final transient ");
+        } catch (IOException e) {
+            throw new IllegalStateException("Unable to read " + path, e);
+        }
+    }
+
+    private static Class<?> sourcePathToClass(Path path) {
+        String relativeClassName = DEMOGRAPHIC_SOURCE_DIR.relativize(path).toString()
+                .replace('/', '.')
+                .replace('\\', '.')
+                .replaceAll("\\.java$", "");
+        try {
+            return Class.forName(DEMOGRAPHIC_PACKAGE + "." + relativeClassName);
+        } catch (ClassNotFoundException e) {
+            throw new IllegalStateException("Unable to load action class for " + path, e);
+        }
+    }
+
+    private static boolean isConcreteClass(Class<?> actionClass) {
+        int modifiers = actionClass.getModifiers();
+        return !actionClass.isInterface() && !Modifier.isAbstract(modifiers);
     }
 }

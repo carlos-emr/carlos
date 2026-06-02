@@ -34,6 +34,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.Objects;
 import java.io.InputStream;
 import java.io.OutputStream;
 
@@ -64,7 +65,7 @@ public class ImportLogDownload2Action extends ActionSupport {
     private final transient SecurityInfoManager securityInfoManager;
 
     public ImportLogDownload2Action(SecurityInfoManager securityInfoManager) {
-        this.securityInfoManager = securityInfoManager;
+        this.securityInfoManager = Objects.requireNonNull(securityInfoManager, "securityInfoManager");
     }
     public String execute() throws FileNotFoundException, IOException {
         // Security check - user must have demographic read privileges

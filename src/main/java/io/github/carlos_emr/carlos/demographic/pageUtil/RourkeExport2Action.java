@@ -45,6 +45,8 @@ import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.DataExport;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.form.model.FormRourke2009;
@@ -73,6 +75,18 @@ public class RourkeExport2Action extends ActionSupport {
     private final transient DemographicDao demographicDao;
     private final transient Rourke2009DAO frmRourke2009DAO;
 
+    /**
+     * Creates the Rourke export action with dependencies supplied by Struts Spring constructor injection.
+     * This replaces the legacy {@link SpringUtils} field lookups while preserving the current develop
+     * path-validation changes in this action.
+     *
+     * @param securityInfoManager manager used to authorize demographic export access
+     * @param clinicDAO DAO used to load clinic metadata for the export
+     * @param dataExportDAO DAO used to persist export audit records
+     * @param demographicDao DAO used to load demographic records for export
+     * @param frmRourke2009DAO DAO used to load Rourke 2009 form data
+     * @since 2026-06-01
+     */
     public RourkeExport2Action(
             SecurityInfoManager securityInfoManager,
             ClinicDAO clinicDAO,
@@ -3769,7 +3783,8 @@ public class RourkeExport2Action extends ActionSupport {
         options.setSaveOuter();
 
         String fileName = "Rourke2009Export.xml";
-        File xmlFile = new File(tmpDir, fileName);
+        File tmpDirectory = PathValidationUtils.resolveConfiguredDirectory(tmpDir, "Rourke export temp directory");
+        File xmlFile = PathValidationUtils.validateGeneratedChildPath(fileName, tmpDirectory);
         try {
             patientDocument.save(xmlFile, options);
         } catch (IOException e) {
@@ -3781,13 +3796,15 @@ public class RourkeExport2Action extends ActionSupport {
         //Zip export files
         String zipName = "rourke2009_export-" + UtilDateUtilities.getToday("yyyy-MM-dd.HH.mm.ss") + ".zip";
         if (!Util.zipFiles(files, zipName, tmpDir)) {
+            // Abort rather than copying a missing/partial zip into DOCUMENT_DIR below.
             MiscUtils.getLogger().error("Error! Failed zipping export files");
+            throw new Exception("Failed to zip Rourke export files; aborting export");
         }
 
         //copy zip to document directory
-        File zipFile = new File(tmpDir, zipName);
+        File zipFile = PathValidationUtils.validateGeneratedChildPath(zipName, tmpDirectory);
         CarlosProperties properties = CarlosProperties.getInstance();
-        File destDir = new File(properties.getProperty("DOCUMENT_DIR"));
+        File destDir = PathValidationUtils.resolveConfiguredDirectory(properties.getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
         org.apache.commons.io.FileUtils.copyFileToDirectory(zipFile, destDir);
 
         //Remove zip & export files from temp dir
