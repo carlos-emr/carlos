@@ -449,17 +449,17 @@ public class MoveMohFiles2Action extends ActionSupport {
      * @param file File object representing the MOH billing file to move to archive
      * @return boolean true if the file was successfully moved to the archive directory, false if the move failed
      */
-    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
+    // FindSecBugs PATH_TRAVERSAL_IN: trusted configured archive directory is canonicalized before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "trusted configured archive directory is canonicalized before use")
     private boolean moveFile(File file) {
-    File archiveDir = new File(EDTFolder.ARCHIVE.getPath());
-    try {
-        FileUtils.moveToDirectory(file, archiveDir, true);
-    } catch (IOException e) {
-        logger.error("Unable to move", e);
-        return false;
-    }
-    return true;
+        try {
+            File archiveDir = PathValidationUtils.resolveConfiguredDirectory(EDTFolder.ARCHIVE.getPath(), "ONEDT_ARCHIVE");
+            FileUtils.moveToDirectory(file, archiveDir, true);
+        } catch (IOException | SecurityException e) {
+            logger.error("Unable to move", e);
+            return false;
+        }
+        return true;
     }
 
     /**

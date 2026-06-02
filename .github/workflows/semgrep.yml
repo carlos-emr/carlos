@@ -56,7 +56,6 @@ jobs:
           SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
         run: |
           semgrep ci \
-            --exclude-rule java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss \
             --sarif --output semgrep.sarif
 
       - name: Run CARLOS custom Semgrep rules

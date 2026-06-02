@@ -138,10 +138,12 @@ public class DefaultHandler implements MessageHandler {
             // Validate the file is within the expected document directory
             CarlosProperties props = CarlosProperties.getInstance();
             String documentDir = props.getProperty("DOCUMENT_DIR");
-            if (documentDir != null && !documentDir.isEmpty()) {
-                File docDir = new File(documentDir).getCanonicalFile();
-                file = PathValidationUtils.validateExistingPath(file, docDir);
+            if (documentDir == null || documentDir.trim().isEmpty()) {
+                logger.error("DOCUMENT_DIR is not configured while parsing XML file: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                return null;
             }
+            File docDir = PathValidationUtils.validateConfiguredDirectory(documentDir, "DOCUMENT_DIR");
+            file = PathValidationUtils.validateExistingPath(file, docDir);
 
             // Ensure the file exists and is a regular file
             if (!file.exists() || !file.isFile()) {
@@ -179,10 +181,11 @@ public class DefaultHandler implements MessageHandler {
         // Validate the file is within the expected document directory
         CarlosProperties props = CarlosProperties.getInstance();
         String documentDir = props.getProperty("DOCUMENT_DIR");
-        if (documentDir != null && !documentDir.isEmpty()) {
-            File docDir = new File(documentDir).getCanonicalFile();
-            file = PathValidationUtils.validateExistingPath(file, docDir);
+        if (documentDir == null || documentDir.trim().isEmpty()) {
+            throw new IOException("DOCUMENT_DIR is not configured while reading lab text file");
         }
+        File docDir = PathValidationUtils.validateConfiguredDirectory(documentDir, "DOCUMENT_DIR");
+        file = PathValidationUtils.validateExistingPath(file, docDir);
 
         StringBuilder sb = new StringBuilder(1024);
         // Use the validated file object instead of the raw path
@@ -191,7 +194,7 @@ public class DefaultHandler implements MessageHandler {
         char[] chars = new char[1024];
         int numRead = 0;
         while ((numRead = reader.read(chars)) > -1) {
-            sb.append(String.valueOf(chars));
+            sb.append(chars, 0, numRead);
         }
 
         reader.close();

@@ -572,7 +572,8 @@ public class OhipClaimExtractService implements Serializable {
         String home_dir = CarlosProperties.getInstance().getProperty("HOME_DIR");
         File safeFile;
         try {
-            safeFile = PathValidationUtils.validatePath(ohipFilename, new File(home_dir));
+            File homeDir = PathValidationUtils.validateConfiguredDirectory(home_dir, "HOME_DIR");
+            safeFile = PathValidationUtils.validatePath(ohipFilename, homeDir);
         } catch (SecurityException e) {
             logger.error("Path traversal attempt detected for OHIP file: {}", ohipFilename, e);
             throw new BillingFileWriteException(
@@ -601,7 +602,8 @@ public class OhipClaimExtractService implements Serializable {
         String home_dir1 = CarlosProperties.getInstance().getProperty("HOME_DIR");
         File safeFile;
         try {
-            safeFile = PathValidationUtils.validatePath(htmlFilename, new File(home_dir1));
+            File homeDir = PathValidationUtils.validateConfiguredDirectory(home_dir1, "HOME_DIR");
+            safeFile = PathValidationUtils.validatePath(htmlFilename, homeDir);
         } catch (SecurityException e) {
             logger.error("Path traversal attempt detected for HTML file: {}", htmlFilename, e);
             throw new BillingFileWriteException(

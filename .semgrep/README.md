@@ -1,9 +1,9 @@
 # CARLOS EMR — Custom Semgrep Rules
 
-This directory contains custom [Semgrep](https://semgrep.dev/) taint-mode rules
-that recognize project-specific sanitizers. Without these rules, Semgrep's
-built-in rules produce false positives because they cannot trace data flow
-through custom sanitizer methods.
+This directory contains custom [Semgrep](https://semgrep.dev/) rules that
+recognize project-specific sanitizers. Most are taint-mode replacements for
+built-in rules; the JSP scriptlet rule is a supplemental generic-mode rule
+because Semgrep OSS does not support taint-mode with generic JSP matching.
 
 ## Why Custom Rules?
 
@@ -18,7 +18,7 @@ recognizing that the data has been sanitized by project utilities like
 | File | Replaces | Sanitizer Recognized | False Positives Resolved |
 |------|----------|---------------------|------------------------:|
 | `crlf-injection-logs-carlos.yml` | 3 built-in CRLF log injection rules | `LogSanitizer.sanitize()`, `Encode.forJava(...)` | ~128 |
-| `jsp-scriptlet-xss-carlos.yml` | 1 built-in JSP scriptlet XSS rule | `<carlos:encode>`, `${carlos:forXxx(...)}`, `SafeEncode.forXxx(...)`, `Encode.forXxx(...)`, `URLEncoder.encode(...)` | 174 |
+| `jsp-scriptlet-xss-carlos.yml` | Supplements the built-in JSP scriptlet XSS rule | `<carlos:encode>`, `${carlos:forXxx(...)}`, `SafeEncode.forXxx(...)`, `Encode.forXxx(...)`, `URLEncoder.encode(...)` | direct request-output FPs |
 
 ## Built-in Rules to Disable in Semgrep Cloud
 
@@ -35,11 +35,10 @@ to avoid duplicate alerts:
 
 ### JSP Scriptlet XSS (`jsp-scriptlet-xss-carlos.yml`)
 
-- `java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss`
-
-This rule is also excluded by the GitHub Actions workflow via
-`--exclude-rule` while the local CARLOS replacement rule is uploaded as a
-separate SARIF file.
+Do **not** disable `java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss` while this
+rule is generic-mode. The CARLOS rule recognizes common encoded direct-output
+patterns and includes supplemental request-variable matching, but the built-in
+rule remains responsible for broader JSP data-flow coverage.
 
 ## Running Locally
 
@@ -64,14 +63,16 @@ Semgrep Cloud policy. `semgrep ci` does not support `--config`, so local CARLOS
 rules that should run in GitHub Actions must be invoked with a separate
 `semgrep scan --config ...` step and uploaded as their own SARIF file.
 
-For `jsp-scriptlet-xss-carlos.yml`, the workflow excludes the noisy built-in rule
-from the Cloud scan with `--exclude-rule` and uploads the local replacement scan
-as `semgrep-carlos.sarif`.
+For `jsp-scriptlet-xss-carlos.yml`, the workflow keeps the built-in Semgrep
+Cloud rule enabled and uploads the local supplemental CARLOS scan as
+`semgrep-carlos.sarif`.
 
 ## Maintenance
 
-- **Adding a new sanitizer**: Add a `- pattern: NewSanitizer.method(...)` entry
-  under `pattern-sanitizers` in the relevant rule file.
+- **Adding a new sanitizer**: For taint-mode rules, add a `- pattern: NewSanitizer.method(...)`
+  entry under `pattern-sanitizers`. For generic-mode rules, add a matching
+  `pattern-not-regex` exclusion and keep the built-in rule enabled unless local
+  tests prove equivalent flow coverage.
 - **Adding a new rule**: Create a new `.yml` file in this directory following the
   existing naming convention (`<vuln-type>-carlos.yml`). Document the replaced
   built-in rules in this README and disable them in Semgrep Cloud.

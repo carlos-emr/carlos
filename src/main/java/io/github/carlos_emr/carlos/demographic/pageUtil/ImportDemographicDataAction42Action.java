@@ -3387,8 +3387,6 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
      * @param normalizedPath the normalized path to check
      * @return true if the path is absolute, false otherwise
      */
-    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private boolean isAbsoluteReportPath(String normalizedPath) {
         if (normalizedPath == null) {
             return false;

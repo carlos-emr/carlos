@@ -195,6 +195,7 @@ public class FHIRCommunicationRequestHandler implements MessageHandler {
 
         } catch (Exception e) {
             logger.error("error parsing Document Reference Document", e);
+            return null;
         } finally {
             IOUtils.closeQuietly(in);
         }
