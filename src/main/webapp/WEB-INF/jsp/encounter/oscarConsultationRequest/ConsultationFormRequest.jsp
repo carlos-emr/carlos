@@ -2160,7 +2160,7 @@ if (userAgent != null) {
         <%-- Page Header --%>
         <div class="page-header-bar d-flex align-items-center justify-content-between">
             <h4 class="page-header-title mb-0">
-                <i class="fa-solid fa-file-medical me-2"></i>Consultation Request
+                <i class="fa-solid fa-file-medical me-2"></i><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.title"/>
             </h4>
             <div class="d-flex align-items-center gap-2">
                 <span class="badge bg-light text-dark border" style="font-size:0.85rem;">
@@ -2431,8 +2431,8 @@ if (userAgent != null) {
                                         <div class="row g-2" style="font-size:0.85rem;">
                                             <div class="col-md-4">
                                                 <small class="text-muted"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgAddress"/></small><br>
-                                                <div style="white-space: pre-line;">
-                                                <carlos:encode value='<%= thisForm.getPatientAddress() %>' context="html"/>
+                                                <div>
+                                                <%= Encode.forHtml(thisForm.getPatientAddress()).replace("&lt;br /&gt;","<br>") %>
                                                 </div>
                                             </div>
                                             <div class="col-md-4">
