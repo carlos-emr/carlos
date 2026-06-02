@@ -1,0 +1,10 @@
+---
+library: true
+warnOnImplicitThis: false
+name: carlos-emr/carlos-codeql-customizations
+version: 0.0.1
+buildMetadata:
+  sha: f6de5ce6b57056313c60dc784dfca27991ada298
+  cliVersion: 2.25.5
+dependencies:
+  codeql/java-all: '*'
