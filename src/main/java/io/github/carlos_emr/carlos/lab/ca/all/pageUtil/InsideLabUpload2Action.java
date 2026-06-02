@@ -154,7 +154,7 @@ public class InsideLabUpload2Action extends ActionSupport implements UploadedFil
             }
             // Continue with your existing processing logic
             return processFile(loggedInInfo, ServletActionContext.getRequest(), filePath, getFileType(ServletActionContext.getRequest()));
-        } catch (IOException e) {
+        } catch (IOException | SecurityException e) {
             MiscUtils.getLogger().error("Error processing file: {}", LogSafe.sanitize(fileName), e); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
             return FileStatus.FAILED;
         }

@@ -139,6 +139,8 @@ public final class Factory {
             try {
                 labTypesPath = PathValidationUtils.validateConfiguredFile(labTypesPathOverride, "LAB_TYPES").toPath();
             } catch (SecurityException e) {
+                // Invalid/missing LAB_TYPES override: log and fall back to the bundled default
+                // configuration resolved above rather than failing lab message parsing outright.
                 logger.error("Configured LAB_TYPES override is invalid; using default message configuration instead", e);
             }
         }

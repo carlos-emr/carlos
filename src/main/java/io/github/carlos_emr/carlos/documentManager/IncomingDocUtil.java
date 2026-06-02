@@ -165,7 +165,7 @@ public final class IncomingDocUtil {
             }
         };
 
-        File dir = new File(directory);
+        File dir = PathValidationUtils.validateConfiguredDirectory(directory, "incoming document directory");
         File[] listOfFiles = dir.listFiles(pdfFilter);
         if (listOfFiles != null) {
 
@@ -420,6 +420,8 @@ public final class IncomingDocUtil {
      * @param degrees int the rotation angle in degrees (e.g., 90, 180, -90)
      * @throws Exception if the rotation, file deletion, or rename operation fails
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static void rotatePage(String queueId, String myPdfDir, String myPdfName, String MyPdfPageNumber, int degrees) throws Exception {
         long lastModified;
         String filePathName, tempFilePathName;
@@ -434,7 +436,8 @@ public final class IncomingDocUtil {
         tempFilePathName = validatedTempFile.getPath();
         filePathName = getIncomingDocumentFilePathName(queueId, myPdfDir, myPdfName);
 
-        File f = new File(filePathName);
+        File f = PathValidationUtils.validateExistingPath(new File(filePathName), new File(basePath));
+        filePathName = f.getPath();
         lastModified = f.lastModified();
 
         try (PdfReader reader = new PdfReader(filePathName);
@@ -452,9 +455,9 @@ public final class IncomingDocUtil {
         boolean success = f.delete();
 
         if (success) {
-            File f1 = new File(tempFilePathName);
+            File f1 = PathValidationUtils.validateExistingPath(new File(tempFilePathName), new File(basePath));
             f1.setLastModified(lastModified);
-            success = f1.renameTo(new File(filePathName));
+            success = f1.renameTo(f);
             if (!success) {
                 throw new Exception("Error in renaming file from:" + tempFilePathName + " to " + filePathName);
             }
@@ -474,6 +477,8 @@ public final class IncomingDocUtil {
      * @param degrees int the rotation angle in degrees (e.g., 90, 180, -90)
      * @throws Exception if the rotation, file deletion, or rename operation fails
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static void rotateAlPages(String queueId, String myPdfDir, String myPdfName, int degrees) throws Exception {
         long lastModified;
         String filePathName, tempFilePathName;
@@ -488,7 +493,8 @@ public final class IncomingDocUtil {
         tempFilePathName = validatedTempFile.getPath();
         filePathName = getIncomingDocumentFilePathName(queueId, myPdfDir, myPdfName);
 
-        File f = new File(filePathName);
+        File f = PathValidationUtils.validateExistingPath(new File(filePathName), new File(basePath));
+        filePathName = f.getPath();
         lastModified = f.lastModified();
 
         try (PdfReader reader = new PdfReader(filePathName);
@@ -507,9 +513,9 @@ public final class IncomingDocUtil {
         boolean success = f.delete();
 
         if (success) {
-            File f1 = new File(tempFilePathName);
+            File f1 = PathValidationUtils.validateExistingPath(new File(tempFilePathName), new File(basePath));
             f1.setLastModified(lastModified);
-            success = f1.renameTo(new File(filePathName));
+            success = f1.renameTo(f);
             if (!success) {
                 throw new Exception("Error in renaming file from:" + tempFilePathName + "to " + filePathName);
             }
@@ -530,6 +536,8 @@ public final class IncomingDocUtil {
      * @param PageNumberToDelete String the 1-based page number to delete
      * @throws Exception if the page deletion, file operations, or rename fails
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static void deletePage(String queueId, String myPdfDir, String myPdfName, String PageNumberToDelete) throws Exception {
         long lastModified;
         String filePathName, tempFilePathName;
@@ -542,11 +550,12 @@ public final class IncomingDocUtil {
         tempFilePathName = validatedTempFile.getPath();
         filePathName = getIncomingDocumentFilePathName(queueId, myPdfDir, myPdfName);
 
-        File f = new File(filePathName);
+        File f = PathValidationUtils.validateExistingPath(new File(filePathName), new File(basePath));
+        filePathName = f.getPath();
         lastModified = f.lastModified();
         f.setReadOnly();
 
-        File deleteDir = new File(getIncomingDocumentDeletedFilePath(queueId, myPdfDir));
+        File deleteDir = PathValidationUtils.validateConfiguredDirectory(getIncomingDocumentDeletedFilePath(queueId, myPdfDir), "incoming deleted directory");
         File validatedDeleteFile = null;
         int index = myPdfName.indexOf(".pdf");
 
@@ -593,9 +602,9 @@ public final class IncomingDocUtil {
 
         success = f.delete();
         if (success) {
-            File f1 = new File(tempFilePathName);
+            File f1 = PathValidationUtils.validateExistingPath(new File(tempFilePathName), new File(basePath));
             f1.setLastModified(lastModified);
-            success = f1.renameTo(new File(filePathName));
+            success = f1.renameTo(f);
             if (!success) {
                 throw new Exception("Error in renaming file from:" + tempFilePathName + "to " + filePathName);
             }
@@ -620,7 +629,8 @@ public final class IncomingDocUtil {
      * @throws Exception if the page specification is invalid or file operations fail
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; path validated for directory containment via PathValidationUtils before use")
     public static void extractPage(String queueId, String myPdfDir, String myPdfName, String pageNumbersToExtract) throws Exception {
         long lastModified;
         String filePathName, tempFilePathName;
@@ -633,11 +643,12 @@ public final class IncomingDocUtil {
         tempFilePathName = validatedTempFile.getPath();
         filePathName = getIncomingDocumentFilePathName(queueId, myPdfDir, myPdfName);
 
-        File f = new File(filePathName);
+        File f = PathValidationUtils.validateExistingPath(new File(filePathName), new File(basePath));
+        filePathName = f.getPath();
         lastModified = f.lastModified();
         f.setReadOnly();
 
-        File extractBaseDir = new File(getIncomingDocumentFilePath(queueId, myPdfDir));
+        File extractBaseDir = PathValidationUtils.validateConfiguredDirectory(getIncomingDocumentFilePath(queueId, myPdfDir), "incoming extract directory");
         int index = myPdfName.toLowerCase().indexOf(".pdf");
         String myPdfNameF = myPdfName.substring(0, index);
         String myPdfNameExt = myPdfName.substring(index, myPdfName.length());
@@ -674,14 +685,14 @@ public final class IncomingDocUtil {
         boolean success = f.delete();
 
         if (success) {
-            File f1 = new File(tempFilePathName);
+            File f1 = PathValidationUtils.validateExistingPath(new File(tempFilePathName), new File(basePath));
             f1.setLastModified(lastModified);
-            success = f1.renameTo(new File(filePathName));
+            success = f1.renameTo(f);
             if (!success) {
                 throw new Exception("Error in renaming file from:" + tempFilePathName + "to " + filePathName);
             }
 
-            File f2 = new File(extractPath);
+            File f2 = PathValidationUtils.validateExistingPath(new File(extractPath), extractBaseDir);
             f2.setLastModified(lastModified);
         } else {
             throw new Exception("Error in deleting file:" + filePathName);
@@ -823,21 +834,24 @@ public final class IncomingDocUtil {
      * @param myPdfName String the PDF filename to delete
      * @throws Exception if the file cannot be deleted or moved to the recycle bin
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static void DeletePDF(String queueId, String myPdfDir, String myPdfName) throws Exception {
         String filePathName;
         boolean success;
 
         filePathName = getIncomingDocumentFilePathName(queueId, myPdfDir, myPdfName);
-        File f = new File(filePathName);
+        File baseDir = PathValidationUtils.validateConfiguredDirectory(getIncomingDocumentFilePath(queueId, myPdfDir), "incoming document directory");
+        File f = PathValidationUtils.validateExistingPath(new File(filePathName), baseDir);
+        filePathName = f.getPath();
 
         // Validate myPdfName to prevent path traversal
         myPdfName = validatePathComponent(myPdfName, "myPdfName");
         
         String deletedPath = getIncomingDocumentDeletedFilePath(queueId, myPdfDir);
-        File deleteFile = new File(deletedPath, myPdfName);
-        String deletePathName = deleteFile.getPath();
-
-        File deletef = new File(deletePathName);
+        File deleteDir = PathValidationUtils.validateConfiguredDirectory(deletedPath, "incoming deleted directory");
+        File deletef = PathValidationUtils.validateGeneratedChildPath(myPdfName, deleteDir);
+        String deletePathName = deletef.getPath();
 
         if (CarlosProperties.getInstance().getBooleanProperty("INCOMINGDOCUMENT_RECYCLEBIN", "true")) {
             success = f.renameTo(deletef);
