@@ -138,7 +138,9 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                 }
                 //SAVE FILE TO DISK
                 is.reset();
-                saveFile(is, filename);
+                if (!saveFile(is, filename)) {
+                    outcome = OUTCOME_EXCEPTION;
+                }
             } else {
                 outcome = "uploadedPreviously";
             }

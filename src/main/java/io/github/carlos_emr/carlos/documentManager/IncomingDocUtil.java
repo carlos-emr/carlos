@@ -557,10 +557,16 @@ public final class IncomingDocUtil {
 
         File deleteDir = PathValidationUtils.validateConfiguredDirectory(getIncomingDocumentDeletedFilePath(queueId, myPdfDir), "incoming deleted directory");
         File validatedDeleteFile = null;
-        int index = myPdfName.indexOf(".pdf");
-
-        String myPdfNameF = myPdfName.substring(0, index);
-        String myPdfNameExt = myPdfName.substring(index, myPdfName.length());
+        int index = myPdfName.toLowerCase(Locale.ROOT).lastIndexOf(".pdf");
+        String myPdfNameF;
+        String myPdfNameExt;
+        if (index < 0) {
+            myPdfNameF = myPdfName;
+            myPdfNameExt = "";
+        } else {
+            myPdfNameF = myPdfName.substring(0, index);
+            myPdfNameExt = myPdfName.substring(index, myPdfName.length());
+        }
 
         try (PdfReader reader = new PdfReader(filePathName);
              FileOutputStream copyFos = new FileOutputStream(validatedTempFile)) {
@@ -699,16 +705,23 @@ public final class IncomingDocUtil {
     }
 
     private static ArrayList<String> buildExtractList(String pdfName, String pageNumbersToExtract, int pageCount) {
+        if (pageNumbersToExtract == null || pageNumbersToExtract.trim().isEmpty()) {
+            throw new IllegalArgumentException(pdfName + " : Invalid Pages to Extract " + pageNumbersToExtract);
+        }
+
         ArrayList<String> extractList = initializeExtractList(pageCount);
         boolean validPages = true;
+        boolean hasPageSpec = false;
 
         for (String pageSpec : pageNumbersToExtract.split(",")) {
+            pageSpec = pageSpec.trim();
             if (!pageSpec.isEmpty()) {
+                hasPageSpec = true;
                 validPages = markPagesForExtraction(extractList, pageSpec, pageCount) && validPages;
             }
         }
 
-        if (!validPages || !hasPageRemaining(extractList, pageCount)) {
+        if (!hasPageSpec || !validPages || !hasPageRemaining(extractList, pageCount)) {
             throw new IllegalArgumentException(pdfName + " : Invalid Pages to Extract " + pageNumbersToExtract);
         }
 

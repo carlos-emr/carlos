@@ -124,21 +124,22 @@ public class Utilities {
      */
     public static String saveFile(InputStream stream, String filename) {
         String retVal = null;
+        File outputFile = null;
 
         try {
             File safeDir = PathValidationUtils.getRequiredDocumentDirectory();
             File targetFile = PathValidationUtils.validatePath(filename, safeDir);
 
-            File outputFile = PathValidationUtils.validateGeneratedChildPath(
+            outputFile = PathValidationUtils.validateGeneratedChildPath(
                     PathValidationUtils.validateGeneratedFileName(
-                            "LabUpload." + targetFile.getName().replaceAll(".enc", "") + "." + (new Date()).getTime()),
+                            "LabUpload." + targetFile.getName().replaceFirst("\\.enc$", "") + "." + (new Date()).getTime()),
                     targetFile.getParentFile());
-            retVal = outputFile.getPath();
+            String outputPath = outputFile.getPath();
 
             if (logger.isDebugEnabled()) {
                 logger.debug("saveFile place={}, retVal={}",
                         LogSafe.sanitize(safeDir.getPath(), 1024),
-                        LogSafe.sanitize(retVal, 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                        LogSafe.sanitize(outputPath, 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             }
 
             try (OutputStream os = Files.newOutputStream(outputFile.toPath());
@@ -150,12 +151,26 @@ public class Utilities {
                     os.write(buffer, 0, bytesRead);
                 }
             }
+            retVal = outputPath;
         } catch (FileNotFoundException fnfe) {
+            deletePartialOutput(outputFile);
             logger.error("Unable to create or write to file: {}", LogSafe.sanitize(filename), fnfe); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
         } catch (IOException ioe) {
+            deletePartialOutput(outputFile);
             logger.error("Error processing file: {}", LogSafe.sanitize(filename), ioe); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
         }
         return retVal;
+    }
+
+    private static void deletePartialOutput(File outputFile) {
+        if (outputFile == null) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(outputFile.toPath());
+        } catch (IOException deleteException) {
+            logger.error("Error deleting partial output file: {}", LogSafe.sanitize(outputFile.getPath()), deleteException); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+        }
     }
 
     public static String saveHRMFile(InputStream stream, String filename) {
