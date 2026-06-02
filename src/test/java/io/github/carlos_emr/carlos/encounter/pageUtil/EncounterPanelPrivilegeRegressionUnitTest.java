@@ -150,6 +150,7 @@ class EncounterPanelPrivilegeRegressionUnitTest extends CarlosUnitTestBase {
         return new PrivilegeStub(objectName, properties, roles);
     }
 
+    @SuppressWarnings("deprecation")
     private EctSessionBean encounterSession() {
         EctSessionBean bean = new EctSessionBean();
         bean.demographicNo = "123";
