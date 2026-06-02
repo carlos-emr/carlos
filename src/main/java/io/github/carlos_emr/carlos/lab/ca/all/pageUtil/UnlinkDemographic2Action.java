@@ -90,7 +90,10 @@ public class UnlinkDemographic2Action extends ActionSupport {
             plrDao.merge(patientLabRouting);
             if (patientLabRouting.getDemographicNo().equals(PatientLabRoutingDao.UNMATCHED)) {
                 success = true;
-                logger.debug("Unlinked lab segmentID={} from demographic={}", LogSafe.sanitizeObject(labNo), LogSafe.sanitizeObject(demoNo));
+                if (logger.isDebugEnabled()) {
+                    logger.debug("Unlinked lab segmentID={} from demographic={}",
+                            LogSafe.sanitizeObject(labNo), LogSafe.sanitizeObject(demoNo));
+                }
                 OscarAuditLogger.getInstance().log(loggedInInfo, LogConst.UNLINK, LogConst.CON_HL7_LAB, String.valueOf(labNo), request.getRemoteAddr(), demoNo, reason);
             } else {
                 break;

@@ -132,7 +132,9 @@ public class SpireLabTest {
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
         }
-        log.debug("going out {}", LogSafe.sanitize(this.demographicNo));
+        if (log.isDebugEnabled()) {
+            log.debug("going out {}", LogSafe.sanitize(this.demographicNo));
+        }
     }
 
     public void populateLab(String labid) {
@@ -264,7 +266,9 @@ public class SpireLabTest {
         ArrayList<LabResult> alist = new ArrayList<LabResult>();
         try {
             LabTestResultsDao dao = SpringUtils.getBean(LabTestResultsDao.class);
-            log.debug("querying labTestResults for id {}", LogSafe.sanitize(labid));
+            if (log.isDebugEnabled()) {
+                log.debug("querying labTestResults for id {}", LogSafe.sanitize(labid));
+            }
             for (LabTestResults i : dao.findByLabPatientPhysicialInfoId(ConversionUtils.fromIntString(labid))) {
                 String lineType = i.getLineType();
                 log.debug("line " + lineType);
