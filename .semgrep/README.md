@@ -18,6 +18,7 @@ recognizing that the data has been sanitized by project utilities like
 | File | Replaces | Sanitizer Recognized | False Positives Resolved |
 |------|----------|---------------------|------------------------:|
 | `crlf-injection-logs-carlos.yml` | 3 built-in CRLF log injection rules | `LogSanitizer.sanitize()`, `Encode.forJava(...)` | ~128 |
+| `jsp-scriptlet-xss-carlos.yml` | 1 built-in JSP scriptlet XSS rule | `<carlos:encode>`, `${carlos:forXxx(...)}`, `SafeEncode.forXxx(...)`, `Encode.forXxx(...)`, `URLEncoder.encode(...)` | 174 |
 
 ## Built-in Rules to Disable in Semgrep Cloud
 
@@ -32,6 +33,14 @@ to avoid duplicate alerts:
 - `java.servlets.security.crlf-injection-logs.crlf-injection-logs`
 - `java.lang.security.audit.crlf-injection-logs.crlf-injection-logs`
 
+### JSP Scriptlet XSS (`jsp-scriptlet-xss-carlos.yml`)
+
+- `java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss`
+
+This rule is also excluded by the GitHub Actions workflow via
+`--exclude-rule` while the local CARLOS replacement rule is uploaded as a
+separate SARIF file.
+
 ## Running Locally
 
 ```bash
@@ -43,17 +52,21 @@ semgrep --config .semgrep/ src/main/java/
 
 # Scan a specific file
 semgrep --config .semgrep/crlf-injection-logs-carlos.yml src/main/java/path/to/File.java
+
+# Scan JSPs with the CARLOS scriptlet XSS replacement rule
+semgrep --config .semgrep/jsp-scriptlet-xss-carlos.yml src/main/webapp/
 ```
 
 ## CI Integration
 
 The `semgrep ci` command (in `.github/workflows/semgrep.yml`) runs rules from the
-Semgrep Cloud policy. To include these local rules in CI scans, either:
+Semgrep Cloud policy. `semgrep ci` does not support `--config`, so local CARLOS
+rules that should run in GitHub Actions must be invoked with a separate
+`semgrep scan --config ...` step and uploaded as their own SARIF file.
 
-1. **Add to Semgrep Cloud**: Upload rules via the Semgrep Cloud dashboard
-   (Policies → Add Rule → Custom Rule), or
-2. **Append local config**: Add `--config .semgrep/` to the `semgrep ci` command
-   in the workflow file.
+For `jsp-scriptlet-xss-carlos.yml`, the workflow excludes the noisy built-in rule
+from the Cloud scan with `--exclude-rule` and uploads the local replacement scan
+as `semgrep-carlos.sarif`.
 
 ## Maintenance
 
