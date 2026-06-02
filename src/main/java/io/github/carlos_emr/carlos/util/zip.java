@@ -116,7 +116,7 @@ public class zip {
         Enumeration<? extends ZipEntry> entries;
         boolean result = false;
         if (fName == null || fName.length() < 4 || !fName.toLowerCase().endsWith(".zip")) {
-            logger.error("unzipXML: {} does not have .zip extension.", LogSafe.sanitize(fName, 1024));
+            logger.error("unzipXML: input does not have .zip extension.");
             return result;
         }
         File targetDir;
