@@ -2229,6 +2229,8 @@ if (userAgent != null) {
 
                                                                                         <c:set var="__enc_2"><carlos:encode value='<%= demo %>' context="uriComponent"/></c:set>
                                                <c:set var="__enc_3"><carlos:encode value='<%= requestId %>' context="uriComponent"/></c:set>
+
+
                                             <fmt:message var="manageAttachmentsTitle" key="encounter.oscarConsultationRequest.ConsultationFormRequest.titleManageAttachments"/>
     <%
                                                 if (thisForm.iseReferral()) {
@@ -2239,15 +2241,15 @@ if (userAgent != null) {
                                                data-poload="${ ctx }/previewDocs?method=fetchConsultDocuments&amp;demographicNo=<carlos:encode value='${__enc_2}' context="htmlAttribute"/>&amp;requestId=<carlos:encode value='${__enc_3}' context="htmlAttribute"/>">
                                                 <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnManageAttachments"/>
                                             </a>
-                                                                                      <c:set var="__enc_4"><carlos:encode value='<%= demo %>' context="uriComponent"/></c:set>
-                                               <c:set var="__enc_5"><carlos:encode value='<%= requestId %>' context="uriComponent"/></c:set>
+
+
      <input type="hidden" id="isOceanEReferral"
                                                    value="<%=thisForm.iseReferral()%>"/>
                                             <%
                                             } else { %>
                                             <a href="javascript:void(0);" id="attachDocumentPanelBtn"
                                                title="${carlos:forHtmlAttribute(manageAttachmentsTitle)}"
-                                               data-poload="${ ctx }/previewDocs?method=fetchConsultDocuments&amp;demographicNo=<carlos:encode value='${__enc_4}' context="htmlAttribute"/>&amp;requestId=<carlos:encode value='${__enc_5}' context="htmlAttribute"/>">
+                                               data-poload="${ ctx }/previewDocs?method=fetchConsultDocuments&amp;demographicNo=<carlos:encode value='${__enc_2}' context="htmlAttribute"/>&amp;requestId=<carlos:encode value='${__enc_3}' context="htmlAttribute"/>">
                                                 <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnManageAttachments"/>
                                             </a>
 
