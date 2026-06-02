@@ -48,7 +48,13 @@ class NoteBrowserDocumentMutation2ActionTest extends CarlosUnitTestBase {
 
     static class TestRefileAction extends NoteBrowserDocumentRefile2Action {
         final List<String[]> refiles = new ArrayList<>();
-        @Override protected void refileDocument(String docNo, String queue) { refiles.add(new String[]{docNo, queue}); }
+        boolean fail;
+        @Override protected void refileDocument(String docNo, String queue) throws Exception {
+            if (fail) {
+                throw new Exception("simulated refile failure");
+            }
+            refiles.add(new String[]{docNo, queue});
+        }
     }
 
     @BeforeEach
@@ -90,6 +96,20 @@ class NoteBrowserDocumentMutation2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should require logged in session")
+    void shouldThrow_whenUserSessionMissing() {
+        TestDeleteAction action = new TestDeleteAction();
+        loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(jakarta.servlet.http.HttpServletRequest.class)))
+                .thenReturn(null);
+        action.setDelDocumentNo("42");
+
+        assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("_eChart w");
+        assertThat(action.deleted).isEmpty();
+    }
+
+    @Test
     @DisplayName("should require eChart write privilege")
     void shouldThrow_whenEChartWritePrivilegeMissing() {
         TestDeleteAction action = new TestDeleteAction();
@@ -104,8 +124,19 @@ class NoteBrowserDocumentMutation2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should delete and redirect back to note browser")
-    void shouldDeleteAndRedirect_whenRequestIsValid() throws Exception {
+    @DisplayName("should reject zero document number")
+    void shouldRejectDelete_whenDocumentNoIsZero() throws Exception {
+        TestDeleteAction action = new TestDeleteAction();
+        action.setDelDocumentNo("0");
+
+        assertThat(action.execute()).isEqualTo("none");
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        assertThat(action.deleted).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should delete and return success")
+    void shouldDeleteAndReturnSuccess_whenRequestIsValid() throws Exception {
         TestDeleteAction action = new TestDeleteAction();
         action.setDelDocumentNo("42");
         action.setDemographic_no("1001");
@@ -113,29 +144,41 @@ class NoteBrowserDocumentMutation2ActionTest extends CarlosUnitTestBase {
         action.setViewstatus("active");
         action.setSortorder("Content");
 
-        action.execute();
+        String result = action.execute();
 
+        assertThat(result).isEqualTo("success");
         assertThat(action.deleted).containsExactly("42");
-        assertThat(mockResponse.getRedirectedUrl())
-                .contains("/casemgmt/ViewNoteBrowser")
-                .contains("demographic_no=1001")
-                .contains("view=all")
-                .contains("viewstatus=active")
-                .contains("sortorder=Content");
+        assertThat(action.getDemographicNo()).isEqualTo("1001");
+        assertThat(action.getView()).isEqualTo("all");
+        assertThat(action.getViewstatus()).isEqualTo("active");
+        assertThat(action.getSortorder()).isEqualTo("Content");
+        assertThat(action.getMutationErrorMessage()).isEmpty();
+        assertThat(mockResponse.getRedirectedUrl()).isNull();
         verify(mockSecurityInfoManager).hasPrivilege(any(LoggedInInfo.class), eq("_eChart"), eq("w"), isNull());
         verify(mockSecurityInfoManager, never()).hasPrivilege(any(LoggedInInfo.class), eq("_eChart"), eq("r"), isNull());
     }
 
     @Test
-    @DisplayName("should undelete and redirect back to note browser")
-    void shouldUndeleteAndRedirect_whenRequestIsValid() throws Exception {
+    @DisplayName("should reject nonnumeric undelete document number")
+    void shouldRejectUndelete_whenDocumentNoIsNonNumeric() throws Exception {
+        TestUndeleteAction action = new TestUndeleteAction();
+        action.setUndelDocumentNo("42x");
+
+        assertThat(action.execute()).isEqualTo("none");
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        assertThat(action.undeleted).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should undelete and return success")
+    void shouldUndeleteAndReturnSuccess_whenRequestIsValid() throws Exception {
         TestUndeleteAction action = new TestUndeleteAction();
         action.setUndelDocumentNo("42");
 
-        action.execute();
-
+        assertThat(action.execute()).isEqualTo("success");
         assertThat(action.undeleted).containsExactly("42");
-        assertThat(mockResponse.getRedirectedUrl()).contains("/casemgmt/ViewNoteBrowser");
+        assertThat(action.getMutationErrorMessage()).isEmpty();
+        assertThat(mockResponse.getRedirectedUrl()).isNull();
     }
 
     @Test
@@ -145,7 +188,20 @@ class NoteBrowserDocumentMutation2ActionTest extends CarlosUnitTestBase {
         action.setRefileDocumentNo("42");
         action.setQueueId("queue-1");
 
-        action.execute();
+        assertThat(action.execute()).isEqualTo("none");
+
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        assertThat(action.refiles).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should reject zero queueId")
+    void shouldRejectRefile_whenQueueIdIsZero() throws Exception {
+        TestRefileAction action = new TestRefileAction();
+        action.setRefileDocumentNo("42");
+        action.setQueueId("0");
+
+        assertThat(action.execute()).isEqualTo("none");
 
         assertThat(mockResponse.getStatus()).isEqualTo(400);
         assertThat(action.refiles).isEmpty();
@@ -158,10 +214,53 @@ class NoteBrowserDocumentMutation2ActionTest extends CarlosUnitTestBase {
         action.setRefileDocumentNo("42");
         action.setQueueId("7");
 
-        action.execute();
+        assertThat(action.execute()).isEqualTo("success");
 
         assertThat(action.refiles).hasSize(1);
         assertThat(action.refiles.get(0)).containsExactly("42", "7");
-        assertThat(mockResponse.getRedirectedUrl()).contains("/casemgmt/ViewNoteBrowser");
+        assertThat(action.getMutationErrorMessage()).isEmpty();
+        assertThat(mockResponse.getRedirectedUrl()).isNull();
+    }
+
+    @Test
+    @DisplayName("should set generic error message when refile fails")
+    void shouldSetErrorMessage_whenRefileFails() throws Exception {
+        TestRefileAction action = new TestRefileAction();
+        action.fail = true;
+        action.setRefileDocumentNo("42");
+        action.setQueueId("7");
+
+        assertThat(action.execute()).isEqualTo("success");
+
+        assertThat(action.refiles).isEmpty();
+        assertThat(action.getMutationErrorMessage()).isEqualTo("Document update failed.");
+    }
+
+    @Test
+    @DisplayName("should expose parameters for Struts redirect result")
+    void shouldExposeParameters_forStrutsRedirectResult() {
+        TestDeleteAction deleteAction = new TestDeleteAction();
+        deleteAction.setDemographicNo("1001");
+        deleteAction.setView("all");
+        deleteAction.setViewstatus("active");
+        deleteAction.setSortorder("Content");
+        deleteAction.setDelDocumentNo("42");
+
+        TestUndeleteAction undeleteAction = new TestUndeleteAction();
+        undeleteAction.setUndelDocumentNo("43");
+
+        TestRefileAction refileAction = new TestRefileAction();
+        refileAction.setRefileDocumentNo("44");
+        refileAction.setQueueId("7");
+
+        assertThat(deleteAction.getDemographic_no()).isEqualTo("1001");
+        assertThat(deleteAction.getDemographicNo()).isEqualTo("1001");
+        assertThat(deleteAction.getView()).isEqualTo("all");
+        assertThat(deleteAction.getViewstatus()).isEqualTo("active");
+        assertThat(deleteAction.getSortorder()).isEqualTo("Content");
+        assertThat(deleteAction.getDelDocumentNo()).isEqualTo("42");
+        assertThat(undeleteAction.getUndelDocumentNo()).isEqualTo("43");
+        assertThat(refileAction.getRefileDocumentNo()).isEqualTo("44");
+        assertThat(refileAction.getQueueId()).isEqualTo("7");
     }
 }

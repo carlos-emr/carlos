@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.casemgmt.web;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 public class NoteBrowserDocumentRefile2Action extends AbstractNoteBrowserDocumentMutation2Action {
 
@@ -57,7 +58,8 @@ public class NoteBrowserDocumentRefile2Action extends AbstractNoteBrowserDocumen
 
     @Override
     protected String logMessage() {
-        return "noteBrowser refileDocument failed docNo=" + refileDocumentNo + " queueId=" + queueId;
+        return "noteBrowser refileDocument failed docNo=" + LogSafe.sanitize(refileDocumentNo)
+                + " queueId=" + LogSafe.sanitize(queueId);
     }
 
     protected void refileDocument(String docNo, String queue) throws Exception {

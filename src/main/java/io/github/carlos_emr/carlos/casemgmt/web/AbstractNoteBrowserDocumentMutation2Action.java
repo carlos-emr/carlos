@@ -21,9 +21,6 @@
  */
 package io.github.carlos_emr.carlos.casemgmt.web;
 
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -35,7 +32,6 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 abstract class AbstractNoteBrowserDocumentMutation2Action extends ActionSupport {
 
@@ -46,9 +42,8 @@ abstract class AbstractNoteBrowserDocumentMutation2Action extends ActionSupport 
     private String view;
     private String viewstatus;
     private String sortorder;
+    private String mutationErrorMessage = "";
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of HTTP method; safe ASCII protocol token.
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of HTTP method; safe ASCII protocol token")
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
@@ -60,11 +55,11 @@ abstract class AbstractNoteBrowserDocumentMutation2Action extends ActionSupport 
             throw new SecurityException("missing required sec object (_eChart w)");
         }
 
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+        if (!"POST".equals(request.getMethod())) {
             return METHOD_NOT_ALLOWED;
         }
 
-        String errorMessage = null;
+        mutationErrorMessage = "";
         if (hasMutationParameter()) {
             if (!hasValidMutationParameters()) {
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, invalidParameterMessage());
@@ -79,19 +74,11 @@ abstract class AbstractNoteBrowserDocumentMutation2Action extends ActionSupport 
                     throw e;
                 }
                 MiscUtils.getLogger().error(logMessage(), e);
-                errorMessage = GENERIC_ERROR_MESSAGE;
+                mutationErrorMessage = GENERIC_ERROR_MESSAGE;
             }
         }
 
-        StringBuilder redirect = new StringBuilder(request.getContextPath())
-                .append("/casemgmt/ViewNoteBrowser");
-        appendParam(redirect, "demographic_no", demographicNo);
-        appendParam(redirect, "view", view);
-        appendParam(redirect, "viewstatus", viewstatus);
-        appendParam(redirect, "sortorder", sortorder);
-        appendParam(redirect, "errorMessage", errorMessage);
-        response.sendRedirect(redirect.toString());
-        return NONE;
+        return SUCCESS;
     }
 
     protected abstract boolean hasMutationParameter();
@@ -109,18 +96,15 @@ abstract class AbstractNoteBrowserDocumentMutation2Action extends ActionSupport 
 
     protected static boolean isPositiveInteger(String s) {
         if (s == null || s.isEmpty()) return false;
+        boolean hasNonZeroDigit = false;
         for (int i = 0; i < s.length(); i++) {
-            if (!Character.isDigit(s.charAt(i))) return false;
+            char c = s.charAt(i);
+            if (c < '0' || c > '9') return false;
+            if (c != '0') {
+                hasNonZeroDigit = true;
+            }
         }
-        return true;
-    }
-
-    private static void appendParam(StringBuilder url, String name, String value) {
-        if (value == null) return;
-        url.append(url.indexOf("?") < 0 ? "?" : "&")
-                .append(name)
-                .append("=")
-                .append(URLEncoder.encode(value, StandardCharsets.UTF_8));
+        return hasNonZeroDigit;
     }
 
     public String getDemographic_no() { return demographicNo; }
@@ -133,4 +117,5 @@ abstract class AbstractNoteBrowserDocumentMutation2Action extends ActionSupport 
     @StrutsParameter public void setViewstatus(String v) { this.viewstatus = v; }
     public String getSortorder() { return sortorder; }
     @StrutsParameter public void setSortorder(String v) { this.sortorder = v; }
+    public String getMutationErrorMessage() { return mutationErrorMessage; }
 }
