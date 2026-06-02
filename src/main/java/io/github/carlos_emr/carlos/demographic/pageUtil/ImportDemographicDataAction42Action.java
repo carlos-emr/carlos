@@ -383,7 +383,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
     @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     private void generateResponse(HttpServletResponse response, ArrayList<String> warnings, String importLog) {
         ObjectNode json = jsonMapper.createObjectNode();
-        response.setContentType("text/javascript");
+        response.setContentType("application/json;charset=UTF-8");
         try {
             json.set("warnings", jsonMapper.valueToTree(warnings));
             json.put("importLog", importLog);

@@ -270,8 +270,8 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
      * on the underlying response. Calling {@code getOutputStream()} after
      * {@code getWriter()} throws {@code IllegalStateException}.</p>
      */
-    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
-    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
+    // FindSecBugs XSS_SERVLET: replays captured response content after trusted CSRF token injection; not raw request data.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "replays captured response content after trusted CSRF token injection; not raw request data")
     private void writeToResponse(HttpServletResponse response, String content, String safeRequestUri)
             throws IOException {
         // Clear only the response body buffer, preserving status code, headers, and cookies

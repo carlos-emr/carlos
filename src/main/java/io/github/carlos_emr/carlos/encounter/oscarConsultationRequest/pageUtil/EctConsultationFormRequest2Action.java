@@ -639,7 +639,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         json.put("consultPDF", (String) request.getAttribute("consultPDF"));
         json.put("consultPDFName", (String) request.getAttribute("consultPDFName"));
         json.put("errorMessage", (String) request.getAttribute("errorMessage"));
-        response.setContentType("text/javascript");
+        response.setContentType("application/json;charset=UTF-8");
         try {
             response.getWriter().write(json.toString());
         } catch (IOException e) {
