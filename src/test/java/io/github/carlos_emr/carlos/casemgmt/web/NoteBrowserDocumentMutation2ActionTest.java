@@ -49,9 +49,9 @@ class NoteBrowserDocumentMutation2ActionTest extends CarlosUnitTestBase {
     static class TestRefileAction extends NoteBrowserDocumentRefile2Action {
         final List<String[]> refiles = new ArrayList<>();
         boolean fail;
-        @Override protected void refileDocument(String docNo, String queue) throws Exception {
+        @Override protected void refileDocument(String docNo, String queue) throws DocumentMutationException {
             if (fail) {
-                throw new Exception("simulated refile failure");
+                throw new DocumentMutationException(new IllegalStateException("simulated refile failure"));
             }
             refiles.add(new String[]{docNo, queue});
         }
@@ -103,7 +103,7 @@ class NoteBrowserDocumentMutation2ActionTest extends CarlosUnitTestBase {
                 .thenReturn(null);
         action.setDelDocumentNo("42");
 
-        assertThatThrownBy(() -> action.execute())
+        assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_eChart w");
         assertThat(action.deleted).isEmpty();
@@ -117,7 +117,7 @@ class NoteBrowserDocumentMutation2ActionTest extends CarlosUnitTestBase {
                 .thenReturn(false);
         action.setDelDocumentNo("42");
 
-        assertThatThrownBy(() -> action.execute())
+        assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_eChart w");
         assertThat(action.deleted).isEmpty();
@@ -139,7 +139,7 @@ class NoteBrowserDocumentMutation2ActionTest extends CarlosUnitTestBase {
     void shouldDeleteAndReturnSuccess_whenRequestIsValid() throws Exception {
         TestDeleteAction action = new TestDeleteAction();
         action.setDelDocumentNo("42");
-        action.setDemographic_no("1001");
+        action.setDemographicNo("1001");
         action.setView("all");
         action.setViewstatus("active");
         action.setSortorder("Content");
@@ -253,7 +253,6 @@ class NoteBrowserDocumentMutation2ActionTest extends CarlosUnitTestBase {
         refileAction.setRefileDocumentNo("44");
         refileAction.setQueueId("7");
 
-        assertThat(deleteAction.getDemographic_no()).isEqualTo("1001");
         assertThat(deleteAction.getDemographicNo()).isEqualTo("1001");
         assertThat(deleteAction.getView()).isEqualTo("all");
         assertThat(deleteAction.getViewstatus()).isEqualTo("active");

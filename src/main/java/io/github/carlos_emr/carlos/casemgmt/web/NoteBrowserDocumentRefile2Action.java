@@ -47,7 +47,7 @@ public class NoteBrowserDocumentRefile2Action extends AbstractNoteBrowserDocumen
     }
 
     @Override
-    protected void mutateDocument() throws Exception {
+    protected void mutateDocument() throws DocumentMutationException {
         refileDocument(refileDocumentNo, queueId);
     }
 
@@ -62,8 +62,12 @@ public class NoteBrowserDocumentRefile2Action extends AbstractNoteBrowserDocumen
                 + " queueId=" + LogSafe.sanitize(queueId);
     }
 
-    protected void refileDocument(String docNo, String queue) throws Exception {
-        EDocUtil.refileDocument(docNo, queue);
+    protected void refileDocument(String docNo, String queue) throws DocumentMutationException {
+        try {
+            EDocUtil.refileDocument(docNo, queue);
+        } catch (Exception e) {
+            throw new DocumentMutationException(e);
+        }
     }
 
     public String getRefileDocumentNo() { return refileDocumentNo; }

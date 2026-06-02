@@ -503,6 +503,7 @@ t?editDocumentNo=' + docid + '&function=<%=module%>&functionid=<carlos:encode va
                     <legend><fmt:message key="encounter.noteBrowser.msgView"/>:</legend>
                     <input type="hidden" name="view" value="<carlos:encode value='<%= view %>' context="htmlAttribute"/>">
                     <input type="hidden" name="demographic_no" value="<carlos:encode value='<%= demographicID %>' context="htmlAttribute"/>">
+                    <input type="hidden" name="demographicNo" value="<carlos:encode value='<%= demographicID %>' context="htmlAttribute"/>">
                     <input type="hidden" name="undelDocumentNo" value="">
                     <input type="hidden" name="delDocumentNo" value="">
                     <input type="hidden" name="refileDocumentNo" value="">

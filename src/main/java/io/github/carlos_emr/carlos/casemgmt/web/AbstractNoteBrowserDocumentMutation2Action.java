@@ -67,9 +67,9 @@ abstract class AbstractNoteBrowserDocumentMutation2Action extends ActionSupport 
             }
             try {
                 mutateDocument();
-            } catch (SecurityException | Error e) {
+            } catch (SecurityException e) {
                 throw e;
-            } catch (Exception e) {
+            } catch (DocumentMutationException e) {
                 if (!handlesMutationException()) {
                     throw e;
                 }
@@ -84,7 +84,7 @@ abstract class AbstractNoteBrowserDocumentMutation2Action extends ActionSupport 
     protected abstract boolean hasMutationParameter();
     protected abstract boolean hasValidMutationParameters();
     protected abstract String invalidParameterMessage();
-    protected abstract void mutateDocument() throws Exception;
+    protected abstract void mutateDocument() throws DocumentMutationException;
 
     protected boolean handlesMutationException() {
         return false;
@@ -107,8 +107,6 @@ abstract class AbstractNoteBrowserDocumentMutation2Action extends ActionSupport 
         return hasNonZeroDigit;
     }
 
-    public String getDemographic_no() { return demographicNo; }
-    @StrutsParameter public void setDemographic_no(String v) { this.demographicNo = v; }
     public String getDemographicNo() { return demographicNo; }
     @StrutsParameter public void setDemographicNo(String v) { this.demographicNo = v; }
     public String getView() { return view; }
@@ -118,4 +116,12 @@ abstract class AbstractNoteBrowserDocumentMutation2Action extends ActionSupport 
     public String getSortorder() { return sortorder; }
     @StrutsParameter public void setSortorder(String v) { this.sortorder = v; }
     public String getMutationErrorMessage() { return mutationErrorMessage; }
+
+    protected static class DocumentMutationException extends Exception {
+        private static final long serialVersionUID = 1L;
+
+        DocumentMutationException(Throwable cause) {
+            super(cause);
+        }
+    }
 }
