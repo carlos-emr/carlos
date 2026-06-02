@@ -38,7 +38,6 @@ private predicate isContainmentValidator(Method m) {
       "validateExistingPath", // (File, File) -> File : containment
       "validateChildPath", // (File, File) -> File : containment
       "validateGeneratedChildPath", // (String, File) -> File : single component + containment
-      "validateGeneratedSiblingPath", // -> File : containment
       "validatePathComponent", // (String, String) -> String : rejects / \ . ..
       "validateGeneratedFileName", // (String) -> String : normalised, no separators
       "validateZipEntryPath", // (ZipEntry, File) -> File : ZIP-slip containment
