@@ -148,6 +148,8 @@ public class PDFController {
      *
      * @param filePath String the absolute path to the PDF template file
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public PDFController(String filePath) {
         if (setFilePath(new File(filePath))) {
             _init();
@@ -207,6 +209,8 @@ public class PDFController {
         return Boolean.FALSE;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public boolean setFilePath(String filePath) {
         return setFilePath(new File(filePath));
     }

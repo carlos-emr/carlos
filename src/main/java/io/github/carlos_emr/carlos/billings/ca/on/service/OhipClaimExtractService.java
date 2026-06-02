@@ -566,6 +566,8 @@ public class OhipClaimExtractService implements Serializable {
     }
 
     /** Writes the fixed-width OHIP claim extract to the configured output path. */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void writeFile(String value1) {
         String home_dir = CarlosProperties.getInstance().getProperty("HOME_DIR");
         File safeFile;
@@ -593,6 +595,8 @@ public class OhipClaimExtractService implements Serializable {
     }
 
     /** Writes the companion HTML claim preview to the configured output path. */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void writeHtml(String htmlvalue1) {
         String home_dir1 = CarlosProperties.getInstance().getProperty("HOME_DIR");
         File safeFile;

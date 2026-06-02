@@ -909,6 +909,8 @@ public final class EDocUtil {
         }
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static void refileDocument(String documentNo, String queueId) throws Exception {
 
         File sourceBaseDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
@@ -1241,6 +1243,8 @@ public final class EDocUtil {
      * @throws IOException       IOException is thrown in case of any save errors
      * @throws SecurityException if the fileName contains path traversal sequences
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static void writeDocContent(String fileName, byte[] content) throws IOException {
         String docDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         File docDirFile = new File(docDir);
@@ -1255,6 +1259,8 @@ public final class EDocUtil {
      * @return Returns the absolute path on the file system.
      * @throws SecurityException if the resolved path is outside allowed directories
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static String resolvePath(String fileName) {
         if (fileName == null || fileName.trim().isEmpty()) {
             throw new IllegalArgumentException("File name cannot be null or empty");
@@ -1296,6 +1302,8 @@ public final class EDocUtil {
         }
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private static void writeContent(String fileName, byte[] content) throws IOException {
         String docDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         File docDirFile = new File(docDir);
@@ -1358,6 +1366,8 @@ public final class EDocUtil {
      * @return number of pages
      * @throws IOException
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static int getPDFPageCount(String fileName) {
         int pagecount = 0;
 

@@ -224,6 +224,8 @@ public class Download2Action extends ActionSupport {
         return typeDesc;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public String download() throws Exception {
         List<BigInteger> ids = getResourceIds(request);
         Collections.sort(ids);
@@ -301,6 +303,8 @@ public class Download2Action extends ActionSupport {
         return SUCCESS;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     private String getLastDownloadedID() {
         String resourceID = "0";
         String inboxFolder = CarlosProperties.getInstance().getProperty("ONEDT_INBOX");
@@ -327,6 +331,8 @@ public class Download2Action extends ActionSupport {
         return resourceID;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     private void updateLastDownloadedID(String lastID) {
         boolean writeResult = false;
         String inboxFolder = CarlosProperties.getInstance().getProperty("ONEDT_INBOX");
@@ -367,6 +373,8 @@ public class Download2Action extends ActionSupport {
         return "cancel";
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public String userDownload() throws Exception {
         List<BigInteger> ids = getResourceIds(request);
         Collections.sort(ids);

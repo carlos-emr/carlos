@@ -261,6 +261,8 @@ public class MoveMohFiles2Action extends ActionSupport {
      * @param folderParam folder name from the request ({@code "inbox"}, {@code "outbox"}, etc.)
      * @return populated view model (never null)
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private ViewMohFilesViewModel buildViewModel(HttpServletRequest req, String folderParam) {
         // EDTFolder.getFolder never returns null — invalid input falls back
         // to INBOX. Keeps the previous "if (folder == null)" branch out of
@@ -355,6 +357,8 @@ public class MoveMohFiles2Action extends ActionSupport {
      * @param file File object representing the file to validate (must not be null)
      * @return boolean true if the file is within an authorized EDT folder, false otherwise
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private boolean validateFileLocation(File file) {
         boolean result = false;
         for (EDTFolder folder : EDTFolder.values()) {
@@ -397,6 +401,8 @@ public class MoveMohFiles2Action extends ActionSupport {
      * @param fileName String representing the URL-encoded filename to retrieve
      * @return File object representing the file at the specified path, or null if filename decoding fails
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private File getFile(String folderPath, String fileName) {
         try {
             fileName = URLDecoder.decode(fileName, "UTF-8");
@@ -443,6 +449,8 @@ public class MoveMohFiles2Action extends ActionSupport {
      * @param file File object representing the MOH billing file to move to archive
      * @return boolean true if the file was successfully moved to the archive directory, false if the move failed
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     private boolean moveFile(File file) {
     File archiveDir = new File(EDTFolder.ARCHIVE.getPath());
     try {

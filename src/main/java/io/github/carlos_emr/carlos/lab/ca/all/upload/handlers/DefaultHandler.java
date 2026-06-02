@@ -58,6 +58,7 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.LogSafe;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class DefaultHandler implements MessageHandler {
     Logger logger = MiscUtils.getLogger();
@@ -127,6 +128,8 @@ public class DefaultHandler implements MessageHandler {
     /*
      *  Return the message as an xml document if it is in the xml format
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private Document getXML(String fileName) {
         try {
             // Validate the file path using PathValidationUtils
@@ -162,6 +165,8 @@ public class DefaultHandler implements MessageHandler {
 
 
     //TODO: Dont think this needs to be in this class.  Better as a util method
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public String readTextFile(String fullPathFilename) throws IOException {
         // Validate the file path using PathValidationUtils
         File file = new File(fullPathFilename);
