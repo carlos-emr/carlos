@@ -18,6 +18,11 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import java.util.Properties;
 import java.util.Vector;
 
+/**
+ * Represents the data structure for a GST (Goods and Services Tax) report in BC administration.
+ * Contains fields for tracking submission dates, amounts, and demographic information associated with the tax report.
+ */
+
 public class GstReport {
 
     public Vector<Properties> getGST(LoggedInInfo loggedInInfo, String[] providerNos, String startDate, String endDate) {

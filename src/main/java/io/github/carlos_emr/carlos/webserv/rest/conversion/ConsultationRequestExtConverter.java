@@ -4,6 +4,11 @@ import io.github.carlos_emr.carlos.commn.model.ConsultationRequestExt;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsultationRequestExtTo1;
 
+/**
+ * Converter utility for mapping consultation request extension data.
+ * Transforms between the internal database entity model and the external Data Transfer Object (DTO) structures used in APIs.
+ */
+
 public class ConsultationRequestExtConverter extends AbstractConverter<ConsultationRequestExt, ConsultationRequestExtTo1> {
     @Override
     public ConsultationRequestExt getAsDomainObject(LoggedInInfo loggedInInfo, ConsultationRequestExtTo1 t) throws ConversionException {

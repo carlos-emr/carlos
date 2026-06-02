@@ -5,6 +5,11 @@ import jakarta.persistence.*;
 
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 
+/**
+ * Entity representing an attachment included in an outbound email.
+ * Stores the metadata and reference to the document that is sent along with email communications from the EMR.
+ */
+
 @Entity
 @Table(name = "emailAttachment")
 public class EmailAttachment extends AbstractModel<Integer> {

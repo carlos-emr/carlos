@@ -12,6 +12,11 @@ import java.sql.SQLException;
 
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 
+/**
+ * Security utility for eForm processing to mitigate SQL injection risks.
+ * Implements sanitization and validation checks on inputs submitted through dynamic electronic forms before database interaction.
+ */
+
 final class EFormSqlSafety {
 
     private EFormSqlSafety() {

@@ -15,6 +15,11 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
+/**
+ * Entity or record representing an invoice within the billing forms module.
+ * Contains the financial details, service codes, and patient references required for generating or tracking a bill.
+ */
+
 public class FrmInvoiceRecord extends FrmRecord {
     private String _dateFormat = "yyyy/MM/dd";
 

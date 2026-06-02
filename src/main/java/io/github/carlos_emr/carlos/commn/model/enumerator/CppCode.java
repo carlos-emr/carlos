@@ -3,6 +3,11 @@ package io.github.carlos_emr.carlos.commn.model.enumerator;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Enumeration of CPP (Cumulative Patient Profile) codes.
+ * Represents specific clinical categories used when extracting or recording data in the patient's ongoing medical profile.
+ */
+
 public enum CppCode {
     OMEDS("OMeds"),
     SOC_HISTORY("SocHistory"),

@@ -1,5 +1,9 @@
 package io.github.carlos_emr.carlos.commn.model.enumerator;
 
+/**
+ * Keys for accessing extended attributes in consultation requests.
+ * Defines standard identifiers for metadata stored alongside eReferrals, such as urgency flags and provider IDs.
+ */
 public enum ConsultationRequestExtKey {
     EREFERRAL_REF("ereferral_ref"),
     EREFERRAL_SERVICE("ereferral_service"),

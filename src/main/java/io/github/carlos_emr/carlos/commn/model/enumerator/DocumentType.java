@@ -1,5 +1,9 @@
 package io.github.carlos_emr.carlos.commn.model.enumerator;
 
+/**
+ * Enumeration of supported document types within the EMR system.
+ * Used for categorizing uploaded or generated documents, such as labs, consults, and imaging reports.
+ */
 public enum DocumentType {
     EFORM("E", "eForm"),
     DOC("D", "doc"),

@@ -5,6 +5,11 @@ import jakarta.xml.bind.annotation.XmlAccessType;
 import jakarta.xml.bind.annotation.XmlAccessorType;
 import java.io.Serializable;
 
+/**
+ * Secondary test web service endpoint for connectivity testing.
+ * Provides an alternative operation for verifying JAX-WS deployment and request/response marshaling.
+ */
+
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "helloWorld2", propOrder = { "arg0" })
 public class HelloWorld2 implements Serializable

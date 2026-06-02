@@ -5,6 +5,11 @@ import jakarta.xml.bind.JAXBElement;
 import javax.xml.namespace.QName;
 import jakarta.xml.bind.annotation.XmlRegistry;
 
+/**
+ * Factory class used by JAXB to create instances of XML representations for web service objects.
+ * Contains methods to generate Java elements corresponding to the schema types used in the SOAP web services.
+ */
+
 @XmlRegistry
 public class ObjectFactory
 {

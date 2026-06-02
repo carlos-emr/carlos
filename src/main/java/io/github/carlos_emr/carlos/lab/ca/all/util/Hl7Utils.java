@@ -5,6 +5,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ca.uhn.hl7v2.HL7Exception;
 
+/**
+ * Utility methods for parsing and constructing HL7 message strings.
+ * Supports extraction of patient identifiers, parsing specific HL7 segments, and formatting messages for integration exchanges.
+ */
+
 public final class Hl7Utils {
 
     private static final Logger logger = LoggerFactory.getLogger(Hl7Utils.class);

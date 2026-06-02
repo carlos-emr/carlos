@@ -3,6 +3,11 @@ package io.github.carlos_emr.carlos.ws;
 import jakarta.xml.bind.annotation.XmlEnum;
 import jakarta.xml.bind.annotation.XmlType;
 
+/**
+ * Enumeration representing patient gender options for web service requests.
+ * Used to standardize gender data passed between the application and external integrated systems.
+ */
+
 @XmlType(name = "gender")
 @XmlEnum
 public enum Gender

@@ -4,6 +4,11 @@ import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.MeasurementTo1;
 
+/**
+ * Utility class for converting medical measurement values.
+ * Provides standard transformations for clinical measurements, such as imperial to metric conversions (e.g., pounds to kilograms).
+ */
+
 public class MeasurementConverter extends AbstractConverter<Measurement, MeasurementTo1> {
     @Override
     public Measurement getAsDomainObject(LoggedInInfo loggedInInfo, MeasurementTo1 t) throws ConversionException {

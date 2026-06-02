@@ -4,6 +4,11 @@ package io.github.carlos_emr.carlos.login;
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * Container for OAuth authentication data.
+ * Stores access tokens, refresh tokens, and expiration information used during secure communications with third-party APIs.
+ */
+
 public class OAuthData {
   private String applicationName;
   private String applicationURI;

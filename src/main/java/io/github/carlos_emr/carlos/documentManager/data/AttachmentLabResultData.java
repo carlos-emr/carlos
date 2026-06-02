@@ -6,6 +6,11 @@ import java.util.Map;
 
 import io.github.carlos_emr.carlos.utility.DateUtils;
 
+/**
+ * Data representation for lab results sent as attachments.
+ * Encapsulates lab finding details and metadata necessary for properly filing an incoming lab report attachment.
+ */
+
 public class AttachmentLabResultData {
     private String segmentID;
     private String labName;

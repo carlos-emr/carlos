@@ -13,6 +13,11 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
 
+/**
+ * Abstract or base action class for handling JSON-based AJAX requests.
+ * Provides common utility methods for parsing JSON input and formatting JSON responses in Struts actions.
+ */
+
 public class JSONAction extends ActionSupport {
 
     private final String ENCODING = "UTF-8";

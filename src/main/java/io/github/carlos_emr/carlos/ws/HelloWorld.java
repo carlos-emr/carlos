@@ -5,6 +5,11 @@ import jakarta.xml.bind.annotation.XmlAccessType;
 import jakarta.xml.bind.annotation.XmlAccessorType;
 import java.io.Serializable;
 
+/**
+ * Simple test web service endpoint.
+ * Used primarily for system diagnostics and connectivity verification to ensure the SOAP infrastructure is functioning.
+ */
+
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "helloWorld")
 public class HelloWorld implements Serializable

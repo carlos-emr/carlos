@@ -1,5 +1,9 @@
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.data;
 
+/**
+ * Data Transfer Object representing a specialist in the consultation request workflow.
+ * Carries information such as the specialist's name, contact details, and specialty area for routing consultation requests.
+ */
 public class SpecialistDto {
     private Integer specId;
     private String name;
