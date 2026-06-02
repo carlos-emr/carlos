@@ -2005,7 +2005,7 @@ if (userAgent != null) {
             jQuery.ajax({
                 type: "POST",
                 url: "${ pageContext.request.contextPath }/encounter/RequestConsultation",
-                data: form.serialize(),
+                data: jQuery(form).serialize(),
                 dataType: "json",
                 success: function (data) {
                     HideSpin();
@@ -2393,7 +2393,8 @@ if (userAgent != null) {
                                 <input name="updateAndPrint" type="button" class="btn btn-primary btn-sm"
                                        value="<fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnUpdateAndPrint"/>"
                                        onclick="return checkForm('Update Consultation Request And Print Preview','EctConsultationFormRequest2Form');"/>
-                                <input name="printPreview" type="button" class="btn btn-primary btn-sm" value="Print Preview"
+                                <input name="printPreview" type="button" class="btn btn-primary btn-sm" 
+                                       value="<fmt:message key="global.btnPrint"/>"
                                        onclick="return checkForm('And Print Preview','EctConsultationFormRequest2Form');"/>
 
                                 <oscar:oscarPropertiesCheck value="yes" property="consultation_fax_enabled">
