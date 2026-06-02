@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -34,6 +35,7 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Regression coverage for demographic 2Action dependency injection conventions.
@@ -49,7 +51,7 @@ class Demographic2ActionInjectionRegressionTest {
             Path.of("src/main/java/io/github/carlos_emr/carlos/demographic");
     private static final Path STRUTS_CONFIG = Path.of("src/main/webapp/WEB-INF/classes/struts.xml");
     private static final Pattern FIELD_GET_BEAN = Pattern.compile(
-            "^    (?:(?:private|protected|public)\\s+)?(?:(?:static|final|transient)\\s+)*[A-Z][^;=]+\\s+\\w+\\s*=\\s*(?:\\([^)]*\\)\\s*)?SpringUtils\\.getBean\\([^;]+;\\s*$");
+            "^\\s*(?:(?:private|protected|public)\\s+)?(?:(?:static|final|transient)\\s+)*[A-Z][^;=]+\\s+\\w+\\s*=\\s*(?:\\([^)]*\\)\\s*)?SpringUtils\\.getBean\\([^;]+;\\s*$");
 
     @Test
     @DisplayName("should use constructor injection instead of SpringUtils field shims")
@@ -77,15 +79,61 @@ class Demographic2ActionInjectionRegressionTest {
                 .contains("<constant name=\"struts.objectFactory.spring.autoWire\" value=\"constructor\"/>");
     }
 
+    @Test
+    @DisplayName("should detect SpringUtils field shims with nonstandard indentation")
+    void shouldDetectFieldShim_whenIndentationVaries(@TempDir Path tempDir) throws IOException {
+        Path sourceFile = tempDir.resolve("TabIndented2Action.java");
+        Files.writeString(sourceFile, """
+                class TabIndented2Action {
+                \tprivate final transient SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+                }
+                """, StandardCharsets.UTF_8);
+
+        assertThat(fieldGetBeanViolations(sourceFile))
+                .containsExactly(sourceFile + ":2");
+    }
+
+    @Test
+    @DisplayName("should ignore SpringUtils method-local lookups")
+    void shouldIgnoreLocalLookup_whenInsideMethod(@TempDir Path tempDir) throws IOException {
+        Path sourceFile = tempDir.resolve("LocalLookup2Action.java");
+        Files.writeString(sourceFile, """
+                class LocalLookup2Action {
+                    void execute() {
+                        SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+                    }
+                }
+                """, StandardCharsets.UTF_8);
+
+        assertThat(fieldGetBeanViolations(sourceFile))
+                .isEmpty();
+    }
+
     private static Stream<String> fieldGetBeanViolations(Path path) {
         try {
             List<String> lines = Files.readAllLines(path, StandardCharsets.UTF_8);
-            return Stream.iterate(0, index -> index + 1)
-                    .limit(lines.size())
-                    .filter(index -> FIELD_GET_BEAN.matcher(lines.get(index)).matches())
-                    .map(index -> path + ":" + (index + 1));
+            List<String> violations = new ArrayList<>();
+            int braceDepth = 0;
+            for (int index = 0; index < lines.size(); index++) {
+                String line = lines.get(index);
+                if (braceDepth == 1 && FIELD_GET_BEAN.matcher(line).matches()) {
+                    violations.add(path + ":" + (index + 1));
+                }
+                braceDepth += countOccurrences(line, '{') - countOccurrences(line, '}');
+            }
+            return violations.stream();
         } catch (IOException e) {
             throw new IllegalStateException("Unable to read " + path, e);
         }
+    }
+
+    private static int countOccurrences(String line, char target) {
+        int count = 0;
+        for (int index = 0; index < line.length(); index++) {
+            if (line.charAt(index) == target) {
+                count++;
+            }
+        }
+        return count;
     }
 }
