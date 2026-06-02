@@ -28,9 +28,9 @@ class NoteBrowserJspSecurityRegressionTest {
         String jsp = Files.readString(NOTE_BROWSER);
 
         assertThat(jsp)
-                .doesNotContain("EDocUtil.deleteDocument(request.getParameter")
-                .doesNotContain("EDocUtil.undeleteDocument(request.getParameter")
-                .doesNotContain("EDocUtil.refileDocument(request.getParameter");
+                .doesNotContain("EDocUtil.deleteDocument(")
+                .doesNotContain("EDocUtil.undeleteDocument(")
+                .doesNotContain("EDocUtil.refileDocument(");
     }
 
     @Test
@@ -39,6 +39,7 @@ class NoteBrowserJspSecurityRegressionTest {
         String jsp = Files.readString(NOTE_BROWSER);
 
         assertThat(jsp)
+                .containsIgnoringCase("method=\"post\"")
                 .contains("/casemgmt/NoteBrowserDocumentDelete")
                 .contains("/casemgmt/NoteBrowserDocumentUndelete")
                 .contains("/casemgmt/NoteBrowserDocumentRefile");

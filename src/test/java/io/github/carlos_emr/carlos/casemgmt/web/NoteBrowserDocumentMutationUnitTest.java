@@ -25,7 +25,7 @@ import static org.mockito.Mockito.*;
 @DisplayName("NoteBrowser document mutation action unit tests")
 @Tag("unit")
 @Tag("caseManagement")
-class NoteBrowserDocumentMutation2ActionTest extends CarlosUnitTestBase {
+class NoteBrowserDocumentMutationUnitTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
@@ -135,6 +135,16 @@ class NoteBrowserDocumentMutation2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should reject missing delete document number")
+    void shouldRejectDelete_whenDocumentNoIsMissing() throws Exception {
+        TestDeleteAction action = new TestDeleteAction();
+
+        assertThat(action.execute()).isEqualTo("none");
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        assertThat(action.deleted).isEmpty();
+    }
+
+    @Test
     @DisplayName("should delete and return success")
     void shouldDeleteAndReturnSuccess_whenRequestIsValid() throws Exception {
         TestDeleteAction action = new TestDeleteAction();
@@ -170,6 +180,16 @@ class NoteBrowserDocumentMutation2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should reject missing undelete document number")
+    void shouldRejectUndelete_whenDocumentNoIsMissing() throws Exception {
+        TestUndeleteAction action = new TestUndeleteAction();
+
+        assertThat(action.execute()).isEqualTo("none");
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        assertThat(action.undeleted).isEmpty();
+    }
+
+    @Test
     @DisplayName("should undelete and return success")
     void shouldUndeleteAndReturnSuccess_whenRequestIsValid() throws Exception {
         TestUndeleteAction action = new TestUndeleteAction();
@@ -187,6 +207,18 @@ class NoteBrowserDocumentMutation2ActionTest extends CarlosUnitTestBase {
         TestRefileAction action = new TestRefileAction();
         action.setRefileDocumentNo("42");
         action.setQueueId("queue-1");
+
+        assertThat(action.execute()).isEqualTo("none");
+
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        assertThat(action.refiles).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should reject missing refile document number")
+    void shouldRejectRefile_whenDocumentNoIsMissing() throws Exception {
+        TestRefileAction action = new TestRefileAction();
+        action.setQueueId("7");
 
         assertThat(action.execute()).isEqualTo("none");
 

@@ -25,6 +25,15 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 
+/**
+ * Restores a deleted note-browser document through the POST-only mutation action flow.
+ *
+ * <p>The shared {@link AbstractNoteBrowserDocumentMutation2Action} contract rejects
+ * non-POST requests, requires an authenticated user with {@code _eChart w}, and
+ * validates the document number before this action calls {@link EDocUtil}.</p>
+ *
+ * @since 2026-06-01
+ */
 public class NoteBrowserDocumentUndelete2Action extends AbstractNoteBrowserDocumentMutation2Action {
 
     private String undelDocumentNo;

@@ -26,6 +26,17 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 
+/**
+ * Refiles a note-browser document to a validated destination queue.
+ *
+ * <p>The shared {@link AbstractNoteBrowserDocumentMutation2Action} contract rejects
+ * non-POST requests, requires an authenticated user with {@code _eChart w}, and
+ * validates both the document number and {@code queueId} before this action calls
+ * {@link EDocUtil}. Refile failures are logged with safe values and returned to
+ * the Struts result as a generic mutation error.</p>
+ *
+ * @since 2026-06-01
+ */
 public class NoteBrowserDocumentRefile2Action extends AbstractNoteBrowserDocumentMutation2Action {
 
     private String refileDocumentNo;

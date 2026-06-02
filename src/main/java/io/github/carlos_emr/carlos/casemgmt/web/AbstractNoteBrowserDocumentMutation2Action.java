@@ -60,22 +60,24 @@ abstract class AbstractNoteBrowserDocumentMutation2Action extends ActionSupport 
         }
 
         mutationErrorMessage = "";
-        if (hasMutationParameter()) {
-            if (!hasValidMutationParameters()) {
-                response.sendError(HttpServletResponse.SC_BAD_REQUEST, invalidParameterMessage());
-                return NONE;
-            }
-            try {
-                mutateDocument();
-            } catch (SecurityException e) {
+        if (!hasMutationParameter()) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, invalidParameterMessage());
+            return NONE;
+        }
+        if (!hasValidMutationParameters()) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, invalidParameterMessage());
+            return NONE;
+        }
+        try {
+            mutateDocument();
+        } catch (SecurityException e) {
+            throw e;
+        } catch (DocumentMutationException e) {
+            if (!handlesMutationException()) {
                 throw e;
-            } catch (DocumentMutationException e) {
-                if (!handlesMutationException()) {
-                    throw e;
-                }
-                MiscUtils.getLogger().error(logMessage(), e);
-                mutationErrorMessage = GENERIC_ERROR_MESSAGE;
             }
+            MiscUtils.getLogger().error(logMessage(), e);
+            mutationErrorMessage = GENERIC_ERROR_MESSAGE;
         }
 
         return SUCCESS;
