@@ -2433,7 +2433,7 @@ if (userAgent != null) {
                                             <div class="col-md-4">
                                                 <small class="text-muted"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgAddress"/></small><br>
                                                 <div>
-                                                <%= Encode.forHtml(thisForm.getPatientAddress()).replace("&lt;br /&gt;","<br>") %>
+                                                <%= SafeEncode.forHtml(thisForm.getPatientAddress()).replace("&lt;br /&gt;","<br>") %>
                                                 </div>
                                             </div>
                                             <div class="col-md-4">
