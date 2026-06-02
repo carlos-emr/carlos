@@ -431,6 +431,8 @@ public class LogoutBroadcastFilter implements Filter {
      * @param script String the script content to append
      * @throws IOException if the writer flush fails
      */
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     private void writeScriptToWriter(DelegatingServletResponse delegatingResponse, String script)
             throws IOException {
         PrintWriter writer = delegatingResponse.getWriter();

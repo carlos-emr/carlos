@@ -118,6 +118,8 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(req);
         boolean isFax = "oscarRxFax".equals(req.getParameter("__method"));
         try (ByteArrayOutputStream baosPDF = generatePDFDocumentBytes(req, this.getServletContext());
+             // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+             @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
              PrintWriter writer = res.getWriter()) {
 
             if (isFax) {

@@ -209,6 +209,8 @@ public class PrivacyStatementAppendingFilter implements Filter {
         return servletPath.startsWith(exclusion + "/");
     }
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     private void printConfidentialityStatement(ServletResponse response, DelegatingServletResponse delegatingServletResponse) throws IOException {
         if (delegatingServletResponse.isResponseOutputStreamObtained()) {
             response.getOutputStream().write(getPrivacyStatement().getBytes());

@@ -379,6 +379,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
 
     private static final ObjectMapper jsonMapper = new ObjectMapper();
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     private void generateResponse(HttpServletResponse response, ArrayList<String> warnings, String importLog) {
         ObjectNode json = jsonMapper.createObjectNode();
         response.setContentType("text/javascript");
