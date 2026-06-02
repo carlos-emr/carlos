@@ -56,6 +56,11 @@ class ConsultationFormRequestCppAutoImportRegressionTest {
                 .contains("CONSULTATION_AUTO_INCLUDE_FAMILY_HISTORY")
                 .contains("CONSULTATION_AUTO_INCLUDE_ONGOING_CONCERNS")
                 .contains("CONSULTATION_AUTO_INCLUDE_REMINDERS")
+                .contains("props.getProperty(\"CONSULTATION_AUTO_INCLUDE_PAST_MEDICAL_HISTORY\", \"false\")")
+                .contains("props.getProperty(\"CONSULTATION_AUTO_INCLUDE_SOCIAL_HISTORY\", \"false\")")
+                .contains("props.getProperty(\"CONSULTATION_AUTO_INCLUDE_FAMILY_HISTORY\", \"false\")")
+                .contains("props.getProperty(\"CONSULTATION_AUTO_INCLUDE_ONGOING_CONCERNS\", \"false\")")
+                .contains("props.getProperty(\"CONSULTATION_AUTO_INCLUDE_REMINDERS\", \"false\")")
                 .contains("issueType: \"MedHistory\", label: \"Past Medical History\"")
                 .contains("issueType: \"SocHistory\", label: \"Social History\"")
                 .contains("issueType: \"FamHistory\", label: \"Family History\"")
@@ -69,11 +74,11 @@ class ConsultationFormRequestCppAutoImportRegressionTest {
         String properties = Files.readString(RESOURCES_ROOT.resolve("carlos.properties"));
 
         assertThat(properties)
-                .contains("CONSULTATION_AUTO_INCLUDE_PAST_MEDICAL_HISTORY=true")
-                .contains("CONSULTATION_AUTO_INCLUDE_SOCIAL_HISTORY=true")
-                .contains("CONSULTATION_AUTO_INCLUDE_FAMILY_HISTORY=true")
-                .contains("CONSULTATION_AUTO_INCLUDE_ONGOING_CONCERNS=true")
-                .contains("CONSULTATION_AUTO_INCLUDE_REMINDERS=true");
+                .contains("CONSULTATION_AUTO_INCLUDE_PAST_MEDICAL_HISTORY=false")
+                .contains("CONSULTATION_AUTO_INCLUDE_SOCIAL_HISTORY=false")
+                .contains("CONSULTATION_AUTO_INCLUDE_FAMILY_HISTORY=false")
+                .contains("CONSULTATION_AUTO_INCLUDE_ONGOING_CONCERNS=false")
+                .contains("CONSULTATION_AUTO_INCLUDE_REMINDERS=false");
     }
 
     @Test
@@ -82,11 +87,21 @@ class ConsultationFormRequestCppAutoImportRegressionTest {
         String releaseConfig = Files.readString(RELEASE_CONFIG);
 
         assertThat(releaseConfig)
-                .contains("echo \"CONSULTATION_AUTO_INCLUDE_PAST_MEDICAL_HISTORY=true\"")
-                .contains("echo \"CONSULTATION_AUTO_INCLUDE_SOCIAL_HISTORY=true\"")
-                .contains("echo \"CONSULTATION_AUTO_INCLUDE_FAMILY_HISTORY=true\"")
-                .contains("echo \"CONSULTATION_AUTO_INCLUDE_ONGOING_CONCERNS=true\"")
-                .contains("echo \"CONSULTATION_AUTO_INCLUDE_REMINDERS=true\"");
+                .contains("echo \"CONSULTATION_AUTO_INCLUDE_PAST_MEDICAL_HISTORY=false\"")
+                .contains("echo \"CONSULTATION_AUTO_INCLUDE_SOCIAL_HISTORY=false\"")
+                .contains("echo \"CONSULTATION_AUTO_INCLUDE_FAMILY_HISTORY=false\"")
+                .contains("echo \"CONSULTATION_AUTO_INCLUDE_ONGOING_CONCERNS=false\"")
+                .contains("echo \"CONSULTATION_AUTO_INCLUDE_REMINDERS=false\"");
+    }
+
+    @Test
+    @DisplayName("should auto-import CPP sections only on initial new request render")
+    void shouldAutoImportCppSections_onlyOnInitialNewRequestRender() throws Exception {
+        String jsp = readJsp("encounter/oscarConsultationRequest/ConsultationFormRequest.jsp");
+
+        assertThat(jsp)
+                .contains("requestId == null && demo != null && request.getAttribute(\"validateError\") == null")
+                .contains("autoImportClinicalHistory(<carlos:encode value='<%= demo %>' context=\"javaScript\"/>);");
     }
 
     @Test

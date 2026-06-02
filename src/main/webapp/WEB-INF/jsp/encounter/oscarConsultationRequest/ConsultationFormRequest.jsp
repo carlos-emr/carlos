@@ -1134,19 +1134,19 @@
         function autoImportClinicalHistory(demographicNo) {
             var target = "#clinicalInformation";
             var issueTypes = [];
-            <% if ("true".equalsIgnoreCase(props.getProperty("CONSULTATION_AUTO_INCLUDE_PAST_MEDICAL_HISTORY", "true"))) { %>
+            <% if ("true".equalsIgnoreCase(props.getProperty("CONSULTATION_AUTO_INCLUDE_PAST_MEDICAL_HISTORY", "false"))) { %>
             issueTypes.push({issueType: "MedHistory", label: "Past Medical History"});
             <% } %>
-            <% if ("true".equalsIgnoreCase(props.getProperty("CONSULTATION_AUTO_INCLUDE_SOCIAL_HISTORY", "true"))) { %>
+            <% if ("true".equalsIgnoreCase(props.getProperty("CONSULTATION_AUTO_INCLUDE_SOCIAL_HISTORY", "false"))) { %>
             issueTypes.push({issueType: "SocHistory", label: "Social History"});
             <% } %>
-            <% if ("true".equalsIgnoreCase(props.getProperty("CONSULTATION_AUTO_INCLUDE_FAMILY_HISTORY", "true"))) { %>
+            <% if ("true".equalsIgnoreCase(props.getProperty("CONSULTATION_AUTO_INCLUDE_FAMILY_HISTORY", "false"))) { %>
             issueTypes.push({issueType: "FamHistory", label: "Family History"});
             <% } %>
-            <% if ("true".equalsIgnoreCase(props.getProperty("CONSULTATION_AUTO_INCLUDE_ONGOING_CONCERNS", "true"))) { %>
+            <% if ("true".equalsIgnoreCase(props.getProperty("CONSULTATION_AUTO_INCLUDE_ONGOING_CONCERNS", "false"))) { %>
             issueTypes.push({issueType: "Concerns", label: "Ongoing Concerns"});
             <% } %>
-            <% if ("true".equalsIgnoreCase(props.getProperty("CONSULTATION_AUTO_INCLUDE_REMINDERS", "true"))) { %>
+            <% if ("true".equalsIgnoreCase(props.getProperty("CONSULTATION_AUTO_INCLUDE_REMINDERS", "false"))) { %>
             issueTypes.push({issueType: "Reminders", label: "Reminders"});
             <% } %>
             var idx = 0;
@@ -1264,7 +1264,7 @@
             });
 
             // Auto-import configured CPP history sections for new consultations
-            <% if (requestId == null && demo != null) { %>
+            <% if (requestId == null && demo != null && request.getAttribute("validateError") == null) { %>
             var clinical = jQuery("#clinicalInformation").val();
             if (!clinical || clinical.trim().length === 0) {
                 autoImportClinicalHistory(<carlos:encode value='<%= demo %>' context="javaScript"/>);
