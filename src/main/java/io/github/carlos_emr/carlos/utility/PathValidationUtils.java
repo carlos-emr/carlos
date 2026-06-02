@@ -345,7 +345,6 @@ public final class PathValidationUtils {
      * @param allowedDir the directory the file must be within
      * @return the validated File
      * @throws SecurityException if the file is outside the allowed directory
-     * @since 2026-06-01
      */
     public static File validateChildPath(File file, File allowedDir) {
         if (file == null) {
@@ -362,7 +361,6 @@ public final class PathValidationUtils {
      *
      * @param file trusted file path to canonicalize
      * @return canonicalized file
-     * @since 2026-06-01
      */
     public static File resolveTrustedPath(File file) {
         return resolveTrustedPath(file, "trusted file");
@@ -376,8 +374,6 @@ public final class PathValidationUtils {
      * @param file trusted file path to canonicalize
      * @param label human-readable label for diagnostics
      * @return canonicalized file
-     * @throws SecurityException if the file is null or cannot be canonicalized
-     * @since 2026-06-01
      */
     public static File resolveTrustedPath(File file, String label) {
         String field = label == null || label.trim().isEmpty() ? "trusted file" : label;
@@ -399,7 +395,6 @@ public final class PathValidationUtils {
      *
      * @param file file to canonicalize
      * @return canonicalized file
-     * @since 2026-06-01
      * @deprecated use {@link #resolveTrustedPath(File)} for trusted internal paths,
      * or validate against a real trusted base directory.
      */
@@ -420,7 +415,6 @@ public final class PathValidationUtils {
      * @param label human-readable label for diagnostics
      * @return canonical directory File
      * @throws SecurityException if the path is blank, cannot be canonicalized, or is not a directory
-     * @since 2026-06-01
      */
     public static File validateConfiguredDirectory(String configuredPath, String label) {
         String field = label == null || label.trim().isEmpty() ? "configured directory" : label;
@@ -454,7 +448,6 @@ public final class PathValidationUtils {
      * @throws FileValidationException if the generated name is blank, contains a null byte,
      *         contains a path separator, or is "." or ".."
      * @throws SecurityException if the resolved child escapes {@code allowedDir}
-     * @since 2026-06-01
      */
     public static File validateGeneratedChildPath(String generatedChildName, File allowedDir) {
         if (generatedChildName == null || generatedChildName.trim().isEmpty()) {
@@ -482,8 +475,6 @@ public final class PathValidationUtils {
      * @param configuredPath configured directory path
      * @param label human-readable label for diagnostics
      * @return canonical directory File
-     * @throws SecurityException if the path is blank, cannot be canonicalized, or exists as a non-directory
-     * @since 2026-06-01
      */
     public static File resolveConfiguredDirectory(String configuredPath, String label) {
         String field = label == null || label.trim().isEmpty() ? "configured directory" : label;
@@ -514,8 +505,6 @@ public final class PathValidationUtils {
      * @param suffix trusted suffix to append to the configured file or directory name
      * @param label human-readable label for diagnostics
      * @return validated sibling File
-     * @throws SecurityException if the configured path or suffix is invalid, or the sibling escapes its parent
-     * @since 2026-06-01
      */
     public static File validateGeneratedSiblingPath(String configuredPath, String suffix, String label) {
         String field = label == null || label.trim().isEmpty() ? "configured sibling" : label;
@@ -551,8 +540,6 @@ public final class PathValidationUtils {
      * @param configuredPath configured file path
      * @param label human-readable label for diagnostics
      * @return canonical file
-     * @throws SecurityException if the path is blank, cannot be canonicalized, or is not a file
-     * @since 2026-06-01
      */
     public static File validateConfiguredFile(String configuredPath, String label) {
         String field = label == null || label.trim().isEmpty() ? "configured file" : label;
@@ -582,8 +569,6 @@ public final class PathValidationUtils {
      * @param configuredPath configured file path
      * @param label human-readable label for diagnostics
      * @return canonical file
-     * @throws SecurityException if the path is blank, cannot be canonicalized, or exists as a non-file
-     * @since 2026-06-01
      */
     public static File resolveConfiguredFile(String configuredPath, String label) {
         String field = label == null || label.trim().isEmpty() ? "configured file" : label;
@@ -616,7 +601,6 @@ public final class PathValidationUtils {
      *         or contains a traversal segment ("..", "/../", "/./")
      * @throws SecurityException if the entry or destination is null, or the resolved target
      *         escapes {@code destinationDir}
-     * @since 2026-06-01
      */
     public static File validateZipEntryPath(ZipEntry entry, File destinationDir) {
         if (entry == null) {
@@ -641,7 +625,6 @@ public final class PathValidationUtils {
      * @return slash-separated validated relative ZIP entry name
      * @throws SecurityException if the file is outside {@code sourceRoot} or the derived
      *         entry name is unsafe
-     * @since 2026-06-01
      */
     public static String validateZipEntryName(File file, File sourceRoot) {
         File validatedFile = validateExistingPath(file, sourceRoot);
@@ -750,7 +733,6 @@ public final class PathValidationUtils {
      *        may be null, in which case {@code .tmp} is used
      * @return the created temporary File
      * @throws IOException if the file cannot be created
-     * @since 2026-06-01
      */
     public static File createSecureTempFile(String prefix, String suffix) throws IOException {
         try {
