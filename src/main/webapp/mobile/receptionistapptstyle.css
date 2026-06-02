@@ -139,16 +139,6 @@ a.encounterBtn, a.masterBtn {
     margin: 0px;
     padding: 0px;
 }
-/*
-#navlist {
-    background: #6d84a2 repeat-x;
-    font-size: medium;
-    font-weight: bold;
-    -webkit-box-sizing: border-box;
-    height: 45px;
-    border-bottom: 1px black solid;
-}
-*/
 .rightButton {
     right: 30px;
 }
