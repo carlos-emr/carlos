@@ -33,6 +33,7 @@ import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.web.context.ServletContextAware;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
@@ -140,6 +141,8 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
      * @param filename  String the asset filename (e.g., "editControl2.js")
      * @param targetDir File the eForm images directory to deploy into
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     private void deployAsset(String filename, File targetDir) {
         File targetFile = new File(targetDir, filename);
         if (targetFile.exists()) {

@@ -51,6 +51,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import io.github.carlos_emr.carlos.form.FrmRecord;
 import io.github.carlos_emr.carlos.form.FrmRecordFactory;
@@ -917,6 +918,8 @@ public class FrmPDFServlet extends HttpServlet {
         return ret;
     }
     
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private Properties loadFromFileSystem(String baseDir, String safeFilename) {
         try {
             // Build and validate the full path using PathValidationUtils

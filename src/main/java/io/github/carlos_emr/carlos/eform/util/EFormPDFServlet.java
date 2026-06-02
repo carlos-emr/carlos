@@ -61,6 +61,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.form.graphic.FrmGraphicFactory;
@@ -367,6 +368,8 @@ public class EFormPDFServlet extends HttpServlet {
      * @param cfgFilename String the configuration filename
      * @return Properties the parsed field layout entries, or empty Properties if not found
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     protected Properties getCfgProp(String cfgFilename) {
         Properties ret = new Properties();
         
