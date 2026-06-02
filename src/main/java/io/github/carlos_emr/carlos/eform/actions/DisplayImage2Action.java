@@ -125,6 +125,8 @@ public class DisplayImage2Action extends ActionSupport {
         }
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private File getValidatedImageFile(String fileName) throws Exception {
         if (fileName == null || fileName.isEmpty()) {
             throw new IllegalArgumentException("imagefile parameter is required");
@@ -262,6 +264,8 @@ public class DisplayImage2Action extends ActionSupport {
         return f.substring(dot + 1);
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static File getImageFile(String imageFileName) throws Exception {
         String home_dir = CarlosProperties.getInstance().getEformImageDirectory();
         File directory = new File(home_dir);
@@ -275,6 +279,8 @@ public class DisplayImage2Action extends ActionSupport {
      * Process only files under dir
      * This method used to list images for eform generator
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public String[] visitAllFiles(File dir) {
         String[] children = null;
         if (dir.isDirectory()) {
