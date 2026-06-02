@@ -54,6 +54,7 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.waitinglist.WaitingList;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts 2 action that handles appointment creation (migrated from appointmentaddarecord.jsp).
@@ -68,6 +69,8 @@ public final class AppointmentAddRecord2Action extends ActionSupport {
     private final WaitingListDao waitingListDao = SpringUtils.getBean(WaitingListDao.class);
     private final EventService eventService = SpringUtils.getBean(EventService.class);
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public String execute() throws IOException {
         HttpServletRequest request = ServletActionContext.getRequest();

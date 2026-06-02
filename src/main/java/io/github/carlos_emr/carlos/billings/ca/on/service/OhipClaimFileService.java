@@ -68,6 +68,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.providers.data.ProviderBillCenter;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * OHIP claim-file generator for the ON billing module. Writes the
@@ -393,6 +394,8 @@ public class OhipClaimFileService {
         return ret;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String buildHeader2() {
         healthcardCount++;
         String str1Hin = leftJustify(" ", 12, currentClaimHeader.getHin());
@@ -821,6 +824,8 @@ public class OhipClaimFileService {
      * this prototype instance, marking included claim headers as billed when
      * {@code eFlag} is {@code "1"}.
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public void createSiteBillingFileStr(LoggedInInfo loggedInInfo, String bid, String[] statuses) {
         resetGeneratedDiskFinalization();
 
@@ -1150,6 +1155,8 @@ public class OhipClaimFileService {
      * Reads billing numbers from the current OHIP file into the regeneration
      * de-duplication set used by later claim-file generation.
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void readInBillingNo() {
         String home_dir = CarlosProperties.getInstance().getProperty("HOME_DIR");
         propBillingNo = new Properties();
@@ -1200,6 +1207,8 @@ public class OhipClaimFileService {
     }
 
     /** Renames the current OHIP file to a timestamp-suffixed backup name. */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void renameFile() {
         String home_dir;
         home_dir = CarlosProperties.getInstance().getProperty("HOME_DIR");
@@ -1280,6 +1289,8 @@ public class OhipClaimFileService {
         }
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private void deleteConfiguredOutputQuietly(String configuredFilename, String outputLabel) {
         if (configuredFilename == null || configuredFilename.isBlank()) {
             return;
@@ -1305,6 +1316,8 @@ public class OhipClaimFileService {
      * @param value1 complete MOH fixed-width claim payload to write.
      * @throws BillingFileWriteException when path validation or disk I/O fails.
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void writeFile(String value1) {
         String home_dir = CarlosProperties.getInstance().getProperty("HOME_DIR");
         File safeOut = io.github.carlos_emr.carlos.utility.PathValidationUtils.validatePath(
@@ -1336,6 +1349,8 @@ public class OhipClaimFileService {
      * @param htmlvalue1 complete HTML preview payload to write.
      * @throws BillingFileWriteException when path validation or disk I/O fails.
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void writeHtml(String htmlvalue1) {
         String home_dir1 = CarlosProperties.getInstance().getProperty("HOME_DIR");
         File safeHtml = io.github.carlos_emr.carlos.utility.PathValidationUtils.validatePath(

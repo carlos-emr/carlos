@@ -60,6 +60,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import org.owasp.encoder.Encode;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 
 public class FlowSheetCustom2Action extends ActionSupport {
@@ -184,6 +185,8 @@ public class FlowSheetCustom2Action extends ActionSupport {
         return true;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() throws Exception {
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
             logger.warn("Rejected flowsheet customization request with method {} from {}",

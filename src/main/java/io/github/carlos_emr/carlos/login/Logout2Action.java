@@ -32,6 +32,9 @@ package io.github.carlos_emr.carlos.login;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 
+import java.io.IOException;
+import java.util.Locale;
+
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -76,7 +79,7 @@ import org.apache.struts2.ServletActionContext;
  * <p>Struts configuration (struts.xml):
  * <pre>
  * &lt;action name="logout" class="io.github.carlos_emr.carlos.login.Logout2Action"&gt;
- *     &lt;result name="success"&gt;/logoutPage&lt;/result&gt;
+ *     &lt;result name="success" type="redirect"&gt;/index&lt;/result&gt;
  * &lt;/action&gt;
  * </pre>
  *
@@ -94,6 +97,16 @@ public class Logout2Action extends ActionSupport {
     /**
      * Main execution method that routes to specific logout handler based on method parameter.
      *
+     * <p>Rejects non-POST requests with 405 before any side effect fires: session
+     * invalidation and cookie deletion are mutations and must not be triggered by
+     * a GET link click or browser pre-fetch.
+     *
+     * <p>No {@code SecurityInfoManager.hasPrivilege()} check is performed here.
+     * {@code /logout} is listed in {@code LoginFilter.EXEMPT_URLS} specifically
+     * because it must accept requests even after the session has already expired
+     * (session-timeout flow). Calling {@code hasPrivilege()} on a null or expired
+     * session would block the very cleanup this action is meant to perform.
+     *
      * <p>This method examines the "method" request parameter to determine which
      * logout scenario applies:
      * <ul>
@@ -102,13 +115,18 @@ public class Logout2Action extends ActionSupport {
      *   <li>no method parameter → {@link #logout()} (standard logout)</li>
      * </ul>
      *
-     * <p>All three methods ultimately perform the same logout operations,
-     * but are kept separate to allow for future differentiation (e.g., different
-     * redirect targets or additional cleanup steps).
-     *
-     * @return String Struts2 result name (always SUCCESS, renders the logout page)
+     * @return String Struts2 result name (SUCCESS after POST; NONE after 405 for non-POST)
      */
-    public String execute() {
+    @Override
+    public String execute() throws IOException {
+        // Logout invalidates the session and deletes cookies — reject non-POST to
+        // prevent these side effects from firing on a plain GET link or pre-fetch.
+        if (!"POST".equals(request.getMethod().toUpperCase(Locale.ROOT))) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
+
         String method = request.getParameter("method");
 
         // Route to appropriate logout handler based on method parameter

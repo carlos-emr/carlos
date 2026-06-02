@@ -34,7 +34,7 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
-import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -67,6 +67,10 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_eform", "w", null)) {
             throw new SecurityException("missing required sec object (_eform)");
+        }
+        if (uploadValidationError != null) {
+            addActionError(uploadValidationError);
+            return ERROR;
         }
 
         try {
@@ -125,6 +129,8 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
         }
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public static File getImageFolder() throws IOException {
         File imageFolder = new File(CarlosProperties.getInstance().getEformImageDirectory() + "/");
         if (!imageFolder.exists() && !imageFolder.mkdirs())
@@ -142,6 +148,7 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
     }
 
     private File image;
+    private String uploadValidationError;
 
     /**
      * Receives uploaded files from the Struts 7.x {@code ActionFileUploadInterceptor}.
@@ -150,9 +157,14 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
     public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
         if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
             UploadedFile uploaded = uploadedFiles.get(0);
-            this.image = PathValidationUtils.validateUpload(new File(uploaded.getAbsolutePath()));
+            this.image = PathValidationUtils.validateUploadContent(uploaded.getContent());
             this.imageFileContentType = uploaded.getContentType();
-            this.imageFileName = uploaded.getOriginalName();
+            try {
+                this.imageFileName = PathValidationUtils.validateStrictFileName(uploaded.getOriginalName());
+            } catch (FileValidationException e) {
+                this.uploadValidationError = getInvalidFilenameMessage();
+                this.imageFileName = null;
+            }
         }
     }
 
@@ -160,7 +172,6 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
         return image;
     }
 
-    @StrutsParameter
     public void setImage(File image) {
         this.image = image;
     }
@@ -168,12 +179,10 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
     private String imageFileName;
     private String imageFileContentType;
 
-    @StrutsParameter
     public void setImageFileName(String imageFileName) {
         this.imageFileName = imageFileName;
     }
 
-    @StrutsParameter
     public void setImageFileContentType(String imageFileContentType) {
         this.imageFileContentType = imageFileContentType;
     }

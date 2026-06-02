@@ -41,6 +41,7 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import static io.github.carlos_emr.carlos.billings.ca.on.support.BillingDomIdTokens.sanitize;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Composer for the service-code grid + adjacent menu / dx-codes structures.
@@ -160,6 +161,8 @@ public class BillingOnFormServiceGridComposer {
         this.diagnosticCodeDao = diagnosticCodeDao;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     void compose(BillingOnFormViewModel.Builder b,
                  String ctlBillForm,
                  java.util.Date filterDate,

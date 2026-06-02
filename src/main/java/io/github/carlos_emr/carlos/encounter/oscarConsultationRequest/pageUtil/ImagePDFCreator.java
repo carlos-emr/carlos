@@ -24,6 +24,7 @@ import javax.imageio.stream.ImageInputStream;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Iterator;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -108,6 +109,8 @@ public class ImagePDFCreator extends PdfPageEventHelper {
      * @throws IOException       when an I/O error occurs reading the image or writing the PDF
      * @throws DocumentException when OpenPDF encounters an error constructing the PDF document
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void printPdf() throws IOException, DocumentException {
 
         // Validate imagePath against the configured document directory to prevent path traversal

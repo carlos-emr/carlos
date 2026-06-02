@@ -29,10 +29,6 @@ table#firstTable td {
     font-size: 12px;
 }
 
-table#firstTable tr td.icon-container {
-    padding-left: 10px;
-}
-
 table#firstTable td#firstMenu {
     flex: 1 1 auto;
 }
@@ -47,6 +43,11 @@ table#firstTable td#userSettings {
 
 #userSettings {
     margin-right: 15px;
+}
+
+table#firstTable td#firstMenu .icon-container {
+    display: inline-flex;
+    align-items: center;
 }
 
 table#firstTable td#firstMenu ul#navlist:not(.dashboardDropdown),
@@ -64,11 +65,17 @@ table#firstTable td#userSettings ul#userSettingsMenu li {
 table#firstTable td#firstMenu ul#navlist > li:not(.dashboardDropdown) {
     line-height: 1;
     display: inline-block;
+    padding: 0;
 }
 
 table#firstTable td#firstMenu ul#navlist > li:not(.dashboardDropdown) > a {
     display: inline-block;
     padding: 5px;
+}
+
+table#firstTable td#userSettings ul#userSettingsMenu {
+    display: flex;
+    gap: 5px;
 }
 
 table#firstTable a,
@@ -86,6 +93,43 @@ table#firstTable td#firstMenu #navlist li:hover,
 table#firstTable td#firstMenu #navlist li a:hover {
     color: #fff;
     background-color: #486ebd;
+}
+
+table#firstTable td#firstMenu ul#navlist li.nav-active,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:visited,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:active {
+    color: #00283c;
+    background-color: #d9d9d9;
+}
+
+table#firstTable td#firstMenu ul#navlist li.nav-active > a.tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a .tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a span {
+    color: #00283c !important;
+}
+
+table#firstTable td#firstMenu ul#navlist li.nav-active:hover,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:hover,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:focus,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:focus-visible {
+    color: #fff;
+    background-color: #486ebd;
+}
+
+table#firstTable td#firstMenu ul#navlist li.nav-active:hover > a.tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active:hover > a .tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active:hover > a span,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:hover.tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:hover .tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:hover span,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:focus.tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:focus .tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:focus span,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:focus-visible.tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:focus-visible .tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:focus-visible span {
+    color: #fff !important;
 }
 
 table#firstTable #logoutButton span {
