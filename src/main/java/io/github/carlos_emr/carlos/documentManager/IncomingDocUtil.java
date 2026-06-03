@@ -602,7 +602,7 @@ public final class IncomingDocUtil {
         Files.delete(f.toPath());
         File f1 = PathValidationUtils.validateExistingPath(new File(tempFilePathName), new File(basePath));
         if (!f1.setLastModified(lastModified)) {
-            throw new Exception("Error in setting last modified time for file:" + tempFilePathName);
+            throw new IOException("Error in setting last modified time for file:" + tempFilePathName);
         }
         boolean success = f1.renameTo(f);
         if (!success) {
