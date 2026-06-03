@@ -60,8 +60,9 @@ function assert(condition, message) {
 }
 
 async function gotoApp(page, appPath, options = {}) {
-  // appUrl rejects non-root-relative paths and validateBaseUrl rejects non-local hosts unless explicitly allowed.
-  return page.goto(appUrl(appPath), options); // nosemgrep
+  const targetUrl = appUrl(appPath);
+  // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl rejects non-local hosts unless explicitly allowed.
+  return page.goto(targetUrl, options);
 }
 
 async function assertNotBlank(page, label, minHtml = 100) {
