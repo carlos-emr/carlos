@@ -145,6 +145,17 @@ class NoteBrowserDocumentMutationUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should reject empty delete document number")
+    void shouldRejectDelete_whenDocumentNoIsEmpty() throws Exception {
+        TestDeleteAction action = new TestDeleteAction();
+        action.setDelDocumentNo("");
+
+        assertThat(action.execute()).isEqualTo("none");
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        assertThat(action.deleted).isEmpty();
+    }
+
+    @Test
     @DisplayName("should delete and return success")
     void shouldDeleteAndReturnSuccess_whenRequestIsValid() throws Exception {
         TestDeleteAction action = new TestDeleteAction();
@@ -190,6 +201,17 @@ class NoteBrowserDocumentMutationUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should reject empty undelete document number")
+    void shouldRejectUndelete_whenDocumentNoIsEmpty() throws Exception {
+        TestUndeleteAction action = new TestUndeleteAction();
+        action.setUndelDocumentNo("");
+
+        assertThat(action.execute()).isEqualTo("none");
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        assertThat(action.undeleted).isEmpty();
+    }
+
+    @Test
     @DisplayName("should undelete and return success")
     void shouldUndeleteAndReturnSuccess_whenRequestIsValid() throws Exception {
         TestUndeleteAction action = new TestUndeleteAction();
@@ -215,10 +237,35 @@ class NoteBrowserDocumentMutationUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should reject nonnumeric refile document number")
+    void shouldRejectRefile_whenDocumentNoIsNonNumeric() throws Exception {
+        TestRefileAction action = new TestRefileAction();
+        action.setRefileDocumentNo("42x");
+        action.setQueueId("7");
+
+        assertThat(action.execute()).isEqualTo("none");
+
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        assertThat(action.refiles).isEmpty();
+    }
+
+    @Test
     @DisplayName("should reject missing refile document number")
     void shouldRejectRefile_whenDocumentNoIsMissing() throws Exception {
         TestRefileAction action = new TestRefileAction();
         action.setQueueId("7");
+
+        assertThat(action.execute()).isEqualTo("none");
+
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        assertThat(action.refiles).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should reject missing queueId")
+    void shouldRejectRefile_whenQueueIdIsMissing() throws Exception {
+        TestRefileAction action = new TestRefileAction();
+        action.setRefileDocumentNo("42");
 
         assertThat(action.execute()).isEqualTo("none");
 
