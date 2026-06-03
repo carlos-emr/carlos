@@ -34,9 +34,9 @@ import org.springframework.stereotype.Service;
 
 import jakarta.servlet.http.HttpSession;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Implementation of the {@link UserSessionManager} interface.
@@ -58,11 +58,16 @@ public class UserSessionManagerImpl implements UserSessionManager {
     public void registerUserSession(Integer userSecurityCode, HttpSession session) {
         purgeInvalidSessions();
 
-        userSessionMap.computeIfAbsent(userSecurityCode, key -> ConcurrentHashMap.newKeySet())
-                .add(session);
+        userSessionMap.compute(userSecurityCode, (key, sessions) -> {
+            if (sessions == null) {
+                sessions = ConcurrentHashMap.newKeySet();
+            }
+            sessions.add(session);
+            return sessions;
+        });
         // nosemgrep: tainted-session-from-http-request -- userSecurityCode is an internally generated security token, not user input
         session.setAttribute(KEY_USER_SECURITY_CODE, userSecurityCode);
-        logger.debug("User Session successfully registered: {}", session.getId());
+        logger.debug("User Session successfully registered: {}", sessionIdForLog(session));
     }
 
     /**
@@ -73,31 +78,33 @@ public class UserSessionManagerImpl implements UserSessionManager {
      */
     @Override
     public HttpSession unregisterUserSession(Integer userSecurityCode) throws UserSessionNotFoundException {
-        if (this.isUserSessionRegistered(userSecurityCode)) {
-            Set<HttpSession> sessions = userSessionMap.remove(userSecurityCode);
-            HttpSession session = sessions.iterator().next();
-            for (HttpSession registeredSession : sessions) {
-                registeredSession.removeAttribute(KEY_USER_SECURITY_CODE);
-            }
-            logger.debug("User Sessions successfully unregistered for security code: {}", userSecurityCode);
-            return session;
-        } else {
+        Set<HttpSession> sessions = userSessionMap.remove(userSecurityCode);
+        if (sessions == null || sessions.isEmpty()) {
             throw new UserSessionNotFoundException("User session not registered");
         }
+
+        HttpSession session = sessions.iterator().next();
+        for (HttpSession registeredSession : sessions) {
+            removeSecurityCodeAttribute(registeredSession);
+        }
+        logger.debug("User Sessions successfully unregistered for security code: {}", userSecurityCode);
+        return session;
     }
 
     @Override
     public HttpSession unregisterUserSession(Integer userSecurityCode, HttpSession session) throws UserSessionNotFoundException {
-        Set<HttpSession> sessions = userSessionMap.get(userSecurityCode);
-        if (sessions == null || !sessions.remove(session)) {
+        AtomicBoolean removed = new AtomicBoolean(false);
+        userSessionMap.computeIfPresent(userSecurityCode, (key, sessions) -> {
+            removed.set(sessions.remove(session));
+            return sessions.isEmpty() ? null : sessions;
+        });
+
+        if (!removed.get()) {
             throw new UserSessionNotFoundException("User session not registered");
         }
 
-        session.removeAttribute(KEY_USER_SECURITY_CODE);
-        if (sessions.isEmpty()) {
-            userSessionMap.remove(userSecurityCode, sessions);
-        }
-        logger.debug("User Session successfully unregistered: {}", session.getId());
+        removeSecurityCodeAttribute(session);
+        logger.debug("User Session successfully unregistered: {}", sessionIdForLog(session));
         return session;
     }
 
@@ -109,11 +116,11 @@ public class UserSessionManagerImpl implements UserSessionManager {
      */
     @Override
     public HttpSession getRegisteredSession(Integer userSecurityCode) {
-        if (this.isUserSessionRegistered(userSecurityCode)) {
-            return userSessionMap.get(userSecurityCode).iterator().next();
-        } else {
+        Set<HttpSession> sessions = userSessionMap.get(userSecurityCode);
+        if (sessions == null || sessions.isEmpty()) {
             throw new UserSessionNotFoundException("User session not registered");
         }
+        return sessions.iterator().next();
     }
 
     /**
@@ -121,28 +128,35 @@ public class UserSessionManagerImpl implements UserSessionManager {
      * Safety net for sessions that expire without triggering OscarSessionListener.
      */
     private void purgeInvalidSessions() {
-        userSessionMap.entrySet().removeIf(entry -> {
-            entry.getValue().removeIf(session -> {
-                try {
-                    session.getId(); // throws IllegalStateException if invalidated
-                    return false;
-                } catch (IllegalStateException e) {
-                    logger.debug("Purging invalidated session for security code: {}", entry.getKey());
-                    return true;
-                }
+        for (Integer userSecurityCode : userSessionMap.keySet()) {
+            userSessionMap.computeIfPresent(userSecurityCode, (key, sessions) -> {
+                sessions.removeIf(session -> {
+                    try {
+                        session.getId(); // throws IllegalStateException if invalidated
+                        return false;
+                    } catch (IllegalStateException e) {
+                        logger.debug("Purging invalidated session for security code: {}", key);
+                        return true;
+                    }
+                });
+                return sessions.isEmpty() ? null : sessions;
             });
-            return entry.getValue().isEmpty();
-        });
+        }
     }
 
-    /**
-     * Checks if a session is registered for the given user sec code.
-     *
-     * @param userSecurityCode The user sec code.
-     * @return True if the session is registered, false otherwise.
-     */
-    private boolean isUserSessionRegistered(Integer userSecurityCode) {
-        Set<HttpSession> sessions = userSessionMap.get(userSecurityCode);
-        return Objects.nonNull(sessions) && !sessions.isEmpty();
+    private void removeSecurityCodeAttribute(HttpSession session) {
+        try {
+            session.removeAttribute(KEY_USER_SECURITY_CODE);
+        } catch (IllegalStateException e) {
+            logger.debug("Session already invalidated: {}", e.getMessage());
+        }
+    }
+
+    private String sessionIdForLog(HttpSession session) {
+        try {
+            return session.getId();
+        } catch (IllegalStateException e) {
+            return "invalidated";
+        }
     }
 }
