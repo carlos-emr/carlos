@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.carlos_emr.carlos.commn.dao.DrugDao;
 import io.github.carlos_emr.carlos.commn.model.Drug;
 import io.github.carlos_emr.carlos.managers.RxManager;
@@ -32,11 +34,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -49,7 +54,9 @@ import static org.mockito.Mockito.when;
 @DisplayName("RxWriteScript2Action Tests")
 @Tag("integration")
 @Tag("prescription")
-class RxWriteScript2ActionTest extends CarlosWebTestBase {
+class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     @Mock
     private DrugDao mockDrugDao;
@@ -93,5 +100,56 @@ class RxWriteScript2ActionTest extends CarlosWebTestBase {
         assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
         verify(mockDrugDao, never()).persist(any(Drug.class));
         verify(mockRxManager, never()).archiveDrug(any(), anyInt(), anyInt(), any(String.class));
+    }
+
+    @Test
+    @DisplayName("should update long term status when drug belongs to current demographic")
+    void shouldUpdateLongTermStatus_whenDrugBelongsToCurrentDemographic() throws Exception {
+        int demographicNo = 1001;
+        int drugId = 3003;
+        int scriptNo = 4004;
+
+        RxSessionBean bean = new RxSessionBean();
+        bean.setDemographicNo(demographicNo);
+        getMockSession().setAttribute("RxSessionBean", bean);
+        addRequestParameter("ltDrugId", String.valueOf(drugId));
+        addRequestParameter("isLongTerm", "true");
+
+        Drug drug = new Drug();
+        drug.setId(drugId);
+        drug.setProviderNo("999998");
+        drug.setDemographicId(demographicNo);
+        drug.setSpecial("Take one tablet daily");
+        drug.setScriptNo(scriptNo);
+        when(mockDrugDao.find(drugId)).thenReturn(drug);
+        when(mockDrugDao.getMaxPosition(demographicNo)).thenReturn(0);
+        doAnswer(invocation -> {
+            Drug savedDrug = invocation.getArgument(0);
+            savedDrug.setId(5005);
+            return null;
+        }).when(mockDrugDao).persist(any(Drug.class));
+        when(mockRxManager.archiveDrug(
+                any(),
+                eq(drugId),
+                eq(demographicNo),
+                eq(Drug.ARCHIVED_REASON_LT_ENABLED))).thenReturn(true);
+
+        String result = executeActionMethod(action, "updateLongTermStatus");
+
+        assertThat(result).isNull();
+        assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        JsonNode responseBody = OBJECT_MAPPER.readTree(getMockResponse().getContentAsString());
+        assertThat(responseBody.get("success").asBoolean()).isTrue();
+
+        ArgumentCaptor<Drug> savedDrug = ArgumentCaptor.forClass(Drug.class);
+        verify(mockDrugDao).persist(savedDrug.capture());
+        assertThat(savedDrug.getValue().getDemographicId()).isEqualTo(demographicNo);
+        assertThat(savedDrug.getValue().isLongTerm()).isTrue();
+        assertThat(savedDrug.getValue().getShortTerm()).isFalse();
+        verify(mockRxManager).archiveDrug(
+                any(),
+                eq(drugId),
+                eq(demographicNo),
+                eq(Drug.ARCHIVED_REASON_LT_ENABLED));
     }
 }
