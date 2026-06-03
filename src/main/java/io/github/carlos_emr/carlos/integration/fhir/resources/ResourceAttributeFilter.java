@@ -28,6 +28,7 @@ package io.github.carlos_emr.carlos.integration.fhir.resources;
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -36,6 +37,8 @@ import java.util.Properties;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.integration.fhir.interfaces.ResourceAttributeFilterInterface;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class ResourceAttributeFilter implements ResourceAttributeFilterInterface {
 
@@ -54,11 +57,19 @@ public class ResourceAttributeFilter implements ResourceAttributeFilterInterface
         }
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     private void readFromFile(String filterURL) throws IOException {
         InputStream is = getClass().getResourceAsStream(filterURL);
 
         if (is == null) {
-            is = new FileInputStream(filterURL);
+            try {
+                is = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(filterURL)));
+            } catch (SecurityException e) {
+                // Honour the declared throws IOException so the constructor's IOException handler
+                // catches a canonicalization failure rather than an unchecked SecurityException.
+                throw new IOException("Unable to resolve filter resource file", e);
+            }
         }
 
         try {
