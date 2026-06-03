@@ -190,15 +190,13 @@ public class DefaultHandler implements MessageHandler {
         file = PathValidationUtils.validateExistingPath(file, docDir);
 
         StringBuilder sb = new StringBuilder(1024);
-        BufferedReader reader = new BufferedReader(new FileReader(file));
-
-        char[] chars = new char[1024];
-        int numRead = 0;
-        while ((numRead = reader.read(chars)) > -1) {
-            sb.append(chars, 0, numRead);
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+            char[] chars = new char[1024];
+            int numRead = 0;
+            while ((numRead = reader.read(chars)) > -1) {
+                sb.append(chars, 0, numRead);
+            }
         }
-
-        reader.close();
 
         return sb.toString();
     }

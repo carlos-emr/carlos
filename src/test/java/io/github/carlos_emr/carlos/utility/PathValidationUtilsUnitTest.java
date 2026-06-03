@@ -690,7 +690,7 @@ class PathValidationUtilsUnitTest {
 
         @Test
         @DisplayName("should resolve configured directory to canonical path")
-        void shouldResolveConfiguredDirectory_ToCanonicalPath() throws IOException {
+        void shouldResolveConfiguredDirectory_toCanonicalPath() throws IOException {
             File resolved = PathValidationUtils.resolveConfiguredDirectory(tempDir.resolve(".").toString(), "test dir");
 
             assertThat(resolved).isEqualTo(tempDir.toFile().getCanonicalFile());
@@ -698,7 +698,7 @@ class PathValidationUtilsUnitTest {
 
         @Test
         @DisplayName("should reject configured directory that is a file")
-        void shouldRejectConfiguredDirectory_ThatIsFile() throws IOException {
+        void shouldRejectConfiguredDirectory_thatIsFile() throws IOException {
             Path file = Files.writeString(tempDir.resolve("not-a-directory.txt"), "content");
             String filePath = file.toString();
 
@@ -709,7 +709,7 @@ class PathValidationUtilsUnitTest {
 
         @Test
         @DisplayName("should validate generated child path inside allowed directory")
-        void shouldValidateGeneratedChildPath_InsideAllowedDirectory() throws IOException {
+        void shouldValidateGeneratedChildPath_insideAllowedDirectory() throws IOException {
             File child = PathValidationUtils.validateGeneratedChildPath("LabUpload.result.123", allowedDir);
 
             assertThat(child.getCanonicalFile())
@@ -728,7 +728,7 @@ class PathValidationUtilsUnitTest {
 
         @Test
         @DisplayName("should validate configured file")
-        void shouldValidateConfigured_File() throws IOException {
+        void shouldValidateConfigured_file() throws IOException {
             Path file = Files.writeString(tempDir.resolve("message_config.xml"), "<root/>");
 
             assertThat(PathValidationUtils.validateConfiguredFile(file.toString(), "config").getCanonicalFile())
@@ -737,7 +737,7 @@ class PathValidationUtilsUnitTest {
 
         @Test
         @DisplayName("should reject configured file that is a directory")
-        void shouldRejectConfiguredFile_ThatIsDirectory() {
+        void shouldRejectConfiguredFile_thatIsDirectory() {
             String directoryPath = tempDir.toString();
 
             assertThatThrownBy(() -> PathValidationUtils.validateConfiguredFile(directoryPath, "config"))

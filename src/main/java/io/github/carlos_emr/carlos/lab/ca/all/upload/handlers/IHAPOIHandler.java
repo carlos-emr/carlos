@@ -256,9 +256,13 @@ public class IHAPOIHandler implements MessageHandler {
         File file;
         try {
             file = PathValidationUtils.validateExistingDocumentPath(fileName);
-        } catch (SecurityException e) {
-            logger.error("Path traversal attempt detected: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-            throw new IllegalArgumentException("Invalid file path - access denied");
+        } catch (IOException | SecurityException documentPathFailure) {
+            try {
+                file = PathValidationUtils.validateUpload(new File(fileName));
+            } catch (SecurityException uploadPathFailure) {
+                logger.error("Path traversal attempt detected: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                throw new IllegalArgumentException("Invalid file path - access denied", uploadPathFailure);
+            }
         }
         
         // Ensure the file exists and is readable
