@@ -42,6 +42,7 @@ import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.xhtmlrenderer.layout.SharedContext;
 import org.xhtmlrenderer.pdf.ITextRenderer;
@@ -49,6 +50,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.form.util.FormTransportContainer;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
@@ -664,8 +666,16 @@ public final class ConvertToEdoc {
     /**
      * Feed this method a filename, it will return a full path to the Oscar images directory.
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private static String buildImageDirectoryPath(String filename) {
-        return Paths.get(getImageDirectory(), filename).toString();
+        try {
+            File imageDirectory = PathValidationUtils.resolveConfiguredDirectory(getImageDirectory(), "image directory");
+            return PathValidationUtils.validateExistingPath(new File(imageDirectory, filename), imageDirectory).getPath();
+        } catch (SecurityException e) {
+            logger.warn("Skipping invalid image resource path", e);
+            return "";
+        }
     }
 
     /**
@@ -674,14 +684,16 @@ public final class ConvertToEdoc {
      * @param uri URI input
      * @return String fully resolved absolute path
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private static String getRealPath(String uri) {
         String contextRealPath = "";
 
         // Try to resolve relative paths
         if (ConvertToEdoc.realPath != null) {
             try {
-				Path basePath = Paths.get(ConvertToEdoc.realPath);
-				String fileNameToFind = Paths.get(uri).getFileName().toString();
+				Path basePath = PathValidationUtils.resolveConfiguredDirectory(ConvertToEdoc.realPath, "real path").toPath();
+				String fileNameToFind = PathValidationUtils.validatePathComponent(Paths.get(uri).getFileName().toString(), "resource file name");
 
 				try (Stream<Path> paths = Files.walk(basePath)) {
 					Path found = paths
@@ -778,6 +790,8 @@ public final class ConvertToEdoc {
      * @param potentialLink String link to validate
      * @return String valid link
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: link comes from src/href attributes of server-rendered (template-generated) XHTML, bounded upstream by buildImageDirectoryPath/getRealPath; not request input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "link comes from src/href attributes of server-rendered (template-generated) XHTML, bounded upstream; not request input")
     private static String validateLink(String potentialLink) {
 
         String absolutePath = null;
@@ -786,7 +800,13 @@ public final class ConvertToEdoc {
         potentialLink = filterFileType(potentialLink);
 
         if (potentialLink != null) {
-            path = Paths.get(potentialLink);
+            try {
+                path = PathValidationUtils.resolveTrustedPath(new File(potentialLink)).toPath();
+            } catch (SecurityException e) {
+                // Best-effort link resolver: an unresolvable/malformed path is treated as "no valid
+                // local file" (returns null below) rather than throwing an unchecked exception.
+                logger.debug("Ignoring unresolvable link path", e);
+            }
         }
 
         if (path != null && Files.exists(path)) {

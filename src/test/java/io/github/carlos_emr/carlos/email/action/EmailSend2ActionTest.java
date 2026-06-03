@@ -17,10 +17,13 @@
  */
 package io.github.carlos_emr.carlos.email.action;
 
+import org.apache.struts2.ServletActionContext;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
@@ -32,6 +35,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 
 /**
  * Unit tests for {@link EmailSend2Action} redirect safety.
@@ -44,11 +48,24 @@ import static org.mockito.Mockito.mock;
 @DisplayName("EmailSend2Action")
 class EmailSend2ActionTest extends CarlosUnitTestBase {
 
+    private MockedStatic<ServletActionContext> servletActionContextMock;
+
     @BeforeEach
     void setUp() {
         registerMock(SecurityInfoManager.class, mock(SecurityInfoManager.class));
         registerMock(EmailManager.class, mock(EmailManager.class));
         registerMock(EformDataManager.class, mock(EformDataManager.class));
+        // EmailSend2Action reads request/response from ServletActionContext in field initializers
+        // (evaluated at construction), so mock the static to keep `new EmailSend2Action()` from
+        // NPEing before each test assigns action.request/response explicitly.
+        servletActionContextMock = mockStatic(ServletActionContext.class);
+    }
+
+    @AfterEach
+    void tearDown() {
+        if (servletActionContextMock != null) {
+            servletActionContextMock.close();
+        }
     }
 
     @Test
