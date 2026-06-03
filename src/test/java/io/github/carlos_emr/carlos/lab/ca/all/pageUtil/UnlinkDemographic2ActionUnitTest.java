@@ -11,6 +11,7 @@ import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
+import io.github.carlos_emr.carlos.test.logging.LoggerLevelOverride;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
@@ -111,4 +112,24 @@ class UnlinkDemographic2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getContentAsString()).contains("\"success\":true");
         verify(patientLabRoutingDao).merge(routing);
     }
+
+    @Test
+    @DisplayName("should skip unlink debug log when debug is disabled")
+    void shouldSkipDebugLog_whenDebugIsDisabled() throws Exception {
+        PatientLabRouting routing = new PatientLabRouting(456, ProviderLabRoutingDao.LAB_TYPE.HL7.name(), 123);
+        when(patientLabRoutingDao.findByLabNoAndLabType(456, ProviderLabRoutingDao.LAB_TYPE.HL7.name()))
+                .thenReturn(List.of(routing));
+        when(providerLabRoutingDao.findAllLabRoutingByIdandType(456, ProviderLabRoutingDao.LAB_TYPE.HL7.name()))
+                .thenReturn(List.of());
+
+        try (LogCapture capture = LogCapture.forLogger(UnlinkDemographic2Action.class);
+                LoggerLevelOverride ignored = LoggerLevelOverride.disableDebug(UnlinkDemographic2Action.class)) {
+            new UnlinkDemographic2Action().execute();
+
+            assertThat(capture.messages()).isEmpty();
+        }
+        assertThat(response.getContentAsString()).contains("\"success\":true");
+        verify(patientLabRoutingDao).merge(routing);
+    }
+
 }

@@ -11,6 +11,7 @@ import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
+import io.github.carlos_emr.carlos.test.logging.LoggerLevelOverride;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
 import org.junit.jupiter.api.DisplayName;
@@ -46,4 +47,30 @@ class LabResultDataUnitTest extends CarlosUnitTestBase {
                     .contains("in isMatchedToPatient, segmentID=abc\\r\\nforged, labType=DOC\\nfake");
         }
     }
+
+    @Test
+    @DisplayName("should skip matched-patient debug log when debug is disabled")
+    void shouldSkipDebugLog_whenDebugIsDisabled() {
+        registerCommonLabResultDataMocks();
+        LabResultData labResultData = new LabResultData();
+        labResultData.segmentID = "abc\r\nforged";
+        labResultData.labType = "DOC\nfake";
+        labResultData.isMatchedToPatient = true;
+
+        try (LogCapture capture = LogCapture.forLogger(LabResultData.class);
+                LoggerLevelOverride ignored = LoggerLevelOverride.disableDebug(LabResultData.class)) {
+            assertThat(labResultData.isMatchedToPatient()).isTrue();
+
+            assertThat(capture.messages()).isEmpty();
+        }
+    }
+
+    private void registerCommonLabResultDataMocks() {
+        registerMock(OscarLogDao.class, mock(OscarLogDao.class));
+        registerMock(PatientLabRoutingDao.class, mock(PatientLabRoutingDao.class));
+        registerMock(ProviderLabRoutingDao.class, mock(ProviderLabRoutingDao.class));
+        registerMock(QueueDocumentLinkDao.class, mock(QueueDocumentLinkDao.class));
+        registerMock(SecurityInfoManager.class, mock(SecurityInfoManager.class));
+    }
+
 }

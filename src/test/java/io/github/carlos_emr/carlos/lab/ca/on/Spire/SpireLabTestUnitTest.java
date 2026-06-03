@@ -8,6 +8,7 @@ package io.github.carlos_emr.carlos.lab.ca.on.Spire;
 import io.github.carlos_emr.carlos.commn.dao.LabTestResultsDao;
 import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
+import io.github.carlos_emr.carlos.test.logging.LoggerLevelOverride;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
 import org.junit.jupiter.api.DisplayName;
@@ -45,6 +46,24 @@ class SpireLabTestUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should skip demographic debug log when debug is disabled")
+    void shouldSkipDemoDebugLog_whenDebugIsDisabled() {
+        PatientLabRoutingDao patientLabRoutingDao = mock(PatientLabRoutingDao.class);
+        registerMock(PatientLabRoutingDao.class, patientLabRoutingDao);
+        when(patientLabRoutingDao.findByLabNoAndLabType(789, "CML")).thenReturn(List.of());
+
+        SpireLabTest spireLabTest = new SpireLabTest();
+        spireLabTest.demographicNo = "123\r\nforged";
+
+        try (LogCapture capture = LogCapture.forLogger(SpireLabTest.class);
+                LoggerLevelOverride ignored = LoggerLevelOverride.disableDebug(SpireLabTest.class)) {
+            ReflectionTestUtils.invokeMethod(spireLabTest, "populateDemoNo", "789");
+
+            assertThat(capture.messages()).isEmpty();
+        }
+    }
+
+    @Test
     @DisplayName("should sanitize lab id and not log SQL in lab-result debug log")
     void shouldSanitizeLabId_withoutSqlInLabResultDebugLog() {
         LabTestResultsDao labTestResultsDao = mock(LabTestResultsDao.class);
@@ -61,4 +80,22 @@ class SpireLabTestUnitTest extends CarlosUnitTestBase {
                     .noneMatch(message -> message.contains("select * from labTestResults"));
         }
     }
+
+    @Test
+    @DisplayName("should skip lab-result debug log when debug is disabled")
+    void shouldSkipLabResultDebugLog_whenDebugIsDisabled() {
+        LabTestResultsDao labTestResultsDao = mock(LabTestResultsDao.class);
+        registerMock(LabTestResultsDao.class, labTestResultsDao);
+        when(labTestResultsDao.findByLabPatientPhysicialInfoId(456)).thenReturn(List.of());
+
+        SpireLabTest spireLabTest = new SpireLabTest();
+
+        try (LogCapture capture = LogCapture.forLogger(SpireLabTest.class);
+                LoggerLevelOverride ignored = LoggerLevelOverride.disableDebug(SpireLabTest.class)) {
+            ReflectionTestUtils.invokeMethod(spireLabTest, "populateLabResultData", "456");
+
+            assertThat(capture.messages()).isEmpty();
+        }
+    }
+
 }
