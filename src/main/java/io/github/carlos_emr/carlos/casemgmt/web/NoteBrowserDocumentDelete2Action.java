@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.casemgmt.web;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 /**
  * Deletes a note-browser document through the POST-only mutation action flow.
@@ -54,12 +55,26 @@ public class NoteBrowserDocumentDelete2Action extends AbstractNoteBrowserDocumen
     }
 
     @Override
-    protected void mutateDocument() {
+    protected void mutateDocument() throws DocumentMutationException {
         deleteDocument(delDocumentNo);
     }
 
-    protected void deleteDocument(String docNo) {
-        EDocUtil.deleteDocument(docNo);
+    @Override
+    protected boolean handlesMutationException() {
+        return true;
+    }
+
+    @Override
+    protected String logMessage() {
+        return "noteBrowser deleteDocument failed docNo=" + LogSafe.sanitize(delDocumentNo);
+    }
+
+    protected void deleteDocument(String docNo) throws DocumentMutationException {
+        try {
+            EDocUtil.deleteDocument(docNo);
+        } catch (Exception e) {
+            throw new DocumentMutationException(e);
+        }
     }
 
     public String getDelDocumentNo() { return delDocumentNo; }

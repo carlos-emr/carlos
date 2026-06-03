@@ -40,12 +40,24 @@ class NoteBrowserDocumentMutationUnitTest extends CarlosUnitTestBase {
 
     static class TestDeleteAction extends NoteBrowserDocumentDelete2Action {
         final List<String> deleted = new ArrayList<>();
-        @Override protected void deleteDocument(String docNo) { deleted.add(docNo); }
+        boolean fail;
+        @Override protected void deleteDocument(String docNo) throws DocumentMutationException {
+            if (fail) {
+                throw new DocumentMutationException(new IllegalStateException("simulated delete failure"));
+            }
+            deleted.add(docNo);
+        }
     }
 
     static class TestUndeleteAction extends NoteBrowserDocumentUndelete2Action {
         final List<String> undeleted = new ArrayList<>();
-        @Override protected void undeleteDocument(String docNo) { undeleted.add(docNo); }
+        boolean fail;
+        @Override protected void undeleteDocument(String docNo) throws DocumentMutationException {
+            if (fail) {
+                throw new DocumentMutationException(new IllegalStateException("simulated undelete failure"));
+            }
+            undeleted.add(docNo);
+        }
     }
 
     static class TestRefileAction extends NoteBrowserDocumentRefile2Action {
@@ -182,6 +194,19 @@ class NoteBrowserDocumentMutationUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should set generic error message when delete fails")
+    void shouldSetErrorMessage_whenDeleteFails() throws Exception {
+        TestDeleteAction action = new TestDeleteAction();
+        action.fail = true;
+        action.setDelDocumentNo("42");
+
+        assertThat(action.execute()).isEqualTo("success");
+
+        assertThat(action.deleted).isEmpty();
+        assertThat(action.getMutationErrorMessage()).isEqualTo("Document update failed.");
+    }
+
+    @Test
     @DisplayName("should reject nonnumeric undelete document number")
     void shouldRejectUndelete_whenDocumentNoIsNonNumeric() throws Exception {
         TestUndeleteAction action = new TestUndeleteAction();
@@ -225,11 +250,26 @@ class NoteBrowserDocumentMutationUnitTest extends CarlosUnitTestBase {
         assertThat(mockResponse.getRedirectedUrl()).isNull();
     }
 
+    @Test
+    @DisplayName("should set generic error message when undelete fails")
+    void shouldSetErrorMessage_whenUndeleteFails() throws Exception {
+        TestUndeleteAction action = new TestUndeleteAction();
+        action.fail = true;
+        action.setUndelDocumentNo("42");
+
+        assertThat(action.execute()).isEqualTo("success");
+
+        assertThat(action.undeleted).isEmpty();
+        assertThat(action.getMutationErrorMessage()).isEqualTo("Document update failed.");
+    }
+
     @ParameterizedTest
     @CsvSource({
             "42, queue-1",
             "42x, 7",
-            "42, 0"
+            "42, 0",
+            "'', 7",
+            "42, ''"
     })
     @DisplayName("should reject invalid refile parameters")
     void shouldRejectRefile_whenParametersAreInvalid(String documentNo, String queueId) throws Exception {

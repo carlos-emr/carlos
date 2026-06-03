@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -38,10 +39,20 @@ class NoteBrowserJspSecurityRegressionTest {
     void shouldPostDocumentMutations_toDedicatedActions() throws Exception {
         String jsp = Files.readString(NOTE_BROWSER);
 
-        assertThat(jsp)
-                .containsIgnoringCase("method=\"post\"")
-                .contains("/casemgmt/NoteBrowserDocumentDelete")
-                .contains("/casemgmt/NoteBrowserDocumentUndelete")
-                .contains("/casemgmt/NoteBrowserDocumentRefile");
+        assertThat(jsp).containsIgnoringCase("<form name=\"DisplayDoc\" method=\"post\"");
+        assertMutationFunctionPostsTo(jsp, "DeleteDoc", "/casemgmt/NoteBrowserDocumentDelete");
+        assertMutationFunctionPostsTo(jsp, "UnDeleteDoc", "/casemgmt/NoteBrowserDocumentUndelete");
+        assertMutationFunctionPostsTo(jsp, "RefileDoc", "/casemgmt/NoteBrowserDocumentRefile");
+    }
+
+    private void assertMutationFunctionPostsTo(String jsp, String functionName, String actionPath) {
+        Pattern mutationPostPattern = Pattern.compile(
+                "function\\s+" + Pattern.quote(functionName) + "\\s*\\(\\)\\s*\\{"
+                        + "(?s:.*?)document\\.DisplayDoc\\.action\\s*=\\s*'[^']*"
+                        + Pattern.quote(actionPath)
+                        + "'(?s:.*?)document\\.DisplayDoc\\.submit\\s*\\(\\s*\\)",
+                Pattern.MULTILINE);
+
+        assertThat(mutationPostPattern.matcher(jsp).find()).isTrue();
     }
 }

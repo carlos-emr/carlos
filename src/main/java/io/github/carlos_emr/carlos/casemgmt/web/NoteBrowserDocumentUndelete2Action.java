@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.casemgmt.web;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 /**
  * Restores a deleted note-browser document through the POST-only mutation action flow.
@@ -54,12 +55,26 @@ public class NoteBrowserDocumentUndelete2Action extends AbstractNoteBrowserDocum
     }
 
     @Override
-    protected void mutateDocument() {
+    protected void mutateDocument() throws DocumentMutationException {
         undeleteDocument(undelDocumentNo);
     }
 
-    protected void undeleteDocument(String docNo) {
-        EDocUtil.undeleteDocument(docNo);
+    @Override
+    protected boolean handlesMutationException() {
+        return true;
+    }
+
+    @Override
+    protected String logMessage() {
+        return "noteBrowser undeleteDocument failed docNo=" + LogSafe.sanitize(undelDocumentNo);
+    }
+
+    protected void undeleteDocument(String docNo) throws DocumentMutationException {
+        try {
+            EDocUtil.undeleteDocument(docNo);
+        } catch (Exception e) {
+            throw new DocumentMutationException(e);
+        }
     }
 
     public String getUndelDocumentNo() { return undelDocumentNo; }
