@@ -28,12 +28,14 @@
 package io.github.carlos_emr.carlos.oscarLab.ca.all.upload.handlers;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringWriter;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -127,6 +129,28 @@ class IHAPOIUploadHandlerUnitTest {
             restoreDocumentDir(previousDocumentDir);
             Files.deleteIfExists(uploadFile);
             Files.deleteIfExists(documentDir);
+        }
+    }
+
+    @Test
+    @DisplayName("should fail closed when document directory is missing")
+    void shouldFailClosed_whenDocumentDirectoryIsMissing() throws Exception {
+        Path uploadFile = Files.createTempFile("ihapoi-upload", ".txt");
+        String previousDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+
+        try {
+            CarlosProperties.getInstance().remove("DOCUMENT_DIR");
+
+            IHAPOIHandler handler = new IHAPOIHandler();
+            Method method = IHAPOIHandler.class.getDeclaredMethod("validateAndGetFile", String.class);
+            method.setAccessible(true);
+
+            assertThatThrownBy(() -> method.invoke(handler, uploadFile.toString()))
+                    .isInstanceOf(InvocationTargetException.class)
+                    .hasCauseInstanceOf(IOException.class);
+        } finally {
+            restoreDocumentDir(previousDocumentDir);
+            Files.deleteIfExists(uploadFile);
         }
     }
 

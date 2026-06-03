@@ -206,7 +206,7 @@ public class MEDITECHHandler implements MessageHandler {
         File file;
         try {
             file = PathValidationUtils.validateExistingDocumentPath(fileName);
-        } catch (IOException | SecurityException documentPathFailure) {
+        } catch (SecurityException documentPathFailure) {
             try {
                 file = PathValidationUtils.validateUpload(new File(fileName));
             } catch (SecurityException uploadPathFailure) {
