@@ -32,6 +32,7 @@ package io.github.carlos_emr.carlos.appt;
 
 import java.io.BufferedReader;
 import java.io.DataInputStream;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -54,6 +55,7 @@ import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.mail.MailSender;
 import org.springframework.mail.SimpleMailMessage;
@@ -106,7 +108,8 @@ public class AppointmentMailer implements MessageMailer {
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; path derived from trusted configuration/constant/DB value, not user-controllable input")
     private void setMessageHeader() {
         if (this.message == null) {
             Properties op = CarlosProperties.getInstance();
@@ -150,7 +153,7 @@ public class AppointmentMailer implements MessageMailer {
                     this.message.setTo(emailAddress.toString());
 
 
-                    fstream = new FileInputStream(msgTemplatePath);
+                    fstream = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(msgTemplatePath)));
                     instream = new DataInputStream(fstream);
 
                     BufferedReader bufreader = new BufferedReader(new InputStreamReader(instream));
@@ -175,8 +178,10 @@ public class AppointmentMailer implements MessageMailer {
                     logger.error("No Appointment Reminder Template found", fnf);
                 } catch (IOException io) {
                     logger.error("IOException occurred", io);
+                } catch (SecurityException se) {
+                    logger.error("Invalid appointment reminder template path", se);
                 } catch (AddressException addr) {
-                    logger.error("To Address not valid:" + demographic.getEmail());
+                    logger.error("Invalid appointment reminder recipient address");
                 } finally {
                     try {
                         if (instream != null) {

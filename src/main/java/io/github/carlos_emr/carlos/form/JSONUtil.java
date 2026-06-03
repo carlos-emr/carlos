@@ -30,6 +30,7 @@ package io.github.carlos_emr.carlos.form;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
@@ -44,6 +45,8 @@ public abstract class JSONUtil {
     private static final Logger logger = MiscUtils.getLogger();
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public static void jsonResponse(HttpServletResponse response, ObjectNode jsonObject) {
         try (PrintWriter out = response.getWriter()) {
             response.setContentType(CONTENT_TYPE);
@@ -55,6 +58,8 @@ public abstract class JSONUtil {
         }
     }
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public static void jsonResponse(HttpServletResponse response, String jsonString) {
         try (PrintWriter out = response.getWriter()) {
             response.setContentType(CONTENT_TYPE);

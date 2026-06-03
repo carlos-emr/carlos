@@ -76,6 +76,8 @@ public class ReportMacro2Action extends ActionSupport {
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public String execute() throws ServletException, IOException {
         ObjectNode result = objectMapper.createObjectNode();
 

@@ -43,13 +43,13 @@ import io.github.carlos_emr.carlos.commn.model.Site;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequestUtil;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
@@ -85,7 +85,8 @@ public final class ClinicLogoUtility {
      * @return PdfPTable an OpenPDF table element containing the logo image, for insertion into a PDF
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; path derived from trusted configuration/constant/DB value, not user-controllable input")
     public static PdfPTable createLogoHeader() {
 
         PdfPTable infoTable = new PdfPTable(1);
@@ -116,9 +117,15 @@ public final class ClinicLogoUtility {
             }
         }
 
-        Path path = Paths.get(filename);
-        if (Files.exists(path)) {
-            addImage(infoTable, filename, PageSize.LETTER.getWidth() * 0.5f, LOGO_HEIGHT);
+        try {
+            File logoFile = PathValidationUtils.resolveTrustedPath(new File(filename));
+            Path path = logoFile.toPath();
+            if (Files.exists(path)) {
+                addImage(infoTable, logoFile, PageSize.LETTER.getWidth() * 0.5f, LOGO_HEIGHT);
+            }
+        } catch (SecurityException e) {
+            // A blank/misconfigured logo path must not abort the surrounding document; skip the logo.
+            logger.warn("Skipping clinic logo: invalid logo file path", e);
         }
         return infoTable;
 
@@ -142,12 +149,14 @@ public final class ClinicLogoUtility {
      * Loads an image file and adds it as a scaled cell to the given PDF table.
      *
      * @param pdfPTable PdfPTable the table to add the image cell to
-     * @param filename String the absolute file path of the image
+     * @param logoFile File the validated image file
      * @param width float the maximum width to scale the image to (in points)
      * @param height float the maximum height to scale the image to (in points)
      */
-    private static void addImage(PdfPTable pdfPTable, String filename, float width, float height) {
-        try (FileInputStream fileInputStream = new FileInputStream(filename)) {
+    // FindSecBugs CRLF_INJECTION_LOGS: logoFile is resolved via PathValidationUtils.resolveTrustedPath from server-configured properties (clinicLetterheadLogo / faxLogoInConsultation / DOCUMENT_DIR + DB-stored document filename); no request-controlled string reaches this log.
+    @SuppressFBWarnings(value = "CRLF_INJECTION_LOGS", justification = "logoFile path is derived from server config properties and a server-stored document filename, not from request input; no attacker-controlled CR/LF.")
+    private static void addImage(PdfPTable pdfPTable, File logoFile, float width, float height) {
+        try (FileInputStream fileInputStream = new FileInputStream(logoFile)) {
             PdfPCell cell = new PdfPCell();
             byte[] faxLogImage = fileInputStream.readAllBytes();
             Image image = Image.getInstance(faxLogImage);
@@ -159,11 +168,11 @@ public final class ClinicLogoUtility {
             cell.setFixedHeight(HEADER_HEIGHT);
             pdfPTable.addCell(cell);
         } catch (FileNotFoundException e) {
-            logger.error("Failed to locate file at " + filename, e);
+            logger.error("Failed to locate file at " + logoFile, e);
         } catch (BadElementException e) {
             logger.error("Unexpected error.", e);
         } catch (MalformedURLException e) {
-            logger.error("This image location is malformed " + filename, e);
+            logger.error("This image location is malformed " + logoFile, e);
         } catch (IOException e) {
             logger.error("Unexpected error.", e);
         }
