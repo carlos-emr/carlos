@@ -137,7 +137,7 @@ public class LoginFilter implements Filter {
      * <p>Requests to these URLs bypass session validation and are allowed
      * without an authenticated session. This includes:
      * <ul>
-     *   <li>Login/logout pages ({@code /index}, {@code /logoutPage}, {@code /login})</li>
+     *   <li>Login/logout pages ({@code /index}, {@code /logoutPage}, {@code /logout}, {@code /login})</li>
      *   <li>Forced password-reset entrypoints ({@code /forcepasswordreset}, {@code /forcepasswordresetSubmit})</li>
      *   <li>Public static resources (images, CSS, JavaScript, fonts)</li>
      *   <li>Lab upload endpoints (for external lab system integration)</li>
@@ -169,6 +169,7 @@ public class LoginFilter implements Filter {
             "/lab/newLabUpload",
             "/login",
             "/logoutPage",
+            "/logout",
             "/index",
             "/forcepasswordreset",
             "/forcepasswordresetSubmit",
@@ -240,6 +241,7 @@ public class LoginFilter implements Filter {
             "/share/javascript/Oscar.js",
             "/login",
             "/logoutPage",
+            "/logout",
             "/index",
             "/loginfailed",
             "/eformViewForPdfGenerationServlet",
