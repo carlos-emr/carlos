@@ -27,6 +27,7 @@ import io.github.carlos_emr.carlos.managers.RxManager;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 
 import jakarta.servlet.http.HttpServletResponse;
+import org.apache.struts2.ActionSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -46,7 +47,7 @@ import static org.mockito.Mockito.when;
  * @since 2026-05-31
  */
 @DisplayName("RxWriteScript2Action Tests")
-@Tag("unit")
+@Tag("integration")
 @Tag("prescription")
 class RxWriteScript2ActionTest extends CarlosWebTestBase {
 
@@ -88,7 +89,7 @@ class RxWriteScript2ActionTest extends CarlosWebTestBase {
 
         String result = executeActionMethod(action, "updateLongTermStatus");
 
-        assertThat(result).isNull();
+        assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
         verify(mockDrugDao, never()).persist(any(Drug.class));
         verify(mockRxManager, never()).archiveDrug(any(), anyInt(), anyInt(), any(String.class));

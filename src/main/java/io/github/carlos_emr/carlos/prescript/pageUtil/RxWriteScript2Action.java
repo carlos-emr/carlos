@@ -1264,7 +1264,7 @@ public final class RxWriteScript2Action extends ActionSupport {
             RxPrescriptionData.Prescription oldRx = rxData.getPrescription(drugId);
             if (oldRx.getDemographicNo() != bean.getDemographicNo()) {
                 response.sendError(HttpServletResponse.SC_FORBIDDEN);
-                return null;
+                return NONE;
             }
             oldRx.setLongTerm(isLongTerm);
             oldRx.setShortTerm(false);
