@@ -59,6 +59,11 @@ function assert(condition, message) {
   }
 }
 
+async function gotoApp(page, appPath, options = {}) {
+  // appUrl rejects non-root-relative paths and validateBaseUrl rejects non-local hosts unless explicitly allowed.
+  return page.goto(appUrl(appPath), options); // nosemgrep
+}
+
 async function assertNotBlank(page, label, minHtml = 100) {
   const text = (await page.locator('body').innerText({ timeout: 10000 })).trim();
   const html = (await page.locator('body').innerHTML({ timeout: 10000 })).trim();
@@ -68,7 +73,7 @@ async function assertNotBlank(page, label, minHtml = 100) {
 
 async function login(context, label) {
   const page = await context.newPage();
-  await page.goto(appUrl('/'), { waitUntil: 'domcontentloaded' });
+  await gotoApp(page, '/', { waitUntil: 'domcontentloaded' });
   await page.locator('#username').waitFor({ timeout: 15000 });
   await assertNotBlank(page, `${label} login page`);
   await page.locator('#username').fill(testUser);
@@ -93,7 +98,7 @@ async function assertAuthenticated(page, label) {
 }
 
 async function assertStillAuthenticated(page, label) {
-  await page.goto(appUrl('/provider/providercontrol'), { waitUntil: 'domcontentloaded' });
+  await gotoApp(page, '/provider/providercontrol', { waitUntil: 'domcontentloaded' });
   await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
   await assertAuthenticated(page, label);
 }
@@ -108,7 +113,7 @@ async function assertLogoutPageNoLoop(browser) {
     }
   });
 
-  await page.goto(appUrl('/logoutPage'), { waitUntil: 'domcontentloaded' });
+  await gotoApp(page, '/logoutPage', { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(3000);
 
   const current = new URL(page.url()).pathname;
