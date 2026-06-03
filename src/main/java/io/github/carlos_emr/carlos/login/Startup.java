@@ -34,6 +34,7 @@ import io.github.carlos_emr.CarlosProperties;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.EncryptionUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.WebappShutdownResources;
 
 import jakarta.servlet.ServletContextEvent;
@@ -186,9 +187,10 @@ public class Startup implements ServletContextListener {
             logger.debug("Setting property " + propName + " with value " + propertyDir);
             p.setProperty(propName, propertyDir);
             // Create directory if it does not exist
-            if (!(new File(propertyDir)).exists()) {
+            File propertyDirectory = PathValidationUtils.resolveConfiguredDirectory(propertyDir, propName);
+            if (!propertyDirectory.exists()) {
                 logger.warn("Directory does not exist:  " + propertyDir + ". Creating.");
-                boolean success = (new File(propertyDir)).mkdirs();
+                boolean success = propertyDirectory.mkdirs();
                 if (!success) logger.error("An error occured when creating " + propertyDir);
             }
         }

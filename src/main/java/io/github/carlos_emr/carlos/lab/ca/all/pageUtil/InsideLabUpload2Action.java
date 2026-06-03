@@ -39,13 +39,14 @@
 
 package io.github.carlos_emr.carlos.lab.ca.all.pageUtil;
 
+import io.github.carlos_emr.CarlosProperties;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -60,6 +61,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import io.github.carlos_emr.carlos.lab.FileUploadCheck;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.HandlerClassFactory;
@@ -149,7 +151,9 @@ public class InsideLabUpload2Action extends ActionSupport implements UploadedFil
             String filePath = Utilities.saveFile(inputStream, fileName);
             // Continue with your existing processing logic
             return processFile(loggedInInfo, ServletActionContext.getRequest(), filePath, getFileType(ServletActionContext.getRequest()));
-        } catch (IOException e) {
+        } catch (IOException | SecurityException e) {
+            // SecurityException covers PathValidationUtils rejecting a misconfigured DOCUMENT_DIR or a
+            // bad saved path; fail just this file (like an IOException) instead of aborting the batch.
             MiscUtils.getLogger().error("Error processing file: " + fileName, e);
             return FileStatus.FAILED;
         }
@@ -168,8 +172,10 @@ public class InsideLabUpload2Action extends ActionSupport implements UploadedFil
         return null;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private FileStatus processFile(LoggedInInfo loggedInInfo, HttpServletRequest request, String filePath, String fileType) {
-        Path path = Paths.get(filePath);
+        Path path = PathValidationUtils.validateExistingPath(new File(filePath), PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR")).toPath();
         String fileName = path.getFileName().toString();
         int checkFileUploadedSuccessfully;
 

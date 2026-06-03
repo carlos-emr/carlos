@@ -192,6 +192,8 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
         return saveFileDetailed(file, fileName).success();
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private static SaveReportFileResult saveFileDetailed(File file, String fileName) {
         try {
             CarlosProperties props = CarlosProperties.getInstance();
@@ -285,6 +287,8 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
      * @throws ServletException unused (kept for back-compat with caller signature)
      * @throws IOException unused (kept for back-compat with caller signature)
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private MohReportReadResult getData(LoggedInInfo loggedInInfo, String fileName, String pathDir, HttpServletRequest request)
             throws ServletException, IOException {
         boolean isGot = false;
@@ -582,6 +586,8 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
 
     private String filename; // Filename parameter from request
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     @Override
     public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
         if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
