@@ -11,9 +11,14 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpSession;
 
+import jakarta.servlet.http.HttpSession;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @Tag("unit")
 @Tag("security")
@@ -56,6 +61,51 @@ class UserSessionManagerImplUnitTest {
         assertThat(secondSession.getAttribute(UserSessionManagerImpl.KEY_USER_SECURITY_CODE))
                 .isEqualTo(securityCode);
         assertThat(manager.getRegisteredSession(securityCode)).isSameAs(secondSession);
+    }
+
+    @Test
+    @DisplayName("should invalidate all sessions when unregistering a security code")
+    void shouldInvalidateAllSessions_whenUnregisteringSecurityCode() {
+        UserSessionManagerImpl manager = new UserSessionManagerImpl();
+        Integer securityCode = 2569;
+        MockHttpSession firstSession = new MockHttpSession();
+        MockHttpSession secondSession = new MockHttpSession();
+
+        manager.registerUserSession(securityCode, firstSession);
+        manager.registerUserSession(securityCode, secondSession);
+
+        HttpSession unregisteredSession = manager.unregisterUserSession(securityCode);
+
+        assertThat(unregisteredSession).isIn(firstSession, secondSession);
+        assertThat(firstSession.isInvalid()).isTrue();
+        assertThat(secondSession.isInvalid()).isTrue();
+        assertThat(manager.getRegisteredSession(securityCode)).isNull();
+    }
+
+    @Test
+    @DisplayName("should unregister matching session id when session object differs")
+    void shouldUnregisterMatchingSessionId_whenSessionObjectDiffers() {
+        UserSessionManagerImpl manager = new UserSessionManagerImpl();
+        Integer securityCode = 2570;
+        HttpSession registeredSession = mock(HttpSession.class);
+        HttpSession destroyedSession = mock(HttpSession.class);
+        when(registeredSession.getId()).thenReturn("same-session-id");
+        when(destroyedSession.getId()).thenReturn("same-session-id");
+
+        manager.registerUserSession(securityCode, registeredSession);
+
+        assertThat(manager.unregisterUserSession(securityCode, destroyedSession)).isSameAs(destroyedSession);
+
+        assertThat(manager.getRegisteredSession(securityCode)).isNull();
+        verify(destroyedSession).removeAttribute(UserSessionManagerImpl.KEY_USER_SECURITY_CODE);
+    }
+
+    @Test
+    @DisplayName("should return null when no session is registered")
+    void shouldReturnNull_whenNoSessionIsRegistered() {
+        UserSessionManagerImpl manager = new UserSessionManagerImpl();
+
+        assertThat(manager.getRegisteredSession(2568)).isNull();
     }
 
     @Test

@@ -88,6 +88,7 @@ public class UserSessionManagerImpl implements UserSessionManager {
         HttpSession session = sessions.iterator().next();
         for (HttpSession registeredSession : sessions) {
             removeSecurityCodeAttribute(registeredSession);
+            invalidateSession(registeredSession);
         }
         logger.debug("User Sessions successfully unregistered for security code: {}", userSecurityCode);
         return session;
@@ -96,8 +97,10 @@ public class UserSessionManagerImpl implements UserSessionManager {
     @Override
     public HttpSession unregisterUserSession(Integer userSecurityCode, HttpSession session) throws UserSessionNotFoundException {
         AtomicBoolean removed = new AtomicBoolean(false);
+        String sessionId = sessionIdForComparison(session);
         userSessionMap.computeIfPresent(userSecurityCode, (key, sessions) -> {
-            removed.set(sessions.remove(session));
+            removed.set(sessions.removeIf(registeredSession ->
+                    isSameSession(registeredSession, session, sessionId)));
             return sessions.isEmpty() ? null : sessions;
         });
 
@@ -115,14 +118,13 @@ public class UserSessionManagerImpl implements UserSessionManager {
     /**
      * Retrieves the registered HttpSession for the given user sec code.
      * @param userSecurityCode The user sec code.
-     * @return The HttpSession.
-     * @throws UserSessionNotFoundException If no session is found for the given user sec code.
+     * @return The HttpSession, or null if no session is found for the given user sec code.
      */
     @Override
     public HttpSession getRegisteredSession(Integer userSecurityCode) {
         Set<HttpSession> sessions = userSessionMap.get(userSecurityCode);
         if (sessions == null || sessions.isEmpty()) {
-            throw new UserSessionNotFoundException("User session not registered");
+            return null;
         }
         return sessions.iterator().next();
     }
@@ -145,6 +147,29 @@ public class UserSessionManagerImpl implements UserSessionManager {
                 });
                 return sessions.isEmpty() ? null : sessions;
             });
+        }
+    }
+
+    private void invalidateSession(HttpSession session) {
+        try {
+            session.invalidate();
+        } catch (IllegalStateException e) {
+            logger.debug("Session already invalidated: {}", e.getMessage());
+        }
+    }
+
+    private boolean isSameSession(HttpSession registeredSession, HttpSession session, String sessionId) {
+        if (registeredSession == session) {
+            return true;
+        }
+        return sessionId != null && sessionId.equals(sessionIdForComparison(registeredSession));
+    }
+
+    private String sessionIdForComparison(HttpSession session) {
+        try {
+            return session.getId();
+        } catch (IllegalStateException e) {
+            return null;
         }
     }
 

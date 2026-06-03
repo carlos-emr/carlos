@@ -273,10 +273,11 @@ public class LoginFilter implements Filter {
      * <p>If inactivity timeout is exceeded, users are normally redirected to
      * {@code /logoutPage}. However, if the user is already on one of these pages,
      * the redirect is skipped to avoid infinite redirect loops. Keep this list limited
-     * to unauthenticated public pages; adding authenticated pages would turn timeout
-     * checker failures into a fail-open path for protected content.
+     * to unauthenticated public pages and the logout cleanup action; adding authenticated
+     * pages would turn timeout checker failures into a fail-open path for protected content.
      */
     private static final String[] EXEMPT_URLS_FOR_REQUEST_TIMEOUT_REDIRECT = {
+            LOGOUT_PATH,
             "/logoutPage",
             "/index",
             "/loginfailed"
