@@ -57,6 +57,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import io.github.carlos_emr.CarlosProperties;
 
@@ -68,6 +69,8 @@ public class Utilities {
         // utils shouldn't be instantiated
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static ArrayList<String> separateMessages(String fileName) throws Exception {
 
         // Validate the file path is within DOCUMENT_DIR to prevent path traversal
@@ -125,6 +128,8 @@ public class Utilities {
      * @param filename
      * @return String
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static String saveFile(InputStream stream, String filename) {
         String retVal = null;
 

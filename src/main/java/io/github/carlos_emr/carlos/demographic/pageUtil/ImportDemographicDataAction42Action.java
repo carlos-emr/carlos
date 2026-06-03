@@ -379,9 +379,11 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
 
     private static final ObjectMapper jsonMapper = new ObjectMapper();
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     private void generateResponse(HttpServletResponse response, ArrayList<String> warnings, String importLog) {
         ObjectNode json = jsonMapper.createObjectNode();
-        response.setContentType("text/javascript");
+        response.setContentType("application/json;charset=UTF-8");
         try {
             json.set("warnings", jsonMapper.valueToTree(warnings));
             json.put("importLog", importLog);
@@ -3269,6 +3271,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
      * @param contentType String the content type/extension for the file
      * @return File the resolved File if found, null otherwise
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private File resolveReportSourceFile(String currentDirectory, String filePath, String contentType) {
         // Defensive null/blank guard for currentDirectory
         if (currentDirectory == null || currentDirectory.trim().isEmpty()) {

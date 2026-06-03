@@ -1058,6 +1058,8 @@ public class ManageDocument2Action extends ActionSupport {
      * @param viewDocumentDescriptionFlag boolean whether to include document description metadata
      * @throws SecurityException if the user lacks _edoc read privilege
      */
+    // FindSecBugs XSS_SERVLET: renders helper-generated HTML fragments whose dynamic values are HTML-encoded.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "renders helper-generated HTML fragments whose dynamic values are HTML-encoded")
     public void doViewDocumentInfo(HttpServletRequest request, PrintWriter out, boolean viewAnnotationAcknowledgementTicklerFlag, boolean viewDocumentDescriptionFlag) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
@@ -1423,6 +1425,9 @@ public class ManageDocument2Action extends ActionSupport {
      * @throws Exception if path validation or PDF extraction fails
      * @throws SecurityException if the user lacks _edoc read privilege or path traversal is detected
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    // FindSecBugs XSS_SERVLET: serves PDF bytes; error HTML uses resource strings and an encoded filename.
+    @SuppressFBWarnings(value = {"XSS_SERVLET", "PATH_TRAVERSAL_IN"}, justification = "XSS_SERVLET: serves PDF bytes; error HTML uses resource strings and an encoded filename. PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use")
     public void viewIncomingDocPageAsPdf() throws Exception {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "r", null)) {
@@ -1536,6 +1541,8 @@ public class ManageDocument2Action extends ActionSupport {
      * @throws Exception if path validation or file I/O fails
      * @throws SecurityException if the user lacks _edoc read privilege or path traversal is detected
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void displayIncomingDocs() throws Exception {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "r", null)) {
@@ -1688,7 +1695,8 @@ public class ManageDocument2Action extends ActionSupport {
      * @throws SecurityException if path traversal is detected or file type is not PDF
      */
     // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-fold in a trust path (locale-safe hardening tracked in #2496); path validated for directory containment via PathValidationUtils before use")
     public File createIncomingCacheVersion(String queueId, String pdfDir, String pdfName, Integer pageNum) throws Exception {
         
         // Validate input parameters to prevent path traversal
@@ -1809,6 +1817,8 @@ public class ManageDocument2Action extends ActionSupport {
      * @param file The file to validate
      * @throws SecurityException if the file path is invalid or potentially malicious
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private void validateFilePath(File file) throws SecurityException {
         if (file == null) {
             throw new SecurityException("File is null");
@@ -1878,6 +1888,8 @@ public class ManageDocument2Action extends ActionSupport {
      * @throws IOException if writing the JSON response fails
      * @since 2026-02-28
      */
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public void searchDocumentDescriptions() throws IOException {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
             throw new SecurityException("missing required security object (_edoc)");
