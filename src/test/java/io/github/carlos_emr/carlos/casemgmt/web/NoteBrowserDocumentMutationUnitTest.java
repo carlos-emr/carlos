@@ -11,6 +11,8 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.*;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -223,25 +225,17 @@ class NoteBrowserDocumentMutationUnitTest extends CarlosUnitTestBase {
         assertThat(mockResponse.getRedirectedUrl()).isNull();
     }
 
-    @Test
-    @DisplayName("should reject non-numeric queueId")
-    void shouldRejectRefile_whenQueueIdIsNonNumeric() throws Exception {
+    @ParameterizedTest
+    @CsvSource({
+            "42, queue-1",
+            "42x, 7",
+            "42, 0"
+    })
+    @DisplayName("should reject invalid refile parameters")
+    void shouldRejectRefile_whenParametersAreInvalid(String documentNo, String queueId) throws Exception {
         TestRefileAction action = new TestRefileAction();
-        action.setRefileDocumentNo("42");
-        action.setQueueId("queue-1");
-
-        assertThat(action.execute()).isEqualTo("none");
-
-        assertThat(mockResponse.getStatus()).isEqualTo(400);
-        assertThat(action.refiles).isEmpty();
-    }
-
-    @Test
-    @DisplayName("should reject nonnumeric refile document number")
-    void shouldRejectRefile_whenDocumentNoIsNonNumeric() throws Exception {
-        TestRefileAction action = new TestRefileAction();
-        action.setRefileDocumentNo("42x");
-        action.setQueueId("7");
+        action.setRefileDocumentNo(documentNo);
+        action.setQueueId(queueId);
 
         assertThat(action.execute()).isEqualTo("none");
 
@@ -266,19 +260,6 @@ class NoteBrowserDocumentMutationUnitTest extends CarlosUnitTestBase {
     void shouldRejectRefile_whenQueueIdIsMissing() throws Exception {
         TestRefileAction action = new TestRefileAction();
         action.setRefileDocumentNo("42");
-
-        assertThat(action.execute()).isEqualTo("none");
-
-        assertThat(mockResponse.getStatus()).isEqualTo(400);
-        assertThat(action.refiles).isEmpty();
-    }
-
-    @Test
-    @DisplayName("should reject zero queueId")
-    void shouldRejectRefile_whenQueueIdIsZero() throws Exception {
-        TestRefileAction action = new TestRefileAction();
-        action.setRefileDocumentNo("42");
-        action.setQueueId("0");
 
         assertThat(action.execute()).isEqualTo("none");
 
