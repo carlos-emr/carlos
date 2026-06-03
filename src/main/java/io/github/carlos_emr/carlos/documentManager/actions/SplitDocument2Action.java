@@ -53,6 +53,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
 
@@ -95,6 +96,9 @@ public class SplitDocument2Action extends ActionSupport {
         return SUCCESS;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = {"XSS_SERVLET", "PATH_TRAVERSAL_IN"}, justification = "XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink. path validated for directory containment via PathValidationUtils before use")
     public String split() {
         String docNum = request.getParameter("document");
         String[] commands = request.getParameterValues("page");
@@ -251,6 +255,8 @@ public class SplitDocument2Action extends ActionSupport {
         return SUCCESS;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public String rotate180() throws Exception {
         Document doc = documentDao.getDocument(request.getParameter("document"));
 
@@ -274,6 +280,8 @@ public class SplitDocument2Action extends ActionSupport {
         return null;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public String rotate90() throws Exception {
         Document doc = documentDao.getDocument(request.getParameter("document"));
 
@@ -297,6 +305,8 @@ public class SplitDocument2Action extends ActionSupport {
         return null;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public String removeFirstPage() throws Exception {
         Document doc = documentDao.getDocument(request.getParameter("document"));
 

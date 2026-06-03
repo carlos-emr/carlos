@@ -379,4 +379,32 @@
         <Bug pattern="JAXRS_ENDPOINT"/>
     </Match>
 
+    <!-- ================================================================
+         CRLF LOG INJECTION (CWE-117) — ACCEPTED-RISK BLANKET SUPPRESSION
+         CRLF_INJECTION_LOGS is a real but low-severity detector (SpotBugs
+         rank 15) that flags any non-constant value reaching a logging sink.
+         On this codebase it is the single largest alert source (~1,876
+         instances, ~64% of all Code Scanning security alerts).
+
+         Why we suppress the whole pattern rather than model sanitizers:
+         Find Security Bugs taint tracking loses its "safe" tag across String
+         concatenation (Taint.merge intersects tags on '+'), and ~99% of
+         these sinks are either unsanitized or sanitized-then-concatenated
+         (e.g. logger.info("user=" + LogSafe.sanitize(x))). Empirically,
+         marking LogSafe/encoders safe clears only ~4 of the 1,876 — the
+         rest cannot be cleared by configuration in FSB 1.14.0. Per-site
+         @SuppressFBWarnings across 516 files is not maintainable, and the
+         noise drowns out actionable injection/path/XSS/crypto findings.
+
+         Risk accepted: this trades away low-severity log-forging signal.
+         Mitigations remain in place — Log4j2 pattern layouts neutralize raw
+         CR/LF in rendered logs, and LogSafe (io.github.carlos_emr.carlos.
+         utility.LogSafe) is the mandated control for sanitizing user- and
+         PHI-correlating identifiers before logging (see CLAUDE.md). Keep
+         using LogSafe on sensitive log paths regardless of this suppression.
+         ================================================================ -->
+    <Match>
+        <Bug pattern="CRLF_INJECTION_LOGS"/>
+    </Match>
+
 </FindBugsFilter>
