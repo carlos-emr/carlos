@@ -57,7 +57,12 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+/**
+ * Struts 2 Action handling the persistence of claims submitted via the BC Quick Billing interface.
+ * Validates the completed form and delegates saving to the underlying billing manager.
+ */
 public class QuickBillingBCSave2Action extends ActionSupport {
+    // Commits the quickly entered BC claims to the database after final validation
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     HttpServletRequest request = ServletActionContext.getRequest();

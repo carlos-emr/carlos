@@ -48,7 +48,12 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts 2 Action handling the addition of a referring physician to a specialist billing claim.
+ * Validates the referring doctor's practitioner number, as it is often mandatory for consultation codes.
+ */
 public class AddReferralDoc2Action extends ActionSupport {
+    // Attaches and validates referring physician details required for consultation claims
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     HttpServletRequest request = ServletActionContext.getRequest();

@@ -36,7 +36,12 @@ import io.github.carlos_emr.carlos.billing.CA.BC.dao.TeleplanSubmissionLinkDao;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanSubmissionLink;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Data Access Object managing the linkage between internal billing records and their corresponding Teleplan submission batches.
+ * Essential for tracking the lifecycle of a claim from creation to provincial adjudication.
+ */
 public class TeleplanSubmissionLinkDAO {
+    // Maintains the relational mapping between local claims and Teleplan batch identifiers
 
     private TeleplanSubmissionLinkDao dao = SpringUtils.getBean(TeleplanSubmissionLinkDao.class);
 

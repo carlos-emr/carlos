@@ -59,7 +59,12 @@ import java.text.SimpleDateFormat;
 import java.util.Arrays;
 
 
+/**
+ * Data Transfer Object facilitating the extraction of billing data for OHIP or MSP submissions.
+ * Formats and validates claim details before transmission to the provincial billing authority.
+ */
 public class ExtractBean extends Object implements Serializable {
+    // Prepares raw billing records into the structured format required for external transmission
     private static Logger logger = MiscUtils.getLogger();
     private LogTeleplanTxDao logTeleplanTxDao = SpringUtils.getBean(LogTeleplanTxDao.class);
     private BillingDao billingDao = SpringUtils.getBean(BillingDao.class);

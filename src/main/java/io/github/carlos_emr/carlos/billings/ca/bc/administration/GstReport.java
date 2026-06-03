@@ -18,7 +18,12 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import java.util.Properties;
 import java.util.Vector;
 
+/**
+ * Generates financial reports detailing GST collected on applicable private and third-party services.
+ * Used for clinic accounting and tax remittance purposes.
+ */
 public class GstReport {
+    // Aggregates tax data across billing transactions for external reporting
 
     public Vector<Properties> getGST(LoggedInInfo loggedInInfo, String[] providerNos, String startDate, String endDate) {
         Properties props;

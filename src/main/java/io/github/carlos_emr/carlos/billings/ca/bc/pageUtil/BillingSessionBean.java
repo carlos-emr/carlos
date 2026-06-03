@@ -34,7 +34,12 @@ import java.util.ArrayList;
 
 import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingBillingManager.BillingItem;
 
+/**
+ * Session-scoped bean holding transient state during complex, multi-step billing workflows.
+ * Ensures data consistency across multiple screens before final claim submission.
+ */
 public class BillingSessionBean implements java.io.Serializable {
+    // Retains temporary billing data across multiple steps in the billing wizard
     private String apptProviderNo = null;
     private String patientName = null;
     private String providerView = null;

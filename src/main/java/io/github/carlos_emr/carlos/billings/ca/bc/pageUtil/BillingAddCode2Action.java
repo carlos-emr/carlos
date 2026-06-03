@@ -45,7 +45,12 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+/**
+ * Struts 2 Action facilitating the dynamic addition of service codes to an active billing encounter.
+ * Performs real-time validation and applies appropriate modifiers based on the selected code.
+ */
 public final class BillingAddCode2Action extends ActionSupport {
+    // Handles the asynchronous addition of service codes during claim creation
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     private HttpServletRequest request = ServletActionContext.getRequest();

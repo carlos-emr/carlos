@@ -54,7 +54,12 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Data Transfer Object facilitating the extraction of billing data for OHIP or MSP submissions.
+ * Formats and validates claim details before transmission to the provincial billing authority.
+ */
 public class ExtractBean extends Object implements Serializable {
+    // Prepares raw billing records into the structured format required for external transmission
 
     private static final long serialVersionUID = 1L;
     private static Logger logger = MiscUtils.getLogger();

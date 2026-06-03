@@ -53,8 +53,13 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+/**
+ * Struts 2 Action managing the workflow for receiving and applying payments to outstanding private bills.
+ * Updates account balances and generates necessary receipts upon payment confirmation.
+ */
 public class ReceivePayment2Action
         extends ActionSupport {
+    // Processes incoming payments and reconciles them against outstanding patient balances
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     HttpServletRequest request = ServletActionContext.getRequest();

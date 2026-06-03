@@ -53,7 +53,12 @@ import java.util.List;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts 2 Action used primarily in testing and training environments to simulate the generation and parsing of Teleplan files.
+ * Allows validation of system logic without transmitting real data to the provincial authority.
+ */
 public class SimulateTeleplanFile2Action extends ActionSupport {
+    // Generates simulated Teleplan responses for testing and training purposes
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     HttpServletRequest request = ServletActionContext.getRequest();

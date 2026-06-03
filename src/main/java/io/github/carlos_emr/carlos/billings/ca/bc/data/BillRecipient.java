@@ -36,7 +36,12 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Identifies the entity responsible for paying a specific bill when it is not a direct patient charge or standard provincial claim.
+ * Typically used for third-party billing, such as employers or insurance companies.
+ */
 public class BillRecipient {
+    // Specifies the target payee for third-party and specialized billing scenarios
 
     private Integer id;
     private String name;

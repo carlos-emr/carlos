@@ -24,7 +24,12 @@
 
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
 
+/**
+ * Ensures that submitted service codes are active, valid, and structurally correct according to the provincial fee schedule.
+ * Prevents the submission of obsolete or malformed codes that would result in claim rejection.
+ */
 public class ServiceCodeValidator {
+    // Validates billing codes against the current active fee schedule
     protected boolean valid = true;
     protected String serviceCode = "";
     protected String description = "";

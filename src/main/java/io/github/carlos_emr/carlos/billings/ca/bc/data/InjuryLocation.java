@@ -29,7 +29,12 @@
 
 package io.github.carlos_emr.carlos.billings.ca.bc.data;
 
+/**
+ * Represents the physical or anatomical location of a patient's injury, primarily required for WCB or specialized claims.
+ * Maps to standardized codes expected by provincial billing authorities.
+ */
 public class InjuryLocation {
+    // Captures mandatory injury site data required by external claim processors
     private String sidetype;
     private String sidedesc;
 

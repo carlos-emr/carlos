@@ -54,7 +54,12 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+/**
+ * Struts 2 Action managing the logical association of related billing codes (e.g., surgical procedures and anesthetic fees).
+ * Ensures related claims are linked correctly for accurate adjudication.
+ */
 public class AssociateCodes2Action extends ActionSupport {
+    // Links logically related service codes to ensure accurate combined billing
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     HttpServletRequest request = ServletActionContext.getRequest();

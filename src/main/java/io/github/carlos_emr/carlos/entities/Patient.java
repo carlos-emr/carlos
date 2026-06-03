@@ -29,7 +29,12 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+/**
+ * The central entity representing a person receiving medical care.
+ * Acts as the root aggregate for all clinical, demographic, and billing records within the system.
+ */
 public class Patient {
+    // Links demographic details with clinical history and encounter records
     private String firstName;
     private String lastName;
     private String phone;

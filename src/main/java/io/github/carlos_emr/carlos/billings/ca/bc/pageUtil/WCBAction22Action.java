@@ -66,7 +66,12 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+/**
+ * Struts 2 Action managing specialized workflows related to WorkSafeBC claim processing and reporting.
+ * Handles the unique requirements and additional forms necessary for occupational injury claims.
+ */
 public class WCBAction22Action extends ActionSupport {
+    // Orchestrates the specialized workflow for occupational injury claims
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     HttpServletRequest request = ServletActionContext.getRequest();

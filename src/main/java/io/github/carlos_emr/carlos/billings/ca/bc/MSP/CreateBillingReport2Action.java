@@ -41,7 +41,12 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+/**
+ * Struts 2 Action that orchestrates the generation of comprehensive billing reports for BC MSP.
+ * Compiles claim statuses, payments, and rejections into a unified view for clinic administrators.
+ */
 public class CreateBillingReport2Action extends ActionSupport {
+    // Triggers the aggregation of BC billing data into a digestible report format
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     HttpServletRequest request = ServletActionContext.getRequest();

@@ -29,7 +29,12 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+/**
+ * Defines the accepted methods of payment for private or uninsured services.
+ * Used primarily in the billing module to categorize incoming revenue streams.
+ */
 public class PaymentType {
+    // Categorizes payment methods (e.g., Cash, Credit, Cheque) for financial reporting
     private String id;
     private String paymentType;
 

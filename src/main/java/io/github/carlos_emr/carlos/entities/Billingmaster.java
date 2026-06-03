@@ -71,7 +71,12 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
         }
 )
 
+/**
+ * Core entity representing a billing master record, linking services provided to provincial billing codes.
+ * Essential for the generation and reconciliation of claims submitted to healthcare authorities.
+ */
 public class Billingmaster {
+    // Maintains the association between clinical encounters and billable services
 
     /**
      * auto_increment

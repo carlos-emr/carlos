@@ -32,7 +32,12 @@ package io.github.carlos_emr.carlos.entities;
 import java.math.BigDecimal;
 import java.util.Date;
 
+/**
+ * Records transactions for uninsured or third-party billed services that fall outside provincial healthcare coverage.
+ * Tracks payment status, amounts, and associated invoices for private clinic revenue.
+ */
 public class PrivateBillTransaction {
+    // Facilitates the tracking of direct patient payments and private insurance claims
     private int id;
     private int billingmaster_no;
     private double amount_received;

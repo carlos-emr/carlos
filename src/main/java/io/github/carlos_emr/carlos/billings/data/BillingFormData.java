@@ -42,7 +42,12 @@ import io.github.carlos_emr.carlos.commn.model.DiagnosticCode;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Backing bean for billing data entry screens, holding temporary form state before persistence.
+ * Contains validation logic and field mappings for complex provincial billing requirements.
+ */
 public class BillingFormData {
+    // Captures user input from the billing interface prior to creating formal claim records
 
     private DiagnosticCodeDao diagnosticCodeDao = SpringUtils.getBean(DiagnosticCodeDao.class);
 

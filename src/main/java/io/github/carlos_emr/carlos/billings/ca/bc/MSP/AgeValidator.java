@@ -30,8 +30,13 @@
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
 
 
+/**
+ * Validates whether a patient's age falls within the acceptable range for a specific billing service code.
+ * Ensures compliance with age-restricted billing rules enforced by provincial authorities.
+ */
 public class AgeValidator
         extends ServiceCodeValidator {
+    // Cross-references patient date of birth against service code age constraints
     private int maxAge = 150;
     private int minAge = 0;
     private int inputAge;

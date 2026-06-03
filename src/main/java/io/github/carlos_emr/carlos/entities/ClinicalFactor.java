@@ -29,7 +29,12 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+/**
+ * Base representation for any clinical factor or data point associated with a patient.
+ * Serves as a foundational element for specialized clinical entities like conditions or measurements.
+ */
 public class ClinicalFactor {
+    // Provides common attributes for clinical data tracking across the EMR
     // Fields
     //
     private int factorTypeId;

@@ -27,7 +27,12 @@
 
 package io.github.carlos_emr.carlos.caisi;
 
+/**
+ * Utility operations specifically supporting the CAISI (Client and Agency Information System for Integration) module.
+ * Contains helper methods for URL manipulation and string processing unique to CAISI web workflows.
+ */
 public class CaisiUtil {
+        // Specifically removes query parameters to sanitize CAISI integration URLs
     public static String removeAttr(String str, String attr) {
         if (str == null) return (null);
 

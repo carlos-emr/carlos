@@ -75,7 +75,12 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Struts 2 Action providing administrative oversight and control over the Teleplan integration subsystem.
+ * Allows users to monitor batch statuses, trigger manual syncs, and review system-level communication logs.
+ */
 public class ManageTeleplan2Action extends ActionSupport {
+    // Provides administrative controls for the Teleplan communication subsystem
     private static final Set<String> POST_ONLY_METHODS = Set.of(
             "setUserName",
             "updateBillingCodes",

@@ -64,7 +64,12 @@ import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+/**
+ * Struts 2 Action controller managing the fast-entry interface for British Columbia MSP billing.
+ * Streamlines the billing process by defaulting common fields and optimizing the user workflow.
+ */
 public class QuickBillingBC2Action extends ActionSupport {
+    // Intercepts rapid billing submissions and routes them to the BC processing engine
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     HttpServletRequest request = ServletActionContext.getRequest();

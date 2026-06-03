@@ -29,7 +29,12 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+/**
+ * Encapsulates laboratory test results, specifically focusing on key metabolic indicators.
+ * This object maps specific lab values (like A1C and LDL) required for decision support and flowsheet tracking.
+ */
 public class LabData {
+    // Used to bind discrete lab results from HL7 messages or manual entry
     private String a1c;
     private String ldl;
     private String ratio;

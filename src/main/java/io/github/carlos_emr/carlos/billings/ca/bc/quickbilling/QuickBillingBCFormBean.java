@@ -38,7 +38,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 
+/**
+ * Form representation for the BC Quick Billing interface.
+ * Encapsulates the subset of billing fields required for rapid claim entry.
+ */
 public class QuickBillingBCFormBean {
+    // Holds the specific data points needed for a streamlined BC MSP claim
 
     /**
      * @author Dennis Warren

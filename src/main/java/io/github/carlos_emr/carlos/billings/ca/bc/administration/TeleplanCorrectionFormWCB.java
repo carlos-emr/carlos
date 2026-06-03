@@ -43,7 +43,12 @@ import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.carlos.demographic.data.DemographicData;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Form bean capturing the user's corrections to a previously rejected WorkSafeBC claim.
+ * Holds the modified data fields before they are repackaged for Teleplan resubmission.
+ */
 public class TeleplanCorrectionFormWCB {
+    // Stores the updated WCB claim information provided during the correction workflow
 
     private static Logger logger = MiscUtils.getLogger();
 

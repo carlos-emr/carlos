@@ -50,7 +50,12 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingBillingManager.BillingItem;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Presentation model consolidating data needed for displaying a comprehensive view of a patient's billing history.
+ * Aggregates claims, payments, and outstanding balances for the UI.
+ */
 public class BillingViewBean {
+    // Aggregates comprehensive billing history for display in the patient interface
 
     private String apptProviderNo = null;
     private String patientName = null;

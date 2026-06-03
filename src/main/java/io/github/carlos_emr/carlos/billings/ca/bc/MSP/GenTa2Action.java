@@ -69,7 +69,12 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts 2 Action handling the generation of Treatment Authorization (TA) requests for BC billing.
+ * Compiles required clinical justification and routes the request to the appropriate authority.
+ */
 public class GenTa2Action extends ActionSupport {
+    // Processes the creation and submission of pre-authorization requests
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     HttpServletRequest request = ServletActionContext.getRequest();

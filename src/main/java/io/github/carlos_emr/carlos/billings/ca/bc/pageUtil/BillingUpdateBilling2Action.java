@@ -61,8 +61,13 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Struts 2 Action responsible for processing updates to existing, unsubmitted billing records.
+ * Validates the modified fields and ensures the claim remains compliant with billing rules.
+ */
 public final class BillingUpdateBilling2Action
         extends ActionSupport {
+    // Processes user modifications to existing claims prior to submission
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     HttpServletRequest request = ServletActionContext.getRequest();

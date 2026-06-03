@@ -33,7 +33,12 @@ import jakarta.servlet.jsp.tagext.TagSupport;
 import io.github.carlos_emr.CarlosProperties;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Custom JSP tag used to determine whether specific functional modules (like CAISI) are enabled and loaded in the current instance.
+ * Controls conditional rendering of UI elements based on system configuration.
+ */
 public class IsModuleLoadTag extends TagSupport {
+    // Evaluates system properties to conditionally display module-specific UI components
 
     private String moduleName;
     private boolean reverse = false;

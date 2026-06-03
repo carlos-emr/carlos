@@ -31,8 +31,13 @@ package io.github.carlos_emr.carlos.entities;
 
 // Class Condition
 //
+/**
+ * Represents a patient's clinical condition or medical problem within the Electronic Medical Record.
+ * This entity maps to the underlying clinical data repository and tracks co-morbidities.
+ */
 public class Condition
         extends ClinicalFactor {
+    // Tracks related medical conditions to provide a comprehensive patient history
     // Fields
     //
     private java.util.Collection coMorbidConditions;

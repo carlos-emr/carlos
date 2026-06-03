@@ -46,7 +46,12 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 
+/**
+ * Enumerates and translates standard Medical Services Plan (MSP) error codes returned in remittance files.
+ * Provides human-readable descriptions to assist users in correcting rejected claims.
+ */
 public class MspErrorCodes extends Properties {
+    // Maps raw MSP error codes to actionable user-facing descriptions
 
     /**
      * Creates a new instance of MspErrorCodes

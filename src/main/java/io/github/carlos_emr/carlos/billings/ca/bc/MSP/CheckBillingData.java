@@ -40,7 +40,12 @@ import java.sql.SQLException;
 import java.util.Iterator;
 import java.util.List;
 
+/**
+ * Performs comprehensive pre-submission checks on billing data to identify common errors before transmission.
+ * Validates demographics, provider numbers, and code combinations to maximize claim acceptance rates.
+ */
 public class CheckBillingData {
+    // Executes a final validation pass to catch common billing errors before export
 
     // check batchHeader VS1
     public String checkVS1(String recordCode, String dataCentreNum,
