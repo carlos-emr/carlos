@@ -40,6 +40,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FilenameFilter;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -596,27 +597,23 @@ public final class IncomingDocUtil {
             }
         }
 
-        boolean success;
-        if (!CarlosProperties.getInstance().getBooleanProperty("INCOMINGDOCUMENT_RECYCLEBIN", "true")) {
-            if (validatedDeleteFile != null) {
-                success = validatedDeleteFile.delete();
-                if (!success) {
-                    throw new Exception("Error in deleting file:" + validatedDeleteFile.getPath());
-                }
-            }
-        }
+        deleteRecycledPageIfDisabled(validatedDeleteFile);
 
-        success = f.delete();
-        if (success) {
-            File f1 = PathValidationUtils.validateExistingPath(new File(tempFilePathName), new File(basePath));
-            f1.setLastModified(lastModified);
-            success = f1.renameTo(f);
-            if (!success) {
-                throw new Exception("Error in renaming file from:" + tempFilePathName + "to " + filePathName);
-            }
-        } else {
-            throw new Exception("Error in deleting file:" + filePathName);
+        Files.delete(f.toPath());
+        File f1 = PathValidationUtils.validateExistingPath(new File(tempFilePathName), new File(basePath));
+        f1.setLastModified(lastModified);
+        boolean success = f1.renameTo(f);
+        if (!success) {
+            throw new Exception("Error in renaming file from:" + tempFilePathName + "to " + filePathName);
         }
+    }
+
+    private static void deleteRecycledPageIfDisabled(File validatedDeleteFile) throws IOException {
+        if (CarlosProperties.getInstance().getBooleanProperty("INCOMINGDOCUMENT_RECYCLEBIN", "true")
+                || validatedDeleteFile == null) {
+            return;
+        }
+        Files.delete(validatedDeleteFile.toPath());
     }
 
     /**
