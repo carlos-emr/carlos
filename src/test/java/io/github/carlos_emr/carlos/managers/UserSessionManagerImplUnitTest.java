@@ -62,8 +62,9 @@ class UserSessionManagerImplUnitTest {
     @DisplayName("should throw when unregistering an unknown session")
     void shouldThrow_whenUnregisteringUnknownSession() {
         UserSessionManagerImpl manager = new UserSessionManagerImpl();
+        MockHttpSession unknownSession = new MockHttpSession();
 
-        assertThatThrownBy(() -> manager.unregisterUserSession(2567, new MockHttpSession()))
+        assertThatThrownBy(() -> manager.unregisterUserSession(2567, unknownSession))
                 .isInstanceOf(UserSessionNotFoundException.class);
     }
 }

@@ -67,7 +67,9 @@ public class UserSessionManagerImpl implements UserSessionManager {
         });
         // nosemgrep: tainted-session-from-http-request -- userSecurityCode is an internally generated security token, not user input
         session.setAttribute(KEY_USER_SECURITY_CODE, userSecurityCode);
-        logger.debug("User Session successfully registered: {}", sessionIdForLog(session));
+        if (logger.isDebugEnabled()) {
+            logger.debug("User Session successfully registered: {}", sessionIdForLog(session));
+        }
     }
 
     /**
@@ -104,7 +106,9 @@ public class UserSessionManagerImpl implements UserSessionManager {
         }
 
         removeSecurityCodeAttribute(session);
-        logger.debug("User Session successfully unregistered: {}", sessionIdForLog(session));
+        if (logger.isDebugEnabled()) {
+            logger.debug("User Session successfully unregistered: {}", sessionIdForLog(session));
+        }
         return session;
     }
 

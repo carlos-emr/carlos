@@ -131,6 +131,8 @@ public class LoginFilter implements Filter {
     /** Pre-compiled pattern for collapsing consecutive slashes. */
     private static final Pattern REPEATED_SLASH_PATTERN = Pattern.compile("/+");
 
+    private static final String LOGOUT_PATH = "/logout";
+
     /**
      * URLs exempt from authentication requirement.
      *
@@ -169,7 +171,7 @@ public class LoginFilter implements Filter {
             "/lab/newLabUpload",
             "/login",
             "/logoutPage",
-            "/logout",
+            LOGOUT_PATH,
             "/index",
             "/forcepasswordreset",
             "/forcepasswordresetSubmit",
@@ -195,7 +197,7 @@ public class LoginFilter implements Filter {
 
     private static final String[] PENDING_FACILITY_SELECTION_URLS = {
             "/select_facility",
-            "/logout",
+            LOGOUT_PATH,
             "/logoutPage",
             "/images/Oscar.ico",
             "/images/Logo.png",
@@ -241,7 +243,7 @@ public class LoginFilter implements Filter {
             "/share/javascript/Oscar.js",
             "/login",
             "/logoutPage",
-            "/logout",
+            LOGOUT_PATH,
             "/index",
             "/loginfailed",
             "/eformViewForPdfGenerationServlet",
@@ -338,6 +340,7 @@ public class LoginFilter implements Filter {
      * @throws ServletException if servlet-level error occurs during filtering
      * @see SecurityTokenManager for token-based authentication
      */
+    @SuppressWarnings("java:S6541") // Existing authentication/session gate; broad refactor is outside this PR.
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
         logger.debug("Entering LoginFilter.doFilter()");
 
