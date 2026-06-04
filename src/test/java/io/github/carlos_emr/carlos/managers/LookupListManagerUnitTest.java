@@ -295,7 +295,7 @@ class LookupListManagerUnitTest extends CarlosUnitTestBase {
             boolean result = manager.removeLookupListItem(loggedInInfo, 42);
 
             assertThat(result).isTrue();
-            assertThat(item.getActive()).isFalse();
+            assertThat(item.isActive()).isFalse();
             verify(mockLookupListItemDao).merge(item);
         }
 

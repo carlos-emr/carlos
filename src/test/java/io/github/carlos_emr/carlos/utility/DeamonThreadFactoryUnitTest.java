@@ -22,7 +22,7 @@ class DeamonThreadFactoryUnitTest {
     @Test
     @DisplayName("should create daemon threads")
     void shouldCreateDaemonThreads() {
-        DeamonThreadFactory factory = new DeamonThreadFactory();
+        DeamonThreadFactory factory = new DeamonThreadFactory("test-thread", Thread.NORM_PRIORITY);
         Thread thread = factory.newThread(() -> {});
         assertThat(thread.isDaemon()).isTrue();
     }
@@ -30,7 +30,7 @@ class DeamonThreadFactoryUnitTest {
     @Test
     @DisplayName("should create non-null thread")
     void shouldCreateNonNullThread() {
-        DeamonThreadFactory factory = new DeamonThreadFactory();
+        DeamonThreadFactory factory = new DeamonThreadFactory("test-thread", Thread.NORM_PRIORITY);
         Thread thread = factory.newThread(() -> {});
         assertThat(thread).isNotNull();
     }
@@ -38,6 +38,6 @@ class DeamonThreadFactoryUnitTest {
     @Test
     @DisplayName("should implement ThreadFactory")
     void shouldImplementThreadFactory() {
-        assertThat(new DeamonThreadFactory()).isInstanceOf(java.util.concurrent.ThreadFactory.class);
+        assertThat(new DeamonThreadFactory("test-thread", Thread.NORM_PRIORITY)).isInstanceOf(java.util.concurrent.ThreadFactory.class);
     }
 }

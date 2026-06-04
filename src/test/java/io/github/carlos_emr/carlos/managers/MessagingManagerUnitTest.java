@@ -174,7 +174,7 @@ class MessagingManagerUnitTest extends CarlosUnitTestBase {
         void shouldReturnMessages_filteredByProviderAndStatus() {
             grantMsgReadPrivilege();
             MessageList ml = new MessageList();
-            ml.setId(1L);
+            ml.setId(1);
             ml.setMessage(100);
             when(mockMessageListDao.search("999998", "new", 0, 20)).thenReturn(List.of(ml));
 
@@ -415,6 +415,7 @@ class MessagingManagerUnitTest extends CarlosUnitTestBase {
             manager.deleteMessage(loggedInInfo, 42);
 
             assertThat(ml.getStatus()).isEqualTo(MessageList.STATUS_DELETED);
+            verify(mockMessageListDao).merge(ml);
         }
     }
 
@@ -465,14 +466,15 @@ class MessagingManagerUnitTest extends CarlosUnitTestBase {
 
             manager.addRecipientToMessage(loggedInInfo, 100, "222", 1, 5, 3, "new");
 
-            verify(mockMessageListDao).persist(argThat(ml ->
-                    ml.getMessage() == 100 &&
-                    "222".equals(ml.getProviderNo()) &&
-                    "new".equals(ml.getStatus()) &&
-                    ml.getRemoteLocation() == 1 &&
-                    ml.getDestinationFacilityId() == 5 &&
-                    ml.getSourceFacilityId() == 3
-            ));
+            verify(mockMessageListDao).persist(argThat(model -> {
+                MessageList ml = (MessageList) model;
+                return ml.getMessage() == 100 &&
+                        "222".equals(ml.getProviderNo()) &&
+                        "new".equals(ml.getStatus()) &&
+                        ml.getRemoteLocation() == 1 &&
+                        ml.getDestinationFacilityId() == 5 &&
+                        ml.getSourceFacilityId() == 3;
+            }));
         }
 
         @Test
@@ -596,6 +598,13 @@ class MessagingManagerUnitTest extends CarlosUnitTestBase {
             String[] result = manager.removeDuplicates(input);
 
             assertThat(result).containsExactlyInAnyOrder("111", "222", "333");
+        }
+
+        @Test
+        @DisplayName("should throw NullPointerException when input is null")
+        void shouldThrowException_whenInputIsNull() {
+            assertThatNullPointerException()
+                    .isThrownBy(() -> manager.removeDuplicates(null));
         }
     }
 

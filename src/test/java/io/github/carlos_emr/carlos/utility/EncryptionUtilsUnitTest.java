@@ -23,7 +23,6 @@ package io.github.carlos_emr.carlos.utility;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.parallel.ResourceLock;
 
-import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import java.lang.reflect.Field;
 import java.security.NoSuchAlgorithmException;
@@ -146,27 +145,12 @@ class EncryptionUtilsUnitTest {
     class KeyGeneration {
 
         @Test
-        @DisplayName("should generate non-null AES secret key")
-        void shouldGenerateNonNullSecretKey() throws NoSuchAlgorithmException {
-            SecretKey key = EncryptionUtils.generateEncryptionKey();
-            assertThat(key).isNotNull();
-            assertThat(key.getAlgorithm()).isEqualTo("AES");
-        }
+        @DisplayName("should generate unique Base64 keys")
+        void shouldGenerateUniqueBase64Keys() throws NoSuchAlgorithmException {
+            String key1 = EncryptionUtils.generateSecretKey();
+            String key2 = EncryptionUtils.generateSecretKey();
 
-        @Test
-        @DisplayName("should generate SecretKeySpec from seed string")
-        void shouldGenerateSecretKeySpec_fromSeed() {
-            SecretKeySpec keySpec = EncryptionUtils.generateEncryptionKey("mySeedPhrase");
-            assertThat(keySpec).isNotNull();
-            assertThat(keySpec.getAlgorithm()).isEqualTo("AES");
-        }
-
-        @Test
-        @DisplayName("should generate same key from same seed")
-        void shouldGenerateSameKey_fromSameSeed() {
-            SecretKeySpec key1 = EncryptionUtils.generateEncryptionKey("sameSeed");
-            SecretKeySpec key2 = EncryptionUtils.generateEncryptionKey("sameSeed");
-            assertThat(key1.getEncoded()).isEqualTo(key2.getEncoded());
+            assertThat(key1).isNotEqualTo(key2);
         }
 
         @Test

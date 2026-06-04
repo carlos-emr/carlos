@@ -167,7 +167,7 @@ class SecurityManagerUnitTest extends CarlosUnitTestBase {
         void shouldArchiveAndMerge_whenUpdating() {
             Security existing = createValidSecurity(1, "111", "user1", "oldpass");
             Security updated = createValidSecurity(1, "111", "user1", "newpass");
-            when(mockSecurityDao.find(1)).thenReturn(existing);
+            when(mockSecurityDao.find((Object) 1)).thenReturn(existing);
 
             manager.updateSecurityRecord(loggedInInfo, updated);
 
@@ -255,7 +255,7 @@ class SecurityManagerUnitTest extends CarlosUnitTestBase {
         @DisplayName("should return security record by ID")
         void shouldReturnRecord_whenIdValid() {
             Security sec = createValidSecurity(1, "111", "user1", "pass");
-            when(mockSecurityDao.find(1)).thenReturn(sec);
+            when(mockSecurityDao.find((Object) 1)).thenReturn(sec);
 
             Security result = manager.find(loggedInInfo, 1);
 
@@ -437,7 +437,7 @@ class SecurityManagerUnitTest extends CarlosUnitTestBase {
         @Test
         @DisplayName("should return provider data from DAO")
         void shouldReturnProviders_fromDao() {
-            List<Object[]> expected = List.of(new Object[]{"111", "Dr. Smith"});
+            List<Object[]> expected = Collections.singletonList(new Object[]{"111", "Dr. Smith"});
             when(mockSecurityDao.findProviders()).thenReturn(expected);
 
             List<Object[]> result = manager.findProviders(loggedInInfo);

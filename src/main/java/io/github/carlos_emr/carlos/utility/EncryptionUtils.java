@@ -75,6 +75,10 @@ public final class EncryptionUtils {
      */
     @Deprecated
     public static byte[] getSha1(String s) {
+        if (s == null) {
+            return null;
+        }
+
         byte[] b = (byte[]) sha1Cache.get(s);
         if (b == null) {
             b = getSha1NoCache(s);

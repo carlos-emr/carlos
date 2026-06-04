@@ -212,7 +212,7 @@ public class FormsManagerImpl implements FormsManager {
     public Integer saveFormDataAsEDoc(LoggedInInfo loggedInInfo, FormTransportContainer formTransportContainer) {
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.WRITE, null)) {
-            throw new RuntimeException("missing required sec object (_eform)");
+            throw new RuntimeException("missing required sec object (_edoc)");
         }
 
         EDoc edoc = ConvertToEdoc.from(formTransportContainer);

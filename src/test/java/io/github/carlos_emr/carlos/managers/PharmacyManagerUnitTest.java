@@ -118,7 +118,7 @@ class PharmacyManagerUnitTest extends CarlosUnitTestBase {
         @DisplayName("should return pharmacy by ID with details")
         void shouldReturnPharmacy_byIdWithDetails() {
             DemographicPharmacy dp = createDemographicPharmacy(1, 100, 50);
-            when(mockDemographicPharmacyDao.find(1)).thenReturn(dp);
+            when(mockDemographicPharmacyDao.find((Object) 1)).thenReturn(dp);
             when(mockPharmacyInfoDao.getPharmacy(50)).thenReturn(new PharmacyInfo());
 
             DemographicPharmacy result = manager.getDemographicPharmacy(loggedInInfo, 1);
@@ -129,7 +129,7 @@ class PharmacyManagerUnitTest extends CarlosUnitTestBase {
         @Test
         @DisplayName("should return null when not found")
         void shouldReturnNull_whenNotFound() {
-            when(mockDemographicPharmacyDao.find(999)).thenReturn(null);
+            when(mockDemographicPharmacyDao.find((Object) 999)).thenReturn(null);
 
             DemographicPharmacy result = manager.getDemographicPharmacy(loggedInInfo, 999);
 
@@ -161,7 +161,7 @@ class PharmacyManagerUnitTest extends CarlosUnitTestBase {
         @DisplayName("should set status to inactive when removing")
         void shouldSetStatusToInactive_whenRemoving() {
             DemographicPharmacy dp = createDemographicPharmacy(1, 100, 50);
-            when(mockDemographicPharmacyDao.find(1)).thenReturn(dp);
+            when(mockDemographicPharmacyDao.find((Object) 1)).thenReturn(dp);
 
             manager.removePharmacy(loggedInInfo, 100, 1);
 
@@ -172,7 +172,7 @@ class PharmacyManagerUnitTest extends CarlosUnitTestBase {
         @Test
         @DisplayName("should throw when pharmacy not found")
         void shouldThrow_whenPharmacyNotFound() {
-            when(mockDemographicPharmacyDao.find(999)).thenReturn(null);
+            when(mockDemographicPharmacyDao.find((Object) 999)).thenReturn(null);
 
             assertThatThrownBy(() -> manager.removePharmacy(loggedInInfo, 100, 999))
                     .isInstanceOf(IllegalArgumentException.class)
@@ -183,7 +183,7 @@ class PharmacyManagerUnitTest extends CarlosUnitTestBase {
         @DisplayName("should throw when pharmacy belongs to different demographic")
         void shouldThrow_whenPharmacyBelongsToDifferentDemographic() {
             DemographicPharmacy dp = createDemographicPharmacy(1, 200, 50);
-            when(mockDemographicPharmacyDao.find(1)).thenReturn(dp);
+            when(mockDemographicPharmacyDao.find((Object) 1)).thenReturn(dp);
 
             assertThatThrownBy(() -> manager.removePharmacy(loggedInInfo, 100, 1))
                     .isInstanceOf(IllegalArgumentException.class)
@@ -199,7 +199,7 @@ class PharmacyManagerUnitTest extends CarlosUnitTestBase {
         @DisplayName("should return pharmacy info by ID")
         void shouldReturnPharmacyInfo_byId() {
             PharmacyInfo expected = new PharmacyInfo();
-            when(mockPharmacyInfoDao.find(42)).thenReturn(expected);
+            when(mockPharmacyInfoDao.find((Object) 42)).thenReturn(expected);
 
             PharmacyInfo result = manager.getPharmacy(loggedInInfo, 42);
 
@@ -255,11 +255,11 @@ class PharmacyManagerUnitTest extends CarlosUnitTestBase {
         @DisplayName("should mark pharmacy as do not contact when flag is true")
         void shouldMarkDoNotContact_whenFlagIsTrue() {
             DemographicPharmacy dp = createDemographicPharmacy(1, 100, 50);
-            when(mockDemographicPharmacyDao.find(1)).thenReturn(dp);
+            when(mockDemographicPharmacyDao.find((Object) 1)).thenReturn(dp);
 
             manager.setDoNotContact(loggedInInfo, 1, true);
 
-            assertThat(dp.isConsentToContact()).isFalse();
+            assertThat(dp.getConsentToContact()).isFalse();
             verify(mockDemographicPharmacyDao).saveEntity(dp);
         }
     }

@@ -80,8 +80,10 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
         loggedInInfo = mock(LoggedInInfo.class);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
 
-        // Grant write privilege by default
-        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq(SecurityInfoManager.WRITE), any()))
+        // Grant demographic privileges by default. SecurityInfoManager overloads int and String targets.
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), anyString(), anyInt()))
+                .thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), anyString(), nullable(String.class)))
                 .thenReturn(true);
     }
 
@@ -91,6 +93,16 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
         ct.setType(type);
         ct.setActive(true);
         return ct;
+    }
+
+    private void setConsentId(Consent consent, Integer id) {
+        try {
+            java.lang.reflect.Field idField = Consent.class.getDeclaredField("id");
+            idField.setAccessible(true);
+            idField.set(consent, id);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("Unable to set Consent ID for test fixture", e);
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -106,7 +118,7 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
         void shouldCreateNewConsent_whenNoneExists() {
             ConsentType ct = createActiveConsentType(1, "PROVIDER_CONSENT_FILTER");
             when(mockConsentTypeDao.find(1)).thenReturn(ct);
-            when(mockConsentDao.findByDemographicAndConsentType(100, ct)).thenReturn(null);
+            when(mockConsentDao.findByDemographicAndConsentTypeId(100, ct.getId())).thenReturn(null);
 
             boolean result = manager.addEditConsentRecord(loggedInInfo, 100, 1, true, false);
 
@@ -119,12 +131,12 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
         void shouldMergeExistingConsent_whenAlreadyExists() {
             ConsentType ct = createActiveConsentType(1, "PROVIDER_CONSENT_FILTER");
             Consent existing = new Consent();
-            existing.setId(10);
+            setConsentId(existing, 10);
             existing.setConsentType(ct);
             existing.setDemographicNo(100);
             existing.setOptout(false);
             when(mockConsentTypeDao.find(1)).thenReturn(ct);
-            when(mockConsentDao.findByDemographicAndConsentType(100, ct)).thenReturn(existing);
+            when(mockConsentDao.findByDemographicAndConsentTypeId(100, ct.getId())).thenReturn(existing);
 
             boolean result = manager.addEditConsentRecord(loggedInInfo, 100, 1, true, true);
 
@@ -157,7 +169,7 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
         @Test
         @DisplayName("should throw when write privilege denied")
         void shouldThrow_whenWritePrivilegeDenied() {
-            when(mockSecurityInfoManager.hasPrivilege(any(), eq("_demographic"), eq(SecurityInfoManager.WRITE), any()))
+            when(mockSecurityInfoManager.hasPrivilege(any(), eq("_demographic"), eq(SecurityInfoManager.WRITE), anyInt()))
                     .thenReturn(false);
 
             assertThatThrownBy(() -> manager.addEditConsentRecord(loggedInInfo, 100, 1, true, false))
@@ -179,7 +191,7 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
         void shouldCallAddConsent_whenConsenting() {
             ConsentType ct = createActiveConsentType(1, "TEST");
             when(mockConsentTypeDao.find(1)).thenReturn(ct);
-            when(mockConsentDao.findByDemographicAndConsentType(100, ct)).thenReturn(null);
+            when(mockConsentDao.findByDemographicAndConsentTypeId(100, ct.getId())).thenReturn(null);
 
             manager.setConsent(loggedInInfo, 100, 1, true);
 
@@ -199,7 +211,7 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
         @DisplayName("should set optout flag and merge when consent exists")
         void shouldSetOptoutFlagAndMerge_whenConsentExists() {
             Consent consent = new Consent();
-            consent.setId(10);
+            setConsentId(consent, 10);
             consent.setOptout(false);
             when(mockConsentDao.find(10)).thenReturn(consent);
 
@@ -231,7 +243,7 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
         @Test
         @DisplayName("should throw when write privilege denied for optout by ID")
         void shouldThrow_whenWriteDenied() {
-            when(mockSecurityInfoManager.hasPrivilege(any(), eq("_demographic"), eq(SecurityInfoManager.WRITE), isNull()))
+            when(mockSecurityInfoManager.hasPrivilege(any(), eq("_demographic"), eq(SecurityInfoManager.WRITE), nullable(String.class)))
                     .thenReturn(false);
 
             assertThatThrownBy(() -> manager.optoutConsent(loggedInInfo, 10))

@@ -8,6 +8,9 @@
 package io.github.carlos_emr.carlos.utility;
 
 import org.junit.jupiter.api.*;
+
+import java.util.Arrays;
+
 import static org.assertj.core.api.Assertions.*;
 
 /**
@@ -53,7 +56,7 @@ class QueueCacheUnitTest {
         cache.put("key", "val");
         int[] sizes = cache.getPoolSizes();
         assertThat(sizes).hasSize(3);
-        assertThat(sizes[0]).isGreaterThanOrEqualTo(1);
+        assertThat(Arrays.stream(sizes).sum()).isEqualTo(1);
     }
 
     @Test

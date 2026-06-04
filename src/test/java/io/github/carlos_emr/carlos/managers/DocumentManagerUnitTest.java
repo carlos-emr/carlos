@@ -27,11 +27,17 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.*;
 
 import static org.assertj.core.api.Assertions.*;
@@ -49,6 +55,7 @@ import static org.mockito.Mockito.*;
  * @see DocumentManager
  */
 @ExtendWith(MockitoExtension.class)
+@Execution(ExecutionMode.SAME_THREAD)
 @MockitoSettings(strictness = Strictness.LENIENT)
 @DisplayName("DocumentManager Unit Tests")
 @Tag("unit")
@@ -159,19 +166,19 @@ class DocumentManagerUnitTest extends CarlosUnitTestBase {
         void shouldReturnDocument_whenValidIdAndPrivilege() {
             grantEdocReadPrivilege();
             Document expected = createTestDocument(1, "test.pdf");
-            when(mockDocumentDao.find(1)).thenReturn(expected);
+            when(mockDocumentDao.find((Object) 1)).thenReturn(expected);
 
             Document result = manager.getDocument(loggedInInfo, 1);
 
             assertThat(result).isSameAs(expected);
-            verify(mockDocumentDao).find(1);
+            verify(mockDocumentDao).find((Object) 1);
         }
 
         @Test
         @DisplayName("should return null when document not found")
         void shouldReturnNull_whenDocumentNotFound() {
             grantEdocReadPrivilege();
-            when(mockDocumentDao.find(999)).thenReturn(null);
+            when(mockDocumentDao.find((Object) 999)).thenReturn(null);
 
             Document result = manager.getDocument(loggedInInfo, 999);
 
@@ -589,6 +596,23 @@ class DocumentManagerUnitTest extends CarlosUnitTestBase {
     @Nested
     @DisplayName("moveDocument")
     class MoveDocument {
+
+        @Test
+        @DisplayName("should move document when execute privilege granted")
+        void shouldMoveDocument_whenExecutePrivilegeGranted(@TempDir Path tempDir) throws IOException {
+            grantEdocExecutePrivilege();
+            Path fromDirectory = Files.createDirectory(tempDir.resolve("from"));
+            Path toDirectory = Files.createDirectory(tempDir.resolve("to"));
+            Path source = fromDirectory.resolve("test.pdf");
+            Files.writeString(source, "pdf content");
+            Document doc = createTestDocument(1, "test.pdf");
+
+            manager.moveDocument(loggedInInfo, doc, fromDirectory.toString(), toDirectory.toString());
+
+            assertThat(source).doesNotExist();
+            assertThat(toDirectory.resolve("test.pdf")).exists();
+            assertThat(Files.readString(toDirectory.resolve("test.pdf"))).isEqualTo("pdf content");
+        }
 
         @Test
         @DisplayName("should throw RuntimeException when execute privilege denied")

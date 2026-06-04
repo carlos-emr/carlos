@@ -38,6 +38,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
+import java.lang.reflect.Field;
 import java.util.*;
 
 import static org.assertj.core.api.Assertions.*;
@@ -72,6 +73,16 @@ class FormsManagerUnitTest extends CarlosUnitTestBase {
 
     private FormsManagerImpl manager;
     private LoggedInInfo loggedInInfo;
+
+    private void setEFormId(EForm form, Integer id) {
+        try {
+            Field idField = EForm.class.getDeclaredField("id");
+            idField.setAccessible(true);
+            idField.set(form, id);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("Unable to set EForm fixture id", e);
+        }
+    }
 
     @BeforeEach
     void setUp() {
@@ -116,10 +127,10 @@ class FormsManagerUnitTest extends CarlosUnitTestBase {
         @DisplayName("should return active eForms sorted by specified order")
         void shouldReturnActiveForms_sortedByOrder() {
             EForm form1 = new EForm();
-            form1.setId(1);
+            setEFormId(form1, 1);
             form1.setFormName("Blood Work");
             EForm form2 = new EForm();
-            form2.setId(2);
+            setEFormId(form2, 2);
             form2.setFormName("Mental Health Assessment");
             when(mockEFormDao.findByStatus(true, EFormSortOrder.NAME)).thenReturn(List.of(form1, form2));
 
@@ -152,7 +163,7 @@ class FormsManagerUnitTest extends CarlosUnitTestBase {
         @DisplayName("should return eForms in specified group")
         void shouldReturnForms_inGroup() {
             EForm form = new EForm();
-            form.setId(1);
+            setEFormId(form, 1);
             when(mockEFormDao.getEfromInGroupByGroupName("Pediatrics")).thenReturn(List.of(form));
 
             List<EForm> result = manager.getEfromInGroupByGroupName(loggedInInfo, "Pediatrics");
@@ -314,7 +325,8 @@ class FormsManagerUnitTest extends CarlosUnitTestBase {
 
             assertThatThrownBy(() -> manager.saveFormDataAsEDoc(loggedInInfo, null))
                     .isInstanceOf(RuntimeException.class)
-                    .hasMessageContaining("_eform");
+                    .hasMessageContaining("_edoc");
+            verify(mockSecurityInfoManager).hasPrivilege(any(LoggedInInfo.class), eq("_edoc"), eq(SecurityInfoManager.WRITE), isNull());
         }
     }
 

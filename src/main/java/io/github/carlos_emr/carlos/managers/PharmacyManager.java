@@ -110,7 +110,7 @@ public class PharmacyManager {
 
     public void setDoNotContact(LoggedInInfo loggedInInfo, Integer pharmacyId, boolean doNotContact) {
         DemographicPharmacy pharmacy = demographicPharmacyDao.find(pharmacyId);
-        pharmacy.setConsentToContact(doNotContact);
+        pharmacy.setConsentToContact(!doNotContact);
         demographicPharmacyDao.saveEntity(pharmacy);
         LogAction.addLogSynchronous(loggedInInfo, "PharmacyManager.setDoNotContact", "demographicNo=" + pharmacy.getDemographicNo() + ",pharmacyId=" + pharmacyId);
     }
@@ -118,7 +118,7 @@ public class PharmacyManager {
     public Integer savePharmacyInfo(LoggedInInfo loggedInInfo, PharmacyInfo pharmacyInfo) {
 
         // not sure what the server is set to pass.
-        if (pharmacyInfo.getId() == 0) {
+        if (pharmacyInfo.getId() != null && pharmacyInfo.getId() == 0) {
             pharmacyInfo.setId(null);
         }
 
