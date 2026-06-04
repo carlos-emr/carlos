@@ -226,7 +226,7 @@ public class ProviderSiteDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return active same-site providers without requiring a billing number")
-        void shouldReturnActiveProviders_whenProvidersShareSites() throws Exception {
+        void shouldReturnActiveProviders_whenProvidersShareSites() {
             String currentProvider = "710001";
             String sameSiteProvider = "710002";
             String inactiveSameSiteProvider = "710003";
