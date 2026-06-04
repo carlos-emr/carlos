@@ -25,6 +25,7 @@
 
 const { chromium } = require('playwright');
 const { execFileSync } = require('child_process');
+const { randomInt } = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -127,7 +128,7 @@ function assert(condition, message) {
 
 function chooseFixture() {
   for (let attempt = 0; attempt < 30; attempt += 1) {
-    const providerNo = String(700000 + Math.floor(Math.random() * 90000));
+    const providerNo = String(randomInt(700000, 790000));
     const username = `pw${providerNo.slice(1)}`;
     const count = Number(sql(
       `SELECT`
@@ -250,8 +251,7 @@ function wirePage(page, label) {
 async function gotoApp(page, appPath, waitUntil = 'domcontentloaded', query = null) {
   const url = appUrl(appPath, query);
   // BASE_URL is restricted by validateBaseUrl(), and appUrl() only accepts root-relative app paths.
-  // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection
-  return page.goto(url, { waitUntil, timeout: 30000 });
+  return page.goto(url, { waitUntil, timeout: 30000 }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl rejects non-local hosts unless explicitly allowed.
 }
 
 async function login(page) {
