@@ -30,12 +30,13 @@ package io.github.carlos_emr.carlos.utility;
 
 import java.time.LocalDate;
 import java.time.Period;
+import java.time.ZoneId;
 import java.util.Calendar;
 
 public class AgeCalculator {
 
     public static Age calculateAge(Calendar birthDate) {
-        return calculateAge(birthDate, LocalDate.now());
+        return calculateAge(birthDate, LocalDate.now(ZoneId.systemDefault()));
     }
 
     /**

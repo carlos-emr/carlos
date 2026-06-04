@@ -36,6 +36,7 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("unit")
 @Tag("fast")
 @Tag("utility")
+@SuppressWarnings("java:S8692")
 class ConversionUtilsUnitTest {
 
     // -----------------------------------------------------------------------
@@ -52,11 +53,12 @@ class ConversionUtilsUnitTest {
             Date result = ConversionUtils.fromDateString("2026-03-31");
 
             assertThat(result).isNotNull();
-            Calendar cal = Calendar.getInstance();
-            cal.setTime(result);
-            assertThat(cal.get(Calendar.YEAR)).isEqualTo(2026);
-            assertThat(cal.get(Calendar.MONTH)).isEqualTo(Calendar.MARCH);
-            assertThat(cal.get(Calendar.DAY_OF_MONTH)).isEqualTo(31);
+            Calendar parsed = Calendar.getInstance();
+            parsed.setTime(result);
+            assertThat(parsed)
+                    .satisfies(cal -> assertThat(cal.get(Calendar.YEAR)).isEqualTo(2026))
+                    .satisfies(cal -> assertThat(cal.get(Calendar.MONTH)).isEqualTo(Calendar.MARCH))
+                    .satisfies(cal -> assertThat(cal.get(Calendar.DAY_OF_MONTH)).isEqualTo(31));
         }
 
         @Test
@@ -94,10 +96,11 @@ class ConversionUtilsUnitTest {
             Date result = ConversionUtils.fromDateString("31/03/2026", "dd/MM/yyyy");
 
             assertThat(result).isNotNull();
-            Calendar cal = Calendar.getInstance();
-            cal.setTime(result);
-            assertThat(cal.get(Calendar.YEAR)).isEqualTo(2026);
-            assertThat(cal.get(Calendar.MONTH)).isEqualTo(Calendar.MARCH);
+            Calendar parsed = Calendar.getInstance();
+            parsed.setTime(result);
+            assertThat(parsed)
+                    .satisfies(cal -> assertThat(cal.get(Calendar.YEAR)).isEqualTo(2026))
+                    .satisfies(cal -> assertThat(cal.get(Calendar.MONTH)).isEqualTo(Calendar.MARCH));
         }
     }
 
@@ -184,10 +187,11 @@ class ConversionUtilsUnitTest {
             Date result = ConversionUtils.fromTimestampString("2026-03-31 14:30:00");
 
             assertThat(result).isNotNull();
-            Calendar cal = Calendar.getInstance();
-            cal.setTime(result);
-            assertThat(cal.get(Calendar.HOUR_OF_DAY)).isEqualTo(14);
-            assertThat(cal.get(Calendar.MINUTE)).isEqualTo(30);
+            Calendar parsed = Calendar.getInstance();
+            parsed.setTime(result);
+            assertThat(parsed)
+                    .satisfies(cal -> assertThat(cal.get(Calendar.HOUR_OF_DAY)).isEqualTo(14))
+                    .satisfies(cal -> assertThat(cal.get(Calendar.MINUTE)).isEqualTo(30));
         }
 
         @Test

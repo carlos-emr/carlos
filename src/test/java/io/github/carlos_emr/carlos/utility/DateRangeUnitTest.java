@@ -11,6 +11,8 @@ import org.junit.jupiter.api.*;
 
 import java.util.Calendar;
 import java.util.Date;
+import java.util.GregorianCalendar;
+import java.util.TimeZone;
 
 import static org.assertj.core.api.Assertions.*;
 
@@ -26,7 +28,7 @@ import static org.assertj.core.api.Assertions.*;
 class DateRangeUnitTest {
 
     private Date date(int year, int month, int day) {
-        Calendar cal = Calendar.getInstance();
+        Calendar cal = new GregorianCalendar(TimeZone.getTimeZone("UTC"));
         cal.set(year, month - 1, day, 0, 0, 0);
         cal.set(Calendar.MILLISECOND, 0);
         return cal.getTime();
@@ -55,7 +57,10 @@ class DateRangeUnitTest {
         @Test
         @DisplayName("should throw when from is after to")
         void shouldThrow_whenFromAfterTo() {
-            assertThatThrownBy(() -> new DateRange(date(2026, 12, 31), date(2026, 1, 1)))
+            Date from = date(2026, 12, 31);
+            Date to = date(2026, 1, 1);
+
+            assertThatThrownBy(() -> new DateRange(from, to))
                     .isInstanceOf(IllegalArgumentException.class);
         }
 
@@ -126,7 +131,7 @@ class DateRangeUnitTest {
             DateRange r1 = new DateRange(date(2026, 1, 1), date(2026, 12, 31));
             DateRange r2 = new DateRange(date(2026, 1, 1), date(2026, 12, 31));
             assertThat(r1).isEqualTo(r2);
-            assertThat(r1.hashCode()).isEqualTo(r2.hashCode());
+            assertThat(r1).hasSameHashCodeAs(r2);
         }
 
         @Test

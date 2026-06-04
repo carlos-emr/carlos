@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.utility;
 import org.junit.jupiter.api.*;
 
 import java.time.LocalDate;
+import java.time.Month;
 import java.util.Calendar;
 import java.util.GregorianCalendar;
 
@@ -46,14 +47,14 @@ class AgeCalculatorUnitTest {
      * Creates a Calendar birth date using a 1-based month value for readability.
      * GregorianCalendar expects a 0-based month, so this helper performs that conversion.
      */
-    private Calendar birthDate(int year, int month, int dayOfMonth) {
-        return new GregorianCalendar(year, month - 1, dayOfMonth);
+    private Calendar birthDate(int year, Month month, int dayOfMonth) {
+        return new GregorianCalendar(year, month.getValue() - 1, dayOfMonth);
     }
 
     @Test
     @DisplayName("should calculate adult age correctly")
     void shouldCalculateAdultAge_correctly() {
-        Calendar birthDate = birthDate(1996, 5, 19);
+        Calendar birthDate = birthDate(1996, Month.MAY, 19);
 
         Age age = AgeCalculator.calculateAge(birthDate, REFERENCE_DATE);
 
@@ -64,7 +65,7 @@ class AgeCalculatorUnitTest {
     @Test
     @DisplayName("should calculate infant age in months")
     void shouldCalculateInfantAge_inMonths() {
-        Calendar birthDate = birthDate(2025, 11, 19);
+        Calendar birthDate = birthDate(2025, Month.NOVEMBER, 19);
 
         Age age = AgeCalculator.calculateAge(birthDate, REFERENCE_DATE);
 
@@ -75,7 +76,7 @@ class AgeCalculatorUnitTest {
     @Test
     @DisplayName("should return zero years for newborn")
     void shouldReturnZeroYears_forNewborn() {
-        Calendar birthDate = birthDate(2026, 5, 19);
+        Calendar birthDate = birthDate(2026, Month.MAY, 19);
 
         Age age = AgeCalculator.calculateAge(birthDate, REFERENCE_DATE);
 
@@ -87,7 +88,7 @@ class AgeCalculatorUnitTest {
     @Test
     @DisplayName("should handle elderly patient age")
     void shouldHandleElderlyAge_forReferenceDate() {
-        Calendar birthDate = birthDate(1931, 5, 19);
+        Calendar birthDate = birthDate(1931, Month.MAY, 19);
 
         Age age = AgeCalculator.calculateAge(birthDate, REFERENCE_DATE);
 
@@ -97,7 +98,7 @@ class AgeCalculatorUnitTest {
     @Test
     @DisplayName("should calculate age with specific days")
     void shouldCalculateAge_withSpecificDays() {
-        Calendar birthDate = birthDate(2001, 2, 19);
+        Calendar birthDate = birthDate(2001, Month.FEBRUARY, 19);
 
         Age age = AgeCalculator.calculateAge(birthDate, REFERENCE_DATE);
 
@@ -108,7 +109,7 @@ class AgeCalculatorUnitTest {
     @Test
     @DisplayName("should return non-negative values for all age components")
     void shouldReturnNonNegativeValues_forRecentBirthDate() {
-        Calendar birthDate = birthDate(2026, 5, 9);
+        Calendar birthDate = birthDate(2026, Month.MAY, 9);
 
         Age age = AgeCalculator.calculateAge(birthDate, REFERENCE_DATE);
 

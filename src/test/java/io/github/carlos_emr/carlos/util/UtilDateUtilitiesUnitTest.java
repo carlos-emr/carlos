@@ -25,6 +25,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.GregorianCalendar;
+import java.util.TimeZone;
 import java.util.Date;
 import java.util.Locale;
 
@@ -44,6 +46,7 @@ import org.junit.jupiter.api.Test;
 @Tag("fast")
 @Tag("utility")
 @DisplayName("UtilDateUtilities")
+@SuppressWarnings({"java:S1874", "java:S8692"})
 class UtilDateUtilitiesUnitTest {
 
     private static final Date FIXED = new Date(1704412800000L); // 2024-01-05T00:00:00Z
@@ -61,7 +64,7 @@ class UtilDateUtilitiesUnitTest {
     void shouldParseDate_withDefaultPattern() {
         Date result = UtilDateUtilities.StringToDate("2026-03-31");
         assertThat(result).isNotNull();
-        Calendar cal = Calendar.getInstance();
+        Calendar cal = new GregorianCalendar(TimeZone.getTimeZone("UTC"));
         cal.setTime(result);
         assertThat(cal.get(Calendar.YEAR)).isEqualTo(2026);
     }
@@ -122,7 +125,7 @@ class UtilDateUtilitiesUnitTest {
     void shouldCreateDate_fromStrings() {
         Date result = UtilDateUtilities.calcDate("2026", "3", "31");
         assertThat(result).isNotNull();
-        Calendar cal = Calendar.getInstance();
+        Calendar cal = new GregorianCalendar(TimeZone.getTimeZone("UTC"));
         cal.setTime(result);
         assertThat(cal.get(Calendar.YEAR)).isEqualTo(2026);
         assertThat(cal.get(Calendar.MONTH)).isEqualTo(Calendar.MARCH);

@@ -20,6 +20,7 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("unit")
 @Tag("fast")
 @Tag("utility")
+@SuppressWarnings("java:S1874")
 class UtilMiscUnitTest {
 
     @Nested

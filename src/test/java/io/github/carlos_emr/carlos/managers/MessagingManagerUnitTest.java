@@ -60,6 +60,7 @@ import static org.mockito.Mockito.*;
 @Tag("fast")
 @Tag("manager")
 @Tag("messaging")
+@SuppressWarnings("java:S8692")
 class MessagingManagerUnitTest extends CarlosUnitTestBase {
 
     @Mock private MessageListDao mockMessageListDao;
@@ -301,7 +302,7 @@ class MessagingManagerUnitTest extends CarlosUnitTestBase {
 
             int result = manager.getInboxCountByDemographicNo(loggedInInfo, 100);
 
-            assertThat(result).isEqualTo(0);
+            assertThat(result).isZero();
         }
     }
 
@@ -462,7 +463,9 @@ class MessagingManagerUnitTest extends CarlosUnitTestBase {
             when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_msg"), eq(SecurityInfoManager.WRITE), isNull()))
                     .thenReturn(false);
 
-            assertThatThrownBy(() -> manager.saveMessage(loggedInInfo, new MessageTbl()))
+            MessageTbl message = new MessageTbl();
+
+            assertThatThrownBy(() -> manager.saveMessage(loggedInInfo, message))
                     .isInstanceOf(SecurityException.class);
         }
     }
@@ -584,7 +587,7 @@ class MessagingManagerUnitTest extends CarlosUnitTestBase {
 
             int result = manager.getCurrentLocationId();
 
-            assertThat(result).isEqualTo(0);
+            assertThat(result).isZero();
         }
     }
 

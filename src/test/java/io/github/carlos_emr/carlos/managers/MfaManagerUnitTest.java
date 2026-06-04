@@ -90,11 +90,9 @@ class MfaManagerUnitTest extends CarlosUnitTestBase {
         void shouldGenerateValidTotpUrl_withEncodedParams() throws UnsupportedEncodingException {
             String result = manager.getTotpUrl("CARLOS EMR", "admin", "JBSWY3DPEHPK3PXP");
 
-            assertThat(result).startsWith("otpauth://totp/");
-            assertThat(result).contains("CARLOS%20EMR");
-            assertThat(result).contains("admin");
-            assertThat(result).contains("secret=JBSWY3DPEHPK3PXP");
-            assertThat(result).contains("issuer=CARLOS%20EMR");
+            assertThat(result)
+                    .startsWith("otpauth://totp/")
+                    .contains("CARLOS%20EMR", "admin", "secret=JBSWY3DPEHPK3PXP", "issuer=CARLOS%20EMR");
         }
 
         @Test
@@ -102,8 +100,9 @@ class MfaManagerUnitTest extends CarlosUnitTestBase {
         void shouldUrlEncode_specialCharsInAppName() throws UnsupportedEncodingException {
             String result = manager.getTotpUrl("My Clinic & Lab", "user@test.com", "SECRET");
 
-            assertThat(result).contains("My%20Clinic");
-            assertThat(result).doesNotContain(" ");
+            assertThat(result)
+                    .contains("My%20Clinic")
+                    .doesNotContain(" ");
         }
     }
 
@@ -251,10 +250,10 @@ class MfaManagerUnitTest extends CarlosUnitTestBase {
         void shouldGenerateNonNullBase32Secret() {
             String secret = MfaManager.generateMfaSecret();
 
-            assertThat(secret).isNotNull();
-            assertThat(secret).isNotEmpty();
-            // Base32 characters only
-            assertThat(secret).matches("[A-Z2-7=]+");
+            assertThat(secret)
+                    .isNotNull()
+                    .isNotEmpty()
+                    .matches("[A-Z2-7=]+");
         }
 
         @Test

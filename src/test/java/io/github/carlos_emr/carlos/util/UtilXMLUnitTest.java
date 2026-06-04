@@ -98,9 +98,7 @@ class UtilXMLUnitTest {
 
             String xml = UtilXML.toXML(doc);
 
-            assertThat(xml).contains("<patient>");
-            assertThat(xml).contains("<name>Jane Doe</name>");
-            assertThat(xml).contains("<age>45</age>");
+            assertThat(xml).contains("<patient>", "<name>Jane Doe</name>", "<age>45</age>");
         }
 
         @Test

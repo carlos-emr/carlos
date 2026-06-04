@@ -159,7 +159,9 @@ class LookupListManagerUnitTest extends CarlosUnitTestBase {
             when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin"), eq(SecurityInfoManager.WRITE), isNull()))
                     .thenReturn(false);
 
-            assertThatThrownBy(() -> manager.addLookupList(loggedInInfo, new LookupList()))
+            LookupList list = new LookupList();
+
+            assertThatThrownBy(() -> manager.addLookupList(loggedInInfo, list))
                     .isInstanceOf(RuntimeException.class)
                     .hasMessageContaining("Access Denied");
         }
@@ -191,7 +193,9 @@ class LookupListManagerUnitTest extends CarlosUnitTestBase {
             when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin"), eq(SecurityInfoManager.WRITE), isNull()))
                     .thenReturn(false);
 
-            assertThatThrownBy(() -> manager.addLookupListItem(loggedInInfo, new LookupListItem()))
+            LookupListItem item = new LookupListItem();
+
+            assertThatThrownBy(() -> manager.addLookupListItem(loggedInInfo, item))
                     .isInstanceOf(RuntimeException.class);
         }
     }
@@ -271,7 +275,9 @@ class LookupListManagerUnitTest extends CarlosUnitTestBase {
             when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin"), eq(SecurityInfoManager.UPDATE), isNull()))
                     .thenReturn(false);
 
-            assertThatThrownBy(() -> manager.updateLookupListItem(loggedInInfo, new LookupListItem()))
+            LookupListItem item = new LookupListItem();
+
+            assertThatThrownBy(() -> manager.updateLookupListItem(loggedInInfo, item))
                     .isInstanceOf(RuntimeException.class);
         }
     }

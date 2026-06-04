@@ -19,6 +19,7 @@ import static org.assertj.core.api.Assertions.*;
  */
 @DisplayName("MiscUtils Unit Tests")
 @Tag("unit") @Tag("fast") @Tag("utility")
+@SuppressWarnings("java:S5738")
 class MiscUtilsUnitTest {
 
     @Test
@@ -31,8 +32,9 @@ class MiscUtilsUnitTest {
     @DisplayName("should sanitize filename removing path separators")
     void shouldSanitizeFilename_removingPathSeparators() {
         String result = MiscUtils.sanitizeFileName("../../../etc/passwd");
-        assertThat(result).doesNotContain("..");
-        assertThat(result).doesNotContain("/");
+        assertThat(result)
+                .doesNotContain("..")
+                .doesNotContain("/");
     }
 
     @Test
@@ -53,8 +55,9 @@ class MiscUtilsUnitTest {
     @DisplayName("should sanitize filename removing special characters")
     void shouldSanitizeFilename_removingSpecialChars() {
         String result = MiscUtils.sanitizeFileName("file<>name|test.pdf");
-        assertThat(result).doesNotContain("<");
-        assertThat(result).doesNotContain(">");
-        assertThat(result).doesNotContain("|");
+        assertThat(result)
+                .doesNotContain("<")
+                .doesNotContain(">")
+                .doesNotContain("|");
     }
 }

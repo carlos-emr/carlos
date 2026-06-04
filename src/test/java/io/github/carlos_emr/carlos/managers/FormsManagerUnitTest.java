@@ -105,10 +105,6 @@ class FormsManagerUnitTest extends CarlosUnitTestBase {
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
     }
 
-    private void grantFormReadPrivilege() {
-        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_form"), eq(SecurityInfoManager.READ), isNull()))
-                .thenReturn(true);
-    }
 
     private void denyFormReadPrivilege() {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_form"), eq(SecurityInfoManager.READ), isNull()))

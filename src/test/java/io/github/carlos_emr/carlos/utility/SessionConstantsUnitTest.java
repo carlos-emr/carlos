@@ -17,6 +17,7 @@ import static org.assertj.core.api.Assertions.*;
  */
 @DisplayName("SessionConstants Unit Tests")
 @Tag("unit") @Tag("fast") @Tag("utility")
+@SuppressWarnings("java:S1874")
 class SessionConstantsUnitTest {
 
     @Test

@@ -91,11 +91,11 @@ class XmlUtilsUnitTest {
         void shouldSerializeDocument_toByteArray() throws Exception {
             Document doc = createTestDocument();
             byte[] bytes = XmlUtils.toBytes(doc, false);
-            assertThat(bytes).isNotNull();
-            assertThat(bytes.length).isGreaterThan(0);
+            assertThat(bytes)
+                    .isNotNull()
+                    .hasSizeGreaterThan(0);
             String xml = new String(bytes, StandardCharsets.UTF_8);
-            assertThat(xml).contains("root");
-            assertThat(xml).contains("child");
+            assertThat(xml).contains("root", "child");
         }
 
         @Test
@@ -103,9 +103,7 @@ class XmlUtilsUnitTest {
         void shouldSerializeDocument_toString() throws Exception {
             Document doc = createTestDocument();
             String xml = XmlUtils.toString(doc, false);
-            assertThat(xml).isNotNull();
-            assertThat(xml).contains("root");
-            assertThat(xml).contains("Hello");
+            assertThat(xml).isNotNull().contains("root", "Hello");
         }
 
         @Test
@@ -130,8 +128,9 @@ class XmlUtilsUnitTest {
         void shouldFindChild_byName() throws Exception {
             Document doc = createTestDocument();
             Node child = XmlUtils.getChildNode(doc.getDocumentElement(), "child");
-            assertThat(child).isNotNull();
-            assertThat(child.getTextContent()).isEqualTo("Hello");
+            assertThat(child)
+                    .isNotNull()
+                    .satisfies(node -> assertThat(node.getTextContent()).isEqualTo("Hello"));
         }
 
         @Test

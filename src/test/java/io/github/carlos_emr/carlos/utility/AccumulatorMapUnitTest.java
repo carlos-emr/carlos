@@ -37,7 +37,7 @@ class AccumulatorMapUnitTest {
         @DisplayName("should start at 1 for new key")
         void shouldStartAtOne_forNewKey() {
             map.increment("a");
-            assertThat(map.get("a")).isEqualTo(1);
+            assertThat(map).containsEntry("a", 1);
         }
 
         @Test
@@ -45,14 +45,14 @@ class AccumulatorMapUnitTest {
         void shouldIncrementExisting_byOne() {
             map.increment("a");
             map.increment("a");
-            assertThat(map.get("a")).isEqualTo(2);
+            assertThat(map).containsEntry("a", 2);
         }
 
         @Test
         @DisplayName("should increment by specified value")
         void shouldIncrement_bySpecifiedValue() {
             map.increment("a", 5);
-            assertThat(map.get("a")).isEqualTo(5);
+            assertThat(map).containsEntry("a", 5);
         }
 
         @Test
@@ -60,7 +60,7 @@ class AccumulatorMapUnitTest {
         void shouldAccumulate_bySpecifiedValues() {
             map.increment("a", 3);
             map.increment("a", 7);
-            assertThat(map.get("a")).isEqualTo(10);
+            assertThat(map).containsEntry("a", 10);
         }
 
         @Test
@@ -69,8 +69,8 @@ class AccumulatorMapUnitTest {
             map.increment("a");
             map.increment("b");
             map.increment("a");
-            assertThat(map.get("a")).isEqualTo(2);
-            assertThat(map.get("b")).isEqualTo(1);
+            assertThat(map).containsEntry("a", 2);
+            assertThat(map).containsEntry("b", 1);
         }
     }
 

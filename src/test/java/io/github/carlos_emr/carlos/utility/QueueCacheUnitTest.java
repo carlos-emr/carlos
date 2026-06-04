@@ -99,8 +99,9 @@ class QueueCacheUnitTest extends CarlosUnitTestBase {
         cache.put("key", original);
 
         StringBuilder retrieved = cache.get("key");
-        assertThat(retrieved).hasToString("value");
-        assertThat(retrieved).isNotSameAs(original);
+        assertThat(retrieved)
+                .hasToString("value")
+                .isNotSameAs(original);
     }
 
     @Test

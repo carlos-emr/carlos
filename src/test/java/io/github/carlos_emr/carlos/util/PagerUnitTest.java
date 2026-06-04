@@ -30,9 +30,9 @@ class PagerUnitTest {
     @DisplayName("should generate pagination HTML when results exceed page size")
     void shouldGenerateHtml_whenResultsExceedPageSize() {
         String result = Pager.generate(0, 100, 10, "/search");
-        assertThat(result).isNotEmpty();
-        assertThat(result).contains("href=");
-        assertThat(result).contains("pager.offset");
+        assertThat(result)
+                .isNotEmpty()
+                .contains("href=", "pager.offset");
     }
 
     @Test

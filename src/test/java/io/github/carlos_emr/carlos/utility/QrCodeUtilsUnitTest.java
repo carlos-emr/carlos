@@ -33,8 +33,7 @@ class QrCodeUtilsUnitTest {
     @DisplayName("should generate non-null PNG bytes for valid content")
     void shouldGeneratePng_forValidContent() throws Exception {
         byte[] png = QrCodeUtils.toSingleQrCodePng("https://example.com", ErrorCorrectionLevel.M, 8);
-        assertThat(png).isNotNull();
-        assertThat(png.length).isGreaterThan(0);
+        assertThat(png).isNotNull().hasSizeGreaterThan(0);
     }
 
     @Test
@@ -58,8 +57,7 @@ class QrCodeUtilsUnitTest {
     @DisplayName("should generate valid PNG header bytes")
     void shouldGenerateValidPngHeader_forGeneratedPng() throws Exception {
         byte[] png = QrCodeUtils.toSingleQrCodePng("test", ErrorCorrectionLevel.M, 4);
-        assertThat(png).isNotNull();
-        assertThat(png.length).isGreaterThanOrEqualTo(4);
+        assertThat(png).isNotNull().hasSizeGreaterThanOrEqualTo(4);
         // PNG magic number: 0x89 0x50 0x4E 0x47
         assertThat(png[0] & 0xFF).isEqualTo(0x89);
         assertThat(png[1]).isEqualTo((byte) 'P');

@@ -27,7 +27,9 @@ class JsonUtilUnitTest {
     public static class SimpleBean {
         private String name = "test";
         private int value = 42;
-        public SimpleBean() {}
+        public SimpleBean() {
+            // Required by Jackson for POJO deserialization tests.
+        }
         public String getName() { return name; }
         public void setName(String name) { this.name = name; }
         public int getValue() { return value; }
@@ -57,9 +59,10 @@ class JsonUtilUnitTest {
         void shouldConvertList_toJsonArray() {
             List<SimpleBean> list = List.of(new SimpleBean(), new SimpleBean());
             String json = JsonUtil.pojoCollectionToJson(list);
-            assertThat(json).startsWith("[");
-            assertThat(json).endsWith("]");
-            assertThat(json).contains("\"name\":\"test\"");
+            assertThat(json)
+                    .startsWith("[")
+                    .endsWith("]")
+                    .contains("\"name\":\"test\"");
         }
 
         @Test
@@ -86,9 +89,10 @@ class JsonUtilUnitTest {
         void shouldDeserializeJson_toPojo() {
             String json = "{\"name\":\"John\",\"value\":99}";
             SimpleBean bean = (SimpleBean) JsonUtil.jsonToPojo(json, SimpleBean.class);
-            assertThat(bean).isNotNull();
-            assertThat(bean.getName()).isEqualTo("John");
-            assertThat(bean.getValue()).isEqualTo(99);
+            assertThat(bean)
+                    .isNotNull()
+                    .satisfies(simpleBean -> assertThat(simpleBean.getName()).isEqualTo("John"))
+                    .satisfies(simpleBean -> assertThat(simpleBean.getValue()).isEqualTo(99));
         }
     }
 }

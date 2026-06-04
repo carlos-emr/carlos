@@ -48,6 +48,6 @@ class StringBuilderUtilsUnitTest {
     void shouldFindTarget_atBeginning() {
         StringBuilder sb = new StringBuilder("Hello");
         int idx = StringBuilderUtils.indexOfIgnoreCase(sb, "HELLO", 0);
-        assertThat(idx).isEqualTo(0);
+        assertThat(idx).isZero();
     }
 }

@@ -89,14 +89,16 @@ class PDFEncryptionUtilUnitTest {
 
         Path encrypted = encrypt(source, "s3cret");
 
-        assertThat(encrypted).exists();
-        assertThat(encrypted).isNotEqualTo(source);
+        assertThat(encrypted)
+                .exists()
+                .isNotEqualTo(source);
         assertThat(encrypted.toString()).endsWith(".pdf");
         assertThatThrownBy(() -> Loader.loadPDF(encrypted.toFile()).close())
                 .isInstanceOf(InvalidPasswordException.class);
         try (PDDocument opened = Loader.loadPDF(encrypted.toFile(), "s3cret")) {
-            assertThat(opened.isEncrypted()).isTrue();
-            assertThat(opened.getNumberOfPages()).isEqualTo(1);
+            assertThat(opened)
+                    .satisfies(doc -> assertThat(doc.isEncrypted()).isTrue())
+                    .satisfies(doc -> assertThat(doc.getNumberOfPages()).isEqualTo(1));
         }
     }
 

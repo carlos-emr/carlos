@@ -27,6 +27,7 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("unit")
 @Tag("fast")
 @Tag("utility")
+@SuppressWarnings("java:S8692")
 class DateUtilsUnitTest {
 
     private Calendar cal(int year, int month, int day, int hour, int minute, int second) {
@@ -62,9 +63,7 @@ class DateUtilsUnitTest {
         @DisplayName("should format calendar to ISO datetime with T separator")
         void shouldFormatCalendar_withTSeparator() {
             String result = DateUtils.getIsoDateTime(cal(2026, 3, 31, 14, 30, 0));
-            assertThat(result).contains("2026-03-31");
-            assertThat(result).contains("T");
-            assertThat(result).contains("14:30");
+            assertThat(result).contains("2026-03-31", "T", "14:30");
         }
 
         @Test
@@ -82,9 +81,9 @@ class DateUtilsUnitTest {
         @DisplayName("should format without T separator")
         void shouldFormat_withoutTSeparator() {
             String result = DateUtils.getIsoDateTimeNoT(cal(2026, 3, 31, 14, 30, 45));
-            assertThat(result).doesNotContain("T");
-            assertThat(result).contains("2026-03-31");
-            assertThat(result).contains("14:30:45");
+            assertThat(result)
+                    .doesNotContain("T")
+                    .contains("2026-03-31", "14:30:45");
         }
 
         @Test
@@ -102,9 +101,9 @@ class DateUtilsUnitTest {
         @DisplayName("should format without seconds")
         void shouldFormat_withoutSeconds() {
             String result = DateUtils.getIsoDateTimeNoTNoSeconds(cal(2026, 3, 31, 14, 30, 45));
-            assertThat(result).contains("2026-03-31");
-            assertThat(result).contains("14:30");
-            assertThat(result).doesNotContain(":45");
+            assertThat(result)
+                    .contains("2026-03-31", "14:30")
+                    .doesNotContain(":45");
         }
 
         @Test
@@ -123,11 +122,12 @@ class DateUtilsUnitTest {
         void shouldParseValidIsoDate() throws ParseException {
             Date result = DateUtils.parseIsoDate("2026-03-31");
             assertThat(result).isNotNull();
-            Calendar cal = Calendar.getInstance();
-            cal.setTime(result);
-            assertThat(cal.get(Calendar.YEAR)).isEqualTo(2026);
-            assertThat(cal.get(Calendar.MONTH)).isEqualTo(Calendar.MARCH);
-            assertThat(cal.get(Calendar.DAY_OF_MONTH)).isEqualTo(31);
+            Calendar parsed = Calendar.getInstance();
+            parsed.setTime(result);
+            assertThat(parsed)
+                    .satisfies(cal -> assertThat(cal.get(Calendar.YEAR)).isEqualTo(2026))
+                    .satisfies(cal -> assertThat(cal.get(Calendar.MONTH)).isEqualTo(Calendar.MARCH))
+                    .satisfies(cal -> assertThat(cal.get(Calendar.DAY_OF_MONTH)).isEqualTo(31));
         }
 
         @Test
@@ -202,10 +202,11 @@ class DateUtilsUnitTest {
         void shouldClearTimeComponents() {
             Calendar cal = cal(2026, 3, 31, 14, 30, 45);
             Calendar result = DateUtils.setToBeginningOfDay(cal);
-            assertThat(result.get(Calendar.HOUR_OF_DAY)).isZero();
-            assertThat(result.get(Calendar.MINUTE)).isZero();
-            assertThat(result.get(Calendar.SECOND)).isZero();
-            assertThat(result.get(Calendar.MILLISECOND)).isZero();
+            assertThat(result)
+                    .satisfies(calendar -> assertThat(calendar.get(Calendar.HOUR_OF_DAY)).isZero())
+                    .satisfies(calendar -> assertThat(calendar.get(Calendar.MINUTE)).isZero())
+                    .satisfies(calendar -> assertThat(calendar.get(Calendar.SECOND)).isZero())
+                    .satisfies(calendar -> assertThat(calendar.get(Calendar.MILLISECOND)).isZero());
         }
     }
 

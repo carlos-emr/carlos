@@ -84,37 +84,40 @@ public class UtilMisc {
 
         int N = S.length();
         StringBuilder sb = new StringBuilder(N);
-        for (int i = 0; i < N; i++) {
+        int i = 0;
+        while (i < N) {
             char c = S.charAt(i);
             if (c == '&') {//the read one more char and encode
                 String temp = new String();
                 if (i + 1 < N) temp += S.charAt(i + 1);
                 if (temp.equalsIgnoreCase("a")) {//&amp
                     sb.append("&");
-                    i += 4;
+                    i += 5;
                     continue;
                 } else if (temp.equalsIgnoreCase("l")) {//&lt
                     sb.append("<");
-                    i += 3;
+                    i += 4;
                     continue;
                 } else if (temp.equalsIgnoreCase("g")) {//&gt
                     sb.append(">");
-                    i += 3;
+                    i += 4;
                     continue;
                 } else if (temp.equalsIgnoreCase("q")) {//&quot
                     sb.append("\"");
-                    i += 5;
+                    i += 6;
                     continue;
                 } else if (i + 4 < N && S.startsWith("&#39;", i)) {//'
                     sb.append('\'');
-                    i += 4;
+                    i += 5;
                     continue;
                 }
             }
             sb.append(c);
+            i++;
         }
         return sb.toString();
     }
+
 
     public static String mysqlEscape(String S) {
         if (null == S) {

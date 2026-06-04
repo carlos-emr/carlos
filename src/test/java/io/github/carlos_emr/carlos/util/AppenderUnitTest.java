@@ -25,7 +25,7 @@ class AppenderUnitTest {
         Appender appender = new Appender();
         appender.append("hello");
         appender.append("world");
-        assertThat(appender.toString()).isEqualTo("hello world");
+        assertThat(appender).hasToString("hello world");
     }
 
     @Test
@@ -35,14 +35,14 @@ class AppenderUnitTest {
         appender.append("a");
         appender.append("b");
         appender.append("c");
-        assertThat(appender.toString()).isEqualTo("a, b, c");
+        assertThat(appender).hasToString("a, b, c");
     }
 
     @Test
     @DisplayName("should initialize with content")
     void shouldInitialize_withContent() {
         Appender appender = new Appender(", ", "start");
-        assertThat(appender.toString()).isEqualTo("start");
+        assertThat(appender).hasToString("start");
     }
 
     @Test
@@ -59,7 +59,7 @@ class AppenderUnitTest {
         Appender appender = new Appender();
         boolean result = appender.appendNonEmpty("hello", " ", "world");
         assertThat(result).isTrue();
-        assertThat(appender.toString()).contains("hello world");
+        assertThat(appender).hasToString("hello world");
     }
 
     @Test
@@ -88,7 +88,6 @@ class AppenderUnitTest {
         Appender a2 = new Appender(", ");
         a2.append("b");
         a1.append(a2);
-        assertThat(a1.toString()).contains("a");
-        assertThat(a1.toString()).contains("b");
+        assertThat(a1).hasToString("a, b");
     }
 }

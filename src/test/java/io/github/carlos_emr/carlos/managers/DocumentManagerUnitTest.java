@@ -59,6 +59,7 @@ import static org.mockito.Mockito.*;
 @Tag("fast")
 @Tag("manager")
 @Tag("document")
+@SuppressWarnings("java:S8692")
 class DocumentManagerUnitTest extends CarlosUnitTestBase {
 
     @Mock private DocumentDao mockDocumentDao;
@@ -281,7 +282,9 @@ class DocumentManagerUnitTest extends CarlosUnitTestBase {
         void shouldThrowException_whenReadPrivilegeDenied() {
             denyEdocReadPrivilege();
 
-            assertThatThrownBy(() -> manager.getDocumentsUpdateAfterDate(loggedInInfo, new Date(), 10))
+            Date cutoff = new Date();
+
+            assertThatThrownBy(() -> manager.getDocumentsUpdateAfterDate(loggedInInfo, cutoff, 10))
                     .isInstanceOf(RuntimeException.class);
         }
     }
@@ -439,8 +442,10 @@ class DocumentManagerUnitTest extends CarlosUnitTestBase {
         void shouldThrowException_whenReadPrivilegeDenied() {
             denyEdocReadPrivilege();
 
+            Calendar updateDate = Calendar.getInstance();
+
             assertThatThrownBy(() -> manager.getDocumentsByProgramProviderDemographicDate(
-                    loggedInInfo, 5, "999998", 100, Calendar.getInstance(), 20))
+                    loggedInInfo, 5, "999998", 100, updateDate, 20))
                     .isInstanceOf(RuntimeException.class);
         }
     }

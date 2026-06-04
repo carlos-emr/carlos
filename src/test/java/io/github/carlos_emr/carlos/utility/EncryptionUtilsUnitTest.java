@@ -191,8 +191,9 @@ class EncryptionUtilsUnitTest {
         @DisplayName("should encrypt string with {ENC} prefix")
         void shouldEncryptString_withPrefix() throws Exception {
             String encrypted = EncryptionUtils.encrypt("Hello World");
-            assertThat(encrypted).startsWith("{ENC}");
-            assertThat(encrypted).isNotEqualTo("Hello World");
+            assertThat(encrypted)
+                    .startsWith("{ENC}")
+                    .isNotEqualTo("Hello World");
         }
 
         @Test
