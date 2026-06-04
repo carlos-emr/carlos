@@ -5,6 +5,11 @@ import io.github.carlos_emr.carlos.commn.model.converter.EmailConfigTypeConverte
 import jakarta.persistence.*;
 import java.util.List;
 
+/**
+ * JPA entity representing the clinic-level or provider-level SMTP server configuration.
+ * Stores credentials, server addresses, port numbers, and encryption requirements (TLS/SSL) for outgoing mail.
+ */
+
 @Entity
 @Table(name = "emailConfig")
 public class EmailConfig extends AbstractModel<Integer> {

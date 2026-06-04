@@ -12,6 +12,11 @@ import io.woo.htmltopdf.HtmlToPdf;
 import io.woo.htmltopdf.HtmlToPdfObject;
 import io.woo.htmltopdf.PdfPageSize;
 
+/**
+ * Document conversion service that leverages an internal library (e.g., wkhtmltopdf)
+ * to transform HTML clinical notes and forms into standardized PDF documents for printing or faxing.
+ */
+
 public class InternalEDocConverter implements EDocConverterInterface {
     /**
      * Converts HTML to PDF using the internal io.woo.htmltopdf library.
@@ -27,6 +32,7 @@ public class InternalEDocConverter implements EDocConverterInterface {
      */
     @Override
     public void convert(String document, OutputStream os) throws IOException {
+        // Configures library settings for local file access and margins before generating the PDF from the provided HTML input.
         HashMap<String, String> htmlToPdfSettings = new HashMap<String, String>() {{
             put("load.blockLocalFileAccess", "false");
             put("web.enableIntelligentShrinking", "true");

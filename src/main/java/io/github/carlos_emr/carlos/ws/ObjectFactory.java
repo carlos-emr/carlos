@@ -5,6 +5,12 @@ import jakarta.xml.bind.JAXBElement;
 import javax.xml.namespace.QName;
 import jakarta.xml.bind.annotation.XmlRegistry;
 
+/**
+ * JAXB ObjectFactory generated for the Web Services integration.
+ * Provides factory methods for instantiating Java interfaces and classes representing the XML schema
+ * structures utilized in SOAP/REST message payloads.
+ */
+
 @XmlRegistry
 public class ObjectFactory
 {

@@ -5,6 +5,12 @@ import jakarta.xml.bind.annotation.XmlAccessType;
 import jakarta.xml.bind.annotation.XmlAccessorType;
 import java.io.Serializable;
 
+/**
+ * Represents the confidence score assigned to a potential patient match during search operations.
+ * Higher scores indicate a stronger probability that the evaluated record corresponds to the queried patient,
+ * utilizing algorithms based on name, DOB, and identifier similarities.
+ */
+
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "matchingClientScore", propOrder = { "client", "score" })
 public class MatchingClientScore implements Serializable

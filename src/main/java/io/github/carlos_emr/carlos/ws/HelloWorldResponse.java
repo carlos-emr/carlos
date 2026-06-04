@@ -6,6 +6,11 @@ import jakarta.xml.bind.annotation.XmlAccessType;
 import jakarta.xml.bind.annotation.XmlAccessorType;
 import java.io.Serializable;
 
+/**
+ * JAXB wrapper for the response payload of the initial HelloWorld service endpoint.
+ * Confirms successful reception of the diagnostic ping and validates the return communication channel.
+ */
+
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "helloWorldResponse", propOrder = { "_return" })
 public class HelloWorldResponse implements Serializable

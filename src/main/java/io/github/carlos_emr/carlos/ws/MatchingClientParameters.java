@@ -10,6 +10,12 @@ import jakarta.xml.bind.annotation.XmlAccessType;
 import jakarta.xml.bind.annotation.XmlAccessorType;
 import java.io.Serializable;
 
+/**
+ * Encapsulates the demographic and clinical criteria used for patient matching queries.
+ * This object is transmitted via the web service to execute probabilistic or deterministic patient
+ * search algorithms against external registries or the internal database.
+ */
+
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "matchingClientParameters", propOrder = { "maxEntriesToReturn", "minScore", "firstName", "lastName", "birthDate", "hin" })
 public class MatchingClientParameters implements Serializable

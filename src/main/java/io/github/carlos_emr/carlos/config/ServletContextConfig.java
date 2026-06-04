@@ -7,6 +7,12 @@ import jakarta.servlet.ServletContext;
 
 import org.springframework.web.context.ServletContextAware;
 
+/**
+ * Configuration class responsible for initializing the Servlet Context properties.
+ * Registers essential listeners, filters, and servlets required during the application startup lifecycle,
+ * ensuring the Struts and Spring context environments are properly bootstrapped.
+ */
+
 @Configuration
 public class ServletContextConfig implements ServletContextAware {
 

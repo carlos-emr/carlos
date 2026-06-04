@@ -15,6 +15,11 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Concrete implementation of the email sender interface utilizing a local SMTP relay.
+ * Handles the assembly of MIME messages, inclusion of attachments, and transmission via JavaMail API.
+ */
+
 public class LocalSMTPEmailSender extends SMTPEmailSender {
 
     public LocalSMTPEmailSender(LoggedInInfo loggedInInfo, EmailConfig emailConfig, 

@@ -8,6 +8,11 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
+/**
+ * JPA entity representing the binary content payload of an eReferral attachment.
+ * Typically stores the raw byte array of PDFs, images, or clinical text files sent along with a referral request.
+ */
+
 @Entity
 @IdClass(EReferAttachmentDataCompositeKey.class)
 @Table(name = "erefer_attachment_data")

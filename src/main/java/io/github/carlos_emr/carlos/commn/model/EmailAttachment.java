@@ -5,6 +5,11 @@ import jakarta.persistence.*;
 
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 
+/**
+ * JPA entity representing a file attached to an outgoing email message.
+ * Manages the association between the email log record and the physical or binary file stored in the system.
+ */
+
 @Entity
 @Table(name = "emailAttachment")
 public class EmailAttachment extends AbstractModel<Integer> {

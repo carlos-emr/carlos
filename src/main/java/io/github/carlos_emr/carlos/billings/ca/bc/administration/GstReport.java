@@ -18,9 +18,16 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import java.util.Properties;
 import java.util.Vector;
 
+/**
+ * Represents the British Columbia specific GST (Goods and Services Tax) report generation.
+ * This domain service aggregates billing claims within a specified date range for given providers
+ * to determine the applicable GST totals required for provincial financial reconciliation.
+ */
+
 public class GstReport {
 
     public Vector<Properties> getGST(LoggedInInfo loggedInInfo, String[] providerNos, String startDate, String endDate) {
+        // Queries the BillingDao to fetch all paid claims within the specified timeframe for the providers, filtering for GST-applicable billing codes.
         Properties props;
         Vector<Properties> list = new Vector<Properties>();
         BillingDao dao = SpringUtils.getBean(BillingDao.class);

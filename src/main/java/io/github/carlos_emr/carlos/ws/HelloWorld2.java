@@ -5,6 +5,11 @@ import jakarta.xml.bind.annotation.XmlAccessType;
 import jakarta.xml.bind.annotation.XmlAccessorType;
 import java.io.Serializable;
 
+/**
+ * JAXB wrapper for the request payload of the secondary HelloWorld service endpoint.
+ * Utilized for enhanced diagnostic ping operations, verifying both the endpoint availability and payload parsing.
+ */
+
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "helloWorld2", propOrder = { "arg0" })
 public class HelloWorld2 implements Serializable

@@ -14,6 +14,11 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
 
+/**
+ * Base class or utility representing an action designed to produce or consume JSON responses.
+ * Ensures standard HTTP headers, content types, and error handling are uniformly applied across AJAX endpoints.
+ */
+
 public class JSONAction extends ActionSupport {
 
     private final String ENCODING = "UTF-8";
