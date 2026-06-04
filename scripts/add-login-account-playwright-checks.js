@@ -65,20 +65,9 @@ function validateBaseUrl(rawBaseUrl) {
   return parsed;
 }
 
-function appUrl(appPath, query = null) {
-  if (!appPath.startsWith('/') || appPath.startsWith('//')) {
-    throw new Error(`Application path must be root-relative, got ${appPath}`);
-  }
-  const relative = new URL(appPath, 'http://localhost');
-  const url = new URL(baseUrl.href);
-  url.pathname = `${baseUrl.pathname}${relative.pathname}`.replace(/\/{2,}/g, '/');
-  url.search = relative.search;
-  if (query) {
-    for (const [key, value] of Object.entries(query)) {
-      url.searchParams.set(key, value);
-    }
-  }
-  return url.toString();
+function playwrightBaseUrl() {
+  const pathname = baseUrl.pathname.replace(/\/$/, '');
+  return `${baseUrl.origin}${pathname}/`;
 }
 
 function createMysqlDefaultsFile() {
@@ -248,14 +237,8 @@ function wirePage(page, label) {
   });
 }
 
-async function gotoApp(page, appPath, waitUntil = 'domcontentloaded', query = null) {
-  const url = appUrl(appPath, query);
-  // BASE_URL is restricted by validateBaseUrl(), and appUrl() only accepts root-relative app paths.
-  return page.goto(url, { waitUntil, timeout: 30000 }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl rejects non-local hosts unless explicitly allowed.
-}
-
 async function login(page) {
-  await gotoApp(page, '/');
+  await page.goto('./', { waitUntil: 'domcontentloaded', timeout: 30000 });
   await page.locator('#username').fill(testUser);
   await page.locator('#password').fill(testPassword);
   await page.locator('#pin').fill(testPin);
@@ -308,14 +291,19 @@ async function run() {
     }
 
     browser = await chromium.launch(launchOptions);
-    const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, ignoreHTTPSErrors: true });
+    const context = await browser.newContext({
+      baseURL: playwrightBaseUrl(),
+      viewport: { width: 1280, height: 900 },
+      ignoreHTTPSErrors: true,
+    });
+    const page = await context.newPage();
     page.setDefaultTimeout(20000);
     wirePage(page, 'add-login-account');
 
     await login(page);
     result.steps.push('logged in as admin');
 
-    await gotoApp(page, '/admin/ViewSecurityAddARecord', 'networkidle');
+    await page.goto('admin/ViewSecurityAddARecord', { waitUntil: 'networkidle', timeout: 30000 });
     const initialOptions = await providerOptions(page);
     result.initialOptions = initialOptions;
 
@@ -372,7 +360,7 @@ async function run() {
     result.securityRows = securityRows;
     assert(securityRows.length === 1, `Expected one security row for ${username}/${providerNo}, found ${securityRows.length}`);
 
-    await gotoApp(page, '/admin/ViewSecurityAddARecord', 'networkidle');
+    await page.goto('admin/ViewSecurityAddARecord', { waitUntil: 'networkidle', timeout: 30000 });
     const afterOptions = await providerOptions(page);
     result.afterOptions = afterOptions;
     assert(
