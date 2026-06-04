@@ -377,39 +377,68 @@
     }
 
     .proof-modal {
-      top: 92px;
-      width: 640px;
-      margin-left: -320px;
+      top: 54px;
+      width: 860px;
+      margin-left: -430px;
       z-index: 23;
     }
 
     .proof-modal-body {
-      background: #ececec;
-    }
-
-    .fake-proof-toolbar {
-      padding: 7px 9px;
-      border: 1px solid #c6c6c6;
-      border-bottom: 0;
-      background: #f8f8f8;
-      color: #333;
-      font-size: 12px;
+      padding: 0;
+      background: #5b5b5b;
+      max-height: calc(100vh - 130px);
       overflow: hidden;
     }
 
-    .fake-proof-toolbar span {
-      float: right;
-      color: #666;
+    .fake-proof-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 38px;
+      padding: 0 12px;
+      border: 0;
+      background: #333;
+      color: #f1f1f1;
+      font-size: 12px;
+    }
+
+    .fake-proof-filename {
+      flex: 1;
+      font-weight: 700;
+    }
+
+    .fake-proof-toolbar-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .fake-proof-tool {
+      min-width: 30px;
+      padding: 4px 7px;
+      border: 1px solid #5f5f5f;
+      border-radius: 2px;
+      background: #424242;
+      color: #f1f1f1;
+      text-align: center;
+      box-sizing: border-box;
+    }
+
+    .fake-proof-canvas {
+      max-height: calc(100vh - 214px);
+      padding: 22px 0 28px;
+      overflow: auto;
+      background: #6b6b6b;
     }
 
     .fake-proof-page {
-      width: 485px;
-      min-height: 510px;
+      width: 560px;
+      min-height: 650px;
       margin: 0 auto;
-      padding: 34px 38px;
-      border: 1px solid #bebebe;
+      padding: 48px 54px;
+      border: 1px solid #444;
       background: #fff;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, .18);
+      box-shadow: 0 3px 12px rgba(0, 0, 0, .45);
       box-sizing: border-box;
     }
 
@@ -455,7 +484,7 @@
     }
 
     .fake-proof-footer {
-      margin-top: 42px;
+      margin-top: 64px;
       color: #777;
       font-size: 10px;
       text-align: center;
@@ -1016,48 +1045,52 @@
     </div>
     <div class="modal-body proof-modal-body">
       <div class="fake-proof-toolbar">
-        consent-proof-record
-        <span>Mock evidence preview</span>
+        <span class="fake-proof-filename">consent-proof-record</span>
+        <span class="fake-proof-toolbar-group">
+          <span class="fake-proof-tool">1 / 1</span>
+          <span class="fake-proof-tool">-</span>
+          <span class="fake-proof-tool">100%</span>
+          <span class="fake-proof-tool">+</span>
+        </span>
       </div>
-      <div class="fake-proof-page">
-        <div class="fake-proof-title" id="proofRecordTitle">Consent Proof</div>
-        <div class="fake-proof-subtitle">Mock proof preview for review</div>
-        <table class="fake-proof-fields">
-          <tr>
-            <td>Patient</td>
-            <td>FAKE-Jacky, FAKE-Jones</td>
-          </tr>
-          <tr>
-            <td>Consent Type</td>
-            <td id="proofConsentType">Electronic Communication</td>
-          </tr>
-          <tr>
-            <td>Status</td>
-            <td id="proofConsentStatus">Consented</td>
-          </tr>
-          <tr>
-            <td>Proof Type</td>
-            <td id="proofConsentKind">Verbal attestation</td>
-          </tr>
-          <tr>
-            <td>Source</td>
-            <td id="proofConsentSource">Verbal</td>
-          </tr>
-          <tr>
-            <td>Recorded</td>
-            <td id="proofConsentDate">2026-05-29 14:18</td>
-          </tr>
-        </table>
-        <div class="fake-signature">
-          Signature, attestation, or source record on file
-        </div>
-        <div class="fake-proof-footer">
-          This is a static mock proof preview. No document has been generated or stored.
+      <div class="fake-proof-canvas">
+        <div class="fake-proof-page">
+          <div class="fake-proof-title" id="proofRecordTitle">Consent Proof</div>
+          <div class="fake-proof-subtitle">Mock proof preview for review</div>
+          <table class="fake-proof-fields">
+            <tr>
+              <td>Patient</td>
+              <td>FAKE-Jacky, FAKE-Jones</td>
+            </tr>
+            <tr>
+              <td>Consent Type</td>
+              <td id="proofConsentType">Electronic Communication</td>
+            </tr>
+            <tr>
+              <td>Status</td>
+              <td id="proofConsentStatus">Consented</td>
+            </tr>
+            <tr>
+              <td>Proof Type</td>
+              <td id="proofConsentKind">Verbal attestation</td>
+            </tr>
+            <tr>
+              <td>Source</td>
+              <td id="proofConsentSource">Verbal</td>
+            </tr>
+            <tr>
+              <td>Recorded</td>
+              <td id="proofConsentDate">2026-05-29 14:18</td>
+            </tr>
+          </table>
+          <div class="fake-signature">
+            Signature, attestation, or source record on file
+          </div>
+          <div class="fake-proof-footer">
+            This is a static mock proof preview. No document has been generated or stored.
+          </div>
         </div>
       </div>
-    </div>
-    <div class="modal-footer">
-      <a class="button grey" id="closeProofModalFooter" href="#">Close</a>
     </div>
   </div>
   <div class="modal-backdrop" id="modalBackdrop" hidden></div>
@@ -1257,7 +1290,6 @@
       var proofModal = document.getElementById('proofModal');
       var proofModalBackdrop = document.getElementById('proofModalBackdrop');
       var closeProofModalLink = document.getElementById('closeProofModal');
-      var closeProofModalFooterLink = document.getElementById('closeProofModalFooter');
       var proofLinks = document.querySelectorAll('[data-proof-title]');
       var proofRecordTitle = document.getElementById('proofRecordTitle');
       var proofConsentType = document.getElementById('proofConsentType');
@@ -1404,7 +1436,6 @@
       closeConsentHistoryFooterLink.addEventListener('click', hideConsentHistory);
       historyModalBackdrop.addEventListener('click', hideConsentHistory);
       closeProofModalLink.addEventListener('click', hideProofModal);
-      closeProofModalFooterLink.addEventListener('click', hideProofModal);
       proofModalBackdrop.addEventListener('click', hideProofModal);
       for (var i = 0; i < consentHistoryLinks.length; i++) {
         consentHistoryLinks[i].addEventListener('click', function (event) {
