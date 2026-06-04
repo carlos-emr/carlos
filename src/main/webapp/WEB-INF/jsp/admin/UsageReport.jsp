@@ -124,7 +124,7 @@
             <label class="form-label"><fmt:message key="admin.UsageReport.startDate"/></label>
             <div>
                 <input type="text" id="startDate" name="startDate"
-                       value="<carlos:encode value='<%= request.getParameter("startDate") != null ? request
+                       <%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>value="<carlos:encode value='<%= request.getParameter("startDate") != null ? request
 					.getParameter("startDate") : "" %>' context="htmlAttribute"/>"/>
             </div>
         </div>
@@ -132,7 +132,7 @@
             <label class="form-label"><fmt:message key="admin.UsageReport.endDate"/></label>
             <div>
                 <input type="text" id="endDate" name="endDate"
-                       value="<carlos:encode value='<%= request.getParameter("endDate") != null ? request
+                       <%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>value="<carlos:encode value='<%= request.getParameter("endDate") != null ? request
 					.getParameter("endDate") : "" %>' context="htmlAttribute"/>"/>
             </div>
         </div>
