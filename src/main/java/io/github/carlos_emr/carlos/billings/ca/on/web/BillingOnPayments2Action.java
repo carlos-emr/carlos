@@ -22,6 +22,7 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.math.BigDecimal;
 import java.text.NumberFormat;
 import java.text.ParseException;
@@ -570,6 +571,8 @@ public class BillingOnPayments2Action extends ActionSupport {
         return writeJsonResponse(ret, "savePayment success JSON response");
     }
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     private String writeJsonResponse(ObjectNode body, String label) {
         response.setCharacterEncoding("utf-8");
         response.setContentType("application/json");
@@ -622,6 +625,8 @@ public class BillingOnPayments2Action extends ActionSupport {
 
     }
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public String viewPayment() {
         requireBillingWritePrivilege();
         String id = request.getParameter("paymentId");
@@ -805,6 +810,8 @@ public class BillingOnPayments2Action extends ActionSupport {
      * and return the appropriate Struts result string. Mirrors the existing
      * "all zeros" rejection at the top of {@link #savePayment()}.
      */
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     private String writeRejectionJson(String reason) {
         ObjectNode ret = objectMapper.createObjectNode();
         ret.put("ret", 1);

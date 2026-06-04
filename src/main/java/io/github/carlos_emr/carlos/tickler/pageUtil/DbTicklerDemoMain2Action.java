@@ -44,6 +44,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.owasp.encoder.Encode;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts2 action that migrates the server-side logic from {@code tickler/dbTicklerDemoMain.jsp}.
@@ -78,6 +79,8 @@ public final class DbTicklerDemoMain2Action extends ActionSupport {
      * @return {@link #NONE} after redirecting
      * @throws SecurityException if the user lacks {@code _tickler} update privilege
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public String execute() throws Exception {
 

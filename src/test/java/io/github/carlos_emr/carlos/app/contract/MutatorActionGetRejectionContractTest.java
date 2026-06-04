@@ -131,6 +131,15 @@ class MutatorActionGetRejectionContractTest {
      */
     static Stream<Arguments> unconditionalMutators() {
         return Stream.of(
+            // --- login ---
+            // Logout2Action is in io.github.carlos_emr.carlos.login, which is not yet in
+            // IN_SCOPE_PACKAGE_PREFIXES, so the discovery scan won't auto-find it.
+            // Registered explicitly here because it is an unconditional mutator:
+            // session.invalidate() and cookie deletion fire on every POST regardless of params.
+            // No hasPrivilege() is called (see Logout2Action.execute() for why), so the
+            // privilege-tuple fields below are left as empty strings — the contract assertion
+            // skips the privilege check when hasPrivilege is never invoked.
+            Arguments.of("io.github.carlos_emr.carlos.login.Logout2Action", "", ""),
             // --- appointment ---
             Arguments.of("io.github.carlos_emr.carlos.appointment.pageUtil.AppointmentAddRecord2Action",
                     "_appointment", "w"),
@@ -216,6 +225,8 @@ class MutatorActionGetRejectionContractTest {
         "io.github.carlos_emr.carlos.messenger.config.pageUtil.MsgMessengerAdmin2Action",
         // Provider document descriptions: read methods permit GET; write methods are POST-only.
         "io.github.carlos_emr.carlos.provider.web.DocumentDescriptionTemplate2Action",
+        // Document manager: read methods permit GET; addIncomingDocument is POST-only.
+        "io.github.carlos_emr.carlos.documentManager.actions.ManageDocument2Action",
         // Admin API clients: list methods permit GET; add/delete are POST-only.
         "io.github.carlos_emr.carlos.admin.web.ClientManage2Action",
         // Schedule: all below reject GET on Save/Delete/mutation-intent params.
@@ -326,6 +337,18 @@ class MutatorActionGetRejectionContractTest {
                 "w",
                 "GET",
                 Map.of("method", method));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD"})
+    @DisplayName("ManageDocument2Action should reject unsafe methods for addIncomingDocument")
+    void shouldRejectUnsafeMethod_forManageDocumentAddIncomingDocumentDispatch(String httpMethod) throws Exception {
+        assertRejectsUnsafeMethod(
+                "io.github.carlos_emr.carlos.documentManager.actions.ManageDocument2Action",
+                "_edoc",
+                "w",
+                httpMethod,
+                Map.of("method", "addIncomingDocument"));
     }
 
     private static void assertRejectsUnsafeMethod(

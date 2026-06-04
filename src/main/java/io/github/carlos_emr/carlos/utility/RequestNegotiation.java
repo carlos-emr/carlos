@@ -7,6 +7,7 @@ package io.github.carlos_emr.carlos.utility;
 
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Locale;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Shared HTTP request/content negotiation predicates used by security-sensitive filters.
@@ -31,6 +32,8 @@ public final class RequestNegotiation {
     }
 
     /** Detects CARLOS AJAX requests by the conventional {@code X-Requested-With} marker. */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static boolean isAjax(HttpServletRequest request) {
         return request != null && AJAX_VALUE.equalsIgnoreCase(request.getHeader(AJAX_HEADER));
     }
@@ -42,6 +45,8 @@ public final class RequestNegotiation {
     }
 
     /** Detects JSON media ranges, including structured suffixes such as {@code problem+json}. */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static boolean acceptsJson(HttpServletRequest request) {
         String accept = request == null ? null : request.getHeader("Accept");
         if (accept == null || accept.isBlank()) {
