@@ -105,15 +105,10 @@ public class UtilMisc {
                     sb.append("\"");
                     i += 5;
                     continue;
-                } else if (temp.equals("#")) {//&#
-                    if (i + 2 < N) temp += S.charAt(i + 2); //&#?
-                    if (i + 3 < N) temp += S.charAt(i + 3); //&#??
-                    if (i + 4 < N) temp += S.charAt(i + 4); //&#???
-                    if (temp.equals("&#39;")) {//'
-                        sb.append("\'");
-                        i += 5;
-                        continue;
-                    }
+                } else if (i + 4 < N && S.startsWith("&#39;", i)) {//'
+                    sb.append('\'');
+                    i += 4;
+                    continue;
                 }
             }
             sb.append(c);

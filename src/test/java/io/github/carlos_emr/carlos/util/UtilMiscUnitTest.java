@@ -66,11 +66,7 @@ class UtilMiscUnitTest {
         @DisplayName("should escape all special characters in one string")
         void shouldEscapeAll_inOneString() {
             String result = UtilMisc.htmlEscape("<a href=\"x\" title='y'>&z</a>");
-            assertThat(result).contains("&lt;");
-            assertThat(result).contains("&gt;");
-            assertThat(result).contains("&quot;");
-            assertThat(result).contains("&#39;");
-            assertThat(result).contains("&amp;");
+            assertThat(result).isEqualTo("&lt;a href=&quot;x&quot; title=&#39;y&#39;&gt;&amp;z&lt;/a&gt;");
         }
     }
 

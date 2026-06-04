@@ -121,7 +121,7 @@ class MfaManagerUnitTest extends CarlosUnitTestBase {
             Security sec = new Security();
             sec.setId(1);
             sec.setMfaSecret(null); // no MFA secret set = registration needed
-            when(mockSecurityDao.find(1)).thenReturn(sec);
+            when(mockSecurityDao.find((Object) 1)).thenReturn(sec);
 
             boolean result = manager.isMfaRegistrationRequired(1);
 
@@ -131,7 +131,7 @@ class MfaManagerUnitTest extends CarlosUnitTestBase {
         @Test
         @DisplayName("should throw IllegalStateException when security record not found")
         void shouldThrow_whenSecurityNotFound() {
-            when(mockSecurityDao.find(999)).thenReturn(null);
+            when(mockSecurityDao.find((Object) 999)).thenReturn(null);
 
             assertThatThrownBy(() -> manager.isMfaRegistrationRequired(999))
                     .isInstanceOf(IllegalStateException.class)
@@ -230,7 +230,7 @@ class MfaManagerUnitTest extends CarlosUnitTestBase {
         @Test
         @DisplayName("should return null when security record not found")
         void shouldReturnNull_whenSecurityNotFound() {
-            when(mockSecurityDao.find(999)).thenReturn(null);
+            when(mockSecurityDao.find((Object) 999)).thenReturn(null);
 
             String result = manager.getQRCodeImageData(999, "SECRET");
 

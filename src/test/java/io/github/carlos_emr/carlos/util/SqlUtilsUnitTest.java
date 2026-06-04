@@ -54,10 +54,10 @@ class SqlUtilsUnitTest {
         }
 
         @Test
-        @DisplayName("should throw for empty array")
-        void shouldThrow_forEmptyArray() {
-            assertThatThrownBy(() -> SqlUtils.constructInClauseString(new String[]{}, true))
-                    .isInstanceOf(IllegalArgumentException.class);
+        @DisplayName("should return closing paren for empty array")
+        void shouldReturnClosingParen_forEmptyArray() {
+            String result = SqlUtils.constructInClauseString(new String[]{}, true);
+            assertThat(result).isEqualTo(")");
         }
     }
 

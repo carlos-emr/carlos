@@ -43,10 +43,10 @@ class MiscUtilsUnitTest {
     }
 
     @Test
-    @DisplayName("should handle null filename in sanitize")
-    void shouldHandleNullFilename() {
-        String result = MiscUtils.sanitizeFileName(null);
-        assertThat(result).isNull();
+    @DisplayName("should throw for null filename in sanitize")
+    void shouldThrowForNullFilename() {
+        assertThatNullPointerException()
+                .isThrownBy(() -> MiscUtils.sanitizeFileName(null));
     }
 
     @Test

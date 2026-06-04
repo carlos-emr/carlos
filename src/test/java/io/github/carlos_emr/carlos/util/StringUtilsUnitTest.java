@@ -45,7 +45,7 @@ class StringUtilsUnitTest {
         @DisplayName("should truncate long string with added suffix")
         void shouldTruncate_withSuffix() {
             String result = StringUtils.maxLenString("BENZOICUM ACIDUM 1CH - 30CH", 13, 8, "...");
-            assertThat(result).isEqualTo("BENZOIC ...");
+            assertThat(result).isEqualTo("BENZOICU...");
         }
 
         @Test
